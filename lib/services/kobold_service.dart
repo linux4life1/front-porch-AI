@@ -157,7 +157,6 @@ class KoboldService extends ChangeNotifier with WidgetsBindingObserver implement
     if (_isRunning || _isStarting) return;
     _isStarting = true;
 
-    try {
       // Store the executable path for cleanup
       _executablePath = executablePath;
 
