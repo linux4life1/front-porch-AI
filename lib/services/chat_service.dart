@@ -5021,11 +5021,16 @@ class ChatService extends ChangeNotifier {
   /// When evolution exists, returns a layered block: original as foundation,
   /// evolved traits as additive growth. This prevents contradictions.
   String _getEffectivePersonality(CharacterCard card) {
-    if (!_storageService.characterEvolutionEnabled) return card.personality;
+    // Combine description (physical traits, background) with personality
+    final base = [
+      if (card.description.isNotEmpty) card.description,
+      if (card.personality.isNotEmpty) card.personality,
+    ].join('\n');
+    if (!_storageService.characterEvolutionEnabled) return base;
     final evolved = _evolvedPersonalities[_getCharacterIdFromCard(card)];
-    if (evolved == null || evolved.isEmpty) return card.personality;
+    if (evolved == null || evolved.isEmpty) return base;
     // Layered: original is ground truth, evolved is additive growth
-    return '${card.personality}\n\n'
+    return '$base\n\n'
         '[Character Growth — the following reflects how ${card.name} has changed through interactions. '
         'These traits build on the original personality above. If there is a contradiction, '
         'the growth represents genuine character development, not a replacement of core identity.]\n'
