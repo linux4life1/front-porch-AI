@@ -7046,7 +7046,7 @@ if (_realismEnabled && _activeGroup == null && _activeCharacter!.frontPorchExten
   Future<void> _evaluatePhysicalStateCall({
     void Function(String)? onChunk,
   }) async {
-    if (!_realismEnabled || _activeCharacter == null) return;
+    if (!_realismEnabled || !_passageOfTimeEnabled || _activeCharacter == null) return;
     final recentCount = _messages.length < 4 ? _messages.length : 4;
     final recent = _messages.reversed
         .take(recentCount)
