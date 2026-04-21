@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/update_service.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
+import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
 
 class Sidebar extends StatelessWidget {
   const Sidebar({super.key});
@@ -56,6 +57,42 @@ class Sidebar extends StatelessWidget {
             label: 'Home',
             isSelected: appState.selectedIndex == 0,
             onTap: () => appState.setIndex(0),
+          ),
+          InkWell(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CharacterCreatorPage(),
+              ),
+            ),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
+              margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.psychology,
+                    color: Colors.amberAccent,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  const Flexible(
+                    child: Text(
+                      'AI Character Creator',
+                      style: TextStyle(
+                        color: Colors.amberAccent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           _SidebarItem(
             icon: Icons.add_circle_outline,

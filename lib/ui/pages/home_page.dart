@@ -586,20 +586,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            tooltip: 'AI Character Creator',
-                            icon: const Icon(
-                              Icons.auto_awesome,
-                              color: Colors.amberAccent,
-                            ),
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const CharacterCreatorPage(),
-                              ),
-                            ),
-                          ),
-                          IconButton(
+                           IconButton(
                             tooltip: 'Browse AI Character Cards',
                             icon: const Icon(
                               Icons.public,
