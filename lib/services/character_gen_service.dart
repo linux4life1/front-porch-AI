@@ -616,7 +616,7 @@ Respond with ONLY the JSON:''';
       bool repetitionDetected = false;
       try {
         if (_llmService is KoboldService) {
-          await (_llmService as KoboldService).ensureServerIdle();
+          await _llmService.ensureServerIdle();
         }
         if (_aborted || _generationEpoch != myEpoch) return null;
 
@@ -1534,7 +1534,7 @@ $greeting''';
 
     // If no next key found, look for final }
     nextBoundary ??= raw.lastIndexOf('}');
-    if (nextBoundary == null || nextBoundary <= contentStart) return null;
+    if (nextBoundary <= contentStart) return null;
 
     // Extract and clean the value
     var value = raw.substring(contentStart, nextBoundary);

@@ -426,8 +426,8 @@ class TtsService extends ChangeNotifier {
           future.then((file) {
             completedFiles[idx] = file;
             if (file != null) tempFiles.add(file);
-            if (futureReady != null && !futureReady!.isCompleted) {
-              futureReady!.complete();
+            if (futureReady != null && !futureReady.isCompleted) {
+              futureReady.complete();
             }
           });
 
@@ -438,8 +438,8 @@ class TtsService extends ChangeNotifier {
           }
         }
         producerDone = true;
-        if (futureReady != null && !futureReady!.isCompleted) {
-          futureReady!.complete();
+        if (futureReady != null && !futureReady.isCompleted) {
+          futureReady.complete();
         }
       }();
 

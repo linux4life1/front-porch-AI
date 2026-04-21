@@ -45,7 +45,6 @@ import 'package:front_porch_ai/services/web_server_service.dart';
 import 'package:front_porch_ai/ui/dialogs/tts_settings_dialog.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_settings_dialog.dart';
-import 'package:front_porch_ai/services/llm_provider.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
