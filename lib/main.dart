@@ -385,7 +385,6 @@ void main(List<String> args) async {
             );
           },
           update: (context, llmProvider, storage, previous) {
-            if (previous != null) return previous;
             final sidecar = Provider.of<EmbeddingSidecar>(
               context,
               listen: false,
