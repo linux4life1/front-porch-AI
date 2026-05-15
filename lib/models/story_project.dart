@@ -108,8 +108,8 @@ class StoryLoreEntry {
     topic: json['topic'] ?? '',
     detail: json['detail'] ?? '',
     relatedTo: (json['related_to'] as List?)?.map((e) => e.toString()).toList() ?? [],
-    validFromAct: json['valid_from_act'] ?? 1,
-    validFromScene: json['valid_from_scene'] ?? 1,
+    validFromAct: (json['valid_from_act'] as num?)?.toInt() ?? 1,
+    validFromScene: (json['valid_from_scene'] as num?)?.toInt() ?? 1,
   );
 }
 
@@ -174,7 +174,7 @@ class StoryAct {
   };
 
   factory StoryAct.fromJson(Map<String, dynamic> json) => StoryAct(
-    number: json['number'] ?? 1,
+    number: (json['number'] as num?)?.toInt() ?? 1,
     title: json['title'] ?? '',
     description: json['description'] ?? '',
     focusThreadIds: (json['focus_thread_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
@@ -234,13 +234,13 @@ class StoryScene {
   };
 
   factory StoryScene.fromJson(Map<String, dynamic> json) => StoryScene(
-    number: json['number'] ?? 1,
+    number: (json['number'] as num?)?.toInt() ?? 1,
     title: json['title'] ?? '',
     description: json['description'] ?? '',
     activeThreadIds: (json['active_thread_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
     location: json['location'] ?? '',
     castNames: (json['cast_names'] as List?)?.map((e) => e.toString()).toList() ?? [],
-    valence: json['valence'] ?? 0,
+    valence: (json['valence'] as num?)?.toInt() ?? 0,
     causality: json['causality'] != null
         ? SceneCausality.fromJson(json['causality'])
         : SceneCausality(),
@@ -275,12 +275,12 @@ class StoryBeat {
   };
 
   factory StoryBeat.fromJson(Map<String, dynamic> json) => StoryBeat(
-    number: json['number'] ?? 1,
+    number: (json['number'] as num?)?.toInt() ?? 1,
     type: json['type'] ?? 'Action',
     description: json['description'] ?? '',
     emotionalShift: json['emotional_shift'] ?? '',
-    valence: json['valence'] ?? 0,
-    pacing: json['pacing'] ?? 1,
+    valence: (json['valence'] as num?)?.toInt() ?? 0,
+    pacing: (json['pacing'] as num?)?.toInt() ?? 1,
   );
 }
 
