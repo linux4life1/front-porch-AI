@@ -72,6 +72,9 @@ $RECYCLE.BIN/
 *.bak
 *.swp
 
+# Test artifacts (SQLite in-memory DBs sometimes leave this behind)
+:memory:
+
 # Analysis output
 analyze_results.txt
 
@@ -90,9 +93,13 @@ front_porch_ai.png
 # AI assistant metadata
 .antigravity/
 .agent/
+.claude/
 .gemini/
 .claw/
 .sandbox-*/
+.opencode/
+.sisyphus/
+CLAUDE.md
 aur/src/
 aur/pkg/
 aur/*.pkg.tar*
@@ -109,8 +116,6 @@ tools/embed_server/target/
 *.png
 
 # Testing
-test/
-tests/
 .llm_context/
 bug_triage.md
 *.backup

@@ -48,16 +48,23 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
   List<String> _localLoras = [];
   bool _loadingLoras = false;
 
+  // Advanced generation params
+  List<String> _localSamplers = [];
+  bool _loadingSamplers = false;
+  final _seedController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     final storage = Provider.of<StorageService>(context, listen: false);
     _negativePromptController.text = storage.imageGenNegativePrompt;
     _localUrlController.text = storage.localImageGenUrl;
+    _seedController.text = storage.imageGenSeed.toString();
     _fetchModels();
     // Pre-fetch local models if already on a local backend
     if (storage.imageGenBackend != 'remote') {
       _fetchLocalModels(storage.localImageGenUrl);
+      _fetchLocalSamplers(storage.localImageGenUrl);
     }
   }
 
@@ -65,6 +72,7 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
   void dispose() {
     _negativePromptController.dispose();
     _localUrlController.dispose();
+    _seedController.dispose();
     super.dispose();
   }
 
@@ -113,6 +121,25 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
     }
   }
 
+  Future<void> _fetchLocalSamplers(String url) async {
+    if (url.isEmpty) return;
+    setState(() => _loadingSamplers = true);
+    final service = Provider.of<ImageGenService>(context, listen: false);
+    final samplers = await service.fetchA1111Samplers(url);
+    if (mounted) {
+      setState(() {
+        _localSamplers = samplers;
+        _loadingSamplers = false;
+      });
+    }
+  }
+
+  void _randomizeSeed() {
+    final seed = DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
+    _seedController.text = seed.toString();
+    Provider.of<StorageService>(context, listen: false).setImageGenSeed(seed);
+  }
+
   Future<void> _testConnection() async {
     final url = _localUrlController.text.trim();
     if (url.isEmpty) return;
@@ -129,6 +156,7 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
       });
       if (ok) {
         _fetchLocalModels(url);
+        _fetchLocalSamplers(url);
         // Fetch LoRAs for A1111-compatible backends (not Draw Things)
         final storage = Provider.of<StorageService>(context, listen: false);
         if (storage.imageGenBackend != 'drawthings') _fetchLocalLoras(url);
@@ -159,13 +187,21 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
     if (url.isEmpty || model.isEmpty) return;
     setState(() { _switchingModel = true; _modelActionStatus = 'Unloading current model…'; });
     final service = Provider.of<ImageGenService>(context, listen: false);
-    // switchLocalModel() already calls unload then options internally
-    final ok = await service.switchLocalModel(url, model);
+    final isDrawThings = storage.imageGenBackend == 'drawthings';
+    late bool ok;
+    if (isDrawThings) {
+      // Draw Things gRPC loads model during generation via FlatBuffer config.
+      // No separate switch call needed — just succeed immediately.
+      ok = true;
+    } else {
+      // switchLocalModel() already calls unload then options internally
+      ok = await service.switchLocalModel(url, model);
+    }
     if (mounted) {
       setState(() {
         _switchingModel = false;
         _modelActionStatus = ok
-            ? '✓ Switched to: $model'
+            ? (isDrawThings ? '✓ Model will be loaded during generation' : '✓ Switched to: $model')
             : '✗ Failed to switch — check the server logs';
       });
     }
@@ -972,6 +1008,30 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
             style: TextStyle(color: Colors.white24, fontSize: 10),
           ),
         ),
+
+        const SizedBox(height: 20),
+
+        // ── Advanced Generation Settings ─────────────────────────────
+        Consumer<StorageService>(
+          builder: (context, storage, _) {
+            final isLocal = storage.imageGenBackend != 'remote';
+            return ExpansionTile(
+              title: const Text('Advanced Generation Settings',
+                  style: TextStyle(color: Colors.white54, fontSize: 13)),
+              subtitle: Text(isLocal ? 'Applied to local A1111/Draw Things generations' : 'Configure your local server first',
+                  style: TextStyle(color: Colors.white24, fontSize: 10)),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(left: 8, top: 8, bottom: 8),
+              children: isLocal ? _buildAdvancedFields(storage) : [
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('Select a local backend (A1111 or Draw Things) above to configure generation parameters.',
+                      style: TextStyle(color: Colors.white24, fontSize: 11)),
+                ),
+              ],
+            );
+          },
+        ),
       ],
     );
   }
@@ -1097,5 +1157,152 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
         );
       }),
     );
+  }
+
+  // ── Advanced generation fields ──────────────────────────────────────
+
+  List<Widget> _buildAdvancedFields(StorageService storage) {
+    return [
+      // Steps slider
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          const Text('Steps', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Slider(
+              value: storage.imageGenSteps.toDouble(),
+              min: 5,
+              max: 50,
+              divisions: 45,
+              activeColor: Colors.purpleAccent,
+              inactiveColor: Colors.white12,
+              onChanged: (val) => storage.setImageGenSteps(val.round()),
+            ),
+          ),
+          SizedBox(
+            width: 32,
+            child: Text(storage.imageGenSteps.toString(),
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                textAlign: TextAlign.end),
+          ),
+        ],
+      ),
+
+      // CFG Scale slider
+      Row(
+        children: [
+          const Text('CFG Scale', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Slider(
+              value: storage.imageGenCfgScale,
+              min: 1.0,
+              max: 20.0,
+              divisions: 190,
+              activeColor: Colors.purpleAccent,
+              inactiveColor: Colors.white12,
+              onChanged: (val) => storage.setImageGenCfgScale(val),
+            ),
+          ),
+          SizedBox(
+            width: 36,
+            child: Text(storage.imageGenCfgScale.toStringAsFixed(1),
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                textAlign: TextAlign.end),
+          ),
+        ],
+      ),
+
+      // Sampler dropdown
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          const Expanded(
+            flex: 2,
+            child: Text('Sampler', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: DropdownButtonFormField<String>(
+              value: _localSamplers.contains(storage.imageGenSampler)
+                  ? storage.imageGenSampler
+                  : (storage.imageGenSampler.isNotEmpty ? null : 'Euler a'),
+              dropdownColor: const Color(0xFF374151),
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              isExpanded: true,
+              decoration: InputDecoration(
+                hintText: _loadingSamplers ? 'Loading...' : 'Select sampler',
+                hintStyle: const TextStyle(color: Colors.white24, fontSize: 11),
+                filled: true,
+                fillColor: Colors.black26,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                isDense: true,
+              ),
+              items: _localSamplers.map((s) => DropdownMenuItem(
+                value: s,
+                child: Text(s, overflow: TextOverflow.ellipsis),
+              )).toList(),
+              onChanged: (val) {
+                if (val != null) storage.setImageGenSampler(val);
+              },
+            ),
+          ),
+        ],
+      ),
+
+      // Seed field with randomize button
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          const Expanded(
+            flex: 2,
+            child: Text('Seed', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _seedController,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: '-1 = random',
+                      hintStyle: const TextStyle(color: Colors.white24, fontSize: 10),
+                      filled: true,
+                      fillColor: Colors.black26,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      isDense: true,
+                    ),
+                    onChanged: (val) {
+                      final seed = int.tryParse(val) ?? -1;
+                      storage.setImageGenSeed(seed);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.casino_outlined, size: 18, color: Colors.purpleAccent),
+                  tooltip: 'Randomize seed',
+                  onPressed: _randomizeSeed,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ];
   }
 }

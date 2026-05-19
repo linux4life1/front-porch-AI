@@ -18,6 +18,7 @@
 
 import 'dart:io';
 import 'package:path/path.dart' as pathLib;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
@@ -39,7 +40,7 @@ class ModelSettingsDialog extends StatefulWidget {
 class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   // Local backend fields
   final _gpuLayersController = TextEditingController(text: '0');
-  final _contextSizeController = TextEditingController(text: '8192');
+  final _contextSizeController = TextEditingController(text: '');
   bool _useVulkan = false;
   bool _useCublas = false;
   bool _useMetal = false;
@@ -52,6 +53,9 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   final _modelNameController = TextEditingController();
   String? _connectionStatus;
   bool _isTesting = false;
+
+  // Preset fields
+  List<File> _localPresets = [];
 
   @override
   void initState() {
@@ -69,6 +73,38 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     _apiUrlController.text = storage.remoteApiUrl;
     _apiKeyController.text = storage.remoteApiKey;
     _modelNameController.text = storage.remoteModelName;
+    
+    _scanLocalPresets();
+  }
+
+  void _scanLocalPresets() {
+    final storage = Provider.of<StorageService>(context, listen: false);
+    final binDir = storage.binDir;
+    if (!binDir.existsSync()) {
+      if (mounted) setState(() => _localPresets = []);
+      return;
+    }
+    try {
+      final files = binDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.toLowerCase().endsWith('.kcpps'))
+          .toList()
+        ..sort((a, b) => pathLib.basename(a.path).toLowerCase().compareTo(pathLib.basename(b.path).toLowerCase()));
+      if (mounted) {
+        setState(() {
+          _localPresets = files;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _localPresets = []);
+    }
+  }
+
+  /// Check whether a .kcpps preset is currently active.
+  bool _isPresetActive(BuildContext ctx) {
+    final storage = Provider.of<StorageService>(ctx, listen: false);
+    return storage.activeKcppsPath != null && storage.activeKcppsPath!.isNotEmpty;
   }
 
   @override
@@ -145,12 +181,44 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backend not found.')));
       return;
     }
-    if (_selectedModelPath == null || !File(_selectedModelPath!).existsSync()) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Valid model not selected.')));
-      return;
-    }
 
     final storage = Provider.of<StorageService>(context, listen: false);
+
+    // Case A — preset owns the model: skip model-path checks entirely.
+    // Case B — no preset / preset has no model: user must have picked one.
+    final presetOwnsModel = storage.kcppsHasModel;
+
+    if (!presetOwnsModel) {
+      if (_selectedModelPath == null || !File(_selectedModelPath!).existsSync()) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Valid model not selected.')));
+        return;
+      }
+    }
+
+    // Validate preset file exists if one is active
+    if (storage.activeKcppsPath != null && storage.activeKcppsPath!.isNotEmpty) {
+      if (!File(storage.activeKcppsPath!).existsSync()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Selected preset not found. It may have been deleted or moved.\n'
+              'Clearing the preset and falling back to app settings.',
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        storage.setActiveKcppsPath(null);
+        if (_selectedModelPath != null) {
+          storage.setModelPreset(_selectedModelPath!, '');
+        }
+        return;
+      }
+    }
+
+    // When the preset owns the model, pass empty string — KoboldCPP reads
+    // it from the .kcpps config. Otherwise pass the Flutter-selected path.
+    final effectiveModel = presetOwnsModel ? '' : _selectedModelPath!;
+
     storage.setLastUsedModelPath(_selectedModelPath);
     storage.setGpuLayers(int.tryParse(_gpuLayersController.text) ?? 0);
     storage.setContextSize(int.tryParse(_contextSizeController.text) ?? 8192);
@@ -172,9 +240,10 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
 
     koboldService.startKobold(
       backendManager.backendPath!,
-      _selectedModelPath!,
+      effectiveModel,
+      kcppsPath: storage.activeKcppsPath,
       gpuLayers: int.tryParse(_gpuLayersController.text) ?? 0,
-      contextSize: int.tryParse(_contextSizeController.text) ?? 4096,
+      contextSize: int.tryParse(_contextSizeController.text) ?? 8192,
       useVulkan: _useVulkan,
       useCublas: _useCublas,
       useMetal: _useMetal,
@@ -471,6 +540,36 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
       children: [
         // Model Selector
         Builder(builder: (context) {
+          final storage = Provider.of<StorageService>(context, listen: false);
+
+          // When the active .kcpps file has its own model, grey out the picker.
+          // The user's selection has no effect in this case — KoboldCPP loads
+          // the model from the preset. Show a clear disabled state instead.
+          if (storage.kcppsHasModel) {
+            return Tooltip(
+              message: 'Model is controlled by the active .kcpps preset',
+              child: Opacity(
+                opacity: 0.45,
+                child: IgnorePointer(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF374151),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.lock_outline, size: 16, color: Colors.white38),
+                        SizedBox(width: 8),
+                        Text('Controlled by preset', style: TextStyle(color: Colors.white38)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
           // Normalize every scanned path and deduplicate — on macOS, /Users is a
           // symlink to /private/Users so the same file can appear with two different
           // path strings, bypassing a simple toSet() check if canonical resolution fails.
@@ -511,9 +610,29 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
                           child: Text(p.split(Platform.pathSeparator).last),
                         ))
                     .toList(),
-                onChanged: (val) {
+                onChanged: (val) async {
+                  final koboldService = Provider.of<KoboldService>(context, listen: false);
+                  if (koboldService.isRunning) {
+                    await koboldService.stopKobold();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Backend stopped to switch models.'),
+                      ),
+                    );
+                  }
                   setState(() { _selectedModelPath = val; });
-                  Provider.of<StorageService>(context, listen: false).setLastUsedModelPath(val);
+                  final storage = Provider.of<StorageService>(context, listen: false);
+                  storage.setLastUsedModelPath(val);
+                  
+                  if (val != null) {
+                    final savedPreset = storage.modelPresetMap[val];
+                    if (savedPreset != null && savedPreset.isNotEmpty && File(savedPreset).existsSync()) {
+                      storage.setActiveKcppsPath(savedPreset);
+                    } else {
+                      storage.setActiveKcppsPath(null);
+                    }
+                  }
+                  
                   _applyAutoConfiguration();
                 },
               ),
@@ -523,7 +642,118 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
          
         const SizedBox(height: 16),
          
-        // Hardware Info
+        // Preset selection
+        Consumer<StorageService>(
+          builder: (context, storage, _) {
+            final isPresetActive = storage.activeKcppsPath != null && storage.activeKcppsPath!.isNotEmpty;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Configuration Preset', style: TextStyle(fontSize: 13, color: Colors.white70)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF374151),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _localPresets.any((f) => f.path == storage.activeKcppsPath)
+                                ? storage.activeKcppsPath
+                                : null,
+                            isExpanded: true,
+                            hint: const Text('None (Use App Settings)', style: TextStyle(fontSize: 13)),
+                            dropdownColor: const Color(0xFF374151),
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                            icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('None (Use App Settings)', style: TextStyle(fontSize: 13)),
+                              ),
+                              ..._localPresets.map((file) {
+                                return DropdownMenuItem<String>(
+                                  value: file.path,
+                                  child: Text(pathLib.basename(file.path), style: const TextStyle(fontSize: 13)),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) {
+                              storage.setActiveKcppsPath(val);
+                              if (_selectedModelPath != null && val != null) {
+                                storage.setModelPreset(_selectedModelPath!, val);
+                              } else if (_selectedModelPath != null && val == null) {
+                                storage.setModelPreset(_selectedModelPath!, '');
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () async {
+                        final result = await FilePicker.platform.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['kcpps'],
+                        );
+                        if (result != null && result.files.single.path != null) {
+                          final path = result.files.single.path!;
+                          storage.setActiveKcppsPath(path);
+                          if (_selectedModelPath != null) {
+                            storage.setModelPreset(_selectedModelPath!, path);
+                          }
+                          _scanLocalPresets();
+                        }
+                      },
+                      icon: const Icon(Icons.folder_open, size: 20),
+                      tooltip: 'Browse',
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFF374151),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // When a preset is active, show a clear label instead of just fading
+                // the fields. Users need to know these controls are overridden.
+                if (isPresetActive)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.1),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.amber, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Controlled by preset: ${pathLib.basename(storage.activeKcppsPath!)}',
+                            style: const TextStyle(color: Colors.amber, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                IgnorePointer(
+                  ignoring: isPresetActive,
+                  child: Opacity(
+                    opacity: isPresetActive ? 0.4 : 1.0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Hardware Info
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -555,10 +785,26 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: _buildTextField(
-                label: 'Context Size',
-                controller: _contextSizeController,
-                isNumber: true,
+              child: IgnorePointer(
+                ignoring: _isPresetActive(context),
+                child: Opacity(
+                  opacity: _isPresetActive(context) ? 0.5 : 1.0,
+                  child: _isPresetActive(context)
+                      ? Tooltip(
+                          message:
+                              'Context size is controlled by the active .kcpps preset and cannot be edited here.',
+                          child: _buildTextField(
+                            label: 'Context Size',
+                            controller: _contextSizeController,
+                            isNumber: true,
+                          ),
+                        )
+                      : _buildTextField(
+                          label: 'Context Size',
+                          controller: _contextSizeController,
+                          isNumber: true,
+                        ),
+                ),
               ),
             ),
           ],
@@ -596,6 +842,11 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
             ),
           ],
         ),
+                      ],
+                    ),
+                  ),
+                ),
+                
         const SizedBox(height: 12),
         // Thinking model toggle — must be ON when using QwQ, Deepseek-R1,
         // Qwen3, Precog, or any model that outputs <think>...</think> blocks.
@@ -624,6 +875,14 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
           );
         }),
         const SizedBox(height: 16),
+                
+                IgnorePointer(
+                  ignoring: isPresetActive,
+                  child: Opacity(
+                    opacity: isPresetActive ? 0.4 : 1.0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -706,6 +965,14 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
             ),
           ],
         ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
          
         const SizedBox(height: 24),
         SizedBox(
@@ -713,7 +980,11 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
           child: ElevatedButton.icon(
             onPressed: _restartBackend,
             icon: const Icon(Icons.refresh),
-            label: Text(koboldService.isRunning ? 'Restart Backend' : 'Start Backend'),
+            label: Text(
+              _isPresetActive(context)
+                  ? (koboldService.isRunning ? 'Restart with Preset' : 'Start with Preset')
+                  : (koboldService.isRunning ? 'Restart Backend' : 'Start Backend'),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blueAccent,
               foregroundColor: Colors.white,

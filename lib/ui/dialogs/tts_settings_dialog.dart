@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -190,7 +189,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                                   style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600)),
                               const SizedBox(width: 6),
                               Tooltip(
-                                message: 'Number of sentences generated simultaneously.\nMore workers = faster generation but higher CPU usage.',
+                                message: 'Resident Kokoro workers (1-8).\nEach keeps the full model in RAM.\n2–4 is usually best for long narration.\nHigher values help when you have many short lines at once (power users only).',
                                 child: Icon(Icons.info_outline, color: Colors.white24, size: 14),
                               ),
                               const Spacer(),
@@ -201,8 +200,8 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                           Slider(
                             value: storage.ttsConcurrency.toDouble(),
                             min: 1,
-                            max: 16,
-                            divisions: 15,
+                            max: 8,
+                            divisions: 7,
                             activeColor: Colors.blueAccent,
                             inactiveColor: Colors.white12,
                             onChanged: (val) => storage.setTtsConcurrency(val.round()),
@@ -213,9 +212,9 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('1', style: TextStyle(color: Colors.white24, fontSize: 10)),
-                                Text('Suggested: ${Platform.numberOfProcessors} (${Platform.numberOfProcessors} cores)',
+                                Text('~${_ramForWorkers(storage.ttsConcurrency)} RAM',
                                     style: const TextStyle(color: Colors.white24, fontSize: 10)),
-                                const Text('16', style: TextStyle(color: Colors.white24, fontSize: 10)),
+                                const Text('8', style: TextStyle(color: Colors.white24, fontSize: 10)),
                               ],
                             ),
                           ),
@@ -272,10 +271,14 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                         if (storage.ttsVoiceModel.isNotEmpty)
                           Center(
                             child: ElevatedButton.icon(
-                              onPressed: tts.isSpeaking
-                                  ? () => tts.stop()
-                                  : () => tts.speak(
-                                      'Hello! This is a test of the text to speech system. The quick brown fox jumps over the lazy dog.'),
+onPressed: tts.isSpeaking
+    ? () => tts.stop()
+    : () {
+        final testText = storage.ttsNarrateQuotedOnly
+            ? '“Hello! This is a test of the text to speech system.” The quick brown fox jumps over the lazy dog.'
+            : 'Hello! This is a test of the text to speech system. The quick brown fox jumps over the lazy dog.';
+        tts.speak(testText);
+      },
                               icon: Icon(tts.isSpeaking ? Icons.stop : Icons.play_arrow),
                               label: Text(tts.isSpeaking ? 'Stop' : 'Test Voice'),
                               style: ElevatedButton.styleFrom(
@@ -715,6 +718,11 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                 builder: (_) => const VoiceBrowserDialog(),
               );
               await _loadInstalledVoices();
+
+              // Also refresh TtsService's engine-aware voice cache
+              // (especially important when user added custom Piper voices)
+              final tts = Provider.of<TtsService>(context, listen: false);
+              await tts.refreshAvailableVoices();
             },
             icon: const Icon(Icons.download, size: 16),
             label: const Text('Browse'),
@@ -1015,5 +1023,14 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
         ),
       ),
     ];
+  }
+
+  String _ramForWorkers(int workers) {
+    // Rough estimate: ~350 MB per resident Kokoro worker (model + overhead)
+    final ramMB = workers * 350;
+    if (ramMB >= 1000) {
+      return '${(ramMB / 1000).toStringAsFixed(1)} GB';
+    }
+    return '$ramMB MB';
   }
 }

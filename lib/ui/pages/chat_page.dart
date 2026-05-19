@@ -26,6 +26,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:front_porch_ai/services/desktop_spell_check_service.dart';
@@ -34,6 +35,7 @@ import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
+import 'package:front_porch_ai/ui/dialogs/character_avatars_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/edit_character_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/ui_settings_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/chat_settings_dialog.dart';
@@ -48,15 +50,63 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
+import 'package:front_porch_ai/utils/emotion_labels.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/data_bank_dialog.dart';
+import 'package:front_porch_ai/ui/dialogs/kobold_log_dialog.dart';
 import 'package:front_porch_ai/services/embedding_sidecar.dart';
 import 'package:front_porch_ai/ui/widgets/call_overlay.dart';
 import 'package:front_porch_ai/ui/widgets/chance_time_overlay.dart';
+import 'package:front_porch_ai/ui/widgets/onnx_download_overlay.dart';
+import 'package:front_porch_ai/services/expression_classifier.dart';
 import 'package:file_picker/file_picker.dart';
+
+/// Applies a Google Font to a base TextStyle dynamically.
+TextStyle _applyGoogleFont(String? fontFamily, TextStyle baseStyle) {
+  if (fontFamily == null || fontFamily.isEmpty) return baseStyle;
+
+  switch (fontFamily) {
+    case 'Roboto':
+      return GoogleFonts.roboto(textStyle: baseStyle);
+    case 'Open Sans':
+      return GoogleFonts.openSans(textStyle: baseStyle);
+    case 'Lato':
+      return GoogleFonts.lato(textStyle: baseStyle);
+    case 'Source Sans 3':
+      return GoogleFonts.sourceSans3(textStyle: baseStyle);
+    case 'Nunito':
+      return GoogleFonts.nunito(textStyle: baseStyle);
+    case 'Poppins':
+      return GoogleFonts.poppins(textStyle: baseStyle);
+    case 'Montserrat':
+      return GoogleFonts.montserrat(textStyle: baseStyle);
+    case 'Raleway':
+      return GoogleFonts.raleway(textStyle: baseStyle);
+    case 'Work Sans':
+      return GoogleFonts.workSans(textStyle: baseStyle);
+    case 'DM Sans':
+      return GoogleFonts.dmSans(textStyle: baseStyle);
+    case 'Quicksand':
+      return GoogleFonts.quicksand(textStyle: baseStyle);
+    case 'Rubik':
+      return GoogleFonts.rubik(textStyle: baseStyle);
+    case 'Karla':
+      return GoogleFonts.karla(textStyle: baseStyle);
+    case 'Merriweather':
+      return GoogleFonts.merriweather(textStyle: baseStyle);
+    case 'Playfair Display':
+      return GoogleFonts.playfairDisplay(textStyle: baseStyle);
+    case 'Roboto Mono':
+      return GoogleFonts.robotoMono(textStyle: baseStyle);
+    case 'Fira Code':
+      return GoogleFonts.firaCode(textStyle: baseStyle);
+    default:
+      return baseStyle;
+  }
+}
 
 class _StyledTextController extends TextEditingController {
   static final _pattern = RegExp(r'("[^"]*")|(\*[^*]*\*)');
@@ -126,6 +176,8 @@ class _ChatPageState extends State<ChatPage> {
   late final FocusNode _chatFocusNode;
   bool _autoScroll = true;
   double _sidebarWidth = 300;
+  int _inputMinLines = 1;
+  double _dragAccumulator = 0;
   bool _isCallActive = false;
   bool? _externalImagesAllowed;
   bool _imageConsentChecked = false;
@@ -142,6 +194,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    _loadInputSettings();
     _chatFocusNode = FocusNode(
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
@@ -230,6 +283,32 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _loadInputSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _inputMinLines = prefs.getInt('input_min_lines') ?? 1;
+    });
+  }
+
+  Future<void> _saveInputMinLines(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('input_min_lines', value);
+  }
+
+  void _handleInputResize(double deltaPixels) {
+    _dragAccumulator -= deltaPixels;
+    final pixelsPerLine = 8.0;
+    final deltaLines = (_dragAccumulator / pixelsPerLine).floor();
+    if (deltaLines != 0) {
+      _dragAccumulator -= deltaLines * pixelsPerLine;
+      final newLines = _inputMinLines + deltaLines;
+      if (newLines >= 1 && newLines <= 8) {
+        setState(() => _inputMinLines = newLines);
+        _saveInputMinLines(newLines);
+      }
     }
   }
 
@@ -324,26 +403,127 @@ class _ChatPageState extends State<ChatPage> {
                                 'waifu_beach':
                                     'assets/backgrounds/waifu_beach.png',
                               };
-                              final bgPath = bgAssets[bgKey];
+                               final bgPath = bgAssets[bgKey];
+                               final bgPathExists = bgPath != null;
+
+                              // Check for matching custom background
+                              Map<String, String>? customEntry;
+                              if (!bgPathExists) {
+                                try {
+                                  customEntry = storageService.customBackgrounds
+                                      .firstWhere((e) => e['id'] == bgKey);
+                                } catch (_) {}
+                              }
+                              final hasCustomBg = customEntry != null &&
+                                  File(customEntry['filePath']!).existsSync();
 
                               return Stack(
                                 children: [
-                                  if (bgPath != null) ...[
-                                    Positioned.fill(
-                                      child: Image.asset(
-                                        bgPath,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                    Positioned.fill(
-                                      child: Container(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.45,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  ListView.builder(
+                                   if (bgPath != null) ...[
+                                     Positioned.fill(
+                                       child: IgnorePointer(
+                                         child: Image.asset(
+                                           bgPath,
+                                           fit: BoxFit.cover,
+                                         ),
+                                       ),
+                                     ),
+                                   ],
+                                  // Expression background sprite
+                                  Consumer<ChatService>(
+                                    builder: (context, chat, _) {
+                                      final storage = Provider.of<StorageService>(
+                                        context,
+                                        listen: false,
+                                      );
+                                      final displayMode =
+                                          storage.expressionDisplayMode;
+                                      final isEnabled = storage.expressionEnabled;
+                                      if (!isEnabled ||
+                                           displayMode == 'sidebar' ||
+                                           chat.isEvaluatingRealism) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        final char = character;
+                                        if (char == null ||
+                                            char.avatarImages == null ||
+                                            char.avatarImages!.isEmpty) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        final avatar = chat.resolveExpressionAvatar(
+                                        char,
+                                        rerollIfSame: storage.expressionRerollSame,
+                                      );
+                                      if (avatar == null) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final avatarDir = storage.characterAvatarDir(
+                                        char.name,
+                                      );
+                                      final avatarFile = File(
+                                        '${avatarDir.path}/${avatar.filename}',
+                                      );
+                                       return Positioned.fill(
+                                         child: IgnorePointer(
+                                           child: AnimatedSwitcher(
+                                             duration: const Duration(
+                                               milliseconds: 500,
+                                             ),
+                                             child: Container(
+                                               key: ValueKey(
+                                                 'expr_bg_${avatar.id}',
+                                               ),
+                                               decoration: BoxDecoration(
+                                                 image: DecorationImage(
+                                                   image: FileImage(avatarFile),
+                                                   fit: BoxFit.cover,
+                                                   opacity: 0.15,
+                                                 ),
+                                               ),
+                                             ),
+                                           ),
+                                         ),
+                                       );
+                                    },
+                                  ),
+                                   if (bgPath != null)
+                                     Positioned.fill(
+                                       child: IgnorePointer(
+                                         child: Container(
+                                           color: Colors.black.withValues(
+                                             alpha: 0.45,
+                                           ),
+                                         ),
+                                       ),
+                                       ),
+                                    if (!bgPathExists && hasCustomBg) ...[
+                                     Positioned.fill(
+                                       child: IgnorePointer(
+                                         child: Container(
+                                           decoration: BoxDecoration(
+                                             image: DecorationImage(
+                                               image: FileImage(
+                                                 File(
+                                                   customEntry!['filePath']!,
+                                                 ),
+                                               ),
+                                               fit: BoxFit.cover,
+                                             ),
+                                           ),
+                                         ),
+                                       ),
+                                     ),
+                                     Positioned.fill(
+                                       child: IgnorePointer(
+                                         child: Container(
+                                           color: Colors.black.withValues(
+                                             alpha: 0.45,
+                                           ),
+                                         ),
+                                       ),
+                                     ),
+                                   ],
+                                   ListView.builder(
                                     controller: _scrollController,
                                     reverse: true,
                                     padding: const EdgeInsets.all(20),
@@ -383,173 +563,179 @@ class _ChatPageState extends State<ChatPage> {
                                               )
                                             : null;
                                       }
-                                      return _MessageBubble(
-                                        message: msg,
-                                        characterImage: senderImage,
-                                        index: reversedIndex,
-                                        senderColor: senderColor,
-                                        externalImagesAllowed:
-                                            _externalImagesAllowed,
-                                        onRequestImagePermission: () async {
-                                          if (_externalImagesAllowed != null)
-                                            return _externalImagesAllowed!;
-                                          // Check persisted consent first
-                                          if (!_imageConsentChecked) {
-                                            _imageConsentChecked = true;
-                                            final prefs =
-                                                await SharedPreferences.getInstance();
-                                            final consented =
-                                                prefs.getStringList(
-                                                  'image_consent_characters',
-                                                ) ??
-                                                [];
-                                            final charName =
-                                                Provider.of<ChatService>(
-                                                  context,
-                                                  listen: false,
-                                                ).activeCharacter?.name ??
-                                                '';
-                                            if (charName.isNotEmpty &&
-                                                consented.contains(charName)) {
-                                              if (mounted)
-                                                setState(
-                                                  () => _externalImagesAllowed =
-                                                      true,
-                                                );
-                                              return true;
-                                            }
-                                          }
-                                          final result = await showDialog<bool>(
-                                            context: context,
-                                            barrierDismissible: false,
-                                            builder: (ctx) => AlertDialog(
-                                              backgroundColor: const Color(
-                                                0xFF1E293B,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                              ),
-                                              icon: const Icon(
-                                                Icons.shield_outlined,
-                                                color: Colors.orangeAccent,
-                                                size: 36,
-                                              ),
-                                              title: const Text(
-                                                'External Image Detected',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              content: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  const Text(
-                                                    'This message contains images hosted on an external server. '
-                                                    'Loading them carries security risks:',
-                                                    style: TextStyle(
-                                                      color: Colors.white70,
-                                                      fontSize: 13,
-                                                      height: 1.5,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 12),
-                                                  _buildRiskItem(
-                                                    Icons.visibility,
-                                                    'Your IP address will be exposed to the image host',
-                                                  ),
-                                                  _buildRiskItem(
-                                                    Icons.bug_report,
-                                                    'Maliciously crafted images could potentially exploit vulnerabilities',
-                                                  ),
-                                                  _buildRiskItem(
-                                                    Icons.track_changes,
-                                                    'The URL may be used for tracking',
-                                                  ),
-                                                  const SizedBox(height: 16),
-                                                  Text(
-                                                    'The source has not been verified as safe.',
-                                                    style: TextStyle(
-                                                      color: Colors.orangeAccent
-                                                          .withValues(
-                                                            alpha: 0.8,
-                                                          ),
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(ctx, false),
-                                                  child: const Text(
-                                                    'Block Images',
-                                                    style: TextStyle(
-                                                      color: Colors.white54,
-                                                    ),
-                                                  ),
-                                                ),
-                                                ElevatedButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(ctx, true),
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            Colors.orangeAccent,
-                                                        foregroundColor:
-                                                            Colors.black87,
-                                                      ),
-                                                  child: const Text(
-                                                    'Accept Risk & Load',
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                          final allowed = result ?? false;
-                                          if (allowed) {
-                                            // Persist consent for this character
-                                            final prefs =
-                                                await SharedPreferences.getInstance();
-                                            final charName =
-                                                Provider.of<ChatService>(
-                                                  context,
-                                                  listen: false,
-                                                ).activeCharacter?.name ??
-                                                '';
-                                            if (charName.isNotEmpty) {
-                                              final consented =
-                                                  prefs.getStringList(
-                                                    'image_consent_characters',
-                                                  ) ??
-                                                  [];
-                                              if (!consented.contains(
-                                                charName,
-                                              )) {
-                                                consented.add(charName);
-                                                await prefs.setStringList(
-                                                  'image_consent_characters',
-                                                  consented,
-                                                );
-                                              }
-                                            }
-                                          }
-                                          if (mounted) {
-                                            setState(
-                                              () => _externalImagesAllowed =
-                                                  allowed,
-                                            );
-                                          }
-                                          return allowed;
-                                        },
-                                      );
+                                       return _MessageBubble(
+                                         message: msg,
+                                         characterImage: senderImage,
+                                         index: reversedIndex,
+                                         senderColor: senderColor,
+                                         externalImagesAllowed:
+                                             _externalImagesAllowed,
+                                         onRequestImagePermission: () async {
+                                           if (_externalImagesAllowed != null)
+                                             return _externalImagesAllowed!;
+                                           // Check persisted consent first
+                                           if (!_imageConsentChecked) {
+                                             _imageConsentChecked = true;
+                                             final prefs =
+                                                 await SharedPreferences.getInstance();
+                                             final consented =
+                                                 prefs.getStringList(
+                                                   'image_consent_characters',
+                                                 ) ??
+                                                 [];
+                                             final charName =
+                                                 Provider.of<ChatService>(
+                                                   context,
+                                                   listen: false,
+                                                 ).activeCharacter?.name ??
+                                                 '';
+                                             if (charName.isNotEmpty &&
+                                                 consented.contains(charName)) {
+                                               if (mounted)
+                                                 setState(
+                                                   () => _externalImagesAllowed =
+                                                       true,
+                                                 );
+                                               return true;
+                                             }
+                                           }
+                                           final result = await showDialog<bool>(
+                                             context: context,
+                                             barrierDismissible: false,
+                                             builder: (ctx) => AlertDialog(
+                                               backgroundColor: const Color(
+                                                 0xFF1E293B,
+                                               ),
+                                               shape: RoundedRectangleBorder(
+                                                 borderRadius:
+                                                     BorderRadius.circular(16),
+                                               ),
+                                               icon: const Icon(
+                                                 Icons.shield_outlined,
+                                                 color: Colors.orangeAccent,
+                                                 size: 36,
+                                               ),
+                                               title: const Text(
+                                                 'External Image Detected',
+                                                 style: TextStyle(
+                                                   color: Colors.white,
+                                                   fontSize: 18,
+                                                   fontWeight: FontWeight.bold,
+                                                 ),
+                                               ),
+                                               content: Column(
+                                                 mainAxisSize: MainAxisSize.min,
+                                                 crossAxisAlignment:
+                                                     CrossAxisAlignment.start,
+                                                 children: [
+                                                   const Text(
+                                                     'This message contains images hosted on an external server. '
+                                                     'Loading them carries security risks:',
+                                                     style: TextStyle(
+                                                       color: Colors.white70,
+                                                       fontSize: 13,
+                                                       height: 1.5,
+                                                     ),
+                                                   ),
+                                                   const SizedBox(height: 12),
+                                                   _buildRiskItem(
+                                                     Icons.visibility,
+                                                     'Your IP address will be exposed to the image host',
+                                                   ),
+                                                   _buildRiskItem(
+                                                     Icons.bug_report,
+                                                     'Maliciously crafted images could potentially exploit vulnerabilities',
+                                                   ),
+                                                   _buildRiskItem(
+                                                     Icons.track_changes,
+                                                     'The URL may be used for tracking',
+                                                   ),
+                                                   const SizedBox(height: 16),
+                                                   Text(
+                                                     'The source has not been verified as safe.',
+                                                     style: TextStyle(
+                                                       color: Colors.orangeAccent
+                                                           .withValues(
+                                                             alpha: 0.8,
+                                                           ),
+                                                       fontSize: 12,
+                                                       fontWeight:
+                                                           FontWeight.w600,
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                               actions: [
+                                                 TextButton(
+                                                   onPressed: () =>
+                                                       Navigator.pop(ctx, false),
+                                                   child: const Text(
+                                                     'Block Images',
+                                                     style: TextStyle(
+                                                       color: Colors.white54,
+                                                     ),
+                                                   ),
+                                                 ),
+                                                 ElevatedButton(
+                                                   onPressed: () =>
+                                                       Navigator.pop(ctx, true),
+                                                   style:
+                                                       ElevatedButton.styleFrom(
+                                                         backgroundColor:
+                                                             Colors.orangeAccent,
+                                                         foregroundColor:
+                                                             Colors.black87,
+                                                       ),
+                                                   child: const Text(
+                                                     'Accept Risk & Load',
+                                                   ),
+                                                 ),
+                                               ],
+                                             ),
+                                           );
+                                           final allowed = result ?? false;
+                                           if (allowed) {
+                                             // Persist consent for this character
+                                             final prefs =
+                                                 await SharedPreferences.getInstance();
+                                             final charName =
+                                                 Provider.of<ChatService>(
+                                                   context,
+                                                   listen: false,
+                                                 ).activeCharacter?.name ??
+                                                 '';
+                                             if (charName.isNotEmpty) {
+                                               final consented =
+                                                   prefs.getStringList(
+                                                     'image_consent_characters',
+                                                   ) ??
+                                                   [];
+                                               if (!consented.contains(
+                                                 charName,
+                                               )) {
+                                                 consented.add(charName);
+                                                 await prefs.setStringList(
+                                                   'image_consent_characters',
+                                                   consented,
+                                                 );
+                                               }
+                                             }
+                                           }
+                                           if (mounted) {
+                                             setState(
+                                               () => _externalImagesAllowed =
+                                                   allowed,
+                                             );
+                                           }
+                                           return allowed;
+                                         },
+                                         character: isGroup && !msg.isUser
+                                             ? chatService.groupCharacters
+                                                 .where((c) => c.name == msg.sender)
+                                                 .firstOrNull
+                                             : character,
+                                         chatService: chatService,
+                                       );
                                     },
                                   ),
                                 ],
@@ -601,6 +787,15 @@ class _ChatPageState extends State<ChatPage> {
                 !chatService.isEvaluatingRealism &&
                 !chatService.isProcessingGreeting)
               _ObjectiveCheckOverlay(chatService: chatService),
+            // ONNX model download progress overlay
+            Positioned.fill(
+              child: Consumer<ExpressionClassifierService>(
+                builder: (context, classifier, _) {
+                  if (!classifier.isDownloading) return const SizedBox.shrink();
+                  return OnnxDownloadOverlay(classifierService: classifier);
+                },
+              ),
+            ),
           ],
         );
       },
@@ -1843,7 +2038,7 @@ class _ChatPageState extends State<ChatPage> {
       scenario: character?.scenario,
       worldInfo: worldInfo,
       personaName: personaService.persona.name,
-      personaDescription: personaService.persona.description,
+                  personaText: personaService.persona.persona,
       recentMessages: recentMessages,
       llmService: llmService,
       onAccept: onAccept,
@@ -1885,17 +2080,45 @@ class _ChatPageState extends State<ChatPage> {
           ),
 
         // ── Input bar ────────────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1F2937),
-            border: Border(top: BorderSide(color: Colors.white10)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Resize handle — drag up/down to adjust input height
+            MouseRegion(
+              cursor: SystemMouseCursors.resizeRow,
+              child: GestureDetector(
+                onVerticalDragStart: (_) => _dragAccumulator = 0,
+                onVerticalDragUpdate: (details) => _handleInputResize(details.delta.dy),
+                onVerticalDragEnd: (_) => _dragAccumulator = 0,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  height: 16,
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  color: Colors.transparent,
+                  child: Center(
+                    child: Container(
+                      height: 3,
+                      width: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.white38,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1F2937),
+                border: Border(top: BorderSide(color: Colors.white10)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
 
-            children: [
-              // Persona Switcher
+                children: [
+                  // Persona Switcher
               Consumer<UserPersonaService>(
                 builder: (context, personaService, _) {
                   final persona = personaService.persona;
@@ -1949,6 +2172,11 @@ class _ChatPageState extends State<ChatPage> {
                     );
                   } else if (value == 'fork_group') {
                     _showForkToGroupDialog(context, chatService);
+                  } else if (value == 'kobold_log') {
+                    showDialog(
+                      context: context,
+                      builder: (_) => const KoboldLogDialog(),
+                    );
                   }
                 },
                 itemBuilder: (context) => [
@@ -2040,6 +2268,21 @@ class _ChatPageState extends State<ChatPage> {
                         ],
                       ),
                     ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'kobold_log',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.terminal,
+                          size: 20,
+                          color: Colors.greenAccent,
+                        ),
+                        SizedBox(width: 12),
+                        Text('KoboldCpp Log'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
 
@@ -2141,8 +2384,8 @@ class _ChatPageState extends State<ChatPage> {
                 child: AppTextField(
                   controller: _controller,
                   focusNode: _chatFocusNode,
-                  maxLines: 5,
-                  minLines: 1,
+                  maxLines: 10,
+                  minLines: _inputMinLines,
                   textInputAction: TextInputAction.newline,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
@@ -2370,10 +2613,10 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ),
       ],
+    ),
+    ],
     );
   }
-
-  /// Wraps a sidebar widget with a draggable resize handle on its left edge.
 
   void _showNoMicDialog(BuildContext context) {
     showDialog(
@@ -2460,138 +2703,287 @@ class _ChatPageState extends State<ChatPage> {
       ),
       child: Column(
         children: [
-          if (character.imagePath != null)
-            Image.file(
-              _resolveCharImage(character.imagePath!),
-              height: _sidebarWidth,
-              width: _sidebarWidth,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-            ),
+          // Expression image or default character portrait
+          Consumer<ChatService>(
+            builder: (context, chat, _) {
+              final storage = Provider.of<StorageService>(
+                context,
+                listen: false,
+              );
+              final isExpressionEnabled = storage.expressionEnabled;
+              final hasAvatars = character.avatarImages != null &&
+                  character.avatarImages!.isNotEmpty;
 
-          // Action Buttons
+              File? expressionFile;
+              String? expressionKey;
+              String? expressionEmoji;
+
+              if (isExpressionEnabled && hasAvatars && !chat.isEvaluatingRealism) {
+                final avatar = chat.resolveExpressionAvatar(
+                  character,
+                  rerollIfSame: storage.expressionRerollSame,
+                );
+                if (avatar != null) {
+                  final avatarDir = storage.characterAvatarDir(
+                    character.name,
+                  );
+                  expressionFile = File('${avatarDir.path}/${avatar.filename}');
+                  expressionKey = avatar.id;
+                  final label = chat.currentExpressionLabel;
+                  expressionEmoji = label != null
+                      ? EmotionLabels.emoji[label]
+                      : null;
+                }
+              }
+
+              File? displayFile;
+              Widget? fallbackWidget;
+
+              if (expressionFile != null) {
+                displayFile = expressionFile;
+              } else if (isExpressionEnabled) {
+                // Apply fallback behavior
+                final fallback = storage.expressionFallback;
+                if (fallback == 'none') {
+                  return const SizedBox.shrink();
+                } else if (fallback == 'emoji') {
+                  final label = chat.currentExpressionLabel ?? 'neutral';
+                  final emoji = EmotionLabels.emoji[label] ?? '🎭';
+                  fallbackWidget = Center(
+                    child: Text(
+                      emoji,
+                      style: TextStyle(
+                        fontSize: _sidebarWidth * 0.5,
+                      ),
+                    ),
+                  );
+                } else if (fallback == 'prime' && hasAvatars) {
+                  // Show prime avatar
+                  final primeAvatar = character.avatarImages!.where(
+                    (a) => a.displayOrder + 1 == character.primeAvatarIndex,
+                  ).isEmpty
+                      ? character.avatarImages!.first
+                      : character.avatarImages!.firstWhere(
+                          (a) => a.displayOrder + 1 == character.primeAvatarIndex,
+                        );
+                  final avatarDir = storage.characterAvatarDir(character.name);
+                  displayFile = File('${avatarDir.path}/${primeAvatar.filename}');
+                  expressionKey = primeAvatar.id;
+                } else {
+                  // 'neutral' or default: show neutral avatar if available, else character image
+                  if (hasAvatars) {
+                    final neutralAvatar = character.avatarImages!.where(
+                      (a) => a.label?.toLowerCase() == 'neutral',
+                    ).toList();
+                    if (neutralAvatar.isNotEmpty) {
+                      final avatarDir = storage.characterAvatarDir(character.name);
+                      displayFile =
+                          File('${avatarDir.path}/${neutralAvatar.first.filename}');
+                      expressionKey = neutralAvatar.first.id;
+                      expressionEmoji = EmotionLabels.emoji['neutral'];
+                    }
+                  }
+                  if (displayFile == null && character.imagePath != null) {
+                    displayFile = _resolveCharImage(character.imagePath!);
+                  }
+                }
+              } else {
+                // Expressions disabled, show character image
+                if (character.imagePath != null) {
+                  displayFile = _resolveCharImage(character.imagePath!);
+                }
+              }
+
+              if (fallbackWidget != null) return fallbackWidget;
+              if (displayFile == null) return const SizedBox.shrink();
+
+              return SizedBox(
+                height: _sidebarWidth,
+                width: _sidebarWidth,
+                child: Stack(
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeInOut,
+                      switchOutCurve: Curves.easeInOut,
+                      child: Image.file(
+                        displayFile,
+                        key: ValueKey(expressionKey ?? 'default'),
+                        width: _sidebarWidth,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                      ),
+                    ),
+                    // Emotion label badge
+                    if (expressionEmoji != null)
+                      Positioned(
+                        bottom: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                expressionEmoji,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // Settings Button
           Container(
             padding: const EdgeInsets.all(8),
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: Colors.white10)),
             ),
-            child: Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final result = await showDialog(
-                        context: context,
-                        builder: (context) =>
-                            EditCharacterDialog(character: character),
-                      );
-                      if (result == true) {
-                        // Force rebuild if character changed
-                        setState(() {});
-                      }
-                    },
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('Edit Character'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      side: const BorderSide(color: Colors.white24),
-                    ),
+            child: SizedBox(
+              width: double.infinity,
+              child: PopupMenuButton<String>(
+                child: const Text(
+                  'Settings',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70),
+                ),
+                color: const Color(0xFF1e293b),
+                elevation: 8,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                  side: const BorderSide(color: Colors.white24),
+                ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Colors.white12),
+              ),
+              offset: const Offset(0, 8),
+              onSelected: (value) async {
+                switch (value) {
+                  case 'edit_character':
+                    final result = await showDialog(
+                      context: context,
+                      builder: (context) =>
+                          EditCharacterDialog(character: character),
+                    );
+                    if (result == true) {
+                      setState(() {});
+                    }
+                    break;
+                  case 'expressions':
+                    final storage = Provider.of<StorageService>(
+                      context,
+                      listen: false,
+                    );
+                    final repo = Provider.of<CharacterRepository>(
+                      context,
+                      listen: false,
+                    );
+                    final result = await CharacterAvatarsDialog.show(
+                      context: context,
+                      character: character,
+                      repository: repo,
+                      storage: storage,
+                    );
+                    if (result == true) {
+                      setState(() {});
+                    }
+                    break;
+                  case 'ui':
+                    showDialog(
+                      context: context,
+                      builder: (context) => UiSettingsDialog(character: character),
+                    );
+                    break;
+                  case 'chat':
+                    showDialog(
+                      context: context,
+                      builder: (context) => const ChatSettingsDialog(),
+                    );
+                    break;
+                  case 'model':
+                    showDialog(
+                      context: context,
+                      builder: (context) => const ModelSettingsDialog(),
+                    );
+                    break;
+                  case 'tts':
+                    showDialog(
+                      context: context,
+                      builder: (context) => const TtsSettingsDialog(),
+                    );
+                    break;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'edit_character',
+                  child: _SettingsMenuItem(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit Character',
                   ),
                 ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => const UiSettingsDialog(),
-                      );
-                    },
-                    icon: const Icon(Icons.tune, size: 16),
-                    label: const Text('UI Settings'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      side: const BorderSide(color: Colors.white24),
-                    ),
+                PopupMenuItem(
+                  value: 'expressions',
+                  child: _SettingsMenuItem(
+                    icon: Icons.mood_outlined,
+                    label: 'Expression Images',
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => const ChatSettingsDialog(),
-                          );
-                        },
-                        icon: const Icon(Icons.settings, size: 16),
-                        label: const Text(
-                          'Chat',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                          side: const BorderSide(color: Colors.white24),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => const ModelSettingsDialog(),
-                          );
-                        },
-                        icon: const Icon(Icons.memory, size: 16),
-                        label: const Text(
-                          'Model',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                          side: const BorderSide(color: Colors.white24),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => const TtsSettingsDialog(),
-                          );
-                        },
-                        icon: const Icon(Icons.volume_up, size: 16),
-                        label: const Text(
-                          'TTS',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                          side: const BorderSide(color: Colors.white24),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                      ),
-                    ),
-                  ],
+                PopupMenuItem(
+                  value: 'ui',
+                  child: _SettingsMenuItem(
+                    icon: Icons.tune_outlined,
+                    label: 'UI Settings',
+                  ),
+                ),
+                const PopupMenuDivider(height: 1),
+                PopupMenuItem(
+                  value: 'chat',
+                  child: _SettingsMenuItem(
+                    icon: Icons.chat_bubble_outline,
+                    label: 'Chat Settings',
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'model',
+                  child: _SettingsMenuItem(
+                    icon: Icons.memory_outlined,
+                    label: 'Model Settings',
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'tts',
+                  child: _SettingsMenuItem(
+                    icon: Icons.volume_up_outlined,
+                    label: 'TTS Settings',
+                  ),
                 ),
               ],
             ),
-          ),
+              ),
+            ),
 
-          Expanded(
-            child: ListView(
+            Expanded(
+              child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // ── Author's Note ──
+                _AuthorNoteSection(chatService: chatService),
+                const SizedBox(height: 16),
+
                 // ── RAG Memory ──
                 _MemorySection(chatService: chatService),
                 const SizedBox(height: 16),
@@ -2670,10 +3062,6 @@ class _ChatPageState extends State<ChatPage> {
 
                 // ── Objective ──
                 _ObjectiveSection(chatService: chatService),
-                const SizedBox(height: 16),
-
-                // ── Author's Note ──
-                _AuthorNoteSection(chatService: chatService),
                 const SizedBox(height: 16),
 
                 // ── Character Evolution (collapsed by default) ──
@@ -3081,6 +3469,12 @@ class _ChatPageState extends State<ChatPage> {
             child: _AuthorNoteSection(chatService: chatService),
           ),
 
+          // ── Summary ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: _SummarySection(chatService: chatService),
+          ),
+
           const Padding(
             padding: EdgeInsets.fromLTRB(12, 10, 12, 0),
             child: Text(
@@ -3422,7 +3816,16 @@ class _ChatPageState extends State<ChatPage> {
                             ),
                           ),
                           subtitle: Text(
-                            '${v.language} · ${v.gender}',
+                            () {
+                              final base = '${v.language} · ${v.gender}';
+                              final currentEngine =
+                                  Provider.of<StorageService>(ctx, listen: false)
+                                      .ttsEngine;
+                              if (v.engine != currentEngine) {
+                                return '$base (incompatible with $currentEngine)';
+                              }
+                              return base;
+                            }(),
                             style: const TextStyle(
                               color: Colors.white38,
                               fontSize: 10,
@@ -3804,18 +4207,22 @@ class _MessageBubble extends StatefulWidget {
   final Color? senderColor;
   final bool? externalImagesAllowed;
   final Future<bool> Function()? onRequestImagePermission;
+  final CharacterCard? character;
+  final ChatService? chatService;
 
   const _MessageBubble({
-    required this.message,
-    this.characterImage,
-    required this.index,
-    this.senderColor,
-    this.externalImagesAllowed,
-    this.onRequestImagePermission,
-  });
+     required this.message,
+     this.characterImage,
+     required this.index,
+     this.senderColor,
+     this.externalImagesAllowed,
+     this.onRequestImagePermission,
+     this.character,
+     this.chatService,
+   });
 
-  @override
-  State<_MessageBubble> createState() => _MessageBubbleState();
+   @override
+   State<_MessageBubble> createState() => _MessageBubbleState();
 }
 
 class _MessageBubbleState extends State<_MessageBubble> {
@@ -3824,15 +4231,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
   ChatMessage get message => widget.message;
   File? get characterImage => widget.characterImage;
   int get index => widget.index;
+  CharacterCard? get character => widget.character;
 
   @override
   Widget build(BuildContext context) {
     final isDirectorNote = message.characterId == '__director__';
     final isChanceTimeNarration =
         message.activeMetadata?['is_chance_time_narration'] == true;
-    final bubbleOpacity = Provider.of<StorageService>(context).bubbleOpacity;
+     final bubbleOpacity = Provider.of<StorageService>(context).bubbleOpacity;
+     final storage = Provider.of<StorageService>(context);
 
-    // Chance Time narrations get a special centered banner
+     // Chance Time narrations get a special centered banner
     if (isChanceTimeNarration) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 32),
@@ -3893,32 +4302,28 @@ class _MessageBubbleState extends State<_MessageBubble> {
           Flexible(
             child: Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDirectorNote
-                    ? Colors.amberAccent.withValues(alpha: 0.1 * bubbleOpacity)
-                    : message.isUser
-                    ? const Color(0xFF3B82F6).withValues(alpha: bubbleOpacity)
-                    : widget.senderColor != null
-                    ? widget.senderColor!.withValues(
-                        alpha: 0.15 * bubbleOpacity,
-                      )
-                    : const Color(0xFF374151).withValues(alpha: bubbleOpacity),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(12),
-                  topRight: const Radius.circular(12),
-                  bottomLeft: message.isUser && !isDirectorNote
-                      ? const Radius.circular(12)
-                      : Radius.zero,
-                  bottomRight: message.isUser && !isDirectorNote
-                      ? Radius.zero
-                      : const Radius.circular(12),
-                ),
-                border: isDirectorNote
-                    ? Border.all(
-                        color: Colors.amberAccent.withValues(alpha: 0.3),
-                      )
-                    : null,
-              ),
+               decoration: BoxDecoration(
+                  color: isDirectorNote
+                      ? Colors.amberAccent.withValues(alpha: 0.1 * bubbleOpacity)
+                      : message.isUser
+                      ? storage.getUserBubbleColor(character).withValues(alpha: bubbleOpacity)
+                      : storage.getAiBubbleColor(character).withValues(alpha: bubbleOpacity),
+                 borderRadius: BorderRadius.only(
+                   topLeft: const Radius.circular(12),
+                   topRight: const Radius.circular(12),
+                   bottomLeft: message.isUser && !isDirectorNote
+                       ? const Radius.circular(12)
+                       : Radius.zero,
+                   bottomRight: message.isUser && !isDirectorNote
+                       ? Radius.zero
+                       : const Radius.circular(12),
+                 ),
+                 border: isDirectorNote
+                     ? Border.all(
+                         color: Colors.amberAccent.withValues(alpha: 0.3),
+                       )
+                     : null,
+               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -3949,14 +4354,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               context,
                               listen: false,
                             );
-                            final nameWidget = Text(
-                              message.sender,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: widget.senderColor ?? Colors.blueAccent,
-                              ),
-                            );
+                             final nameWidget = Text(
+                               message.sender,
+                               style: TextStyle(
+                                 fontWeight: FontWeight.bold,
+                                 fontSize: 12,
+                                 color: widget.senderColor ?? storage.getDialogueColor(character),
+                               ),
+                             );
                             if (chatService.isGroupMode) {
                               return GestureDetector(
                                 onTap: () {
@@ -4135,18 +4540,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               _showForkConfirmation(context, index),
                         ),
                       if (message.sender != 'System') const SizedBox(width: 8),
-                      if (message.sender != 'System')
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            size: 16,
-                            color: Colors.white38,
-                          ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () =>
-                              _showDeleteConfirmation(context, index),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 16,
+                          color: Colors.white38,
                         ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () =>
+                            _showDeleteConfirmation(context, index),
+                      ),
                     ],
                   ),
                   if (!message.isUser) const SizedBox(height: 4),
@@ -4271,12 +4675,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         );
                       },
                     ),
-                  _StyledChatMessage(
-                    text: message.displayText,
-                    isUser: message.isUser,
-                    externalImagesAllowed: widget.externalImagesAllowed,
-                    onRequestImagePermission: widget.onRequestImagePermission,
-                  ),
+                    _StyledChatMessage(
+                      text: message.displayText,
+                      isUser: message.isUser,
+                      externalImagesAllowed: widget.externalImagesAllowed,
+                      onRequestImagePermission: widget.onRequestImagePermission,
+                      character: widget.character ?? widget.chatService?.activeCharacter,
+                    ),
                   if (message.activeMetadata != null)
                     _buildRealismIndicator(message.activeMetadata!),
                   // Swipe arrows for alternate greetings on first message
@@ -4972,12 +5377,14 @@ class _StyledChatMessage extends StatelessWidget {
   final bool isUser;
   final bool? externalImagesAllowed;
   final Future<bool> Function()? onRequestImagePermission;
+  final CharacterCard? character;
 
   const _StyledChatMessage({
     required this.text,
     required this.isUser,
     this.externalImagesAllowed,
     this.onRequestImagePermission,
+    this.character,
   });
 
   @override
@@ -4989,7 +5396,7 @@ class _StyledChatMessage extends StatelessWidget {
     final imageMatches = _markdownImageRegex.allMatches(text).toList();
     if (imageMatches.isEmpty) {
       // No images — use existing fast path
-      return _buildStyledText(text, scaledSize);
+      return _buildStyledText(context, text, scaledSize, character);
     }
 
     // Split text into segments: [text, image, text, image, text]
@@ -5001,7 +5408,7 @@ class _StyledChatMessage extends StatelessWidget {
       if (match.start > lastEnd) {
         final textBefore = text.substring(lastEnd, match.start).trim();
         if (textBefore.isNotEmpty) {
-          widgets.add(_buildStyledText(textBefore, scaledSize));
+          widgets.add(_buildStyledText(context, textBefore, scaledSize, character));
         }
       }
 
@@ -5025,7 +5432,7 @@ class _StyledChatMessage extends StatelessWidget {
     if (lastEnd < text.length) {
       final textAfter = text.substring(lastEnd).trim();
       if (textAfter.isNotEmpty) {
-        widgets.add(_buildStyledText(textAfter, scaledSize));
+        widgets.add(_buildStyledText(context, textAfter, scaledSize, character));
       }
     }
 
@@ -5035,16 +5442,33 @@ class _StyledChatMessage extends StatelessWidget {
     );
   }
 
-  Widget _buildStyledText(String segment, double scaledSize) {
-    final plainStyle = TextStyle(color: Colors.white, fontSize: scaledSize);
-    final dialogueStyle = TextStyle(
-      color: Colors.amberAccent,
-      fontWeight: FontWeight.w500,
-      fontSize: scaledSize,
+  Widget _buildStyledText(BuildContext context, String segment, double scaledSize, CharacterCard? character) {
+    final storageService = Provider.of<StorageService>(context);
+    final fontFamily = storageService.getChatFontFamily(character);
+    final textColor = isUser
+        ? storageService.getUserTextColor(character)
+        : storageService.getAiTextColor(character);
+    final plainStyle = _applyGoogleFont(
+      fontFamily,
+      TextStyle(
+        color: textColor,
+        fontSize: scaledSize,
+      ),
     );
-    final actionStyle = TextStyle(
-      color: const Color(0xFF90CAF9),
-      fontSize: scaledSize,
+    final dialogueStyle = _applyGoogleFont(
+      fontFamily,
+      TextStyle(
+        color: storageService.getDialogueColor(character),
+        fontWeight: FontWeight.w500,
+        fontSize: scaledSize,
+      ),
+    );
+    final actionStyle = _applyGoogleFont(
+      fontFamily,
+      TextStyle(
+        color: storageService.getActionColor(character),
+        fontSize: scaledSize,
+      ),
     );
 
     final quoteRegex = RegExp(r'"[^"]*"');
@@ -5085,10 +5509,13 @@ class _StyledChatMessage extends StatelessWidget {
       return SelectionArea(
         child: Text(
           segment,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: scaledSize,
-            height: 1.4,
+          style: _applyGoogleFont(
+            fontFamily,
+            TextStyle(
+              color: textColor,
+              fontSize: scaledSize,
+              height: 1.4,
+            ),
           ),
         ),
       );
@@ -5097,11 +5524,13 @@ class _StyledChatMessage extends StatelessWidget {
     return SelectionArea(
       child: RichText(
         text: TextSpan(
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: scaledSize,
-            height: 1.4,
-            fontFamily: 'Roboto',
+          style: _applyGoogleFont(
+            fontFamily,
+            TextStyle(
+              color: textColor,
+              fontSize: scaledSize,
+              height: 1.4,
+            ),
           ),
           children: spans,
         ),
@@ -7697,32 +8126,27 @@ class _RealismSectionState extends State<_RealismSection> {
 
         // Bond colors per tier
         Color getTierColor(int tier) {
-          switch (tier) {
-            case 5:
-              return Colors.pinkAccent;
-            case 4:
-              return Colors.orangeAccent;
-            case 3:
-              return Colors.greenAccent;
-            case 2:
-              return Colors.lightBlue;
-            case 1:
-              return Colors.blueGrey;
-            case 0:
-              return Colors.white54;
-            case -1:
-              return Colors.orangeAccent.shade100;
-            case -2:
-              return Colors.redAccent.shade100;
-            case -3:
-              return Colors.redAccent;
-            case -4:
-              return Colors.red;
-            case -5:
-              return Colors.red.shade900;
-            default:
-              return Colors.white30;
-          }
+          if (tier >= 10) return Colors.deepPurpleAccent;
+          if (tier >= 9) return Colors.purpleAccent;
+          if (tier >= 8) return Colors.pinkAccent;
+          if (tier >= 7) return Colors.pink;
+          if (tier >= 6) return Colors.pink.shade200;
+          if (tier >= 5) return Colors.orangeAccent;
+          if (tier >= 4) return Colors.greenAccent;
+          if (tier >= 3) return Colors.lightBlue;
+          if (tier >= 2) return Colors.blueGrey;
+          if (tier >= 1) return Colors.grey.shade400;
+          if (tier == 0) return Colors.white54;
+          if (tier >= -1) return Colors.orangeAccent.shade100;
+          if (tier >= -2) return Colors.redAccent.shade100;
+          if (tier >= -3) return Colors.redAccent;
+          if (tier >= -4) return Colors.red;
+          if (tier >= -5) return Colors.red.shade900;
+          if (tier >= -6) return Colors.brown.shade900;
+          if (tier >= -7) return Colors.deepOrange.shade900;
+          if (tier >= -8) return Colors.amber.shade900;
+          if (tier >= -9) return Colors.orange.shade900;
+          return Colors.black87;
         }
 
         final shortTermColor = getTierColor(chat.relationshipTier);
@@ -8389,65 +8813,57 @@ class _NsfwEnhancementsSectionState extends State<_NsfwEnhancementsSection> {
                 if (widget.chat.nsfwCooldownEnabled) ...[
                   Row(
                     children: [
-                      Icon(
-                        widget.chat.arousalLevel >= 4
-                            ? Icons.local_fire_department
-                            : widget.chat.arousalLevel <= -1
-                            ? Icons.ac_unit
-                            : Icons.favorite_border,
-                        size: 13,
-                        color: widget.chat.arousalLevel >= 4
-                            ? Colors.deepOrangeAccent
-                            : widget.chat.arousalLevel <= -1
-                            ? Colors.lightBlueAccent
-                            : Colors.white38,
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          'Lust: ${widget.chat.arousalLevel >= 9
-                              ? 'Feverish'
-                              : widget.chat.arousalLevel >= 6
-                              ? 'Heavy'
-                              : widget.chat.arousalLevel >= 3
-                              ? 'Mild'
-                              : widget.chat.arousalLevel < 0
-                              ? 'Deadened'
-                              : 'Dormant'}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: widget.chat.arousalLevel >= 4
-                                ? Colors.deepOrangeAccent
-                                : widget.chat.arousalLevel <= -1
-                                ? Colors.lightBlueAccent
-                                : Colors.white54,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${widget.chat.arousalLevel.clamp(0, 10)}/10',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.white38,
-                        ),
-                      ),
+                       Icon(
+                         widget.chat.arousalTier >= 6
+                             ? Icons.local_fire_department
+                             : widget.chat.arousalTier <= -1
+                             ? Icons.ac_unit
+                             : Icons.favorite_border,
+                         size: 13,
+                         color: widget.chat.arousalTier >= 6
+                             ? Colors.deepOrangeAccent
+                             : widget.chat.arousalTier <= -1
+                             ? Colors.lightBlueAccent
+                             : Colors.white38,
+                       ),
+                       const SizedBox(width: 5),
+                       Expanded(
+                         child: Text(
+                           'Lust: ${widget.chat.arousalTierName}',
+                           style: TextStyle(
+                             fontSize: 12,
+                             color: widget.chat.arousalTier >= 6
+                                 ? Colors.deepOrangeAccent
+                                 : widget.chat.arousalTier <= -1
+                                 ? Colors.lightBlueAccent
+                                 : Colors.white54,
+                           ),
+                           overflow: TextOverflow.ellipsis,
+                         ),
+                       ),
+                       const SizedBox(width: 8),
+                       Text(
+                         '${widget.chat.arousalLevel.clamp(-100, 100)}/100',
+                         style: const TextStyle(
+                           fontSize: 10,
+                           color: Colors.white38,
+                         ),
+                       ),
                     ],
                   ),
                   const SizedBox(height: 3),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(3),
                     child: LinearProgressIndicator(
-                      value: (widget.chat.arousalLevel / 10).clamp(0.0, 1.0),
+                      value: (widget.chat.arousalLevel.abs() / 100).clamp(0.0, 1.0),
                       minHeight: 4,
                       backgroundColor: Colors.white10,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        widget.chat.arousalLevel >= 4
+                        widget.chat.arousalTier >= 6
                             ? Colors.deepOrangeAccent
-                            : widget.chat.arousalLevel <= -1
-                            ? Colors.lightBlueAccent
-                            : Colors.white30,
+                            : widget.chat.arousalLevel < 0
+                                ? Colors.lightBlueAccent
+                                : Colors.lightBlueAccent,
                       ),
                     ),
                   ),
@@ -9792,6 +10208,24 @@ class _RealismProcessingOverlayState extends State<_RealismProcessingOverlay>
                               ),
                             ),
                           ),
+                          if (widget.chatService.isEvaluatingRealism || widget.chatService.isProcessingGreeting) ...[
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: ElevatedButton(
+                                onPressed: widget.chatService.isCancellingRealismEval
+                                    ? null
+                                    : () => widget.chatService.cancelRealismEval(),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                                child: const Text(
+                                  'Cancel Realism',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
                         ] else ...[
                           Padding(
                             padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
@@ -10427,6 +10861,33 @@ class _PulsingIconState extends State<_PulsingIcon>
           child: Icon(widget.icon, size: 16, color: widget.color),
         );
       },
+    );
+  }
+}
+
+class _SettingsMenuItem extends StatelessWidget {
+  const _SettingsMenuItem({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.white70),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+          ),
+        ),
+      ],
     );
   }
 }

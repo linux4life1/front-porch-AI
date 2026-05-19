@@ -21,6 +21,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/world.dart' as world_model;
@@ -122,6 +123,23 @@ class CharacterRepository extends ChangeNotifier {
           }
         }
 
+        // Load avatar images from DB so they survive hot reloads
+        if (card.dbId != null) {
+          try {
+            final avatars = await _db.getAvatarImagesByCharacterId(card.dbId!);
+            if (avatars.isNotEmpty) {
+              card.avatarImages = avatars;
+              debugPrint(
+                '[CharacterRepository] Loaded ${avatars.length} avatar images for ${card.name}',
+              );
+            }
+          } catch (e) {
+            debugPrint(
+              '[CharacterRepository] Failed to load avatar images for ${card.name}: $e',
+            );
+          }
+        }
+
         _characters.add(card);
       }
     } catch (e) {
@@ -214,6 +232,7 @@ class CharacterRepository extends ChangeNotifier {
     );
     // Store DB id for lookups
     card.dbId = c.id;
+    card.primeAvatarIndex = c.primeAvatarIndex;
     return card;
   }
 
@@ -467,7 +486,10 @@ class CharacterRepository extends ChangeNotifier {
     return {'imported': imported, 'failed': failed, 'errors': errors};
   }
 
-  Future<void> updateCharacter(CharacterCard card) async {
+  Future<void> updateCharacter(
+    CharacterCard card, {
+    WorldRepository? worldRepo,
+  }) async {
     if (card.imagePath == null) return;
 
     _isLoading = true;
@@ -507,6 +529,20 @@ class CharacterRepository extends ChangeNotifier {
             updatedAt: Value(DateTime.now()),
           ),
         );
+      }
+
+      // Sync lorebook to linked world if it exists
+      if (worldRepo != null &&
+          card.lorebook != null &&
+          card.lorebook!.entries.isNotEmpty) {
+        final linkedWorld = worldRepo.worlds
+            .where((w) => w.linkedCharacterName == card.name)
+            .firstOrNull;
+        if (linkedWorld != null) {
+          linkedWorld.lorebook =
+              Lorebook(entries: List.from(card.lorebook!.entries));
+          await worldRepo.saveWorld(linkedWorld);
+        }
       }
 
       // Update the list entry
@@ -619,6 +655,105 @@ class CharacterRepository extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Get all avatar images for a character from the database.
+  Future<List<AvatarImage>> getAvatarImages(String characterId) async {
+    try {
+      return await _db.getAvatarImagesByCharacterId(characterId);
+    } catch (e) {
+      debugPrint('[CharacterRepository] Failed to get avatar images: $e');
+      return [];
+    }
+  }
+
+  /// Add a new avatar image for a character.
+  Future<void> addAvatar(
+    String characterId,
+    String characterName,
+    Uint8List imageBytes,
+    String? label,
+  ) async {
+    try {
+      debugPrint('[CharacterRepository] addAvatar: started, characterId=$characterId, label=$label');
+      final safeName = characterName
+          .replaceAll(RegExp(r'[^\w\s\-]'), '')
+          .replaceAll(' ', '_');
+      final avatarDir = Directory(
+        p.join(_storage.charactersDir.path, safeName, 'avatars'),
+      );
+      if (!await avatarDir.exists()) {
+        await avatarDir.create(recursive: true);
+      }
+      final filename = 'avatar_${DateTime.now().millisecondsSinceEpoch}.png';
+      final filePath = p.join(avatarDir.path, filename);
+      debugPrint('[CharacterRepository] addAvatar: writing file=$filePath');
+      await File(filePath).writeAsBytes(imageBytes);
+      debugPrint('[CharacterRepository] addAvatar: file written');
+
+      final displayOrder = await _db.countAvatarsForCharacter(characterId);
+      final avatarId = const Uuid().v4();
+      debugPrint('[CharacterRepository] addAvatar: inserting DB record, filename=$filename, displayOrder=$displayOrder');
+      await _db.insertAvatar(
+        AvatarImagesCompanion(
+          id: Value(avatarId),
+          characterId: Value(characterId),
+          filename: Value(filename),
+          label: Value(label),
+          displayOrder: Value(displayOrder),
+        ),
+      );
+      debugPrint('[CharacterRepository] addAvatar: DB insert done');
+    } catch (e) {
+      debugPrint('[CharacterRepository] addAvatar: ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Remove an avatar image for a character.
+  Future<void> removeAvatar(String characterId, String avatarId) async {
+    try {
+      final avatar = await _db.getAvatarById(avatarId);
+      if (avatar != null) {
+        final char = _characters.where((c) => c.dbId == characterId).firstOrNull;
+        if (char != null && char.name.isNotEmpty) {
+          final safeName = char.name
+              .replaceAll(RegExp(r'[^\w\s\-]'), '')
+              .replaceAll(' ', '_');
+          final avatarDir = Directory(
+            p.join(_storage.charactersDir.path, safeName, 'avatars'),
+          );
+          final file = File(p.join(avatarDir.path, avatar.filename));
+          if (await file.exists()) {
+            await file.delete();
+          }
+        }
+      }
+      await _db.deleteAvatar(avatarId);
+    } catch (e) {
+      debugPrint('[CharacterRepository] Failed to remove avatar: $e');
+      rethrow;
+    }
+  }
+
+  /// Set the prime avatar index for a character.
+  Future<void> setPrimeAvatar(String characterId, int primeIndex) async {
+    try {
+      await _db.updatePrimeAvatarIndex(characterId, primeIndex);
+    } catch (e) {
+      debugPrint('[CharacterRepository] Failed to set prime avatar: $e');
+      rethrow;
+    }
+  }
+
+  /// Update the label for an avatar image.
+  Future<void> updateAvatarLabel(String avatarId, String label) async {
+    try {
+      await _db.updateAvatarLabel(avatarId, label);
+    } catch (e) {
+      debugPrint('[CharacterRepository] Failed to update avatar label: $e');
+      rethrow;
     }
   }
 }

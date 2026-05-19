@@ -216,6 +216,12 @@ class MemoryService extends ChangeNotifier {
       return [];
     }
 
+    // Skip retrieval for brand new sessions with very few messages
+    if (inContextStart < 3) {
+      debugPrint('[RAG:Memory] retrieve() skipped - session too new (inContextStart=$inContextStart)');
+      return [];
+    }
+
     final cleanedQuery = _cleanForEmbedding(queryText);
     final queryPreview = cleanedQuery.length > 100 ? '${cleanedQuery.substring(0, 100)}...' : cleanedQuery;
     debugPrint('[RAG:Memory] ── Retrieving memories (limit: $limit, minScore: $minScore) ──');

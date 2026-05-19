@@ -2300,7 +2300,7 @@
                         <input type="range" id="m-tts-rate" min="0.5" max="2.0" step="0.1" value="${data.ttsSpeechRate ?? 1.0}" class="settings-slider">
                         <span class="slider-value">${parseFloat(data.ttsSpeechRate ?? 1.0).toFixed(1)}×</span></div>
                     <div class="slider-row"><label class="slider-label">Concurrency</label>
-                        <input type="number" id="m-tts-concurrency" value="${data.ttsConcurrency ?? 4}" min="1" max="16" class="settings-number" style="width:80px"></div>
+                        <input type="number" id="m-tts-concurrency" value="${data.ttsConcurrency ?? 4}" min="1" max="8" class="settings-number" style="width:80px"></div>
                     <div class="toggle-row"><span>Auto-play on receive</span>
                         <label class="toggle-switch"><input type="checkbox" id="m-tts-autoplay" ${data.ttsAutoPlay ? 'checked' : ''}><span class="toggle-slider"></span></label></div>
 

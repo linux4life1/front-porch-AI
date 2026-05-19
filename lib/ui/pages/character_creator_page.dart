@@ -874,6 +874,7 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
       await kobold.startKobold(
         execPath,
         modelPath,
+        kcppsPath: storage.activeKcppsPath,
         port: 5001,
         gpuLayers: storage.gpuLayers,
         contextSize: storage.contextSize,
@@ -1252,22 +1253,33 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      SliderTheme(
-                        data: SliderThemeData(
-                          activeTrackColor: Colors.blueAccent,
-                          inactiveTrackColor: Colors.white10,
-                          thumbColor: Colors.blueAccent,
-                          overlayColor: Colors.blueAccent.withValues(alpha: 0.2),
-                          trackHeight: 4,
-                        ),
-                        child: Slider(
-                          value: currentIdx.toDouble(),
-                          min: 0,
-                          max: (contextSteps.length - 1).toDouble(),
-                          divisions: contextSteps.length - 1,
-                          onChanged: (val) {
-                            storage.setContextSize(contextSteps[val.round()]);
-                          },
+                      IgnorePointer(
+                        ignoring: storage.activeKcppsPath != null && storage.activeKcppsPath!.isNotEmpty,
+                        child: Opacity(
+                          opacity: storage.activeKcppsPath != null && storage.activeKcppsPath!.isNotEmpty ? 0.5 : 1.0,
+                          child: Tooltip(
+                            message: storage.activeKcppsPath != null && storage.activeKcppsPath!.isNotEmpty
+                                ? 'Context size is controlled by the active .kcpps preset and cannot be edited here.'
+                                : '',
+                            child: SliderTheme(
+                              data: SliderThemeData(
+                                activeTrackColor: Colors.blueAccent,
+                                inactiveTrackColor: Colors.white10,
+                                thumbColor: Colors.blueAccent,
+                                overlayColor: Colors.blueAccent.withValues(alpha: 0.2),
+                                trackHeight: 4,
+                              ),
+                              child: Slider(
+                                value: currentIdx.toDouble(),
+                                min: 0,
+                                max: (contextSteps.length - 1).toDouble(),
+                                divisions: contextSteps.length - 1,
+                                onChanged: (val) {
+                                  storage.setContextSize(contextSteps[val.round()]);
+                                },
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       Row(
@@ -2035,11 +2047,8 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
       
       int freeContextLimit = 30000;
       if (provider.activeBackend == BackendType.kobold && provider.koboldService.isReady) {
-         // Using safe default assuming user's KoboldContext isn't readily cached directly here, 
-         // though we can read prefs. But typically Kobold is 8K to 32K.
-         // Wait, the main setting is stored in prefs.
-         final prefs = await SharedPreferences.getInstance();
-         final koboldContext = prefs.getInt('kobold_context_size') ?? 8192;
+         final storage = Provider.of<StorageService>(context, listen: false);
+         final koboldContext = storage.contextSize;
          freeContextLimit = koboldContext - 3000; // Leave 3K for generation
       } else {
          freeContextLimit = 120000; 
@@ -2124,8 +2133,7 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
       if (persona != null) {
         final parts = <String>[];
         if (persona.name.isNotEmpty) parts.add('Name: ${persona.name}');
-        if (persona.description.isNotEmpty) parts.add('Description: ${persona.description}');
-        if (persona.persona.isNotEmpty) parts.add('Persona: ${persona.persona}');
+          if (persona.persona.isNotEmpty) parts.add('Persona: ${persona.persona}');
         userPersonaContext = parts.join('\n');
       }
     }
@@ -5200,7 +5208,6 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
       if (selectedPersona != null) {
         final parts = <String>[];
         if (selectedPersona.name.isNotEmpty) parts.add('Name: ${selectedPersona.name}');
-        if (selectedPersona.description.isNotEmpty) parts.add('Description: ${selectedPersona.description}');
         if (selectedPersona.persona.isNotEmpty) parts.add('Persona: ${selectedPersona.persona}');
         userPersonaContext = parts.join('\n');
       }
@@ -5692,7 +5699,6 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
       if (selectedPersona != null) {
         final parts = <String>[];
         if (selectedPersona.name.isNotEmpty) parts.add('Name: ${selectedPersona.name}');
-        if (selectedPersona.description.isNotEmpty) parts.add('Description: ${selectedPersona.description}');
         if (selectedPersona.persona.isNotEmpty) parts.add('Persona: ${selectedPersona.persona}');
         userPersonaContext = parts.join('\n');
       }

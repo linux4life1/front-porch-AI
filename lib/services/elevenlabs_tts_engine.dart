@@ -71,7 +71,12 @@ class ElevenLabsTtsEngine implements TtsEngine {
   Future<bool> ensureModelReady({void Function(double)? onProgress}) async => true;
 
   @override
-  Future<File?> generateAudio(String text, String voice, double speed) async {
+  Future<File?> generateAudio(
+    String text,
+    String voice,
+    double speed, {
+    void Function(double progress)? onProgress,
+  }) async {
     if (apiKey.isEmpty) {
       print('ElevenLabs TTS: no API key configured');
       return null;

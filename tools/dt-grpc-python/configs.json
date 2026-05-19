@@ -1,0 +1,207 @@
+{
+  "_meta": {
+    "hardware": "M4 Pro 48GB, macOS 26.2",
+    "app": "Draw Things (gRPC on port 7859)",
+    "date": "2026-02-08",
+    "notes": [
+      "s/frame measured via gRPC benchmark, may vary with concurrent GPU load",
+      "5B model needs guidance_scale >= 5.0 for prompt adherence",
+      "A14B Lightning is distilled for guidance_scale=1.0",
+      "start_width/start_height = pixel_size / 64 (FlatBuffer encoding)",
+      "num_frames: 33 = ~1.3s video, 81 = ~3.2s video at 25fps",
+      "49f spike in benchmarks was GPU contention, not real"
+    ],
+    "causal_inference_guide": {
+      "what_it_does": "Splits video into overlapping chunks of N frames. pad=P means P frames overlap between adjacent chunks for temporal blending.",
+      "overhead": "Each pad frame is computed TWICE (once per chunk). With causal=17 pad=5, a 33f clip = 3 chunks with 10 wasted overlap frames (30% overhead).",
+      "rules": [
+        "num_frames <= 33: disable causal (0/0) — whole clip fits in memory on 48GB",
+        "num_frames 33-49: causal=33 pad=3 — 2 chunks, minimal overlap",
+        "num_frames 49-81: causal=41 pad=3 — 2-3 chunks, lean overlap",
+        "pad=0 is fastest but may cause visible seams at chunk boundaries",
+        "pad=3 is minimum for smooth blending, pad=5 is conservative"
+      ],
+      "benchmark_evidence": "9f no_causal was 10% faster than causal=17/pad=5 (64.8s vs 72.2s)"
+    }
+  },
+
+  "configs": {
+    "a14b_lightning_fast": {
+      "_description": "A14B Lightning 33f — designed for 4 steps, best prompt adherence at low step count",
+      "_benchmark": "9.3s/frame at 640x384, 14.1s/frame at 832x448",
+      "model": "wan_v2.2_a14b_hne_i2v_q8p.ckpt",
+      "refiner_model": "wan_v2.2_a14b_lne_i2v_q8p.ckpt",
+      "width": 832,
+      "height": 448,
+      "steps": 4,
+      "guidance_scale": 1.0,
+      "strength": 1.0,
+      "shift": 3.0,
+      "sampler": "DDIM_TRAILING",
+      "seed_mode": "SCALE_ALIKE",
+      "num_frames": 33,
+      "refiner_start": 0.1,
+      "causal_inference": 0,
+      "causal_inference_pad": 0,
+      "_causal_note": "33f fits in memory without chunking on 48GB",
+      "tea_cache": false,
+      "loras": [
+        {"file": "wan_v2.2_a14b_hne_lightning_lora_f16.ckpt", "weight": 0.9, "mode": "BASE"},
+        {"file": "wan_v2.2_a14b_lne_lightning_lora_f16.ckpt", "weight": 0.8, "mode": "REFINER"}
+      ]
+    },
+
+    "a14b_lightning_lowres": {
+      "_description": "A14B Lightning at lower res — 34% faster than full res",
+      "_benchmark": "9.3s/frame at 640x384 (9f test)",
+      "model": "wan_v2.2_a14b_hne_i2v_q8p.ckpt",
+      "refiner_model": "wan_v2.2_a14b_lne_i2v_q8p.ckpt",
+      "width": 640,
+      "height": 384,
+      "steps": 4,
+      "guidance_scale": 1.0,
+      "strength": 1.0,
+      "shift": 3.0,
+      "sampler": "DDIM_TRAILING",
+      "seed_mode": "SCALE_ALIKE",
+      "num_frames": 33,
+      "refiner_start": 0.1,
+      "causal_inference": 0,
+      "causal_inference_pad": 0,
+      "_causal_note": "33f at 640x384 easily fits without chunking",
+      "tea_cache": false,
+      "loras": [
+        {"file": "wan_v2.2_a14b_hne_lightning_lora_f16.ckpt", "weight": 0.9, "mode": "BASE"},
+        {"file": "wan_v2.2_a14b_lne_lightning_lora_f16.ckpt", "weight": 0.8, "mode": "REFINER"}
+      ]
+    },
+
+    "5b_speed": {
+      "_description": "5B ti2v — fastest raw speed, but only 4 steps may underdeliver on prompt. TEST QUALITY.",
+      "_benchmark": "3.2s/frame at 33f 640x384, 7.5s/frame at 81f 640x384",
+      "_warning": "4 steps with no Lightning LoRA — quality may be poor. Use 5b_balanced instead.",
+      "model": "wan_v2.2_5b_ti2v_q8p.ckpt",
+      "width": 640,
+      "height": 384,
+      "steps": 4,
+      "guidance_scale": 5.0,
+      "strength": 1.0,
+      "shift": 3.0,
+      "sampler": "DDIM_TRAILING",
+      "seed_mode": "SCALE_ALIKE",
+      "num_frames": 33,
+      "causal_inference": 0,
+      "causal_inference_pad": 0,
+      "_causal_note": "5B at 640x384 33f fits in 48GB without chunking",
+      "tea_cache": false
+    },
+
+    "5b_balanced": {
+      "_description": "5B ti2v — good balance of speed and quality. 10 steps with proper CFG.",
+      "_benchmark": "5.2s/frame at 640x384 (9f), estimated ~4-5s/frame at 33f",
+      "model": "wan_v2.2_5b_ti2v_q8p.ckpt",
+      "width": 640,
+      "height": 384,
+      "steps": 10,
+      "guidance_scale": 5.0,
+      "strength": 1.0,
+      "shift": 3.0,
+      "sampler": "DDIM_TRAILING",
+      "seed_mode": "SCALE_ALIKE",
+      "num_frames": 33,
+      "causal_inference": 0,
+      "causal_inference_pad": 0,
+      "_causal_note": "5B at 640x384 33f fits in 48GB without chunking",
+      "tea_cache": false
+    },
+
+    "5b_quality": {
+      "_description": "5B ti2v — maximum quality at full resolution. Slower but best 5B output.",
+      "_benchmark": "8.0s/frame at 832x448 10-step (9f), 12.5s/frame at 20-step",
+      "model": "wan_v2.2_5b_ti2v_q8p.ckpt",
+      "width": 832,
+      "height": 448,
+      "steps": 20,
+      "guidance_scale": 7.5,
+      "strength": 1.0,
+      "shift": 3.0,
+      "sampler": "DDIM_TRAILING",
+      "seed_mode": "SCALE_ALIKE",
+      "num_frames": 33,
+      "causal_inference": 0,
+      "causal_inference_pad": 0,
+      "_causal_note": "5B at 832x448 33f fits in 48GB without chunking",
+      "tea_cache": false
+    },
+
+    "5b_81f_fast": {
+      "_description": "5B ti2v 81-frame clip — fastest path to a full-length video",
+      "_benchmark": "610s total (7.5s/frame) at 640x384",
+      "model": "wan_v2.2_5b_ti2v_q8p.ckpt",
+      "width": 640,
+      "height": 384,
+      "steps": 4,
+      "guidance_scale": 5.0,
+      "strength": 1.0,
+      "shift": 3.0,
+      "sampler": "DDIM_TRAILING",
+      "seed_mode": "SCALE_ALIKE",
+      "num_frames": 81,
+      "causal_inference": 41,
+      "causal_inference_pad": 3,
+      "_causal_note": "81f needs chunking. 41/3 = 2 chunks with only 3 overlap frames (vs 17/5 = 5 chunks with 20 overlap frames wasted)",
+      "tea_cache": false
+    },
+
+    "a14b_lightning_81f": {
+      "_description": "A14B Lightning 81-frame — slower but reliable prompt adherence at 4 steps",
+      "_benchmark": "estimated ~750-900s at 640x384 based on per-frame scaling",
+      "model": "wan_v2.2_a14b_hne_i2v_q8p.ckpt",
+      "refiner_model": "wan_v2.2_a14b_lne_i2v_q8p.ckpt",
+      "width": 640,
+      "height": 384,
+      "steps": 4,
+      "guidance_scale": 1.0,
+      "strength": 1.0,
+      "shift": 3.0,
+      "sampler": "DDIM_TRAILING",
+      "seed_mode": "SCALE_ALIKE",
+      "num_frames": 81,
+      "refiner_start": 0.1,
+      "causal_inference": 41,
+      "causal_inference_pad": 3,
+      "_causal_note": "A14B is larger than 5B — 81f definitely needs chunking. 41/3 = 2 lean chunks vs 17/5 = 5 wasteful chunks",
+      "tea_cache": false,
+      "loras": [
+        {"file": "wan_v2.2_a14b_hne_lightning_lora_f16.ckpt", "weight": 0.9, "mode": "BASE"},
+        {"file": "wan_v2.2_a14b_lne_lightning_lora_f16.ckpt", "weight": 0.8, "mode": "REFINER"}
+      ]
+    }
+  },
+
+  "benchmark_summary": {
+    "sorted_by_speed": [
+      {"config": "5b_speed (33f)",          "s_per_frame": 3.2, "total_s": 104,  "resolution": "640x384", "steps": 4},
+      {"config": "5b_speed (9f)",           "s_per_frame": 3.4, "total_s": 31,   "resolution": "640x384", "steps": 4},
+      {"config": "5b_balanced (9f)",        "s_per_frame": 5.2, "total_s": 47,   "resolution": "640x384", "steps": 10},
+      {"config": "5b_speed (16f)",          "s_per_frame": 6.3, "total_s": 83,   "resolution": "640x384", "steps": 4},
+      {"config": "5b_speed (81f)",          "s_per_frame": 7.5, "total_s": 610,  "resolution": "640x384", "steps": 4},
+      {"config": "5b_quality (9f 10step)",  "s_per_frame": 8.0, "total_s": 72,   "resolution": "832x448", "steps": 10},
+      {"config": "a14b_lightning (9f)",     "s_per_frame": 9.3, "total_s": 84,   "resolution": "640x384", "steps": 4},
+      {"config": "a14b_lightning (16f)",    "s_per_frame": 9.4, "total_s": 122,  "resolution": "640x384", "steps": 4},
+      {"config": "5b_quality (9f 20step)",  "s_per_frame": 12.5,"total_s": 113,  "resolution": "832x448", "steps": 20},
+      {"config": "a14b_lightning (9f)",     "s_per_frame": 14.1,"total_s": 127,  "resolution": "832x448", "steps": 4}
+    ],
+    "observations": [
+      "5B model is 1.5-2x faster than A14B at same resolution/steps",
+      "33 frames is the efficiency sweet spot (3.2s/f vs 6.3s/f at 16f)",
+      "TeaCache has no effect at 4 steps (needs warmup steps)",
+      "Resolution matters less at short clips, more at 49+ frames",
+      "DDIM_TRAILING sampler is faster than UNIPC_TRAILING for 5B",
+      "guidance_scale=1.0 was used in all benchmarks — 5B needs 5.0+ for prompt adherence",
+      "A14B Lightning is trained for guidance_scale=1.0, no need to increase",
+      "Disabling causal inference for <=33f clips saves ~10% (no wasted overlap computation)",
+      "Old causal=17/pad=5 on 33f = 3 chunks with 30% overlap waste; new causal=0 = single pass"
+    ]
+  }
+}

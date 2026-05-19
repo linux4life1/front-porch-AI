@@ -35,7 +35,15 @@ abstract class TtsEngine {
 
   /// Generate a WAV audio file from the given text.
   /// Returns null if generation fails.
-  Future<File?> generateAudio(String text, String voice, double speed);
+  ///
+  /// [onProgress] is optional and only meaningfully used by Kokoro in verbatim
+  /// ("read everything") mode to report 0.0–1.0 chunk completion for the UI spinner.
+  Future<File?> generateAudio(
+    String text,
+    String voice,
+    double speed, {
+    void Function(double progress)? onProgress,
+  });
 
   /// List of voices available for this engine.
   List<TtsVoiceInfo> get availableVoices;

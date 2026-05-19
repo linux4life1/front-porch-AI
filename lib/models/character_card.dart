@@ -16,7 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/database/database.dart' show AvatarImage;
 import 'package:front_porch_ai/models/lorebook.dart';
+
+import 'package:flutter/material.dart';
 
 /// Front Porch AI V2.5 extensions — stored inside V2 `extensions.front_porch`.
 ///
@@ -25,8 +28,8 @@ import 'package:front_porch_ai/models/lorebook.dart';
 /// own DB-persisted state and are not affected.
 class FrontPorchExtensions {
   bool realismEnabled;
-  int shortTermBond; // -150 to 150
-  int longTermBond; // -150 to 150
+  int shortTermBond; // -300 to 300
+  int longTermBond; // -300 to 300
   int trustLevel; // -100 to 100
   int dayCount; // starts at 1
   String timeOfDay; // dawn/morning/late_morning/afternoon/evening/night
@@ -35,6 +38,18 @@ class FrontPorchExtensions {
   bool nsfwCooldownEnabled;
   bool passageOfTimeEnabled; // sub-toggle for automatic time advancement
   bool chaosModeEnabled;
+
+  // Chat appearance colors (null = use global default)
+  Color? userBubbleColor;
+  Color? userTextColor;
+  Color? aiBubbleColor;
+  Color? aiTextColor;
+  Color? dialogueColor;
+  Color? actionColor;
+
+  // Chat font family (null = use system default)
+  String? chatFontFamily;
+
   String currentTask; // initial quest/task for the character
 
   FrontPorchExtensions({
@@ -49,6 +64,18 @@ class FrontPorchExtensions {
     this.nsfwCooldownEnabled = false,
     this.passageOfTimeEnabled = true, // defaults to on when realism is enabled
     this.chaosModeEnabled = false,
+
+    // Chat appearance colors (null = use global default)
+    this.userBubbleColor,
+    this.userTextColor,
+    this.aiBubbleColor,
+    this.aiTextColor,
+    this.dialogueColor,
+    this.actionColor,
+
+    // Chat font family (null = use system default)
+    this.chatFontFamily,
+
     this.currentTask = '',
   });
 
@@ -67,6 +94,18 @@ class FrontPorchExtensions {
         'nsfw_cooldown_enabled': nsfwCooldownEnabled,
         'passage_of_time_enabled': passageOfTimeEnabled,
         'chaos_mode_enabled': chaosModeEnabled,
+
+        // Chat appearance colors (null = use global default)
+        'user_bubble_color': userBubbleColor?.toARGB32(),
+        'user_text_color': userTextColor?.toARGB32(),
+        'ai_bubble_color': aiBubbleColor?.toARGB32(),
+        'ai_text_color': aiTextColor?.toARGB32(),
+        'dialogue_color': dialogueColor?.toARGB32(),
+        'action_color': actionColor?.toARGB32(),
+
+        // Chat font family (null = use system default)
+        'chat_font_family': chatFontFamily,
+
         'current_task': currentTask,
       },
     };
@@ -86,6 +125,30 @@ class FrontPorchExtensions {
       nsfwCooldownEnabled: realism['nsfw_cooldown_enabled'] as bool? ?? false,
       passageOfTimeEnabled: realism['passage_of_time_enabled'] as bool? ?? true,
       chaosModeEnabled: realism['chaos_mode_enabled'] as bool? ?? false,
+
+      // Chat appearance colors (null = use global default)
+      userBubbleColor: realism['user_bubble_color'] != null
+          ? Color(realism['user_bubble_color'] as int)
+          : null,
+      userTextColor: realism['user_text_color'] != null
+          ? Color(realism['user_text_color'] as int)
+          : null,
+      aiBubbleColor: realism['ai_bubble_color'] != null
+          ? Color(realism['ai_bubble_color'] as int)
+          : null,
+      aiTextColor: realism['ai_text_color'] != null
+          ? Color(realism['ai_text_color'] as int)
+          : null,
+      dialogueColor: realism['dialogue_color'] != null
+          ? Color(realism['dialogue_color'] as int)
+          : null,
+      actionColor: realism['action_color'] != null
+          ? Color(realism['action_color'] as int)
+          : null,
+
+      // Chat font family (null = use system default)
+      chatFontFamily: realism['chat_font_family'] as String?,
+
       currentTask: realism['current_task'] as String? ?? '',
     );
   }
@@ -103,6 +166,18 @@ class FrontPorchExtensions {
     bool? nsfwCooldownEnabled,
     bool? passageOfTimeEnabled,
     bool? chaosModeEnabled,
+
+    // Chat appearance colors (null = use global default)
+    Color? userBubbleColor,
+    Color? userTextColor,
+    Color? aiBubbleColor,
+    Color? aiTextColor,
+    Color? dialogueColor,
+    Color? actionColor,
+
+    // Chat font family (null = use system default)
+    String? chatFontFamily,
+
     String? currentTask,
   }) {
     return FrontPorchExtensions(
@@ -117,6 +192,18 @@ class FrontPorchExtensions {
       nsfwCooldownEnabled: nsfwCooldownEnabled ?? this.nsfwCooldownEnabled,
       passageOfTimeEnabled: passageOfTimeEnabled ?? this.passageOfTimeEnabled,
       chaosModeEnabled: chaosModeEnabled ?? this.chaosModeEnabled,
+
+      // Chat appearance colors (null = use global default)
+      userBubbleColor: userBubbleColor ?? this.userBubbleColor,
+      userTextColor: userTextColor ?? this.userTextColor,
+      aiBubbleColor: aiBubbleColor ?? this.aiBubbleColor,
+      aiTextColor: aiTextColor ?? this.aiTextColor,
+      dialogueColor: dialogueColor ?? this.dialogueColor,
+      actionColor: actionColor ?? this.actionColor,
+
+      // Chat font family (null = use system default)
+      chatFontFamily: chatFontFamily ?? this.chatFontFamily,
+
       currentTask: currentTask ?? this.currentTask,
     );
   }
@@ -137,11 +224,18 @@ class CharacterCard {
   String? folderId;
   Lorebook? lorebook;
   List<String> worldNames;
-  String? ttsVoice; // Piper voice key for per-character TTS
+  /// Per-character TTS voice assignment.
+  ///
+  /// This must be a valid voice key for the *currently selected* TTS engine
+  /// (e.g. 'af_heart' for Kokoro, 'en_US-lessac-medium' for Piper, etc.).
+  /// The UI now prevents (and warns about) cross-engine assignments.
+  String? ttsVoice;
   String? dbId; // UUID primary key (runtime only, not serialized)
   FrontPorchExtensions? frontPorchExtensions; // V2.5 Realism Engine defaults
   Map<String, dynamic>?
-  rawExtensions; // Preserve unknown third-party extension keys
+      rawExtensions; // Preserve unknown third-party extension keys
+  List<AvatarImage>? avatarImages; // Multiple avatar images for the character
+  int primeAvatarIndex = 1; // 1-based index of the prime (default) avatar
 
   CharacterCard({
     required this.name,
@@ -161,7 +255,9 @@ class CharacterCard {
     this.ttsVoice,
     this.frontPorchExtensions,
     this.rawExtensions,
-  });
+    this.avatarImages,
+    int? primeAvatarIndex,
+  }) : primeAvatarIndex = primeAvatarIndex ?? 1;
 
   /// All greetings: primary first message + alternates
   List<String> get allGreetings {

@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
@@ -26,6 +28,8 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/chat_service.dart';
+import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -45,7 +49,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
   late TextEditingController _personalityController;
   late TextEditingController _scenarioController;
   late TextEditingController _firstMessageController;
-  late TextEditingController _mesExampleController;
+  late TextEditingController _exampleDialoguesController;
   late TextEditingController _systemPromptController;
   late TextEditingController _postHistoryController;
   List<TextEditingController> _altGreetingControllers = [];
@@ -64,10 +68,10 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
     _descriptionController = TextEditingController(text: widget.character.description);
     _personalityController = TextEditingController(text: widget.character.personality);
     _scenarioController = TextEditingController(text: widget.character.scenario);
-    _firstMessageController = TextEditingController(text: widget.character.firstMessage);
-    _mesExampleController = TextEditingController(text: widget.character.mesExample);
-    _systemPromptController = TextEditingController(text: widget.character.systemPrompt);
-    _postHistoryController = TextEditingController(text: widget.character.postHistoryInstructions);
+  _firstMessageController = TextEditingController(text: widget.character.firstMessage);
+  _exampleDialoguesController = TextEditingController(text: widget.character.mesExample);
+  _systemPromptController = TextEditingController(text: widget.character.systemPrompt);
+  _postHistoryController = TextEditingController(text: widget.character.postHistoryInstructions);
 
     _altGreetingControllers = widget.character.alternateGreetings
         .map((g) => TextEditingController(text: g))
@@ -91,7 +95,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
     _personalityController.dispose();
     _scenarioController.dispose();
     _firstMessageController.dispose();
-    _mesExampleController.dispose();
+    _exampleDialoguesController.dispose();
     _systemPromptController.dispose();
     _postHistoryController.dispose();
     for (final c in _altGreetingControllers) {
@@ -158,7 +162,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not open file picker: $e'),
+            content: Text('Could not open file picker. Please try again.'),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -213,7 +217,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
                     style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
                     decoration: InputDecoration(
                       hintText: hintText,
-                      hintStyle: const TextStyle(color: Colors.white24),
+          hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: Colors.white.withValues(alpha: 0.05),
                       border: OutlineInputBorder(
@@ -242,7 +246,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
     widget.character.personality = _personalityController.text;
     widget.character.scenario = _scenarioController.text;
     widget.character.firstMessage = _firstMessageController.text;
-    widget.character.mesExample = _mesExampleController.text;
+    widget.character.mesExample = _exampleDialoguesController.text;
     widget.character.systemPrompt = _systemPromptController.text;
     widget.character.postHistoryInstructions = _postHistoryController.text;
     widget.character.alternateGreetings = _altGreetingControllers
@@ -282,14 +286,17 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
 
     try {
       await Provider.of<CharacterRepository>(context, listen: false)
-          .updateCharacter(widget.character);
+          .updateCharacter(
+            widget.character,
+            worldRepo: Provider.of<WorldRepository>(context, listen: false),
+          );
       if (mounted) {
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating character: $e')),
+          SnackBar(content: Text('Failed to save character. Please try again.')),
         );
       }
     }
@@ -307,107 +314,263 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
     });
   }
 
-   void _editLoreEntry(int index) {
-     final entry = _loreEntries[index];
-     final keyController = TextEditingController(text: entry.key);
-     final contentController = TextEditingController(text: entry.content);
-     bool isConstant = entry.constant;
-     int stickyDepth = entry.stickyDepth;
+  Future<void> _importLorebookJson() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+    if (result == null || result.files.single.path == null) return;
 
-     showDialog(
-       context: context,
-       builder: (context) => StatefulBuilder(
-         builder: (context, setStateDialog) {
-           return AlertDialog(
-             backgroundColor: const Color(0xFF1E293B),
-             title: const Text('Edit Lorebook Entry'),
-             content: SingleChildScrollView(
-               child: Column(
-                 mainAxisSize: MainAxisSize.min,
-                 children: [
-                   Row(
-                     children: [
-                       const Text('Always Active', style: TextStyle(color: Colors.white)),
-                       const Spacer(),
-                       Switch(
-                         value: isConstant,
-                         onChanged: (val) {
-                           setStateDialog(() {
-                             isConstant = val;
-                           });
-                         },
-                       ),
-                     ],
-                   ),
-                   if (!isConstant) ...[
-                     const SizedBox(height: 8),
-                     Row(
-                       children: [
-                         Text('Trigger Depth: $stickyDepth ${stickyDepth == 1 ? "message" : "messages"}', style: const TextStyle(color: Colors.white70)),
-                       ],
-                     ),
-                     Slider(
-                       value: stickyDepth.toDouble(),
-                       min: 1,
-                       max: 100,
-                       divisions: 99,
-                       label: stickyDepth.toString(),
-                       onChanged: (val) {
-                         setStateDialog(() {
-                           stickyDepth = val.toInt();
-                         });
-                       },
-                     ),
-                   ],
-                   const SizedBox(height: 8),
-                   TextField(
-                     controller: keyController,
-                     enabled: !isConstant,
-                     style: const TextStyle(color: Colors.white),
-                     decoration: InputDecoration(
-                       labelText: isConstant ? 'Keywords (Disabled)' : 'Keywords (comma separated)',
-                       helperText: isConstant ? 'Always included in context' : null,
-                       filled: true,
-                       fillColor: Colors.black26,
-                     ),
-                   ),
-                   const SizedBox(height: 16),
-                    AppTextField(
-                      controller: contentController,
-                      maxLines: 5,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Content',
-                        filled: true,
-                        fillColor: Colors.black26,
-                      ),
-                    ),
-                 ],
-               ),
-             ),
-             actions: [
-               TextButton(
-                 onPressed: () => Navigator.pop(context),
-                 child: const Text('Cancel'),
-               ),
-               TextButton(
-                 onPressed: () {
-                   setState(() {
-                     entry.key = keyController.text;
-                     entry.content = contentController.text;
-                     entry.constant = isConstant;
-                     entry.stickyDepth = stickyDepth;
-                   });
-                   Navigator.pop(context);
-                 },
-                 child: const Text('Save'),
-               ),
-             ],
-           );
-         }
-       ),
-     );
+    try {
+      final content = await File(result.files.single.path!).readAsString();
+      final dynamic jsonData = jsonDecode(content);
+      
+      // Validate that we have a Map<String, dynamic>
+      if (jsonData is! Map<String, dynamic>) {
+        throw FormatException('Invalid JSON format: expected a JSON object');
+      }
+      
+      final Map<String, dynamic> json = jsonData as Map<String, dynamic>;
+
+      if (json['entries'] == null && json['lorebook'] == null) {
+        throw FormatException(
+          'Invalid lorebook file: missing "entries" or "lorebook" field. '
+          'Supported formats: SillyTavern, Chub.ai, Front Porch.',
+        );
+      }
+
+      final lorebook = Lorebook.fromJson(json);
+
+      if (lorebook.entries.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No entries found in file.')),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        _loreEntries.addAll(lorebook.entries);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Imported ${lorebook.entries.length} entries.')),
+        );
+      }
+    } on FormatException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid file format: ${e.message}')),
+        );
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Import failed: An unexpected error occurred')),
+        );
+      }
+    }
   }
+
+void _editLoreEntry(int index) {
+  final entry = _loreEntries[index];
+  final keyController = TextEditingController(text: entry.key);
+  final contentController = TextEditingController(text: entry.content);
+  final nameController = TextEditingController(text: entry.name);
+  bool isConstant = entry.constant;
+  int stickyDepth = entry.stickyDepth;
+
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setStateDialog) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.menu_book, color: Colors.blueAccent, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Edit Lorebook Entry',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isConstant
+                          ? Colors.amberAccent.withValues(alpha: 0.3)
+                          : Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.push_pin,
+                        size: 16,
+                        color: isConstant
+                            ? Colors.amberAccent
+                            : Colors.white38,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Always Active',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      const Spacer(),
+                      Switch(
+                        value: isConstant,
+                        onChanged: (val) =>
+                            setStateDialog(() => isConstant = val),
+                        activeTrackColor: Colors.amberAccent.withValues(
+                          alpha: 0.5,
+                        ),
+                        activeThumbColor: Colors.amberAccent,
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isConstant) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.layers,
+                        size: 14,
+                        color: Colors.white38,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Trigger Depth: $stickyDepth ${stickyDepth == 1 ? "message" : "messages"}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderThemeData(
+                      activeTrackColor: Colors.blueAccent,
+                      inactiveTrackColor: Colors.white12,
+                      thumbColor: Colors.blueAccent,
+                      trackHeight: 3,
+                    ),
+                    child: Slider(
+                      value: stickyDepth.toDouble(),
+                      min: 1,
+                      max: 100,
+                      divisions: 99,
+                      label: stickyDepth.toString(),
+                      onChanged: (val) =>
+                          setStateDialog(() => stickyDepth = val.toInt()),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nameController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Name (optional)',
+                    filled: true,
+                    fillColor: const Color(0xFF0F172A),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: keyController,
+                  enabled: !isConstant,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: isConstant
+                        ? 'Keywords (Disabled — Always Active)'
+                        : 'Keywords (comma separated)',
+                    filled: true,
+                    fillColor: isConstant
+                        ? const Color(0xFF0F172A).withValues(alpha: 0.5)
+                        : const Color(0xFF0F172A),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: contentController,
+                  maxLines: 5,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Content',
+                    filled: true,
+                    fillColor: const Color(0xFF0F172A),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                keyController.dispose();
+                contentController.dispose();
+                nameController.dispose();
+                Navigator.pop(context);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.white38),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  entry.name = nameController.text;
+                  entry.key = keyController.text;
+                  entry.content = contentController.text;
+                  entry.constant = isConstant;
+                  entry.stickyDepth = stickyDepth;
+                });
+                keyController.dispose();
+                contentController.dispose();
+                nameController.dispose();
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      }
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -513,9 +676,9 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
                     backgroundImage: _avatarFile != null && _avatarFile!.existsSync()
                         ? FileImage(_avatarFile!) as ImageProvider
                         : null,
-                    child: _avatarFile == null || !_avatarFile!.existsSync()
-                        ? const Icon(Icons.person, size: 48, color: Colors.white24)
-                        : null,
+                     child: _avatarFile == null || !_avatarFile!.existsSync()
+                         ? const Icon(Icons.person, size: 48, color: Colors.white54)
+                         : null,
                   ),
                   Positioned(
                     bottom: 0,
@@ -535,10 +698,10 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Tap to change avatar',
-            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3)),
-          ),
+           Text(
+             'Tap to change avatar',
+             style: TextStyle(fontSize: 11, color: Colors.white54),
+           ),
           const SizedBox(height: 16),
           _buildTextField(controller: _nameController, label: 'Name'),
           const SizedBox(height: 16),
@@ -600,14 +763,14 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
             );
           }),
           const SizedBox(height: 24),
-          // Example Dialogues
-          _buildTextField(
-            controller: _mesExampleController,
-            label: 'Example Dialogues',
-            maxLines: 5,
-            expandable: true,
-            hintText: '(Examples of chat dialog. Begin each example with <START> on a new line.)',
-          ),
+           // Example Dialogues
+           _buildTextField(
+             controller: _exampleDialoguesController,
+             label: 'Example Dialogues',
+             maxLines: 5,
+             expandable: true,
+             hintText: '(Examples of chat dialog. Begin each example with <START> on a new line.)',
+           ),
           const SizedBox(height: 24),
           // System Prompt
           _buildTextField(
@@ -652,7 +815,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
                     hintText: 'Add a tag...',
-                    hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
+                    hintStyle: const TextStyle(color: Colors.white54, fontSize: 13),
                     filled: true,
                     fillColor: Colors.black26,
                     border: OutlineInputBorder(
@@ -685,66 +848,331 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          // Chat Colors
+          const Text('Chat Colors', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.white54)),
+          const SizedBox(height: 8),
+          _buildColorRow(
+            'User Bubble',
+            widget.character.frontPorchExtensions?.userBubbleColor ?? Provider.of<StorageService>(context, listen: false).globalUserBubbleColor,
+            (color) => _updateColor('userBubbleColor', color),
+          ),
+          _buildColorRow(
+            'User Text',
+            widget.character.frontPorchExtensions?.userTextColor ?? Provider.of<StorageService>(context, listen: false).globalUserTextColor,
+            (color) => _updateColor('userTextColor', color),
+          ),
+          _buildColorRow(
+            'AI Bubble',
+            widget.character.frontPorchExtensions?.aiBubbleColor ?? Provider.of<StorageService>(context, listen: false).globalAiBubbleColor,
+            (color) => _updateColor('aiBubbleColor', color),
+          ),
+          _buildColorRow(
+            'AI Text',
+            widget.character.frontPorchExtensions?.aiTextColor ?? Provider.of<StorageService>(context, listen: false).globalAiTextColor,
+            (color) => _updateColor('aiTextColor', color),
+          ),
+          _buildColorRow(
+            'Dialogue (Quoted)',
+            widget.character.frontPorchExtensions?.dialogueColor ?? Provider.of<StorageService>(context, listen: false).globalDialogueColor,
+            (color) => _updateColor('dialogueColor', color),
+          ),
+          _buildColorRow(
+            'Actions (*text*)',
+            widget.character.frontPorchExtensions?.actionColor ?? Provider.of<StorageService>(context, listen: false).globalActionColor,
+            (color) => _updateColor('actionColor', color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorRow(String label, Color color, void Function(Color) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          const Spacer(),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.white24, width: 1),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.color_lens, size: 20, color: Colors.white),
+              onPressed: () => _showColorPicker(context, color, onChanged),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildLorebookTab() {
-     return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: ElevatedButton.icon(
-              onPressed: _addLoreEntry,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Entry'),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Lorebook',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'World lore entries inject context when keywords are detected.',
+                      style: TextStyle(fontSize: 11, color: Colors.white54),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _addLoreEntry,
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add Entry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: _importLorebookJson,
+              icon: const Icon(Icons.cloud_upload, size: 16),
+              label: const Text('Import'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
             ),
+            ],
           ),
+          const SizedBox(height: 12),
+
+          if (_loreEntries.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.menu_book_outlined,
+                      size: 40,
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'No lorebook entries yet',
+                      style: TextStyle(color: Colors.white38, fontSize: 13),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Add entries manually or import a JSON lorebook.',
+                      style: TextStyle(color: Colors.white24, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ..._loreEntries.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final lore = entry.value;
+              return _buildLoreCard(idx, lore);
+            }),
+
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoreCard(int index, LorebookEntry entry) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: entry.constant
+              ? Colors.amberAccent.withValues(alpha: 0.3)
+              : entry.enabled
+                  ? Colors.blueAccent.withValues(alpha: 0.15)
+                  : Colors.white.withValues(alpha: 0.06),
         ),
-        Expanded(
-          child: _loreEntries.isEmpty
-            ? const Center(child: Text('No lorebook entries.', style: TextStyle(color: Colors.white30)))
-            : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _loreEntries.length,
-              itemBuilder: (context, index) {
-                final entry = _loreEntries[index];
-                return Card(
-                  color: const Color(0xFF374151),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    title: Text(entry.key.isEmpty && entry.constant ? 'Always Active' : entry.key, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: Text(entry.content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70)),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Switch(
-                          value: entry.enabled,
-                          onChanged: (val) {
-                            setState(() {
-                              entry.enabled = val;
-                            });
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blueAccent),
-                          onPressed: () => _editLoreEntry(index),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.redAccent),
-                          onPressed: () => _removeLoreEntry(index),
-                        ),
-                      ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.menu_book,
+                size: 14,
+                color: entry.constant
+                    ? Colors.amberAccent
+                    : entry.enabled
+                        ? Colors.blueAccent
+                        : Colors.white38,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+            child: Text(
+              entry.displayName,
+              style: TextStyle(
+                color: entry.enabled ? Colors.white : Colors.white70,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+              ),
+              if (entry.constant)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amberAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Always Active',
+                    style: TextStyle(
+                      color: Colors.amberAccent,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                );
-              },
+                ),
+            if (!entry.constant)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.blueAccent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Trigger Depth ${entry.stickyDepth}',
+                  style: const TextStyle(
+                    color: Colors.blueAccent,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Switch(
+                value: entry.enabled,
+                onChanged: (val) {
+                  setState(() {
+                    entry.enabled = val;
+                  });
+                },
+                activeTrackColor: Colors.blueAccent.withValues(alpha: 0.5),
+                activeThumbColor: Colors.blueAccent,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              IconButton(
+                onPressed: () => _editLoreEntry(index),
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 16,
+                  color: Colors.white38,
+                ),
+                tooltip: 'Edit entry',
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+              ),
+              IconButton(
+                onPressed: () => _removeLoreEntry(index),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 16,
+                  color: Colors.redAccent,
+                ),
+                tooltip: 'Delete entry',
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+              ),
+            ],
+          ),
+          if (entry.key.isNotEmpty && !entry.constant) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              runSpacing: 3,
+              children: entry.key
+                  .split(',')
+                  .map(
+                    (k) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        k.trim(),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
-        ),
-      ],
+          ],
+          const SizedBox(height: 6),
+            Text(
+              entry.content,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -804,14 +1232,14 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
             ),
             if (expandable) ...[
               const SizedBox(width: 6),
-              InkWell(
-                onTap: () => _openExpandedEditor(label, controller, hintText: hintText),
-                borderRadius: BorderRadius.circular(4),
-                child: const Padding(
-                  padding: EdgeInsets.all(2),
-                  child: Icon(Icons.open_in_full, size: 14, color: Colors.white30),
-                ),
+            InkWell(
+              onTap: () => _openExpandedEditor(label, controller, hintText: hintText),
+              borderRadius: BorderRadius.circular(4),
+              child: const Padding(
+                padding: EdgeInsets.all(2),
+                child: Icon(Icons.open_in_full, size: 14, color: Colors.white54),
               ),
+            ),
             ],
           ],
         ),
@@ -822,7 +1250,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: const TextStyle(color: Colors.white24),
+            hintStyle: const TextStyle(color: Colors.white54),
             filled: true,
             fillColor: Colors.black26,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -831,5 +1259,88 @@ class _EditCharacterDialogState extends State<EditCharacterDialog> with SingleTi
         ),
       ],
     );
+  }
+
+  Future<void> _updateColor(String fieldName, Color color) async {
+    FrontPorchExtensions extensions;
+    if (widget.character.frontPorchExtensions == null) {
+      extensions = FrontPorchExtensions();
+    } else {
+      extensions = widget.character.frontPorchExtensions!.copyWith();
+    }
+
+    switch (fieldName) {
+      case 'userBubbleColor':
+        extensions.userBubbleColor = color;
+        break;
+      case 'userTextColor':
+        extensions.userTextColor = color;
+        break;
+      case 'aiBubbleColor':
+        extensions.aiBubbleColor = color;
+        break;
+      case 'aiTextColor':
+        extensions.aiTextColor = color;
+        break;
+      case 'dialogueColor':
+        extensions.dialogueColor = color;
+        break;
+      case 'actionColor':
+        extensions.actionColor = color;
+        break;
+    }
+
+    widget.character.frontPorchExtensions = extensions;
+
+    // Save to PNG so changes persist
+    try {
+      final charRepo = Provider.of<CharacterRepository>(context, listen: false);
+      await charRepo.updateCharacter(widget.character);
+      // Reload from PNG to ensure extensions are persisted
+      final reloaded = await V2CardService().readCard(widget.character.imagePath!);
+      // Update ChatService with reloaded character
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      await chatService.setActiveCharacter(reloaded ?? widget.character);
+    } catch (e) {
+      debugPrint('Failed to save color changes: $e');
+    }
+
+    if (mounted) {
+      setState(() {}); // Refresh UI
+    }
+  }
+
+  Future<void> _showColorPicker(
+    BuildContext context,
+    Color initialColor,
+    void Function(Color) onChanged,
+  ) async {
+    final picked = await showDialog<Color>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Color'),
+        content: SizedBox(
+          width: 300,
+          height: 375,
+          child: ColorPicker(
+            color: initialColor,
+            onColorChanged: (color) => Navigator.pop(context, color),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, initialColor),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (picked != null) {
+      onChanged(picked);
+    }
   }
 }

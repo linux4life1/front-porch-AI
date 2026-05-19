@@ -1,11 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Front Porch AI</title>
+    <meta name="description" content="Front Porch AI - A private, offline-first AI character chat application for desktop. Free and open-source.">
+    <meta property="og:title" content="Front Porch AI">
+    <meta property="og:description" content="Private, local-first AI character chat with persistent memory, voice chat, and more.">
+    <meta property="og:type" content="website">
+    <title>Front Porch AI — Private AI Character Chat</title>
     <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a2332;
+            --bg-card-hover: #1f2b3d;
+            --accent-gold: #f5a623;
+            --accent-gold-light: #fbbf24;
+            --accent-blue: #3b82f6;
+            --accent-blue-light: #60a5fa;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #1e3a5f;
+            --border-hover: #f5a623;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,86 +32,530 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a2e;
-            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(245, 166, 35, 0.08), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 60%, rgba(59, 130, 246, 0.05), transparent),
+                radial-gradient(ellipse 50% 50% at 20% 80%, rgba(245, 166, 35, 0.04), transparent);
+            animation: bgShift 20s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgShift {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        /* Navigation */
+        nav {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
+            padding: 20px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
-        .container {
-            max-width: 600px;
-            text-align: center;
-        }
-
-        h1 {
-            font-size: 2.5em;
-            color: #f5a623;
-            margin-bottom: 0.3em;
-        }
-
-        .tagline {
-            font-size: 1.2em;
-            color: #aaa;
-            margin-bottom: 2em;
-        }
-
-        .links {
+        nav .logo {
             display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-top: 1em;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 1.1rem;
         }
 
-        .links a {
-            color: #82b1ff;
-            text-decoration: none;
-            padding: 10px 20px;
-            border: 1px solid #333;
+        nav .logo img {
+            width: 36px;
+            height: 36px;
             border-radius: 8px;
+        }
+
+        nav .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+
+        nav .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
             transition: all 0.2s;
         }
 
-        .links a:hover {
-            background: #2a2a4e;
-            border-color: #82b1ff;
+        nav .nav-links a:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
         }
 
-        .footer {
-            margin-top: 3em;
-            font-size: 0.85em;
-            color: #666;
+        /* Hero section */
+        .hero {
+            text-align: center;
+            padding: 100px 20px 60px;
+            max-width: 900px;
+            margin: 0 auto;
         }
 
-        .footer a {
-            color: #82b1ff;
+        .hero-icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 24px;
+            margin: 0 auto 32px;
+            box-shadow:
+                0 0 40px rgba(245, 166, 35, 0.15),
+                0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .tagline {
+            font-size: 1.35rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            font-weight: 400;
+        }
+
+        .hero .description {
+            font-size: 1.05rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto 40px;
+            line-height: 1.6;
+        }
+
+        /* CTA buttons */
+        .cta-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
             text-decoration: none;
+            transition: all 0.25s ease;
+            cursor: pointer;
+        }
+
+        .cta-primary {
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light));
+            color: #000;
+            box-shadow: 0 4px 16px rgba(245, 166, 35, 0.3);
+        }
+
+        .cta-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(245, 166, 35, 0.4);
+        }
+
+        .cta-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .cta-secondary:hover {
+            border-color: var(--accent-gold);
+            background: var(--bg-card-hover);
+            transform: translateY(-2px);
+        }
+
+        /* Features section */
+        .features {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 48px;
+            color: var(--text-primary);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            font-size: 1.8rem;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .feature-card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Platforms */
+        .platforms {
+            text-align: center;
+            padding: 40px 20px 60px;
+        }
+
+        .platforms p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .platform-badges {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .platform-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .platform-badge svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* Documentation links */
+        .docs-section {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+            text-align: center;
+        }
+
+        .docs-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 24px;
+        }
+
+        .docs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .docs-grid a {
+            display: block;
+            padding: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .docs-grid a:hover {
+            border-color: var(--accent-gold);
+            color: var(--text-primary);
+            background: var(--bg-card-hover);
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 32px 40px;
+            text-align: center;
+        }
+
+        footer .footer-links {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        footer .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+
+        footer .footer-links a:hover {
+            color: var(--accent-gold);
+        }
+
+        footer .copyright {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        footer .copyright a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav {
+                flex-direction: column;
+                gap: 16px;
+                padding: 20px;
+            }
+
+            .hero {
+                padding: 60px 20px 40px;
+            }
+
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+
+            .hero .tagline {
+                font-size: 1.1rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cta-group {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .cta {
+                width: 100%;
+                max-width: 280px;
+                justify-content: center;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <h1>🪑 Front Porch AI</h1>
-        <p class="tagline">A chilled out frontend for KoboldCPP</p>
-        <p>Free, open-source, cross-platform desktop app for managing AI character cards and chatting with local or
-            cloud language models.</p>
-        <div class="links">
-            <a href="https://github.com/linux4life1/front-porch-AI">GitHub</a>
-            <a href="https://github.com/linux4life1/front-porch-AI/releases">Downloads</a>
-            <a href="https://discord.gg/EqJrJPjdT">Discord</a>
-            <a href="https://matrix.dreamersai.art">Matrix</a>
-        </div>
-        <div class="footer">
-            <a href="/privacy.html">Privacy Policy</a> · Licensed under <a
-                href="https://github.com/linux4life1/front-porch-AI/blob/main/LICENSE">GPL v3</a>
-        </div>
-    </div>
-</body>
+    <div class="bg-gradient"></div>
 
+    <nav>
+        <a href="/" class="logo">
+            <img src="/assets/images/front_porch_ai_icon.png" alt="">
+            Front Porch AI
+        </a>
+        <div class="nav-links">
+            <a href="https://github.com/linux4life1/front-porch-AI">GitHub</a>
+            <a href="https://discord.gg/e4tET6rpdv">Discord</a>
+            <a href="/docs/install.md">Docs</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <img class="hero-icon" src="/assets/images/front_porch_ai_icon.png" alt="Front Porch AI">
+        <h1>Front Porch AI</h1>
+        <p class="tagline">Private AI character chat — running entirely on your machine.</p>
+        <p class="description">
+            Free, open-source desktop app for immersive AI conversations. Run models locally for full privacy,
+            or connect to OpenRouter and other remote APIs. Persistent memory, voice chat, and a relationship system
+            that makes every character feel alive.
+        </p>
+        <div class="cta-group">
+            <a href="https://github.com/linux4life1/front-porch-AI/releases" class="cta cta-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download
+            </a>
+            <a href="/docs/getting-started.md" class="cta cta-secondary">
+                Get Started
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+        </div>
+    </section>
+
+    <section class="features">
+        <h2>Everything you need, nothing you don't</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <span class="feature-icon">🔒</span>
+                <h3>Private by Default</h3>
+                <p>Run AI models locally with KoboldCpp — your conversations never leave your machine. Or optionally connect to OpenRouter and other remote APIs. No accounts, no telemetry.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🧠</span>
+                <h3>Realism Engine</h3>
+                <p>Characters develop bonds, trust, and emotions across conversations. A dynamic relationship system that evolves with every interaction.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">💬</span>
+                <h3>Rich Character System</h3>
+                <p>Full V2/V2.5 character card support. Import from SillyTavern, Chub.ai, or create from scratch with the built-in editor.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🎙️</span>
+                <h3>Voice Chat</h3>
+                <p>Full-duplex voice conversations with Whisper STT and Kokoro TTS. Push-to-talk or hands-free call mode.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">📚</span>
+                <h3>Long-Term Memory</h3>
+                <p>RAG-based memory system remembers past conversations. Characters reference details from sessions days ago.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">✍️</span>
+                <h3>Story Generator</h3>
+                <p>Multi-agent novel writing pipeline. Generate full stories with character arcs, world-building, and structured narratives.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">☁️</span>
+                <h3>Cloud Sync</h3>
+                <p>Bi-directional sync to Google Drive or WebDAV. Your characters and chats available across all your devices.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🖥️</span>
+                <h3>Cross-Platform</h3>
+                <p>Native desktop app for Windows, macOS, and Linux. Apple Silicon optimized. GPU acceleration via CUDA, Metal, Vulkan, or ROCm.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🌐</span>
+                <h3>Built-in Web Server</h3>
+                <p>Access your chat from any browser on your network. Full REST API with PIN authentication for remote access.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="platforms">
+        <p>Available on</p>
+        <div class="platform-badges">
+            <span class="platform-badge">
+                <svg viewBox="0 0 24 24"><path d="M3 12V6.75l6-1.32v6.48L3 12zm17-9v9h-10V5.18L20 3zM3 13l6-1.32V18l-6-1.32V13zm17 9c-5.52 0-10-4.48-10-10h10c0 5.52-4.48 10-10 10z"/></svg>
+                Windows
+            </span>
+            <span class="platform-badge">
+                <svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                macOS
+            </span>
+            <span class="platform-badge">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Linux
+            </span>
+        </div>
+    </section>
+
+    <section class="docs-section">
+        <h2>Documentation</h2>
+        <div class="docs-grid">
+            <a href="/docs/install.md">Installation</a>
+            <a href="/docs/getting-started.md">Getting Started</a>
+            <a href="/docs/user-guide.md">User Guide</a>
+            <a href="/docs/faq.md">FAQ</a>
+            <a href="/docs/troubleshooting.md">Troubleshooting</a>
+            <a href="/docs/realism-engine.md">Realism Engine</a>
+            <a href="/docs/characters.md">Characters</a>
+            <a href="/docs/release-notes.md">Release Notes</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-links">
+            <a href="https://github.com/linux4life1/front-porch-AI">GitHub</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/releases">Releases</a>
+            <a href="https://discord.gg/e4tET6rpdv">Discord</a>
+            <a href="https://matrix.dreamersai.art">Matrix</a>
+            <a href="/privacy.html">Privacy Policy</a>
+        </div>
+        <p class="copyright">
+            Licensed under <a href="https://github.com/linux4life1/front-porch-AI/blob/main/LICENSE">AGPL-3.0</a> ·
+            Made with care by the Front Porch AI community
+        </p>
+    </footer>
+</body>
 </html>

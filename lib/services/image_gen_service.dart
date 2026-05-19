@@ -24,6 +24,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/grpc/draw_things_grpc_service.dart';
 
 /// Available image generation modes.
 enum ImageGenMode {
@@ -130,6 +131,13 @@ class ImageGenService extends ChangeNotifier {
     }
   }
 
+  DrawThingsGrpcService? _drawThingsGrpc;
+
+  DrawThingsGrpcService get _ensureDrawThingsGrpc {
+    _drawThingsGrpc ??= DrawThingsGrpcService(host: '127.0.0.1', port: 7859);
+    return _drawThingsGrpc!;
+  }
+
   ImageGenService(this._storage);
 
   /// Build the images directory path.
@@ -160,29 +168,72 @@ class ImageGenService extends ChangeNotifier {
       final backend = ImageGenBackend.fromKey(_storage.imageGenBackend);
 
       if (backend == ImageGenBackend.a1111 || backend == ImageGenBackend.drawThings) {
-        // ── Local A1111 / Draw Things ──────────────────────────────────
-        final localUrl = _storage.localImageGenUrl;
-        if (localUrl.isEmpty) {
-          _statusMessage = 'No local server URL configured.';
-          _isGenerating = false;
-          notifyListeners();
-          return null;
-        }
-        final imageSize = size ?? _storage.imageGenSize;
-        final modelCheckpoint = model ?? _storage.imageGenModel;
-        // LoRAs only supported on A1111/Forge/SDNext — not Draw Things
         final isDrawThings = _storage.imageGenBackend == 'drawthings';
-        imageBytes = await _generateViaA1111(
-          baseUrl: localUrl,
-          prompt: prompt,
-          negativePrompt: negativePrompt,
-          size: imageSize,
-          modelCheckpoint: modelCheckpoint,
-          // Switch to the selected checkpoint before each generation
-          switchModelFirst: modelCheckpoint.isNotEmpty,
-          loraName:   isDrawThings ? '' : _storage.imageGenLora,
-          loraWeight: _storage.imageGenLoraWeight,
-        );
+        
+        if (isDrawThings) {
+          // Use gRPC for Draw Things (Python client bridge)
+          _statusMessage = 'Connecting to Draw Things...';
+          notifyListeners();
+          
+          final modelCheckpoint = model ?? _storage.imageGenModel;
+          if (modelCheckpoint.isNotEmpty && !modelCheckpoint.toLowerCase().endsWith('.ckpt')) {
+            _statusMessage = 'Invalid model name for Draw Things: must end with .ckpt (got: $modelCheckpoint)';
+            _isGenerating = false;
+            notifyListeners();
+            return null;
+          }
+          
+          try {
+            final grpcService = _ensureDrawThingsGrpc;
+            final imageSize = size ?? _storage.imageGenSize;
+            final (width, height) = _parseSize(imageSize);
+            final steps = _storage.imageGenSteps;
+            final cfgScale = _storage.imageGenCfgScale;
+            final seed = _storage.imageGenSeed;
+            
+            imageBytes = await _generateViaDrawThingsGrpc(
+              grpcService: grpcService,
+              prompt: prompt,
+              negativePrompt: negativePrompt,
+              model: modelCheckpoint,
+              width: width,
+              height: height,
+              steps: steps,
+              cfgScale: cfgScale,
+              seed: seed,
+            );
+          } catch (e) {
+            _statusMessage = 'Draw Things connection failed: $e';
+            _isGenerating = false;
+            notifyListeners();
+            return null;
+          }
+        } else {
+          // Use HTTP for A1111
+          final localUrl = _storage.localImageGenUrl;
+          if (localUrl.isEmpty) {
+            _statusMessage = 'No local server URL configured.';
+            _isGenerating = false;
+            notifyListeners();
+            return null;
+          }
+          final imageSize = size ?? _storage.imageGenSize;
+          final modelCheckpoint = model ?? _storage.imageGenModel;
+          imageBytes = await _generateViaA1111(
+            baseUrl: localUrl,
+            prompt: prompt,
+            negativePrompt: negativePrompt,
+            size: imageSize,
+            modelCheckpoint: modelCheckpoint,
+            switchModelFirst: modelCheckpoint.isNotEmpty,
+            loraName: _storage.imageGenLora,
+            loraWeight: _storage.imageGenLoraWeight,
+            steps: _storage.imageGenSteps,
+            cfgScale: _storage.imageGenCfgScale,
+            samplerName: _storage.imageGenSampler,
+            seed: _storage.imageGenSeed,
+          );
+        }
 
       } else {
         // ── Remote API ─────────────────────────────────────────────────
@@ -227,6 +278,7 @@ class ImageGenService extends ChangeNotifier {
 
       _lastGeneratedImage = imageBytes;
       _statusMessage = 'Image generated successfully.';
+      debugPrint('ImageGen: Returning ${imageBytes?.length ?? 0} bytes');
       notifyListeners();
       return imageBytes;
     } catch (e) {
@@ -295,30 +347,73 @@ class ImageGenService extends ChangeNotifier {
     }
   }
 
-  /// Common image generation models available on popular API providers.
+  /// Common image generation models available on Nano-GPT and similar providers.
   /// These are always shown so the user can pick one even when the API's
-  /// /models endpoint doesn't list image models separately.
-  /// IDs verified from Nano-GPT pricing page (Feb 2026).
+  /// /models endpoint doesn't list image models separately (Nano-GPT's /models
+  /// endpoint only returns text models; image models have no discovery endpoint).
+  ///
+  /// Model IDs sourced from https://nano-gpt.com/models/image (May 2026).
   static const _commonImageModels = <ImageModelInfo>[
     // ── Included with Nano-GPT Pro subscription ($8/mo) ──
     ImageModelInfo(id: 'hidream', name: 'HiDream', isPaid: false),
     ImageModelInfo(id: 'chroma', name: 'Chroma', isPaid: false),
     ImageModelInfo(id: 'z-image-turbo', name: 'Z Image Turbo', isPaid: false),
     ImageModelInfo(id: 'qwen-image', name: 'Qwen Image', isPaid: false),
-    // ── Pay-per-prompt models ──
+    // ── Pay-per-prompt: OpenAI ──
+    ImageModelInfo(id: 'gpt-image-2', name: 'GPT Image 2'),
     ImageModelInfo(id: 'dall-e-3', name: 'DALL-E 3'),
+    // ── Pay-per-prompt: Black Forest Labs (FLUX) ──
     ImageModelInfo(id: 'flux-1-pro', name: 'FLUX.1 Pro'),
     ImageModelInfo(id: 'flux-1-dev', name: 'FLUX.1 Dev'),
     ImageModelInfo(id: 'flux-1-schnell', name: 'FLUX.1 Schnell'),
+    ImageModelInfo(id: 'flux-2-klein-4b', name: 'FLUX.2 Klein 4B'),
+    ImageModelInfo(id: 'flux-2-klein-9b', name: 'FLUX.2 Klein 9B'),
+    // ── Pay-per-prompt: Ideogram ──
     ImageModelInfo(id: 'ideogram-v3-default', name: 'Ideogram V3'),
     ImageModelInfo(id: 'ideogram-v3-turbo', name: 'Ideogram V3 Turbo'),
-    ImageModelInfo(id: 'cogview-4', name: 'CogView-4'),
+    ImageModelInfo(id: 'ideogram-v3-generate-transparent', name: 'Ideogram V3 Transparent'),
+    ImageModelInfo(id: 'ideogram-v3-remove-text', name: 'Ideogram V3 Remove Text'),
+    // ── Pay-per-prompt: Alibaba (WAN / Qwen) ──
+    ImageModelInfo(id: 'wan2.7-image', name: 'WAN 2.7 Image'),
+    ImageModelInfo(id: 'wan2.7-image-pro', name: 'WAN 2.7 Image Pro'),
+    ImageModelInfo(id: 'qwen-image-2.0', name: 'Qwen Image 2.0'),
+    ImageModelInfo(id: 'qwen-image-2.0-pro', name: 'Qwen Image 2.0 Pro'),
+    ImageModelInfo(id: 'qwen-image-max', name: 'Qwen Image Max'),
+    ImageModelInfo(id: 'qwen-image-max-edit', name: 'Qwen Image Max Edit'),
+    // ── Pay-per-prompt: Google (Nano Banana) ──
+    ImageModelInfo(id: 'nano-banana-2', name: 'Nano Banana 2 (Gemini Image)'),
+    ImageModelInfo(id: 'nano-banana-2-fast', name: 'Nano Banana 2 Fast'),
+    // ── Pay-per-prompt: ByteDance (Seedream) ──
+    ImageModelInfo(id: 'seedream-v5.0-lite', name: 'Seedream 5.0 Lite'),
+    ImageModelInfo(id: 'seedream-v5.0-lite-sequential', name: 'Seedream 5.0 Lite Sequential'),
+    // ── Pay-per-prompt: Z.AI (GLM / CogView) ──
+    ImageModelInfo(id: 'cogview-4', name: 'Z.AI CogView-4'),
+    ImageModelInfo(id: 'z-image-base', name: 'Z Image Base'),
+    ImageModelInfo(id: 'glm-image', name: 'Z.AI GLM Image'),
+    ImageModelInfo(id: 'glm-image-edit', name: 'GLM Image Edit'),
+    // ── Pay-per-prompt: Tencent (Hunyuan) ──
+    ImageModelInfo(id: 'hunyuan-image-3-instruct', name: 'Hunyuan Image 3 Instruct'),
+    // ── Pay-per-prompt: Baidu (ERNIE) ──
+    ImageModelInfo(id: 'ernie-image', name: 'ERNIE Image'),
+    ImageModelInfo(id: 'ernie-image/turbo', name: 'ERNIE Image Turbo'),
+    // ── Pay-per-prompt: xAI ──
+    ImageModelInfo(id: 'grok-imagine-image', name: 'Grok Imagine Image'),
+    // ── Pay-per-prompt: MiniMax ──
+    ImageModelInfo(id: 'minimax-image-01', name: 'MiniMax Image-01'),
+    // ── Pay-per-prompt: Bria ──
+    ImageModelInfo(id: 'bria-fibo', name: 'Bria Fibo'),
+    ImageModelInfo(id: 'bria-fibo-edit', name: 'Bria Fibo Edit'),
+    // ── Pay-per-prompt: Sourceful (Riverflow) ──
+    ImageModelInfo(id: 'riverflow-2.0-pro', name: 'Riverflow 2.0 Pro'),
+    // ── Pay-per-prompt: Other / Utility ──
+    ImageModelInfo(id: 'juggernaut-z', name: 'Juggernaut Z'),
     ImageModelInfo(id: 'mjv6', name: 'Flux Midjourney (MJV6)'),
     ImageModelInfo(id: 'dreamshaper-xl', name: 'Dreamshaper XL'),
     ImageModelInfo(id: 'nsfw-gen-illustrious', name: 'Animagine XL 4.0'),
     ImageModelInfo(id: 'atomix-xl', name: 'Atomix XL'),
     ImageModelInfo(id: 'background-remover', name: 'Background Remover'),
     ImageModelInfo(id: 'esrgan-4x', name: 'ESRGAN 4x Upscaler'),
+    ImageModelInfo(id: 'custom-civitai', name: 'Custom CivitAI Model'),
   ];
 
   /// Fetch available image models.
@@ -331,9 +426,8 @@ class ImageGenService extends ChangeNotifier {
   /// - If API fails: returns empty list with error logged
   ///
   /// **Nano-GPT and others**:
-  /// - Returns hardcoded list of common image models (since Nano-GPT doesn't
-  ///   expose image models via /models endpoint)
-  /// - No API polling attempt
+  /// - Returns the curated list of known image models (Nano-GPT's /models
+  ///   endpoint only returns text models; there is no image-specific listing API)
   Future<List<ImageModelInfo>> fetchImageModels() async {
     final apiUrl = _storage.remoteApiUrl;
     final apiKey = _storage.remoteApiKey;
@@ -345,7 +439,7 @@ class ImageGenService extends ChangeNotifier {
     if (isOpenRouter) {
       return _fetchOpenRouterImageModels(apiUrl, apiKey);
     } else {
-      // For Nano-GPT and other providers: return hardcoded list
+      // For Nano-GPT and other providers: return curated list
       return List.from(_commonImageModels);
     }
   }
@@ -479,7 +573,7 @@ class ImageGenService extends ChangeNotifier {
     String? scenario,
     String? worldInfo,
     String? personaName,
-    String? personaDescription,
+    String? personaText,
     List<String>? recentMessages,
   }) async {
     final paradigm = _storage.imageGenPromptParadigm; // 'natural' or 'tags'
@@ -542,7 +636,7 @@ class ImageGenService extends ChangeNotifier {
         scenario: scenario,
         worldInfo: worldInfo,
         personaName: personaName,
-        personaDescription: personaDescription,
+        personaText: personaText,
         recentMessages: recentMessages,
       );
       return _truncate('$fallback. $styleSuffix', _maxPromptLength);
@@ -631,7 +725,7 @@ class ImageGenService extends ChangeNotifier {
           scenario: scenario,
           worldInfo: worldInfo,
           personaName: personaName,
-          personaDescription: personaDescription,
+personaText: personaText,
           recentMessages: recentMessages,
         );
         return _truncate('$fallback. $styleSuffix', _maxPromptLength);
@@ -668,7 +762,7 @@ class ImageGenService extends ChangeNotifier {
         scenario: scenario,
         worldInfo: worldInfo,
         personaName: personaName,
-        personaDescription: personaDescription,
+        personaText: personaText,
         recentMessages: recentMessages,
       );
       return _truncate('$fallback. $styleSuffix', _maxPromptLength);
@@ -686,7 +780,7 @@ class ImageGenService extends ChangeNotifier {
     String? scenario,
     String? worldInfo,
     String? personaName,
-    String? personaDescription,
+    String? personaText,
     List<String>? recentMessages,
   }) {
     String raw;
@@ -742,8 +836,8 @@ class ImageGenService extends ChangeNotifier {
         if (personaName != null && personaName.isNotEmpty) {
           parts.add('Portrait of $personaName.');
         }
-        if (personaDescription != null && personaDescription.isNotEmpty) {
-          parts.add(_truncate(personaDescription, 400));
+if (personaText != null && personaText.isNotEmpty) {
+      parts.add(_truncate(personaText, 400));
         }
         parts.add('A detailed close-up portrait, expressive face, high quality rendering.');
         raw = parts.join(' ');
@@ -768,53 +862,81 @@ class ImageGenService extends ChangeNotifier {
 
   /// Test whether a local image-gen server is reachable.
   ///
-  /// Returns true on HTTP 200, false otherwise.
+  /// For Draw Things, uses gRPC. For A1111, uses HTTP.
   Future<bool> testLocalConnection(String baseUrl) async {
-    final client = http.Client();
-    try {
-      // A1111 & Draw Things return 200 on GET /
-      final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/sd-models');
-      final response = await client
-          .get(uri)
-          .timeout(const Duration(seconds: 5));
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
-    } finally {
-      client.close();
+    final isDrawThings = _storage.imageGenBackend == 'drawthings';
+    
+    if (isDrawThings) {
+      try {
+        final grpcService = _ensureDrawThingsGrpc;
+        return await grpcService.testConnection();
+      } catch (e) {
+        debugPrint('ImageGen: Draw Things connection test failed: $e');
+        return false;
+      }
+    } else {
+      final client = http.Client();
+      try {
+        final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/sd-models');
+        final response = await client
+            .get(uri)
+            .timeout(const Duration(seconds: 5));
+        return response.statusCode == 200;
+      } catch (_) {
+        return false;
+      } finally {
+        client.close();
+      }
     }
   }
 
   /// Fetch available checkpoints from an A1111 / Draw Things server.
   ///
-  /// Returns model title strings, e.g. `["v1-5-pruned.safetensors [hash]"]`.
-  /// Both Draw Things and A1111 expose this at `/sdapi/v1/sd-models`.
+  /// For Draw Things, uses gRPC. For A1111, uses HTTP.
   Future<List<String>> fetchA1111Models(String baseUrl) async {
-    final client = http.Client();
-    try {
-      final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/sd-models');
-      final response = await client
-          .get(uri)
-          .timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) return [];
-      final list = jsonDecode(response.body) as List<dynamic>;
-      return list
-          .map((m) => (m as Map<String, dynamic>)['title']?.toString() ?? '')
-          .where((s) => s.isNotEmpty)
-          .toList();
-    } catch (_) {
-      return [];
-    } finally {
-      client.close();
+    final isDrawThings = _storage.imageGenBackend == 'drawthings';
+    
+    if (isDrawThings) {
+      try {
+        final grpcService = _ensureDrawThingsGrpc;
+        return await grpcService.fetchModels();
+      } catch (e) {
+        debugPrint('ImageGen: fetchDrawThingsModels failed: $e');
+        return [];
+      }
+    } else {
+      final client = http.Client();
+      try {
+        final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/sd-models');
+        final response = await client
+            .get(uri)
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 200) return [];
+        final list = jsonDecode(response.body) as List<dynamic>;
+        return list
+            .map((m) => (m as Map<String, dynamic>)['title']?.toString() ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList();
+      } catch (_) {
+        return [];
+      } finally {
+        client.close();
+      }
     }
   }
 
   /// Fetch models from a Draw Things server.
   ///
-  /// Draw Things exposes the same `/sdapi/v1/sd-models` endpoint as A1111.
-  /// Falls back to an empty list if the endpoint is not available.
-  Future<List<String>> fetchDrawThingsModels(String baseUrl) =>
-      fetchA1111Models(baseUrl);
+  /// Uses gRPC to fetch models. Draw Things doesn't expose LoRAs via gRPC.
+  Future<List<String>> fetchDrawThingsModels(String baseUrl) async {
+    try {
+      final grpcService = _ensureDrawThingsGrpc;
+      return await grpcService.fetchModels();
+    } catch (e) {
+      debugPrint('ImageGen: fetchDrawThingsModels failed: $e');
+      return [];
+    }
+  }
 
   /// Fetch LoRAs from an A1111 / Forge / SD.Next server.
   ///
@@ -966,6 +1088,31 @@ class ImageGenService extends ChangeNotifier {
     return false;
   }
 
+  /// Fetch available samplers from an A1111 / Draw Things server.
+  ///
+  /// Endpoint: GET /sdapi/v1/samplers
+  /// Returns sampler names (the `name` field from each entry).
+  Future<List<String>> fetchA1111Samplers(String baseUrl) async {
+    final client = http.Client();
+    try {
+      final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/samplers');
+      final response = await client
+          .get(uri)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) return [];
+      final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map((e) => (e as Map<String, dynamic>)['name']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('ImageGen: fetchA1111Samplers failed: $e');
+      return [];
+    } finally {
+      client.close();
+    }
+  }
+
   /// Generate via AUTOMATIC1111 / Draw Things local server.
   ///
   /// Endpoint: POST {baseUrl}/sdapi/v1/txt2img
@@ -983,6 +1130,10 @@ class ImageGenService extends ChangeNotifier {
     bool switchModelFirst = false,
     String loraName = '',
     double loraWeight = 0.8,
+    int steps = 20,
+    double cfgScale = 7.0,
+    String samplerName = 'Euler a',
+    int seed = -1,
   }) async {
     // Switch model only if a different checkpoint was requested.
     // Skipping redundant switches prevents the unload→reload cycle that
@@ -1009,10 +1160,10 @@ class ImageGenService extends ChangeNotifier {
       'negative_prompt': negativePrompt,
       'width': width,
       'height': height,
-      'steps': 20,
-      'cfg_scale': 7,
-      'sampler_name': 'Euler a',
-      'seed': -1,
+      'steps': steps,
+      'cfg_scale': cfgScale,
+      'sampler_name': samplerName,
+      'seed': seed,
       'batch_size': 1,
       // NOTE: override_settings is intentionally omitted here.
       // Passing sd_model_checkpoint inside override_settings causes A1111 to
@@ -1031,7 +1182,7 @@ class ImageGenService extends ChangeNotifier {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(payload),
           )
-          .timeout(const Duration(seconds: 300)); // allow time for model load
+          .timeout(const Duration(seconds: 600)); // allow time for model load
 
       if (response.statusCode != 200) {
         String errorMsg = 'HTTP ${response.statusCode}';
@@ -1054,6 +1205,30 @@ class ImageGenService extends ChangeNotifier {
     } finally {
       client.close();
     }
+  }
+
+  /// Generate via Draw Things gRPC service (Python client bridge).
+  Future<Uint8List> _generateViaDrawThingsGrpc({
+    required DrawThingsGrpcService grpcService,
+    required String prompt,
+    String negativePrompt = '',
+    String model = '',
+    int width = 1024,
+    int height = 1024,
+    int steps = 20,
+    double cfgScale = 7.0,
+    int seed = -1,
+  }) async {
+    return await grpcService.generateImage(
+      prompt: prompt,
+      negativePrompt: negativePrompt,
+      model: model,
+      width: width,
+      height: height,
+      steps: steps,
+      cfgScale: cfgScale,
+      seed: seed,
+    );
   }
 
   /// Detect if URL is an OpenRouter-style API (uses chat/completions for images).

@@ -57,15 +57,35 @@ class _RealismEngineStub {
   bool get isProcessingGreeting => _isProcessingGreeting;
   bool get nsfwCooldownEnabled => _nsfwCooldownEnabled;
 
-  // ── _calculateTier (mirrors ChatService) ──────────────────────────
+  // ── _calculateTier (mirrors ChatService 21-tier system) ────────────
   int _calculateTier(int score) {
     final absScore = score.abs();
-    if (absScore < 10) return 0;
-    if (absScore < 25) return score > 0 ? 1 : -1;
-    if (absScore < 45) return score > 0 ? 2 : -2;
-    if (absScore < 70) return score > 0 ? 3 : -3;
-    if (absScore < 100) return score > 0 ? 4 : -4;
-    return score > 0 ? 5 : -5;
+    if (absScore < 5) return 0;
+    if (absScore < 15) return score > 0 ? 1 : -1;
+    if (absScore < 30) return score > 0 ? 2 : -2;
+    if (absScore < 50) return score > 0 ? 3 : -3;
+    if (absScore < 80) return score > 0 ? 4 : -4;
+    if (absScore < 120) return score > 0 ? 5 : -5;
+    if (absScore < 160) return score > 0 ? 6 : -6;
+    if (absScore < 200) return score > 0 ? 7 : -7;
+    if (absScore < 250) return score > 0 ? 8 : -8;
+    if (absScore < 300) return score > 0 ? 9 : -9;
+    return score > 0 ? 10 : -10;
+  }
+
+  /// Migration: scale old scores (±150) to new range (±300)
+  int _migrateShortTermScore(int rawScore) {
+    if (rawScore.abs() <= 150) {
+      return (rawScore * 2).clamp(-300, 300);
+    }
+    return rawScore;
+  }
+
+  int _migrateLongTermScore(int rawScore) {
+    if (rawScore.abs() <= 150) {
+      return (rawScore * 2).clamp(-300, 300);
+    }
+    return rawScore;
   }
 
   // ── startNewChat realism reset (mirrors ChatService lines 2142-2186) ─
@@ -76,8 +96,8 @@ class _RealismEngineStub {
     // Seed from extensions
     if (characterExtensions != null) {
       _realismEnabled = characterExtensions.realismEnabled;
-      _affectionScore = characterExtensions.shortTermBond.clamp(-150, 150);
-      _longTermScore = characterExtensions.longTermBond.clamp(-150, 150);
+      _affectionScore = characterExtensions.shortTermBond.clamp(-300, 300);
+      _longTermScore = characterExtensions.longTermBond.clamp(-300, 300);
       _trustLevel = characterExtensions.trustLevel.clamp(-100, 100);
       _nsfwCooldownEnabled = characterExtensions.nsfwCooldownEnabled;
       _characterEmotion = characterExtensions.characterEmotion;
@@ -141,18 +161,9 @@ class _RealismEngineStub {
     String? emotionIntensityVal,
   }) {
     if (bondDelta != null && bondDelta != 0) {
-      _affectionScore = (_affectionScore + bondDelta).clamp(-10, 15);
-      if (_affectionScore < 0) {
-        _relationshipTier = 1;
-      } else if (_affectionScore <= 3) {
-        _relationshipTier = 2;
-      } else if (_affectionScore <= 7) {
-        _relationshipTier = 3;
-      } else if (_affectionScore <= 11) {
-        _relationshipTier = 4;
-      } else {
-        _relationshipTier = 5;
-      }
+      _affectionScore = (_affectionScore + bondDelta).clamp(-15, 15);
+      // Use the new tier calculation for consistency
+      _relationshipTier = _calculateTier(_affectionScore);
     }
     if (trustDelta != null && trustDelta != 0) {
       _trustLevel = (_trustLevel + trustDelta).clamp(-100, 100);
@@ -526,12 +537,11 @@ void main() {
       expect(stub.relationshipTier, greaterThan(0));
     });
 
-    test('short-term tier: negative score gets tier 1 from metadata application', () {
+    test('short-term tier: negative score gets tier -1 from metadata application', () {
       final stub = _RealismEngineStub();
       stub.applyRealismMetadata(bondDelta: -10);
-      // The applyRealismMetadata method uses inline tier logic (not _calculateTier)
-      // When score < 0, inline logic sets tier to 1
-      expect(stub.relationshipTier, 1);
+      // With new 21-tier system, score -10 => tier -1 (absScore < 15)
+      expect(stub.relationshipTier, -1);
     });
 
     test('long-term tier mirrors short-term logic', () {
@@ -549,10 +559,10 @@ void main() {
       expect(stub.affectionScore, 15); // capped by applyRealismMetadata
       expect(stub.relationshipTier, greaterThan(0));
 
-      // Min bond - inline logic sets tier to 1 for negative scores
+      // Min bond - with new 21-tier system, score -10 => tier -1 (absScore < 15)
       final stub2 = _RealismEngineStub();
       stub2.applyRealismMetadata(bondDelta: -10);
-      expect(stub2.relationshipTier, 1);
+      expect(stub2.relationshipTier, -1);
     });
   });
 

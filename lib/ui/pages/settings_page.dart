@@ -17,9 +17,12 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
@@ -45,6 +48,7 @@ import 'package:front_porch_ai/services/web_server_service.dart';
 import 'package:front_porch_ai/ui/dialogs/tts_settings_dialog.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_settings_dialog.dart';
+import 'package:front_porch_ai/services/expression_classifier.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -54,24 +58,26 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  final _gpuLayersController = TextEditingController(text: '0');
-  final _contextSizeController = TextEditingController(text: '8192');
-  double _contextSizeValue = 8192;
-  final _apiController = TextEditingController();
-  final _remoteApiUrlController = TextEditingController();
-  final _remoteApiKeyController = TextEditingController();
-  bool _useVulkan = false;
-  bool _useCublas = false;
-  bool _useMetal = false;
-  bool _useRocm = false;
-  String? _selectedModelPath;
-  late final TextEditingController _systemPromptController;
-  late final TextEditingController _bannedPhrasesController;
+   final _gpuLayersController = TextEditingController(text: '0');
+   final _contextSizeController = TextEditingController(text: '8192');
+   final _apiController = TextEditingController();
+   final _remoteApiUrlController = TextEditingController();
+   final _remoteApiKeyController = TextEditingController();
+   bool _useVulkan = false;
+   bool _useCublas = false;
+   bool _useMetal = false;
+   bool _useRocm = false;
+   String? _selectedModelPath;
+   late final TextEditingController _systemPromptController;
+   late final TextEditingController _bannedPhrasesController;
 
   // Remote API state
   List<RemoteModelInfo> _availableModels = [];
   bool _isFetchingModels = false;
   bool _isCheckingConnection = false;
+
+  // Local Preset state
+  List<File> _localPresets = [];
 
   @override
   void initState() {
@@ -133,7 +139,35 @@ class _SettingsPageState extends State<SettingsPage> {
 
       // Auto-fetch available models if API is configured
       _autoFetchModels();
+      
+      // Auto-fetch .kcpps presets
+      _scanLocalPresets();
     });
+  }
+
+  void _scanLocalPresets() {
+    final storage = Provider.of<StorageService>(context, listen: false);
+    final binDir = storage.binDir;
+    if (!binDir.existsSync()) {
+      if (mounted) setState(() => _localPresets = []);
+      return;
+    }
+    try {
+      final files = binDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.toLowerCase().endsWith('.kcpps'))
+          .toList()
+        ..sort((a, b) => p.basename(a.path).toLowerCase().compareTo(p.basename(b.path).toLowerCase()));
+      if (mounted) {
+        setState(() {
+          _localPresets = files;
+        });
+      }
+    } catch (e) {
+      debugPrint('SettingsPage: Failed to scan presets: $e');
+      if (mounted) setState(() => _localPresets = []);
+    }
   }
 
   /// Fetch available models from the configured API on startup.
@@ -516,26 +550,31 @@ class _SettingsPageState extends State<SettingsPage> {
         );
         return;
       }
-      if (_selectedModelPath == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Please select a model.')));
-        return;
-      }
+      final storage = Provider.of<StorageService>(context, listen: false);
 
-      // Check if model file actually exists
-      if (!File(_selectedModelPath!).existsSync()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Selected model file does not exist!')),
-        );
-        return;
+      // Case A — preset has its own model: skip all model-path checks.
+      // Case B — preset has no model OR no preset: require a Flutter selection.
+      final presetOwnsModel = storage.kcppsHasModel;
+
+      if (!presetOwnsModel) {
+        if (_selectedModelPath == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a model.')),
+          );
+          return;
+        }
+        if (!File(_selectedModelPath!).existsSync()) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Selected model file does not exist!')),
+          );
+          return;
+        }
       }
 
       final gpuLayers = int.tryParse(_gpuLayersController.text) ?? 0;
       final contextSize = int.tryParse(_contextSizeController.text) ?? 4096;
 
       // Persist settings so autostart uses them on next launch
-      final storage = Provider.of<StorageService>(context, listen: false);
       storage.setGpuLayers(gpuLayers);
       storage.setContextSize(contextSize);
       storage.setUseCublas(_useCublas);
@@ -543,9 +582,15 @@ class _SettingsPageState extends State<SettingsPage> {
       storage.setUseMetal(_useMetal);
       storage.setUseRocm(_useRocm);
 
+      // When the preset owns the model, pass empty string — KoboldCPP reads
+      // it from the .kcpps config. When the user picked a model via the
+      // Flutter picker, pass it so KoboldCPP never opens its own file dialog.
+      final effectiveModel = presetOwnsModel ? '' : _selectedModelPath!;
+
       koboldService.startKobold(
         backendManager.backendPath!,
-        _selectedModelPath!,
+        effectiveModel,
+        kcppsPath: storage.activeKcppsPath,
         gpuLayers: gpuLayers,
         contextSize: contextSize,
         useVulkan: _useVulkan,
@@ -559,39 +604,278 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return DefaultTabController(
-      length: 5,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: Text('Settings', style: theme.textTheme.titleLarge),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme: theme.iconTheme,
-          bottom: TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white60,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            overlayColor: WidgetStateProperty.all(Colors.transparent),
-            splashFactory: NoSplash.splashFactory,
-            tabs: const [
-              Tab(text: 'General'),
-              Tab(text: 'Generation'),
-              Tab(text: 'Voice & Media'),
-              Tab(text: 'Backend'),
-              Tab(text: 'Advanced'),
-            ],
+    return Stack(
+      children: [
+        DefaultTabController(
+          length: 5,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(
+              title: Text('Settings', style: theme.textTheme.titleLarge),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              iconTheme: theme.iconTheme,
+              bottom: TabBar(
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white60,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                overlayColor: WidgetStateProperty.all(Colors.transparent),
+                splashFactory: NoSplash.splashFactory,
+                tabs: const [
+                  Tab(text: 'General'),
+                  Tab(text: 'Generation'),
+                  Tab(text: 'Voice & Media'),
+                  Tab(text: 'Backend'),
+                  Tab(text: 'Advanced'),
+                ],
+              ),
+            ),
+            body: TabBarView(
+              children: [
+                _buildGeneralTab(context),
+                _buildGenerationTab(context),
+                _buildVoiceMediaTab(context),
+                _buildBackendTab(context),
+                _buildAdvancedTab(context),
+              ],
+            ),
           ),
         ),
-        body: TabBarView(
-          children: [
-            _buildGeneralTab(context),
-            _buildGenerationTab(context),
-            _buildVoiceMediaTab(context),
-            _buildBackendTab(context),
-            _buildAdvancedTab(context),
-          ],
+        // Glassmorphic download overlay — shown only while ONNX model is downloading
+        Consumer<ExpressionClassifierService>(
+          builder: (context, expressionService, _) {
+            if (!expressionService.isDownloading) return const SizedBox.shrink();
+            return _buildDownloadOverlay(expressionService);
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Full-screen glassmorphic overlay shown during ONNX model download.
+  Widget _buildDownloadOverlay(ExpressionClassifierService service) {
+    final progress = service.downloadProgress;
+    final fraction = progress?.fraction ?? 0.0;
+    final fileName = progress?.file ?? 'Preparing…';
+    final pct = (fraction * 100).toStringAsFixed(0);
+
+    const teal = Color(0xFF00D4AA);
+    const tealDark = Color(0xFF00876A);
+
+    return Positioned.fill(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.55),
+          child: Center(
+            child: Container(
+              width: 380,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F2027).withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: teal.withValues(alpha: 0.35),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: teal.withValues(alpha: 0.18),
+                    blurRadius: 40,
+                    spreadRadius: 4,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Animated icon
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [teal, tealDark],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: teal.withValues(alpha: 0.4),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.download_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Downloading Expression Model',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'distilbert-go-emotions-onnx',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Progress bar
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Stack(
+                      children: [
+                        // Track
+                        Container(
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        // Fill
+                        FractionallySizedBox(
+                          widthFactor: fraction.clamp(0.0, 1.0),
+                          child: Container(
+                            height: 8,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [teal, Color(0xFF00FFC6)],
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: teal.withValues(alpha: 0.5),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          fileName,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            fontSize: 11,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        fraction > 0 ? '$pct%' : '…',
+                        style: const TextStyle(
+                          color: teal,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'This only happens once. Files are saved\nto your Front Porch AI data folder.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.35),
+                      fontSize: 11,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Download button shown in the Expression Images settings row.
+  Widget _buildOnnxDownloadButton(ExpressionClassifierService service) {
+    if (service.modelReady || service.isModelCached) {
+      // Model already downloaded — show a ready indicator
+      return Tooltip(
+        message: 'Expression model downloaded and ready',
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF00D4AA).withValues(alpha: 0.15),
+            border: Border.all(
+              color: const Color(0xFF00D4AA).withValues(alpha: 0.5),
+            ),
+          ),
+          child: const Icon(
+            Icons.check_rounded,
+            size: 18,
+            color: Color(0xFF00D4AA),
+          ),
+        ),
+      );
+    }
+
+    return Tooltip(
+      message: 'Download ONNX model for local expression classification',
+      child: IconButton(
+        icon: service.isDownloading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF00D4AA),
+                ),
+              )
+            : const Icon(Icons.download_rounded, size: 20),
+        onPressed: service.isDownloading
+            ? null
+            : () async {
+                final ok = await service.triggerOnnxDownload();
+                if (!ok && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Could not start download. Make sure python3 is installed.',
+                      ),
+                    ),
+                  );
+                }
+              },
+        style: IconButton.styleFrom(
+          backgroundColor: service.isDownloading
+              ? Colors.grey.withValues(alpha: 0.3)
+              : const Color(0xFF00D4AA).withValues(alpha: 0.2),
+          foregroundColor: const Color(0xFF00D4AA),
         ),
       ),
     );
@@ -641,8 +925,43 @@ class _SettingsPageState extends State<SettingsPage> {
             context,
             divisions: 13,
           ),
-          const SizedBox(height: 24),
-          _buildSectionHeader('Realism Mode', context),
+           const SizedBox(height: 24),
+           _buildSectionHeader('Chat Appearance', context),
+           const SizedBox(height: 8),
+           _buildColorRow(
+             'User Bubble',
+             storageService.globalUserBubbleColor,
+             (color) => storageService.setGlobalUserBubbleColor(color),
+           ),
+           _buildColorRow(
+             'User Text',
+             storageService.globalUserTextColor,
+             (color) => storageService.setGlobalUserTextColor(color),
+           ),
+           _buildColorRow(
+             'AI Bubble',
+             storageService.globalAiBubbleColor,
+             (color) => storageService.setGlobalAiBubbleColor(color),
+           ),
+           _buildColorRow(
+             'AI Text',
+             storageService.globalAiTextColor,
+             (color) => storageService.setGlobalAiTextColor(color),
+           ),
+           _buildColorRow(
+             'Dialogue (Quoted)',
+             storageService.globalDialogueColor,
+             (color) => storageService.setGlobalDialogueColor(color),
+           ),
+           _buildColorRow(
+             'Actions (*text*)',
+             storageService.globalActionColor,
+             (color) => storageService.setGlobalActionColor(color),
+           ),
+           const SizedBox(height: 12),
+           _buildFontRow(storageService),
+           const SizedBox(height: 24),
+           _buildSectionHeader('Realism Mode', context),
           const SizedBox(height: 8),
           Consumer<StorageService>(
             builder: (context, storageService, _) =>
@@ -748,6 +1067,31 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             onChanged: (val) => storageService.setSystemPrompt(val),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorRow(String label, Color color, void Function(Color) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          const Spacer(),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.white24, width: 1),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.color_lens, size: 20, color: Colors.white),
+              onPressed: () => _showColorPicker(context, color, onChanged),
+            ),
           ),
         ],
       ),
@@ -1547,6 +1891,252 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ],
                   ],
+                  ),
+                );
+              },
+            ),
+
+          const SizedBox(height: 24),
+          _buildSectionHeader('Expression Images', context),
+          const SizedBox(height: 8),
+          Consumer<StorageService>(
+            builder: (context, storage, _) {
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          storage.expressionEnabled
+                              ? Icons.mood
+                              : Icons.mood_outlined,
+                          color: storage.expressionEnabled
+                              ? Colors.purpleAccent
+                              : Colors.white38,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Expression Images',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                storage.expressionEnabled
+                                    ? 'Enabled — ${_expressionModeLabel(storage.expressionClassificationMode)}, ${_expressionDisplayLabel(storage.expressionDisplayMode)}'
+                                    : 'Disabled',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: storage.expressionEnabled,
+                          onChanged: (val) =>
+                              storage.setExpressionEnabled(val),
+                          activeTrackColor: Colors.purpleAccent,
+                        ),
+                      ],
+                    ),
+                    if (storage.expressionEnabled) ...[
+                      const Divider(color: Colors.white10),
+                      const SizedBox(height: 8),
+                       // Classification mode dropdown and download button
+                       Row(
+                         children: [
+                           const Icon(
+                             Icons.psychology,
+                             size: 16,
+                             color: Colors.white54,
+                           ),
+                           const SizedBox(width: 8),
+                           const Text(
+                             'Classification:',
+                             style: TextStyle(
+                               fontSize: 12,
+                               color: Colors.white70,
+                             ),
+                           ),
+                           const SizedBox(width: 12),
+                           Expanded(
+                             child: DropdownButton<String>(
+                               value: storage.expressionClassificationMode,
+                               isDense: true,
+                               underline: const SizedBox(),
+                               style: const TextStyle(
+                                 fontSize: 12,
+                                 color: Colors.white,
+                               ),
+                               items: const [
+                                 DropdownMenuItem(
+                                   value: 'llm',
+                                   child: Text('LLM (Realism Engine)'),
+                                 ),
+                                 DropdownMenuItem(
+                                   value: 'onnx',
+                                   child: Text('Local ONNX Model'),
+                                 ),
+                                 DropdownMenuItem(
+                                   value: 'manual',
+                                   child: Text('Manual Only'),
+                                 ),
+                               ],
+                               onChanged: (val) {
+                                 if (val != null)
+                                   storage.setExpressionClassificationMode(val);
+                               },
+                             ),
+                           ),
+                           // Download / ready indicator for the ONNX model
+                           Consumer<ExpressionClassifierService>(
+                             builder: (context, expressionService, _) =>
+                                 _buildOnnxDownloadButton(expressionService),
+                           ),
+                         ],
+                       ),
+                      const SizedBox(height: 8),
+                      // Display mode dropdown
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.view_sidebar,
+                            size: 16,
+                            color: Colors.white54,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Display:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButton<String>(
+                              value: storage.expressionDisplayMode,
+                              isDense: true,
+                              underline: const SizedBox(),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'sidebar',
+                                  child: Text('Sidebar Only'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'background',
+                                  child: Text('Background Only'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'both',
+                                  child: Text('Both'),
+                                ),
+                              ],
+                              onChanged: (val) {
+                                if (val != null)
+                                  storage.setExpressionDisplayMode(val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Reroll toggle
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.casino,
+                            size: 16,
+                            color: Colors.white54,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Re-roll if same sprite repeats',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
+                          Switch(
+                            value: storage.expressionRerollSame,
+                            onChanged: (val) =>
+                                storage.setExpressionRerollSame(val),
+                            activeTrackColor: Colors.purpleAccent,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Fallback dropdown
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.backup,
+                            size: 16,
+                            color: Colors.white54,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Fallback:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButton<String>(
+                              value: storage.expressionFallback,
+                              isDense: true,
+                              underline: const SizedBox(),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'neutral',
+                                  child: Text('Neutral Sprite'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'prime',
+                                  child: Text('Prime Avatar'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'none',
+                                  child: Text('Hide'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'emoji',
+                                  child: Text('Emoji Icon'),
+                                ),
+                              ],
+                              onChanged: (val) {
+                                if (val != null)
+                                  storage.setExpressionFallback(val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               );
             },
@@ -2152,7 +2742,36 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 24),
             _buildSectionHeader('Model Selection', context),
             const SizedBox(height: 16),
-            if (modelManager.models.isEmpty)
+            // When the active .kcpps preset specifies its own model path,
+            // KoboldCPP loads it automatically — grey out the picker so the
+            // user isn't confused about why their selection has no effect.
+            if (storageService.kcppsHasModel)
+              Tooltip(
+                message: 'Model is controlled by the active .kcpps preset',
+                child: Opacity(
+                  opacity: 0.45,
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Controlled by preset',
+                            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white38),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else if (modelManager.models.isEmpty)
               const Text(
                 'No models available. Go to "Manage Models" to download one.',
                 style: TextStyle(color: Colors.orange),
@@ -2182,19 +2801,148 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       );
                     }).toList(),
-                    onChanged: (val) {
+                    onChanged: (val) async {
+                      final koboldService = Provider.of<KoboldService>(context, listen: false);
+                      if (koboldService.isRunning) {
+                        await koboldService.stopKobold();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Backend stopped to switch models.'),
+                          ),
+                        );
+                      }
                       setState(() {
                         _selectedModelPath = val;
                       });
-                      Provider.of<StorageService>(
-                        context,
-                        listen: false,
-                      ).setLastUsedModelPath(val);
+                      final storage = Provider.of<StorageService>(context, listen: false);
+                      storage.setLastUsedModelPath(val);
+                      
+                      // Auto-load preset for this model if one exists
+                      if (val != null) {
+                        final savedPreset = storage.modelPresetMap[val];
+                        if (savedPreset != null && savedPreset.isNotEmpty && File(savedPreset).existsSync()) {
+                          storage.setActiveKcppsPath(savedPreset);
+                        } else {
+                          storage.setActiveKcppsPath(null);
+                        }
+                      }
+                      
                       _applyAutoConfiguration(silent: true);
                     },
                   ),
                 ),
               ),
+
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSectionHeader('Configuration Preset', context),
+                TextButton.icon(
+                  onPressed: _scanLocalPresets,
+                  icon: const Icon(Icons.refresh, size: 14),
+                  label: const Text('Rescan', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white54,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.settings_applications, size: 18, color: Colors.blueAccent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Preset overrides all other generation settings. Use .kcpps files placed in your bin directory.',
+                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _localPresets.any((f) => f.path == storageService.activeKcppsPath)
+                                ? storageService.activeKcppsPath
+                                : null,
+                            isExpanded: true,
+                            hint: const Text('None (Use App Settings)', style: TextStyle(fontSize: 13)),
+                            dropdownColor: theme.cardColor,
+                            style: theme.textTheme.bodyMedium,
+                            icon: Icon(Icons.arrow_drop_down, color: theme.iconTheme.color),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('None (Use App Settings)', style: TextStyle(fontSize: 13)),
+                              ),
+                              ..._localPresets.map((file) {
+                                return DropdownMenuItem<String>(
+                                  value: file.path,
+                                  child: Text(p.basename(file.path), style: const TextStyle(fontSize: 13)),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) {
+                              storageService.setActiveKcppsPath(val);
+                              // Auto-associate with current model if one is selected
+                              if (_selectedModelPath != null && val != null) {
+                                storageService.setModelPreset(_selectedModelPath!, val);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Preset saved for model: ${p.basename(_selectedModelPath!)}')),
+                                );
+                              } else if (_selectedModelPath != null && val == null) {
+                                // Clear association if "None" is selected
+                                storageService.setModelPreset(_selectedModelPath!, '');
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final result = await FilePicker.platform.pickFiles(
+                            type: FileType.custom,
+                            allowedExtensions: ['kcpps'],
+                          );
+                          if (result != null && result.files.single.path != null) {
+                            final path = result.files.single.path!;
+                            storageService.setActiveKcppsPath(path);
+                            if (_selectedModelPath != null) {
+                              storageService.setModelPreset(_selectedModelPath!, path);
+                            }
+                            // Rescan to include the new file if it's not already there
+                            _scanLocalPresets();
+                          }
+                        },
+                        icon: const Icon(Icons.folder_open, size: 16),
+                        label: const Text('Browse'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 24),
             SizedBox(
@@ -2233,6 +2981,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final hardwareService = Provider.of<HardwareService>(context);
     final llmProvider = Provider.of<LLMProvider>(context);
     final theme = Theme.of(context);
+    final isPresetActive = storageService.activeKcppsPath != null && storageService.activeKcppsPath!.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -2802,8 +3551,43 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
 
           const SizedBox(height: 16),
-          // Context Size — slider with presets + text field
-          Container(
+          if (isPresetActive) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'A configuration preset is active. Advanced settings are managed by the preset and cannot be edited here.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.amber),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          
+          IgnorePointer(
+            ignoring: isPresetActive,
+            child: Opacity(
+              opacity: isPresetActive ? 0.4 : 1.0,
+              child: Tooltip(
+                message: isPresetActive
+                    ? 'Context size is controlled by the active .kcpps preset and cannot be edited here.'
+                    : '',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Context Size — slider with presets + text field
+                    Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: theme.cardColor,
@@ -3042,6 +3826,11 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
+        ], // Close Tooltip's Column children
+      ), // Close Tooltip's Column
+    ), // Close Tooltip
+  ), // Close Opacity
+), // Close IgnorePointer
 
           const SizedBox(height: 16),
           // GPU Layers
@@ -3191,11 +3980,355 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
           const SizedBox(height: 24),
+
+          // \u2500\u2500 Advanced Launch Options \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+          _buildAdvancedLaunchOptions(context, storageService),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
+  bool _advancedLaunchExpanded = false;
+
+  Widget _buildAdvancedLaunchOptions(
+    BuildContext context,
+    StorageService storage,
+  ) {
+    const accent = Color(0xFF00D4AA); // teal-green consistent with beta accent
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Column(
+        children: [
+          // Header — tap to expand/collapse
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _advancedLaunchExpanded = !_advancedLaunchExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  const Icon(Icons.tune, color: accent, size: 18),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Advanced Launch Options',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const Spacer(),
+                  const Text(
+                    'Affects next restart',
+                    style: TextStyle(fontSize: 11, color: Colors.white38),
+                  ),
+                  const SizedBox(width: 8),
+                  AnimatedRotation(
+                    turns: _advancedLaunchExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Collapsible body
+          AnimatedCrossFade(
+            firstChild: const SizedBox(height: 0),
+            secondChild: _buildAdvancedLaunchBody(context, storage, accent),
+            crossFadeState: _advancedLaunchExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 220),
+            sizeCurve: Curves.easeInOut,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdvancedLaunchBody(
+    BuildContext context,
+    StorageService storage,
+    Color accent,
+  ) {
+    Widget _toggle({
+      required String label,
+      required String tooltip,
+      required bool value,
+      required ValueChanged<bool> onChanged,
+      bool recommended = false,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(label, style: const TextStyle(fontSize: 13, color: Colors.white)),
+                      if (recommended) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text('RECOMMENDED', style: TextStyle(fontSize: 9, color: accent, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(tooltip, style: const TextStyle(fontSize: 11, color: Colors.white38)),
+                ],
+              ),
+            ),
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeTrackColor: accent,
+              activeThumbColor: Colors.white,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 12),
+
+          // Flash Attention
+          _toggle(
+            label: 'Flash Attention',
+            tooltip: 'Faster attention math. ~20\u201340% speed boost on RTX/Apple Silicon. Disabled automatically for ROCm.',
+            value: storage.flashAttentionEnabled,
+            recommended: true,
+            onChanged: (v) => storage.setFlashAttentionEnabled(v),
+          ),
+
+          // mlock
+          _toggle(
+            label: 'Lock Weights in RAM (mlock)',
+            tooltip: Platform.isLinux
+                ? 'Prevents paging to disk. Requires root or ulimit \u2011l unlimited on Linux \u2014 off by default.'
+                : 'Prevents OS from paging model weights to disk. Avoids catastrophic slowdown under memory pressure.',
+            value: storage.mlockEnabled,
+            recommended: !Platform.isLinux,
+            onChanged: (v) => storage.setMlockEnabled(v),
+          ),
+
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 12),
+
+          // GPU ID selector
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('GPU ID', style: TextStyle(fontSize: 13, color: Colors.white)),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Which GPU to use for CUDA. Set to 1+ on systems with both a discrete and an integrated GPU.',
+                      style: TextStyle(fontSize: 11, color: Colors.white38),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 0 / 1 / 2 / 3 quick-pick chips
+              Wrap(
+                spacing: 6,
+                children: [0, 1, 2, 3].map((id) {
+                  final isSelected = storage.gpuId == id;
+                  return GestureDetector(
+                    onTap: () => storage.setGpuId(id),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? accent : Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? accent : Colors.white12,
+                        ),
+                      ),
+                      child: Text(
+                        '$id',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: isSelected ? Colors.black : Colors.white54,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // BLAS Batch Size
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Prefill Batch Size', style: TextStyle(fontSize: 13, color: Colors.white)),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Tokens processed in parallel during prompt evaluation. Higher = faster context loading, more VRAM.',
+                      style: TextStyle(fontSize: 11, color: Colors.white38),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Wrap(
+                spacing: 6,
+                children: [256, 512, 1024, 2048, 4096, 8192].map((bs) {
+                  final isSelected = storage.blasBatchSize == bs;
+                  return GestureDetector(
+                    onTap: () => storage.setBlasBatchSize(bs),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? accent : Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? accent : Colors.white12,
+                        ),
+                      ),
+                      child: Text(
+                        bs >= 1024 ? '${bs ~/ 1024}K' : '$bs',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: isSelected ? Colors.black : Colors.white54,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+          // Restart button — applies all Advanced Launch changes immediately
+          Builder(builder: (ctx) {
+            final koboldService = Provider.of<KoboldService>(ctx, listen: true);
+            final backendManager = Provider.of<BackendManager>(ctx, listen: false);
+            final storage = Provider.of<StorageService>(ctx, listen: false);
+            final canRestart = backendManager.backendPath != null &&
+                storage.lastUsedModelPath != null &&
+                File(storage.lastUsedModelPath!).existsSync();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!canRestart)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.amber, size: 14),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'No model loaded yet. Select a model on the Backend tab first.',
+                            style: TextStyle(fontSize: 11, color: Colors.amber),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (canRestart)
+                  ElevatedButton.icon(
+                    onPressed: koboldService.isRunning
+                        ? () async {
+                            await koboldService.stopKobold();
+                            await Future.delayed(const Duration(seconds: 1));
+                            if (!ctx.mounted) return;
+                            koboldService.startKobold(
+                              backendManager.backendPath!,
+                              storage.lastUsedModelPath!,
+                              kcppsPath: storage.activeKcppsPath,
+                              gpuLayers: storage.gpuLayers,
+                              contextSize: storage.contextSize,
+                              useVulkan: storage.useVulkan ?? false,
+                              useCublas: storage.useCublas ?? false,
+                              useMetal: storage.useMetal ?? false,
+                              useRocm: storage.useRocm ?? false,
+                            );
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('Restarting backend with new settings…')),
+                            );
+                          }
+                        : () {
+                            koboldService.startKobold(
+                              backendManager.backendPath!,
+                              storage.lastUsedModelPath!,
+                              kcppsPath: storage.activeKcppsPath,
+                              gpuLayers: storage.gpuLayers,
+                              contextSize: storage.contextSize,
+                              useVulkan: storage.useVulkan ?? false,
+                              useCublas: storage.useCublas ?? false,
+                              useMetal: storage.useMetal ?? false,
+                              useRocm: storage.useRocm ?? false,
+                            );
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('Starting backend…')),
+                            );
+                          },
+                    icon: Icon(
+                      koboldService.isRunning ? Icons.restart_alt : Icons.play_arrow,
+                      size: 18,
+                    ),
+                    label: Text(
+                      koboldService.isRunning ? 'Restart Backend' : 'Start Backend',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D4AA),
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ── Realism Mode Section ─────────────────────────────────────────────────
   Widget _buildRealismModeSection(
     BuildContext context,
     StorageService storageService,
@@ -3341,53 +4474,55 @@ class _SettingsPageState extends State<SettingsPage> {
     BuildContext context, {
     int? divisions,
     String? tooltip,
+    bool showInput = false,
+    bool isInteger = false,
+    int decimalPlaces = 2,
   }) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.textTheme.bodySmall?.color,
-                  ),
+    if (!showInput) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 13,
                 ),
-                if (tooltip != null)
-                  Tooltip(
-                    message: tooltip,
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.info_outline,
-                        size: 16,
-                        color: Colors.white38,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            Text(
-              value.toStringAsFixed(2),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
               ),
-            ),
-          ],
-        ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: divisions,
-          onChanged: onChanged,
-        ),
-      ],
+              Text(
+                isInteger ? value.toInt().toString() : value.toStringAsFixed(decimalPlaces),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+          ),
+        ],
+      );
+    }
+
+    return SliderWithInput(
+      label: label,
+      value: value,
+      min: min,
+      max: max,
+      onChanged: onChanged,
+      context: context,
+      divisions: divisions,
+      tooltip: tooltip,
+      isInteger: isInteger,
+      decimalPlaces: decimalPlaces,
     );
   }
 
@@ -4020,6 +5155,8 @@ class _SettingsPageState extends State<SettingsPage> {
             (val) => storage.setTemperature(val),
             context,
             divisions: 20,
+            showInput: true,
+            decimalPlaces: 1,
           ),
           _buildSlider(
             'Min-P',
@@ -4029,6 +5166,8 @@ class _SettingsPageState extends State<SettingsPage> {
             (val) => storage.setMinP(val),
             context,
             divisions: 100,
+            showInput: true,
+            decimalPlaces: 2,
           ),
           _buildSlider(
             'Repeat Penalty',
@@ -4038,6 +5177,8 @@ class _SettingsPageState extends State<SettingsPage> {
             (val) => storage.setRepeatPenalty(val),
             context,
             divisions: 200,
+            showInput: true,
+            decimalPlaces: 2,
           ),
           _buildSlider(
             'Repeat Penalty Tokens',
@@ -4047,6 +5188,8 @@ class _SettingsPageState extends State<SettingsPage> {
             (val) => storage.setRepeatPenaltyTokens(val.toInt()),
             context,
             divisions: 512,
+            showInput: true,
+            isInteger: true,
           ),
           _buildSlider(
             'XTC Threshold',
@@ -4056,6 +5199,8 @@ class _SettingsPageState extends State<SettingsPage> {
             (val) => storage.setXtcThreshold(val),
             context,
             divisions: 50,
+            showInput: true,
+            decimalPlaces: 2,
           ),
           _buildSlider(
             'XTC Probability',
@@ -4065,6 +5210,8 @@ class _SettingsPageState extends State<SettingsPage> {
             (val) => storage.setXtcProbability(val),
             context,
             divisions: 20,
+            showInput: true,
+            decimalPlaces: 2,
           ),
           const SizedBox(height: 8),
           Row(
@@ -4090,6 +5237,8 @@ class _SettingsPageState extends State<SettingsPage> {
               (val) => storage.setDynamicTempRange(val),
               context,
               divisions: 20,
+              showInput: true,
+              decimalPlaces: 1,
             ),
           const SizedBox(height: 24),
 
@@ -4103,6 +5252,8 @@ class _SettingsPageState extends State<SettingsPage> {
             16384,
             (val) => storage.setMaxLength(val.toInt()),
             context,
+            showInput: true,
+            isInteger: true,
           ),
           _buildSlider(
             'Min Output Tokens',
@@ -4112,40 +5263,23 @@ class _SettingsPageState extends State<SettingsPage> {
             (val) => storage.setMinLength(val.toInt()),
             context,
             divisions: 512,
+            showInput: true,
+            isInteger: true,
           ),
           // Context size — wider range for remote backends
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Context Size',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  Text(
-                    storage.contextSize.toString(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-              Slider(
-                value: storage.contextSize.toDouble().clamp(
-                  512,
-                  isRemote ? 500000.0 : 131072.0,
-                ),
-                min: 512,
-                max: isRemote ? 500000.0 : 131072.0,
-                divisions: isRemote ? null : ((131072 - 512) ~/ 512),
-                onChanged: (val) => storage.setContextSize(val.toInt()),
-                activeColor: Colors.blueAccent,
-                inactiveColor: Colors.white24,
-              ),
-            ],
+          _buildSlider(
+            'Context Size',
+            storage.contextSize.toDouble().clamp(
+              512,
+              isRemote ? 500000.0 : 131072.0,
+            ),
+            512,
+            isRemote ? 500000.0 : 131072.0,
+            (val) => storage.setContextSize(val.toInt()),
+            context,
+            divisions: isRemote ? null : ((131072 - 512) ~/ 512),
+            showInput: true,
+            isInteger: true,
           ),
           const SizedBox(height: 24),
 
@@ -4300,6 +5434,187 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 }
 
+// Slider with input field - properly manages controller lifecycle
+class SliderWithInput extends StatefulWidget {
+  const SliderWithInput({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    required this.context,
+    this.divisions,
+    this.tooltip,
+    this.isInteger = false,
+    this.decimalPlaces = 2,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final Function(double) onChanged;
+  final BuildContext context;
+  final int? divisions;
+  final String? tooltip;
+  final bool isInteger;
+  final int decimalPlaces;
+
+  @override
+  State<SliderWithInput> createState() => _SliderWithInputState();
+}
+
+class _SliderWithInputState extends State<SliderWithInput> {
+  late final FocusNode _focusNode;
+  late final TextEditingController _controller;
+  late String _formattedValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _controller = TextEditingController(
+      text: widget.isInteger
+          ? widget.value.toInt().toString()
+          : widget.value.toStringAsFixed(widget.decimalPlaces),
+    );
+    _formattedValue = widget.isInteger
+        ? widget.value.toInt().toString()
+        : widget.value.toStringAsFixed(widget.decimalPlaces);
+    
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant SliderWithInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update controller if the value changed externally
+    if (oldWidget.value != widget.value) {
+      _controller.text = widget.isInteger
+          ? widget.value.toInt().toString()
+          : widget.value.toStringAsFixed(widget.decimalPlaces);
+      _formattedValue = widget.isInteger
+          ? widget.value.toInt().toString()
+          : widget.value.toStringAsFixed(widget.decimalPlaces);
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus) {
+      _commitValue();
+    }
+  }
+
+  void _commitValue() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) {
+      _controller.text = _formattedValue;
+      return;
+    }
+    final num? parsed = widget.isInteger
+        ? int.tryParse(text)
+        : double.tryParse(text);
+    if (parsed == null) {
+      _controller.text = _formattedValue;
+      return;
+    }
+    final double clamped = parsed.toDouble().clamp(widget.min, widget.max);
+    widget.onChanged(clamped);
+    _formattedValue = widget.isInteger
+        ? clamped.toInt().toString()
+        : clamped.toStringAsFixed(widget.decimalPlaces);
+    _controller.text = _formattedValue;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.textTheme.bodySmall?.color,
+                  ),
+                ),
+                if (widget.tooltip != null)
+                  Tooltip(
+                    message: widget.tooltip!,
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.white38,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(
+              width: 80,
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                keyboardType: widget.isInteger
+                    ? TextInputType.number
+                    : const TextInputType.numberWithOptions(decimal: true),
+                textAlign: TextAlign.right,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide(color: Colors.white24, width: 1),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide(color: Colors.white24, width: 1),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide(color: Colors.blueAccent, width: 1.5),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                ),
+                onSubmitted: (_) => _commitValue(),
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: widget.value,
+          min: widget.min,
+          max: widget.max,
+          divisions: widget.divisions,
+          onChanged: widget.onChanged,
+        ),
+      ],
+    );
+  }
+}
+
 String _engineDisplayName(String engineId) {
   switch (engineId) {
     case 'kokoro':
@@ -4311,4 +5626,221 @@ String _engineDisplayName(String engineId) {
     default:
       return 'TTS';
   }
+}
+
+String _expressionModeLabel(String mode) {
+  switch (mode) {
+    case 'llm':
+      return 'LLM';
+    case 'onnx':
+      return 'ONNX';
+    case 'manual':
+      return 'Manual';
+    default:
+      return mode;
+  }
+}
+
+String _expressionDisplayLabel(String mode) {
+  switch (mode) {
+    case 'sidebar':
+      return 'Sidebar';
+    case 'background':
+      return 'Background';
+    case 'both':
+      return 'Both';
+    default:
+      return mode;
+  }
+}
+
+Future<void> _showColorPicker(
+  BuildContext context,
+  Color initialColor,
+  void Function(Color) onChanged,
+) async {
+  // Preset colors for quick selection
+  const presetColors = [
+    Color(0xFF3B82F6), // Blue - User default
+    Color(0xFF10B981), // Emerald
+    Color(0xFFF59E0B), // Amber
+    Color(0xFFEF4444), // Red
+    Color(0xFF8B5CF6), // Purple
+    Color(0xFFEC4899), // Pink
+    Color(0xFF14B8A6), // Teal
+    Color(0xFFF97316), // Orange
+    Color(0xFF6366F1), // Indigo
+    Color(0xFF06B6D4), // Cyan
+    Color(0xFF10B981), // Emerald
+    Color(0xFF84CC16), // Lime
+  ];
+
+  // Track selected color outside the builder so it persists across rebuilds
+  Color selectedColor = initialColor;
+  void Function(void Function())? setStateCallback;
+
+  final picked = await showDialog<Color>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        setStateCallback = setState;
+        return AlertDialog(
+          title: const Text('Select Color'),
+          content: SizedBox(
+            width: 380,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Preset colors row
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Quick Select',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: presetColors.map((color) => GestureDetector(
+                      onTap: () => Navigator.pop(context, color),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: color == selectedColor
+                                ? Colors.blueAccent
+                                : Colors.white24,
+                            width: 2,
+                          ),
+                        ),
+                        child: color == selectedColor
+                            ? const Icon(
+                                Icons.check,
+                                size: 18,
+                                color: Colors.white,
+                              )
+                            : null,
+                      ),
+                    )).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  // Color picker - use wheel picker for full color spectrum
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ColorPicker(
+                      color: selectedColor,
+                      onColorChanged: (color) {
+                        selectedColor = color;
+                        setStateCallback?.call(() {});
+                      },
+                      wheelDiameter: 160,
+                      pickersEnabled: const <ColorPickerType, bool>{
+                        ColorPickerType.wheel: true,
+                      },
+                      showColorCode: true,
+                      colorCodeHasColor: true,
+                      copyPasteBehavior: const ColorPickerCopyPasteBehavior(
+                        copyButton: true,
+                        pasteButton: true,
+                      ),
+                    ),
+                  ),
+                   const SizedBox(height: 16),
+                 ],
+               ),
+             ),
+           ),
+           actions: [
+             TextButton(
+               onPressed: () => Navigator.pop(context),
+               child: const Text('Cancel'),
+             ),
+             ElevatedButton(
+               onPressed: () => Navigator.pop(context, selectedColor),
+               style: ElevatedButton.styleFrom(
+                 backgroundColor: Colors.blueAccent,
+                 foregroundColor: Colors.white,
+               ),
+               child: const Text('OK'),
+             ),
+           ],
+         );
+       },
+     ),
+   );
+    if (picked != null) {
+      onChanged(picked);
+    }
+  }
+
+Widget _buildFontRow(StorageService storageService) {
+  // Curated list of popular Google Fonts suitable for chat
+  const chatFonts = [
+    ('Default (Inter)', ''),
+    ('Roboto', 'Roboto'),
+    ('Open Sans', 'Open Sans'),
+    ('Lato', 'Lato'),
+    ('Source Sans 3', 'Source Sans 3'),
+    ('Nunito', 'Nunito'),
+    ('Poppins', 'Poppins'),
+    ('Montserrat', 'Montserrat'),
+    ('Raleway', 'Raleway'),
+    ('Work Sans', 'Work Sans'),
+    ('DM Sans', 'DM Sans'),
+    ('Quicksand', 'Quicksand'),
+    ('Rubik', 'Rubik'),
+    ('Karla', 'Karla'),
+    ('Merriweather', 'Merriweather'),
+    ('Playfair Display', 'Playfair Display'),
+    ('Roboto Mono', 'Roboto Mono'),
+    ('Fira Code', 'Fira Code'),
+  ];
+
+  final currentFont = storageService.globalChatFontFamily;
+
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      children: [
+        const Text('Chat Font', style: TextStyle(color: Colors.white70, fontSize: 13)),
+        const Spacer(),
+        Container(
+          constraints: const BoxConstraints(maxWidth: 200),
+          child: DropdownButton<String>(
+            value: currentFont.isEmpty ? '' : currentFont,
+            isExpanded: true,
+            dropdownColor: const Color(0xFF1E293B),
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            underline: const SizedBox.shrink(),
+            items: chatFonts.map((font) {
+              return DropdownMenuItem<String>(
+                value: font.$2,
+                child: Text(
+                  font.$1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: font.$2.isEmpty ? null : font.$2,
+                    color: Colors.white,
+                    fontSize: 13,
+                  ),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              storageService.setGlobalChatFontFamily(value ?? '');
+            },
+          ),
+        ),
+      ],
+    ),
+  );
 }

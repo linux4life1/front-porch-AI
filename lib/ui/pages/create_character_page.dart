@@ -21,6 +21,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
@@ -29,6 +30,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
+import 'package:front_porch_ai/utils/emotion_labels.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 
@@ -70,6 +72,11 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
 
   // ── Lorebook (Step 3) ──
   final List<LorebookEntry> _lorebookEntries = [];
+
+  // ── Expression Images (Step 5) ──
+  final List<_ExpressionImageEntry> _expressionImages = [];
+  Uint8List? _pendingExpressionBytes;
+  bool _showingExpressionPicker = false;
 
   // ── Realism Engine (Step 4) ──
   bool _realismEnabled = false;
@@ -178,7 +185,9 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
                             ? _buildLorebookStep()
                             : _currentStep == 4
                                 ? _buildRealismStep()
-                                : _buildReviewStep(),
+                                : _currentStep == 5
+                                    ? _buildExpressionImagesStep()
+                                    : _buildReviewStep(),
           ),
           // Floating token counter
           Positioned(
@@ -209,7 +218,9 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         _stepLine(),
         _stepDot(4, 'Realism'),
         _stepLine(),
-        _stepDot(5, 'Review'),
+        _stepDot(5, 'Expressions'),
+        _stepLine(),
+        _stepDot(6, 'Review'),
       ],
     );
   }
@@ -301,7 +312,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     VoidCallback? onNext,
     bool showBack = true,
   }) {
-    final labels = ['Personality', 'Dialogue', 'Lorebook', 'Realism Engine', 'Review & Save'];
+    final labels = ['Personality', 'Dialogue', 'Lorebook', 'Realism Engine', 'Expression Images', 'Review & Save'];
     final nextText = nextLabel ?? (currentStep < labels.length ? 'Next: ${labels[currentStep]}' : 'Save');
 
     return Padding(
@@ -1019,7 +1030,397 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  //  STEP 5: REVIEW & SAVE
+  //  STEP 5: EXPRESSION IMAGES
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildExpressionImagesStep() {
+    return Center(
+      key: const ValueKey('expressions'),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Expression Images',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Add sprite images for different emotions. These will be displayed during chat '
+                'to reflect your character\'s mood. Optional — you can always add them later.',
+                style: TextStyle(fontSize: 14, color: Colors.white54, height: 1.5),
+              ),
+              const SizedBox(height: 32),
+
+              // Add buttons
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _pickExpressionImage,
+                      icon: const Icon(Icons.add_photo_alternate, size: 18),
+                      label: const Text('Add Image'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blueAccent,
+                        side: BorderSide(color: Colors.blueAccent, width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: _importExpressionZip,
+                      icon: const Icon(Icons.folder_zip, size: 18),
+                      label: const Text('Import ZIP'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.purpleAccent,
+                        side: BorderSide(color: Colors.purpleAccent, width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Emotion picker (shown when user picked a file but hasn't assigned emotion)
+              if (_showingExpressionPicker && _pendingExpressionBytes != null)
+                _buildExpressionEmotionPicker(),
+
+              // Expression grid
+              if (_expressionImages.isNotEmpty)
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.8,
+                  ),
+                  itemCount: _expressionImages.length,
+                  itemBuilder: (context, index) {
+                    final entry = _expressionImages[index];
+                    final emoji = EmotionLabels.emoji[entry.emotion] ?? '';
+                    return Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(11),
+                        child: Stack(
+                          children: [
+                            SizedBox.expand(
+                              child: Image.memory(
+                                entry.bytes,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.7),
+                                  ],
+                                  stops: const [0.4, 1.0],
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() => _expressionImages.removeAt(index));
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, size: 14, color: Colors.redAccent),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 6,
+                              left: 8,
+                              right: 8,
+                              child: Row(
+                                children: [
+                                  Text(
+                                    emoji,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      entry.emotion,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+              // Empty state
+              if (_expressionImages.isEmpty && !_showingExpressionPicker)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.mood, size: 48, color: Colors.white.withValues(alpha: 0.15)),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No expression images added yet',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              _buildNavButtons(currentStep: 5),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Pick a file for expression image.
+  Future<void> _pickExpressionImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    Uint8List bytes;
+    if (result.files.first.bytes != null) {
+      bytes = result.files.first.bytes!;
+    } else if (result.files.first.path != null) {
+      bytes = await File(result.files.first.path!).readAsBytes();
+    } else {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _pendingExpressionBytes = bytes;
+        _showingExpressionPicker = true;
+      });
+    }
+  }
+
+  /// Import a ZIP file containing expression images.
+  Future<void> _importExpressionZip() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+      allowMultiple: false,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    Uint8List zipBytes;
+    if (result.files.first.bytes != null) {
+      zipBytes = result.files.first.bytes!;
+    } else if (result.files.first.path != null) {
+      zipBytes = await File(result.files.first.path!).readAsBytes();
+    } else {
+      return;
+    }
+
+    try {
+      final zipDecoder = ZipDecoder();
+      final archiveData = zipDecoder.decodeBytes(zipBytes);
+
+      final imageExtensions = {'.png', '.jpg', '.jpeg', '.webp', '.gif'};
+      int imported = 0;
+      int unrecognized = 0;
+
+      for (final entry in archiveData) {
+        if (!entry.isFile) continue;
+
+        final ext = entry.name.split('.').last.toLowerCase();
+        if (!imageExtensions.contains('.$ext')) continue;
+
+        final nameWithoutExt = entry.name.replaceAll(RegExp(r'\.\w+$'), '');
+        String? emotionLabel;
+
+        for (final label in EmotionLabels.all) {
+          if (nameWithoutExt.toLowerCase() == label ||
+              nameWithoutExt.toLowerCase().startsWith('$label-') ||
+              nameWithoutExt.toLowerCase().startsWith('$label.') ||
+              nameWithoutExt.toLowerCase().startsWith('${label}_')) {
+            emotionLabel = label;
+            break;
+          }
+        }
+
+        if (emotionLabel == null) {
+          unrecognized++;
+          continue;
+        }
+
+        final Uint8List? data = entry.content as Uint8List?;
+        if (data == null) continue;
+
+        _expressionImages.add(_ExpressionImageEntry(
+          bytes: data,
+          emotion: emotionLabel,
+        ));
+        imported++;
+      }
+
+      if (mounted) {
+        setState(() {});
+        String message = 'Imported $imported expression image(s).';
+        if (unrecognized > 0) {
+          message += ' $unrecognized unrecognized.';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: imported > 0 ? Colors.green : Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to import ZIP: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Inline emotion picker for the pending expression image.
+  Widget _buildExpressionEmotionPicker() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Preview
+          Center(
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(9),
+                child: Image.memory(
+                  _pendingExpressionBytes!,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Choose emotion for this image',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white70),
+          ),
+          const SizedBox(height: 12),
+          // Emotion grid
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: EmotionLabels.all.map((emotion) {
+              final emoji = EmotionLabels.emoji[emotion] ?? '';
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    _expressionImages.add(_ExpressionImageEntry(
+                      bytes: _pendingExpressionBytes!,
+                      emotion: emotion,
+                    ));
+                    _pendingExpressionBytes = null;
+                    _showingExpressionPicker = false;
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(emoji, style: const TextStyle(fontSize: 13)),
+                      const SizedBox(width: 4),
+                      Text(
+                        emotion,
+                        style: const TextStyle(fontSize: 11, color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: TextButton(
+              onPressed: () {
+                setState(() {
+                  _pendingExpressionBytes = null;
+                  _showingExpressionPicker = false;
+                });
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.white.withValues(alpha: 0.4)),
+              child: const Text('Cancel'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  STEP 6: REVIEW & SAVE
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildReviewStep() {
@@ -1345,6 +1746,20 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
       // Add to repository
       await repo.addCharacter(card);
 
+      // Save expression images
+      if (_expressionImages.isNotEmpty) {
+        final avatarDir = storage.characterAvatarDir(name);
+        if (!await avatarDir.exists()) {
+          await avatarDir.create(recursive: true);
+        }
+        for (final entry in _expressionImages) {
+          final filename = 'avatar_${DateTime.now().millisecondsSinceEpoch}_${entry.emotion}.png';
+          await File(p.join(avatarDir.path, filename)).writeAsBytes(entry.bytes);
+          await repo.addAvatar(card.dbId!, name, entry.bytes, entry.emotion);
+        }
+        debugPrint('[CreateCharacter] Saved ${_expressionImages.length} expression images');
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1535,4 +1950,15 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
       controller.text = result;
     }
   }
+}
+
+/// Holds a pending expression image with its assigned emotion label.
+class _ExpressionImageEntry {
+  final Uint8List bytes;
+  final String emotion;
+
+  _ExpressionImageEntry({
+    required this.bytes,
+    required this.emotion,
+  });
 }

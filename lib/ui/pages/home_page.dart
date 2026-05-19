@@ -54,12 +54,13 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+enum SearchScope { currentFolder, folderRecursive, allCharacters }
+
 class _HomePageState extends State<HomePage> {
   String _searchQuery = '';
   String? _activeFolderId; // null = top level view
   List<String> _folderStack = []; // navigation breadcrumb for subfolder back
-  bool _searchAll =
-      false; // when true, search spans all characters even in a folder
+  SearchScope _searchScope = SearchScope.currentFolder;
   final _searchController = TextEditingController();
 
   // Multi-select for group creation
@@ -390,7 +391,7 @@ class _HomePageState extends State<HomePage> {
                               } else {
                                 _activeFolderId = null;
                               }
-                              _searchAll = false;
+                              _searchScope = SearchScope.currentFolder;
                             }),
                           ),
                           const SizedBox(width: 8),
@@ -614,15 +615,15 @@ class _HomePageState extends State<HomePage> {
                       controller: _searchController,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: _activeFolderId != null && !_searchAll
+                        hintText: _activeFolderId != null && _searchScope != SearchScope.allCharacters
                             ? 'Search this folder...'
                             : 'Search by name or tag...',
                         hintStyle: const TextStyle(color: Colors.white38),
                         prefixIcon: _activeFolderId != null
-                            ? PopupMenuButton<bool>(
+                            ? PopupMenuButton<SearchScope>(
                                 icon: Icon(
-                                  _searchAll ? Icons.search : Icons.folder_open,
-                                  color: _searchAll
+                                  _searchScope == SearchScope.allCharacters ? Icons.search : Icons.folder_open,
+                                  color: _searchScope == SearchScope.allCharacters
                                       ? Colors.blueAccent
                                       : Colors.amberAccent,
                                   size: 20,
@@ -630,24 +631,24 @@ class _HomePageState extends State<HomePage> {
                                 tooltip: 'Search scope',
                                 color: const Color(0xFF1E293B),
                                 onSelected: (val) =>
-                                    setState(() => _searchAll = val),
+                                    setState(() => _searchScope = val),
                                 itemBuilder: (_) => [
                                   PopupMenuItem(
-                                    value: false,
+                                    value: SearchScope.currentFolder,
                                     child: Row(
                                       children: [
                                         Icon(
-                                          Icons.folder_open,
+                                          Icons.folder,
                                           size: 18,
-                                          color: !_searchAll
+                                          color: _searchScope == SearchScope.currentFolder
                                               ? Colors.amberAccent
                                               : Colors.white54,
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          'This Folder',
+                                          'This Folder Only',
                                           style: TextStyle(
-                                            color: !_searchAll
+                                            color: _searchScope == SearchScope.currentFolder
                                                 ? Colors.amberAccent
                                                 : Colors.white70,
                                             fontSize: 13,
@@ -657,13 +658,37 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ),
                                   PopupMenuItem(
-                                    value: true,
+                                    value: SearchScope.folderRecursive,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.snippet_folder,
+                                          size: 18,
+                                          color: _searchScope == SearchScope.folderRecursive
+                                              ? Colors.amberAccent
+                                              : Colors.white54,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Folder & Subfolders',
+                                          style: TextStyle(
+                                            color: _searchScope == SearchScope.folderRecursive
+                                                ? Colors.amberAccent
+                                                : Colors.white70,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: SearchScope.allCharacters,
                                     child: Row(
                                       children: [
                                         Icon(
                                           Icons.search,
                                           size: 18,
-                                          color: _searchAll
+                                          color: _searchScope == SearchScope.allCharacters
                                               ? Colors.blueAccent
                                               : Colors.white54,
                                         ),
@@ -671,7 +696,7 @@ class _HomePageState extends State<HomePage> {
                                         Text(
                                           'All Characters',
                                           style: TextStyle(
-                                            color: _searchAll
+                                            color: _searchScope == SearchScope.allCharacters
                                                 ? Colors.blueAccent
                                                 : Colors.white70,
                                             fontSize: 13,
@@ -866,13 +891,16 @@ class _HomePageState extends State<HomePage> {
   ) {
     List<CharacterCard> characters;
 
-    // When _searchAll is true and there's a search query, skip the folder filter
-    final skipFolderFilter = _searchAll && _searchQuery.isNotEmpty;
+    // When _searchScope is allCharacters and there's a search query, skip the folder filter
+    final skipFolderFilter = _searchScope == SearchScope.allCharacters && _searchQuery.isNotEmpty;
     if (_activeFolderId != null && !skipFolderFilter) {
       // Show only characters in this folder
-      final folderFilenames = folderService.getCharactersInFolderRecursive(
-        _activeFolderId!,
-      );
+      List<String> folderFilenames;
+      if (_searchQuery.isNotEmpty && _searchScope == SearchScope.currentFolder) {
+        folderFilenames = folderService.getCharactersInFolder(_activeFolderId!);
+      } else {
+        folderFilenames = folderService.getCharactersInFolderRecursive(_activeFolderId!);
+      }
       // Compare by filename since FolderService stores filenames only
       characters = repo.characters
           .where(
@@ -1312,7 +1340,9 @@ class _HomePageState extends State<HomePage> {
   ) {
     final charId = character.dbId ?? _getCharacterIdFromCard(character);
     final msgCount = _messageCountCache[charId] ?? 0;
-    final isSelected = _selectedCharacterIds.contains(charId);
+    
+    final stringId = _getCharacterIdFromCard(character);
+    final isSelected = _selectedCharacterIds.contains(stringId);
 
     return Card(
       color: Theme.of(context).cardColor,
@@ -2185,7 +2215,12 @@ class _HomePageState extends State<HomePage> {
     CharacterRepository repo,
     FolderService folderService,
   ) {
-    final folders = folderService.folders;
+    final folders = folderService.folders.toList()
+      ..sort((a, b) {
+        final pathA = folderService.getFolderPath(a.id).toLowerCase();
+        final pathB = folderService.getFolderPath(b.id).toLowerCase();
+        return pathA.compareTo(pathB);
+      });
 
     showDialog(
       context: context,
@@ -2207,43 +2242,49 @@ class _HomePageState extends State<HomePage> {
         ),
         content: SizedBox(
           width: 320,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (folders.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    'No folders yet. Create one below.',
-                    style: TextStyle(color: Colors.white54),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (folders.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'No folders yet. Create one below.',
+                      style: TextStyle(color: Colors.white54),
+                    ),
                   ),
-                ),
-              ...folders.map(
-                (folder) => ListTile(
-                  leading: const Icon(Icons.folder, color: Colors.amberAccent),
-                  title: Text(
-                    folder.name,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  subtitle: Text(
-                    '${folder.characterPaths.length} characters',
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  hoverColor: Colors.white10,
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await _moveSelectedToFolder(
-                      context,
-                      folder.id,
-                      repo,
-                      folderService,
-                    );
-                  },
-                ),
-              ),
+                ...folders.map((folder) {
+                  final folderPath = folderService.getFolderPath(folder.id);
+                  final isSubfolder = folder.parentId != null;
+                  return ListTile(
+                    leading: Icon(
+                      isSubfolder ? Icons.subdirectory_arrow_right : Icons.folder,
+                      color: Colors.amberAccent,
+                    ),
+                    title: Text(
+                      folderPath,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      '${folder.characterPaths.length} characters',
+                      style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    hoverColor: Colors.white10,
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await _moveSelectedToFolder(
+                        context,
+                        folder.id,
+                        repo,
+                        folderService,
+                      );
+                    },
+                  );
+                }),
               const Divider(color: Colors.white12),
               ListTile(
                 leading: const Icon(
@@ -2274,6 +2315,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
+        ),
         ),
         actions: [
           TextButton(

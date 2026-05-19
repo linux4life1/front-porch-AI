@@ -304,8 +304,8 @@ class RealismFormSection extends StatelessWidget {
                 _sliderRow(
                   label: 'Short-Term Bond',
                   value: shortTermBond,
-                  min: -150,
-                  max: 150,
+                  min: -300,
+                  max: 300,
                   tierName: _shortTermTierName(shortTermBond),
                   color: _bondColor(shortTermBond),
                   onChanged: (v) => onShortTermBondChanged(v.round()),
@@ -315,8 +315,8 @@ class RealismFormSection extends StatelessWidget {
                 _sliderRow(
                   label: 'Long-Term Bond',
                   value: longTermBond,
-                  min: -150,
-                  max: 150,
+                  min: -300,
+                  max: 300,
                   tierName: _longTermTierName(longTermBond),
                   color: _bondColor(longTermBond),
                   onChanged: (v) => onLongTermBondChanged(v.round()),

@@ -973,8 +973,8 @@ class _StorySetupPageState extends State<StorySetupPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(persona.name, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
-                      if (persona.description.isNotEmpty)
-                        Text(persona.description, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+          if (persona.persona.isNotEmpty)
+              Text(persona.persona, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -1053,8 +1053,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
       final persona = personaService.persona;
       snapshots.add({
         'name': persona.name,
-        'description': persona.description,
-        'personality': persona.persona,
+          'personality': persona.persona,
         'scenario': '',
         'first_message': '',
         'system_prompt': '',

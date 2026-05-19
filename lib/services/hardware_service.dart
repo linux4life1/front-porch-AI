@@ -366,24 +366,44 @@ class HardwareService extends ChangeNotifier {
         }
       }
 
-      // Method 3: nvidia-smi (Fallback for Nvidia GPUs — reliable, no uint32 overflow)
-      if (vramMb == 0) {
+      // Method 3: nvidia-smi — always preferred for Nvidia name + VRAM.
+      // Runs when: (a) VRAM is still 0 (registry + WMI both failed or overflowed),
+      //        or  (b) GPU name is still unknown.
+      // The RTX 50-series (Blackwell) hits the uint32 overflow at exactly 16 GB,
+      // and newer drivers may not populate qwMemorySize for new architectures yet.
+      // nvidia-smi is always the authoritative source for Nvidia cards.
+      if (vramMb == 0 || gpuName == 'Unknown GPU') {
         try {
           final smiResult = await Process.run('nvidia-smi', [
             '--query-gpu=name,memory.total',
             '--format=csv,noheader,nounits'
           ]);
           if (smiResult.exitCode == 0) {
-            final line = smiResult.stdout.toString().trim().split('\n').first;
-            final parts = line.split(',').map((s) => s.trim()).toList();
-            if (parts.length >= 2) {
-              if (gpuName == 'Unknown GPU') gpuName = parts[0];
-              vramMb = int.tryParse(parts[1]) ?? 0;
-              debugPrint('[Hardware] nvidia-smi fallback: $gpuName, ${vramMb}MB');
+            final lines = smiResult.stdout.toString().trim().split('\n');
+            // Pick the GPU with the most VRAM (matches what registry/WMI did)
+            int bestVram = vramMb;
+            String bestName = gpuName;
+            for (final line in lines) {
+              final parts = line.split(',').map((s) => s.trim()).toList();
+              if (parts.length >= 2) {
+                final smiVram = int.tryParse(parts[1]) ?? 0;
+                if (smiVram > bestVram) {
+                  bestVram = smiVram;
+                  bestName = parts[0];
+                }
+                // Always take the name if we still don't have one
+                if (gpuName == 'Unknown GPU' && parts[0].isNotEmpty) {
+                  bestName = parts[0];
+                  bestVram = smiVram > 0 ? smiVram : bestVram;
+                }
+              }
             }
+            if (bestName != 'Unknown GPU') gpuName = bestName;
+            if (bestVram > 0) vramMb = bestVram;
+            debugPrint('[Hardware] nvidia-smi: $gpuName, ${vramMb}MB');
           }
         } catch (_) {
-          // nvidia-smi not available
+          // nvidia-smi not available — Nvidia card without drivers, fall through
         }
       }
 

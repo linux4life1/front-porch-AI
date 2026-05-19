@@ -229,6 +229,14 @@ class FolderService extends ChangeNotifier {
     return _folders.where((f) => f.parentId == parentId).toList();
   }
 
+  /// Get the full path of a folder (e.g. "Parent / Child")
+  String getFolderPath(String folderId) {
+    final folder = _folders.firstWhere((f) => f.id == folderId, orElse: () => CharacterFolder(id: '', name: ''));
+    if (folder.id.isEmpty) return 'Unknown';
+    if (folder.parentId == null) return folder.name;
+    return '${getFolderPath(folder.parentId!)} / ${folder.name}';
+  }
+
   /// Get all character filenames that are in ANY folder (for filtering unfoldered)
   Set<String> getUnfolderedCharacterPaths() {
     final folderedPaths = <String>{};

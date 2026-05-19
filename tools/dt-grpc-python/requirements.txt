@@ -1,0 +1,6 @@
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+flatbuffers>=24.0
+numpy>=1.24.0
+Pillow>=10.0.0
+fpzip>=1.2.0

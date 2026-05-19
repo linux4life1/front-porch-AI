@@ -62,7 +62,7 @@ class _CharacterLifecycleSimulator {
     // Seed from extensions if present
     if (_currentCharacter!.frontPorchExtensions != null) {
       final ext = _currentCharacter!.frontPorchExtensions!;
-      _affectionScore = ext.shortTermBond.clamp(-150, 150);
+      _affectionScore = ext.shortTermBond.clamp(-300, 300);
       _trustLevel = ext.trustLevel.clamp(-100, 100);
       _characterEmotion = ext.characterEmotion;
     }
@@ -85,7 +85,7 @@ class _CharacterLifecycleSimulator {
     _messageHistory.add(characterResponse);
 
     if (bondDelta != null) {
-      _affectionScore = (_affectionScore + bondDelta).clamp(-150, 150);
+      _affectionScore = (_affectionScore + bondDelta).clamp(-300, 300);
     }
     if (trustDelta != null) {
       _trustLevel = (_trustLevel + trustDelta).clamp(-100, 100);
@@ -140,7 +140,7 @@ class _CharacterLifecycleSimulator {
         currentTask: existing.currentTask,
       );
       final ext = _currentCharacter!.frontPorchExtensions!;
-      _affectionScore = ext.shortTermBond.clamp(-150, 150);
+      _affectionScore = ext.shortTermBond.clamp(-300, 300);
       _trustLevel = ext.trustLevel.clamp(-100, 100);
       _characterEmotion = ext.characterEmotion;
     } else {

@@ -39,7 +39,7 @@ class LogView extends StatelessWidget {
         itemBuilder: (context, index) {
           // Reverse order to show newest at bottom if list is reversed, 
           // or just show normally. Assuming simpler list here.
-          return Text(
+          return SelectableText(
             logs[index],
             style: const TextStyle(color: Colors.greenAccent, fontFamily: 'monospace', fontSize: 12),
           );

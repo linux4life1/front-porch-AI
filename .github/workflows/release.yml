@@ -23,11 +23,9 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            asset_name: Front_Porch_AI_Windows.zip
             build_path: build/windows/x64/runner/Release
           - os: macos-latest
             platform: macos
-            asset_name: Front_Porch_AI_MacOS.zip
             build_path: build/macos/Build/Products/Release
           - os: ubuntu-22.04
             platform: linux
@@ -54,16 +52,51 @@ jobs:
       - name: Sync Version from Tag
         shell: bash
         run: |
+          # This step converts the Git tag (e.g. v0.9.8.0.1) into proper version strings
+          # for both pubspec.yaml and the in-app version constant.
+          # See detailed explanation in the bash logic below.
           TAG="${GITHUB_REF_NAME}"
           VERSION=$(echo "$TAG" | sed 's/^[vV]//')
-          # Convert 4-part (0.0.4.1) to Flutter format (0.0.4+1)
-          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.([0-9]+)$ ]]; then
-            FLUTTER_VERSION="$(echo $VERSION | sed 's/\.\([^.]*\)$/+\1/')"
+
+          # === Version Normalization for Flutter ===
+          # This project deliberately uses "deep" versioning (e.g. 0.9.8.0.1, 0.9.8.1.1)
+          # so the maintainer can do many tiny patches under 0.9.8 without burning
+          # through 0.9.8.1 → 0.9.8.9.
+          #
+          # For pubspec.yaml (FLUTTER_VERSION), we must produce a valid Flutter version.
+          # Flutter expects at most 3 numeric segments before the "+" build number.
+          #
+          # Rule:
+          #   - Use the first 3 segments as the base version (0.9.8)
+          #   - Use the LAST segment from the tag as the build number
+          #
+          # Examples:
+          #   0.9.8       → 0.9.8+0
+          #   0.9.8.1     → 0.9.8+1
+          #   0.9.8.0.1   → 0.9.8+1
+          #   0.9.8.1.1   → 0.9.8+1
+          #
+          # DISPLAY_VERSION keeps the original full string (e.g. "0.9.8.0.1")
+          # so it shows correctly inside the app.
+          #
+          # FLUTTER_VERSION is only for pubspec.yaml compatibility.
+          IFS='.' read -ra PARTS <<< "$VERSION"
+          COUNT=${#PARTS[@]}
+
+          if [ "$COUNT" -gt 1 ]; then
+              # Always use first 3 parts as base (or fewer if the version is short)
+              BASE_PARTS=("${PARTS[@]:0:3}")
+              BASE=$(IFS='.'; echo "${BASE_PARTS[*]}")
+              BUILD=${PARTS[$((COUNT-1))]}
+              FLUTTER_VERSION="${BASE}+${BUILD}"
           else
-            FLUTTER_VERSION="${VERSION}+0"
+              FLUTTER_VERSION="${VERSION}+0"
           fi
+
           echo "Setting version to: $FLUTTER_VERSION"
-          # Use the full version (including 4th part if present) for the Dart display constant
+
+          # DISPLAY_VERSION keeps the original tag (e.g. "0.9.8.0.1") so it shows
+          # correctly in the app's About/Settings screen and update dialogs.
           DISPLAY_VERSION="$VERSION"
           # Use Python for cross-platform reliability (sed can fail silently with Windows \r\n line endings)
           python3 -c "
@@ -122,7 +155,7 @@ jobs:
 
           # Install TTS dependencies + PyInstaller
           pip install --upgrade pip
-          pip install pyinstaller kokoro-onnx soundfile piper_tts pathvalidate faster-whisper
+          pip install pyinstaller kokoro-onnx soundfile piper_tts pathvalidate faster-whisper numpy onnxruntime transformers huggingface_hub
 
           # Build Kokoro TTS as a standalone directory bundle
           echo "Building Kokoro TTS binary..."
@@ -144,6 +177,9 @@ jobs:
             --workpath ./build_tmp/kokoro \
             --specpath ./build_tmp/kokoro \
             --clean \
+            --exclude-module torch \
+            --exclude-module torchvision \
+            --exclude-module torchaudio \
             --noconfirm
           echo "Kokoro built at: $DEST/kokoro_tts/"
 
@@ -161,6 +197,9 @@ jobs:
             --workpath ./build_tmp/piper \
             --specpath ./build_tmp/piper \
             --clean \
+            --exclude-module torch \
+            --exclude-module torchvision \
+            --exclude-module torchaudio \
             --noconfirm
           echo "Piper built at: $DEST/piper/"
 
@@ -179,6 +218,9 @@ jobs:
             --workpath ./build_tmp/whisper \
             --specpath ./build_tmp/whisper \
             --clean \
+            --exclude-module torch \
+            --exclude-module torchvision \
+            --exclude-module torchaudio \
             --noconfirm
           echo "Whisper STT built at: $STT_DEST/whisper_stt/"
 
@@ -194,6 +236,29 @@ jobs:
           mkdir -p "$STT_DEST/embed_server"
           cp "$EMBED_BINARY" "$STT_DEST/embed_server/"
           echo "Embedding server built at: $STT_DEST/embed_server/"
+
+          # Build Sentiment Classifier (expression images ONNX)
+          echo "Building Sentiment Classifier binary..."
+          pyinstaller sentiment_classifier.py \
+            --onedir \
+            --name sentiment_classifier \
+            --collect-all huggingface_hub \
+            --collect-all transformers \
+            --collect-all numpy \
+            --collect-all onnxruntime \
+            --hidden-import huggingface_hub \
+            --hidden-import transformers \
+            --hidden-import numpy \
+            --hidden-import onnxruntime \
+            --distpath "$STT_DEST" \
+            --workpath ./build_tmp/sentiment \
+            --specpath ./build_tmp/sentiment \
+            --clean \
+            --exclude-module torch \
+            --exclude-module torchvision \
+            --exclude-module torchaudio \
+            --noconfirm
+          echo "Sentiment classifier built at: $STT_DEST/sentiment_classifier/"
 
           # For macOS, copy into the app bundle Resources
           if [ "${{ matrix.platform }}" = "macos" ]; then
@@ -215,6 +280,11 @@ jobs:
               mkdir -p "$EMBED_RESOURCES"
               cp -R "$STT_DEST/embed_server/"* "$EMBED_RESOURCES/"
               chmod +x "$EMBED_RESOURCES/embed_server"
+
+              SENTIMENT_RESOURCES="$APP_NAME/Contents/Resources/sentiment_classifier"
+              mkdir -p "$SENTIMENT_RESOURCES"
+              cp -R "$STT_DEST/sentiment_classifier/"* "$SENTIMENT_RESOURCES/"
+              chmod +x "$SENTIMENT_RESOURCES/sentiment_classifier"
             fi
           fi
 
@@ -243,12 +313,7 @@ jobs:
           codesign --force --sign - --entitlements "$ENTITLEMENTS" "$APP_NAME"
           echo "✓ Ad-hoc signature applied with entitlements"
 
-      - name: Package Windows (zip)
-        if: matrix.platform == 'windows'
-        run: |
-          cd ${{ matrix.build_path }}
-          Compress-Archive -Path * -DestinationPath ../../../../../${{ matrix.asset_name }}
-        shell: pwsh
+
 
       - name: Download VC++ Redistributable
         if: matrix.platform == 'windows'
@@ -427,14 +492,13 @@ jobs:
           
           # 4. Standard tar.gz
           cd ${{ matrix.build_path }}
-          tar -czvf ../../../../../${{ matrix.asset_name }} .
+           tar -czvf ../../../../../${{ matrix.asset_name }} .
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v5
         with:
           name: build-${{ matrix.platform }}
           path: |
-            ${{ matrix.asset_name }}
             Front_Porch_AI-Linux.AppImage
             Front_Porch_AI-Linux.deb
             Front_Porch_AI-Linux.rpm
@@ -447,13 +511,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${{ matrix.asset_name }}
             Front_Porch_AI-Linux.AppImage
             Front_Porch_AI-Linux.deb
             Front_Porch_AI-Linux.rpm
             Front_Porch_AI_Setup.exe
             Front_Porch_AI.dmg
-          generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, 'beta') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

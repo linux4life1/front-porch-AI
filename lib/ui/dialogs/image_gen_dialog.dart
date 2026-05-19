@@ -39,7 +39,7 @@ class ImageGenDialog extends StatefulWidget {
   final String? scenario;
   final String? worldInfo;
   final String? personaName;
-  final String? personaDescription;
+  final String? personaText;
   final List<String>? recentMessages;
 
   /// The active LLM service for smart prompt generation (nullable for fallback).
@@ -59,7 +59,7 @@ class ImageGenDialog extends StatefulWidget {
     this.scenario,
     this.worldInfo,
     this.personaName,
-    this.personaDescription,
+    this.personaText,
     this.recentMessages,
     this.llmService,
     this.onAccept,
@@ -77,7 +77,7 @@ class ImageGenDialog extends StatefulWidget {
     String? scenario,
     String? worldInfo,
     String? personaName,
-    String? personaDescription,
+    String? personaText,
     List<String>? recentMessages,
     LLMService? llmService,
     void Function(String path)? onAccept,
@@ -95,7 +95,7 @@ class ImageGenDialog extends StatefulWidget {
         scenario: scenario,
         worldInfo: worldInfo,
         personaName: personaName,
-        personaDescription: personaDescription,
+        personaText: personaText,
         recentMessages: recentMessages,
         llmService: llmService,
         onAccept: onAccept,
@@ -164,7 +164,7 @@ class _ImageGenDialogState extends State<ImageGenDialog> {
         scenario: widget.scenario,
         worldInfo: widget.worldInfo,
         personaName: widget.personaName,
-        personaDescription: widget.personaDescription,
+        personaText: widget.personaText,
         recentMessages: widget.recentMessages,
       );
 
@@ -226,6 +226,8 @@ class _ImageGenDialogState extends State<ImageGenDialog> {
         negativePrompt: storage.imageGenNegativePrompt,
         size: size,
       );
+
+      debugPrint('ImageGenDialog: generateImage returned ${bytes?.length ?? 0} bytes');
 
       if (mounted) {
         setState(() {

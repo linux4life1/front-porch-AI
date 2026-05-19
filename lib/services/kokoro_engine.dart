@@ -24,6 +24,8 @@ import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/tts_engine.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/kokoro_debug.dart';
+import 'package:front_porch_ai/services/kokoro_worker_pool.dart';
 
 /// Kokoro TTS engine — high-quality local TTS using kokoro-onnx.
 ///
@@ -37,6 +39,9 @@ class KokoroEngine implements TtsEngine {
   static const _voicesUrl =
       'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin';
   static int _fileCounter = 0;
+
+  /// Pool of 1–4 resident Python workers (model loaded once, stays warm).
+  KokoroWorkerPool? _pool;
 
   @override
   String get engineName => 'Kokoro';
@@ -177,8 +182,44 @@ class KokoroEngine implements TtsEngine {
     }
   }
 
+  /// Spawns one persistent kokoro_tts worker process (either the PyInstaller
+  /// bundle or python3 + script in dev). Used by the worker pool.
+  Future<Process> _spawnWorkerProcess() async {
+    if (_hasWrapper) {
+      return Process.start(_wrapperScriptPath, []);
+    }
+
+    final helperPath = _helperScriptPath;
+    if (helperPath == null) {
+      throw Exception('No kokoro_tts wrapper or helper script found');
+    }
+
+    final sep = Platform.isWindows ? ';' : ':';
+    final paths = <String>[_piperDir];
+    final homeDir = Platform.environment['HOME'] ??
+        Platform.environment['USERPROFILE'] ??
+        '';
+    if (homeDir.isNotEmpty) {
+      paths.add(p.join(homeDir, '.local', 'share', 'kokoro-tts-deps'));
+    }
+    final pythonPath = paths.join(sep);
+    final pythonCmd = Platform.isWindows ? 'python' : 'python3';
+
+    return Process.start(
+      pythonCmd,
+      [helperPath],
+      environment: {'PYTHONPATH': pythonPath},
+      includeParentEnvironment: true,
+    );
+  }
+
   @override
-  Future<File?> generateAudio(String text, String voice, double speed) async {
+  Future<File?> generateAudio(
+    String text,
+    String voice,
+    double speed, {
+    void Function(double progress)? onProgress,
+  }) async {
     try {
       final dir = await _modelDir;
       final modelPath = p.join(dir, 'kokoro-v1.0.onnx');
@@ -196,65 +237,48 @@ class KokoroEngine implements TtsEngine {
       final outputFile = File(p.join(tempDir.path,
           'kokoro_tts_${DateTime.now().millisecondsSinceEpoch}_$_fileCounter.wav'));
 
-      final request = jsonEncode({
-        'text': text,
-        'voice': voice,
-        'speed': speed,
-        'lang': lang,
-        'output': outputFile.path,
-        'model': modelPath,
-        'voices': voicesPath,
-      });
+      // Lazily create the resident worker pool (1–4 processes, model stays loaded).
+      _pool ??= KokoroWorkerPool(_storageService, _spawnWorkerProcess);
 
-      // Launch process: use wrapper if available, else python3 + helper
-      Process process;
-      if (_hasWrapper) {
-        process = await Process.start(_wrapperScriptPath, []);
-      } else {
-        final helperPath = _helperScriptPath;
-        if (helperPath == null) {
-          print('Kokoro: no wrapper or helper script found');
-          return null;
-        }
-        // Dev mode: run python3 directly
-        // Build PYTHONPATH: piper/ dir + persistent deps dir
-        final sep = Platform.isWindows ? ';' : ':';
-        final paths = <String>[_piperDir];
-        final homeDir = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
-        if (homeDir.isNotEmpty) {
-          paths.add(p.join(homeDir, '.local', 'share', 'kokoro-tts-deps'));
-        }
-        final pythonPath = paths.join(sep);
-        final pythonCmd = Platform.isWindows ? 'python' : 'python3';
-        process = await Process.start(
-          pythonCmd,
-          [helperPath],
-          environment: {'PYTHONPATH': pythonPath},
-          includeParentEnvironment: true,
-        );
-      }
+      kDebugPrint('[KokoroEngine] Calling pool.generateAudio for voice=$voice');
+      final wav = await _pool!.generateAudio(
+        text: text,
+        voice: voice,
+        speed: speed,
+        lang: lang,
+        outputPath: outputFile.path,
+        modelPath: modelPath,
+        voicesPath: voicesPath,
+        onProgress: onProgress,
+      );
 
-      process.stdin.writeln(request);
-      await process.stdin.close();
-
-      final stderr = await process.stderr
-          .transform(const SystemEncoding().decoder)
-          .join();
-      if (stderr.isNotEmpty) {
-        print('Kokoro stderr: $stderr');
-      }
-
-      final exitCode = await process.exitCode;
-      if (exitCode != 0 || !outputFile.existsSync() || outputFile.lengthSync() == 0) {
-        print('Kokoro failed with exit code $exitCode');
-        return null;
-      }
-
-      return outputFile;
+      return wav;
     } catch (e) {
       print('Kokoro error: $e');
       return null;
     }
+  }
+
+  /// Shut down any resident workers. Safe to call multiple times.
+  Future<void> shutdown() async {
+    await _pool?.shutdown();
+    _pool = null;
+  }
+
+  /// Eagerly start the configured number of workers in the background.
+  /// This makes the first audio start much faster (avoids lazy model loading on first speak).
+  ///
+  /// This method is a no-op if TTS is globally disabled, to avoid unnecessarily
+  /// loading the large Kokoro model into memory when the user has turned TTS off.
+  Future<void> ensureWorkersWarm() async {
+    if (!_storageService.ttsEnabled) {
+      kDebugPrint('[KokoroEngine] ensureWorkersWarm skipped (TTS disabled)');
+      return;
+    }
+
+    kDebugPrint('[KokoroEngine] ensureWorkersWarm called (ttsConcurrency=${_storageService.ttsConcurrency})');
+    _pool ??= KokoroWorkerPool(_storageService, _spawnWorkerProcess);
+    await _pool!.warmUp();
   }
 
   /// Map voice name prefix to language code for kokoro-onnx.

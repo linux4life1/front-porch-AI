@@ -22,6 +22,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+
+import 'package:front_porch_ai/services/tts_voice_info.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Metadata for a single Piper voice from the catalog.
@@ -210,6 +212,28 @@ class VoiceManager extends ChangeNotifier {
       }
     }
     return installed;
+  }
+
+  /// Returns installed Piper voices (including manually added custom voices)
+  /// as properly typed TtsVoiceInfo objects with engine: 'piper'.
+  ///
+  /// Custom voices (not from the official catalog) get minimal metadata.
+  Future<List<TtsVoiceInfo>> getInstalledPiperVoicesAsTtsVoiceInfo() async {
+    final keys = await listInstalledVoices();
+    return keys.map((key) {
+      // Best-effort: check if this key exists in the official catalog for richer metadata
+      final catalogVoice = _catalog.where((v) => v.key == key).firstOrNull;
+
+      return TtsVoiceInfo(
+        id: key,
+        name: catalogVoice?.name ?? key,
+        gender: catalogVoice?.gender ?? 'Unknown',
+        language: catalogVoice != null
+            ? '${catalogVoice.languageEnglish} (${catalogVoice.countryEnglish})'
+            : 'Unknown',
+        engine: 'piper',
+      );
+    }).toList();
   }
 
   /// Check if a specific voice is installed.

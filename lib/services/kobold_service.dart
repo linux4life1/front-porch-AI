@@ -64,6 +64,10 @@ class KoboldService extends ChangeNotifier
   String get baseUrl => _baseUrl;
   http.Client? _activeClient;
 
+  /// Tracks the completion of the current generation stream.
+  /// Used by waitForIdle() to serialize requests without aborting in-flight ones.
+  Future<void>? _pendingRequest;
+
   // LLMService interface
   @override
   /// True only when the process is running AND the model is fully loaded.
@@ -198,6 +202,7 @@ class KoboldService extends ChangeNotifier
   Future<void> startKobold(
     String executablePath,
     String modelPath, {
+    String? kcppsPath,
     int port = 5001,
     int gpuLayers = 0,
     int contextSize = 4096,
@@ -222,35 +227,100 @@ class KoboldService extends ChangeNotifier
     // Store the executable path for cleanup
     _executablePath = executablePath;
 
-    final args = [
-      '--model',
-      modelPath,
-      '--port',
-      port.toString(),
-      '--contextsize',
-      contextSize.toString(),
-      '--gpulayers',
-      gpuLayers.toString(),
-    ];
+    List<String> args;
+
+    if (kcppsPath != null) {
+      // ── Preset mode (.kcpps) ────────────────────────────────────────────────
+      // Let KoboldCpp load GPU, context, and all other settings from the file.
+      // We only force the port so the app's _baseUrl doesn't break.
+      //
+      // If the .kcpps file has NO model key (StorageService.kcppsHasModel is
+      // false), the user selected one via the Flutter model picker and we pass
+      // it via --model.  Without this KoboldCPP would open its own native file
+      // picker — which is the bug we're fixing.
+      //
+      // If the .kcpps file DOES have a model, modelPath is empty here and we
+      // let the preset handle it entirely.
+      args = [
+        '--config',
+        kcppsPath,
+        '--port',
+        port.toString(),
+        if (modelPath.isNotEmpty) ...['--model', modelPath],
+      ];
+    } else {
+      // ── Standard UI-driven mode ─────────────────────────────────────────────
+      args = [
+        '--model',
+        modelPath,
+        '--port',
+        port.toString(),
+        '--contextsize',
+        contextSize.toString(),
+        '--gpulayers',
+        gpuLayers.toString(),
+      ];
+
+    // \u2500\u2500 GPU backend flags \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
     if (useVulkan) args.add('--usevulkan');
-    if (useCublas) args.add('--usecublas');
+
+    if (useCublas) {
+      // Always pass an explicit GPU ID with --usecublas to prevent KoboldCPP
+      // from defaulting to GPU 0 which may be an iGPU on multi-GPU systems.
+      // Bug fix: on a system with both an iGPU (GPU 0) and a discrete RTX (GPU 1)
+      // the old code silently ran everything on the iGPU at ~0.5 t/s.
+      args.addAll(['--usecublas', _storageService.gpuId.toString()]);
+    }
+
     if (useRocm) {
       args.add('--usehipblas');
-      args.add(
-        '--noflashattention',
-      ); // Flash attention kernel crashes on many AMD GPUs
+      // Flash attention kernel crashes on many AMD GPUs — always disable for ROCm.
+      args.add('--noflashattention');
     }
-    // Note: Metal is used automatically on macOS Apple Silicon, no flag needed
+    // Note: Metal is used automatically on macOS Apple Silicon, no flag needed.
 
-    // Add KV Cache Quantization if enabled
+    // \u2500\u2500 FlashAttention \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // Bug fix: previously only added when KV quantization was also enabled,
+    // meaning CUDA/Metal users without KV quant never got the ~30% speed boost.
+    // Now enabled independently for CUDA and Metal. ROCm is excluded above.
+    final wantsFlashAttn = _storageService.flashAttentionEnabled;
+    final canUseFlashAttn = (useCublas || useMetal) && !useRocm;
+    if (wantsFlashAttn && canUseFlashAttn) {
+      args.add('--flashattention');
+    }
+
+    // \u2500\u2500 KV Cache Quantization \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // Flash attention is a prerequisite for V-cache quantization. Since we
+    // may have already added it above, only add the flag if it wasn\u2019t added.
     if (_storageService.kvQuantizationLevel > 0) {
       args.add('--quantkv');
       args.add(_storageService.kvQuantizationLevel.toString());
-      if (!useRocm) {
-        // Flash attention is strictly required to quantize V-cache. ROCm falls back to K-cache quantization implicitly.
+      // Ensure flash attention is present for quantised V-cache even if the
+      // user disabled it in Advanced settings (quantkv requires it).
+      if (!args.contains('--flashattention') && !useRocm) {
         args.add('--flashattention');
       }
+    }
+
+    // \u2500\u2500 mlock \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // Prevents the OS from paging model weights to disk under memory pressure.
+    // Without this, a system at the edge of RAM capacity can drop from 20 t/s
+    // to 0.5 t/s mid-session. Default ON for Win/Mac, OFF for Linux (requires
+    // root or ulimit -l unlimited which most users haven\u2019t set).
+    if (_storageService.mlockEnabled) {
+      args.add('--usemlock');
+    }
+
+    // \u2500\u2500 BLAS batch size \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // Controls how many tokens are processed in parallel during prefill (prompt
+    // evaluation). Higher = faster context loading, more VRAM. Default 512.
+    // Large-VRAM users (24 GB+) benefit from 1024\u20132048.
+    if (_storageService.blasBatchSize != 512) {
+      // Only pass the flag when non-default so KoboldCPP\u2019s built-in default
+      // applies for users who haven\u2019t changed this setting.
+      args.addAll(['--blasbatchsize', _storageService.blasBatchSize.toString()]);
+    }
     }
 
     try {
@@ -280,7 +350,7 @@ class KoboldService extends ChangeNotifier
       _process!.stdout
           .transform(const Utf8Decoder(allowMalformed: true))
           .listen((data) {
-            _addLog(data.trim());
+            _addLog(data);
             _parseLoadingStatus(data);
           });
 
@@ -388,6 +458,13 @@ class KoboldService extends ChangeNotifier
 
     final client = http.Client();
     _activeClient = client;
+
+    // Track this request's lifecycle so waitForIdle() can await completion
+    // without aborting. The completer resolves when the stream fully closes
+    // (success or error).
+    final _completer = Completer<void>();
+    _pendingRequest = _completer.future;
+
     try {
       // Thinking models (especially large ones like 24B+) can take several
       // minutes during the prefill phase before the first token is generated.
@@ -477,6 +554,11 @@ class KoboldService extends ChangeNotifier
     } finally {
       _activeClient = null;
       client.close();
+      // Signal that this request is fully complete so waitForIdle() unblocks.
+      if (!_completer.isCompleted) {
+        _completer.complete();
+      }
+      _pendingRequest = null;
     }
   }
 
@@ -535,6 +617,16 @@ class KoboldService extends ChangeNotifier
       // If the abort endpoint isn't available (older KoboldCPP build) or
       // the server isn't running, swallow the error — the generation request
       // will simply fail naturally.
+    }
+  }
+
+  /// Wait for any in-flight generation to complete naturally.
+  /// Unlike [ensureServerIdle], this does NOT abort the active request —
+  /// it simply awaits the stream to close. Returns immediately if idle.
+  Future<void> waitForIdle() async {
+    final pending = _pendingRequest;
+    if (pending != null) {
+      await pending;
     }
   }
 
@@ -767,12 +859,49 @@ class KoboldService extends ChangeNotifier
     }
   }
 
+  /// Regex matching KoboldCPP per-token / per-batch progress messages.
+  /// These are purely informational counters that fire for every token and
+  /// would otherwise flood the log with thousands of identical-looking lines.
+  static final RegExp _progressLinePattern = RegExp(
+    r'^(Generating \(|Processing Prompt(?: \[BATCH\])? \()',
+    caseSensitive: false,
+  );
+
   void _addLog(String data) {
     if (data.trim().isEmpty) return;
-    _logs.add(data);
-    _writeToLogFile(data);
-    if (_logs.length > 1000) _logs.removeAt(0);
-    notifyListeners();
+
+    // KoboldCPP uses bare \r (carriage return) to overwrite the current
+    // terminal line.  Split on any combination of \r\n, \r, or \n so each
+    // logical line is processed individually.
+    final rawLines = data.split(RegExp(r'\r\n|\r|\n'));
+    bool changed = false;
+
+    for (final rawLine in rawLines) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+
+      final isProgress = _progressLinePattern.hasMatch(line);
+
+      if (isProgress && _logs.isNotEmpty) {
+        final lastEntry = _logs.last;
+        // If the last stored log entry is also a progress line, overwrite it
+        // in-place rather than appending a new entry.  This keeps the list
+        // at O(1) growth during a long generation instead of O(n).
+        if (_progressLinePattern.hasMatch(lastEntry)) {
+          _logs.last = line;
+          changed = true;
+          // Do NOT write progress lines to the file — they are noise.
+          continue;
+        }
+      }
+
+      _logs.add(line);
+      if (!isProgress) _writeToLogFile(line + '\n');
+      if (_logs.length > 1000) _logs.removeAt(0);
+      changed = true;
+    }
+
+    if (changed) notifyListeners();
   }
 
   bool get isProcessAlive => _process != null && _isRunning;

@@ -412,7 +412,6 @@ class DataMigrationService {
       await _db.insertPersona(PersonasCompanion.insert(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: Value(prefs.getString('user_name') ?? 'User'),
-        description: Value(prefs.getString('user_description') ?? ''),
         persona: Value(prefs.getString('user_persona') ?? ''),
         isActive: const Value(true),
       ));
@@ -427,7 +426,6 @@ class DataMigrationService {
           id: id,
           title: Value(json['title'] ?? ''),
           name: Value(json['name'] ?? 'User'),
-          description: Value(json['description'] ?? ''),
           persona: Value(json['persona'] ?? ''),
           avatarPath: Value(json['avatar_path']),
           isActive: Value(id == activeId),

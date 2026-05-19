@@ -1,4 +1,4 @@
-name: Pre-Release (Standalone Only)
+name: Pre-Release (Installer + Standalone)
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -28,11 +28,9 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            asset_name: Front_Porch_AI_Windows.zip
             build_path: build/windows/x64/runner/Release
           - os: macos-latest
             platform: macos
-            asset_name: Front_Porch_AI_MacOS.zip
             build_path: build/macos/Build/Products/Release
           - os: ubuntu-22.04
             platform: linux
@@ -126,8 +124,7 @@ jobs:
           mkdir -p "$DEST"
 
           # Install TTS dependencies + PyInstaller
-          pip install --upgrade pip
-          pip install pyinstaller kokoro-onnx soundfile piper_tts pathvalidate faster-whisper
+          pip install pyinstaller kokoro-onnx soundfile piper_tts pathvalidate faster-whisper numpy onnxruntime transformers huggingface_hub
 
           # Build Kokoro TTS as a standalone directory bundle
           echo "Building Kokoro TTS binary..."
@@ -149,6 +146,9 @@ jobs:
             --workpath ./build_tmp/kokoro \
             --specpath ./build_tmp/kokoro \
             --clean \
+            --exclude-module torch \
+            --exclude-module torchvision \
+            --exclude-module torchaudio \
             --noconfirm
           echo "Kokoro built at: $DEST/kokoro_tts/"
 
@@ -166,6 +166,9 @@ jobs:
             --workpath ./build_tmp/piper \
             --specpath ./build_tmp/piper \
             --clean \
+            --exclude-module torch \
+            --exclude-module torchvision \
+            --exclude-module torchaudio \
             --noconfirm
           echo "Piper built at: $DEST/piper/"
 
@@ -184,6 +187,9 @@ jobs:
             --workpath ./build_tmp/whisper \
             --specpath ./build_tmp/whisper \
             --clean \
+            --exclude-module torch \
+            --exclude-module torchvision \
+            --exclude-module torchaudio \
             --noconfirm
           echo "Whisper STT built at: $STT_DEST/whisper_stt/"
 
@@ -199,6 +205,35 @@ jobs:
           mkdir -p "$STT_DEST/embed_server"
           cp "$EMBED_BINARY" "$STT_DEST/embed_server/"
           echo "Embedding server built at: $STT_DEST/embed_server/"
+
+          # Build Sentiment Classifier (expression images ONNX)
+          echo "Building Sentiment Classifier binary..."
+          pyinstaller sentiment_classifier.py \
+            --onedir \
+            --name sentiment_classifier \
+            --collect-all huggingface_hub \
+            --collect-all transformers \
+            --collect-all numpy \
+            --collect-all onnxruntime \
+            --hidden-import huggingface_hub \
+            --hidden-import transformers \
+            --hidden-import numpy \
+            --hidden-import onnxruntime \
+            --distpath "$STT_DEST" \
+            --workpath ./build_tmp/sentiment \
+            --specpath ./build_tmp/sentiment \
+            --clean \
+            --exclude-module torch \
+            --exclude-module torchvision \
+            --exclude-module torchaudio \
+            --noconfirm
+          echo "Sentiment classifier built at: $STT_DEST/sentiment_classifier/"
+          # Copy Draw Things gRPC Client (macOS only)
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            mkdir -p "$STT_DEST/dt-grpc-python"
+            cp -R "tools/dt-grpc-python/"* "$STT_DEST/dt-grpc-python/"
+            echo "Draw Things client copied to: $STT_DEST/dt-grpc-python/"
+          fi
 
           # For macOS, copy into the app bundle Resources
           if [ "${{ matrix.platform }}" = "macos" ]; then
@@ -220,6 +255,15 @@ jobs:
               mkdir -p "$EMBED_RESOURCES"
               cp -R "$STT_DEST/embed_server/"* "$EMBED_RESOURCES/"
               chmod +x "$EMBED_RESOURCES/embed_server"
+
+              SENTIMENT_RESOURCES="$APP_NAME/Contents/Resources/sentiment_classifier"
+              mkdir -p "$SENTIMENT_RESOURCES"
+              cp -R "$STT_DEST/sentiment_classifier/"* "$SENTIMENT_RESOURCES/"
+              chmod +x "$SENTIMENT_RESOURCES/sentiment_classifier"
+
+              DT_RESOURCES="$APP_NAME/Contents/Resources/dt-grpc-python"
+              mkdir -p "$DT_RESOURCES"
+              cp -R "$STT_DEST/dt-grpc-python/"* "$DT_RESOURCES/"
             fi
           fi
 
@@ -248,22 +292,40 @@ jobs:
           codesign --force --sign - --entitlements "$ENTITLEMENTS" "$APP_NAME"
           echo "✓ Ad-hoc signature applied with entitlements"
 
-      # ── Standalone packaging only — no installers, no DMG, no deb/rpm ──
-
-      - name: Package Windows (zip)
+      - name: Download VC++ Redistributable
         if: matrix.platform == 'windows'
         run: |
-          cd ${{ matrix.build_path }}
-          Compress-Archive -Path * -DestinationPath ../../../../../${{ matrix.asset_name }}
+          $DestDir = "${{ github.workspace }}\${{ matrix.build_path }}\.."
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" `
+            -OutFile "$DestDir\vc_redist.x64.exe"
+          Write-Host "VC++ Redistributable downloaded to $DestDir"
         shell: pwsh
 
-      - name: Package MacOS (zip)
+      - name: Build Windows Installer (Inno Setup)
+        if: matrix.platform == 'windows'
+        run: |
+          $VERSION = "${env:GITHUB_REF_NAME}" -replace '^[vV]', ''
+          choco install innosetup -y --no-progress
+          $ISCC = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $ISCC /DPRE_RELEASE=1 /DMyAppVersion="$VERSION" /DMyAppBuildDir="${{ github.workspace }}\${{ matrix.build_path }}" /DMyAppLicenseFile="${{ github.workspace }}\LICENSE" /DMyAppIconFile="${{ github.workspace }}\windows\runner\resources\app_icon.ico" "installers\windows\setup.iss"
+          Copy-Item "installers\windows\Front_Porch_AI_Beta_Setup.exe" -Destination "."
+        shell: pwsh
+
+
+
+      - name: Build macOS DMG
         if: matrix.platform == 'macos'
         run: |
+          brew install create-dmg
           cd build/macos/Build/Products/Release
           APP_NAME=$(ls -d *.app | head -1)
           echo "Found app bundle: $APP_NAME"
-          zip -r ../../../../../${{ matrix.asset_name }} "$APP_NAME"
+          create-dmg \
+            --volname "Front Porch AI" \
+            --window-size 600 400 \
+            --app-drop-link 400 100 \
+            "../../../../../Front_Porch_AI_MacOS.dmg" \
+            "$APP_NAME"
 
       - name: Get Version
         id: get_version
@@ -319,7 +381,8 @@ jobs:
         with:
           name: build-${{ matrix.platform }}
           path: |
-            ${{ matrix.asset_name }}
+            Front_Porch_AI_Beta_Setup.exe
+            Front_Porch_AI_MacOS.dmg
             Front_Porch_AI-Linux.AppImage
           if-no-files-found: ignore
 
@@ -328,9 +391,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${{ matrix.asset_name }}
+            Front_Porch_AI_Beta_Setup.exe
+            Front_Porch_AI_MacOS.dmg
             Front_Porch_AI-Linux.AppImage
-          generate_release_notes: true
           prerelease: true
           name: "${{ github.ref_name }} (Pre-Release)"
         env:

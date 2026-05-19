@@ -57,8 +57,8 @@ class _RealismStateStub {
     if (ext == null) return;
 
     _realismEnabled = ext.realismEnabled;
-    _affectionScore = ext.shortTermBond.clamp(-150, 150);
-    _longTermScore = ext.longTermBond.clamp(-150, 150);
+    _affectionScore = ext.shortTermBond.clamp(-300, 300);
+    _longTermScore = ext.longTermBond.clamp(-300, 300);
     _trustLevel = ext.trustLevel.clamp(-100, 100);
     _dayCount = ext.dayCount.clamp(1, 9999);
     _timeOfDay = ext.timeOfDay;
@@ -81,15 +81,35 @@ class _RealismStateStub {
     _activeFixation = '';
   }
 
-  /// Mirrors the _calculateTier method from ChatService (line 728).
+  /// Mirrors the _calculateTier method from ChatService (21-tier system).
   int _calculateTier(int score) {
     final absScore = score.abs();
-    if (absScore < 10) return 0;
-    if (absScore < 25) return score > 0 ? 1 : -1;
-    if (absScore < 45) return score > 0 ? 2 : -2;
-    if (absScore < 70) return score > 0 ? 3 : -3;
-    if (absScore < 100) return score > 0 ? 4 : -4;
-    return score > 0 ? 5 : -5;
+    if (absScore < 5) return 0;
+    if (absScore < 15) return score > 0 ? 1 : -1;
+    if (absScore < 30) return score > 0 ? 2 : -2;
+    if (absScore < 50) return score > 0 ? 3 : -3;
+    if (absScore < 80) return score > 0 ? 4 : -4;
+    if (absScore < 120) return score > 0 ? 5 : -5;
+    if (absScore < 160) return score > 0 ? 6 : -6;
+    if (absScore < 200) return score > 0 ? 7 : -7;
+    if (absScore < 250) return score > 0 ? 8 : -8;
+    if (absScore < 300) return score > 0 ? 9 : -9;
+    return score > 0 ? 10 : -10;
+  }
+
+  /// Migration: scale old scores (±150) to new range (±300)
+  int _migrateShortTermScore(int rawScore) {
+    if (rawScore.abs() <= 150) {
+      return (rawScore * 2).clamp(-300, 300);
+    }
+    return rawScore;
+  }
+
+  int _migrateLongTermScore(int rawScore) {
+    if (rawScore.abs() <= 150) {
+      return (rawScore * 2).clamp(-300, 300);
+    }
+    return rawScore;
   }
 
   /// Simulates startNewChat seeding for 1:1 mode (lines 2144-2186).
@@ -97,8 +117,8 @@ class _RealismStateStub {
     final extSeed = character.frontPorchExtensions ?? FrontPorchExtensions();
 
     _realismEnabled = extSeed.realismEnabled;
-    _affectionScore = extSeed.shortTermBond.clamp(-150, 150);
-    _longTermScore = extSeed.longTermBond.clamp(-150, 150);
+    _affectionScore = extSeed.shortTermBond.clamp(-300, 300);
+    _longTermScore = extSeed.longTermBond.clamp(-300, 300);
     _trustLevel = extSeed.trustLevel.clamp(-100, 100);
     _dayCount = extSeed.dayCount.clamp(1, 9999);
     _timeOfDay = extSeed.timeOfDay;
@@ -145,6 +165,18 @@ void main() {
       final stub = _RealismStateStub();
       stub.seedFromExtensions(FrontPorchExtensions(longTermBond: 25));
       expect(stub.longTermScore, 25);
+    });
+
+    test('calculates tier for new system', () {
+      final stub = _RealismStateStub();
+      // Score 29 should be tier 2 in 21-tier system (threshold is < 30)
+      expect(stub._calculateTier(29), 2);
+      // Score 30 should be tier 3 (threshold is < 50)
+      expect(stub._calculateTier(30), 3);
+      // Score 150 should be tier 6 (threshold is < 160 for tier 6)
+      expect(stub._calculateTier(150), 6);
+      // Score 250 should be tier 9 (threshold is < 300 for tier 9)
+      expect(stub._calculateTier(250), 9);
     });
 
     test('seeds trust level', () {
@@ -194,19 +226,19 @@ void main() {
           reason: 'global setting overrides card setting');
     });
 
-    test('clamps short-term bond to -150..150', () {
+    test('clamps short-term bond to -300..300', () {
       final stub = _RealismStateStub();
-      stub.seedFromExtensions(FrontPorchExtensions(shortTermBond: 200));
-      expect(stub.affectionScore, 150);
+      stub.seedFromExtensions(FrontPorchExtensions(shortTermBond: 400));
+      expect(stub.affectionScore, 300);
 
-      stub.seedFromExtensions(FrontPorchExtensions(shortTermBond: -200));
-      expect(stub.affectionScore, -150);
+      stub.seedFromExtensions(FrontPorchExtensions(shortTermBond: -400));
+      expect(stub.affectionScore, -300);
     });
 
-    test('clamps long-term bond to -150..150', () {
+    test('clamps long-term bond to -300..300', () {
       final stub = _RealismStateStub();
-      stub.seedFromExtensions(FrontPorchExtensions(longTermBond: 200));
-      expect(stub.longTermScore, 150);
+      stub.seedFromExtensions(FrontPorchExtensions(longTermBond: 400));
+      expect(stub.longTermScore, 300);
     });
 
     test('clamps trust level to -100..100', () {
@@ -230,22 +262,22 @@ void main() {
     test('calculates relationship tier from bonded score', () {
       final stub = _RealismStateStub();
       stub.seedFromExtensions(FrontPorchExtensions(shortTermBond: 30));
-      expect(stub.relationshipTier, 2,
-          reason: 'score 30 => tier 2 (Friendly)');
+      expect(stub.relationshipTier, 3,
+          reason: 'score 30 => tier 3 (Amiable) since 30 >= 30 threshold');
     });
 
     test('calculates long-term tier from bonded score', () {
       final stub = _RealismStateStub();
       stub.seedFromExtensions(FrontPorchExtensions(longTermBond: 50));
-      expect(stub.longTermTier, 3,
-          reason: 'score 50 => tier 3 (Deep Connection)');
+      expect(stub.longTermTier, 4,
+          reason: 'score 50 => tier 4 (Friendly) since 50 >= 50 threshold');
     });
 
     test('negative bond produces negative tier', () {
       final stub = _RealismStateStub();
       stub.seedFromExtensions(FrontPorchExtensions(shortTermBond: -30));
-      expect(stub.relationshipTier, -2,
-          reason: 'negative bond => negative tier (Frustrated)');
+      expect(stub.relationshipTier, -3,
+          reason: 'negative bond => negative tier (Unimpressed) since -30 >= -30 threshold');
     });
 
     test('null extension does nothing', () {
@@ -402,7 +434,9 @@ void main() {
 
       stub.seedForNewChat(char);
 
-      expect(stub.relationshipTier, 2);
+      // Score 30 => tier 3 (since threshold is < 50 for tier 3)
+      expect(stub.relationshipTier, 3);
+      // Score 25 => tier 2 (since threshold is < 30 for tier 2)
       expect(stub.longTermTier, 2);
     });
   });

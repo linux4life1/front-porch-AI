@@ -3,15 +3,48 @@
 ![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)
 ![Flutter](https://img.shields.io/badge/Made%20with-Flutter-02569B?logo=flutter)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
-![Stable](https://img.shields.io/badge/Status-Stable-brightgreen)
 
-**A privacy-first, fully offline AI companion for Windows, Linux, and macOS.** Chat with AI characters using local LLMs, manage your character library, and keep everything running on your own hardware — no subscriptions, no cloud, no one pulling the rug out from under you.
+**A privacy-first AI companion for Windows, Linux, and macOS.** Runs fully offline with local LLMs (KoboldCpp, etc.) by default, but also supports remote APIs like OpenRouter, Nano-GPT, and OpenAI with no lock-in when you want them.
 
 💬 **[Join the Discord](https://discord.gg/e4tET6rpdv)** — questions, feedback, and hanging out welcome. Also on **[Matrix](https://matrix.dreamersai.art)**.
 
 <p align="center">
   <img src="docs/screenshots/home_new.png" width="800" alt="Front Porch AI — Character Library">
 </p>
+
+---
+
+<p align="center">
+  <strong>Download v0.9.8</strong><br><br>
+  <a href="https://github.com/linux4life1/front-porch-ai/releases/latest"><strong>Windows • macOS • Linux</strong></a>
+</p>
+
+---
+
+## 🆚 How Does Front Porch AI Compare?
+
+If you're evaluating local AI tools, here's an honest breakdown. Every project on this list is doing something right — the goal isn't to trash competitors, it's to help you pick the right tool for *you*.
+
+| Feature | **Front Porch AI** | SillyTavern | Jan.ai | Backyard AI |
+|---|---|---|---|---|
+| **Native desktop app** | ✅ Flutter (Win/Mac/Linux) | ❌ Web-based (local server) | ✅ Electron | ✅ (abandoned) |
+| **Fully offline — no cloud required** | ✅ | ✅ | ✅ | ✅ |
+| **Remote LLM Endpoints** | ✅ Native multi-provider support (OpenRouter, Nano-GPT, custom, etc.) with deep integration | ✅ Strong native support for custom OpenAI-compatible endpoints | ⚠️ Limited | ❌ (service discontinued) |
+| **Built-in TTS (50+ voices)** | ✅ Kokoro + Piper + ElevenLabs + OpenAI | ⚙️ Extension required | ❌ | ❌ |
+| **Speech-to-text (push-to-talk)** | ✅ Whisper, built-in | ⚙️ Extension required | ❌ | ❌ |
+| **Local image generation** | ✅ A1111, Forge, Draw Things | ⚙️ Extension required | ❌ | ❌ |
+| **Realism Engine** | ✅ Time, trust, emotion, chaos, objectives | ❌ | ❌ | ❌ |
+| **Character Expressions** | ✅ ONNX + LLM, live avatar swap | ⚙️ Extension required | ❌ | ❌ |
+| **RAG memory (local)** | ✅ ONNX embeddings, no cloud | ⚙️ Extension required | ❌ | ❌ |
+| **Novel / story generator** | ✅ Porch Stories pipeline | ❌ | ❌ | ❌ |
+| **Cloud sync** | ✅ Google Drive / WebDAV | ❌ | ❌ | ❌ |
+| **Character card compatibility** | ✅ V2 spec + Backyard .byaf import | ✅ V2 spec | ❌ | .byaf only |
+| **Group chat** | ✅ | ✅ | ❌ | ❌ |
+| **Extension / plugin ecosystem** | ❌ | ⭐ Very large | Moderate | ❌ |
+| **Open source license** | ✅ AGPL-3.0 | ✅ AGPL-3.0 | ✅ MIT | ❌ |
+| **Best for** | Polished AI companion + storytelling | Power users / heavy customization | Simple local chat | — |
+
+> SillyTavern's extension ecosystem is genuinely impressive and unmatched for customization depth. If you want maximum flexibility and don't mind configuration work, it's excellent. Front Porch AI prioritises **everything working out of the box** for users who want to chat, not configure.
 
 ---
 
@@ -77,11 +110,19 @@
 - Automatic backups before every sync, one-click restore
 - **Privacy-first**: syncs only to accounts you own, no data touches our servers
 
+### 🎭 Character Expressions
+- **Emotion-driven avatar swapping** — the character's portrait changes in real time as their mood shifts during the conversation
+- **Two classification paths**: a lightweight **ONNX model** (distilbert, fully offline, ~300 ms) or the **LLM path** via the Realism Engine for deeper contextual accuracy
+- **One-click model download** — the ONNX classifier downloads in-app with a glassmorphic teal progress overlay; no manual file hunting
+- **26 emotion categories** mapped to your character's expression image set (compatible with SillyTavern expression packs)
+- **Sidebar and fullscreen display modes** — float the expression portrait or dock it beside the chat
+
 ### ⚙️ KoboldCpp Integration
 - Automated download and update of the KoboldCpp backend
-- Hardware detection — Vulkan on PC, Metal on Apple Silicon, Intel ARC support
+- Hardware detection — Vulkan on PC, Metal on Apple Silicon, Intel ARC support, **Nvidia Blackwell (RTX 50-series) support**
 - Model Hub: search and download GGUF models directly from HuggingFace
 - Start/Stop KoboldCpp from inside the Character Creator
+- **Advanced Launch Options** — collapsible panel exposing Flash Attention, Context Shift, mlock, GPU ID selector, and prefill batch size with sane auto-selected defaults
 
 ---
 
@@ -109,11 +150,13 @@ sudo dnf install front-porch-ai
 
 **Arch Linux (AUR)**
 ```bash
-yay -S front-porch-ai-bin        # Stable
-yay -S front-porch-ai-beta-bin   # Beta / Pre-release
+yay -S front-porch-ai-bin        # Stable (recommended)
+yay -S front-porch-ai-beta-bin   # Beta / Early access
 ```
 
 Future updates arrive through your normal system updates (`apt upgrade`, `dnf upgrade`, `yay -Syu`).
+
+> **Beta builds** are available for early access to new features. They install to a completely separate directory (`~/Documents/FrontPorchAI-Beta/`) and use `beta_` preference keys so they never touch your stable data. See the [Beta Builds](#beta-builds) section below for details.
 
 ### All Platforms — Manual Download
 
@@ -124,33 +167,78 @@ Head to the **[Releases](https://github.com/linux4life1/front-porch-ai/releases)
 
 ---
 
-## 🆕 What's New in V0.9.7.5
+## Beta Builds
 
-This release delivers a **complete character editor redesign**, brings **editable Realism Engine settings** to the card editor, and fixes several stability and data integrity bugs.
+Beta releases (e.g. the `0.9.8-Beta` series) are available for early access to new features. They are completely isolated from your stable installation:
 
-**🎨 Character Editor — Full Redesign**
-- **New 4-tab layout:** Details, Dialogue, Lorebook, and Worlds — dialogue fields (first message, alternate greetings, example conversations) are no longer crammed into the Details tab.
-- **Glassmorphic section cards** with icon headers for visual grouping (Identity, Personality & World, Advanced Prompts).
-- **160px avatar display** with rounded corners and camera overlay — tap to change.
-- **Collapsible Advanced Prompts** — system prompt and post-history instructions hidden by default to reduce visual clutter.
-- **Restyled lorebook cards** showing keyword chips, trigger depth badges, and always-active indicators.
-- **Restyled worlds tab** with toggle-based linking, visual feedback, and entry count badges.
-- **Consistent input styling** and token counter matching the manual character creator.
+- Data directory: `~/Documents/FrontPorchAI-Beta/`
+- All preferences are namespaced with a `beta_` prefix
+- Stable builds will never offer a beta update (and vice versa)
 
-**🧠 Realism Engine — Editable in Character Editor**
-- Characters can now have their Realism Engine settings **configured directly in the character editor** — no longer limited to the character creator.
-- Characters without V2.5 extensions can have them **created from scratch** via the editor.
-- Full access to all Realism Engine parameters: bond scores, trust level, time of day, starting emotion, recovery mechanics, and Chaos Mode toggle.
-- Includes a friendly note reminding users that changes only affect new conversations — existing chats keep their live state.
+This isolation protects your main library while you test new features. Beta builds are recommended only for users comfortable with occasional rough edges.
 
-**🐛 Bug Fixes**
-- **Fixed character creator crash on Linux:** The back button was calling `Navigator.pop()` on a tab-embedded page, popping the root navigator and leaving a black screen. Now correctly returns to the Home tab.
-- **Fixed V2.5 metadata loss on avatar change:** When editing a character and changing the avatar, the save flow was creating a redundant card copy that omitted Realism Engine extensions. The throwaway card has been eliminated — the editor now passes the live character object directly.
-- **Fixed Realism Engine level 10 prompt:** Refined the peak desire state prompt to describe emotional intensity without dictating deterministic narrative outcomes or causing behavioral leakage into subsequent turns.
+---
 
-**⚙️ CI/CD**
-- Converted `release.yml` from CRLF to LF line endings.
-- Added defensive carriage-return stripping to AUR package generation to prevent future regressions.
+## 🆕 What's New in v0.9.8
+
+v0.9.8 is a substantial release focused on **making the app feel more alive and reliable**. The headline feature is **Character Expressions**, but the release also delivers major maturation of the Realism Engine, a much more robust local TTS experience, .kcpps preset support, custom chat backgrounds, and dozens of quality-of-life and stability improvements.
+
+**🎭 Character Expressions — Live Emotion Portraits**
+
+Your characters now *look* the way they feel. As the conversation evolves, their portrait automatically swaps to match their current emotional state.
+
+- **Dual classification engine:** Toggle between a fast local **ONNX path** (distilbert-based, ~300 ms) and the deeper **LLM path** via the Realism Engine. Both run entirely on-device.
+- **One-click model download:** Download the ONNX classifier directly from Settings → Expression Images with a beautiful glassmorphic progress overlay.
+- **SillyTavern compatible:** Works with any standard expression pack (26 emotion categories supported).
+- **Flexible presentation:** Sidebar mode for focused chats or fullscreen cinematic overlay.
+- **Graceful fallback:** Falls back cleanly to neutral if an image is missing.
+
+**🧠 Realism Engine – Major Maturation**
+
+The Realism Engine received its most significant round of refinements to date:
+
+- Bond and Trust ranges expanded to **±300** with updated tier naming to match the character creator.
+- Arousal system expanded to **±100** with new tier-based labels.
+- Improved spatial awareness logic and better behaviour when "passage of time" is disabled.
+- Realism evaluations are now **more reliable** on thinking models (higher token limits, hardened JSON generation parameters).
+- **GBNF grammar disabled** for KoboldCpp realism evals (dramatically improves completion rates on many models).
+- Much more robust **cancellation handling** — interrupting a response now cleanly aborts in-flight realism evaluations.
+- Better one-shot eval behaviour for remote APIs and improved tooltip explanations in the UI.
+
+**🗣️ Voice & Narration (Kokoro TTS)**
+
+Local voice output is now significantly more reliable and pleasant:
+
+- **Persistent Kokoro worker pool** — enables fast, high-quality "read everything" (verbatim) narration without the previous stuttering or slow startup.
+- "Only narrate quotes" mode is now much more dependable.
+- Improved local bundling of both Kokoro and Piper engines.
+- Better concurrency controls and pre-load behaviour.
+
+**⚙️ .kcpps Presets & Context Management**
+
+- Full support for loading **KoboldCpp `.kcpps` launch presets**.
+- When a preset is active, context size (and other generation parameters) are driven by the preset — the UI disables editing and shows a clear tooltip.
+- All context size logic has been consolidated into `StorageService` for consistency across the app.
+
+**✨ UI Polish & Quality of Life**
+
+- **Custom chat backgrounds** — upload and name your own images per chat.
+- **Google Fonts picker** for chat text styling.
+- **Per-character chat bubble colours** that persist correctly when exporting to PNG.
+- Scenario field is now **expandable** in the character editor.
+- UI Settings dialog is now properly scrollable.
+- Window size and position are remembered across restarts.
+- Many small improvements to tooltips, log copying, preset validation, and widget stability.
+
+**🐛 Stability & Fixes**
+
+- Numerous Realism Engine interruption and regeneration fixes.
+- Lorebook improvements: constant entries now persist correctly, better deduplication and wildcard/word-boundary matching.
+- macOS build quality: proper bundle naming for Metal, improved DMG packaging.
+- Many Tooltip, preset, and widget tree crashes resolved.
+- Various packaging and CI improvements for cleaner releases.
+
+This release represents one of the largest cumulative improvements to day-to-day feel and reliability since the Realism Engine was first introduced.
 
 ---
 
@@ -292,6 +380,8 @@ flutter build linux    # or windows
 ### V0.9.7.5
 
 This release delivers a **complete character editor redesign**, brings **editable Realism Engine settings** to the card editor, and fixes several stability and data integrity bugs.
+
+*(Full notes are in the "What's New in v0.9.8" section above.)*
 
 **🎨 Character Editor — Full Redesign**
 - **New 4-tab layout:** Details, Dialogue, Lorebook, and Worlds — dialogue fields (first message, alternate greetings, example conversations) are no longer crammed into the Details tab.

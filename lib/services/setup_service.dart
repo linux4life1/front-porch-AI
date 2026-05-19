@@ -94,6 +94,7 @@ class SetupService extends ChangeNotifier {
         await _koboldService.startKobold(
           _backendManager.backendPath!,
           _storageService.lastUsedModelPath!,
+          kcppsPath: _storageService.activeKcppsPath,
           gpuLayers: _storageService.gpuLayers,
           contextSize: _storageService.contextSize,
           useVulkan: _storageService.useVulkan ?? false,

@@ -14,10 +14,10 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}/issues
 ; Use user-local install directory so no elevation is needed
-DefaultDirName={localappdata}\{#MyAppName}
+DefaultDirName={#ifdef PRE_RELEASE}{localappdata}\{#MyAppName} Beta{#else}{localappdata}\{#MyAppName}{#endif}
 DefaultGroupName={#MyAppName}
 LicenseFile={#MyAppLicenseFile}
-OutputBaseFilename=Front_Porch_AI_Setup
+OutputBaseFilename={#ifdef PRE_RELEASE}Front_Porch_AI_Beta_Setup{#else}Front_Porch_AI_Setup{#endif}
 OutputDir=.
 Compression=lzma2
 SolidCompression=yes

@@ -19,6 +19,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/services/kokoro_debug.dart';
+import 'package:front_porch_ai/services/kokoro_chunk.dart';
+import 'package:front_porch_ai/services/ordered_audio_collector.dart';
+import 'package:front_porch_ai/utils/wav_utils.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -40,6 +44,7 @@ class TtsService extends ChangeNotifier {
 
   // Engines
   late final KokoroEngine _kokoroEngine = KokoroEngine(_storageService);
+  OrderedAudioCollector? _audioCollector;
   final OpenAiTtsEngine _openaiEngine = OpenAiTtsEngine();
   final ElevenLabsTtsEngine _elevenlabsEngine = ElevenLabsTtsEngine();
 
@@ -97,8 +102,35 @@ class TtsService extends ChangeNotifier {
   /// Whether the current engine is Piper (legacy path).
   bool get _isPiperEngine => _storageService.ttsEngine == 'piper';
 
-  /// Available voices for the active engine.
-  List<TtsVoiceInfo> get activeVoices => activeEngine.availableVoices;
+  /// Cached voices for the currently selected engine.
+  /// This is the source of truth used by UI pickers.
+  List<TtsVoiceInfo> _currentAvailableVoices = const [];
+
+  /// Available voices for the currently selected TTS engine.
+  ///
+  /// When the engine is 'piper', this returns real installed voices
+  /// (including manually added custom voices) instead of falling back to Kokoro.
+  List<TtsVoiceInfo> get activeVoices => _currentAvailableVoices.isNotEmpty
+      ? _currentAvailableVoices
+      : activeEngine.availableVoices;
+
+  /// Refreshes the voice list for the currently selected engine.
+  /// Particularly important for Piper, where voices can be added manually
+  /// (custom .onnx files) or via the Voice Browser.
+  Future<void> refreshAvailableVoices() async {
+    if (_isPiperEngine) {
+      try {
+        _currentAvailableVoices =
+            await _voiceManager.getInstalledPiperVoicesAsTtsVoiceInfo();
+      } catch (e) {
+        print('TTS: Failed to refresh Piper voices: $e');
+        _currentAvailableVoices = const [];
+      }
+    } else {
+      _currentAvailableVoices = activeEngine.availableVoices;
+    }
+    notifyListeners();
+  }
 
   /// Manually download / ensure the model for the active engine is ready.
   /// Returns true if the model is ready after this call.
@@ -126,7 +158,10 @@ class TtsService extends ChangeNotifier {
   /// Whether the active engine's model files are already downloaded.
   Future<bool> isModelDownloaded() => activeEngine.isAvailable;
 
-  TtsService(this._storageService, this._voiceManager);
+  TtsService(this._storageService, this._voiceManager) {
+    // Prime the voice list for the current engine (important for Piper + custom voices)
+    unawaited(refreshAvailableVoices());
+  }
 
   @override
   void dispose() {
@@ -150,7 +185,7 @@ class TtsService extends ChangeNotifier {
     await stop();
 
     // Resolve voice
-    final voice = (voiceKey != null && voiceKey.isNotEmpty)
+    var voice = (voiceKey != null && voiceKey.isNotEmpty)
         ? voiceKey
         : _storageService.ttsVoiceModel;
     if (voice.isEmpty) {
@@ -158,11 +193,25 @@ class TtsService extends ChangeNotifier {
       return;
     }
 
+    // Defensive check: if the resolved voice key is clearly incompatible
+    // with the current engine (e.g. Kokoro voice assigned to a character while
+    // Piper is selected), fall back to the global voice for this engine.
+    if (_isPiperEngine && !await _voiceManager.isVoiceInstalled(voice)) {
+      print(
+          'TTS WARNING: Character voice "$voice" not found for Piper engine. '
+          'Falling back to global Piper voice. (This usually means a character '
+          'was assigned a Kokoro voice while Piper was selected.)');
+      voice = _storageService.ttsVoiceModel;
+      if (voice.isEmpty) return;
+    }
+
     final sanitized = _sanitizeText(text);
     if (sanitized.trim().isEmpty) {
       print('TTS: text empty after sanitization');
       return;
     }
+
+    final speed = _storageService.ttsSpeechRate;
 
     // For Piper, check model file exists
     if (_isPiperEngine) {
@@ -224,10 +273,133 @@ class TtsService extends ChangeNotifier {
           print('TTS: Kokoro model not ready');
           return;
         }
+
+        // Pre-start the worker pool so first audio doesn't have cold-start delay
+        if (activeEngine is KokoroEngine) {
+          unawaited((activeEngine as KokoroEngine).ensureWorkersWarm());
+        }
+      }
+
+      final bool isKokoro = _storageService.ttsEngine == 'kokoro';
+      final bool isPiper = _isPiperEngine;
+
+      // Unified modern path for Kokoro (persistent) and Piper (one-shot).
+      // Both now benefit from proper sanitization, smart chunking for long text,
+      // real progress reporting, and correct ordering/collation.
+      // Piper remains strictly one-shot under the hood (as the binary is designed).
+      if (isKokoro || isPiper) {
+        final engineName = isPiper ? 'Piper' : 'Kokoro';
+        final modeLabel = _storageService.ttsNarrateQuotedOnly
+            ? 'Only Quotes'
+            : _storageService.ttsIgnoreAsterisks
+                ? 'Ignore Asterisks'
+                : 'Verbatim';
+        kDebugPrint('[TtsService] $engineName single full-text generation ($modeLabel mode)');
+
+        _generationProgress = 0.01;
+        _isGenerating = true;
+        notifyListeners();
+
+        List<File> generatedWavs = [];
+
+        if (isPiper) {
+          // Piper: one-shot per chunk, but we still use smart chunking + progress.
+          final modelPath = await _voiceManager.getVoiceModelPath(voice);
+
+          // Early check for the binary so we don't spam errors once per chunk
+          final piperBinary = _piperBinaryPath();
+          if (!File(piperBinary).existsSync() && piperBinary != 'piper' && piperBinary != 'piper.exe') {
+            print('Piper binary not found at: $piperBinary');
+            print('See the detailed error below when generation is attempted.');
+          }
+
+          final bool readEverythingMode = !_storageService.ttsIgnoreAsterisks && !_storageService.ttsNarrateQuotedOnly;
+
+          final List<KokoroChunk> chunks;
+          if (readEverythingMode) {
+            chunks = KokoroChunker.splitFixedCharacterCount(
+              text: sanitized,
+              voice: voice,
+              speed: speed,
+              lang: 'en-us',
+              modelPath: modelPath,
+              voicesPath: '',
+              chunkSize: KokoroChunker.verbatimChunkSize,
+            );
+          } else {
+            chunks = KokoroChunker.split(
+              text: sanitized,
+              voice: voice,
+              speed: speed,
+              lang: 'en-us',
+              modelPath: modelPath,
+              voicesPath: '',
+              maxChars: 450,
+            );
+          }
+
+          final total = chunks.length;
+          for (int i = 0; i < total; i++) {
+            if (!_isSpeaking) break;
+
+            final chunk = chunks[i];
+            final wav = await _generatePiperWav(chunk.text, modelPath, i);
+            if (wav != null) {
+              generatedWavs.add(wav);
+            }
+
+            _generationProgress = (i + 1) / total;
+            notifyListeners();
+          }
+        } else {
+          // Kokoro: uses the persistent worker pool + internal chunking + collation
+          final wav = await activeEngine.generateAudio(
+            sanitized,
+            voice,
+            speed,
+            onProgress: (progress) {
+              _generationProgress = progress;
+              notifyListeners();
+            },
+          );
+
+          if (wav != null) {
+            generatedWavs = [wav];
+          }
+        }
+
+        _isGenerating = false;
+        notifyListeners();
+
+        if (generatedWavs.isNotEmpty && _isSpeaking) {
+          File? finalAudio;
+
+          if (generatedWavs.length == 1) {
+            finalAudio = generatedWavs.first;
+          } else {
+            finalAudio = await WavUtils.concatenateWavFiles(generatedWavs);
+            _cleanupFiles(generatedWavs);
+          }
+
+          if (finalAudio != null) {
+            _cachedWav = finalAudio;
+            _cachedMessageId = messageId;
+            _cachedTextHash = sanitized.hashCode;
+            _cachedVoice = voice;
+            _cachedEngine = _storageService.ttsEngine;
+
+            await _playWavFile(finalAudio);
+          }
+        } else {
+          _generationProgress = 0.0;
+          notifyListeners();
+        }
+
+        return; // finally block will reset speaking state
       }
 
       final sentences = _splitSentences(sanitized);
-      final wavFiles = List<File?>.filled(sentences.length, null);
+      final wavFiles = <File?>[]; // Filled via OrderedAudioCollector for Kokoro
 
       // Phase 1: Generate audio
       // ElevenLabs is fast enough to process full text in one request —
@@ -254,10 +426,17 @@ class TtsService extends ChangeNotifier {
           notifyListeners();
         }
       } else {
-        // Parallel for Kokoro / OpenAI
+        // Parallel for Kokoro / OpenAI — all results go through the OrderedAudioCollector
         final engine = activeEngine;
         final speed = _storageService.ttsSpeechRate;
         final maxConcurrency = _storageService.ttsConcurrency;
+
+        _audioCollector = OrderedAudioCollector(
+          maxLookahead: _storageService.ttsAudioLookahead,
+        );
+        _audioCollector!.reset(); // Ensure clean state for new utterance
+
+        kDebugPrint('[TtsService] Starting parallel generation of ${sentences.length} sentences (concurrency=$maxConcurrency)');
 
         for (int batchStart = 0; batchStart < sentences.length; batchStart += maxConcurrency) {
           if (!_isSpeaking) break;
@@ -271,11 +450,21 @@ class TtsService extends ChangeNotifier {
 
           final results = await Future.wait(futures);
 
-          // Store results in order
           bool failed = false;
           for (int j = 0; j < results.length; j++) {
-            if (results[j] == null || !_isSpeaking) { failed = true; break; }
-            wavFiles[batchStart + j] = results[j];
+            final sentenceIndex = batchStart + j;
+            final file = results[j];
+
+            if (file == null || !_isSpeaking) {
+              failed = true;
+              break;
+            }
+
+            // Submit to collector — it will only release files in the correct global order
+            final readyFiles = _audioCollector!.submit(sentenceIndex, file);
+            for (final readyFile in readyFiles) {
+              wavFiles.add(readyFile); // We collect in correct order
+            }
           }
           if (failed) break;
 
@@ -284,7 +473,7 @@ class TtsService extends ChangeNotifier {
         }
       }
 
-      // Collect non-null results in order
+      // wavFiles should be in correct order thanks to OrderedAudioCollector
       final validWavFiles = wavFiles.whereType<File>().toList();
 
       if (!_isSpeaking || validWavFiles.isEmpty) {
@@ -301,7 +490,7 @@ class TtsService extends ChangeNotifier {
         // ElevenLabs returns a single MP3 — play directly, no WAV concat needed.
         audioFile = validWavFiles.first;
       } else {
-        audioFile = await _concatenateWavFiles(validWavFiles);
+        audioFile = await WavUtils.concatenateWavFiles(validWavFiles);
         _cleanupFiles(validWavFiles);
       }
 
@@ -346,12 +535,19 @@ class TtsService extends ChangeNotifier {
     await stop();
 
     // Resolve voice
-    final voice = (voiceKey != null && voiceKey.isNotEmpty)
+    var voice = (voiceKey != null && voiceKey.isNotEmpty)
         ? voiceKey
         : _storageService.ttsVoiceModel;
     if (voice.isEmpty) {
       print('TTS streaming: no voice configured');
       return;
+    }
+
+    // Defensive mismatch protection (same as in speak())
+    if (_isPiperEngine && !await _voiceManager.isVoiceInstalled(voice)) {
+      print('TTS WARNING (streaming): Character voice "$voice" not found for Piper. Falling back.');
+      voice = _storageService.ttsVoiceModel;
+      if (voice.isEmpty) return;
     }
 
     // For Piper, check model exists
@@ -369,6 +565,10 @@ class TtsService extends ChangeNotifier {
       });
       _isDownloadingModel = false;
       if (!ready) return;
+
+      if (activeEngine is KokoroEngine) {
+        unawaited((activeEngine as KokoroEngine).ensureWorkersWarm());
+      }
     }
 
     _isSpeaking = true;
@@ -387,7 +587,7 @@ class TtsService extends ChangeNotifier {
     int bufferTarget = _storageService.callBufferSentences.clamp(1, 10);
 
     try {
-      var maxConcurrency = _isPiperEngine ? 1 : _storageService.ttsConcurrency.clamp(1, 16);
+      var maxConcurrency = _isPiperEngine ? 1 : _storageService.ttsConcurrency.clamp(1, 8);
       // ElevenLabs: one at a time from the stream (already fast enough)
       if (_storageService.ttsEngine == 'elevenlabs') maxConcurrency = 1;
 
@@ -415,6 +615,7 @@ class TtsService extends ChangeNotifier {
               final modelPath = await _voiceManager.getVoiceModelPath(voice);
               wavFile = await _generatePiperWav(sanitized, modelPath, idx);
             } else {
+              kDebugPrint('[TtsService] Streaming: generating audio for chunk (len=${sanitized.length})');
               wavFile = await engine.generateAudio(sanitized, voice, speed);
             }
             return wavFile;
@@ -504,10 +705,17 @@ class TtsService extends ChangeNotifier {
   Future<File?> generateAudioFile(String text, {String? voiceKey}) async {
     if (!_storageService.ttsEnabled) return null;
 
-    final voice = (voiceKey != null && voiceKey.isNotEmpty)
+    var voice = (voiceKey != null && voiceKey.isNotEmpty)
         ? voiceKey
         : _storageService.ttsVoiceModel;
     if (voice.isEmpty) return null;
+
+    // Defensive mismatch protection (same as in speak())
+    if (_isPiperEngine && !await _voiceManager.isVoiceInstalled(voice)) {
+      print('TTS WARNING (generateAudioFile): Character voice "$voice" not found for Piper. Falling back.');
+      voice = _storageService.ttsVoiceModel;
+      if (voice.isEmpty) return null;
+    }
 
     final sanitized = _sanitizeText(text);
     if (sanitized.trim().isEmpty) return null;
@@ -521,6 +729,10 @@ class TtsService extends ChangeNotifier {
       if (_storageService.ttsEngine == 'kokoro') {
         final ready = await activeEngine.ensureModelReady(onProgress: (_) {});
         if (!ready) return null;
+
+        if (activeEngine is KokoroEngine) {
+          unawaited((activeEngine as KokoroEngine).ensureWorkersWarm());
+        }
       }
 
       final sentences = _splitSentences(sanitized);
@@ -567,7 +779,7 @@ class TtsService extends ChangeNotifier {
         return wavFiles.first;
       }
 
-      final combinedWav = await _concatenateWavFiles(wavFiles);
+      final combinedWav = await WavUtils.concatenateWavFiles(wavFiles);
       _cleanupFiles(wavFiles);
       return combinedWav;
     } catch (e) {
@@ -595,17 +807,62 @@ class TtsService extends ChangeNotifier {
 
   // ---- Piper legacy support ----
 
-  /// Resolve the path to the bundled Piper binary (PyInstaller --onedir bundle).
+  /// Resolve the path to the Piper binary.
+  ///
+  /// This method tries multiple locations so Piper works in both:
+  /// - Release builds (where the binary is bundled via PyInstaller + build scripts)
+  /// - Development (`flutter run`) where the binary may live elsewhere
   String _piperBinaryPath() {
-    final execDir = File(Platform.resolvedExecutable).parent.path;
+    final execFile = File(Platform.resolvedExecutable);
+    final execDir = execFile.parent.path;
+
+    // 1. Try the standard bundled location first (release builds)
+    String bundledPath;
     if (Platform.isWindows) {
-      return p.join(execDir, 'piper', 'piper', 'piper.exe');
+      bundledPath = p.join(execDir, 'piper', 'piper', 'piper.exe');
     } else if (Platform.isMacOS) {
-      final contentsDir = File(Platform.resolvedExecutable).parent.parent.path;
-      return p.join(contentsDir, 'Resources', 'piper', 'piper', 'piper');
+      final contentsDir = execFile.parent.parent.path;
+      bundledPath = p.join(contentsDir, 'Resources', 'piper', 'piper', 'piper');
     } else {
-      return p.join(execDir, 'piper', 'piper', 'piper');
+      bundledPath = p.join(execDir, 'piper', 'piper', 'piper');
     }
+
+    if (File(bundledPath).existsSync()) {
+      return bundledPath;
+    }
+
+    // 2. Walk up from the executable (helpful in some debug bundle layouts)
+    var currentDir = execFile.parent;
+    for (int i = 0; i < 12; i++) {
+      final candidate = p.join(currentDir.path, 'piper', 'piper', 'piper');
+      if (File(candidate).existsSync()) {
+        return candidate;
+      }
+      final parent = currentDir.parent;
+      if (parent.path == currentDir.path) break;
+      currentDir = parent;
+    }
+
+    // 3. Development fallbacks - look relative to current working directory
+    final cwd = Directory.current.path;
+    final devCandidates = <String>[
+      p.join(cwd, 'piper', 'piper', 'piper'),
+      p.join(cwd, 'piper', 'piper', 'piper.exe'),
+      p.join(cwd, '..', 'piper', 'piper', 'piper'),
+      p.join(cwd, '..', 'piper', 'piper', 'piper.exe'),
+      // Sometimes people put it directly in the project root
+      p.join(cwd, 'piper', 'piper'),
+    ];
+
+    for (final candidate in devCandidates) {
+      if (File(candidate).existsSync()) {
+        return candidate;
+      }
+    }
+
+    // 4. Last resort - assume `piper` is available on the system PATH
+    // (user may have installed it via Homebrew, built from source, etc.)
+    return Platform.isWindows ? 'piper.exe' : 'piper';
   }
 
   /// Check if the Piper binary is available.
@@ -651,7 +908,34 @@ class TtsService extends ChangeNotifier {
       }
       return wavFile;
     } catch (e) {
-      print('Piper error: $e');
+      final piperPath = _piperBinaryPath();
+
+      if (e is ProcessException && e.message.contains('No such file or directory')) {
+        print('''
+════════════════════════════════════════════════════════════
+Piper TTS binary not found!
+
+Expected location tried: $piperPath
+
+This usually happens in development builds.
+To use Piper locally:
+
+  • Run a release build (recommended for testing Piper):
+      ./scripts/build-macos.sh
+
+  • Or place the Piper binary at one of these locations:
+      <project>/piper/piper/piper
+      <project>/piper/piper/piper.exe
+
+  • Or install `piper` on your PATH (build from source or use prebuilts)
+
+See docs for current bundling instructions.
+════════════════════════════════════════════════════════════
+''');
+      } else {
+        print('Piper error: $e');
+      }
+
       _piperProcess = null;
       return null;
     }
@@ -660,7 +944,7 @@ class TtsService extends ChangeNotifier {
   // ---- Audio utilities ----
 
   /// Concatenate multiple WAV files into a single WAV file.
-  Future<File?> _concatenateWavFiles(List<File> wavFiles) async {
+  static Future<File?> concatenateWavFiles(List<File> wavFiles) async {
     if (wavFiles.isEmpty) return null;
     if (wavFiles.length == 1) return wavFiles.first;
 
@@ -804,11 +1088,16 @@ class TtsService extends ChangeNotifier {
     }
     // Step 2: If narrateQuotedOnly, extract only text within quotes (straight or curly)
     if (_storageService.ttsNarrateQuotedOnly) {
-      // Match both straight "..." and curly "..." quotes
-      final quotePattern = RegExp(r'(?:"([^"]+)"|["\u201C]([^\u201D"]+)["\u201D])');
+      // Robust extraction for spoken dialogue in "..." or “...” (curly quotes)
+      // We deliberately avoid single quotes here because they are too ambiguous with apostrophes.
+      final quotePattern = RegExp(r'["“]([^"”]+)["”]', dotAll: true);
       final matches = quotePattern.allMatches(result);
-      final extracted = matches.map((m) => m.group(1) ?? m.group(2) ?? '').where((s) => s.trim().isNotEmpty).toList();
-      result = extracted.isNotEmpty ? extracted.join('... ') : '';
+      final extracted = matches
+          .map((m) => m.group(1)?.trim() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      result = extracted.isNotEmpty ? extracted.join('. ') : '';
     }
 
     // ── Standard cleanup ──
@@ -822,6 +1111,11 @@ class TtsService extends ChangeNotifier {
     result = result.replaceAll(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), r'$1');
     result = result.replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '');
     result = result.replaceAll(RegExp(r':[a-zA-Z0-9_]+:'), '');
+    // Remove emojis (fpai-feature-004)
+    result = result.replaceAll(
+        RegExp(r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]',
+            unicode: true),
+        '');
     result = result.replaceAll(RegExp(r'\s+'), ' ');
     return result.trim();
   }

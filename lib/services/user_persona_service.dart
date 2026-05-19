@@ -28,7 +28,6 @@ class UserPersona {
   final String id;
   final String title;
   final String name;
-  final String description;
   final String persona;
   final List<String> learnedFacts;
   final String? avatarPath;
@@ -40,7 +39,6 @@ class UserPersona {
     required this.id,
     this.title = '',
     this.name = 'User',
-    this.description = '',
     this.persona = '',
     this.learnedFacts = const [],
     this.avatarPath,
@@ -49,7 +47,6 @@ class UserPersona {
   UserPersona copyWith({
     String? title,
     String? name,
-    String? description,
     String? persona,
     List<String>? learnedFacts,
     String? avatarPath,
@@ -58,7 +55,6 @@ class UserPersona {
       id: this.id,
       title: title ?? this.title,
       name: name ?? this.name,
-      description: description ?? this.description,
       persona: persona ?? this.persona,
       learnedFacts: learnedFacts ?? this.learnedFacts,
       avatarPath: avatarPath ?? this.avatarPath,
@@ -70,7 +66,6 @@ class UserPersona {
       'id': id,
       'title': title,
       'name': name,
-      'description': description,
       'persona': persona,
       'learned_facts': learnedFacts,
       'avatar_path': avatarPath,
@@ -78,12 +73,13 @@ class UserPersona {
   }
 
   factory UserPersona.fromJson(Map<String, dynamic> json) {
+    // Support legacy JSON that may have 'description' instead of 'persona'
+    final personaText = (json['persona'] as String?) ?? (json['description'] as String?) ?? '';
     return UserPersona(
       id: json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
       title: json['title'] ?? '',
       name: json['name'] ?? 'User',
-      description: json['description'] ?? '',
-      persona: json['persona'] ?? '',
+      persona: personaText,
       learnedFacts: (json['learned_facts'] as List?)?.cast<String>() ?? const [],
       avatarPath: json['avatar_path'],
     );
@@ -141,7 +137,6 @@ class UserPersonaService extends ChangeNotifier {
           id: p.id,
           title: p.title,
           name: p.name,
-          description: p.description,
           persona: p.persona,
           learnedFacts: _parseFactsList(p.learnedFacts),
           avatarPath: p.avatarPath,
@@ -164,19 +159,18 @@ class UserPersonaService extends ChangeNotifier {
     }
   }
 
-  Future<void> createPersona(String title, String name, String description, String persona, String? avatarPath) async {
+  Future<void> createPersona(String title, String name, String persona, String? avatarPath) async {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
-    
+
     await _db.insertPersona(PersonasCompanion.insert(
       id: id,
       title: Value(title),
       name: Value(name),
-      description: Value(description),
       persona: Value(persona),
       avatarPath: Value(avatarPath),
       isActive: const Value(true),
     ));
-    
+
     // Deactivate others
     await _db.setActivePersona(id);
 
@@ -184,7 +178,6 @@ class UserPersonaService extends ChangeNotifier {
       id: id,
       title: title,
       name: name,
-      description: description,
       persona: persona,
       avatarPath: avatarPath,
     );
@@ -197,18 +190,17 @@ class UserPersonaService extends ChangeNotifier {
     final index = _personas.indexWhere((p) => p.id == updatedPersona.id);
     if (index != -1) {
       _personas[index] = updatedPersona;
-      
+
       await _db.updatePersona(PersonasCompanion(
         id: Value(updatedPersona.id),
         title: Value(updatedPersona.title),
         name: Value(updatedPersona.name),
-        description: Value(updatedPersona.description),
         persona: Value(updatedPersona.persona),
         learnedFacts: Value(jsonEncode(updatedPersona.learnedFacts)),
         avatarPath: Value(updatedPersona.avatarPath),
         isActive: Value(updatedPersona.id == _activePersonaId),
       ));
-      
+
       notifyListeners();
     }
   }
@@ -271,7 +263,6 @@ class UserPersonaService extends ChangeNotifier {
           id: p.id,
           title: Value(p.title),
           name: Value(p.name),
-          description: Value(p.description),
           persona: Value(p.persona),
           avatarPath: Value(p.avatarPath),
           isActive: Value(p.id == _activePersonaId),
@@ -326,15 +317,14 @@ class UserPersonaService extends ChangeNotifier {
 
           // Look up the description entry for this avatar key
           final descEntry = descriptionsMap[avatarKey] as Map<String, dynamic>?;
-          final description = descEntry?['description'] as String? ?? '';
+          final personaText = descEntry?['description'] as String? ?? ''; // ST uses 'description' as the persona text
           final title = descEntry?['title'] as String? ?? '';
 
           final newPersona = UserPersona(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             title: title,
             name: name,
-            description: description,
-            persona: description, // ST uses description as the persona text
+            persona: personaText,
             learnedFacts: const <String>[],
             avatarPath: null,
           );
@@ -371,24 +361,21 @@ class UserPersonaService extends ChangeNotifier {
 
       String name = '';
       String title = '';
-      String description = '';
-      String persona = '';
+      String personaText = '';
       String? avatarPath;
 
       // TavernAI V2 / Backyard AI character card
       if (json.containsKey('first_mes') || json.containsKey('mes_example') ||
           json.containsKey('personality') || json.containsKey('scenario')) {
         name = json['name'] as String? ?? '';
-        description = json['personality'] as String? ?? json['description'] as String? ?? '';
-        persona = json['user_persona'] as String? ?? json['description'] as String? ?? '';
+        personaText = json['user_persona'] as String? ?? json['description'] as String? ?? '';
         title = json['creator_notes'] as String? ?? '';
         debugPrint('[Persona:Import] Detected TavernAI V2 / Backyard AI format');
       }
       // Simple object with name + description
       else if (json.containsKey('name') && json.containsKey('description')) {
         name = json['name'] as String? ?? '';
-        description = json['description'] as String? ?? '';
-        persona = json['persona'] as String? ?? description;
+        personaText = json['persona'] as String? ?? json['description'] as String? ?? '';
         title = json['title'] as String? ?? '';
 
         // Handle base64 avatar
@@ -403,8 +390,7 @@ class UserPersonaService extends ChangeNotifier {
       // Minimal fallback
       else if (json.containsKey('name')) {
         name = json['name'] as String? ?? 'Imported Persona';
-        description = json['description'] as String? ?? json['bio'] as String? ?? '';
-        persona = json['persona'] as String? ?? '';
+        personaText = json['persona'] as String? ?? json['description'] as String? ?? json['bio'] as String? ?? '';
         debugPrint('[Persona:Import] Detected minimal format');
       } else {
         debugPrint('[Persona:Import] Unrecognized format — no parseable keys found');
@@ -419,8 +405,7 @@ class UserPersonaService extends ChangeNotifier {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: title,
         name: name,
-        description: description,
-        persona: persona,
+        persona: personaText,
         learnedFacts: learnedFacts,
         avatarPath: avatarPath,
       );
@@ -442,7 +427,6 @@ class UserPersonaService extends ChangeNotifier {
       toInsert = p.copyWith(
         title: p.title,
         name: p.name,
-        description: p.description,
         persona: p.persona,
       );
       // Generate new ID since copyWith preserves original
@@ -450,7 +434,6 @@ class UserPersonaService extends ChangeNotifier {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: p.title,
         name: p.name,
-        description: p.description,
         persona: p.persona,
         learnedFacts: p.learnedFacts,
         avatarPath: p.avatarPath,
@@ -461,7 +444,6 @@ class UserPersonaService extends ChangeNotifier {
       id: toInsert.id,
       title: Value(toInsert.title),
       name: Value(toInsert.name),
-      description: Value(toInsert.description),
       persona: Value(toInsert.persona),
       learnedFacts: Value(jsonEncode(toInsert.learnedFacts)),
       avatarPath: Value(toInsert.avatarPath),

@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/models/chat_generation_settings.dart';
+import 'package:front_porch_ai/ui/widgets/slider_with_input.dart';
 
 class ChatSettingsDialog extends StatefulWidget {
   const ChatSettingsDialog({super.key});
@@ -207,42 +208,136 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                        // Generation
                        const Text('Generation', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
                        const SizedBox(height: 8),
-                       _buildSlider('Temperature', _gen.resolveTemperature(storage), 0.0, 2.0, (val) {
-                         setState(() => _gen.temperature = val);
-                         _save();
-                       }, divisions: 20, tooltip: 'Controls randomness. Low = predictable and focused. High = creative and surprising. 0.7 is a good default.'),
-                       _buildSlider('Min-P', _gen.resolveMinP(storage), 0.0, 1.0, (val) {
-                         setState(() => _gen.minP = val);
-                         _save();
-                       }, divisions: 100, tooltip: 'Filters out unlikely words. Higher = only the most probable words are kept. Start around 0.05–0.1.'),
-                       _buildSlider('Repeat Penalty', _gen.resolveRepeatPenalty(storage), 1.0, 3.0, (val) {
-                         setState(() => _gen.repeatPenalty = val);
-                         _save();
-                       }, divisions: 200, tooltip: 'Discourages the AI from repeating the same words. Higher = less repetition. 1.1 is a safe default.'),
-                       _buildSlider('Rep Pen Tokens', _gen.resolveRepeatPenaltyTokens(storage).toDouble(), 0, 512, (val) {
-                         setState(() => _gen.repeatPenaltyTokens = val.toInt());
-                         _save();
-                       }, divisions: 512, tooltip: 'How far back the AI checks for repetition (in tokens). Higher = checks more of the conversation history.'),
-                       _buildSlider('XTC Threshold', _gen.resolveXtcThreshold(storage), 0.0, 0.5, (val) {
-                         setState(() => _gen.xtcThreshold = val);
-                         _save();
-                       }, divisions: 50, tooltip: 'Exclude Top Choices — removes the most obvious/cliché word choices. Lower = stronger effect. Try 0.1 for more creative writing.'),
-                       _buildSlider('XTC Probability', _gen.resolveXtcProbability(storage), 0.0, 1.0, (val) {
-                         setState(() => _gen.xtcProbability = val);
-                         _save();
-                       }, divisions: 20, tooltip: 'How often XTC activates. 0 = never, 1 = always. Try 0.5 for a balance between creativity and coherence.'),
-                       _buildSlider('Max Output Tokens', _gen.resolveMaxLength(storage).toDouble(), 16, 16384, (val) {
-                         setState(() => _gen.maxLength = val.toInt());
-                         _save();
-                       }, divisions: null, tooltip: 'Maximum number of tokens the AI can write in one response. Thinking models need higher values since reasoning tokens count toward this limit.'),
-                       _buildSlider('Min Output Tokens', _gen.resolveMinLength(storage).toDouble(), 0, 512, (val) {
-                         setState(() => _gen.minLength = val.toInt());
-                         _save();
-                       }, divisions: 512, tooltip: 'Minimum tokens the AI must write before it can stop. Increase for longer responses.'),
-                       _buildIntSlider('Context Size', _gen.resolveContextSize(storage).toDouble().clamp(512, isRemote ? 500000 : 131072), 512, isRemote ? 500000.0 : 131072.0, (val) {
-                         setState(() => _gen.contextSize = val.toInt());
-                         _save();
-                       }, step: 512),
+                        SliderWithInput(
+                          label: 'Temperature',
+                          value: _gen.resolveTemperature(storage),
+                          min: 0.0,
+                          max: 2.0,
+                          divisions: 20,
+                          tooltip: 'Controls randomness. Low = predictable and focused. High = creative and surprising. 0.7 is a good default.',
+                          context: context,
+                          onChanged: (val) {
+                            setState(() => _gen.temperature = val);
+                            _save();
+                          },
+                        ),
+                        SliderWithInput(
+                          label: 'Min-P',
+                          value: _gen.resolveMinP(storage),
+                          min: 0.0,
+                          max: 1.0,
+                          divisions: 100,
+                          tooltip: 'Filters out unlikely words. Higher = only the most probable words are kept. Start around 0.05–0.1.',
+                          context: context,
+                          onChanged: (val) {
+                            setState(() => _gen.minP = val);
+                            _save();
+                          },
+                        ),
+                        SliderWithInput(
+                          label: 'Repeat Penalty',
+                          value: _gen.resolveRepeatPenalty(storage),
+                          min: 1.0,
+                          max: 3.0,
+                          divisions: 200,
+                          tooltip: 'Discourages the AI from repeating the same words. Higher = less repetition. 1.1 is a safe default.',
+                          context: context,
+                          onChanged: (val) {
+                            setState(() => _gen.repeatPenalty = val);
+                            _save();
+                          },
+                        ),
+                        SliderWithInput(
+                          label: 'Rep Pen Tokens',
+                          value: _gen.resolveRepeatPenaltyTokens(storage).toDouble(),
+                          min: 0,
+                          max: 512,
+                          divisions: 512,
+                          isInteger: true,
+                          tooltip: 'How far back the AI checks for repetition (in tokens). Higher = checks more of the conversation history.',
+                          context: context,
+                          onChanged: (val) {
+                            setState(() => _gen.repeatPenaltyTokens = val.toInt());
+                            _save();
+                          },
+                        ),
+                        SliderWithInput(
+                          label: 'XTC Threshold',
+                          value: _gen.resolveXtcThreshold(storage),
+                          min: 0.0,
+                          max: 0.5,
+                          divisions: 50,
+                          tooltip: 'Exclude Top Choices — removes the most obvious/cliché word choices. Lower = stronger effect. Try 0.1 for more creative writing.',
+                          context: context,
+                          onChanged: (val) {
+                            setState(() => _gen.xtcThreshold = val);
+                            _save();
+                          },
+                        ),
+                        SliderWithInput(
+                          label: 'XTC Probability',
+                          value: _gen.resolveXtcProbability(storage),
+                          min: 0.0,
+                          max: 1.0,
+                          divisions: 20,
+                          tooltip: 'How often XTC activates. 0 = never, 1 = always. Try 0.5 for a balance between creativity and coherence.',
+                          context: context,
+                          onChanged: (val) {
+                            setState(() => _gen.xtcProbability = val);
+                            _save();
+                          },
+                        ),
+                        SliderWithInput(
+                          label: 'Max Output Tokens',
+                          value: _gen.resolveMaxLength(storage).toDouble(),
+                          min: 16,
+                          max: 16384,
+                          isInteger: true,
+                          tooltip: 'Maximum number of tokens the AI can write in one response. Thinking models need higher values since reasoning tokens count toward this limit.',
+                          context: context,
+                          onChanged: (val) {
+                            setState(() => _gen.maxLength = val.toInt());
+                            _save();
+                          },
+                        ),
+                        SliderWithInput(
+                          label: 'Min Output Tokens',
+                          value: _gen.resolveMinLength(storage).toDouble(),
+                          min: 0,
+                          max: 512,
+                          divisions: 512,
+                          isInteger: true,
+                          tooltip: 'Minimum tokens the AI must write before it can stop. Increase for longer responses.',
+                          context: context,
+                          onChanged: (val) {
+                            setState(() => _gen.minLength = val.toInt());
+                            _save();
+                          },
+                        ),
+                        IgnorePointer(
+                          ignoring: storage.activeKcppsPath != null && storage.activeKcppsPath!.isNotEmpty,
+                          child: Opacity(
+                            opacity: storage.activeKcppsPath != null && storage.activeKcppsPath!.isNotEmpty ? 0.5 : 1.0,
+                            child: Tooltip(
+                              message: storage.activeKcppsPath != null && storage.activeKcppsPath!.isNotEmpty
+                                  ? 'Context size is controlled by the active .kcpps preset and cannot be edited here.'
+                                  : '',
+                              child: SliderWithInput(
+                                label: 'Context Size',
+                                value: _gen.resolveContextSize(storage).toDouble().clamp(512, isRemote ? 500000 : 131072),
+                                min: 512,
+                                max: isRemote ? 500000.0 : 131072.0,
+                                isInteger: true,
+                                divisions: ((isRemote ? 500000.0 : 131072.0) - 512) ~/ 512,
+                                context: context,
+                                onChanged: (val) {
+                                  setState(() => _gen.contextSize = val.toInt());
+                                  _save();
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
 
                        const SizedBox(height: 16),
                        Row(
@@ -266,11 +361,20 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                            ),
                          ],
                        ),
-                       if (_gen.resolveDynamicTempEnabled(storage))
-                         _buildSlider('Dynatemp Range', _gen.resolveDynamicTempRange(storage), 0.0, 2.0, (val) {
-                           setState(() => _gen.dynamicTempRange = val);
-                           _save();
-                         }, divisions: 20, tooltip: 'How much the temperature can vary around the base temperature.'),
+                        if (_gen.resolveDynamicTempEnabled(storage))
+                          SliderWithInput(
+                            label: 'Dynatemp Range',
+                            value: _gen.resolveDynamicTempRange(storage),
+                            min: 0.0,
+                            max: 2.0,
+                            divisions: 20,
+                            tooltip: 'How much the temperature can vary around the base temperature.',
+                            context: context,
+                            onChanged: (val) {
+                              setState(() => _gen.dynamicTempRange = val);
+                              _save();
+                            },
+                          ),
 
                         const SizedBox(height: 24),
                         const Text('Stop Sequences', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
@@ -407,64 +511,4 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
     );
   }
 
-  Widget _buildSlider(String label, double value, double min, double max, Function(double) onChanged, {int? divisions, String? tooltip}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label, style: const TextStyle(color: Colors.white70)),
-                if (tooltip != null)
-                  Tooltip(
-                    message: tooltip,
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(Icons.info_outline, size: 16, color: Colors.white38),
-                    ),
-                  ),
-              ],
-            ),
-            Text(value.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          ],
-        ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: divisions,
-          onChanged: onChanged,
-          activeColor: Colors.blueAccent,
-          inactiveColor: Colors.white24,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildIntSlider(String label, double value, double min, double max, Function(double) onChanged, {int step = 1}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(color: Colors.white70)),
-            Text(value.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          ],
-        ),
-        Slider(
-          value: value.clamp(min, max),
-          min: min,
-          max: max,
-          divisions: ((max - min) / step).round(),
-          onChanged: onChanged,
-          activeColor: Colors.blueAccent,
-          inactiveColor: Colors.white24,
-        ),
-      ],
-    );
-  }
 }

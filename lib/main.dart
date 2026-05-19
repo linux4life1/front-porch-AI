@@ -20,6 +20,9 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:provider/provider.dart';
 
@@ -32,6 +35,7 @@ import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
+import 'package:front_porch_ai/services/download_manager.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/hardware_service.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
@@ -63,9 +67,15 @@ import 'package:front_porch_ai/services/file_consolidation_service.dart';
 import 'package:front_porch_ai/ui/widgets/setup_overlay.dart';
 import 'package:front_porch_ai/ui/widgets/remote_lock_overlay.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
+import 'package:front_porch_ai/ui/dialogs/stable_db_import_dialog.dart';
 import 'package:front_porch_ai/services/web_server_service.dart';
 import 'package:front_porch_ai/services/web_chat_bridge.dart';
+import 'package:front_porch_ai/services/expression_classifier.dart';
 import 'package:front_porch_ai/app_version.dart';
+
+/// Prefix SharedPreferences keys for beta builds so window state is
+/// isolated from the stable installation.  Unchanged for stable builds.
+String _k(String key) => isPreRelease ? 'beta_$key' : key;
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -117,9 +127,36 @@ void main(List<String> args) async {
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.normal,
+    title: 'Front Porch AI',
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    // Restore saved window state (size, position, maximized)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final windowWidth = prefs.getDouble(_k('window_width'));
+      final windowHeight = prefs.getDouble(_k('window_height'));
+      final windowX = prefs.getDouble(_k('window_x'));
+      final windowY = prefs.getDouble(_k('window_y'));
+      final windowMaximized = prefs.getBool(_k('window_maximized')) ?? false;
+
+      if (windowMaximized) {
+        // Restore maximized: apply saved size, then maximize
+        // (position is handled by the OS when maximized)
+        if (windowWidth != null && windowHeight != null) {
+          await windowManager.setSize(Size(windowWidth, windowHeight));
+        }
+        await windowManager.maximize();
+      } else if (windowX != null && windowY != null && windowWidth != null && windowHeight != null) {
+        // Restore saved position + size
+        await windowManager.setBounds(
+          Rect.fromLTWH(windowX, windowY, windowWidth, windowHeight),
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to restore window state: $e');
+    }
+
     await windowManager.show();
     await windowManager.focus();
     await windowManager.setPreventClose(true);
@@ -131,6 +168,13 @@ void main(List<String> args) async {
         Provider<bool>.value(value: needsMigration), // migration flag
         ChangeNotifierProvider(create: (_) => AppState()),
         ChangeNotifierProvider(create: (_) => StorageService()),
+        ChangeNotifierProxyProvider<StorageService, DownloadManager>(
+          create: (context) => DownloadManager(
+            targetDir: Provider.of<StorageService>(context, listen: false).modelsDir.path,
+          ),
+          update: (context, storage, previous) =>
+              previous ?? DownloadManager(targetDir: storage.modelsDir.path),
+        ),
         ChangeNotifierProxyProvider<StorageService, KoboldService>(
           create: (context) => KoboldService(
             Provider.of<StorageService>(context, listen: false),
@@ -185,11 +229,13 @@ void main(List<String> args) async {
           update: (context, storage, previous) =>
               previous ?? BackendManager(storage),
         ),
-        ChangeNotifierProxyProvider<StorageService, ModelManager>(
-          create: (context) =>
-              ModelManager(Provider.of<StorageService>(context, listen: false)),
-          update: (context, storage, previous) =>
-              previous ?? ModelManager(storage),
+        ChangeNotifierProxyProvider2<StorageService, DownloadManager, ModelManager>(
+          create: (context) => ModelManager(
+            Provider.of<StorageService>(context, listen: false),
+            Provider.of<DownloadManager>(context, listen: false),
+          ),
+          update: (context, storage, downloadManager, previous) =>
+              previous ?? ModelManager(storage, downloadManager),
         ),
         ChangeNotifierProvider(create: (_) => OpenRouterService()),
         ChangeNotifierProxyProvider3<
@@ -246,14 +292,12 @@ void main(List<String> args) async {
           },
           update: (context, kobold, persona, storage, worldRepo, previous) {
             if (previous != null) {
-              // Re-wire dependencies on every update to stay in sync
               previous.setLLMProvider(
                 Provider.of<LLMProvider>(context, listen: false),
               );
               previous.setCharacterRepository(
                 Provider.of<CharacterRepository>(context, listen: false),
               );
-              // Wire TtsService if available (it's registered later in the tree)
               try {
                 previous.setTtsService(
                   Provider.of<TtsService>(context, listen: false),
@@ -276,6 +320,12 @@ void main(List<String> args) async {
             );
             return chatService;
           },
+        ),
+        ChangeNotifierProxyProvider<StorageService, ExpressionClassifierService>(
+          create: (context) =>
+              ExpressionClassifierService(Provider.of<StorageService>(context, listen: false)),
+          update: (context, storage, previous) =>
+              previous ?? ExpressionClassifierService(storage),
         ),
         ChangeNotifierProxyProvider<StorageService, GroupChatRepository>(
           create: (context) => GroupChatRepository(
@@ -564,9 +614,83 @@ class _MyAppState extends State<MyApp> with WindowListener {
     // Run migration after first frame, then reunification if needed
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkDbHealth();
+      // Show stable DB import dialog on first beta launch (before migration)
+      await _showStableDbImportIfNeeded();
       await _runMigrationIfNeeded();
       await _runReunificationIfNeeded();
     });
+  }
+
+  /// Show the stable DB import dialog on first beta launch.
+  /// Only shown when a stable DB exists and no beta DB has been created yet.
+  /// If the user chooses Import, the stable DB is manually copied to the
+  /// beta location and all repositories are reloaded with the new data.
+  Future<void> _showStableDbImportIfNeeded() async {
+    if (!isPreRelease) return;
+    final shouldShow = await StableDbImportDialog.shouldShow();
+    if (!shouldShow || !mounted) return;
+
+    // Show the dialog — it's modal and blocks further initialization
+    await StableDbImportDialog.show(context);
+
+    // If user chose Import, manually copy the stable DB and reinitialize
+    final stablePath = await StableDbImportDialog.stableDbPath();
+    if (stablePath == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final skipped = prefs.getBool('beta_stable_import_skipped') ?? false;
+    if (skipped) return;
+
+    final betaRoot = p.join(
+      (await getApplicationDocumentsDirectory()).path,
+      'FrontPorchAI-Beta',
+    );
+    final betaDbDir = p.join(betaRoot, 'KoboldManager');
+    final betaDb = File(p.join(betaDbDir, 'front_porch_beta.db'));
+    final stableDb = File(stablePath);
+
+    if (betaDb.existsSync()) return; // another process already copied
+
+    await Directory(betaDbDir).create(recursive: true);
+    await stableDb.copy(betaDb.path);
+    debugPrint('[DB] Pre-release build — imported stable DB to beta DB');
+
+    // Reinitialize the database and reload all repositories
+    await _reinitializeAfterImport();
+  }
+
+  Future<void> _reinitializeAfterImport() async {
+    if (!mounted) return;
+
+    try {
+      final oldDb = Provider.of<AppDatabase>(context, listen: false);
+      await oldDb.close();
+
+      final newDb = await AppDatabase.instance();
+      _MyAppState._dbHealthy = await newDb.integrityCheck();
+
+      final charRepo = Provider.of<CharacterRepository>(context, listen: false);
+      final folderService = Provider.of<FolderService>(context, listen: false);
+      final personaService = Provider.of<UserPersonaService>(context, listen: false);
+      final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
+      final worldRepo = Provider.of<WorldRepository>(context, listen: false);
+
+      charRepo.updateDatabase(newDb);
+      folderService.updateDatabase(newDb);
+      personaService.updateDatabase(newDb);
+      groupRepo.updateDatabase(newDb);
+      worldRepo.updateDatabase(newDb);
+      Provider.of<ChatService>(context, listen: false).updateDatabase(newDb);
+
+      await charRepo.loadCharacters();
+      await charRepo.cleanOrphanedPngs();
+      await folderService.reload();
+      await personaService.reload();
+      await groupRepo.reload();
+      await worldRepo.loadWorlds();
+    } catch (e) {
+      debugPrint('[DB] Reinitialize after import failed: $e');
+    }
   }
 
   @override
@@ -577,6 +701,22 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
   @override
   void onWindowClose() async {
+    // Save window state (size, position, maximized) before cleanup.
+    // Must happen early while the window is still alive and queryable.
+    try {
+      final size = await windowManager.getSize();
+      final position = await windowManager.getPosition();
+      final isMax = await windowManager.isMaximized();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_k('window_width'), size.width);
+      await prefs.setDouble(_k('window_height'), size.height);
+      await prefs.setDouble(_k('window_x'), position.dx);
+      await prefs.setDouble(_k('window_y'), position.dy);
+      await prefs.setBool(_k('window_maximized'), isMax);
+    } catch (e) {
+      debugPrint('Failed to save window state: $e');
+    }
+
     // Stop KoboldCPP backend BEFORE destroying the window.
     // This prevents orphaned processes when the app closes.
     try {
@@ -672,6 +812,18 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     );
                     final tts = Provider.of<TtsService>(context, listen: false);
                     chatService.setTtsService(tts);
+                  } catch (_) {}
+                  // Wire ExpressionClassifierService into ChatService
+                  try {
+                    final chatService = Provider.of<ChatService>(
+                      context,
+                      listen: false,
+                    );
+                    final classifier = Provider.of<ExpressionClassifierService>(
+                      context,
+                      listen: false,
+                    );
+                    chatService.setExpressionClassifierService(classifier);
                   } catch (_) {}
                   // Wire UpdateService shutdown callback so child processes
                   // (KoboldCPP, web server, embedding sidecar) are stopped

@@ -190,10 +190,31 @@ class WorldRepository extends ChangeNotifier {
   Future<void> importWorld(File file) async {
     try {
       final content = await file.readAsString();
-      final world = model.World.fromJson(jsonDecode(content));
+      final Map<String, dynamic> json = jsonDecode(content) as Map<String, dynamic>;
+
+      // Validate basic structure
+      if (json['entries'] == null && json['lorebook'] == null) {
+        throw FormatException(
+          'Invalid lorebook file: missing "entries" or "lorebook" field. '
+          'Supported formats: SillyTavern, Chub.ai, Front Porch.',
+        );
+      }
+
+      final world = model.World.fromJson(json);
+
+      // Validate that we got entries
+      if (world.lorebook.entries.isEmpty) {
+        print(
+          'Warning: Imported world "${world.name}" has no lorebook entries. '
+          'The file may be in an unsupported format or empty.',
+        );
+      }
+
       await saveWorld(world);
-    } catch (e) {
+    } on FormatException {
       rethrow;
+    } on Exception catch (e) {
+      throw FormatException('Failed to import lorebook: $e');
     }
   }
 

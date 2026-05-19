@@ -60,12 +60,31 @@ class World {
   }
 
   factory World.fromJson(Map<String, dynamic> json) {
+    // Determine name and description
+    // Chub/SillyTavern: top-level name/description
+    // Front Porch: top-level name/description
+    final String name = json['name']?.toString() ?? 'Imported World';
+    final String description = json['description']?.toString() ?? '';
+
+    // Determine lorebook
+    // Front Porch format: { "lorebook": { "entries": [...] } }
+    // SillyTavern/Chub format: { "entries": {...} } (entries at top level)
+    Lorebook lorebook;
+    if (json['lorebook'] != null) {
+      // Front Porch format with explicit lorebook wrapper
+      lorebook = Lorebook.fromJson(json['lorebook'] as Map<String, dynamic>);
+    } else if (json['entries'] != null) {
+      // SillyTavern/Chub format: entries at top level
+      // Wrap in a map to pass to Lorebook.fromJson
+      lorebook = Lorebook.fromJson({'entries': json['entries']});
+    } else {
+      lorebook = Lorebook(entries: []);
+    }
+
     return World(
-      name: json['name'] ?? 'New World',
-      description: json['description'] ?? '',
-      lorebook: json['lorebook'] != null 
-          ? Lorebook.fromJson(json['lorebook'])
-          : Lorebook(entries: []),
+      name: name,
+      description: description,
+      lorebook: lorebook,
       linkedCharacterName: json['linked_character_name'],
       avatarPath: json['avatar_path'],
     );

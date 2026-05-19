@@ -244,7 +244,22 @@ class CharacterGenService {
       // Rewrite description and personality using the interview voice
       onStatus?.call('Enriching character profile from interview...');
       onProgress?.call('');
-      await _enrichCardAndGenerateExamples(
+      await _enrichCardFromInterview(
+        card: card,
+        name: name,
+        interviewTranscript: interviewTranscript,
+        onProgress: onProgress,
+      );
+    }
+    if (_aborted || _generationEpoch != currentEpoch) return null;
+
+    // ── Step 2c: Generate example dialogue (dedicated step) ────────
+    // Runs after enrichment so we have the final personality text.
+    // Uses raw text output (not JSON) for reliability.
+    if (interviewTranscript.isNotEmpty) {
+      onStatus?.call('Writing example dialogue...');
+      onProgress?.call('');
+      await _generateExampleDialogue(
         card: card,
         name: name,
         interviewTranscript: interviewTranscript,
@@ -445,6 +460,7 @@ Respond with ONLY the JSON:''';
     'Tell me about a moment from your past that shaped who you are today.',
     'What are you most afraid of, and what brings you genuine joy?',
     'How do you treat people who have just met you versus people you trust completely?',
+    'How do you talk? Give me a sample of how you\'d explain something to someone you\'re trying to impress — then how you\'d say the same thing to a close friend.',
   ];
 
   static const _nsfwInterviewQuestion =
@@ -509,10 +525,10 @@ Respond with ONLY the JSON:''';
     return transcript.toString().trim();
   }
 
-  /// Use the completed interview transcript to rewrite description, personality,
-  /// and generate example dialogues with richer, voice-consistent prose grounded in the
-  /// character's own words.
-  Future<void> _enrichCardAndGenerateExamples({
+  /// Use the completed interview transcript to rewrite description and personality
+  /// with richer, voice-consistent prose grounded in the character's own words.
+  /// Example dialogue is generated in a separate dedicated step for reliability.
+  Future<void> _enrichCardFromInterview({
     required CharacterCard card,
     required String name,
     required String interviewTranscript,
@@ -520,8 +536,8 @@ Respond with ONLY the JSON:''';
   }) async {
     final prompt = '''
 You have just completed an in-character interview with $name.
-Using the interview answers below as your source of truth, rewrite two fields and generate a third
-for this character card. Output ONLY a JSON object with exactly three keys.
+Using the interview answers below as your source of truth, rewrite these two fields
+for this character card. Output ONLY a JSON object with exactly two keys.
 No markdown. No explanation. Just raw JSON.
 
 INTERVIEW TRANSCRIPT:
@@ -535,9 +551,15 @@ ${card.personality}
 
 Rewrite these fields using the specific details, voice, and texture revealed in the interview:
 
-- "description": (string) Third-person. Physical appearance ONLY: body, face, hair, eyes, clothing, posture, distinguishing marks. Use specific details that emerged in the interview — not generic adjectives. 2-3 paragraphs. Do NOT include personality, backstory, or scenario.
-- "personality": (string) Third-person. Inner traits, motivations, fears, speech patterns, behavioral quirks, relationship style — grounded in what the character revealed. 2-3 paragraphs. Do NOT repeat physical appearance or scenario.
-- "example_dialogue": (string) Generate 2-3 example dialogue exchanges showing {{char}}'s exact speech patterns, vocabulary, cadence, and emotional register revealed in the interview. Keep the <START>\\n{{user}}: ...\\n{{char}}: ... format. Each {{char}} response should feel authentically voiced — include verbal tics, slang, emotional reactions, and mannerisms the character demonstrated.
+- "description": (string) Third-person. Physical appearance ONLY: body, face, hair, eyes, clothing, posture, distinguishing marks. Use specific concrete details that emerged in the interview — not generic adjectives like "beautiful" or "attractive." Replace vague descriptors with precise ones ("calloused hands" not "strong hands", "a crooked nose from an old break" not "an interesting face"). 2-3 paragraphs. Do NOT include personality, backstory, or scenario.
+- "personality": (string) Third-person. Write 2-3 rich paragraphs covering ALL of the following dimensions:
+  * Core traits and their contradictions (e.g. "fiercely loyal but slow to trust")
+  * Speech patterns and verbal habits (catchphrases, how they curse, whether they ramble or speak tersely)
+  * Emotional triggers — what makes them angry, what softens them, what makes them shut down
+  * How they behave differently around strangers vs. people they trust
+  * Defense mechanisms — how they protect themselves emotionally
+  * A distinctive behavioral quirk or habit that makes them memorable
+  Ground every trait in what the character actually revealed in the interview. Do NOT repeat physical appearance or scenario.
 
 Use {{char}} for the character name and {{user}} for the user throughout.
 
@@ -560,11 +582,6 @@ Respond with ONLY the JSON:''';
 
     final newDesc = (data['description']?.toString() ?? '').trim();
     final newPers = (data['personality']?.toString() ?? '').trim();
-    final newExamples = (data['example_dialogue'] ??
-            data['mes_example'] ??
-            data['example_messages'] ??
-            data['examples'])
-        ?.toString().trim() ?? '';
 
     if (newDesc.isNotEmpty && newDesc.length >= card.description.length * 0.5) {
       card.description = newDesc;
@@ -574,12 +591,80 @@ Respond with ONLY the JSON:''';
       card.personality = newPers;
       debugPrint('CharacterGen: Personality enriched (${newPers.length} chars)');
     }
-    if (newExamples.isNotEmpty && newExamples.length > 50) {
-      card.mesExample = newExamples;
-      debugPrint('CharacterGen: Example dialogue generated (${newExamples.length} chars)');
+  }
+
+  /// Generate example dialogue as a dedicated step using the interview transcript.
+  /// Outputs raw text in <START> format — not JSON — to avoid parsing issues
+  /// that plagued the old bundled approach.
+  Future<void> _generateExampleDialogue({
+    required CharacterCard card,
+    required String name,
+    required String interviewTranscript,
+    void Function(String)? onProgress,
+  }) async {
+    final prompt = '''Write example dialogue exchanges for a roleplay character named $name.
+These examples teach the AI how $name speaks — their vocabulary, sentence structure, emotional reactions, and mannerisms.
+
+SOURCE MATERIAL — $name's own words from an in-character interview:
+$interviewTranscript
+
+CHARACTER PERSONALITY:
+${card.personality}
+
+WRITE exactly 3 example exchanges in this EXACT format (copy it precisely):
+
+<START>
+{{user}}: [a question, comment, or action that prompts a response]
+{{char}}: [an in-character response showing $name's authentic voice — 2-4 sentences minimum]
+
+<START>
+{{user}}: [a different situation — vary the emotional context]
+{{char}}: [response showing a different side of $name — longer responses are better]
+
+<START>
+{{user}}: [a third scenario — ideally emotionally charged or revealing]
+{{char}}: [response that reveals $name's deeper personality — include inner thoughts with *asterisks* for actions]
+
+RULES:
+- Each {{char}} response MUST be 2-6 sentences — never one-liners
+- Show RANGE: one casual, one emotional, one that reveals depth
+- Use the EXACT speech patterns from the interview — if they use slang, contractions, or unusual phrasing, replicate it
+- Include *action descriptions* and emotional reactions, not just dialogue
+- {{char}} responses should feel like they come from a real person with opinions, not a generic AI
+- Use {{char}} and {{user}} as placeholders — never real names
+
+Output ONLY the example dialogue. No commentary, no JSON, no explanation. Start directly with <START>:''';
+
+    final output = await _callLLM(prompt, maxLen: 3072, minLen: 200, onProgress: onProgress);
+    if (output == null || output.trim().isEmpty) {
+      debugPrint('CharacterGen: Example dialogue generation got no response');
+      return;
+    }
+
+    // Clean the output — strip think tags and any preamble before first <START>
+    String cleaned = output
+        .replaceAll(RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false), '')
+        .replaceAll(RegExp(r'<think>[\s\S]*$', caseSensitive: false), '')
+        .trim();
+
+    // Find the first <START> tag and keep everything from there
+    final startIdx = cleaned.indexOf('<START>');
+    if (startIdx >= 0) {
+      cleaned = cleaned.substring(startIdx);
     } else {
-      debugPrint('CharacterGen: No example dialogue in enrichment '
-          '(keys: ${data.keys.toList()}, example len: ${newExamples.length})');
+      // Try case-insensitive
+      final startIdxCI = cleaned.toLowerCase().indexOf('<start>');
+      if (startIdxCI >= 0) {
+        cleaned = cleaned.substring(startIdxCI);
+      }
+    }
+
+    // Validate: must contain at least one <START> and one {{char}}: response
+    if (cleaned.contains('<START>') && cleaned.contains('{{char}}')) {
+      card.mesExample = cleaned.trim();
+      debugPrint('CharacterGen: Example dialogue generated (${cleaned.length} chars)');
+    } else {
+      debugPrint('CharacterGen: Example dialogue output invalid — missing <START> or {{char}} markers');
     }
   }
 
@@ -1015,8 +1100,14 @@ Character name: $name
 Concept: $concept
 $ageLine$sexLine$relationshipLine$backstoryLine$scenarioLine$keywordsLine$loreLine
 Required JSON keys (generate them IN THIS ORDER):
-${descriptionSpec}- "personality": (string) 1-2 paragraphs, third person. ONLY inner traits, social style, motives, quirks, and behavioral tics. Do NOT repeat physical appearance or scenario/setting info here — those belong in other fields
-- "scenario": (string) 3-5 sentences. Synthesize a vivid opening scene that naturally emerges from the character's concept, backstory, personality, and relationship to {{user}}. Ground it in a specific place, time, and situation — include sensory details (lighting, sounds, atmosphere). Establish dramatic tension: what's at stake, what just happened, or what's about to happen that forces {{user}} and {{char}} to interact. This is stage direction for the opening moment, NOT a character summary. Do NOT restate personality traits or backstory — only the immediate scene
+${descriptionSpec}- "personality": (string) 2-3 paragraphs, third person. Go beyond surface-level traits — write a personality that makes this character feel REAL and fun to roleplay with. Cover ALL of these dimensions:
+  * Core traits AND their contradictions (e.g. "fiercely protective but terrified of emotional vulnerability")
+  * Speech patterns — do they ramble, speak tersely, use slang, swear, use formal language, have verbal tics or catchphrases?
+  * Emotional triggers — what makes them angry, what softens them, what shuts them down, what makes them laugh?
+  * How they treat strangers vs. people they trust — what changes?
+  * A distinctive quirk or habit that makes them memorable (e.g. "fidgets with a coin when nervous", "always offers food to people she's just met")
+  Do NOT repeat physical appearance or scenario/setting info here — those belong in other fields
+- "scenario": (string) 3-5 sentences. Synthesize a vivid opening scene that naturally emerges from the character's concept, backstory, personality, and relationship to {{user}}. Ground it in a specific place, time, and situation — include sensory details (lighting, sounds, atmosphere). Establish dramatic tension: what's at stake, what just happened, or what's about to happen that forces {{user}} and {{char}} to interact. The scenario MUST establish a clear dramatic question or tension that gives {{user}} a compelling reason to respond — a static scene with no hook is a failure. This is stage direction for the opening moment, NOT a character summary. Do NOT restate personality traits or backstory — only the immediate scene
 $sysSpec
 - "tags": (array of strings) 3-5 relevant tags
 $lorebookSpec
@@ -1046,13 +1137,13 @@ Respond with ONLY the JSON:''';
     String lengthEnforcement;
     switch (length) {
       case 'Short (1-2 paragraphs)':
-        lengthEnforcement = 'Write at least 100 words. Each paragraph should be 3-5 sentences minimum.';
+        lengthEnforcement = 'Write at least 150 words. MINIMUM 2 paragraphs, each 3-5 sentences. Do NOT write a single paragraph.';
         break;
       case 'Long (4-6 paragraphs)':
-        lengthEnforcement = 'Write at least 500 words across 4-6 full paragraphs. Each paragraph MUST be 4-6 sentences. Include detailed scene-setting, inner monologue, environmental descriptions, and character mannerisms. DO NOT stop early or summarize. Fill the space with vivid, immersive prose.';
+        lengthEnforcement = 'Write at least 600 words across 5-6 full paragraphs. Each paragraph MUST be 4-6 sentences. Include detailed scene-setting, inner monologue, environmental descriptions, and character mannerisms. DO NOT stop early or summarize. Fill the space with vivid, immersive prose.';
         break;
       default:
-        lengthEnforcement = 'Write at least 250 words across 2-4 paragraphs. Each paragraph should be 3-5 sentences.';
+        lengthEnforcement = 'Write at least 350 words across 3-4 paragraphs. MINIMUM 3 paragraphs, each 4+ sentences. Do NOT compress into fewer paragraphs.';
     }
 
     String toneSpec = '';
@@ -1150,10 +1241,10 @@ Scenario: $scenario$characterSection$personaSection$voiceSection$loreSection
 $toneSpec
 
 == NARRATIVE STRUCTURE (follow this order) ==
-1. SCENE — Open with the environment. Where are we? What time of day? What's the atmosphere? Paint the world with sensory detail (sights, sounds, smells, textures). Minimum 1 full paragraph of scene-setting.
+1. SCENE — Open with the environment. Where are we? What time of day? What's the atmosphere? Paint the world with sensory detail (sights, sounds, smells, textures). Minimum 1 full paragraph of scene-setting. Be SPECIFIC and ORIGINAL — no generic "the sun was setting" or "the room was dimly lit" openings.
 2. CHARACTER — Describe $name's physical appearance through action. Show race/species features, body, clothing, hair, distinguishing marks AS $name moves through the scene. The reader should be able to picture $name vividly. Minimum 1 full paragraph focused on $name's appearance and mannerisms.
-3. CONTEXT — Through inner monologue, establish HOW $name and {{user}} know each other and WHY they are meeting. Weave in relevant backstory: How did they meet? How long have they known each other? What is their relationship? What does $name expect from this encounter? The reader should fully understand the situation WITHOUT having read any other character card fields. This section is CRITICAL — do NOT skip it.
-4. ENCOUNTER — The moment $name notices or interacts with {{user}}. Include inner thoughts, emotional reactions, and end with spoken dialogue that invites {{user}} to respond. The dialogue MUST be consistent with the Scenario and the context established above — reference shared history, inside jokes, or established dynamics.
+3. CONTEXT — This is the MOST IMPORTANT section. Through inner monologue, establish HOW $name and {{user}} know each other and WHY they are meeting. Weave in relevant backstory: How did they meet? How long have they known each other? What is their current relationship? What does $name expect or want from this encounter? What emotional baggage or anticipation do they carry into this moment? The reader should fully understand the complete situation WITHOUT having read any other character card fields. If this section is missing or thin, the entire greeting FAILS.
+4. ENCOUNTER — The moment $name notices or interacts with {{user}}. Include inner thoughts, emotional reactions, and end with spoken dialogue that invites {{user}} to respond. The dialogue MUST be consistent with the Scenario and the context established above — reference shared history, inside jokes, or established dynamics. End on a note that DEMANDS a response — a question, a challenge, a revelation, or an emotionally charged moment.
 
 == RULES ==
 - First person ONLY ("I", "my", "me") — never third person, never use "$name" to refer to yourself
@@ -1162,6 +1253,7 @@ $toneSpec
 - NEVER write actions, thoughts, feelings, appearance, or dialogue for {{user}} — {{user}} is a blank slate
 - Do NOT start the message by addressing {{user}} — start with scene description
 - ALL dialogue and actions MUST be consistent with the Scenario. Do NOT contradict established facts
+- AVOID CLICHÉ OPENINGS: Do NOT start with weather descriptions ("The sun was setting"), looking up from work, adjusting glasses, sighing while staring out windows, or any opening that could belong to any character. The opening line should be SPECIFIC to this character and this scene.
 
 == LENGTH ==
 $lengthEnforcement

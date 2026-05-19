@@ -18,10 +18,15 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/app_version.dart';
+
+// Note: app_version.dart was already imported — UpdateService already used
+// appVersion for _currentVersion. The isPreRelease getter now also guards
+// the update channel so stable builds can never be offered a beta update.
 
 /// Cross-platform self-update service.
 /// Checks GitHub Releases for new versions and downloads/runs the update.
@@ -29,7 +34,8 @@ import 'package:front_porch_ai/app_version.dart';
 class UpdateService extends ChangeNotifier {
   static const String _repoOwner = 'linux4life1';
   static const String _repoName = 'front-porch-AI';
-  static const String _windowsAsset = 'Front_Porch_AI_Setup.exe';
+  static const String _windowsAssetStable = 'Front_Porch_AI_Setup.exe';
+  static const String _windowsAssetBeta = 'Front_Porch_AI_Beta_Setup.exe';
   static const String _linuxAsset = 'Front_Porch_AI-Linux.AppImage';
   static const String _macosAsset = 'Front_Porch_AI.dmg';
   static const String _prefsKeyAutoCheck = 'update_auto_check';
@@ -86,8 +92,12 @@ class UpdateService extends ChangeNotifier {
   }
 
   /// The correct asset name for this platform's update package.
+  /// Beta builds use a different asset filename so the stable and beta
+  /// update streams are completely independent.
   static String get _platformAsset {
-    if (Platform.isWindows) return _windowsAsset;
+    if (Platform.isWindows) {
+      return isPreRelease ? _windowsAssetBeta : _windowsAssetStable;
+    }
     if (Platform.isLinux) return _linuxAsset;
     if (Platform.isMacOS) return _macosAsset;
     return '';
@@ -123,8 +133,10 @@ class UpdateService extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Use the general /releases endpoint to find both stable and pre-releases.
+      // GitHub's /releases/latest endpoint ignores everything marked as pre-release.
       final response = await http.get(
-        Uri.parse('https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest'),
+        Uri.parse('https://api.github.com/repos/$_repoOwner/$_repoName/releases'),
         headers: {'Accept': 'application/vnd.github.v3+json'},
       );
 
@@ -133,9 +145,41 @@ class UpdateService extends ChangeNotifier {
         return false;
       }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final tagName = (data['tag_name'] as String? ?? '').replaceFirst(RegExp(r'^[vV]'), '');
-      final assets = data['assets'] as List<dynamic>? ?? [];
+      final List<dynamic> allReleases = jsonDecode(response.body);
+      if (allReleases.isEmpty) return false;
+
+      Map<String, dynamic>? targetRelease;
+
+      for (final release in allReleases) {
+        final tagName = (release['tag_name'] as String? ?? '').replaceFirst(RegExp(r'^[vV]'), '');
+        final isPrerelease = release['prerelease'] as bool? ?? false;
+        final tagLower = tagName.toLowerCase();
+        
+        // Manual check for beta strings if the flag isn't set
+        final hasBetaString = tagLower.contains('beta') ||
+            tagLower.contains('alpha') ||
+            tagLower.contains('-rc') ||
+            tagLower.contains('-dev');
+        
+        final effectivelyBeta = isPrerelease || hasBetaString;
+
+        // Channel matching logic:
+        // We enforce strict isolation because Stable and Beta use different
+        // installation paths and database folders. Cross-updating would 
+        // lead to data loss or duplicate "ghost" installations.
+        if (isPreRelease != effectivelyBeta) {
+          continue; 
+        }
+
+        // We found our candidate (the list is sorted by date by default)
+        targetRelease = release;
+        break;
+      }
+
+      if (targetRelease == null) return false;
+
+      final tagName = (targetRelease['tag_name'] as String? ?? '').replaceFirst(RegExp(r'^[vV]'), '');
+      final assets = targetRelease['assets'] as List<dynamic>? ?? [];
 
       // Find the platform-specific update asset
       final targetAsset = _platformAsset;
@@ -148,13 +192,13 @@ class UpdateService extends ChangeNotifier {
       }
 
       if (installerUrl == null) {
-        debugPrint('No update asset ($targetAsset) found in latest release');
+        debugPrint('No update asset ($targetAsset) found in release $tagName');
         return false;
       }
 
       _latestVersion = tagName;
       _downloadUrl = installerUrl;
-      _releaseNotes = data['body'] as String? ?? '';
+      _releaseNotes = targetRelease['body'] as String? ?? '';
       _updateAvailable = _isNewerVersion(tagName, _currentVersion);
 
       return _updateAvailable;
@@ -314,8 +358,8 @@ class UpdateService extends ChangeNotifier {
   }
 
   /// Get the current .app bundle path from the resolved executable.
-  /// e.g. /Applications/Front Porch AI.app/Contents/MacOS/front_porch_ai
-  ///   → /Applications/Front Porch AI.app
+  /// e.g. /Applications/FrontPorchAI.app/Contents/MacOS/front_porch_ai
+  ///   → /Applications/FrontPorchAI.app
   String get _currentMacAppPath {
     final exe = Platform.resolvedExecutable;
     // Walk up from MacOS/binary → Contents → .app
@@ -403,20 +447,63 @@ open -n "$destPath"
     // Relaunch is handled by the update shell script
   }
 
-  /// Compare version strings (e.g. "0.0.4.1" vs "0.0.4")
+  /// Compare version strings (e.g. "0.9.8-Beta6" vs "0.9.8-Beta5")
   /// Returns true if remote is newer than local.
   bool _isNewerVersion(String remote, String local) {
-    final remoteParts = remote.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final localParts = local.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    // Standardize: remove 'v' prefix and split into numeric vs suffix parts
+    String clean(String v) => v.toLowerCase().replaceFirst(RegExp(r'^[vV]'), '');
+    final rClean = clean(remote);
+    final lClean = clean(local);
 
-    // Normalize lengths
-    while (remoteParts.length < localParts.length) remoteParts.add(0);
-    while (localParts.length < remoteParts.length) localParts.add(0);
+    if (rClean == lClean) return false;
 
-    for (int i = 0; i < remoteParts.length; i++) {
-      if (remoteParts[i] > localParts[i]) return true;
-      if (remoteParts[i] < localParts[i]) return false;
+    // Split at the first hyphen (e.g. "0.9.8-beta6" -> ["0.9.8", "beta6"])
+    final rSplit = rClean.split('-');
+    final lSplit = lClean.split('-');
+
+    final rBase = rSplit[0].split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final lBase = lSplit[0].split('.').map((e) => int.tryParse(e) ?? 0).toList();
+
+    // Normalize lengths for the numeric base
+    while (rBase.length < lBase.length) rBase.add(0);
+    while (lBase.length < rBase.length) lBase.add(0);
+
+    // 1. Compare numeric base parts
+    for (int i = 0; i < rBase.length; i++) {
+      if (rBase[i] > lBase[i]) return true;
+      if (rBase[i] < lBase[i]) return false;
     }
-    return false; // Equal
+
+    // 2. Base version is identical, compare suffixes (e.g. "-beta6" vs "-beta5")
+    final rSuffix = rSplit.length > 1 ? rSplit[1] : '';
+    final lSuffix = lSplit.length > 1 ? lSplit[1] : '';
+
+    if (rSuffix.isEmpty && lSuffix.isNotEmpty) return true; // Stable is newer than beta
+    if (rSuffix.isNotEmpty && lSuffix.isEmpty) return false; // Beta is older than stable
+
+    // Both have suffixes, do a natural comparison
+    return _compareAlphanumeric(rSuffix, lSuffix) > 0;
+  }
+
+  /// Helper for natural string comparison (handles "beta10" > "beta9")
+  int _compareAlphanumeric(String a, String b) {
+    final re = RegExp(r'(\d+)|(\D+)');
+    final aMatches = re.allMatches(a).toList();
+    final bMatches = re.allMatches(b).toList();
+
+    for (int i = 0; i < min(aMatches.length, bMatches.length); i++) {
+      final aVal = aMatches[i].group(0)!;
+      final bVal = bMatches[i].group(0)!;
+
+      final aNum = int.tryParse(aVal);
+      final bNum = int.tryParse(bVal);
+
+      if (aNum != null && bNum != null) {
+        if (aNum != bNum) return aNum.compareTo(bNum);
+      } else {
+        if (aVal != bVal) return aVal.compareTo(bVal);
+      }
+    }
+    return aMatches.length.compareTo(bMatches.length);
   }
 }

@@ -40,7 +40,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
   late TextEditingController _nameController;
-  late TextEditingController _descriptionController;
   late TextEditingController _personaController;
   String? _avatarPath;
   bool _factsExpanded = false;
@@ -53,7 +52,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
     super.initState();
     _titleController = TextEditingController();
     _nameController = TextEditingController();
-    _descriptionController = TextEditingController();
     _personaController = TextEditingController();
 
     _headerAnimController = AnimationController(
@@ -69,7 +67,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   void dispose() {
     _titleController.dispose();
     _nameController.dispose();
-    _descriptionController.dispose();
     _personaController.dispose();
     _headerAnimController.dispose();
     super.dispose();
@@ -81,7 +78,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
       _editingPersona = persona;
       _titleController.text = persona?.title ?? '';
       _nameController.text = persona?.name ?? '';
-      _descriptionController.text = persona?.description ?? '';
       _personaController.text = persona?.persona ?? '';
       _avatarPath = persona?.avatarPath;
     });
@@ -93,7 +89,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
       _editingPersona = null;
       _titleController.clear();
       _nameController.clear();
-      _descriptionController.clear();
       _personaController.clear();
       _avatarPath = null;
     });
@@ -115,13 +110,13 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   Future<void> _savePersona() async {
     if (_formKey.currentState!.validate()) {
       final service = Provider.of<UserPersonaService>(context, listen: false);
+      final personaText = _personaController.text;
 
       if (_editingPersona != null) {
         final updated = _editingPersona!.copyWith(
           title: _titleController.text,
           name: _nameController.text,
-          description: _descriptionController.text,
-          persona: _personaController.text,
+          persona: personaText,
           avatarPath: _avatarPath,
         );
         await service.updatePersona(updated);
@@ -129,8 +124,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
         await service.createPersona(
           _titleController.text,
           _nameController.text,
-          _descriptionController.text,
-          _personaController.text,
+          personaText,
           _avatarPath,
         );
       }
@@ -462,10 +456,10 @@ class _UserPersonaPageState extends State<UserPersonaPage>
                         ),
                       ),
                     ],
-                    if (activePersona.description.isNotEmpty) ...[
+                    if (activePersona.persona.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
-                        activePersona.description,
+                        activePersona.persona,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -732,16 +726,12 @@ class _UserPersonaPageState extends State<UserPersonaPage>
             // Description
             Expanded(
               child: Text(
-                persona.description.isNotEmpty
-                    ? persona.description
-                    : persona.persona.isNotEmpty
-                        ? persona.persona
-                        : 'No description',
+                persona.persona.isNotEmpty ? persona.persona : 'No description',
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.white.withValues(alpha: persona.description.isNotEmpty ? 0.55 : 0.3),
+                  color: Colors.white.withValues(alpha: persona.persona.isNotEmpty ? 0.55 : 0.3),
                   height: 1.5,
                 ),
               ),
@@ -944,21 +934,12 @@ class _UserPersonaPageState extends State<UserPersonaPage>
                   ],
                 ),
                 const SizedBox(height: 18),
-                _buildFormField(
-                  controller: _descriptionController,
-                  label: 'Description',
-                  hint: 'Brief description — shown in persona cards',
-                  maxLines: 3,
-                  validator: (v) => v?.isEmpty ?? true ? 'Description is required' : null,
-                ),
-                const SizedBox(height: 18),
-                // Persona text — the hidden field now exposed
-                _buildFormField(
+                // Persona text — expandable
+                _buildExpandableFormField(
                   controller: _personaController,
                   label: 'Persona Text (injected into AI context)',
                   hint: 'Detailed persona info the AI will know about you — '
                       'appearance, traits, background, preferences...',
-                  maxLines: 5,
                   helperText: 'This text is sent to the AI in every conversation. '
                       'Import from SillyTavern or Backyard AI auto-populates this.',
                 ),
@@ -1030,6 +1011,143 @@ class _UserPersonaPageState extends State<UserPersonaPage>
           borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+    );
+  }
+
+  Widget _buildExpandableFormField({
+    required TextEditingController controller,
+    required String label,
+    String? hint,
+    String? helperText,
+  }) {
+    return Stack(
+      children: [
+        _buildFormField(
+          controller: controller,
+          label: label,
+          hint: hint,
+          maxLines: 5,
+          helperText: helperText,
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _showExpandPersonaDialog(controller),
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.open_in_full,
+                  size: 16,
+                  color: Color(0xFF6366F1),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showExpandPersonaDialog(TextEditingController controller) {
+    final tempController = TextEditingController(text: controller.text);
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 700, maxHeight: 600),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Edit Persona Text',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white54),
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Colors.white12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextField(
+                    controller: tempController,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    maxLines: null,
+                    decoration: InputDecoration(
+                      hintText: 'Enter detailed persona info...',
+                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+                      filled: true,
+                      fillColor: const Color(0xFF374151).withValues(alpha: 0.7),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.all(14),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        controller.text = tempController.text;
+                        Navigator.of(dialogContext).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Save'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

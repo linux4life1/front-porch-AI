@@ -22,29 +22,70 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/download_manager.dart';
 import 'package:front_porch_ai/utils/gguf_parser.dart';
+import 'package:front_porch_ai/models/hf_model.dart';
+import 'package:front_porch_ai/models/local_model_info.dart';
+import 'package:front_porch_ai/models/download_task.dart';
 
+/// Manages local model files and HuggingFace model discovery.
+/// 
+/// Provides:
+/// - Local model scanning and metadata
+/// - HuggingFace search and file listing
+/// - Download queue management via DownloadManager
+/// - KV cache parsing for VRAM estimation
 class ModelManager extends ChangeNotifier {
   final StorageService _storageService;
+  final DownloadManager _downloadManager;
+
+  /// Raw list of local model file entities.
   List<FileSystemEntity> _models = [];
-  bool _isDownloading = false;
-  double _downloadProgress = 0.0;
-  String? _currentDownload;
-  String _statusMessage = ''; // Added status message
-  
-  // Cache for rapid UI rendering of VRAM gauges
+
+  /// Cached KV bytes per token for rapid UI rendering.
   final Map<String, int> _kvBytesCache = {};
 
+  /// Status message for import operations.
+  String _statusMessage = '';
+
+  // Legacy getters for backward compatibility
   List<FileSystemEntity> get models => List.unmodifiable(_models);
-  bool get isDownloading => _isDownloading;
-  double get downloadProgress => _downloadProgress;
-  String? get currentDownload => _currentDownload;
   String get statusMessage => _statusMessage;
   String get modelsPath => path.normalize(_storageService.modelsDir.path);
 
-  ModelManager(this._storageService) {
+  /// Download manager instance for queue operations.
+  DownloadManager get downloadManager => _downloadManager;
+
+  /// Local models as typed [LocalModelInfo] objects.
+  List<LocalModelInfo> get localModels {
+    return _models.map((e) => LocalModelInfo.fromEntity(e)).toList();
+  }
+
+  /// Set of downloaded filenames (for UI checkmarks).
+  Set<String> get downloadedFilenames {
+    return _models.map((e) => e.path.split(Platform.pathSeparator).last).toSet();
+  }
+
+  /// Map of currently downloading files.
+  Map<String, DownloadTask> get downloadingFiles {
+    final map = <String, DownloadTask>{};
+    for (final task in _downloadManager.queue) {
+      if (task.state.isActive || task.state == DownloadTaskState.paused) {
+        map[task.filename] = task;
+      }
+    }
+    return map;
+  }
+
+  ModelManager(this._storageService, this._downloadManager) {
     _init();
     _storageService.addListener(_init);
+    _downloadManager.addListener(_onDownloadChanged);
+  }
+
+  /// Notifies listeners when download state changes.
+  void _onDownloadChanged() {
+    notifyListeners();
   }
 
   /// Retrieves the exact Bytes Per Token required for KV Cache
@@ -53,8 +94,7 @@ class ModelManager extends ChangeNotifier {
     if (_kvBytesCache.containsKey(filePath)) {
       return _kvBytesCache[filePath];
     }
-    
-    // Parse in background to avoid jank if possible, though it's relatively fast
+
     try {
       final bytes = await GGUFParser.getKvCacheBytesPerToken(filePath);
       if (bytes != null) {
@@ -66,7 +106,7 @@ class ModelManager extends ChangeNotifier {
     }
   }
 
-  /// Synchronous fetch for KV bytes from cache. Returns null if not cached yet.
+  /// Synchronous fetch for KV bytes from cache.
   int? getCachedKvBytesPerToken(String filePath) {
     return _kvBytesCache[filePath];
   }
@@ -74,6 +114,7 @@ class ModelManager extends ChangeNotifier {
   @override
   void dispose() {
     _storageService.removeListener(_init);
+    _downloadManager.removeListener(_onDownloadChanged);
     super.dispose();
   }
 
@@ -81,15 +122,14 @@ class ModelManager extends ChangeNotifier {
     await refreshModels();
   }
 
+  /// Scans the models directory for .gguf files.
   Future<void> refreshModels() async {
     if (_storageService.rootPath == null) return;
     final modelDir = _storageService.modelsDir;
 
     if (await modelDir.exists()) {
-      print('AG_DEBUG: Scanning for models in ${modelDir.path}');
       try {
         _models = _safeRecursiveScan(modelDir);
-        print('AG_DEBUG: Found ${_models.length} models.');
       } catch (e) {
         print('AG_DEBUG: Error scanning models: $e');
         _models = [];
@@ -100,10 +140,8 @@ class ModelManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Recursively scans directories for .gguf files, gracefully skipping
-  /// any directories that are inaccessible (e.g. System Volume Information).
-  /// [_seen] tracks canonical (resolved) paths so that symlinks don't cause
-  /// the same physical file to appear more than once in the list.
+  /// Recursively scans directories for .gguf files.
+  /// Tracks canonical paths to avoid duplicate symlinks.
   List<FileSystemEntity> _safeRecursiveScan(Directory dir, [Set<String>? _seen]) {
     final seen = _seen ?? <String>{};
     final results = <FileSystemEntity>[];
@@ -112,7 +150,6 @@ class ModelManager extends ChangeNotifier {
         if (entity is Directory) {
           results.addAll(_safeRecursiveScan(entity, seen));
         } else if (entity.path.toLowerCase().endsWith('.gguf')) {
-          // Resolve symlinks so the same physical file is never listed twice.
           String canonical;
           try {
             canonical = File(entity.path).resolveSymbolicLinksSync();
@@ -125,13 +162,12 @@ class ModelManager extends ChangeNotifier {
         }
       }
     } catch (e) {
-      // Skip directories we can't access (permission denied, etc.)
       print('AG_DEBUG: Skipping inaccessible directory: ${dir.path} ($e)');
     }
     return results;
   }
 
-
+  /// Imports a local .gguf file into the models directory.
   Future<void> importLocalModel(String filePath) async {
     final sourceFile = File(filePath);
     if (!await sourceFile.exists()) {
@@ -149,7 +185,7 @@ class ModelManager extends ChangeNotifier {
 
     final fileName = path.basename(filePath);
     final destinationPath = path.join(modelDir.path, fileName);
-    
+
     _statusMessage = 'Importing $fileName...';
     notifyListeners();
 
@@ -164,14 +200,19 @@ class ModelManager extends ChangeNotifier {
     }
   }
 
-  Future<List<Map<String, dynamic>>> searchHFModels(String query) async {
-    // Search HF API for models with 'gguf' and 'text-generation' tags
-    final url = Uri.parse('https://huggingface.co/api/models?search=$query&filter=gguf,text-generation&limit=10&full=true');
+  /// Searches HuggingFace for models matching the query.
+  /// Returns typed [HFModel] objects.
+  Future<List<HFModel>> searchHFModels(String query, {int limit = 20}) async {
+    final encoded = Uri.encodeComponent(query);
+    final url = Uri.parse(
+      'https://huggingface.co/api/models?search=$encoded&filter=gguf,text-generation&limit=$limit&full=true',
+    );
+
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.cast<Map<String, dynamic>>();
+        return data.map((m) => HFModel.fromSearchResult(m as Map<String, dynamic>)).toList();
       }
     } catch (e) {
       print('HF Search Error: $e');
@@ -179,10 +220,102 @@ class ModelManager extends ChangeNotifier {
     return [];
   }
 
+  /// Gets the list of GGUF files for a HuggingFace repository.
+  /// Returns typed [HFModelFile] objects.
+  Future<List<HFModelFile>> getModelFiles(String repoId) async {
+    final url = Uri.parse('https://huggingface.co/api/models/$repoId/tree/main');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data
+            .where((f) => f['path'].toString().endsWith('.gguf'))
+            .map((f) => HFModelFile.fromApiMap(f as Map<String, dynamic>, repoId))
+            .toList();
+      }
+    } catch (e) {
+      print('HF Files Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetches files for multiple repositories concurrently.
+  /// Returns a map of repoId -> HFModel with files populated.
+  Future<Map<String, HFModel>> fetchFilesForModels(List<HFModel> models) async {
+    final results = <String, HFModel>{};
+
+    for (final model in models) {
+      try {
+        final files = await getModelFiles(model.id);
+        results[model.id] = model.withFiles(files);
+      } catch (e) {
+        print('Failed to fetch files for ${model.id}: $e');
+        results[model.id] = model; // Return model without files
+      }
+    }
+
+    return results;
+  }
+
+  /// Adds a model file to the download queue.
+  /// Returns the created [DownloadTask].
+  DownloadTask queueDownload(HFModelFile file) {
+    return _downloadManager.addDownload(
+      url: file.downloadUrl,
+      filename: file.filename,
+      repoId: file.repoId,
+    );
+  }
+
+  /// Pauses a download by task ID.
+  bool pauseDownload(String taskId) {
+    return _downloadManager.pauseDownload(taskId);
+  }
+
+  /// Resumes a download by task ID.
+  bool resumeDownload(String taskId) {
+    return _downloadManager.resumeDownload(taskId);
+  }
+
+  /// Cancels a download by task ID.
+  bool cancelDownload(String taskId) {
+    return _downloadManager.cancelDownload(taskId);
+  }
+
+  /// Removes a completed/failed download from the queue.
+  bool removeDownload(String taskId) {
+    return _downloadManager.removeDownload(taskId);
+  }
+
+  /// Pauses all active downloads.
+  void pauseAllDownloads() {
+    _downloadManager.pauseAll();
+  }
+
+  /// Resumes all paused downloads.
+  void resumeAllDownloads() {
+    _downloadManager.resumeAll();
+  }
+
+  /// Clears completed downloads from the queue.
+  void clearCompletedDownloads() {
+    _downloadManager.clearCompleted();
+  }
+
+  /// Deletes a local model file.
+  Future<void> deleteModel(String filePath) async {
+    final file = File(filePath);
+    if (await file.exists()) {
+      await file.delete();
+      await refreshModels();
+    }
+  }
+
+  /// Gets recommended search queries based on available VRAM.
   List<String> getRecommendedSearchQueries(int vramMb) {
-    // Heuristic recommendations based on VRAM
-    final List<String> queries = [];
-    
+    final queries = <String>[];
+
     if (vramMb < 4000) {
       queries.addAll(['TinyLlama', 'Phi-2', 'Qwen-1.5-1.8B']);
     } else if (vramMb < 8000) {
@@ -198,146 +331,26 @@ class ModelManager extends ChangeNotifier {
     return queries;
   }
 
-  Future<List<Map<String, String>>> getModelFiles(String repoId) async {
-    // Get file tree
-    final url = Uri.parse('https://huggingface.co/api/models/$repoId/tree/main'); // Basic tree fetch
-    // Note: Recursive fetch might be needed for subfolders, but start simplest
-    try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data
-            .where((f) => f['path'].toString().endsWith('.gguf'))
-            .map((f) => {
-                  'filename': f['path'].toString(),
-                  'url': 'https://huggingface.co/$repoId/resolve/main/${f['path']}',
-                  'size': (f['size'] ?? 0).toString(),
-                })
-            .toList();
-      }
-    } catch (e) {
-      print('HF Files Error: $e');
-    }
-    return [];
+  // Legacy method - kept for backward compatibility
+  @Deprecated('Use queueDownload with HFModelFile instead')
+  Future<List<Map<String, dynamic>>> searchHFModelsLegacy(String query) async {
+    final models = await searchHFModels(query);
+    return models.map((m) => {
+      'id': m.id,
+      'author': m.author,
+      'likes': m.likes,
+      'downloads': m.downloads,
+    }).toList();
   }
 
-  Future<void> downloadModel(String url, String filename) async {
-    if (_isDownloading) return;
-    if (_storageService.rootPath == null) return;
-
-    _isDownloading = true;
-    _currentDownload = filename;
-    _downloadProgress = 0.0;
-    _statusMessage = 'Initializing download...';
-    notifyListeners();
-
-    try {
-      final modelDir = _storageService.modelsDir;
-      if (!await modelDir.exists()) {
-        await modelDir.create(recursive: true);
-      }
-
-      final savePath = path.join(modelDir.path, filename);
-
-      final client = http.Client();
-      final request = http.Request('GET', Uri.parse(url));
-      final response = await client.send(request);
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to download model: HTTP ${response.statusCode}');
-      }
-
-      final contentLength = response.contentLength ?? 0;
-      int received = 0;
-      final file = File(savePath);
-      final sink = file.openWrite();
-
-      DateTime startTime = DateTime.now();
-      DateTime lastUpdateTime = startTime;
-      int lastWebBytes = 0;
-      
-      _statusMessage = 'Downloading...';
-      notifyListeners();
-
-      try {
-        await for (final chunk in response.stream) {
-          sink.add(chunk);
-          received += chunk.length;
-          
-          final now = DateTime.now();
-          if (now.difference(lastUpdateTime).inMilliseconds >= 500) {
-            final timeDiff = now.difference(lastUpdateTime).inMilliseconds / 1000.0;
-            final bytesDiff = received - lastWebBytes;
-            final speed = bytesDiff / timeDiff; // bytes per second
-            
-            String speedStr = _formatSpeed(speed);
-            String etaStr = '';
-            
-            if (contentLength > 0 && speed > 0) {
-              final remainingBytes = contentLength - received;
-              final remainingSeconds = remainingBytes / speed;
-              etaStr = ' - ETA: ${_formatDuration(Duration(seconds: remainingSeconds.round()))}';
-            }
-
-            if (contentLength > 0) {
-              _downloadProgress = received / contentLength;
-              _statusMessage = 'Downloading: ${(_downloadProgress * 100).toStringAsFixed(1)}% ($speedStr)$etaStr';
-            } else {
-               _statusMessage = 'Downloading: ${(received / 1024 / 1024).toStringAsFixed(1)} MB ($speedStr)';
-            }
-            
-            notifyListeners();
-            lastUpdateTime = now;
-            lastWebBytes = received;
-          }
-        }
-      } catch (e) {
-        print('Stream error: $e');
-        rethrow;
-      } finally {
-        await sink.flush();
-        await sink.close();
-        client.close();
-      }
-
-      _isDownloading = false;
-      _currentDownload = null;
-      _statusMessage = 'Download complete';
-      await refreshModels();
-      notifyListeners();
-
-    } catch (e) {
-      _isDownloading = false;
-      _currentDownload = null;
-      _statusMessage = 'Error: $e';
-      notifyListeners();
-      print('Model download error: $e');
-      rethrow;
-    }
-  }
-
-  String _formatSpeed(double bytesPerSec) {
-    if (bytesPerSec < 1024) return '${bytesPerSec.toStringAsFixed(1)} B/s';
-    if (bytesPerSec < 1024 * 1024) return '${(bytesPerSec / 1024).toStringAsFixed(1)} KB/s';
-    return '${(bytesPerSec / (1024 * 1024)).toStringAsFixed(1)} MB/s';
-  }
-
-  String _formatDuration(Duration d) {
-    if (d.inHours > 0) {
-      return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
-    }
-    if (d.inMinutes > 0) {
-      return '${d.inMinutes}m ${d.inSeconds.remainder(60)}s';
-    }
-    return '${d.inSeconds}s';
-  }
-
-  Future<void> deleteModel(String path) async {
-    final file = File(path);
-    if (await file.exists()) {
-      await file.delete();
-      await refreshModels();
-    }
+  // Legacy method - kept for backward compatibility
+  @Deprecated('Use getModelFiles which returns HFModelFile instead')
+  Future<List<Map<String, String>>> getModelFilesLegacy(String repoId) async {
+    final files = await getModelFiles(repoId);
+    return files.map((f) => {
+      'filename': f.filename,
+      'url': f.downloadUrl,
+      'size': f.sizeBytes.toString(),
+    }).toList();
   }
 }
-
