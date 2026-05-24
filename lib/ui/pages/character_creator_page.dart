@@ -30,7 +30,9 @@ import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/character_gen_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
+import 'package:front_porch_ai/services/backend_manager.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/pseudo_remote_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -38,6 +40,8 @@ import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
+import 'package:front_porch_ai/ui/widgets/kcpps_selector.dart';
+import 'package:front_porch_ai/ui/widgets/model_selector.dart';
 import 'package:front_porch_ai/ui/widgets/alternate_greetings_slider.dart';
 import 'package:front_porch_ai/ui/widgets/avatar_art_style_selector.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_tone_selector.dart';
@@ -341,7 +345,10 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
   bool _isReloadingKobold = false;
   String _koboldStatus = '';
 
-  
+  // Pseudo-remote state
+  bool _isReloadingPseudoRemote = false;
+  List<File> _localPresets = [];
+
   static const _loreCategoryOptions = [
     'Locations',
     'NPCs/Allies',
@@ -732,12 +739,13 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     super.initState();
     _loadSavedState();
     _loadAvailableModels();
-    // Scan local GGUF models for KoboldCpp
+    // Scan local resources
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final llmProvider = Provider.of<LLMProvider>(context, listen: false);
       if (llmProvider.hasManagedProcess) {
         _scanLocalModels();
       }
+      _scanLocalPresets();
     });
   }
 
@@ -1027,6 +1035,12 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     }
   }
 
+  /// Scan binDir for .kcpps preset files.
+  void _scanLocalPresets() {
+    final storage = Provider.of<StorageService>(context, listen: false);
+    setState(() => _localPresets = scanKcppsPresets(storage.binDir));
+  }
+
   /// Stop KoboldCpp and restart with a new model file.
   Future<void> _reloadKoboldWithModel(String modelPath) async {
     if (_isReloadingKobold) return;
@@ -1115,6 +1129,54 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
         });
       }
     }
+  }
+
+  Future<void> _startPseudoRemote() async {
+    if (_isReloadingPseudoRemote) return;
+    final storage = Provider.of<StorageService>(context, listen: false);
+    final backendManager = Provider.of<BackendManager>(context, listen: false);
+    final pseudoRemote = Provider.of<PseudoRemoteService>(context, listen: false);
+
+    if (backendManager.backendPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backend executable not found.')),
+        );
+      }
+      return;
+    }
+    if (storage.activeKcppsPath == null || storage.activeKcppsPath!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Select a .kcpps preset first.')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isReloadingPseudoRemote = true);
+
+    final overrideModel = (storage.kcppsHasModel && storage.kcppsModelFileExists)
+        ? null
+        : _selectedLocalModelPath.isEmpty ? null : _selectedLocalModelPath;
+
+    try {
+      await pseudoRemote.start(
+        executablePath: backendManager.backendPath!,
+        kcppsPath: storage.activeKcppsPath!,
+        modelPath: overrideModel,
+      );
+    } catch (e) {
+      debugPrint('CharacterCreator: Pseudo-remote start error: $e');
+    } finally {
+      if (mounted) setState(() => _isReloadingPseudoRemote = false);
+    }
+  }
+
+  Future<void> _stopPseudoRemote() async {
+    setState(() => _isReloadingPseudoRemote = true);
+    await Provider.of<PseudoRemoteService>(context, listen: false).stop();
+    if (mounted) setState(() => _isReloadingPseudoRemote = false);
   }
 
   @override
@@ -1297,7 +1359,8 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
 
   Widget _buildSetupStep() {
     final llmProvider = Provider.of<LLMProvider>(context, listen: false);
-    final isKobold = llmProvider.activeBackend == BackendType.kobold;
+    final activeBackend = llmProvider.activeBackend;
+    final isKobold = activeBackend == BackendType.kobold;
 
     return Center(
       key: const ValueKey('setup'),
@@ -1349,14 +1412,32 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _backendChip(
+                      label: 'Pseudo-Remote',
+                      icon: Icons.laptop,
+                      isSelected: activeBackend == BackendType.pseudoRemote,
+                      onTap: () async {
+                        if (activeBackend != BackendType.pseudoRemote) {
+                          await llmProvider.setActiveBackend(
+                            BackendType.pseudoRemote,
+                          );
+                          _scanLocalModels();
+                          _scanLocalPresets();
+                          setState(() {});
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _backendChip(
                       label: 'API (Remote)',
                       icon: Icons.cloud,
-                      isSelected: !isKobold,
+                      isSelected: activeBackend == BackendType.openRouter,
                       onTap: () async {
-                        if (isKobold) {
+                        if (activeBackend != BackendType.openRouter) {
                           await llmProvider.setActiveBackend(
                             BackendType.openRouter,
                           );
@@ -1794,6 +1875,141 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                         ),
                       ),
                   ],
+                ),
+              ] else if (activeBackend == BackendType.pseudoRemote) ...[
+                // ── Pseudo-Remote ──
+                _inputLabel('Configuration Preset (.kcpps)', required: false),
+                const SizedBox(height: 8),
+                KcppsSelector(
+                  storage: Provider.of<StorageService>(context, listen: false),
+                  localPresets: _localPresets,
+                  hint: 'Required — select a .kcpps preset',
+                  onChanged: (val) {
+                    final s = Provider.of<StorageService>(context, listen: false);
+                    s.setActiveKcppsPath(val);
+                    if (val != null &&
+                        s.kcppsHasModel &&
+                        s.kcppsModelFileExists) {
+                      setState(() => _selectedLocalModelPath = '');
+                    }
+                  },
+                  onExternalClear: () =>
+                      Provider.of<StorageService>(context, listen: false)
+                          .setActiveKcppsPath(null),
+                  onBrowsePicked: (_) {
+                    final s = Provider.of<StorageService>(context, listen: false);
+                    if (s.kcppsHasModel && s.kcppsModelFileExists) {
+                      setState(() => _selectedLocalModelPath = '');
+                    }
+                  },
+                  onModelStatusChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 16),
+
+                _inputLabel('Model (optional override)', required: false),
+                const SizedBox(height: 8),
+                Text(
+                  'Leave as "Managed by kcpps" to use the model defined in the preset.',
+                  style: TextStyle(
+                    color: AppColors.textTertiary(context),
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ModelSelector(
+                  models: _localModels.cast<File>(),
+                  selectedModelPath:
+                      _selectedLocalModelPath.isEmpty ? null : _selectedLocalModelPath,
+                  showManagedByKcpps:
+                      Provider.of<StorageService>(context, listen: false)
+                              .kcppsHasModel &&
+                          Provider.of<StorageService>(context, listen: false)
+                              .kcppsModelFileExists,
+                  onChanged: (val) {
+                    setState(() => _selectedLocalModelPath = val ?? '');
+                    if (val != null) {
+                      Provider.of<StorageService>(context, listen: false)
+                          .setLastUsedModelPath(val);
+                    }
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // ── Status + Start/Stop ──
+                Builder(
+                  builder: (context) {
+                    final p = Provider.of<PseudoRemoteService>(context);
+                    final s = Provider.of<StorageService>(context, listen: false);
+                    final isRunning = p.isRunning || p.isStarting;
+                    final dotColor = p.isReady
+                        ? Colors.green.shade300
+                        : isRunning
+                            ? Colors.orange.shade300
+                            : Colors.red.shade300;
+                    final label = p.isReady
+                        ? 'Ready'
+                        : p.isStarting
+                            ? 'Starting...'
+                            : p.isRunning
+                                ? 'Loading model...'
+                                : 'Stopped';
+
+                    return Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: dotColor,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          label,
+                          style: TextStyle(color: dotColor, fontSize: 12),
+                        ),
+                        const SizedBox(width: 16),
+                        if (isRunning)
+                          ElevatedButton.icon(
+                            onPressed: _isReloadingPseudoRemote ? null : _stopPseudoRemote,
+                            icon: const Icon(Icons.stop, size: 16),
+                            label: const Text('Stop Backend'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                            ),
+                          )
+                        else
+                          ElevatedButton.icon(
+                            onPressed:
+                                (s.activeKcppsPath == null ||
+                                        s.activeKcppsPath!.isEmpty)
+                                    ? null
+                                    : _startPseudoRemote,
+                            icon: _isReloadingPseudoRemote
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.play_arrow, size: 16),
+                            label: Text(
+                              _isReloadingPseudoRemote
+                                  ? 'Starting...'
+                                  : 'Start Backend',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green.shade700,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ] else ...[
                 // API model picker
