@@ -1877,140 +1877,7 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                   ],
                 ),
               ] else if (activeBackend == BackendType.pseudoRemote) ...[
-                // ── Pseudo-Remote ──
-                _inputLabel('Configuration Preset (.kcpps)', required: false),
-                const SizedBox(height: 8),
-                KcppsSelector(
-                  storage: Provider.of<StorageService>(context, listen: false),
-                  localPresets: _localPresets,
-                  hint: 'Required — select a .kcpps preset',
-                  onChanged: (val) {
-                    final s = Provider.of<StorageService>(context, listen: false);
-                    s.setActiveKcppsPath(val);
-                    if (val != null &&
-                        s.kcppsHasModel &&
-                        s.kcppsModelFileExists) {
-                      setState(() => _selectedLocalModelPath = '');
-                    }
-                  },
-                  onExternalClear: () =>
-                      Provider.of<StorageService>(context, listen: false)
-                          .setActiveKcppsPath(null),
-                  onBrowsePicked: (_) {
-                    final s = Provider.of<StorageService>(context, listen: false);
-                    if (s.kcppsHasModel && s.kcppsModelFileExists) {
-                      setState(() => _selectedLocalModelPath = '');
-                    }
-                  },
-                  onModelStatusChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 16),
-
-                _inputLabel('Model (optional override)', required: false),
-                const SizedBox(height: 8),
-                Text(
-                  'Leave as "Managed by kcpps" to use the model defined in the preset.',
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ModelSelector(
-                  models: _localModels.cast<File>(),
-                  selectedModelPath:
-                      _selectedLocalModelPath.isEmpty ? null : _selectedLocalModelPath,
-                  showManagedByKcpps:
-                      Provider.of<StorageService>(context, listen: false)
-                              .kcppsHasModel &&
-                          Provider.of<StorageService>(context, listen: false)
-                              .kcppsModelFileExists,
-                  onChanged: (val) {
-                    setState(() => _selectedLocalModelPath = val ?? '');
-                    if (val != null) {
-                      Provider.of<StorageService>(context, listen: false)
-                          .setLastUsedModelPath(val);
-                    }
-                  },
-                ),
-                const SizedBox(height: 24),
-
-                // ── Status + Start/Stop ──
-                Builder(
-                  builder: (context) {
-                    final p = Provider.of<PseudoRemoteService>(context);
-                    final s = Provider.of<StorageService>(context, listen: false);
-                    final isRunning = p.isRunning || p.isStarting;
-                    final dotColor = p.isReady
-                        ? Colors.green.shade300
-                        : isRunning
-                            ? Colors.orange.shade300
-                            : Colors.red.shade300;
-                    final label = p.isReady
-                        ? 'Ready'
-                        : p.isStarting
-                            ? 'Starting...'
-                            : p.isRunning
-                                ? 'Loading model...'
-                                : 'Stopped';
-
-                    return Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: dotColor,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          label,
-                          style: TextStyle(color: dotColor, fontSize: 12),
-                        ),
-                        const SizedBox(width: 16),
-                        if (isRunning)
-                          ElevatedButton.icon(
-                            onPressed: _isReloadingPseudoRemote ? null : _stopPseudoRemote,
-                            icon: const Icon(Icons.stop, size: 16),
-                            label: const Text('Stop Backend'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent,
-                              foregroundColor: Colors.white,
-                            ),
-                          )
-                        else
-                          ElevatedButton.icon(
-                            onPressed:
-                                (s.activeKcppsPath == null ||
-                                        s.activeKcppsPath!.isEmpty)
-                                    ? null
-                                    : _startPseudoRemote,
-                            icon: _isReloadingPseudoRemote
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.play_arrow, size: 16),
-                            label: Text(
-                              _isReloadingPseudoRemote
-                                  ? 'Starting...'
-                                  : 'Start Backend',
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green.shade700,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+                _buildPseudoRemoteSection(),
               ] else ...[
                 // API model picker
                 _inputLabel('Generation Model', required: false),
@@ -2147,6 +2014,141 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Pseudo-remote backend configuration section for Step 0.
+  Widget _buildPseudoRemoteSection() {
+    final storage = Provider.of<StorageService>(context, listen: false);
+    // Note: context here is the page's State.context, valid for the life of the
+    // page. Captured provider instances are used inside callbacks instead of
+    // Provider.of so that navigation away doesn't trigger stale-context assertions.
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _inputLabel('Configuration Preset (.kcpps)', required: false),
+        const SizedBox(height: 8),
+        KcppsSelector(
+          storage: storage,
+          localPresets: _localPresets,
+          hint: 'Required — select a .kcpps preset',
+          onChanged: (val) {
+            storage.setActiveKcppsPath(val);
+            if (val != null &&
+                storage.kcppsHasModel &&
+                storage.kcppsModelFileExists) {
+              if (mounted) setState(() => _selectedLocalModelPath = '');
+            }
+          },
+          onExternalClear: () => storage.setActiveKcppsPath(null),
+          onBrowsePicked: (_) {
+            if (storage.kcppsHasModel && storage.kcppsModelFileExists) {
+              if (mounted) setState(() => _selectedLocalModelPath = '');
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+
+        _inputLabel('Model (optional override)', required: false),
+        const SizedBox(height: 8),
+        Text(
+          'Leave as "Managed by kcpps" to use the model defined in the preset.',
+          style: TextStyle(
+            color: AppColors.textTertiary(context),
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ModelSelector(
+          models: _localModels.cast<File>(),
+          selectedModelPath:
+              _selectedLocalModelPath.isEmpty ? null : _selectedLocalModelPath,
+          showManagedByKcpps:
+              storage.kcppsHasModel && storage.kcppsModelFileExists,
+          onChanged: (val) {
+            setState(() => _selectedLocalModelPath = val ?? '');
+            if (val != null) storage.setLastUsedModelPath(val);
+          },
+        ),
+        const SizedBox(height: 24),
+
+        // ── Status + Start/Stop ──
+        Builder(
+          builder: (context) {
+            final p = Provider.of<PseudoRemoteService>(context);
+            final isRunning = p.isRunning || p.isStarting;
+            final dotColor = p.isReady
+                ? Colors.green.shade300
+                : isRunning
+                    ? Colors.orange.shade300
+                    : Colors.red.shade300;
+            final label = p.isReady
+                ? 'Ready'
+                : p.isStarting
+                    ? 'Starting...'
+                    : p.isRunning
+                        ? 'Loading model...'
+                        : 'Stopped';
+
+            return Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: dotColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(color: dotColor, fontSize: 12),
+                ),
+                const SizedBox(width: 16),
+                if (isRunning)
+                  ElevatedButton.icon(
+                    onPressed: _isReloadingPseudoRemote ? null : _stopPseudoRemote,
+                    icon: const Icon(Icons.stop, size: 16),
+                    label: const Text('Stop Backend'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                    ),
+                  )
+                else
+                  ElevatedButton.icon(
+                    onPressed:
+                        (storage.activeKcppsPath == null ||
+                                storage.activeKcppsPath!.isEmpty)
+                            ? null
+                            : _startPseudoRemote,
+                    icon: _isReloadingPseudoRemote
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.play_arrow, size: 16),
+                    label: Text(
+                      _isReloadingPseudoRemote
+                          ? 'Starting...'
+                          : 'Start Backend',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 
