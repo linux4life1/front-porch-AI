@@ -32,5 +32,5 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 - 🖼️ **Chat bubble avatar opacity flicker fixed** — The on-hover opacity effect on chat message avatars no longer flickers continuously.
 
-- 🧩 **Triplicated character creator UI extracted into reusable widgets** — The Greeting Tone selector (FilterChips), Alternate Greetings slider, and Avatar Art Style picker were each copy-pasted across the Quick, Guided, and Full creation modes (~900 lines of duplication). Extracted into `GreetingToneSelector`, `AlternateGreetingsSlider`, and `AvatarArtStyleSelector` — stateless widgets used by all three modes.
+- 🧩 **Triplicated character creator UI extracted into reusable widgets** — The Greeting Tone selector (FilterChips), Alternate Greetings slider, Avatar Art Style picker, and NSFW toggle were each copy-pasted across the Quick, Guided, and Full creation modes. Extracted into `GreetingToneSelector`, `AlternateGreetingsSlider`, `AvatarArtStyleSelector`, and `NsfwToggle` — stateless widgets used by all three modes.
 

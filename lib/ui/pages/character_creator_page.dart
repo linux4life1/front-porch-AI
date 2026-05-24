@@ -41,6 +41,7 @@ import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
 import 'package:front_porch_ai/ui/widgets/alternate_greetings_slider.dart';
 import 'package:front_porch_ai/ui/widgets/avatar_art_style_selector.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_tone_selector.dart';
+import 'package:front_porch_ai/ui/widgets/nsfw_toggle.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Creator mode selection.
@@ -2613,73 +2614,13 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
               const SizedBox(height: 28),
 
               // NSFW toggle
-              InkWell(
-                onTap: () =>
-                    setState(() => _quickNsfwEnabled = !_quickNsfwEnabled),
-                borderRadius: BorderRadius.circular(12),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _quickNsfwEnabled
-                        ? nsfwAccent.withValues(alpha: 0.08)
-                        : AppColors.surfaceContainerOf(context),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _quickNsfwEnabled
-                          ? nsfwAccent.withValues(alpha: 0.5)
-                          : AppColors.borderOf(context),
-                      width: _quickNsfwEnabled ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.local_fire_department,
-                        color: _quickNsfwEnabled
-                            ? nsfwAccent
-                            : AppColors.textTertiary(context),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'NSFW Content',
-                              style: TextStyle(
-                                color: _quickNsfwEnabled
-                                    ? nsfwAccent
-                                    : AppColors.textSecondary(context),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Enables adult themes in personality, lorebook, and greetings',
-                              style: TextStyle(
-                                color: _quickNsfwEnabled
-                                    ? nsfwAccent.withValues(alpha: 0.6)
-                                    : AppColors.textTertiary(context),
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: _quickNsfwEnabled,
-                        onChanged: (v) => setState(() => _quickNsfwEnabled = v),
-                        activeThumbColor: nsfwAccent,
-                      ),
-                    ],
-                  ),
-                ),
+              NsfwToggle(
+                value: _quickNsfwEnabled,
+                accentColor: nsfwAccent,
+                title: 'NSFW Content',
+                subtitle: 'Enables adult themes in personality, lorebook, and greetings',
+                animated: true,
+                onChanged: (v) => setState(() => _quickNsfwEnabled = v),
               ),
               const SizedBox(height: 36),
 
@@ -3739,67 +3680,14 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
               const SizedBox(height: 32),
 
               // NSFW toggle
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _nsfwEnabled
-                      ? nsfwAccent.withValues(alpha: 0.08)
-                      : AppColors.surfaceContainerOf(context),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: _nsfwEnabled
-                        ? nsfwAccent.withValues(alpha: 0.4)
-                        : AppColors.borderOf(context),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.local_fire_department,
-                      color: _nsfwEnabled ? nsfwAccent : AppColors.textTertiary(context),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Enable NSFW Options',
-                            style: TextStyle(
-                              color: _nsfwEnabled
-                                  ? nsfwAccent
-                                  : AppColors.textSecondary(context),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            'Unlock intimate character details',
-                            style: TextStyle(
-                              color: _nsfwEnabled
-                                  ? nsfwAccent.withValues(alpha: 0.6)
-                                  : AppColors.textTertiary(context),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _nsfwEnabled,
-                      activeTrackColor: nsfwAccent,
-                      onChanged: (val) {
-                        setState(() => _nsfwEnabled = val);
-                        _saveState();
-                      },
-                    ),
-                  ],
-                ),
+              NsfwToggle(
+                value: _nsfwEnabled,
+                accentColor: nsfwAccent,
+                subtitle: 'Unlock intimate character details',
+                onChanged: (val) {
+                  setState(() => _nsfwEnabled = val);
+                  _saveState();
+                },
               ),
 
               if (_nsfwEnabled)
@@ -4703,66 +4591,16 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
               const SizedBox(height: 24),
 
               // ── NSFW Toggle ──
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
+              NsfwToggle(
+                value: _nsfwEnabled,
+                accentColor: AppColors.resolve(
+                  context, const Color(0xFF9D174D), Colors.pinkAccent,
                 ),
-                decoration: BoxDecoration(
-                  color: _nsfwEnabled
-                      ? AppColors.resolve(context, Colors.pinkAccent.withValues(alpha: 0.15), Colors.pinkAccent.withValues(alpha: 0.08))
-                      : AppColors.surfaceContainerOf(context),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: _nsfwEnabled
-                        ? AppColors.resolve(context, const Color(0xFF9D174D), Colors.pinkAccent).withValues(alpha: 0.5)
-                        : AppColors.borderOf(context),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.local_fire_department,
-                      color: _nsfwEnabled ? AppColors.resolve(context, const Color(0xFF9D174D), Colors.pinkAccent) : AppColors.textTertiary(context),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Enable NSFW Options',
-                            style: TextStyle(
-                              color: _nsfwEnabled
-                                  ? AppColors.resolve(context, Colors.pinkAccent, const Color(0xFF9D174D))
-                                  : AppColors.textSecondary(context),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            'Unlock spicy appearance & relationship options',
-                            style: TextStyle(
-                              color: _nsfwEnabled
-                                  ? AppColors.resolve(context, Colors.pinkAccent.withValues(alpha: 0.7), Colors.pinkAccent.withValues(alpha: 0.6))
-                                  : AppColors.textTertiary(context),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _nsfwEnabled,
-                      activeTrackColor: AppColors.resolve(context, const Color(0xFF9D174D), Colors.pinkAccent),
-                      onChanged: (val) {
-                        setState(() => _nsfwEnabled = val);
-                        _saveState();
-                      },
-                    ),
-                  ],
-                ),
+                subtitle: 'Unlock spicy appearance & relationship options',
+                onChanged: (val) {
+                  setState(() => _nsfwEnabled = val);
+                  _saveState();
+                },
               ),
               const SizedBox(height: 16),
 
