@@ -1156,7 +1156,7 @@ class _ChatPageState extends State<ChatPage> {
     final arousalColor = _getGroupTierColor(arousalTier);
 
     final needs = chatService.getTopUrgentNeedsForGroupCharacter(character, count: 2);
-    final fixation = chatService.getFixationForGroupCharacter(character);
+    final fixation = chatService.getFixationForGroupCharacter(character); // I see it's likely WIP - and I like where it going.
 
     return Opacity(
       opacity: opacity,
@@ -3216,9 +3216,15 @@ class _ChatPageState extends State<ChatPage> {
               if (fallbackWidget != null) return fallbackWidget;
               if (displayFile == null) return const SizedBox.shrink();
 
-              return SizedBox(
-                height: _sidebarWidth,
-                width: _sidebarWidth,
+              final avatarLocked =
+                  character.frontPorchExtensions?.avatarLocked ?? false;
+              final avatarSize = avatarLocked
+                  ? _sidebarWidth.clamp(0, 300).toDouble()
+                  : _sidebarWidth;
+
+              Widget avatar = SizedBox(
+                height: avatarSize,
+                width: avatarSize,
                 child: Stack(
                   children: [
                     AnimatedSwitcher(
@@ -3228,7 +3234,7 @@ class _ChatPageState extends State<ChatPage> {
                       child: Image.file(
                         displayFile,
                         key: ValueKey(expressionKey ?? 'default'),
-                        width: _sidebarWidth,
+                        width: avatarSize,
                         fit: BoxFit.cover,
                         alignment: Alignment.topCenter,
                         errorBuilder: (_, _, _) => Container(
@@ -3265,6 +3271,10 @@ class _ChatPageState extends State<ChatPage> {
                   ],
                 ),
               );
+              if (avatarLocked && _sidebarWidth > 300) {
+                avatar = Align(alignment: Alignment.topRight, child: avatar);
+              }
+              return avatar;
             },
           ),
 

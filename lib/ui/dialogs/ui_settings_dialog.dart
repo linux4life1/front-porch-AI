@@ -100,6 +100,10 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                 (val) => storageService.setTextScale(val),
                 divisions: 30,
               ),
+              if (widget.character != null) ...[
+                const SizedBox(height: 8),
+                _buildAvatarLockedToggle(context),
+              ],
               const SizedBox(height: 20),
 
               // ── Chat Colors ─────────────────────────────────────────────
@@ -187,6 +191,41 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAvatarLockedToggle(BuildContext context) {
+    final character = widget.character!;
+    final locked =
+        character.frontPorchExtensions?.avatarLocked ?? false;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Lock Avatar Size',
+                style: const TextStyle(color: Colors.white70),
+              ),
+              Text(
+                'Avatar won\'t grow past default size when sidebar is wider',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          value: locked,
+          onChanged: (val) => _updateAvatarLocked(context, val),
+          activeTrackColor: Colors.blueAccent,
+        ),
+      ],
     );
   }
 
@@ -682,6 +721,51 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
     } else {
       await storage.setGlobalActionColor(color);
     }
+    if (context.mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _updateAvatarLocked(BuildContext context, bool locked) async {
+    final character = widget.character;
+    if (character == null) return;
+
+    final currentExtensions =
+        character.frontPorchExtensions ?? FrontPorchExtensions();
+    final updatedExtensions = currentExtensions.copyWith(
+      avatarLocked: locked,
+    );
+    final updatedCharacter = CharacterCard(
+      name: character.name,
+      description: character.description,
+      personality: character.personality,
+      scenario: character.scenario,
+      firstMessage: character.firstMessage,
+      mesExample: character.mesExample,
+      systemPrompt: character.systemPrompt,
+      postHistoryInstructions: character.postHistoryInstructions,
+      alternateGreetings: List.from(character.alternateGreetings),
+      tags: List.from(character.tags),
+      imagePath: character.imagePath,
+      folderId: character.folderId,
+      lorebook: character.lorebook != null
+          ? Lorebook(entries: List.from(character.lorebook!.entries))
+          : null,
+      worldNames: List.from(character.worldNames),
+      ttsVoice: character.ttsVoice,
+      frontPorchExtensions: updatedExtensions,
+      rawExtensions: character.rawExtensions != null
+          ? Map<String, dynamic>.from(character.rawExtensions!)
+          : null,
+      avatarImages: character.avatarImages != null
+          ? List.from(character.avatarImages!)
+          : null,
+    );
+    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
+    await charRepo.updateCharacter(updatedCharacter);
+    final reloaded = await V2CardService().readCard(character.imagePath!);
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    await chatService.setActiveCharacter(reloaded ?? updatedCharacter);
     if (context.mounted) {
       Navigator.pop(context);
     }
