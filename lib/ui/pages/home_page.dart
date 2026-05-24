@@ -197,6 +197,22 @@ class _HomePageState extends State<HomePage> {
     return card.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
   }
 
+  void _toggleSelectMode() {
+    setState(() {
+      _isSelecting = !_isSelecting;
+      _isOrganizing = false;
+      if (!_isSelecting) _selectedCharacterIds.clear();
+    });
+  }
+
+  void _toggleOrganizeMode() {
+    setState(() {
+      _isOrganizing = !_isOrganizing;
+      _isSelecting = false;
+      if (!_isOrganizing) _selectedCharacterIds.clear();
+    });
+  }
+
   void _toggleSelect(CharacterCard character) {
     final id = character.imagePath != null
         ? path.basenameWithoutExtension(character.imagePath!)
@@ -377,6 +393,8 @@ class _HomePageState extends State<HomePage> {
             onTapCharacter: _handleTapCharacter,
             onTapGroup: _handleTapGroup,
             onToggleSelect: _toggleSelect,
+            onToggleSelectMode: _toggleSelectMode,
+            onToggleOrganizeMode: _toggleOrganizeMode,
             onContextMenuAction: _handleContextMenuAction,
             onImport: _handleImport,
             onOpenBrowser: _handleOpenBrowser,
@@ -847,7 +865,7 @@ class _HomePageState extends State<HomePage> {
 
   void _handleOpenBrowser(String site) {
     switch (site) {
-      case 'cards':
+      case 'aicc':
         _openBrowser(context);
         break;
       case 'chub':

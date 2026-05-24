@@ -39,6 +39,8 @@ class CharacterCardGrid extends StatelessWidget {
     required this.onTapCharacter,
     required this.onTapGroup,
     required this.onToggleSelect,
+    this.onToggleSelectMode,
+    this.onToggleOrganizeMode,
     required this.onContextMenuAction,
     required this.onImport,
     required this.onOpenBrowser,
@@ -78,6 +80,8 @@ class CharacterCardGrid extends StatelessWidget {
   final Future<void> Function(CharacterCard character) onTapCharacter;
   final Future<void> Function(GroupChat group) onTapGroup;
   final void Function(CharacterCard character) onToggleSelect;
+  final VoidCallback? onToggleSelectMode;
+  final VoidCallback? onToggleOrganizeMode;
   final void Function(String action, CharacterCard character) onContextMenuAction;
   final void Function(String source) onImport;
   final void Function(String site) onOpenBrowser;
@@ -337,7 +341,7 @@ class CharacterCardGrid extends StatelessWidget {
                         Icons.group_add,
                         color: Colors.purpleAccent,
                       ),
-                      onPressed: () => onSearchQueryChanged(''), // no-op
+                      onPressed: onToggleSelectMode,
                     ),
                     IconButton(
                       tooltip: 'Organize into folders',
@@ -345,7 +349,7 @@ class CharacterCardGrid extends StatelessWidget {
                         Icons.drive_file_move_outlined,
                         color: Colors.blueAccent,
                       ),
-                      onPressed: () => onSearchQueryChanged(''), // no-op
+                      onPressed: onToggleOrganizeMode,
                     ),
                     if (activeFolderId == null)
                       IconButton(
