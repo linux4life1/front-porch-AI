@@ -53,6 +53,7 @@ class CharacterCardGrid extends StatelessWidget {
     required this.onMoveToFolder,
     required this.onSortChanged,
     required this.onGridScaleChanged,
+    this.onGridScaleChangeEnd,
     required this.onSearchScopeChanged,
     required this.onSearchQueryChanged,
     required this.onResolveCharImage,
@@ -94,6 +95,7 @@ class CharacterCardGrid extends StatelessWidget {
   final void Function(Set<String> selectedIds) onMoveToFolder;
   final void Function(String mode) onSortChanged;
   final void Function(double scale) onGridScaleChanged;
+  final void Function(double scale)? onGridScaleChangeEnd;
   final void Function(SearchScope scope) onSearchScopeChanged;
   final void Function(String query) onSearchQueryChanged;
   final File Function(String imagePath) onResolveCharImage;
@@ -323,7 +325,7 @@ class CharacterCardGrid extends StatelessWidget {
                                 min: 150,
                                 max: 450,
                                 onChanged: (v) => onGridScaleChanged(v),
-                                onChangeEnd: (v) => onGridScaleChanged(v),
+                                onChangeEnd: (v) => onGridScaleChangeEnd?.call(v),
                               ),
                             ),
                           ),

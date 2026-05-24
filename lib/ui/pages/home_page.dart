@@ -414,6 +414,7 @@ class _HomePageState extends State<HomePage> {
             onMoveToFolder: _handleMoveToFolder,
             onSortChanged: _handleSortChanged,
             onGridScaleChanged: _handleGridScaleChanged,
+            onGridScaleChangeEnd: _handleGridScaleChangeEnd,
             onSearchScopeChanged: _handleSearchScopeChanged,
             onSearchQueryChanged: _handleSearchQueryChanged,
             onResolveCharImage: _resolveCharImage,
@@ -947,6 +948,9 @@ class _HomePageState extends State<HomePage> {
 
   void _handleGridScaleChanged(double scale) {
     setState(() => _gridScale = scale);
+  }
+
+  void _handleGridScaleChangeEnd(double scale) {
     Provider.of<StorageService>(context, listen: false).setGridScale(scale);
   }
 

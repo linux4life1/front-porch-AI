@@ -185,6 +185,9 @@ class _ChatPageState extends State<ChatPage> {
   TtsService? _ttsService;
   ChatService? _chatService;
 
+  // Slider drag tracking — store live value during drag, null on release
+  double? _dragDirectorDelay;
+
   /// Resolve a character [imagePath] (basename or full path) to a [File].
   /// Always use this instead of [File(imagePath)] directly.
   File _resolveCharImage(String imagePath) {
@@ -3863,7 +3866,7 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                               const Spacer(),
                               Text(
-                                '${storage.directorDelay.toStringAsFixed(1)}s',
+                                '${(_dragDirectorDelay ?? storage.directorDelay).toStringAsFixed(1)}s',
                                 style: const TextStyle(
                                   color: Colors.amberAccent,
                                   fontSize: 11,
@@ -3880,13 +3883,17 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                             ),
                             child: Slider(
-                              value: storage.directorDelay,
+                              value: _dragDirectorDelay ?? storage.directorDelay,
                               min: 0.5,
                               max: 60.0,
                               divisions: 119,
                               activeColor: Colors.amberAccent,
                               inactiveColor: Colors.white12,
-                              onChanged: (val) => storage.setDirectorDelay(val),
+                              onChanged: (val) => setState(() => _dragDirectorDelay = val),
+                              onChangeEnd: (val) {
+                                _dragDirectorDelay = null;
+                                storage.setDirectorDelay(val);
+                              },
                             ),
                           ),
                         ],
@@ -6907,6 +6914,8 @@ class _SummarySectionState extends State<_SummarySection> {
   late TextEditingController _controller;
   bool _showSettings = false;
   bool _expanded = false;
+  double? _dragSummaryInterval;
+  double? _dragSummaryMaxWords;
 
   @override
   void initState() {
@@ -7182,7 +7191,7 @@ class _SummarySectionState extends State<_SummarySection> {
                           ),
                           const Spacer(),
                           Text(
-                            '${storage.summaryInterval} messages',
+                            '${(_dragSummaryInterval ?? storage.summaryInterval.toDouble()).round()} messages',
                             style: const TextStyle(
                               fontSize: 11,
                               color: Colors.tealAccent,
@@ -7199,14 +7208,17 @@ class _SummarySectionState extends State<_SummarySection> {
                           ),
                         ),
                         child: Slider(
-                          value: storage.summaryInterval.toDouble(),
+                          value: _dragSummaryInterval ?? storage.summaryInterval.toDouble(),
                           min: 3,
                           max: 50,
                           divisions: 47,
                           activeColor: Colors.tealAccent,
                           inactiveColor: Colors.white12,
-                          onChanged: (val) =>
-                              storage.setSummaryInterval(val.toInt()),
+                          onChanged: (val) => setState(() => _dragSummaryInterval = val),
+                          onChangeEnd: (val) {
+                            _dragSummaryInterval = null;
+                            storage.setSummaryInterval(val.toInt());
+                          },
                         ),
                       ),
                       // Max Words
@@ -7221,7 +7233,7 @@ class _SummarySectionState extends State<_SummarySection> {
                           ),
                           const Spacer(),
                           Text(
-                            '${storage.summaryMaxWords}',
+                            '${(_dragSummaryMaxWords ?? storage.summaryMaxWords.toDouble()).round()}',
                             style: const TextStyle(
                               fontSize: 11,
                               color: Colors.tealAccent,
@@ -7238,14 +7250,17 @@ class _SummarySectionState extends State<_SummarySection> {
                           ),
                         ),
                         child: Slider(
-                          value: storage.summaryMaxWords.toDouble(),
+                          value: _dragSummaryMaxWords ?? storage.summaryMaxWords.toDouble(),
                           min: 50,
                           max: 1000,
                           divisions: 19,
                           activeColor: Colors.tealAccent,
                           inactiveColor: Colors.white12,
-                          onChanged: (val) =>
-                              storage.setSummaryMaxWords(val.toInt()),
+                          onChanged: (val) => setState(() => _dragSummaryMaxWords = val),
+                          onChangeEnd: (val) {
+                            _dragSummaryMaxWords = null;
+                            storage.setSummaryMaxWords(val.toInt());
+                          },
                         ),
                       ),
                       // Summary Prompt
@@ -7360,6 +7375,10 @@ class _MemorySectionState extends State<_MemorySection> {
   bool _showSources = false;
   Set<String> _selectedSources = {};
   bool _sourcesLoaded = false;
+  double? _dragRagRetrievalCount;
+  double? _dragRagWindowSize;
+  double? _dragAutoPersonaInterval;
+  double? _dragEvolutionInterval;
 
   /// Derive the embedding ID for a character card (must match ChatService._getCharacterIdFromCard)
   String _embeddingId(CharacterCard card) {
@@ -7660,9 +7679,9 @@ class _MemorySectionState extends State<_MemorySection> {
                       ),
                       const Spacer(),
                       Text(
-                        storage.ragRetrievalCount == 0
+                        (_dragRagRetrievalCount ?? storage.ragRetrievalCount.toDouble()).round() == 0
                             ? 'All'
-                            : '${storage.ragRetrievalCount}',
+                            : '${(_dragRagRetrievalCount ?? storage.ragRetrievalCount.toDouble()).round()}',
                         style: const TextStyle(
                           color: Colors.purpleAccent,
                           fontSize: 11,
@@ -7679,14 +7698,17 @@ class _MemorySectionState extends State<_MemorySection> {
                       ),
                     ),
                     child: Slider(
-                      value: storage.ragRetrievalCount.toDouble(),
+                      value: _dragRagRetrievalCount ?? storage.ragRetrievalCount.toDouble(),
                       min: 0,
                       max: 50,
                       divisions: 50,
                       activeColor: Colors.purpleAccent,
                       inactiveColor: Colors.white12,
-                      onChanged: (val) =>
-                          storage.setRagRetrievalCount(val.round()),
+                      onChanged: (val) => setState(() => _dragRagRetrievalCount = val),
+                      onChangeEnd: (val) {
+                        _dragRagRetrievalCount = null;
+                        storage.setRagRetrievalCount(val.round());
+                      },
                     ),
                   ),
                   // Window size
@@ -7698,7 +7720,7 @@ class _MemorySectionState extends State<_MemorySection> {
                       ),
                       const Spacer(),
                       Text(
-                        '${storage.ragWindowSize}',
+                        '${(_dragRagWindowSize ?? storage.ragWindowSize.toDouble()).round()}',
                         style: const TextStyle(
                           color: Colors.purpleAccent,
                           fontSize: 11,
@@ -7715,13 +7737,17 @@ class _MemorySectionState extends State<_MemorySection> {
                       ),
                     ),
                     child: Slider(
-                      value: storage.ragWindowSize.toDouble(),
+                      value: _dragRagWindowSize ?? storage.ragWindowSize.toDouble(),
                       min: 3,
                       max: 10,
                       divisions: 7,
                       activeColor: Colors.purpleAccent,
                       inactiveColor: Colors.white12,
-                      onChanged: (val) => storage.setRagWindowSize(val.round()),
+                      onChanged: (val) => setState(() => _dragRagWindowSize = val),
+                      onChangeEnd: (val) {
+                        _dragRagWindowSize = null;
+                        storage.setRagWindowSize(val.round());
+                      },
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -7781,7 +7807,7 @@ class _MemorySectionState extends State<_MemorySection> {
                         ),
                         const Spacer(),
                         Text(
-                          '${storage.autoPersonaInterval} messages',
+                          '${(_dragAutoPersonaInterval ?? storage.autoPersonaInterval.toDouble()).round()} messages',
                           style: const TextStyle(
                             color: Colors.purpleAccent,
                             fontSize: 10,
@@ -7791,13 +7817,16 @@ class _MemorySectionState extends State<_MemorySection> {
                       ],
                     ),
                     Slider(
-                      value: storage.autoPersonaInterval.toDouble(),
+                      value: _dragAutoPersonaInterval ?? storage.autoPersonaInterval.toDouble(),
                       min: 5,
                       max: 50,
                       divisions: 9,
                       activeColor: Colors.purpleAccent,
-                      onChanged: (val) =>
-                          storage.setAutoPersonaInterval(val.round()),
+                      onChanged: (val) => setState(() => _dragAutoPersonaInterval = val),
+                      onChangeEnd: (val) {
+                        _dragAutoPersonaInterval = null;
+                        storage.setAutoPersonaInterval(val.round());
+                      },
                     ),
                     const Text(
                       'Extracts personal facts from your messages using the LLM. View facts in Persona settings.',
@@ -7844,7 +7873,7 @@ class _MemorySectionState extends State<_MemorySection> {
                         ),
                         const Spacer(),
                         Text(
-                          '${storage.evolutionInterval} messages',
+                          '${(_dragEvolutionInterval ?? storage.evolutionInterval.toDouble()).round()} messages',
                           style: const TextStyle(
                             color: Colors.tealAccent,
                             fontSize: 10,
@@ -7854,13 +7883,16 @@ class _MemorySectionState extends State<_MemorySection> {
                       ],
                     ),
                     Slider(
-                      value: storage.evolutionInterval.toDouble(),
+                      value: _dragEvolutionInterval ?? storage.evolutionInterval.toDouble(),
                       min: 10,
                       max: 50,
                       divisions: 8,
                       activeColor: Colors.tealAccent,
-                      onChanged: (val) =>
-                          storage.setEvolutionInterval(val.round()),
+                      onChanged: (val) => setState(() => _dragEvolutionInterval = val),
+                      onChangeEnd: (val) {
+                        _dragEvolutionInterval = null;
+                        storage.setEvolutionInterval(val.round());
+                      },
                     ),
                     Consumer<ChatService>(
                       builder: (context, chat, _) {

@@ -53,6 +53,11 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
   bool _loadingSamplers = false;
   final _seedController = TextEditingController();
 
+  // Slider drag tracking
+  double? _dragLoraWeight;
+  double? _dragSteps;
+  double? _dragCfgScale;
+
   @override
   void initState() {
     super.initState();
@@ -944,19 +949,23 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Slider(
-                    value: storage.imageGenLoraWeight,
+                    value: _dragLoraWeight ?? storage.imageGenLoraWeight,
                     min: 0.0,
                     max: 1.0,
                     divisions: 20,
                     activeColor: Colors.purpleAccent,
                     inactiveColor: Colors.white12,
-                    onChanged: (val) => storage.setImageGenLoraWeight(val),
+                    onChanged: (val) => setState(() => _dragLoraWeight = val),
+                    onChangeEnd: (val) {
+                      _dragLoraWeight = null;
+                      storage.setImageGenLoraWeight(val);
+                    },
                   ),
                 ),
                 SizedBox(
                   width: 36,
                   child: Text(
-                    storage.imageGenLoraWeight.toStringAsFixed(2),
+                    (_dragLoraWeight ?? storage.imageGenLoraWeight).toStringAsFixed(2),
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                     textAlign: TextAlign.end,
                   ),
@@ -1332,19 +1341,23 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
           const SizedBox(width: 8),
           Expanded(
             child: Slider(
-              value: storage.imageGenSteps.toDouble(),
+              value: _dragSteps ?? storage.imageGenSteps.toDouble(),
               min: 5,
               max: 50,
               divisions: 45,
               activeColor: Colors.purpleAccent,
               inactiveColor: Colors.white12,
-              onChanged: (val) => storage.setImageGenSteps(val.round()),
+              onChanged: (val) => setState(() => _dragSteps = val),
+              onChangeEnd: (val) {
+                _dragSteps = null;
+                storage.setImageGenSteps(val.round());
+              },
             ),
           ),
           SizedBox(
             width: 32,
             child: Text(
-              storage.imageGenSteps.toString(),
+              (_dragSteps ?? storage.imageGenSteps.toDouble()).round().toString(),
               style: const TextStyle(color: Colors.white70, fontSize: 12),
               textAlign: TextAlign.end,
             ),
@@ -1362,19 +1375,23 @@ class _ImageGenSettingsDialogState extends State<ImageGenSettingsDialog> {
           const SizedBox(width: 8),
           Expanded(
             child: Slider(
-              value: storage.imageGenCfgScale,
+              value: _dragCfgScale ?? storage.imageGenCfgScale,
               min: 1.0,
               max: 20.0,
               divisions: 190,
               activeColor: Colors.purpleAccent,
               inactiveColor: Colors.white12,
-              onChanged: (val) => storage.setImageGenCfgScale(val),
+              onChanged: (val) => setState(() => _dragCfgScale = val),
+              onChangeEnd: (val) {
+                _dragCfgScale = null;
+                storage.setImageGenCfgScale(val);
+              },
             ),
           ),
           SizedBox(
             width: 36,
             child: Text(
-              storage.imageGenCfgScale.toStringAsFixed(1),
+              (_dragCfgScale ?? storage.imageGenCfgScale).toStringAsFixed(1),
               style: const TextStyle(color: Colors.white70, fontSize: 12),
               textAlign: TextAlign.end,
             ),

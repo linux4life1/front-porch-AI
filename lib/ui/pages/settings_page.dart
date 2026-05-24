@@ -65,6 +65,8 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _gpuLayersController = TextEditingController(text: '0');
   final _contextSizeController = TextEditingController(text: '8192');
+  double? _dragContextSize;
+  double? _dragCallBuffer;
   final _apiController = TextEditingController();
   final _remoteApiUrlController = TextEditingController();
   final _remoteApiKeyController = TextEditingController();
@@ -1762,7 +1764,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             style: theme.textTheme.bodySmall,
                           ),
                           Text(
-                            '${storageService.callBufferSentences} sentences',
+                            '${(_dragCallBuffer ?? storageService.callBufferSentences.toDouble()).round()} sentences',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.white54,
@@ -1771,13 +1773,16 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                       Slider(
-                        value: storageService.callBufferSentences.toDouble(),
+                        value: _dragCallBuffer ?? storageService.callBufferSentences.toDouble(),
                         min: 1,
                         max: 10,
                         divisions: 9,
                         activeColor: Colors.blueAccent,
-                        onChanged: (val) =>
-                            storageService.setCallBufferSentences(val.round()),
+                        onChanged: (val) => setState(() => _dragCallBuffer = val),
+                        onChangeEnd: (val) {
+                          _dragCallBuffer = null;
+                          storageService.setCallBufferSentences(val.round());
+                        },
                       ),
                       const Text(
                         'Sentences to pre-generate before playback starts. '
@@ -3758,18 +3763,23 @@ class _SettingsPageState extends State<SettingsPage> {
                                       overlayColor: Colors.tealAccent
                                           .withValues(alpha: 0.2),
                                     ),
-                                    child: Slider(
-                                      value: closestIdx.toDouble(),
-                                      min: 0,
-                                      max: (presets.length - 1).toDouble(),
-                                      divisions: presets.length - 1,
-                                      onChanged: (val) {
-                                        final newSize = presets[val.round()];
-                                        _contextSizeController.text = newSize
-                                            .toString();
-                                        storageService.setContextSize(newSize);
-                                        setState(() {});
-                                      },
+                                      child: Slider(
+                                        value: _dragContextSize ?? closestIdx.toDouble(),
+                                        min: 0,
+                                        max: (presets.length - 1).toDouble(),
+                                        divisions: presets.length - 1,
+                                        onChanged: (val) {
+                                          setState(() => _dragContextSize = val);
+                                          _contextSizeController.text = presets[val.round()].toString();
+                                        },
+                                        onChangeEnd: (val) {
+                                          _dragContextSize = null;
+                                          final newSize = presets[val.round()];
+                                          _contextSizeController.text = newSize
+                                              .toString();
+                                          storageService.setContextSize(newSize);
+                                          setState(() {});
+                                        },
                                     ),
                                   ),
                                   // Preset chips
