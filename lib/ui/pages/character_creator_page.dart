@@ -2949,16 +2949,16 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
 
     LLMService llmService;
     if (llmProvider.hasManagedProcess) {
-      final kobold = llmProvider.koboldService;
-      if (!kobold.isReady) {
+      final svc = llmProvider.activeService;
+      if (!svc.isReady) {
         setState(() {
           _generationStatus =
-              'Error: KoboldCpp is not running. Start it first.';
+              'Error: The backend is not running. Start it first.';
           _isGenerating = false;
         });
         return;
       }
-      llmService = kobold;
+      llmService = svc;
     } else if (_selectedModelId.isNotEmpty &&
         _selectedModelId != llmProvider.openRouterService.modelName) {
       llmService = OpenRouterService(
@@ -6916,16 +6916,16 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     // Resolve LLM service — same logic as automated mode
     LLMService llmService;
     if (llmProvider.hasManagedProcess) {
-      final kobold = llmProvider.koboldService;
-      if (!kobold.isReady) {
+      final svc = llmProvider.activeService;
+      if (!svc.isReady) {
         setState(() {
           _generationStatus =
-              'Error: KoboldCpp is not running. Start it first.';
+              'Error: The backend is not running. Start it first.';
           _isGenerating = false;
         });
         return;
       }
-      llmService = kobold;
+      llmService = svc;
     } else if (_selectedModelId.isNotEmpty &&
         _selectedModelId != llmProvider.openRouterService.modelName) {
       llmService = OpenRouterService(
@@ -7492,8 +7492,8 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
 
     LLMService? llmService;
     if (llmProvider.hasManagedProcess) {
-      final kobold = llmProvider.koboldService;
-      if (kobold.isReady) llmService = kobold;
+      final svc = llmProvider.activeService;
+      if (svc.isReady) llmService = svc;
     } else {
       if (_selectedModelId.isNotEmpty &&
           _selectedModelId != llmProvider.openRouterService.modelName) {
@@ -7547,17 +7547,16 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     // Create LLM service based on active backend
     LLMService llmService;
     if (llmProvider.hasManagedProcess) {
-      // KoboldCpp — use local backend directly
-      final kobold = llmProvider.koboldService;
-      if (!kobold.isReady) {
+      final svc = llmProvider.activeService;
+      if (!svc.isReady) {
         setState(() {
           _generationStatus =
-              'Error: KoboldCpp is not running. Start it first.';
+              'Error: The backend is not running. Start it first.';
           _isGenerating = false;
         });
         return;
       }
-      llmService = kobold;
+      llmService = svc;
     } else if (_selectedModelId.isNotEmpty &&
         _selectedModelId != llmProvider.openRouterService.modelName) {
       final tempService = OpenRouterService(
