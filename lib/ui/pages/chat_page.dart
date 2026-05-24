@@ -10586,6 +10586,7 @@ class _RealismProcessingOverlayState extends State<_RealismProcessingOverlay>
   late final Animation<double> _pulse;
   late final Animation<double> _rotate;
   late final Animation<double> _fade;
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -10612,6 +10613,7 @@ class _RealismProcessingOverlayState extends State<_RealismProcessingOverlay>
     _pulseController.dispose();
     _rotateController.dispose();
     _fadeController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -10905,19 +10907,27 @@ class _RealismProcessingOverlayState extends State<_RealismProcessingOverlay>
                                       ],
                                     ),
                                     const SizedBox(height: 10),
-                                    Flexible(
-                                      child: SingleChildScrollView(
-                                        reverse: true,
-                                        child: Text(
-                                          widget
-                                              .chatService
-                                              .realismEvalStreamText,
-                                          style: TextStyle(
-                                            color: accentColor.withOpacity(0.8),
-                                            fontSize: 11.5,
-                                            fontFamily: 'monospace',
-                                            height: 1.65,
-                                            letterSpacing: 0.15,
+                                    Expanded(
+                                      child: SizedBox(
+                                        width: double.infinity,
+                                        child: Scrollbar(
+                                          controller: _scrollController,
+                                          thumbVisibility: true,
+                                          child: SingleChildScrollView(
+                                            controller: _scrollController,
+                                            reverse: true,
+                                            child: Text(
+                                              widget
+                                                  .chatService
+                                                  .realismEvalStreamText,
+                                              style: TextStyle(
+                                                color: accentColor.withOpacity(0.8),
+                                                fontSize: 11.5,
+                                                fontFamily: 'monospace',
+                                                height: 1.65,
+                                                letterSpacing: 0.15,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -10928,20 +10938,27 @@ class _RealismProcessingOverlayState extends State<_RealismProcessingOverlay>
                             ),
                           ),
                           if (widget.chatService.isEvaluatingRealism || widget.chatService.isProcessingGreeting) ...[
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: ElevatedButton(
-                                onPressed: widget.chatService.isCancellingRealismEval
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                              child: Column(
+                                children: [
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: ElevatedButton(
+                                      onPressed: widget.chatService.isCancellingRealismEval
                                     ? null
                                     : () => widget.chatService.cancelRealismEval(),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.redAccent,
                                 ),
-                                child: const Text(
-                                  'Cancel Realism',
-                                  style: TextStyle(color: Colors.white),
-                                ),
+                                      child: const Text(
+                                        'Cancel Realism',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
