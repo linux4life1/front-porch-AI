@@ -467,14 +467,14 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
         avatarImages: character.avatarImages != null
             ? List.from(character.avatarImages!)
             : null,
-      );
+      )..dbId = character.dbId;
       // Save to database
       final charRepo = Provider.of<CharacterRepository>(context, listen: false);
       await charRepo.updateCharacter(updatedCharacter);
       // Reload from PNG to ensure extensions are persisted
       final reloaded = await V2CardService().readCard(character.imagePath!);
       final chatService = Provider.of<ChatService>(context, listen: false);
-      await chatService.setActiveCharacter(reloaded ?? updatedCharacter);
+      await chatService.setActiveCharacter((reloaded ?? updatedCharacter)..dbId = character.dbId);
     } else {
       // Update global setting (no character selected)
       await storage.setGlobalUserBubbleColor(color);
@@ -520,12 +520,12 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
         avatarImages: character.avatarImages != null
             ? List.from(character.avatarImages!)
             : null,
-      );
+      )..dbId = character.dbId;
       final charRepo = Provider.of<CharacterRepository>(context, listen: false);
       await charRepo.updateCharacter(updatedCharacter);
       final reloaded = await V2CardService().readCard(character.imagePath!);
       final chatService = Provider.of<ChatService>(context, listen: false);
-      await chatService.setActiveCharacter(reloaded ?? updatedCharacter);
+      await chatService.setActiveCharacter((reloaded ?? updatedCharacter)..dbId = character.dbId);
     } else {
       await storage.setGlobalUserTextColor(color);
     }
@@ -569,12 +569,12 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
         avatarImages: character.avatarImages != null
             ? List.from(character.avatarImages!)
             : null,
-      );
+      )..dbId = character.dbId;
       final charRepo = Provider.of<CharacterRepository>(context, listen: false);
       await charRepo.updateCharacter(updatedCharacter);
       final reloaded = await V2CardService().readCard(character.imagePath!);
       final chatService = Provider.of<ChatService>(context, listen: false);
-      await chatService.setActiveCharacter(reloaded ?? updatedCharacter);
+      await chatService.setActiveCharacter((reloaded ?? updatedCharacter)..dbId = character.dbId);
     } else {
       await storage.setGlobalAiBubbleColor(color);
     }
@@ -616,12 +616,12 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
         avatarImages: character.avatarImages != null
             ? List.from(character.avatarImages!)
             : null,
-      );
+      )..dbId = character.dbId;
       final charRepo = Provider.of<CharacterRepository>(context, listen: false);
       await charRepo.updateCharacter(updatedCharacter);
       final reloaded = await V2CardService().readCard(character.imagePath!);
       final chatService = Provider.of<ChatService>(context, listen: false);
-      await chatService.setActiveCharacter(reloaded ?? updatedCharacter);
+      await chatService.setActiveCharacter((reloaded ?? updatedCharacter)..dbId = character.dbId);
     } else {
       await storage.setGlobalAiTextColor(color);
     }
@@ -665,12 +665,12 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
         avatarImages: character.avatarImages != null
             ? List.from(character.avatarImages!)
             : null,
-      );
+      )..dbId = character.dbId;
       final charRepo = Provider.of<CharacterRepository>(context, listen: false);
       await charRepo.updateCharacter(updatedCharacter);
       final reloaded = await V2CardService().readCard(character.imagePath!);
       final chatService = Provider.of<ChatService>(context, listen: false);
-      await chatService.setActiveCharacter(reloaded ?? updatedCharacter);
+      await chatService.setActiveCharacter((reloaded ?? updatedCharacter)..dbId = character.dbId);
     } else {
       await storage.setGlobalDialogueColor(color);
     }
@@ -712,12 +712,12 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
         avatarImages: character.avatarImages != null
             ? List.from(character.avatarImages!)
             : null,
-      );
+      )..dbId = character.dbId;
       final charRepo = Provider.of<CharacterRepository>(context, listen: false);
       await charRepo.updateCharacter(updatedCharacter);
       final reloaded = await V2CardService().readCard(character.imagePath!);
       final chatService = Provider.of<ChatService>(context, listen: false);
-      await chatService.setActiveCharacter(reloaded ?? updatedCharacter);
+      await chatService.setActiveCharacter((reloaded ?? updatedCharacter)..dbId = character.dbId);
     } else {
       await storage.setGlobalActionColor(color);
     }
@@ -757,15 +757,15 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
       rawExtensions: character.rawExtensions != null
           ? Map<String, dynamic>.from(character.rawExtensions!)
           : null,
-      avatarImages: character.avatarImages != null
-          ? List.from(character.avatarImages!)
-          : null,
-    );
+        avatarImages: character.avatarImages != null
+            ? List.from(character.avatarImages!)
+            : null,
+      )..dbId = character.dbId;
     final charRepo = Provider.of<CharacterRepository>(context, listen: false);
     await charRepo.updateCharacter(updatedCharacter);
     final reloaded = await V2CardService().readCard(character.imagePath!);
     final chatService = Provider.of<ChatService>(context, listen: false);
-    await chatService.setActiveCharacter(reloaded ?? updatedCharacter);
+    await chatService.setActiveCharacter((reloaded ?? updatedCharacter)..dbId = character.dbId);
     if (context.mounted) {
       Navigator.pop(context);
     }
