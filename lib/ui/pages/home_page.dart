@@ -47,6 +47,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/ui/pages/story_home_view.dart';
+import 'package:front_porch_ai/ui/widgets/character_card_grid.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -54,8 +55,6 @@ class HomePage extends StatefulWidget {
   @override
   State<HomePage> createState() => _HomePageState();
 }
-
-enum SearchScope { currentFolder, folderRecursive, allCharacters }
 
 class _HomePageState extends State<HomePage> {
   String _searchQuery = '';
@@ -199,7 +198,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _toggleSelect(CharacterCard character) {
-    final id = _getCharacterIdFromCard(character);
+    final id = character.imagePath != null
+        ? path.basenameWithoutExtension(character.imagePath!)
+        : character.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
     setState(() {
       if (_selectedCharacterIds.contains(id)) {
         _selectedCharacterIds.remove(id);
@@ -354,861 +355,45 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        // Filter characters based on search and active folder
-        final filteredCharacters = _getFilteredCharacters(repo, folderService);
-
         return _wrapWithStatusBar(
           context,
-          Stack(
-            children: [
-              Column(
-                children: [
-                  // Header row
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24.0,
-                      vertical: 16.0,
-                    ),
-                    child: Row(
-                      children: [
-                        if (_isSelecting || _isOrganizing) ...[
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            tooltip: 'Cancel selection',
-                            onPressed: _cancelSelection,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${_selectedCharacterIds.length} selected',
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: _isOrganizing
-                                      ? Colors.blueAccent
-                                      : Colors.purpleAccent,
-                                ),
-                          ),
-                        ] else if (_activeFolderId != null) ...[
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back),
-                            tooltip: 'Back to all characters',
-                            onPressed: () => setState(() {
-                              if (_folderStack.isNotEmpty) {
-                                _activeFolderId = _folderStack.removeLast();
-                              } else {
-                                _activeFolderId = null;
-                              }
-                              _searchScope = SearchScope.currentFolder;
-                            }),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _getActiveFolderName(folderService),
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ] else
-                          _buildModeToggle(),
-                        const SizedBox(width: 16),
-                        // Sort dropdown
-                        if (!_isSelecting && !_isOrganizing)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerOf(context),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.borderOf(context)),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _sortMode,
-                                icon: Icon(
-                                  Icons.sort,
-                                  size: 18,
-                                  color: AppColors.iconSecondary(context),
-                                ),
-                                dropdownColor: AppColors.surfaceContainerOf(context),
-                                style: TextStyle(
-                                  color: AppColors.textSecondary(context),
-                                  fontSize: 13,
-                                ),
-                                isDense: true,
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'name',
-                                    child: Text('Name (A→Z)'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'recent',
-                                    child: Text('Recent Activity'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'importDate',
-                                    child: Text('Import Date'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'messages',
-                                    child: Text('Messages Sent'),
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() => _sortMode = value);
-                                    Provider.of<StorageService>(
-                                      context,
-                                      listen: false,
-                                    ).setSortMode(value);
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        // Grid scale slider
-                        if (!_isSelecting && !_isOrganizing)
-                          SizedBox(
-                            width: 120,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.grid_view,
-                                  size: 16,
-                                  color: AppColors.iconSecondary(context),
-                                ),
-                                Expanded(
-                                  child: SliderTheme(
-                                    data: SliderThemeData(
-                                      trackHeight: 3,
-                                      thumbShape: const RoundSliderThumbShape(
-                                        enabledThumbRadius: 6,
-                                      ),
-                                      overlayShape:
-                                          const RoundSliderOverlayShape(
-                                            overlayRadius: 12,
-                                          ),
-                                      activeTrackColor: Colors.blueAccent
-                                          .withValues(alpha: 0.7),
-                                      inactiveTrackColor: AppColors.resolve(
-                                        context,
-                                        Colors.white.withValues(alpha: 0.12),
-                                        Colors.black.withValues(alpha: 0.12),
-                                      ),
-                                      thumbColor: Colors.blueAccent,
-                                    ),
-                                    child: Slider(
-                                      value: _gridScale,
-                                      min: 150,
-                                      max: 450,
-                                      onChanged: (v) =>
-                                          setState(() => _gridScale = v),
-                                      onChangeEnd: (v) {
-                                        Provider.of<StorageService>(
-                                          context,
-                                          listen: false,
-                                        ).setGridScale(v);
-                                      },
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.view_module,
-                                  size: 16,
-                                  color: AppColors.iconSecondary(context),
-                                ),
-                              ],
-                            ),
-                          ),
-                        const Spacer(),
-                        if (!_isSelecting && !_isOrganizing) ...[
-                          IconButton(
-                            tooltip: 'Select characters for group chat',
-                            icon: const Icon(
-                              Icons.group_add,
-                              color: Colors.purpleAccent,
-                            ),
-                            onPressed: () =>
-                                setState(() => _isSelecting = true),
-                          ),
-                          IconButton(
-                            tooltip: 'Organize into folders',
-                            icon: const Icon(
-                              Icons.drive_file_move_outlined,
-                              color: Colors.blueAccent,
-                            ),
-                            onPressed: () =>
-                                setState(() => _isOrganizing = true),
-                          ),
-                          if (_activeFolderId == null)
-                            IconButton(
-                              tooltip: 'New Folder',
-                              icon: const Icon(
-                                Icons.create_new_folder_outlined,
-                              ),
-                              onPressed: () =>
-                                  _createFolder(context, folderService),
-                            ),
-                          if (_activeFolderId != null)
-                            IconButton(
-                              tooltip: 'New Subfolder',
-                              icon: const Icon(
-                                Icons.create_new_folder_outlined,
-                                color: Colors.amberAccent,
-                              ),
-                              onPressed: () => _createFolder(
-                                context,
-                                folderService,
-                                parentId: _activeFolderId,
-                              ),
-                            ),
-                          PopupMenuButton<String>(
-                            tooltip: 'Import Characters',
-                            icon: const Icon(Icons.download),
-                            onSelected: (value) {
-                              if (value == 'cards') _importCharacter(context);
-                              if (value == 'folder') {
-                                _folderImportCharacters(context);
-                              }
-                              if (value == 'byaf') _importByaf(context);
-                            },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: 'cards',
-                                child: ListTile(
-                                  leading: Icon(Icons.download),
-                                  title: Text('Import Cards'),
-                                  dense: true,
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'folder',
-                                child: ListTile(
-                                  leading: Icon(Icons.library_add),
-                                  title: Text('Import Folder'),
-                                  dense: true,
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'byaf',
-                                child: ListTile(
-                                  leading: Icon(Icons.archive_outlined),
-                                  title: Text('Import Backyard AI (.byaf)'),
-                                  dense: true,
-                                ),
-                              ),
-                            ],
-                          ),
-                           IconButton(
-                            tooltip: 'Browse AI Character Cards',
-                            icon: const Icon(
-                              Icons.public,
-                              color: Colors.blueAccent,
-                            ),
-                            onPressed: () => _openBrowser(context),
-                          ),
-                          IconButton(
-                            tooltip: 'Chub.ai (Caution)',
-                            icon: const Icon(
-                              Icons.warning_amber_rounded,
-                              color: Colors.redAccent,
-                            ),
-                            onPressed: () => _showChubWarning(context),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  // Search bar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: TextField(
-                      controller: _searchController,
-                      style: TextStyle(color: AppColors.textPrimary(context)),
-                      decoration: InputDecoration(
-                        hintText: _activeFolderId != null && _searchScope != SearchScope.allCharacters
-                            ? 'Search this folder...'
-                            : 'Search by name or tag...',
-                        hintStyle: TextStyle(color: AppColors.textTertiary(context)),
-                        prefixIcon: _activeFolderId != null
-                            ? PopupMenuButton<SearchScope>(
-                                icon: Icon(
-                                  _searchScope == SearchScope.allCharacters ? Icons.search : Icons.folder_open,
-                                  color: _searchScope == SearchScope.allCharacters
-                                      ? Colors.blueAccent
-                                      : Colors.amberAccent,
-                                  size: 20,
-                                ),
-                                tooltip: 'Search scope',
-                                color: AppColors.surfaceContainerOf(context),
-                                onSelected: (val) =>
-                                    setState(() => _searchScope = val),
-                                itemBuilder: (_) => [
-                                  PopupMenuItem(
-                                    value: SearchScope.currentFolder,
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.folder,
-                                          size: 18,
-                                          color: _searchScope == SearchScope.currentFolder
-                                              ? Colors.amberAccent
-                                              : AppColors.iconSecondary(context),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'This Folder Only',
-                                          style: TextStyle(
-                                            color: _searchScope == SearchScope.currentFolder
-                                                ? Colors.amberAccent
-                                                : AppColors.textSecondary(context),
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: SearchScope.folderRecursive,
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.snippet_folder,
-                                          size: 18,
-                                          color: _searchScope == SearchScope.folderRecursive
-                                              ? Colors.amberAccent
-                                              : AppColors.iconSecondary(context),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Folder & Subfolders',
-                                          style: TextStyle(
-                                            color: _searchScope == SearchScope.folderRecursive
-                                                ? Colors.amberAccent
-                                                : AppColors.textSecondary(context),
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: SearchScope.allCharacters,
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.search,
-                                          size: 18,
-                                          color: _searchScope == SearchScope.allCharacters
-                                              ? Colors.blueAccent
-                                              : AppColors.iconSecondary(context),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'All Characters',
-                                          style: TextStyle(
-                                            color: _searchScope == SearchScope.allCharacters
-                                                ? Colors.blueAccent
-                                                : AppColors.textSecondary(context),
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Icon(Icons.search, color: AppColors.iconSecondary(context)),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: Icon(
-                                  Icons.clear,
-                                  color: AppColors.iconSecondary(context),
-                                ),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _searchQuery = '');
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: AppColors.surfaceContainerOf(context),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                        ),
-                      ),
-                      onChanged: (value) =>
-                          setState(() => _searchQuery = value),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Grid with folders, groups, and characters
-                  Expanded(
-                    child: _buildGrid(
-                      context,
-                      repo,
-                      folderService,
-                      filteredCharacters,
-                      groupRepo,
-                    ),
-                  ),
-                ],
-              ),
-              // Group chat selection bar (purple)
-              if (_isSelecting && _selectedCharacterIds.isNotEmpty)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerOf(context),
-                      border: Border(
-                        top: BorderSide(color: AppColors.borderOf(context)),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.resolve(
-                            context,
-                            Colors.black.withValues(alpha: 0.3),
-                            Colors.black.withValues(alpha: 0.1),
-                          ),
-                          blurRadius: 8,
-                          offset: const Offset(0, -2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.group,
-                          color: Colors.purpleAccent.withValues(alpha: 0.7),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${_selectedCharacterIds.length} selected',
-                          style: TextStyle(
-                            color: AppColors.textSecondary(context),
-                            fontSize: 14,
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: _cancelSelection,
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(color: AppColors.textSecondary(context)),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: _selectedCharacterIds.length >= 2
-                              ? () => _showCreateGroupDialog(context, repo)
-                              : null,
-                          icon: const Icon(Icons.group_add),
-                          label: const Text('Create Group'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.purpleAccent,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: AppColors.resolve(
-                              context,
-                              Colors.white10,
-                              Colors.black12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              // Organize selection bar (blue)
-              if (_isOrganizing && _selectedCharacterIds.isNotEmpty)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerOf(context),
-                      border: Border(
-                        top: BorderSide(color: AppColors.borderOf(context)),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.resolve(
-                            context,
-                            Colors.black.withValues(alpha: 0.3),
-                            Colors.black.withValues(alpha: 0.1),
-                          ),
-                          blurRadius: 8,
-                          offset: const Offset(0, -2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.drive_file_move,
-                          color: Colors.blueAccent.withValues(alpha: 0.7),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${_selectedCharacterIds.length} selected',
-                          style: TextStyle(
-                            color: AppColors.textSecondary(context),
-                            fontSize: 14,
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: _cancelSelection,
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(color: AppColors.textSecondary(context)),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: _selectedCharacterIds.isNotEmpty
-                              ? () => _showMoveToFolderDialog(
-                                  context,
-                                  repo,
-                                  folderService,
-                                )
-                              : null,
-                          icon: const Icon(Icons.drive_file_move, size: 18),
-                          label: const Text('Move to Folder'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blueAccent,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: AppColors.resolve(
-                              context,
-                              Colors.white10,
-                              Colors.black12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  List<CharacterCard> _getFilteredCharacters(
-    CharacterRepository repo,
-    FolderService folderService,
-  ) {
-    List<CharacterCard> characters;
-
-    // When _searchScope is allCharacters and there's a search query, skip the folder filter
-    final skipFolderFilter = _searchScope == SearchScope.allCharacters && _searchQuery.isNotEmpty;
-    if (_activeFolderId != null && !skipFolderFilter) {
-      // Show only characters in this folder
-      List<String> folderFilenames;
-      if (_searchQuery.isNotEmpty && _searchScope == SearchScope.currentFolder) {
-        folderFilenames = folderService.getCharactersInFolder(_activeFolderId!);
-      } else {
-        folderFilenames = folderService.getCharactersInFolderRecursive(_activeFolderId!);
-      }
-      // Compare by filename since FolderService stores filenames only
-      characters = repo.characters
-          .where(
-            (c) =>
-                c.imagePath != null &&
-                folderFilenames.contains(path.basename(c.imagePath!)),
-          )
-          .toList();
-    } else {
-      characters = repo.characters.toList();
-    }
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      characters = characters.where((c) {
-        if (c.name.toLowerCase().contains(query)) return true;
-        if (c.tags.any((t) => t.toLowerCase().contains(query))) return true;
-        return false;
-      }).toList();
-    }
-
-    // Apply sort
-    switch (_sortMode) {
-      case 'name':
-        characters.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
-        break;
-      case 'recent':
-        characters.sort((a, b) {
-          final aId = a.dbId ?? _getCharacterIdFromCard(a);
-          final bId = b.dbId ?? _getCharacterIdFromCard(b);
-          final aTime = _lastActivityCache[aId] ?? DateTime(1970);
-          final bTime = _lastActivityCache[bId] ?? DateTime(1970);
-          return bTime.compareTo(aTime); // newest first
-        });
-        break;
-      case 'importDate':
-        characters.sort((a, b) {
-          final aEpoch = _extractImportEpoch(a);
-          final bEpoch = _extractImportEpoch(b);
-          return bEpoch.compareTo(aEpoch); // newest first
-        });
-        break;
-    }
-    if (_sortMode == 'messages') {
-      characters.sort((a, b) {
-        final aId = a.dbId ?? _getCharacterIdFromCard(a);
-        final bId = b.dbId ?? _getCharacterIdFromCard(b);
-        final aCount = _messageCountCache[aId] ?? 0;
-        final bCount = _messageCountCache[bId] ?? 0;
-        return bCount.compareTo(aCount); // most messages first
-      });
-    }
-
-    return characters;
-  }
-
-  /// Extracts the import epoch from a character's PNG filename.
-  /// Filenames follow the pattern: `CharName_EPOCH.png`
-  int _extractImportEpoch(CharacterCard card) {
-    if (card.imagePath == null) return 0;
-    final basename = path.basenameWithoutExtension(card.imagePath!);
-    final lastUnderscore = basename.lastIndexOf('_');
-    if (lastUnderscore == -1) return 0;
-    return int.tryParse(basename.substring(lastUnderscore + 1)) ?? 0;
-  }
-
-  String _getActiveFolderName(FolderService folderService) {
-    if (_activeFolderId == null) return 'My Characters';
-    final folder = folderService.folders
-        .where((f) => f.id == _activeFolderId)
-        .firstOrNull;
-    return folder?.name ?? 'Folder';
-  }
-
-  Widget _buildGrid(
-    BuildContext context,
-    CharacterRepository repo,
-    FolderService folderService,
-    List<CharacterCard> filteredCharacters,
-    GroupChatRepository groupRepo,
-  ) {
-    // Show folders: at top level show top-level folders, inside a folder show subfolders
-    final showFolders = _searchQuery.isEmpty;
-    final folders = showFolders
-        ? folderService.getSubfolders(_activeFolderId)
-        : <CharacterFolder>[];
-
-    // Show group cards at top level only
-    final groups =
-        (_activeFolderId == null &&
-            _searchQuery.isEmpty &&
-            !_isSelecting &&
-            !_isOrganizing)
-        ? groupRepo.groups
-        : <GroupChat>[];
-
-    // At top level, show unfoldered characters only (unless searching)
-    List<CharacterCard> displayCharacters;
-    if (showFolders && _activeFolderId == null) {
-      final folderedFilenames = folderService.getUnfolderedCharacterPaths();
-      displayCharacters = filteredCharacters
-          .where(
-            (c) =>
-                c.imagePath == null ||
-                !folderedFilenames.contains(path.basename(c.imagePath!)),
-          )
-          .toList();
-    } else {
-      displayCharacters = filteredCharacters;
-    }
-
-    final totalItems =
-        folders.length + groups.length + displayCharacters.length;
-    if (totalItems == 0) {
-      return Center(
-        child: Text(
-          _searchQuery.isNotEmpty
-              ? 'No characters match "$_searchQuery"'
-              : 'This folder is empty',
-          style: TextStyle(color: AppColors.textTertiary(context), fontSize: 16),
-        ),
-      );
-    }
-
-    return Scrollbar(
-      controller: _gridScrollController,
-      thumbVisibility: true,
-      child: GridView.builder(
-        controller: _gridScrollController,
-        padding: EdgeInsets.fromLTRB(
-          24,
-          24,
-          24,
-          (_isSelecting || _isOrganizing) ? 80 : 24,
-        ),
-        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: _gridScale,
-          childAspectRatio: 0.7,
-          crossAxisSpacing: 24,
-          mainAxisSpacing: 24,
-        ),
-        itemCount: totalItems,
-        itemBuilder: (context, index) {
-          // Render folder cards first
-          if (index < folders.length) {
-            return _buildFolderCard(
-              context,
-              folders[index],
-              folderService,
-              repo,
-            );
-          }
-          // Then group cards
-          final groupOffset = index - folders.length;
-          if (groupOffset < groups.length) {
-            return _buildGroupCard(context, groups[groupOffset], repo);
-          }
-          // Then character cards
-          final character = displayCharacters[groupOffset - groups.length];
-          return _buildCharacterCard(context, character, folderService);
-        },
-      ),
-    );
-  }
-
-  Widget _buildFolderCard(
-    BuildContext context,
-    CharacterFolder folder,
-    FolderService folderService,
-    CharacterRepository repo,
-  ) {
-    final charCount = folder.characterPaths.length;
-
-    return DragTarget<CharacterCard>(
-      onAcceptWithDetails: (details) async {
-        await folderService.addToFolder(folder.id, details.data.imagePath!);
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isHovering = candidateData.isNotEmpty;
-        return Card(
-          color: isHovering
-              ? AppColors.resolve(
-                  context,
-                  Colors.amber.shade900.withValues(alpha: 0.4),
-                  Colors.amber.withValues(alpha: 0.1),
-                )
-              : AppColors.cardOf(context),
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: isHovering
-                  ? Colors.amber
-                  : AppColors.borderOf(context),
-              width: isHovering ? 2 : 1,
-            ),
-          ),
-          child: InkWell(
-            onTap: () => setState(() {
-              if (_activeFolderId != null) {
-                _folderStack.add(_activeFolderId!);
-              }
-              _activeFolderId = folder.id;
-            }),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isSmall = constraints.maxHeight < 200;
-                final isTiny = constraints.maxHeight < 140;
-                final iconSize = isTiny ? 32.0 : (isSmall ? 48.0 : 72.0);
-                final fontSize = isTiny ? 11.0 : (isSmall ? 13.0 : 16.0);
-
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.folder,
-                      size: iconSize,
-                      color: isHovering ? Colors.amber : AppColors.iconSecondary(context),
-                    ),
-                    SizedBox(height: isTiny ? 4 : (isSmall ? 8 : 16)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        folder.name,
-                        style: TextStyle(
-                          color: AppColors.textPrimary(context),
-                          fontWeight: FontWeight.bold,
-                          fontSize: fontSize,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: isTiny ? 1 : 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (!isTiny) ...[
-                      SizedBox(height: isSmall ? 4 : 8),
-                      Text(
-                        '$charCount character${charCount == 1 ? '' : 's'}',
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                          fontSize: isSmall ? 11 : 13,
-                        ),
-                      ),
-                    ],
-                    if (!isSmall) ...[
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.edit,
-                              color: AppColors.iconSecondary(context),
-                              size: 18,
-                            ),
-                            tooltip: 'Rename',
-                            onPressed: () =>
-                                _renameFolder(context, folder, folderService),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete,
-                              color: Colors.redAccent,
-                              size: 18,
-                            ),
-                            tooltip: 'Delete folder',
-                            onPressed: () =>
-                                _deleteFolder(context, folder, folderService),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                );
-              },
-            ),
+          CharacterCardGrid(
+            searchQuery: _searchQuery,
+            searchScope: _searchScope,
+            activeFolderId: _activeFolderId,
+            sortMode: _sortMode,
+            lastActivityCache: _lastActivityCache,
+            messageCountCache: _messageCountCache,
+            gridScale: _gridScale,
+            isSelecting: _isSelecting,
+            isOrganizing: _isOrganizing,
+            selectedCharacterIds: _selectedCharacterIds,
+            searchController: _searchController,
+            gridScrollController: _gridScrollController,
+            repo: repo,
+            folderService: folderService,
+            groupRepo: groupRepo,
+            modeToggle: _buildModeToggle(),
+            onTapCharacter: _handleTapCharacter,
+            onTapGroup: _handleTapGroup,
+            onToggleSelect: _toggleSelect,
+            onContextMenuAction: _handleContextMenuAction,
+            onImport: _handleImport,
+            onOpenBrowser: _handleOpenBrowser,
+            onAcceptFolderDrop: _handleAcceptFolderDrop,
+            onFolderDialogAction: _handleFolderDialogAction,
+            onFolderTap: _handleFolderTap,
+            onFolderNavigateBack: _handleFolderNavigateBack,
+            onCancelSelection: _cancelSelection,
+            onCreateGroup: _handleCreateGroup,
+            onMoveToFolder: _handleMoveToFolder,
+            onSortChanged: _handleSortChanged,
+            onGridScaleChanged: _handleGridScaleChanged,
+            onSearchScopeChanged: _handleSearchScopeChanged,
+            onSearchQueryChanged: _handleSearchQueryChanged,
+            onResolveCharImage: _resolveCharImage,
+            onDeleteGroup: _handleDeleteGroup,
+            onAfterNavigateBack: _refreshLastActivityCache,
           ),
         );
       },
@@ -1350,703 +535,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildCharacterCard(
-    BuildContext context,
-    CharacterCard character,
-    FolderService folderService,
-  ) {
-    return LongPressDraggable<CharacterCard>(
-      data: character,
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: 150,
-          height: 200,
-          child: Card(
-            color: AppColors.cardOf(context),
-            clipBehavior: Clip.antiAlias,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: character.imagePath != null
-                ? Image.file(
-                    _resolveCharImage(character.imagePath!),
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                    errorBuilder: (_, _, _) => Container(
-                      color: AppColors.resolve(context, Colors.black26, Colors.black12),
-                      child: Icon(Icons.person, color: AppColors.resolve(context, Colors.white24, Colors.black45), size: 48),
-                    ),
-                  )
-                : Icon(Icons.person, size: 64, color: AppColors.resolve(context, Colors.white24, Colors.black45)),
-          ),
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _buildCharacterCardInner(context, character, folderService),
-      ),
-      child: _buildCharacterCardInner(context, character, folderService),
-    );
-  }
-
-  Widget _buildCharacterCardInner(
-    BuildContext context,
-    CharacterCard character,
-    FolderService folderService,
-  ) {
-    final charId = character.dbId ?? _getCharacterIdFromCard(character);
-    final msgCount = _messageCountCache[charId] ?? 0;
-    
-    final stringId = _getCharacterIdFromCard(character);
-    final isSelected = _selectedCharacterIds.contains(stringId);
-
-    return Card(
-      color: AppColors.cardOf(context),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isSelected
-              ? Colors.purpleAccent
-              : AppColors.borderOf(context).withValues(alpha: 0.3),
-          width: isSelected ? 2.5 : 1,
-        ),
-      ),
-      child: Stack(
-        children: [
-          InkWell(
-            onTap: () async {
-              if (_isSelecting || _isOrganizing) {
-                _toggleSelect(character);
-                return;
-              }
-              final chatService = Provider.of<ChatService>(
-                context,
-                listen: false,
-              );
-              final charId = _getCharacterIdFromCard(character);
-              final sessions = await chatService.getSessionsForId(charId);
-
-              if (!context.mounted) return;
-
-              if (sessions.length > 1) {
-                final selectedId = await _showSessionPickerDialog(
-                  context,
-                  sessions,
-                  character.name,
-                );
-                if (selectedId == null || !context.mounted) return;
-                await chatService.setActiveCharacter(character);
-                if (selectedId != '__new__') {
-                  await chatService.loadSession(selectedId);
-                }
-                if (selectedId == '__new__') {
-                  await chatService.startNewChat();
-                }
-              } else {
-                await chatService.setActiveCharacter(character);
-              }
-              if (context.mounted) {
-                await Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const ChatPage()));
-                _refreshLastActivityCache();
-              }
-            },
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isCompact = constraints.maxWidth < 200;
-                final isTiny = constraints.maxWidth < 160;
-
-                if (isTiny) {
-                  // Very small: image only with name overlay
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      character.imagePath != null
-                          ? Image.file(
-                              _resolveCharImage(character.imagePath!),
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
-                              errorBuilder: (_, _, _) => Container(
-                                color: AppColors.resolve(context, Colors.grey.shade800, Colors.grey.shade200),
-                                child: Icon(
-                                  Icons.person,
-                                  size: 32,
-                                  color: AppColors.resolve(context, Colors.white24, Colors.black45),
-                                ),
-                              ),
-                            )
-                          : Container(
-                              color: AppColors.resolve(context, Colors.grey.shade800, Colors.grey.shade200),
-                              child: Icon(
-                                Icons.person,
-                                size: 32,
-                                color: AppColors.resolve(context, Colors.white24, Colors.black45),
-                              ),
-                            ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [
-                                AppColors.resolve(context, Colors.black87, Colors.black54),
-                                Colors.transparent,
-                              ],
-                            ),
-                          ),
-                          child: Text(
-                            character.name,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      flex: isCompact ? 4 : 3,
-                      child: character.imagePath != null
-                          ? Image.file(
-                              _resolveCharImage(character.imagePath!),
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
-                              errorBuilder: (_, _, _) => Container(
-                                color: AppColors.resolve(context, Colors.grey.shade800, Colors.grey.shade200),
-                                child: Icon(
-                                  Icons.person,
-                                  size: isCompact ? 32 : 64,
-                                  color: AppColors.resolve(context, Colors.white24, Colors.black45),
-                                ),
-                              ),
-                            )
-                          : Container(
-                              color: AppColors.resolve(context, Colors.grey.shade800, Colors.grey.shade200),
-                              child: Icon(
-                                Icons.person,
-                                size: isCompact ? 32 : 64,
-                                color: AppColors.resolve(context, Colors.white24, Colors.black45),
-                              ),
-                            ),
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: EdgeInsets.all(isCompact ? 6.0 : 12.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    character.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: isCompact ? 12 : null,
-                                        ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (msgCount > 0)
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.chat_bubble_outline,
-                                        size: 11,
-                                        color: AppColors.iconSecondary(context),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        '$msgCount',
-                                        style: TextStyle(
-                                          color: AppColors.textTertiary(context),
-                                          fontSize: isCompact ? 10 : 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                            if (!isCompact) ...[
-                              const SizedBox(height: 4),
-                              // Tag chips (show first 3 tags)
-                              if (character.tags.isNotEmpty)
-                                Flexible(
-                                  child: Wrap(
-                                    spacing: 4,
-                                    runSpacing: 2,
-                                    children: character.tags
-                                        .take(3)
-                                        .map(
-                                          (tag) => Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.resolve(
-                                                context,
-                                                Colors.amber.withValues(alpha: 0.22),
-                                                const Color(0xFFFFF8E1), // warm light amber tint on paper
-                                              ),
-                                              border: Border.all(
-                                                color: AppColors.resolve(
-                                                  context,
-                                                  Colors.amber.withValues(alpha: 0.45),
-                                                  Colors.amber.shade600.withValues(alpha: 0.35),
-                                                ),
-                                              ),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              tag,
-                                              style: TextStyle(
-                                                color: AppColors.resolve(
-                                                  context,
-                                                  Colors.amber.shade200,
-                                                  Colors.amber.shade800,
-                                                ),
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                )
-                              else
-                                Flexible(
-                                  child: Text(
-                                    character.formattedDescription,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-
-          // Selection checkbox overlay
-          if (_isSelecting || _isOrganizing)
-            Positioned(
-              top: 8,
-              left: 8,
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? (_isOrganizing
-                            ? Colors.blueAccent
-                            : Colors.purpleAccent)
-                      : AppColors.resolve(context, Colors.black54, Colors.black12),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected
-                        ? (_isOrganizing
-                              ? Colors.blueAccent
-                              : Colors.purpleAccent)
-                        : AppColors.resolve(context, Colors.white38, Colors.black38),
-                    width: 2,
-                  ),
-                ),
-                child: isSelected
-                    ? const Icon(Icons.check, size: 16, color: Colors.white)
-                    : null,
-              ),
-            ),
-          // Right-click context menu for actions (replaces overlay buttons)
-          if (!_isSelecting && !_isOrganizing)
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onSecondaryTapUp: (details) {
-                  final position = details.globalPosition;
-                  showMenu<String>(
-                    context: context,
-                    position: RelativeRect.fromLTRB(
-                      position.dx,
-                      position.dy,
-                      position.dx,
-                      position.dy,
-                    ),
-                    color: AppColors.surfaceContainerOf(context),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    items: [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.edit,
-                            color: AppColors.iconSecondary(context),
-                            size: 20,
-                          ),
-                          title: Text(
-                            'Edit Character',
-                            style: TextStyle(color: AppColors.textPrimary(context)),
-                          ),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'duplicate',
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.copy,
-                            color: AppColors.iconSecondary(context),
-                            size: 20,
-                          ),
-                          title: Text(
-                            'Duplicate Character',
-                            style: TextStyle(color: AppColors.textPrimary(context)),
-                          ),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'export',
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.upload,
-                            color: AppColors.iconSecondary(context),
-                            size: 20,
-                          ),
-                          title: Text(
-                            'Export PNG',
-                            style: TextStyle(color: AppColors.textPrimary(context)),
-                          ),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      if (_activeFolderId != null)
-                        const PopupMenuItem(
-                          value: 'remove_folder',
-                          child: ListTile(
-                            leading: Icon(
-                              Icons.folder_off,
-                              color: Colors.amber,
-                              size: 20,
-                            ),
-                            title: Text(
-                              'Remove from Folder',
-                              style: TextStyle(color: Colors.amber),
-                            ),
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.delete,
-                            color: Colors.redAccent,
-                            size: 20,
-                          ),
-                          title: Text(
-                            'Delete',
-                            style: TextStyle(color: Colors.redAccent),
-                          ),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ],
-                  ).then((value) {
-                    if (value == null) return;
-                    switch (value) {
-                      case 'edit':
-                        _editCharacter(context, character);
-                        break;
-                      case 'duplicate':
-                        _duplicateCharacter(context, character);
-                        break;
-                      case 'export':
-                        _exportCharacter(context, character);
-                        break;
-                      case 'remove_folder':
-                        folderService.removeFromFolder(
-                          _activeFolderId!,
-                          character.imagePath!,
-                        );
-                        break;
-                      case 'delete':
-                        _confirmDeleteCharacter(context, character);
-                        break;
-                    }
-                  });
-                },
-                child: const SizedBox.shrink(),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Group Card ─────────────────────────────────────────────────
-
-  Widget _buildGroupCard(
-    BuildContext context,
-    GroupChat group,
-    CharacterRepository repo,
-  ) {
-    // Resolve character cards for the group
-    final characters = <CharacterCard>[];
-    for (final id in group.characterIds) {
-      final match = repo.characters
-          .where((c) => _getCharacterIdFromCard(c) == id)
-          .firstOrNull;
-      if (match != null) characters.add(match);
-    }
-
-    return Card(
-      color: AppColors.cardOf(context),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.purpleAccent.withValues(alpha: 0.3)),
-      ),
-      child: InkWell(
-        onTap: () async {
-          final chatService = Provider.of<ChatService>(context, listen: false);
-          final groupId = 'group_${group.id}';
-          final sessions = await chatService.getSessionsForId(groupId);
-
-          if (!context.mounted) return;
-
-          if (sessions.length > 1) {
-            final selectedId = await _showSessionPickerDialog(
-              context,
-              sessions,
-              group.name,
-            );
-            if (selectedId == null || !context.mounted) return;
-            await chatService.setActiveGroup(group);
-            if (selectedId != '__new__') {
-              await chatService.loadSession(selectedId);
-            }
-            if (selectedId == '__new__') {
-              await chatService.startNewChat();
-            }
-          } else {
-            await chatService.setActiveGroup(group);
-          }
-          if (context.mounted) {
-            await Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const ChatPage()));
-            _refreshLastActivityCache();
-          }
-        },
-        child: Stack(
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final h = constraints.maxHeight;
-                final isCompact = h < 220;
-                final avatarSize = isCompact ? 40.0 : 56.0;
-                final avatarAreaH = isCompact ? 50.0 : 80.0;
-                final overlapStep = isCompact ? 22.0 : 30.0;
-                final nameFontSize = isCompact ? 12.0 : 16.0;
-                final subFontSize = isCompact ? 10.0 : 13.0;
-                final badgeFontSize = isCompact ? 9.0 : 11.0;
-                final iconSize = isCompact ? 16.0 : 20.0;
-
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(height: isCompact ? 8 : 16),
-                    // Stacked avatars
-                    SizedBox(
-                      height: avatarAreaH,
-                      width: double.infinity,
-                      child: Center(
-                        child: SizedBox(
-                          width:
-                              avatarSize +
-                              (characters.take(4).length - 1) * overlapStep,
-                          height: avatarAreaH,
-                          child: Stack(
-                            children: [
-                              for (
-                                int i = 0;
-                                i < characters.take(4).length;
-                                i++
-                              )
-                                  Positioned(
-                                    left: i * overlapStep,
-                                    child: Container(
-                                      width: avatarSize,
-                                      height: avatarSize,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.purpleAccent,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: characters[i].imagePath != null
-                                          ? ClipOval(
-                                              child: Image.file(
-                                                _resolveCharImage(
-                                                  characters[i].imagePath!,
-                                                ),
-                                                fit: BoxFit.cover,
-                                                alignment: Alignment.topCenter,
-                                                errorBuilder: (_, _, _) => Container(
-                                                  color: AppColors.resolve(context, Colors.grey.shade700, Colors.grey.shade200),
-                                                  child: Icon(
-                                                    Icons.person,
-                                                    color: AppColors.resolve(context, Colors.white24, Colors.black45),
-                                                  ),
-                                                ),
-                                              ),
-                                            )
-                                          : Container(
-                                              color: AppColors.resolve(context, Colors.grey.shade700, Colors.grey.shade200),
-                                              child: Icon(
-                                                Icons.person,
-                                                color: AppColors.resolve(context, Colors.white24, Colors.black45),
-                                                size: avatarSize * 0.5,
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                    SizedBox(height: isCompact ? 4 : 16),
-                    // Group icon badge
-                    Icon(
-                      Icons.group,
-                      color: Colors.purpleAccent,
-                      size: iconSize,
-                    ),
-                    SizedBox(height: isCompact ? 2 : 8),
-                    Flexible(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          group.name,
-                          style: TextStyle(
-                            color: AppColors.textPrimary(context),
-                            fontWeight: FontWeight.bold,
-                            fontSize: nameFontSize,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: isCompact ? 1 : 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    if (!isCompact) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        '${characters.length} character${characters.length == 1 ? '' : 's'}',
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                          fontSize: subFontSize,
-                        ),
-                      ),
-                    ],
-                    SizedBox(height: isCompact ? 2 : 4),
-                    // Turn order label
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isCompact ? 4 : 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.purpleAccent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        group.turnOrder == TurnOrder.roundRobin
-                            ? 'Round Robin'
-                            : 'Random',
-                        style: TextStyle(
-                          color: Colors.purpleAccent.withValues(alpha: 0.8),
-                          fontSize: badgeFontSize,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: isCompact ? 4 : 0),
-                  ],
-                );
-              },
-            ),
-            // Delete group button
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Material(
-                color: AppColors.resolve(context, Colors.black54, Colors.black12),
-                borderRadius: BorderRadius.circular(20),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => _confirmDeleteGroup(context, group),
-                  child: const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Icon(
-                      Icons.delete,
-                      color: Colors.redAccent,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   /// Shows a dialog letting the user choose which saved session to resume.
   /// Returns the session ID, '__new__' for a new chat, or null if cancelled.
@@ -2252,6 +740,201 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  // ─── CharacterCardGrid Callback Handlers ────────────────────────
+
+  Future<void> _handleTapCharacter(CharacterCard character) async {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final charId = character.dbId ?? _getCharacterIdFromCard(character);
+    final sessions = await chatService.getSessionsForId(charId);
+
+    if (!context.mounted) return;
+
+    if (sessions.length > 1) {
+      final selectedId = await _showSessionPickerDialog(
+        context,
+        sessions,
+        character.name,
+      );
+      if (selectedId == null || !context.mounted) return;
+      await chatService.setActiveCharacter(character);
+      if (selectedId != '__new__') {
+        await chatService.loadSession(selectedId);
+      }
+      if (selectedId == '__new__') {
+        await chatService.startNewChat();
+      }
+    } else {
+      await chatService.setActiveCharacter(character);
+    }
+    if (context.mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ChatPage()),
+      );
+      _refreshLastActivityCache();
+    }
+  }
+
+  Future<void> _handleTapGroup(GroupChat group) async {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final groupId = 'group_${group.id}';
+    final sessions = await chatService.getSessionsForId(groupId);
+
+    if (!context.mounted) return;
+
+    if (sessions.length > 1) {
+      final selectedId = await _showSessionPickerDialog(
+        context,
+        sessions,
+        group.name,
+      );
+      if (selectedId == null || !context.mounted) return;
+      await chatService.setActiveGroup(group);
+      if (selectedId != '__new__') {
+        await chatService.loadSession(selectedId);
+      }
+      if (selectedId == '__new__') {
+        await chatService.startNewChat();
+      }
+    } else {
+      await chatService.setActiveGroup(group);
+    }
+    if (context.mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ChatPage()),
+      );
+      _refreshLastActivityCache();
+    }
+  }
+
+  void _handleContextMenuAction(String action, CharacterCard character) {
+    switch (action) {
+      case 'edit':
+        _editCharacter(context, character);
+        break;
+      case 'duplicate':
+        _duplicateCharacter(context, character);
+        break;
+      case 'export':
+        _exportCharacter(context, character);
+        break;
+      case 'remove_folder':
+        final folderService = Provider.of<FolderService>(context, listen: false);
+        if (_activeFolderId != null && character.imagePath != null) {
+          folderService.removeFromFolder(_activeFolderId!, character.imagePath!);
+        }
+        break;
+      case 'delete':
+        _confirmDeleteCharacter(context, character);
+        break;
+    }
+  }
+
+  void _handleImport(String source) {
+    switch (source) {
+      case 'cards':
+        _importCharacter(context);
+        break;
+      case 'folder':
+        _folderImportCharacters(context);
+        break;
+      case 'byaf':
+        _importByaf(context);
+        break;
+    }
+  }
+
+  void _handleOpenBrowser(String site) {
+    switch (site) {
+      case 'cards':
+        _openBrowser(context);
+        break;
+      case 'chub':
+        _showChubWarning(context);
+        break;
+    }
+  }
+
+  Future<void> _handleAcceptFolderDrop(
+    CharacterCard character,
+    CharacterFolder folder,
+  ) async {
+    final folderService = Provider.of<FolderService>(context, listen: false);
+    if (character.imagePath != null) {
+      await folderService.addToFolder(folder.id, character.imagePath!);
+    }
+  }
+
+  void _handleFolderDialogAction(
+    FolderDialogAction action, {
+    CharacterFolder? folder,
+    String? parentId,
+  }) {
+    final folderService = Provider.of<FolderService>(context, listen: false);
+    switch (action) {
+      case FolderDialogAction.create:
+        _createFolder(context, folderService, parentId: parentId);
+        break;
+      case FolderDialogAction.rename:
+        if (folder != null) _renameFolder(context, folder, folderService);
+        break;
+      case FolderDialogAction.delete:
+        if (folder != null) _deleteFolder(context, folder, folderService);
+        break;
+    }
+  }
+
+  void _handleFolderTap(CharacterFolder folder) {
+    setState(() {
+      if (_activeFolderId != null) {
+        _folderStack.add(_activeFolderId!);
+      }
+      _activeFolderId = folder.id;
+    });
+  }
+
+  void _handleFolderNavigateBack() {
+    setState(() {
+      if (_folderStack.isNotEmpty) {
+        _activeFolderId = _folderStack.removeLast();
+      } else {
+        _activeFolderId = null;
+      }
+    });
+  }
+
+  void _handleCreateGroup(Set<String> selectedIds) {
+    final repo = Provider.of<CharacterRepository>(context, listen: false);
+    _showCreateGroupDialog(context, repo);
+  }
+
+  void _handleMoveToFolder(Set<String> selectedIds) {
+    final repo = Provider.of<CharacterRepository>(context, listen: false);
+    final folderService = Provider.of<FolderService>(context, listen: false);
+    _showMoveToFolderDialog(context, repo, folderService);
+  }
+
+  void _handleSortChanged(String mode) {
+    setState(() => _sortMode = mode);
+    Provider.of<StorageService>(context, listen: false).setSortMode(mode);
+  }
+
+  void _handleGridScaleChanged(double scale) {
+    setState(() => _gridScale = scale);
+    Provider.of<StorageService>(context, listen: false).setGridScale(scale);
+  }
+
+  void _handleSearchScopeChanged(SearchScope scope) {
+    setState(() => _searchScope = scope);
+  }
+
+  void _handleSearchQueryChanged(String query) {
+    setState(() => _searchQuery = query);
+  }
+
+  void _handleDeleteGroup(GroupChat group) {
+    _confirmDeleteGroup(context, group);
   }
 
   void _confirmDeleteGroup(BuildContext context, GroupChat group) {
