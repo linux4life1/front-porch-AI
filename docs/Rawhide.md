@@ -21,3 +21,7 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 - 🏷️ **World card tags no longer overflow** — Long character names linked to a world now truncate with ellipsis instead of spilling past the card edge in the Worlds grid.
 
 - 🖼️ **Lockable avatar size in chat sidebar** — New per-character toggle in UI Settings → "Lock Avatar Size". When on, the character avatar stays capped at the default sidebar width and won't stretch when you drag the sidebar wider. It still shrinks normally when the sidebar is narrow, and stays anchored to the top-right corner. Saves per-character in the card file.
+
+- 📐 **Grid scale slider now has breathing room** — Added horizontal padding around the card size slider so it's no longer jammed against the sort dropdown.
+
+- 💾 **Grid scale & sort mode now persist between launches** — Fixed a startup race condition: `StorageService._init()` runs async, and `HomePage.initState()` was reading settings before they loaded from disk. Both sort mode and grid scale now correctly restore on restart.

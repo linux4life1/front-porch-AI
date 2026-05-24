@@ -287,9 +287,11 @@ class CharacterCardGrid extends StatelessWidget {
                       ),
                     ),
                   if (!isSelecting && !isOrganizing)
-                    SizedBox(
-                      width: 120,
-                      child: Row(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: SizedBox(
+                        width: 120,
+                        child: Row(
                         children: [
                           Icon(
                             Icons.grid_view,
@@ -333,6 +335,7 @@ class CharacterCardGrid extends StatelessWidget {
                         ],
                       ),
                     ),
+                  ),
                   const Spacer(),
                   if (!isSelecting && !isOrganizing) ...[
                     IconButton(

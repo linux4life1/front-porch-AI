@@ -86,11 +86,18 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // Load persisted sort preference
     final storage = Provider.of<StorageService>(context, listen: false);
     _sortMode = storage.sortMode;
     _gridScale = storage.gridScale;
-    // Defer cache refresh to after characters load to avoid race condition
+    // StorageService._init() is async — settings may not be loaded yet.
+    // Wait for init to complete so persisted values are reflected.
+    storage.initialized.then((_) {
+      if (!mounted) return;
+      setState(() {
+        _sortMode = storage.sortMode;
+        _gridScale = storage.gridScale;
+      });
+    });
     Future.microtask(() => _refreshLastActivityCache());
   }
 
