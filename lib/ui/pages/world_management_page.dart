@@ -446,12 +446,16 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                             children: [
                               Icon(Icons.link, size: 12, color: worldColor),
                               const SizedBox(width: 4),
-                              Text(
-                                world.linkedCharacterName!,
-                                style: TextStyle(
-                                  color: worldColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
+                              Flexible(
+                                child: Text(
+                                  world.linkedCharacterName!,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    color: worldColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],
@@ -561,7 +565,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                     ),
                   ),
                   child: Text(
-                    '${world.lorebook.entries.length} entries',
+                    '${world.lorebook.entries.length} ${world.lorebook.entries.length == 1 ? 'entry' : 'entries'}',
                     style: TextStyle(
                       color: worldColor,
                       fontSize: 11,

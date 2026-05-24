@@ -17,3 +17,5 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 (The Pseudo-Remote backend code was left 100% untouched except for one small authorized addition to display per-character fixation in group member panels.)
 
 - 📖 **Porch Stories now fully light-mode compatible** — Cards, export pop-up sub-menus, delete confirmation dialogs, main dashboard, act & cast expandable sub-menus (with editable title/desc fields), thread/lore boxes, and voice dropdowns all switched from hard-coded dark surfaces + white70/38/24 text to `AppColors.cardOf`/`surfaceOf`/`textPrimary`/`textSecondary` + `resolve`. The "Porch Stories" boxes and sub-menus are finally readable and consistent with the rest of the app in both themes.
+
+- 🏷️ **World card tags no longer overflow** — Long character names linked to a world now truncate with ellipsis instead of spilling past the card edge in the Worlds grid.
