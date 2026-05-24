@@ -1443,9 +1443,9 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
                                   Expanded(
                                     child: Text(
                                       entry.emotion,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 11,
-                                        color: Colors.white,
+                                        color: AppColors.textPrimary(context),
                                         fontWeight: FontWeight.w600,
                                       ),
                                       overflow: TextOverflow.ellipsis,
@@ -2282,8 +2282,8 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
       children: [
         Text(
           text,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: AppColors.textPrimary(context),
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),

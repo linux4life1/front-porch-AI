@@ -42,6 +42,11 @@ import 'package:front_porch_ai/ui/widgets/alternate_greetings_slider.dart';
 import 'package:front_porch_ai/ui/widgets/avatar_art_style_selector.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_tone_selector.dart';
 import 'package:front_porch_ai/ui/widgets/nsfw_toggle.dart';
+import 'package:front_porch_ai/ui/widgets/persona_selector_dropdown.dart';
+import 'package:front_porch_ai/ui/widgets/first_message_length_dropdown.dart';
+import 'package:front_porch_ai/ui/widgets/description_detail_chip_row.dart';
+import 'package:front_porch_ai/ui/widgets/character_name_input.dart';
+import 'package:front_porch_ai/ui/widgets/age_gender_row.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Creator mode selection.
@@ -335,12 +340,6 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
   String _selectedLocalModelPath = '';
   bool _isReloadingKobold = false;
   String _koboldStatus = '';
-
-  static const _greetingLengths = [
-    'Short (1-2 paragraphs)',
-    'Medium (2-4 paragraphs)',
-    'Long (4-6 paragraphs)',
-  ];
 
   
   static const _loreCategoryOptions = [
@@ -2097,24 +2096,7 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: () => setState(() => _currentStep = 0),
-                        icon: Icon(Icons.arrow_back, size: 18),
-                        label: const Text(
-                          'Back',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary(context),
-                          side: BorderSide(color: AppColors.textTertiary(context)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
+                    _buildBackButton(0, fontSize: 14),
                     const SizedBox(width: 16),
                     SizedBox(
                       width: 280,
@@ -2627,21 +2609,7 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
               // Buttons
               Row(
                 children: [
-                  SizedBox(
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      onPressed: () => setState(() => _currentStep = 1),
-                      icon: Icon(Icons.arrow_back, size: 18),
-                      label: const Text('Back'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textSecondary(context),
-                        side: BorderSide(color: AppColors.textTertiary(context)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildBackButton(1),
                   const SizedBox(width: 16),
                   Expanded(
                     child: SizedBox(
@@ -3395,66 +3363,25 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
               const SizedBox(height: 16),
 
               // Name + randomizer
-              Row(
-                children: [
-                  _inputLabel('Character Name', required: true),
-                  const Spacer(),
-                  Tooltip(
-                    message: 'Generate a random name',
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.casino,
-                        color: Colors.amberAccent,
-                        size: 20,
-                      ),
-                      onPressed: _randomizeName,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _styledTextField(
+              CharacterNameInput(
                 controller: _nameController,
-                hint: 'e.g. Aria Blackwood, Captain Zara, Luna...',
-                maxLines: 1,
+                onRandomize: _randomizeName,
+                tooltip: 'Generate a random name',
+                onChanged: (_) {
+                  setState(() {});
+                  _saveState();
+                },
               ),
               const SizedBox(height: 16),
 
               // Age & Sex
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _inputLabel('Age', required: false),
-                        const SizedBox(height: 8),
-                        _styledTextField(
-                          controller: _ageController,
-                          hint: 'e.g. 25, Ancient...',
-                          maxLines: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _inputLabel('Gender', required: false),
-                        const SizedBox(height: 8),
-                        _styledTextField(
-                          controller: _sexController,
-                          hint: 'e.g. Female, Male...',
-                          maxLines: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              AgeGenderRow(
+                ageController: _ageController,
+                genderController: _sexController,
+                onChanged: () {
+                  setState(() {});
+                  _saveState();
+                },
               ),
               const SizedBox(height: 4),
 
@@ -3997,76 +3924,11 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                     style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
                   ),
                   const SizedBox(height: 8),
-                  Builder(
-                    builder: (context) {
-                      final personaService = Provider.of<UserPersonaService>(
-                        context,
-                      );
-                      final personas = personaService.personas;
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerOf(context),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.borderOf(context)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedPersonaId,
-                            isExpanded: true,
-                            dropdownColor: AppColors.surfaceContainerOf(context),
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
-                              fontSize: 13,
-                            ),
-                            items: [
-                              DropdownMenuItem(
-                                value: '',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.person_off,
-                                      size: 16,
-                                      color: AppColors.textTertiary(context),
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'None (Blank Slate)',
-                                      style: TextStyle(color: AppColors.textSecondary(context)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              ...personas.map(
-                                (p) => DropdownMenuItem(
-                                  value: p.id,
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.person,
-                                        size: 16,
-                                        color: Colors.blueAccent,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Flexible(
-                                        child: Text(
-                                          p.displayLabel,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) {
-                              setState(() => _selectedPersonaId = value ?? '');
-                              _saveState();
-                            },
-                          ),
-                        ),
-                      );
+                  PersonaSelectorDropdown(
+                    selectedPersonaId: _selectedPersonaId,
+                    onChanged: (value) {
+                      setState(() => _selectedPersonaId = value ?? '');
+                      _saveState();
                     },
                   ),
                   const SizedBox(height: 16),
@@ -4099,40 +3961,14 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                               required: false,
                             ),
                             const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceContainerOf(context),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppColors.borderOf(context)),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: _greetingLength,
-                                  isExpanded: true,
-                                  dropdownColor: AppColors.surfaceContainerOf(context),
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary(context),
-                                    fontSize: 13,
-                                  ),
-                                  items: _greetingLengths
-                                      .map(
-                                        (len) => DropdownMenuItem(
-                                          value: len,
-                                          child: Text(len),
-                                        ),
-                                      )
-                                      .toList(),
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() => _greetingLength = value);
-                                      _saveState();
-                                    }
-                                  },
-                                ),
-                              ),
+                            FirstMessageLengthDropdown(
+                              value: _greetingLength,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _greetingLength = value);
+                                  _saveState();
+                                }
+                              },
                             ),
                           ],
                         ),
@@ -4180,31 +4016,14 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                   // Description detail
                   _inputLabel('Description Detail', required: false),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _generationDetailOptions.keys.map((label) {
-                      final isSelected = _generationDetail == label;
-                      return ChoiceChip(
-                        label: Text(label),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          setState(() => _generationDetail = label);
-                          _saveState();
-                        },
-                        selectedColor: Colors.blueAccent,
-                        backgroundColor: AppColors.surfaceContainerOf(context),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppColors.resolve(context, Colors.white, Colors.black87) : AppColors.textSecondary(context),
-                          fontSize: 13,
-                        ),
-                        side: BorderSide(
-                          color: isSelected
-                              ? Colors.blueAccent
-                              : AppColors.borderOf(context),
-                        ),
-                      );
-                    }).toList(),
+                  DescriptionDetailChipRow(
+                    options: _generationDetailOptions.keys.toList(),
+                    selectedDetail: _generationDetail,
+                    accentColor: Colors.blueAccent,
+                    onChanged: (label) {
+                      setState(() => _generationDetail = label);
+                      _saveState();
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -4342,24 +4161,7 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: () => setState(() => _currentStep = 1),
-                        icon: Icon(Icons.arrow_back, size: 18),
-                        label: const Text(
-                          'Back',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary(context),
-                          side: BorderSide(color: AppColors.textTertiary(context)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
+                    _buildBackButton(1, fontSize: 14),
                     const SizedBox(width: 16),
                     SizedBox(
                       width: 240,
@@ -4702,66 +4504,25 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
               const SizedBox(height: 24),
 
               // ── Name with Randomize ──
-              Row(
-                children: [
-                  _inputLabel('Character Name', required: true),
-                  const Spacer(),
-                  Tooltip(
-                    message: 'Generate a random character name',
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.casino,
-                        color: Colors.amberAccent,
-                        size: 20,
-                      ),
-                      onPressed: _randomizeName,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _styledTextField(
+              CharacterNameInput(
                 controller: _nameController,
-                hint: 'e.g. Aria Blackwood, Captain Zara, Luna...',
-                maxLines: 1,
+                onRandomize: _randomizeName,
+                tooltip: 'Generate a random character name',
+                onChanged: (_) {
+                  setState(() {});
+                  _saveState();
+                },
               ),
               const SizedBox(height: 16),
 
               // ── Age & Sex row (compact) ──
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _inputLabel('Age', required: false),
-                        const SizedBox(height: 8),
-                        _styledTextField(
-                          controller: _ageController,
-                          hint: 'e.g. 25, Ancient...',
-                          maxLines: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _inputLabel('Gender', required: false),
-                        const SizedBox(height: 8),
-                        _styledTextField(
-                          controller: _sexController,
-                          hint: 'e.g. Female, Male...',
-                          maxLines: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              AgeGenderRow(
+                ageController: _ageController,
+                genderController: _sexController,
+                onChanged: () {
+                  setState(() {});
+                  _saveState();
+                },
               ),
               const SizedBox(height: 24),
 
@@ -5239,34 +5000,15 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
               // Description detail level
               _inputLabel('Description Detail', required: false),
               const SizedBox(height: 4),
-              Text(
-                'Controls how detailed the character description will be',
-                style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _generationDetailOptions.keys.map((label) {
-                  final isSelected = _generationDetail == label;
-                  return ChoiceChip(
-                    label: Text(label),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      setState(() => _generationDetail = label);
-                      _saveState();
-                    },
-                    selectedColor: Colors.blueAccent,
-                    backgroundColor: AppColors.surfaceContainerOf(context),
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppColors.resolve(context, Colors.white, Colors.black87) : AppColors.textSecondary(context),
-                      fontSize: 13,
-                    ),
-                    side: BorderSide(
-                      color: isSelected ? Colors.blueAccent : AppColors.borderOf(context),
-                    ),
-                  );
-                }).toList(),
+              DescriptionDetailChipRow(
+                options: _generationDetailOptions.keys.toList(),
+                selectedDetail: _generationDetail,
+                accentColor: Colors.blueAccent,
+                subtitle: 'Controls how detailed the character description will be',
+                onChanged: (label) {
+                  setState(() => _generationDetail = label);
+                  _saveState();
+                },
               ),
               const SizedBox(height: 24),
 
@@ -5537,76 +5279,11 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
               ),
               const SizedBox(height: 8),
-              Builder(
-                builder: (context) {
-                  final personaService = Provider.of<UserPersonaService>(
-                    context,
-                  );
-                  final personas = personaService.personas;
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerOf(context),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.borderOf(context)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedPersonaId,
-                        isExpanded: true,
-                        dropdownColor: AppColors.surfaceContainerOf(context),
-                        style: TextStyle(
-                          color: AppColors.textPrimary(context),
-                          fontSize: 13,
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: '',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.person_off,
-                                  size: 16,
-                                  color: AppColors.textTertiary(context),
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'None (Blank Slate)',
-                                  style: TextStyle(color: AppColors.textSecondary(context)),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ...personas.map(
-                            (p) => DropdownMenuItem(
-                              value: p.id,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.person,
-                                    size: 16,
-                                    color: Colors.blueAccent,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      p.displayLabel,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() => _selectedPersonaId = value ?? '');
-                          _saveState();
-                        },
-                      ),
-                    ),
-                  );
+              PersonaSelectorDropdown(
+                selectedPersonaId: _selectedPersonaId,
+                onChanged: (value) {
+                  setState(() => _selectedPersonaId = value ?? '');
+                  _saveState();
                 },
               ),
               const SizedBox(height: 24),
@@ -5644,38 +5321,14 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                       children: [
                         _inputLabel('First Message Length', required: false),
                         const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerOf(context),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.borderOf(context)),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _greetingLength,
-                              isExpanded: true,
-                              dropdownColor: AppColors.surfaceContainerOf(context),
-                              style: TextStyle(
-                                color: AppColors.textPrimary(context),
-                                fontSize: 13,
-                              ),
-                              items: _greetingLengths
-                                  .map(
-                                    (len) => DropdownMenuItem(
-                                      value: len,
-                                      child: Text(len),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _greetingLength = value);
-                                  _saveState();
-                                }
-                              },
-                            ),
-                          ),
+                        FirstMessageLengthDropdown(
+                          value: _greetingLength,
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _greetingLength = value);
+                              _saveState();
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -5732,24 +5385,7 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: () => setState(() => _currentStep = 1),
-                        icon: Icon(Icons.arrow_back, size: 18),
-                        label: const Text(
-                          'Back',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary(context),
-                          side: BorderSide(color: AppColors.textTertiary(context)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
+                    _buildBackButton(1, fontSize: 14),
                     const SizedBox(width: 16),
                     SizedBox(
                       width: 240,
@@ -5983,6 +5619,27 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
           ? Icon(Icons.check, size: 16, color: AppColors.resolve(context, const Color(0xFF60A5FA), Colors.blueAccent))
           : null,
       onTap: onTap,
+    );
+  }
+
+  Widget _buildBackButton(int targetStep, {double? fontSize}) {
+    return SizedBox(
+      height: 52,
+      child: OutlinedButton.icon(
+        onPressed: () => setState(() => _currentStep = targetStep),
+        icon: const Icon(Icons.arrow_back, size: 18),
+        label: Text(
+          'Back',
+          style: fontSize != null ? TextStyle(fontSize: fontSize) : null,
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.textSecondary(context),
+          side: BorderSide(color: AppColors.textTertiary(context)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
     );
   }
 
@@ -6249,30 +5906,13 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed: () => setState(() => _currentStep = 3),
-                          icon: Icon(Icons.arrow_back, size: 18),
-                          label: const Text(
-                            'Back',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.textSecondary(context),
-                            side: BorderSide(color: AppColors.textTertiary(context)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      SizedBox(
-                        width: 280,
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: () => setState(() => _currentStep = 5),
+                    _buildBackButton(3, fontSize: 14),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 280,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: () => setState(() => _currentStep = 5),
                           icon: Icon(Icons.arrow_forward, size: 20),
                           label: const Text(
                             'Next: Review & Save',

@@ -34,3 +34,5 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 - 🧩 **Triplicated character creator UI extracted into reusable widgets** — The Greeting Tone selector (FilterChips), Alternate Greetings slider, Avatar Art Style picker, and NSFW toggle were each copy-pasted across the Quick, Guided, and Full creation modes. Extracted into `GreetingToneSelector`, `AlternateGreetingsSlider`, `AvatarArtStyleSelector`, and `NsfwToggle` — stateless widgets used by all three modes.
 
+- 🧩 **Second wave of character creator extractions** — Styled dropdown wrapper (`StyledDropdown<T>`), persona selector, first message length dropdown, description detail chip row, character name field (with randomize button), and age/gender side-by-side fields all extracted into dedicated widgets. The private `_buildBackButton` helper eliminated 5 near-identical OutlinedButton blocks. Roughly 350 lines of duplication removed, including dead `_greetingLengths` constant. Also fixed `create_character_page.dart` hardcoded white label text that was invisible in light mode.
+
