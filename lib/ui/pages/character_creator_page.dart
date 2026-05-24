@@ -38,6 +38,9 @@ import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
+import 'package:front_porch_ai/ui/widgets/alternate_greetings_slider.dart';
+import 'package:front_porch_ai/ui/widgets/avatar_art_style_selector.dart';
+import 'package:front_porch_ai/ui/widgets/greeting_tone_selector.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Creator mode selection.
@@ -332,38 +335,13 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
   bool _isReloadingKobold = false;
   String _koboldStatus = '';
 
-  static const _artStyles = [
-    'Anime',
-    'Realistic',
-    'Painterly',
-    'Pixel Art',
-    'Comic Book',
-    'Watercolor',
-    'Fantasy Illustration',
-  ];
-
   static const _greetingLengths = [
     'Short (1-2 paragraphs)',
     'Medium (2-4 paragraphs)',
     'Long (4-6 paragraphs)',
   ];
 
-  static const _greetingTones = [
-    'Neutral',
-    'Romantic',
-    'Spicy/NSFW',
-    'Flirty/Playful',
-    'Wholesome',
-    'Slice of Life',
-    'Story/Narrative',
-    'Adventure',
-    'Combat/Action',
-    'Comedy/Humor',
-    'Suspense/Thriller',
-    'Dark/Mystery',
-    'Melancholy',
-  ];
-
+  
   static const _loreCategoryOptions = [
     'Locations',
     'NPCs/Allies',
@@ -2565,33 +2543,13 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _artStyles.map((style) {
-                  final isSelected = _artStyle == style;
-                  return ChoiceChip(
-                    label: Text(style),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      setState(() => _artStyle = style);
-                      _saveState();
-                    },
-                    selectedColor: quickAccent.withValues(alpha: 0.15),
-                    backgroundColor: AppColors.surfaceContainerOf(context),
-                    labelStyle: TextStyle(
-                      color: isSelected
-                          ? quickAccent
-                          : AppColors.textSecondary(context),
-                      fontSize: 13,
-                    ),
-                    side: BorderSide(
-                      color: isSelected
-                          ? quickAccent
-                          : AppColors.borderOf(context),
-                    ),
-                  );
-                }).toList(),
+              AvatarArtStyleSelector(
+                selectedStyle: _artStyle,
+                accentColor: quickAccent,
+                onChanged: (style) {
+                  setState(() => _artStyle = style);
+                  _saveState();
+                },
               ),
               const SizedBox(height: 24),
 
@@ -2605,57 +2563,15 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                _quickGreetingCount == 0
-                    ? 'Tone for the first message.'
-                    : 'Select up to ${_quickGreetingCount + 1} — one per greeting.',
-                style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _greetingTones
-                    .where((tone) => tone != 'Spicy/NSFW' || _quickNsfwEnabled)
-                    .map((tone) {
-                      final isSelected = _quickSelectedTones.contains(tone);
-                      final maxTones = _quickGreetingCount + 1;
-                      final atLimit =
-                          _quickSelectedTones.length >= maxTones && !isSelected;
-                      return FilterChip(
-                        label: Text(tone),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              if (atLimit)
-                                _quickSelectedTones.remove(
-                                  _quickSelectedTones.last,
-                                );
-                              _quickSelectedTones.add(tone);
-                            } else if (_quickSelectedTones.length > 1) {
-                              _quickSelectedTones.remove(tone);
-                            }
-                          });
-                          _saveState();
-                        },
-                        selectedColor: quickAccent.withValues(alpha: 0.15),
-                        backgroundColor: AppColors.surfaceContainerOf(context),
-                        checkmarkColor: quickAccent,
-                        labelStyle: TextStyle(
-                          color: isSelected
-                              ? quickAccent
-                              : AppColors.textSecondary(context),
-                          fontSize: 13,
-                        ),
-                        side: BorderSide(
-                          color: isSelected
-                              ? quickAccent
-                              : AppColors.borderOf(context),
-                        ),
-                      );
-                    })
-                    .toList(),
+              GreetingToneSelector(
+                selectedTones: _quickSelectedTones,
+                greetingCount: _quickGreetingCount,
+                nsfwEnabled: _quickNsfwEnabled,
+                accentColor: quickAccent,
+                onChanged: (tones) {
+                  setState(() => _quickSelectedTones = tones);
+                  _saveState();
+                },
               ),
               const SizedBox(height: 24),
 
@@ -2674,46 +2590,21 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Slider(
-                      value: _quickGreetingCount.toDouble(),
-                      min: 0,
-                      max: 5,
-                      divisions: 5,
-                      activeColor: quickAccent,
-                      inactiveColor: AppColors.borderOf(context),
-                      label: _quickGreetingCount == 0
-                          ? '1 greeting'
-                          : '1 + $_quickGreetingCount alt${_quickGreetingCount == 1 ? '' : 's'}',
-                      onChanged: (val) {
-                        setState(() {
-                          _quickGreetingCount = val.round();
-                          final maxTones = _quickGreetingCount + 1;
-                          while (_quickSelectedTones.length > maxTones) {
-                            _quickSelectedTones.remove(
-                              _quickSelectedTones.last,
-                            );
-                          }
-                        });
-                        _saveState();
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    width: 80,
-                    child: Text(
-                      _quickGreetingCount == 0
-                          ? '1 greeting'
-                          : '1 + $_quickGreetingCount',
-                      style: TextStyle(
-                        color: AppColors.textSecondary(context),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
+              AlternateGreetingsSlider(
+                value: _quickGreetingCount,
+                accentColor: quickAccent,
+                formatLabel: (v) =>
+                    v == 0 ? '1 greeting' : '1 + $v alt${v == 1 ? '' : 's'}',
+                onChanged: (val) {
+                  setState(() {
+                    _quickGreetingCount = val;
+                    final maxTones = _quickGreetingCount + 1;
+                    while (_quickSelectedTones.length > maxTones) {
+                      _quickSelectedTones.remove(_quickSelectedTones.last);
+                    }
+                  });
+                  _saveState();
+                },
               ),
               const SizedBox(height: 24),
 
@@ -4295,53 +4186,15 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                   // Greeting tones
                   _inputLabel('Greeting Tones', required: false),
                   const SizedBox(height: 4),
-                  Text(
-                    _altGreetingCount == 0
-                        ? 'Tone for the first message.'
-                        : 'Select up to ${_altGreetingCount + 1} — one per greeting.',
-                    style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _greetingTones
-                        .where((tone) => tone != 'Spicy/NSFW' || _nsfwEnabled)
-                        .map((tone) {
-                          final isSelected = _selectedTones.contains(tone);
-                          final maxTones = _altGreetingCount + 1;
-                          final atLimit =
-                              _selectedTones.length >= maxTones && !isSelected;
-                          return FilterChip(
-                            label: Text(tone),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                if (selected) {
-                                  if (atLimit)
-                                    _selectedTones.remove(_selectedTones.last);
-                                  _selectedTones.add(tone);
-                                } else if (_selectedTones.length > 1) {
-                                  _selectedTones.remove(tone);
-                                }
-                              });
-                              _saveState();
-                            },
-                            selectedColor: AppColors.resolve(context, const Color(0xFF1E40AF), Colors.blueAccent),
-                            backgroundColor: AppColors.surfaceContainerOf(context),
-                            checkmarkColor: AppColors.resolve(context, Colors.white, Colors.black87),
-                            labelStyle: TextStyle(
-                              color: isSelected ? AppColors.resolve(context, Colors.white, Colors.black87) : AppColors.textSecondary(context),
-                              fontSize: 13,
-                            ),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? Colors.blueAccent
-                                  : AppColors.borderOf(context),
-                            ),
-                          );
-                        })
-                        .toList(),
+                  GreetingToneSelector(
+                    selectedTones: _selectedTones.toList(),
+                    greetingCount: _altGreetingCount,
+                    nsfwEnabled: _nsfwEnabled,
+                    accentColor: Colors.blueAccent,
+                    onChanged: (tones) {
+                      setState(() => _selectedTones = tones.toSet());
+                      _saveState();
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -4403,43 +4256,21 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                           children: [
                             _inputLabel('Alternate Greetings', required: false),
                             const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Slider(
-                                    value: _altGreetingCount.toDouble(),
-                                    min: 0,
-                                    max: 5,
-                                    divisions: 5,
-                                    activeColor: Colors.blueAccent,
-                                    inactiveColor: AppColors.borderOf(context),
-                                    label: '$_altGreetingCount',
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _altGreetingCount = val.round();
-                                        final maxTones = _altGreetingCount + 1;
-                                        while (_selectedTones.length >
-                                            maxTones) {
-                                          _selectedTones.remove(
-                                            _selectedTones.last,
-                                          );
-                                        }
-                                      });
-                                      _saveState();
-                                    },
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 24,
-                                  child: Text(
-                                    '$_altGreetingCount',
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary(context),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            AlternateGreetingsSlider(
+                              value: _altGreetingCount,
+                              accentColor: Colors.blueAccent,
+                              onChanged: (val) {
+                                setState(() {
+                                  _altGreetingCount = val;
+                                  final maxTones = _altGreetingCount + 1;
+                                  while (_selectedTones.length > maxTones) {
+                                    _selectedTones.remove(
+                                      _selectedTones.last,
+                                    );
+                                  }
+                                });
+                                _saveState();
+                              },
                             ),
                           ],
                         ),
@@ -4451,28 +4282,10 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                   // Art style
                   _inputLabel('Avatar Art Style', required: false),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _artStyles.map((style) {
-                      final isSelected = _artStyle == style;
-                      return ChoiceChip(
-                        label: Text(style),
-                        selected: isSelected,
-                        onSelected: (_) => setState(() => _artStyle = style),
-                        selectedColor: Colors.blueAccent,
-                        backgroundColor: AppColors.surfaceContainerOf(context),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppColors.resolve(context, Colors.white, Colors.black87) : AppColors.textSecondary(context),
-                          fontSize: 13,
-                        ),
-                        side: BorderSide(
-                          color: isSelected
-                              ? Colors.blueAccent
-                              : AppColors.borderOf(context),
-                        ),
-                      );
-                    }).toList(),
+                  AvatarArtStyleSelector(
+                    selectedStyle: _artStyle,
+                    accentColor: Colors.blueAccent,
+                    onChanged: (style) => setState(() => _artStyle = style),
                   ),
                   const SizedBox(height: 16),
 
@@ -5963,55 +5776,22 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
               // Greeting tone (multi-select, capped to total greeting count)
               _inputLabel('Greeting Tones', required: false),
               const SizedBox(height: 4),
-              Text(
-                _altGreetingCount == 0
+              GreetingToneSelector(
+                selectedTones: _selectedTones.toList(),
+                greetingCount: _altGreetingCount,
+                nsfwEnabled: _nsfwEnabled,
+                accentColor: AppColors.resolve(
+                  context, const Color(0xFF1E40AF), Colors.blueAccent,
+                ),
+                subtitle: _altGreetingCount == 0
                     ? 'Tone for the first message.'
-                    : 'Select up to ${_altGreetingCount + 1} — one per greeting (first message + $_altGreetingCount alternate${_altGreetingCount == 1 ? '' : 's'}).',
-                style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _greetingTones
-                    .where((tone) => tone != 'Spicy/NSFW' || _nsfwEnabled)
-                    .map((tone) {
-                      final isSelected = _selectedTones.contains(tone);
-                      final maxTones = _altGreetingCount + 1;
-                      final atLimit =
-                          _selectedTones.length >= maxTones && !isSelected;
-                      return FilterChip(
-                        label: Text(tone),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              if (atLimit) {
-                                // At limit — swap: remove the last tone and add this one
-                                _selectedTones.remove(_selectedTones.last);
-                              }
-                              _selectedTones.add(tone);
-                            } else if (_selectedTones.length > 1) {
-                              _selectedTones.remove(tone);
-                            }
-                          });
-                          _saveState();
-                        },
-                        selectedColor: AppColors.resolve(context, const Color(0xFF1E40AF), Colors.blueAccent),
-                        backgroundColor: AppColors.surfaceContainerOf(context),
-                        checkmarkColor: AppColors.resolve(context, Colors.white, Colors.black87),
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppColors.resolve(context, Colors.white, Colors.black87) : AppColors.textSecondary(context),
-                          fontSize: 13,
-                        ),
-                        side: BorderSide(
-                          color: isSelected
-                              ? Colors.blueAccent
-                              : AppColors.borderOf(context),
-                        ),
-                      );
-                    })
-                    .toList(),
+                    : 'Select up to ${_altGreetingCount + 1} \u2014 '
+                        'one per greeting (first message + $_altGreetingCount '
+                        'alternate${_altGreetingCount == 1 ? '' : 's'}).',
+                onChanged: (tones) {
+                  setState(() => _selectedTones = tones.toSet());
+                  _saveState();
+                },
               ),
               const SizedBox(height: 24),
 
@@ -6070,43 +5850,22 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                       children: [
                         _inputLabel('Alternate Greetings', required: false),
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Slider(
-                                value: _altGreetingCount.toDouble(),
-                                min: 0,
-                                max: 5,
-                                divisions: 5,
-                                activeColor: Colors.blueAccent,
-                                inactiveColor: AppColors.borderOf(context),
-                                label: '$_altGreetingCount',
-                                onChanged: (val) {
-                                  setState(() {
-                                    _altGreetingCount = val.round();
-                                    // Trim excess tones if count decreased
-                                    final maxTones = _altGreetingCount + 1;
-                                    while (_selectedTones.length > maxTones) {
-                                      _selectedTones.remove(
-                                        _selectedTones.last,
-                                      );
-                                    }
-                                  });
-                                  _saveState();
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 24,
-                              child: Text(
-                                '$_altGreetingCount',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary(context),
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
+                        AlternateGreetingsSlider(
+                          value: _altGreetingCount,
+                          accentColor: Colors.blueAccent,
+                          onChanged: (val) {
+                            setState(() {
+                              _altGreetingCount = val;
+                              // Trim excess tones if count decreased
+                              final maxTones = _altGreetingCount + 1;
+                              while (_selectedTones.length > maxTones) {
+                                _selectedTones.remove(
+                                  _selectedTones.last,
+                                );
+                              }
+                            });
+                            _saveState();
+                          },
                         ),
                       ],
                     ),
@@ -6118,26 +5877,10 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
               // Art style (last option)
               _inputLabel('Avatar Art Style', required: false),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _artStyles.map((style) {
-                  final isSelected = _artStyle == style;
-                  return ChoiceChip(
-                    label: Text(style),
-                    selected: isSelected,
-                    onSelected: (_) => setState(() => _artStyle = style),
-                    selectedColor: Colors.blueAccent,
-                    backgroundColor: AppColors.surfaceContainerOf(context),
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppColors.resolve(context, Colors.white, Colors.black87) : AppColors.textSecondary(context),
-                      fontSize: 13,
-                    ),
-                    side: BorderSide(
-                      color: isSelected ? Colors.blueAccent : AppColors.borderOf(context),
-                    ),
-                  );
-                }).toList(),
+              AvatarArtStyleSelector(
+                selectedStyle: _artStyle,
+                accentColor: Colors.blueAccent,
+                onChanged: (style) => setState(() => _artStyle = style),
               ),
               const SizedBox(height: 32),
 
