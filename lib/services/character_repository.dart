@@ -784,4 +784,46 @@ class CharacterRepository extends ChangeNotifier {
       rethrow;
     }
   }
+
+  /// Read the JSON-encoded [memorySources] list for a character.
+  Future<List<String>> getMemorySources(String characterDbId) async {
+    try {
+      final dbChar = await _db.getCharacterById(characterDbId);
+      final ms = dbChar.memorySources;
+      if (ms.isEmpty || ms == '[]') return [];
+      return List<String>.from(
+        (jsonDecode(ms) as List).map((e) => e.toString()),
+      );
+    } catch (e) {
+      debugPrint('[CharacterRepository] Failed to get memorySources: $e');
+      return [];
+    }
+  }
+
+  /// Write memorySources for a character (JSON-encoded list of character IDs).
+  Future<void> setMemorySources(String characterDbId, List<String> sources) async {
+    try {
+      await _db.updateCharacter(
+        CharactersCompanion(
+          id: Value(characterDbId),
+          memorySources: Value(jsonEncode(sources)),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[CharacterRepository] Failed to set memorySources: $e');
+      rethrow;
+    }
+  }
+
+  /// Update a character's image path and persist to DB + PNG.
+  Future<void> setCharacterImagePath(CharacterCard card, String imagePath) async {
+    card.imagePath = imagePath;
+    await updateCharacter(card);
+  }
+
+  /// Set the character's TTS voice (null = global default) and persist.
+  Future<void> setTtsVoice(CharacterCard card, String? voiceId) async {
+    card.ttsVoice = voiceId;
+    await updateCharacter(card);
+  }
 }

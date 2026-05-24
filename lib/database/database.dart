@@ -518,11 +518,14 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
-  /// For testing: create an in-memory database.
+  /// For testing: create a temporary database backed by a real file.
+  /// Uses a system temp directory so the background isolate can access it.
   factory AppDatabase.forTesting() {
+    final tmpDir = Directory.systemTemp.createTempSync('fpai_test_');
+    final file = File('${tmpDir.path}/test.db');
     return AppDatabase._internal(
       NativeDatabase.createInBackground(
-        File(':memory:'),
+        file,
         setup: (db) => db.execute('PRAGMA synchronous = FULL'),
       ),
     );

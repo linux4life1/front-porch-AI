@@ -18,11 +18,8 @@
 
 import 'dart:async';
 import 'dart:ui';
-import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
-import 'package:drift/drift.dart' as drift;
-import 'package:front_porch_ai/database/database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +29,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/models/character_card.dart';
-import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
 import 'package:front_porch_ai/ui/dialogs/character_avatars_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/edit_character_dialog.dart';
@@ -2401,35 +2397,35 @@ class _ChatPageState extends State<ChatPage> {
     void Function(String path)? onAccept;
     if (mode == ImageGenMode.characterPortrait && character != null) {
       onAccept = (imagePath) async {
-        // Maintain full path in memory — CharacterRepository automatically extracts
-        // the basename when saving to the database for cross-platform safety.
-        character.imagePath = imagePath;
         final charRepo = Provider.of<CharacterRepository>(
           context,
           listen: false,
         );
-        await charRepo.updateCharacter(character);
+        await charRepo.setCharacterImagePath(character, imagePath);
 
-        // Embed V2 card data into the new avatar PNG
-        try {
-          final v2Service = V2CardService();
-          final card = CharacterCard(
-            name: character.name,
-            description: character.description,
-            personality: character.personality,
-            scenario: character.scenario,
-            firstMessage: character.firstMessage,
-            mesExample: character.mesExample,
-            systemPrompt: character.systemPrompt,
-            postHistoryInstructions: character.postHistoryInstructions,
-            alternateGreetings: character.alternateGreetings,
-            tags: character.tags,
-          );
-          await v2Service.saveCardAsPng(card, imagePath, imagePath);
-          debugPrint('Embedded V2 card data into avatar: $imagePath');
-        } catch (e) {
-          debugPrint('Failed to embed V2 card data: $e');
-        }
+        // Highly likely redundant — updateCharacter() (called by
+        // setCharacterImagePath) already writes V2 data via
+        // V2CardService.saveCardAsPng().  Keeping for reference.
+        //
+        // try {
+        //   final v2Service = V2CardService();
+        //   final card = CharacterCard(
+        //     name: character.name,
+        //     description: character.description,
+        //     personality: character.personality,
+        //     scenario: character.scenario,
+        //     firstMessage: character.firstMessage,
+        //     mesExample: character.mesExample,
+        //     systemPrompt: character.systemPrompt,
+        //     postHistoryInstructions: character.postHistoryInstructions,
+        //     alternateGreetings: character.alternateGreetings,
+        //     tags: character.tags,
+        //   );
+        //   await v2Service.saveCardAsPng(card, imagePath, imagePath);
+        //   debugPrint('Embedded V2 card data into avatar: $imagePath');
+        // } catch (e) {
+        //   debugPrint('Failed to embed V2 card data: $e');
+        // }
       };
     } else if (mode == ImageGenMode.chatBackground) {
       onAccept = (path) {
@@ -4269,11 +4265,10 @@ class _ChatPageState extends State<ChatPage> {
                           alpha: 0.1,
                         ),
                         onTap: () {
-                          character.ttsVoice = null;
                           Provider.of<CharacterRepository>(
                             ctx,
                             listen: false,
-                          ).updateCharacter(character);
+                          ).setTtsVoice(character, null);
                           Navigator.pop(ctx);
                           setState(() {});
                         },
@@ -4321,11 +4316,10 @@ class _ChatPageState extends State<ChatPage> {
                             alpha: 0.1,
                           ),
                           onTap: () {
-                            character.ttsVoice = v.id;
                             Provider.of<CharacterRepository>(
                               ctx,
                               listen: false,
-                            ).updateCharacter(character);
+                            ).setTtsVoice(character, v.id);
                             Navigator.pop(ctx);
                             setState(() {});
                           },
@@ -7393,20 +7387,12 @@ class _MemorySectionState extends State<_MemorySection> {
     final activeChar = widget.chatService.activeCharacter;
     if (activeChar == null || activeChar.dbId == null) return;
     try {
-      final db = Provider.of<AppDatabase>(context, listen: false);
-      final dbChar = await db.getCharacterById(activeChar.dbId!);
-      final ms = dbChar.memorySources;
-      if (ms.isNotEmpty && ms != '[]') {
-        final decoded = List<String>.from(
-          (jsonDecode(ms) as List).map((e) => e.toString()),
-        );
-        setState(() {
-          _selectedSources = decoded.toSet();
-          _sourcesLoaded = true;
-        });
-      } else {
-        setState(() => _sourcesLoaded = true);
-      }
+      final repo = Provider.of<CharacterRepository>(context, listen: false);
+      final sources = await repo.getMemorySources(activeChar.dbId!);
+      setState(() {
+        _selectedSources = sources.toSet();
+        _sourcesLoaded = true;
+      });
     } catch (_) {
       setState(() => _sourcesLoaded = true);
     }
@@ -7417,14 +7403,8 @@ class _MemorySectionState extends State<_MemorySection> {
     final activeChar = widget.chatService.activeCharacter;
     if (activeChar == null || activeChar.dbId == null) return;
     try {
-      final db = Provider.of<AppDatabase>(context, listen: false);
-      await db.updateCharacter(
-        CharactersCompanion(
-          id: drift.Value(activeChar.dbId!),
-          memorySources: drift.Value(jsonEncode(_selectedSources.toList())),
-        ),
-      );
-      debugPrint('[RAG:UI] Saved memorySources: ${_selectedSources.toList()}');
+      final repo = Provider.of<CharacterRepository>(context, listen: false);
+      await repo.setMemorySources(activeChar.dbId!, _selectedSources.toList());
     } catch (e) {
       debugPrint('[RAG:UI] Failed to save memorySources: $e');
     }

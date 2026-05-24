@@ -25,3 +25,10 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 - 📐 **Grid scale slider now has breathing room** — Added horizontal padding around the card size slider so it's no longer jammed against the sort dropdown.
 
 - 💾 **Grid scale & sort mode now persist between launches** — Fixed a startup race condition: `StorageService._init()` runs async, and `HomePage.initState()` was reading settings before they loaded from disk. Both sort mode and grid scale now correctly restore on restart.
+
+- 🔗 **Memory sources now survive restarts and cloud sync** — The cross-character memory source list (the "selected memory" picker in the chat sidebar's Memory section) was previously stored only in the in-memory card object. It is now persisted in the database alongside the character, so your selections stick across app restarts, hot reloads, cloud sync imports, and DB replacements. Works with group chats too.
+
+- 🏷️ **Memory section shows full character names** — The Memory source toggle chips now display the full selected character names instead of being truncated/ellipsed.
+
+- 🖼️ **Chat bubble avatar opacity flicker fixed** — The on-hover opacity effect on chat message avatars no longer flickers continuously.
+

@@ -1,11 +1,36 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:drift/drift.dart';
+
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/database/database.dart';
+
+/// Mock path_provider so StorageService can resolve
+/// getApplicationDocumentsDirectory() without a real platform channel.
+void _setupPathProviderMock() {
+  const channel = MethodChannel('plugins.flutter.io/path_provider');
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+    if (methodCall.method == 'getApplicationDocumentsDirectory') {
+      final tmp = Directory.systemTemp.createTempSync('fpai_test_');
+      return tmp.path;
+    }
+    return null;
+  });
+}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('CharacterRepository — in-memory operations', () {
     test('allTags returns sorted unique tags across characters', () {
       final chars = <CharacterCard>[
@@ -263,6 +288,80 @@ void main() {
       final card = CharacterCard(name: 'Luna');
       expect(card.replacePlaceholders('{{CHAR}}', userName: 'Alex'), 'Luna');
       expect(card.replacePlaceholders('{{USER}}', userName: 'Alex'), 'Alex');
+    });
+  });
+
+  // ── DB integration tests ────────────────────────────────────────────
+
+  group('CharacterRepository — DB integration', () {
+    late AppDatabase db;
+    late CharacterRepository repo;
+    late String charId;
+
+    Future<StorageService> _makeStorageService([
+      Map<String, Object> initialValues = const {},
+    ]) async {
+      SharedPreferences.setMockInitialValues(initialValues);
+      final service = StorageService();
+      await service.initialized;
+      return service;
+    }
+
+    setUp(() async {
+      _setupPathProviderMock();
+
+      db = AppDatabase.forTesting();
+
+      charId = await db.insertCharacterReturningId(
+        CharactersCompanion(
+          name: const Value('Test Character'),
+          description: const Value('Integration test character'),
+        ),
+      );
+
+      final storage = await _makeStorageService();
+      repo = CharacterRepository(db, storage);
+
+      // Let async loadCharacters settle
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('getMemorySources returns empty list for a fresh character', () async {
+      final sources = await repo.getMemorySources(charId);
+      expect(sources, isEmpty);
+    });
+
+    test('setMemorySources then getMemorySources round-trips correctly',
+        () async {
+      const sources = ['src-1', 'src-2', 'src-3'];
+      await repo.setMemorySources(charId, sources);
+      final retrieved = await repo.getMemorySources(charId);
+      expect(retrieved, unorderedEquals(sources));
+    });
+
+    test('setMemorySources overwrites previous sources', () async {
+      await repo.setMemorySources(charId, ['old-src']);
+      await repo.setMemorySources(charId, ['new-src-1', 'new-src-2']);
+      final retrieved = await repo.getMemorySources(charId);
+      expect(retrieved, unorderedEquals(['new-src-1', 'new-src-2']));
+      expect(retrieved, hasLength(2));
+    });
+
+    test('setMemorySources with empty list clears sources', () async {
+      await repo.setMemorySources(charId, ['src-a']);
+      await repo.setMemorySources(charId, []);
+      final retrieved = await repo.getMemorySources(charId);
+      expect(retrieved, isEmpty);
+    });
+
+    test('getMemorySources returns empty list when character does not exist',
+        () async {
+      final result = await repo.getMemorySources('nonexistent-id');
+      expect(result, isEmpty);
     });
   });
 }
