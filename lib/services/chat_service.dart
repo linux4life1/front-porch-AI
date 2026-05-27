@@ -36,7 +36,7 @@ import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_generation_settings.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
-import 'package:front_porch_ai/models/avatar_image.dart' show AvatarImage;
+import 'package:front_porch_ai/models/avatar_image.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -2010,13 +2010,13 @@ class ChatService extends ChangeNotifier {
 
     final label = currentExpressionLabel;
     if (label == null) {
-      return (avatars
+      return avatars
               .where((a) => a.displayOrder + 1 == character.primeAvatarIndex)
               .isEmpty
           ? avatars.first
           : avatars.firstWhere(
               (a) => a.displayOrder + 1 == character.primeAvatarIndex,
-            )) as AvatarImage?;
+            );
     }
 
     // Find all avatars matching the current emotion label
@@ -2030,19 +2030,19 @@ class ChatService extends ChangeNotifier {
           .where((a) => a.label?.toLowerCase() == 'neutral')
           .toList();
       if (neutral.isNotEmpty) {
-        return neutral.first as AvatarImage?;
+        return neutral.first;
       }
-      return (avatars
+      return avatars
               .where((a) => a.displayOrder + 1 == character.primeAvatarIndex)
               .isEmpty
           ? avatars.first
           : avatars.firstWhere(
               (a) => a.displayOrder + 1 == character.primeAvatarIndex,
-            )) as AvatarImage?;
+            );
     }
 
     if (matches.length == 1) {
-      return matches.first as AvatarImage?;
+      return matches.first;
     }
 
     // Multiple matches — pick randomly, optionally avoiding the last one shown
@@ -2053,13 +2053,13 @@ class ChatService extends ChangeNotifier {
       if (different.isNotEmpty) {
         final picked = different[_expressionRandom.nextInt(different.length)];
         _lastExpressionAvatarId = picked.id;
-        return picked as AvatarImage?;
+        return picked;
       }
     }
 
     final picked = matches[_expressionRandom.nextInt(matches.length)];
     _lastExpressionAvatarId = picked.id;
-    return picked as AvatarImage?;
+    return picked;
   }
 
   /// Manually set an expression label (e.g., from /expression-set command).

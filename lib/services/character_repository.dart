@@ -29,7 +29,8 @@ import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/cloud_sync_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/avatar_image.dart';
+import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 import 'package:image/image.dart' as img;
 
 class CharacterRepository extends ChangeNotifier {
@@ -147,11 +148,21 @@ class CharacterRepository extends ChangeNotifier {
         // Load avatar images from DB so they survive hot reloads
         if (card.dbId != null) {
           try {
-            final avatars = await _db.getAvatarImagesByCharacterId(card.dbId!);
-            if (avatars.isNotEmpty) {
-              card.avatarImages = avatars;
+            final driftAvatars =
+                await _db.getAvatarImagesByCharacterId(card.dbId!);
+            if (driftAvatars.isNotEmpty) {
+              card.avatarImages = driftAvatars
+                  .map((a) => AvatarImage(
+                        id: a.id,
+                        characterId: a.characterId,
+                        filename: a.filename,
+                        label: a.label,
+                        displayOrder: a.displayOrder,
+                        createdAt: a.createdAt,
+                      ))
+                  .toList();
               debugPrint(
-                '[CharacterRepository] Loaded ${avatars.length} avatar images for ${card.name}',
+                '[CharacterRepository] Loaded ${card.avatarImages!.length} avatar images for ${card.name}',
               );
             }
           } catch (e) {
@@ -756,7 +767,18 @@ class CharacterRepository extends ChangeNotifier {
   /// Get all avatar images for a character from the database.
   Future<List<AvatarImage>> getAvatarImages(String characterId) async {
     try {
-      return await _db.getAvatarImagesByCharacterId(characterId);
+      final driftAvatars =
+          await _db.getAvatarImagesByCharacterId(characterId);
+      return driftAvatars
+          .map((a) => AvatarImage(
+                id: a.id,
+                characterId: a.characterId,
+                filename: a.filename,
+                label: a.label,
+                displayOrder: a.displayOrder,
+                createdAt: a.createdAt,
+              ))
+          .toList();
     } catch (e) {
       debugPrint('[CharacterRepository] Failed to get avatar images: $e');
       return [];
