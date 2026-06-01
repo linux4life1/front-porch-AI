@@ -2919,8 +2919,9 @@ class ChatService extends ChangeNotifier {
           'avatars',
           m.avatarFilename!,
         );
-        if (await File(p).exists())
+        if (await File(p).exists()) {
           resolved.add(m.toCharacterCard(resolvedImagePath: p));
+        }
       }
     }
     _groupManager?.refreshCharacters(resolved);
@@ -11066,8 +11067,9 @@ class ChatService extends ChangeNotifier {
 
         if (isMorning && _needDecayMorning.containsKey(key)) {
           decay = _needDecayMorning[key] ?? decay;
-        } else if (isNight && _needDecayNight.containsKey(key))
+        } else if (isNight && _needDecayNight.containsKey(key)) {
           decay = _needDecayNight[key] ?? decay;
+        }
 
         if (_needsAfterglowTurnsRemaining > 0 &&
             (key == 'hunger' || key == 'energy' || key == 'social')) {
@@ -11796,12 +11798,13 @@ class ChatService extends ChangeNotifier {
           int crashDur = 0;
           if (intensity >= 9) {
             crashDur = 5;
-          } else if (intensity >= 7)
+          } else if (intensity >= 7) {
             crashDur = 4;
-          else if (intensity >= 5)
+          } else if (intensity >= 5) {
             crashDur = 3;
-          else if (intensity >= 3)
+          } else if (intensity >= 3) {
             crashDur = 2;
+          }
 
           if (crashDur > 0) {
             _postClimaxCrashTurnsRemaining =

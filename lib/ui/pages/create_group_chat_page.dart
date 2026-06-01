@@ -294,7 +294,6 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
   }
 
   void _seedRealismFromCard(String charId) {
-    final repo = Provider.of<CharacterRepository>(context, listen: false);
     final card = _members.firstWhere(
       (c) => _stableId(c) == charId,
       orElse: () => _members.first,
@@ -335,7 +334,6 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     }
     setState(() => _isGeneratingScenario = true);
 
-    final names = _members.map((c) => c.name).join(', ');
     final briefs = _members
         .map((c) {
           final trait = c.personality.isNotEmpty
@@ -915,7 +913,9 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     final database = Provider.of<db.AppDatabase>(context, listen: false);
     for (final source in _members) {
       final mid = const Uuid().v4();
-      final avDir = Directory(p.join(storage.groupsDir.path, groupId, 'avatars'));
+      final avDir = Directory(
+        p.join(storage.groupsDir.path, groupId, 'avatars'),
+      );
       await avDir.create(recursive: true);
 
       await repo.duplicateCharacter(
@@ -942,10 +942,22 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
           tags: Value(jsonEncode(source.tags)),
           avatarFilename: Value('$mid.png'),
           ttsVoice: Value(source.ttsVoice),
-          lorebook: Value(source.lorebook != null ? jsonEncode(source.lorebook!.toJson()) : null),
+          lorebook: Value(
+            source.lorebook != null
+                ? jsonEncode(source.lorebook!.toJson())
+                : null,
+          ),
           worldNames: Value(jsonEncode(source.worldNames)),
-          frontPorchExtensions: Value(source.frontPorchExtensions != null ? jsonEncode(source.frontPorchExtensions!.toJson()) : null),
-          rawExtensions: Value(source.rawExtensions != null ? jsonEncode(source.rawExtensions!) : null),
+          frontPorchExtensions: Value(
+            source.frontPorchExtensions != null
+                ? jsonEncode(source.frontPorchExtensions!.toJson())
+                : null,
+          ),
+          rawExtensions: Value(
+            source.rawExtensions != null
+                ? jsonEncode(source.rawExtensions!)
+                : null,
+          ),
           memberState: const Value('{}'),
         ),
       );
@@ -1288,16 +1300,6 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         ),
       ],
       onChanged: onChanged,
-    );
-  }
-
-  Widget _tinyAvatar(CharacterCard c) {
-    return CircleAvatar(
-      radius: 12,
-      backgroundImage: c.imagePath != null
-          ? FileImage(File(c.imagePath!))
-          : null,
-      child: c.imagePath == null ? const Icon(Icons.person, size: 14) : null,
     );
   }
 
@@ -2208,8 +2210,9 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                           keyboardType: TextInputType.number,
                           onChanged: (v) {
                             final n = int.tryParse(v);
-                            if (n != null && n >= 1)
+                            if (n != null && n >= 1) {
                               setState(() => _globalDayCount = n);
+                            }
                           },
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
@@ -3025,7 +3028,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                         if (isLastStep) {
                           _createGroup(); // defaults to enterChat: true (primary action)
                         } else {
-                          setState(() => _currentStep = effectiveNextStep!);
+                          setState(() => _currentStep = effectiveNextStep);
                         }
                       }
                     : null,
@@ -3056,8 +3059,9 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
 
   bool _canAdvanceFromStep(int step) {
     if (step == 0) return _canLeaveMembersStep;
-    if (step == 6)
+    if (step == 6) {
       return _members.length >= 2 && _nameController.text.trim().isNotEmpty;
+    }
     return true;
   }
 

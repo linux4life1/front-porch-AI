@@ -32,9 +32,8 @@ import 'package:front_porch_ai/database/database.dart' hide StoryProject;
 class StoryPipelineService extends ChangeNotifier {
   final StoryRepository _repository;
   final LLMService _llmService;
-  // ignore: unused_field
   final MemoryService
-  _memoryService; // Reserved for future story RAG / memory injection
+  _memoryService; // ignore: unused_field - Reserved for future story RAG / memory injection
   final AppDatabase _db;
 
   bool _isRunning = false;

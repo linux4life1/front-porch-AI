@@ -73,11 +73,18 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                 children: [
                   Text(
                     'Group Settings',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary(context)),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary(context),
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.close, color: AppColors.iconSecondary(context)),
+                    icon: Icon(
+                      Icons.close,
+                      color: AppColors.iconSecondary(context),
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -147,7 +154,10 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: Text('Close', style: TextStyle(color: AppColors.textSecondary(context))),
+                    child: Text(
+                      'Close',
+                      style: TextStyle(color: AppColors.textSecondary(context)),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   if (widget.groupRepo != null)
@@ -164,7 +174,10 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                           );
                         }
                       },
-                      child: Text('Save', style: TextStyle(color: AppColors.textPrimary(context))),
+                      child: Text(
+                        'Save',
+                        style: TextStyle(color: AppColors.textPrimary(context)),
+                      ),
                     ),
                   const SizedBox(width: 8),
                   ElevatedButton(
@@ -206,7 +219,8 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
   final Map<CharacterCard, int> _perCharStrengths = {};
 
   // Per-character group system prompt overrides (Path B feature).
-  final Map<CharacterCard, TextEditingController> _perCharSystemPromptControllers = {};
+  final Map<CharacterCard, TextEditingController>
+  _perCharSystemPromptControllers = {};
 
   // Per-character accent colors (matches chat sidebar palette)
   static const List<Color> _charColors = [
@@ -249,8 +263,6 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
       _getOrCreateNoteController(c); // creates + populates from service
       _perCharStrengths[c] ??= cs.getAuthorNoteStrengthForGroupCharacter(c);
     }
-
-
   }
 
   TextEditingController _getOrCreateNoteController(CharacterCard c) {
@@ -353,7 +365,10 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                   controller: _groupSystemController,
                   maxLines: 5,
                   minLines: 3,
-                  style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
+                    fontSize: 12,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Custom system prompt for the entire group...',
                     hintStyle: TextStyle(
@@ -364,11 +379,15 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                     fillColor: AppColors.surfaceContainerOf(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: AppColors.borderOf(context)),
+                      borderSide: BorderSide(
+                        color: AppColors.borderOf(context),
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: AppColors.borderOf(context)),
+                      borderSide: BorderSide(
+                        color: AppColors.borderOf(context),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -376,9 +395,7 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                     ),
                     contentPadding: const EdgeInsets.all(10),
                   ),
-                  onChanged: (_) {
-
-                  },
+                  onChanged: (_) {},
                 ),
 
                 const SizedBox(height: 20),
@@ -386,11 +403,7 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                 // ── Per-Character System Prompts (Group Only) ───────────────
                 const Row(
                   children: [
-                    Icon(
-                      Icons.code,
-                      size: 16,
-                      color: Colors.tealAccent,
-                    ),
+                    Icon(Icons.code, size: 16, color: Colors.tealAccent),
                     SizedBox(width: 6),
                     Text(
                       'Per-Character System Prompts (Group Only)',
@@ -516,7 +529,10 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
             style: const TextStyle(color: Colors.white, fontSize: 12),
             decoration: InputDecoration(
               hintText: "Author's note for ${c.name} (when they speak)...",
-              hintStyle: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
+              hintStyle: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 11,
+              ),
               filled: true,
               fillColor: AppColors.surfaceContainerOf(context),
               border: OutlineInputBorder(
@@ -536,9 +552,7 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                 vertical: 8,
               ),
             ),
-            onChanged: (_) {
-
-            },
+            onChanged: (_) {},
           ),
           const SizedBox(height: 8),
 
@@ -572,7 +586,6 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                     onChanged: (val) {
                       setState(() {
                         _perCharStrengths[c] = val.round();
-
                       });
                     },
                   ),
@@ -646,7 +659,6 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
               TextButton(
                 onPressed: () {
                   promptCtrl.clear();
-    
                 },
                 child: const Text('Clear', style: TextStyle(fontSize: 11)),
               ),
@@ -661,7 +673,10 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
             style: const TextStyle(color: Colors.white, fontSize: 12),
             decoration: InputDecoration(
               hintText: 'Group-only system prompt for ${c.name}...',
-              hintStyle: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
+              hintStyle: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 11,
+              ),
               filled: true,
               fillColor: AppColors.surfaceContainerOf(context),
               border: OutlineInputBorder(
@@ -681,9 +696,7 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                 vertical: 8,
               ),
             ),
-            onChanged: (_) {
-
-            },
+            onChanged: (_) {},
           ),
         ],
       ),
@@ -826,7 +839,6 @@ class _MemoryRAGTabState extends State<_MemoryRAGTab> {
     _charPriorities = {
       for (final c in _chars) c.name: savedPriorities[c.name] ?? 1.0,
     };
-
   }
 
   void _updateCharPriority(String charName, double value) {
@@ -880,7 +892,6 @@ class _MemoryRAGTabState extends State<_MemoryRAGTab> {
       // For now we keep the old behavior (names as keys) until we standardize on IDs.
       widget.chatService.setCharacterRAGPriority(entry.key, entry.value);
     }
-
   }
 
   @override
@@ -1175,7 +1186,6 @@ class _MemoryRAGTabState extends State<_MemoryRAGTab> {
                   ),
                 );
               }),
-
           ],
         ),
       ),
@@ -1228,7 +1238,9 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
     // Load immutable creation baseline seeds (only the allowed fields)
     _baselineSeeds.clear();
     for (final c in _chars) {
-      _baselineSeeds[_getCharId(c)] = Map<String, dynamic>.from(cs.getBaselineSeedForGroupCharacter(c));
+      _baselineSeeds[_getCharId(c)] = Map<String, dynamic>.from(
+        cs.getBaselineSeedForGroupCharacter(c),
+      );
     }
   }
 
@@ -1284,14 +1296,11 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
     for (final c in cs.groupCharacters) {
       cs.resetRealismForGroupCharacter(c);
     }
-
   }
 
   void _resetCharacterRealism(CharacterCard character) {
     widget.chatService.resetRealismForGroupCharacter(character);
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -1339,7 +1348,10 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
                   const Padding(
                     padding: EdgeInsets.only(left: 8),
                     child: Chip(
-                      label: Text('Baseline seeded', style: TextStyle(fontSize: 10)),
+                      label: Text(
+                        'Baseline seeded',
+                        style: TextStyle(fontSize: 10),
+                      ),
                       backgroundColor: Colors.blueGrey,
                       padding: EdgeInsets.symmetric(horizontal: 6, vertical: 0),
                     ),
@@ -1961,25 +1973,6 @@ class _GeneralTabState extends State<_GeneralTab> {
                         ),
                       ),
                     ),
-                    if (false) // TODO: removed per-tab save logic
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'UNSAVED',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.amber,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -2009,7 +2002,10 @@ class _GeneralTabState extends State<_GeneralTab> {
                 const SizedBox(height: 6),
                 AppTextField(
                   controller: _nameController,
-                  style: TextStyle(color: AppColors.textPrimary(context), fontSize: 14),
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
+                    fontSize: 14,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'e.g. The Fellowship',
                     hintStyle: TextStyle(
@@ -2020,11 +2016,15 @@ class _GeneralTabState extends State<_GeneralTab> {
                     fillColor: AppColors.surfaceContainerOf(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: AppColors.borderOf(context)),
+                      borderSide: BorderSide(
+                        color: AppColors.borderOf(context),
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: AppColors.borderOf(context)),
+                      borderSide: BorderSide(
+                        color: AppColors.borderOf(context),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -2341,7 +2341,7 @@ class _GeneralTabState extends State<_GeneralTab> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                )
+                ),
             ],
           ),
         ),
@@ -2433,10 +2433,7 @@ class _LorebookWorldsTab extends StatefulWidget {
   final ChatService chatService;
   final GroupChatRepository? groupRepo;
 
-  const _LorebookWorldsTab({
-    required this.chatService,
-    this.groupRepo,
-  });
+  const _LorebookWorldsTab({required this.chatService, this.groupRepo});
 
   @override
   State<_LorebookWorldsTab> createState() => _LorebookWorldsTabState();
@@ -2543,7 +2540,9 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                   if (!constant) ...[
                     AppTextField(
                       controller: keyCtrl,
-                      decoration: const InputDecoration(labelText: 'Trigger Keys (comma separated)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Trigger Keys (comma separated)',
+                      ),
                       style: TextStyle(color: AppColors.textPrimary(context)),
                     ),
                     const SizedBox(height: 12),
@@ -2551,7 +2550,9 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                   AppTextField(
                     controller: contentCtrl,
                     maxLines: 6,
-                    decoration: const InputDecoration(labelText: 'Content (injected when triggered)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Content (injected when triggered)',
+                    ),
                     style: TextStyle(color: AppColors.textPrimary(context)),
                   ),
                   const SizedBox(height: 16),
@@ -2571,15 +2572,28 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Enabled', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary(context))),
+                                  Text(
+                                    'Enabled',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary(context),
+                                    ),
+                                  ),
                                   const SizedBox(height: 2),
-                                  Text('This entry can be injected when its keys match', style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context))),
+                                  Text(
+                                    'This entry can be injected when its keys match',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary(context),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                             Switch(
                               value: enabled,
-                              onChanged: (v) => setInnerState(() => enabled = v),
+                              onChanged: (v) =>
+                                  setInnerState(() => enabled = v),
                             ),
                           ],
                         ),
@@ -2592,21 +2606,37 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Constant', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary(context))),
+                                  Text(
+                                    'Constant',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary(context),
+                                    ),
+                                  ),
                                   const SizedBox(height: 2),
-                                  Text('Always considered active (ignores trigger keys)', style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context))),
+                                  Text(
+                                    'Always considered active (ignores trigger keys)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary(context),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                             Switch(
                               value: constant,
-                              onChanged: (v) => setInnerState(() => constant = v),
+                              onChanged: (v) =>
+                                  setInnerState(() => constant = v),
                             ),
                           ],
                         ),
                         if (!constant) ...[
                           const SizedBox(height: 12),
-                          Divider(color: AppColors.borderOf(context), height: 1),
+                          Divider(
+                            color: AppColors.borderOf(context),
+                            height: 1,
+                          ),
                           const SizedBox(height: 12),
 
                           // Sticky Depth — clean slider presentation
@@ -2616,28 +2646,55 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                             children: [
                               Row(
                                 children: [
-                                  Text('Sticky Depth', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary(context))),
+                                  Text(
+                                    'Sticky Depth',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary(context),
+                                    ),
+                                  ),
                                   const Spacer(),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.surfaceContainerOf(context),
+                                      color: AppColors.surfaceContainerOf(
+                                        context,
+                                      ),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: Text('$stickyDepth', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary(context))),
+                                    child: Text(
+                                      '$stickyDepth',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary(context),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 4),
-                              Text('How many turns the entry stays active after triggering', style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context))),
+                              Text(
+                                'How many turns the entry stays active after triggering',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary(context),
+                                ),
+                              ),
                               const SizedBox(height: 6),
                               SliderTheme(
                                 data: SliderThemeData(
                                   activeTrackColor: Colors.tealAccent,
-                                  inactiveTrackColor: AppColors.borderOf(context).withValues(alpha: 0.4),
+                                  inactiveTrackColor: AppColors.borderOf(
+                                    context,
+                                  ).withValues(alpha: 0.4),
                                   thumbColor: Colors.tealAccent,
                                   trackHeight: 3,
-                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 7,
+                                  ),
                                 ),
                                 child: Slider(
                                   value: stickyDepth.toDouble().clamp(0, 12),
@@ -2645,7 +2702,9 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                                   max: 12,
                                   divisions: 12,
                                   label: stickyDepth.toString(),
-                                  onChanged: (v) => setInnerState(() => stickyDepth = v.round()),
+                                  onChanged: (v) => setInnerState(
+                                    () => stickyDepth = v.round(),
+                                  ),
                                 ),
                               ),
                             ],
@@ -2660,7 +2719,10 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
           },
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Save'),
@@ -2721,14 +2783,16 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Imported ${imported.entries.length} entries.')),
+          SnackBar(
+            content: Text('Imported ${imported.entries.length} entries.'),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to import: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to import: $e')));
       }
     }
   }
@@ -2746,7 +2810,6 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
       } else {
         _worldIds.add(worldId);
       }
-      
     });
   }
 
@@ -2775,7 +2838,6 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                   onChanged: (v) {
                     setState(() {
                       _inheritCharacterLorebooks = v;
-                      
                     });
                   },
                   activeThumbColor: Colors.orangeAccent,
@@ -2783,16 +2845,25 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                 const SizedBox(height: 16),
 
                 // Worlds
-                _buildSectionHeader('World Lorebooks', Icons.public, Colors.lightBlueAccent),
+                _buildSectionHeader(
+                  'World Lorebooks',
+                  Icons.public,
+                  Colors.lightBlueAccent,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'Attach worlds to pull their lorebooks into every message in this group.',
-                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary(context)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textTertiary(context),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 if (_allWorlds.isEmpty)
-                  const Text('No worlds available. Create worlds in the Worlds tab to attach them here.',
-                      style: TextStyle(color: Colors.white54, fontSize: 12))
+                  const Text(
+                    'No worlds available. Create worlds in the Worlds tab to attach them here.',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  )
                 else
                   Wrap(
                     spacing: 8,
@@ -2803,18 +2874,27 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                         label: Text(w.name),
                         selected: selected,
                         onSelected: (_) => _toggleWorld(w.name),
-                        selectedColor: Colors.lightBlueAccent.withValues(alpha: 0.3),
+                        selectedColor: Colors.lightBlueAccent.withValues(
+                          alpha: 0.3,
+                        ),
                       );
                     }).toList(),
                   ),
                 const SizedBox(height: 24),
 
                 // Group lorebook entries
-                _buildSectionHeader('Group Lorebook', Icons.menu_book, Colors.orangeAccent),
+                _buildSectionHeader(
+                  'Group Lorebook',
+                  Icons.menu_book,
+                  Colors.orangeAccent,
+                ),
                 const SizedBox(height: 6),
                 Text(
                   'Highest priority lore. These entries are always available to the whole group.',
-                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary(context)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textTertiary(context),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -2857,9 +2937,11 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                   ..._groupLoreEntries.asMap().entries.map((entry) {
                     final i = entry.key;
                     final e = entry.value;
-                    final keyPreview = e.key.isEmpty ? '(no trigger keys)' : e.key;
-                    final contentPreview = e.content.length > 140 
-                        ? '${e.content.substring(0, 137)}...' 
+                    final keyPreview = e.key.isEmpty
+                        ? '(no trigger keys)'
+                        : e.key;
+                    final contentPreview = e.content.length > 140
+                        ? '${e.content.substring(0, 137)}...'
                         : e.content;
 
                     return Container(
@@ -2867,13 +2949,20 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                       decoration: BoxDecoration(
                         color: AppColors.cardOf(context),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.borderOf(context).withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AppColors.borderOf(
+                            context,
+                          ).withValues(alpha: 0.3),
+                        ),
                       ),
                       child: ListTile(
                         dense: true,
                         title: Text(
                           keyPreview,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 4),
@@ -2881,7 +2970,10 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                             contentPreview,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary(context),
+                            ),
                           ),
                         ),
                         trailing: Row(
@@ -2889,10 +2981,15 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                           children: [
                             IconButton(
                               icon: const Icon(Icons.edit, size: 18),
-                              onPressed: () => _showEntryEditor(existing: e, index: i),
+                              onPressed: () =>
+                                  _showEntryEditor(existing: e, index: i),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, size: 18, color: Colors.redAccent),
+                              icon: const Icon(
+                                Icons.delete,
+                                size: 18,
+                                color: Colors.redAccent,
+                              ),
                               onPressed: () => _deleteEntry(i),
                             ),
                           ],
@@ -2902,12 +2999,10 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                   }),
 
                 const SizedBox(height: 24),
-
               ],
             ),
           ),
         ),
-
       ],
     );
   }

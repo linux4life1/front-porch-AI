@@ -4,7 +4,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -26,10 +25,7 @@ class DrawThingsGrpcService {
   final String host;
   final int port;
 
-  DrawThingsGrpcService({
-    required this.host,
-    this.port = 7859,
-  }) {
+  DrawThingsGrpcService({required this.host, this.port = 7859}) {
     debugPrint('DrawThingsGrpcService: host=$host port=$port (CLI sidecar)');
   }
 
@@ -45,7 +41,13 @@ class DrawThingsGrpcService {
       bool useWrapper = false;
       if (Platform.isMacOS) {
         final contents = File(Platform.resolvedExecutable).parent.parent.path;
-        final bundled = p.join(contents, 'Resources', 'dt_grpc', 'dt_grpc_client', 'dt_grpc_client');
+        final bundled = p.join(
+          contents,
+          'Resources',
+          'dt_grpc',
+          'dt_grpc_client',
+          'dt_grpc_client',
+        );
         if (File(bundled).existsSync()) {
           cliExe = bundled;
           useWrapper = true;
@@ -55,14 +57,26 @@ class DrawThingsGrpcService {
         // Dev fallback: walk for dt_grpc_client.py (mirrors stt/kokoro pattern, inlined)
         var dir = Directory(execDir);
         for (int i = 0; i < 12; i++) {
-          final cand = File(p.join(dir.path, 'tools', 'dt-grpc-python', 'dt_grpc_client.py'));
-          if (cand.existsSync()) { pyScript = cand.path; break; }
+          final cand = File(
+            p.join(dir.path, 'tools', 'dt-grpc-python', 'dt_grpc_client.py'),
+          );
+          if (cand.existsSync()) {
+            pyScript = cand.path;
+            break;
+          }
           final parent = dir.parent;
           if (parent.path == dir.path) break;
           dir = parent;
         }
         if (pyScript == null) {
-          final cwdCand = File(p.join(Directory.current.path, 'tools', 'dt-grpc-python', 'dt_grpc_client.py'));
+          final cwdCand = File(
+            p.join(
+              Directory.current.path,
+              'tools',
+              'dt-grpc-python',
+              'dt_grpc_client.py',
+            ),
+          );
           if (cwdCand.existsSync()) pyScript = cwdCand.path;
         }
       }
@@ -77,7 +91,9 @@ class DrawThingsGrpcService {
 
       final stdoutFut = process.stdout.transform(utf8.decoder).join();
       final stderrFut = process.stderr.transform(utf8.decoder).join();
-      final exitCode = await process.exitCode.timeout(const Duration(seconds: 25));
+      final exitCode = await process.exitCode.timeout(
+        const Duration(seconds: 25),
+      );
       final stdoutStr = await stdoutFut;
       final stderrStr = await stderrFut;
 
@@ -95,7 +111,9 @@ class DrawThingsGrpcService {
           .where((l) => !l.contains('CERTIFICATE_VERIFY_FAILED'))
           .join('\n')
           .trim();
-      debugPrint('DrawThingsGrpcService: testConnection failed: $stdoutStr / $filteredTestErr');
+      debugPrint(
+        'DrawThingsGrpcService: testConnection failed: $stdoutStr / $filteredTestErr',
+      );
       return false;
     } catch (e) {
       debugPrint('DrawThingsGrpcService: testConnection error: $e');
@@ -115,7 +133,13 @@ class DrawThingsGrpcService {
       bool useWrapper = false;
       if (Platform.isMacOS) {
         final contents = File(Platform.resolvedExecutable).parent.parent.path;
-        final bundled = p.join(contents, 'Resources', 'dt_grpc', 'dt_grpc_client', 'dt_grpc_client');
+        final bundled = p.join(
+          contents,
+          'Resources',
+          'dt_grpc',
+          'dt_grpc_client',
+          'dt_grpc_client',
+        );
         if (File(bundled).existsSync()) {
           cliExe = bundled;
           useWrapper = true;
@@ -124,14 +148,26 @@ class DrawThingsGrpcService {
       if (cliExe == null) {
         var dir = Directory(execDir);
         for (int i = 0; i < 12; i++) {
-          final cand = File(p.join(dir.path, 'tools', 'dt-grpc-python', 'dt_grpc_client.py'));
-          if (cand.existsSync()) { pyScript = cand.path; break; }
+          final cand = File(
+            p.join(dir.path, 'tools', 'dt-grpc-python', 'dt_grpc_client.py'),
+          );
+          if (cand.existsSync()) {
+            pyScript = cand.path;
+            break;
+          }
           final parent = dir.parent;
           if (parent.path == dir.path) break;
           dir = parent;
         }
         if (pyScript == null) {
-          final cwdCand = File(p.join(Directory.current.path, 'tools', 'dt-grpc-python', 'dt_grpc_client.py'));
+          final cwdCand = File(
+            p.join(
+              Directory.current.path,
+              'tools',
+              'dt-grpc-python',
+              'dt_grpc_client.py',
+            ),
+          );
           if (cwdCand.existsSync()) pyScript = cwdCand.path;
         }
       }
@@ -146,7 +182,9 @@ class DrawThingsGrpcService {
 
       final stdoutFut = process.stdout.transform(utf8.decoder).join();
       final stderrFut = process.stderr.transform(utf8.decoder).join();
-      final exitCode = await process.exitCode.timeout(const Duration(seconds: 25));
+      final exitCode = await process.exitCode.timeout(
+        const Duration(seconds: 25),
+      );
       final stdoutStr = await stdoutFut;
       final stderrStr = await stderrFut;
 
@@ -167,7 +205,8 @@ class DrawThingsGrpcService {
             }
           }
           if (parsed is Map && parsed['success'] == true) {
-            final raw = (parsed['models'] as List?)?.cast<String>() ?? <String>[];
+            final raw =
+                (parsed['models'] as List?)?.cast<String>() ?? <String>[];
             // Secondary filter on Dart side (defense in depth).
             // This mirrors the improved logic in dt_grpc_client.py.
             // We use broad category patterns so users don't have to manually
@@ -201,10 +240,14 @@ class DrawThingsGrpcService {
             final models = raw.where((f) {
               final lower = f.toLowerCase();
               if (skip.any((k) => lower.contains(k))) return false;
-              return f.endsWith('.ckpt') || f.endsWith('.safetensors') || f.endsWith('.pt');
+              return f.endsWith('.ckpt') ||
+                  f.endsWith('.safetensors') ||
+                  f.endsWith('.pt');
             }).toList();
 
-            debugPrint('DrawThingsGrpcService: Fetched ${models.length} models via CLI (after filtering)');
+            debugPrint(
+              'DrawThingsGrpcService: Fetched ${models.length} models via CLI (after filtering)',
+            );
             return models;
           }
         } catch (_) {}
@@ -214,7 +257,9 @@ class DrawThingsGrpcService {
           .where((l) => !l.contains('CERTIFICATE_VERIFY_FAILED'))
           .join('\n')
           .trim();
-      debugPrint('DrawThingsGrpcService: fetchModels failed (CLI): $stdoutStr / $filteredFetchErr');
+      debugPrint(
+        'DrawThingsGrpcService: fetchModels failed (CLI): $stdoutStr / $filteredFetchErr',
+      );
       return [];
     } catch (e) {
       debugPrint('DrawThingsGrpcService: fetchModels error: $e');
@@ -253,11 +298,17 @@ class DrawThingsGrpcService {
       // If reference image bytes supplied, write to a short-lived temp for the Python NNC encoder.
       // Use high-entropy name (timestamp + random) to reduce TOCTOU/predictability risk.
       if (referenceImageBytes != null && referenceImageBytes.isNotEmpty) {
-        final rand = DateTime.now().millisecondsSinceEpoch ^ (DateTime.now().microsecondsSinceEpoch % 100000);
-        refTempDir = await Directory(p.join(tempRoot.path, 'dt_ref_$rand')).create(recursive: true);
+        final rand =
+            DateTime.now().millisecondsSinceEpoch ^
+            (DateTime.now().microsecondsSinceEpoch % 100000);
+        refTempDir = await Directory(
+          p.join(tempRoot.path, 'dt_ref_$rand'),
+        ).create(recursive: true);
         refImagePath = p.join(refTempDir.path, 'ref.png');
         await File(refImagePath).writeAsBytes(referenceImageBytes);
-        debugPrint('DrawThingsGrpcService: Wrote ${referenceImageBytes.length} byte reference image to temp');
+        debugPrint(
+          'DrawThingsGrpcService: Wrote ${referenceImageBytes.length} byte reference image to temp',
+        );
       }
 
       // Build rich config dict for the CLI (all DT-specific knobs)
@@ -297,7 +348,13 @@ class DrawThingsGrpcService {
       bool useWrapper = false;
       if (Platform.isMacOS) {
         final contents = File(Platform.resolvedExecutable).parent.parent.path;
-        final bundled = p.join(contents, 'Resources', 'dt_grpc', 'dt_grpc_client', 'dt_grpc_client');
+        final bundled = p.join(
+          contents,
+          'Resources',
+          'dt_grpc',
+          'dt_grpc_client',
+          'dt_grpc_client',
+        );
         if (File(bundled).existsSync()) {
           cliExe = bundled;
           useWrapper = true;
@@ -306,19 +363,33 @@ class DrawThingsGrpcService {
       if (cliExe == null) {
         var dir = Directory(execDir);
         for (int i = 0; i < 12; i++) {
-          final cand = File(p.join(dir.path, 'tools', 'dt-grpc-python', 'dt_grpc_client.py'));
-          if (cand.existsSync()) { pyScript = cand.path; break; }
+          final cand = File(
+            p.join(dir.path, 'tools', 'dt-grpc-python', 'dt_grpc_client.py'),
+          );
+          if (cand.existsSync()) {
+            pyScript = cand.path;
+            break;
+          }
           final parent = dir.parent;
           if (parent.path == dir.path) break;
           dir = parent;
         }
         if (pyScript == null) {
-          final cwdCand = File(p.join(Directory.current.path, 'tools', 'dt-grpc-python', 'dt_grpc_client.py'));
+          final cwdCand = File(
+            p.join(
+              Directory.current.path,
+              'tools',
+              'dt-grpc-python',
+              'dt_grpc_client.py',
+            ),
+          );
           if (cwdCand.existsSync()) pyScript = cwdCand.path;
         }
       }
 
-      debugPrint('DrawThingsGrpcService: spawning ${useWrapper ? "bundled" : "dev python"} CLI for generate');
+      debugPrint(
+        'DrawThingsGrpcService: spawning ${useWrapper ? "bundled" : "dev python"} CLI for generate',
+      );
       final process = await Process.start(
         useWrapper ? cliExe! : (Platform.isWindows ? 'python' : 'python3'),
         useWrapper ? [] : (pyScript != null ? [pyScript] : []),
@@ -329,7 +400,9 @@ class DrawThingsGrpcService {
 
       final stdoutFut = process.stdout.transform(utf8.decoder).join();
       final stderrFut = process.stderr.transform(utf8.decoder).join();
-      final exitCode = await process.exitCode.timeout(const Duration(seconds: 300));
+      final exitCode = await process.exitCode.timeout(
+        const Duration(seconds: 300),
+      );
       final stdoutStr = await stdoutFut;
       final stderrStr = await stderrFut;
 
@@ -374,7 +447,9 @@ class DrawThingsGrpcService {
         }
       }
       if (parsed['success'] != true) {
-        throw Exception('Generation error from CLI: ${parsed['error'] ?? stdoutStr}');
+        throw Exception(
+          'Generation error from CLI: ${parsed['error'] ?? stdoutStr}',
+        );
       }
 
       cliOutPath = parsed['output_path'] as String?;
@@ -390,7 +465,9 @@ class DrawThingsGrpcService {
       if (bytes.isEmpty) {
         throw Exception('CLI output file empty');
       }
-      debugPrint('DrawThingsGrpcService: Generated ${bytes.length} bytes via CLI (elapsed=${parsed['elapsed']})');
+      debugPrint(
+        'DrawThingsGrpcService: Generated ${bytes.length} bytes via CLI (elapsed=${parsed['elapsed']})',
+      );
       return bytes;
     } catch (e) {
       debugPrint('DrawThingsGrpcService: generateImage error: $e');

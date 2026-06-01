@@ -142,7 +142,8 @@ class StyledTextController extends TextEditingController
   }) {
     final text = this.text;
     final matches = _pattern.allMatches(text);
-    final useSpellCheck = _lastCheckedText == text && _misspelledRanges.isNotEmpty;
+    final useSpellCheck =
+        _lastCheckedText == text && _misspelledRanges.isNotEmpty;
 
     // Build a list of (text, style, offset) for each colored segment.
     final segments = <({String text, TextStyle? style, int offset})>[];
@@ -164,7 +165,11 @@ class StyledTextController extends TextEditingController
           addSegment(
             matchText,
             style?.copyWith(
-              color: AppColors.resolve(context, Colors.amberAccent, const Color(0xFFB45309)),
+              color: AppColors.resolve(
+                context,
+                Colors.amberAccent,
+                const Color(0xFFB45309),
+              ),
               fontWeight: FontWeight.w500,
             ),
             match.start,
@@ -173,7 +178,11 @@ class StyledTextController extends TextEditingController
           addSegment(
             matchText,
             style?.copyWith(
-              color: AppColors.resolve(context, const Color(0xFF90CAF9), const Color(0xFF1565C0)),
+              color: AppColors.resolve(
+                context,
+                const Color(0xFF90CAF9),
+                const Color(0xFF1565C0),
+              ),
             ),
             match.start,
           );
@@ -187,7 +196,9 @@ class StyledTextController extends TextEditingController
 
     if (!useSpellCheck) {
       return TextSpan(
-        children: segments.map((s) => TextSpan(text: s.text, style: s.style)).toList(),
+        children: segments
+            .map((s) => TextSpan(text: s.text, style: s.style))
+            .toList(),
         style: style,
       );
     }
@@ -225,23 +236,26 @@ class StyledTextController extends TextEditingController
       for (final isect in intersecting) {
         final localStart = (isect.start - seg.offset).clamp(0, seg.text.length);
         if (localStart > splitAt) {
-          children.add(TextSpan(
-            text: seg.text.substring(splitAt, localStart),
-            style: seg.style,
-          ));
+          children.add(
+            TextSpan(
+              text: seg.text.substring(splitAt, localStart),
+              style: seg.style,
+            ),
+          );
         }
         final localEnd = (isect.end - seg.offset).clamp(0, seg.text.length);
-        children.add(TextSpan(
-          text: seg.text.substring(localStart, localEnd),
-          style: seg.style?.merge(misspelledTextStyle) ?? misspelledTextStyle,
-        ));
+        children.add(
+          TextSpan(
+            text: seg.text.substring(localStart, localEnd),
+            style: seg.style?.merge(misspelledTextStyle) ?? misspelledTextStyle,
+          ),
+        );
         splitAt = localEnd;
       }
       if (splitAt < seg.text.length) {
-        children.add(TextSpan(
-          text: seg.text.substring(splitAt),
-          style: seg.style,
-        ));
+        children.add(
+          TextSpan(text: seg.text.substring(splitAt), style: seg.style),
+        );
       }
     }
 
@@ -454,7 +468,10 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       final locale = PlatformDispatcher.instance.locale;
-      final results = await _spellService.fetchSpellCheckSuggestions(locale, text);
+      final results = await _spellService.fetchSpellCheckSuggestions(
+        locale,
+        text,
+      );
       if (!mounted) return;
       if (text != _controller.text) return;
       if (results != null && results.isNotEmpty) {
@@ -472,7 +489,10 @@ class _ChatPageState extends State<ChatPage> {
       // If text changed during the request, schedule a retry.
       if (_controller.text != text) {
         _spellDebounce?.cancel();
-        _spellDebounce = Timer(const Duration(milliseconds: 300), _trySpellCheck);
+        _spellDebounce = Timer(
+          const Duration(milliseconds: 300),
+          _trySpellCheck,
+        );
       }
     }
   }
@@ -545,8 +565,8 @@ class _ChatPageState extends State<ChatPage> {
                                 'waifu_beach':
                                     'assets/backgrounds/waifu_beach.png',
                               };
-                               final bgPath = bgAssets[bgKey];
-                               final bgPathExists = bgPath != null;
+                              final bgPath = bgAssets[bgKey];
+                              final bgPathExists = bgPath != null;
 
                               // Check for matching custom background
                               Map<String, String>? customEntry;
@@ -556,122 +576,128 @@ class _ChatPageState extends State<ChatPage> {
                                       .firstWhere((e) => e['id'] == bgKey);
                                 } catch (_) {}
                               }
-                              final hasCustomBg = customEntry != null &&
+                              final hasCustomBg =
+                                  customEntry != null &&
                                   File(customEntry['filePath']!).existsSync();
 
                               return Stack(
                                 children: [
-                                   if (bgPath != null) ...[
-                                     Positioned.fill(
-                                       child: IgnorePointer(
-                                         child: Image.asset(
-                                           bgPath,
-                                           fit: BoxFit.cover,
-                                         ),
-                                       ),
-                                     ),
-                                   ],
+                                  if (bgPath != null) ...[
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: Image.asset(
+                                          bgPath,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                   // Expression background sprite
                                   Consumer<ChatService>(
                                     builder: (context, chat, _) {
-                                      final storage = Provider.of<StorageService>(
-                                        context,
-                                        listen: false,
-                                      );
+                                      final storage =
+                                          Provider.of<StorageService>(
+                                            context,
+                                            listen: false,
+                                          );
                                       final displayMode =
                                           storage.expressionDisplayMode;
-                                      final isEnabled = storage.expressionEnabled;
+                                      final isEnabled =
+                                          storage.expressionEnabled;
                                       if (!isEnabled ||
-                                           displayMode == 'sidebar' ||
-                                           chat.isEvaluatingRealism) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        final char = character;
-                                        if (char == null ||
-                                            char.avatarImages == null ||
-                                            char.avatarImages!.isEmpty) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        final avatar = chat.resolveExpressionAvatar(
-                                        char,
-                                        rerollIfSame: storage.expressionRerollSame,
-                                      );
+                                          displayMode == 'sidebar' ||
+                                          chat.isEvaluatingRealism) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final char = character;
+                                      if (char == null ||
+                                          char.avatarImages == null ||
+                                          char.avatarImages!.isEmpty) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final avatar = chat
+                                          .resolveExpressionAvatar(
+                                            char,
+                                            rerollIfSame:
+                                                storage.expressionRerollSame,
+                                          );
                                       if (avatar == null) {
                                         return const SizedBox.shrink();
                                       }
-                                      final avatarDir = storage.characterAvatarDir(
-                                        char.name,
-                                      );
+                                      final avatarDir = storage
+                                          .characterAvatarDir(char.name);
                                       final avatarFile = File(
                                         '${avatarDir.path}/${avatar.filename}',
                                       );
-                                       return Positioned.fill(
-                                         child: IgnorePointer(
-                                           child: AnimatedSwitcher(
-                                             duration: const Duration(
-                                               milliseconds: 500,
-                                             ),
-                                              child: Stack(
-                                                key: ValueKey(
-                                                  'expr_bg_${avatar.id}',
-                                                ),
-                                                fit: StackFit.expand,
-                                                children: [
-                                                  Image.file(
-                                                    avatarFile,
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                                                  ),
-                                                  Container(
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.black.withValues(alpha: 0.85),
-                                                    ),
-                                                  ),
-                                                ],
+                                      return Positioned.fill(
+                                        child: IgnorePointer(
+                                          child: AnimatedSwitcher(
+                                            duration: const Duration(
+                                              milliseconds: 500,
+                                            ),
+                                            child: Stack(
+                                              key: ValueKey(
+                                                'expr_bg_${avatar.id}',
                                               ),
-                                           ),
-                                         ),
-                                       );
+                                              fit: StackFit.expand,
+                                              children: [
+                                                Image.file(
+                                                  avatarFile,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, _, _) =>
+                                                      const SizedBox.shrink(),
+                                                ),
+                                                Container(
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.black
+                                                        .withValues(
+                                                          alpha: 0.85,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
                                     },
                                   ),
-                                   if (bgPath != null)
-                                     Positioned.fill(
-                                       child: IgnorePointer(
-                                         child: Container(
-                                           color: Colors.black.withValues(
-                                             alpha: 0.45,
-                                           ),
-                                         ),
-                                       ),
-                                       ),
-                                    if (!bgPathExists && hasCustomBg) ...[
-                                     Positioned.fill(
-                                       child: IgnorePointer(
-                                         child: Container(
-                                           decoration: BoxDecoration(
-                                             image: DecorationImage(
-                                               image: FileImage(
-                                                 File(
-                                                   customEntry['filePath']!,
-                                                 ),
-                                               ),
-                                               fit: BoxFit.cover,
-                                             ),
-                                           ),
-                                         ),
-                                       ),
-                                     ),
-                                     Positioned.fill(
-                                       child: IgnorePointer(
-                                         child: Container(
-                                           color: Colors.black.withValues(
-                                             alpha: 0.45,
-                                           ),
-                                         ),
-                                       ),
-                                     ),
-                                   ],
-                                   ListView.builder(
+                                  if (bgPath != null)
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: Container(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.45,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  if (!bgPathExists && hasCustomBg) ...[
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            image: DecorationImage(
+                                              image: FileImage(
+                                                File(customEntry['filePath']!),
+                                              ),
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: Container(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.45,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  ListView.builder(
                                     controller: _scrollController,
                                     reverse: true,
                                     padding: const EdgeInsets.all(20),
@@ -711,182 +737,184 @@ class _ChatPageState extends State<ChatPage> {
                                               )
                                             : null;
                                       }
-                                       return _MessageBubble(
-                                         key: ObjectKey(msg),
-                                         message: msg,
-                                         characterImage: senderImage,
-                                         index: reversedIndex,
-                                         senderColor: senderColor,
-                                         externalImagesAllowed:
-                                             _externalImagesAllowed,
-                                         onRequestImagePermission: () async {
-                                           if (_externalImagesAllowed != null) {
-                                             return _externalImagesAllowed!;
-                                           }
-                                           // Check persisted consent first
-                                           if (!_imageConsentChecked) {
-                                             _imageConsentChecked = true;
-                                             final prefs =
-                                                 await SharedPreferences.getInstance();
-                                             final consented =
-                                                 prefs.getStringList(
-                                                   'image_consent_characters',
-                                                 ) ??
-                                                 [];
-                                             final charName =
-                                                 Provider.of<ChatService>(
-                                                   context,
-                                                   listen: false,
-                                                 ).activeCharacter?.name ??
-                                                 '';
-                                             if (charName.isNotEmpty &&
-                                                 consented.contains(charName)) {
-                                               if (mounted) {
-                                                 setState(
-                                                   () => _externalImagesAllowed =
-                                                       true,
-                                                 );
-                                               }
-                                               return true;
-                                             }
-                                           }
-                                           final result = await showDialog<bool>(
-                                             context: context,
-                                             barrierDismissible: false,
-                                             builder: (ctx) => AlertDialog(
-                                               backgroundColor: const Color(
-                                                 0xFF1E293B,
-                                               ),
-                                               shape: RoundedRectangleBorder(
-                                                 borderRadius:
-                                                     BorderRadius.circular(16),
-                                               ),
-                                               icon: const Icon(
-                                                 Icons.shield_outlined,
-                                                 color: Colors.orangeAccent,
-                                                 size: 36,
-                                               ),
-                                               title: const Text(
-                                                 'External Image Detected',
-                                                 style: TextStyle(
-                                                   color: Colors.white,
-                                                   fontSize: 18,
-                                                   fontWeight: FontWeight.bold,
-                                                 ),
-                                               ),
-                                               content: Column(
-                                                 mainAxisSize: MainAxisSize.min,
-                                                 crossAxisAlignment:
-                                                     CrossAxisAlignment.start,
-                                                 children: [
-                                                   const Text(
-                                                     'This message contains images hosted on an external server. '
-                                                     'Loading them carries security risks:',
-                                                     style: TextStyle(
-                                                       color: Colors.white70,
-                                                       fontSize: 13,
-                                                       height: 1.5,
-                                                     ),
-                                                   ),
-                                                   const SizedBox(height: 12),
-                                                   _buildRiskItem(
-                                                     Icons.visibility,
-                                                     'Your IP address will be exposed to the image host',
-                                                   ),
-                                                   _buildRiskItem(
-                                                     Icons.bug_report,
-                                                     'Maliciously crafted images could potentially exploit vulnerabilities',
-                                                   ),
-                                                   _buildRiskItem(
-                                                     Icons.track_changes,
-                                                     'The URL may be used for tracking',
-                                                   ),
-                                                   const SizedBox(height: 16),
-                                                   Text(
-                                                     'The source has not been verified as safe.',
-                                                     style: TextStyle(
-                                                       color: Colors.orangeAccent
-                                                           .withValues(
-                                                             alpha: 0.8,
-                                                           ),
-                                                       fontSize: 12,
-                                                       fontWeight:
-                                                           FontWeight.w600,
-                                                     ),
-                                                   ),
-                                                 ],
-                                               ),
-                                               actions: [
-                                                 TextButton(
-                                                   onPressed: () =>
-                                                       Navigator.pop(ctx, false),
-                                                   child: const Text(
-                                                     'Block Images',
-                                                     style: TextStyle(
-                                                       color: Colors.white54,
-                                                     ),
-                                                   ),
-                                                 ),
-                                                 ElevatedButton(
-                                                   onPressed: () =>
-                                                       Navigator.pop(ctx, true),
-                                                   style:
-                                                       ElevatedButton.styleFrom(
-                                                         backgroundColor:
-                                                             Colors.orangeAccent,
-                                                         foregroundColor:
-                                                             Colors.black87,
-                                                       ),
-                                                   child: const Text(
-                                                     'Accept Risk & Load',
-                                                   ),
-                                                 ),
-                                               ],
-                                             ),
-                                           );
-                                           final allowed = result ?? false;
-                                           if (allowed) {
-                                             // Persist consent for this character
-                                             final prefs =
-                                                 await SharedPreferences.getInstance();
-                                             final charName =
-                                                 Provider.of<ChatService>(
-                                                   context,
-                                                   listen: false,
-                                                 ).activeCharacter?.name ??
-                                                 '';
-                                             if (charName.isNotEmpty) {
-                                               final consented =
-                                                   prefs.getStringList(
-                                                     'image_consent_characters',
-                                                   ) ??
-                                                   [];
-                                               if (!consented.contains(
-                                                 charName,
-                                               )) {
-                                                 consented.add(charName);
-                                                 await prefs.setStringList(
-                                                   'image_consent_characters',
-                                                   consented,
-                                                 );
-                                               }
-                                             }
-                                           }
-                                           if (mounted) {
-                                             setState(
-                                               () => _externalImagesAllowed =
-                                                   allowed,
-                                             );
-                                           }
-                                           return allowed;
-                                         },
-                                         character: isGroup && !msg.isUser
-                                             ? chatService.groupCharacters
-                                                 .where((c) => c.name == msg.sender)
-                                                 .firstOrNull
-                                             : character,
-                                         chatService: chatService,
-                                       );
+                                      return _MessageBubble(
+                                        key: ObjectKey(msg),
+                                        message: msg,
+                                        characterImage: senderImage,
+                                        index: reversedIndex,
+                                        senderColor: senderColor,
+                                        externalImagesAllowed:
+                                            _externalImagesAllowed,
+                                        onRequestImagePermission: () async {
+                                          if (_externalImagesAllowed != null) {
+                                            return _externalImagesAllowed!;
+                                          }
+                                          // Check persisted consent first
+                                          if (!_imageConsentChecked) {
+                                            _imageConsentChecked = true;
+                                            final prefs =
+                                                await SharedPreferences.getInstance();
+                                            final consented =
+                                                prefs.getStringList(
+                                                  'image_consent_characters',
+                                                ) ??
+                                                [];
+                                            final charName =
+                                                Provider.of<ChatService>(
+                                                  context,
+                                                  listen: false,
+                                                ).activeCharacter?.name ??
+                                                '';
+                                            if (charName.isNotEmpty &&
+                                                consented.contains(charName)) {
+                                              if (mounted) {
+                                                setState(
+                                                  () => _externalImagesAllowed =
+                                                      true,
+                                                );
+                                              }
+                                              return true;
+                                            }
+                                          }
+                                          final result = await showDialog<bool>(
+                                            context: context,
+                                            barrierDismissible: false,
+                                            builder: (ctx) => AlertDialog(
+                                              backgroundColor: const Color(
+                                                0xFF1E293B,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                              ),
+                                              icon: const Icon(
+                                                Icons.shield_outlined,
+                                                color: Colors.orangeAccent,
+                                                size: 36,
+                                              ),
+                                              title: const Text(
+                                                'External Image Detected',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              content: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text(
+                                                    'This message contains images hosted on an external server. '
+                                                    'Loading them carries security risks:',
+                                                    style: TextStyle(
+                                                      color: Colors.white70,
+                                                      fontSize: 13,
+                                                      height: 1.5,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  _buildRiskItem(
+                                                    Icons.visibility,
+                                                    'Your IP address will be exposed to the image host',
+                                                  ),
+                                                  _buildRiskItem(
+                                                    Icons.bug_report,
+                                                    'Maliciously crafted images could potentially exploit vulnerabilities',
+                                                  ),
+                                                  _buildRiskItem(
+                                                    Icons.track_changes,
+                                                    'The URL may be used for tracking',
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  Text(
+                                                    'The source has not been verified as safe.',
+                                                    style: TextStyle(
+                                                      color: Colors.orangeAccent
+                                                          .withValues(
+                                                            alpha: 0.8,
+                                                          ),
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, false),
+                                                  child: const Text(
+                                                    'Block Images',
+                                                    style: TextStyle(
+                                                      color: Colors.white54,
+                                                    ),
+                                                  ),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, true),
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                        backgroundColor:
+                                                            Colors.orangeAccent,
+                                                        foregroundColor:
+                                                            Colors.black87,
+                                                      ),
+                                                  child: const Text(
+                                                    'Accept Risk & Load',
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          final allowed = result ?? false;
+                                          if (allowed) {
+                                            // Persist consent for this character
+                                            final prefs =
+                                                await SharedPreferences.getInstance();
+                                            final charName =
+                                                Provider.of<ChatService>(
+                                                  context,
+                                                  listen: false,
+                                                ).activeCharacter?.name ??
+                                                '';
+                                            if (charName.isNotEmpty) {
+                                              final consented =
+                                                  prefs.getStringList(
+                                                    'image_consent_characters',
+                                                  ) ??
+                                                  [];
+                                              if (!consented.contains(
+                                                charName,
+                                              )) {
+                                                consented.add(charName);
+                                                await prefs.setStringList(
+                                                  'image_consent_characters',
+                                                  consented,
+                                                );
+                                              }
+                                            }
+                                          }
+                                          if (mounted) {
+                                            setState(
+                                              () => _externalImagesAllowed =
+                                                  allowed,
+                                            );
+                                          }
+                                          return allowed;
+                                        },
+                                        character: isGroup && !msg.isUser
+                                            ? chatService.groupCharacters
+                                                  .where(
+                                                    (c) => c.name == msg.sender,
+                                                  )
+                                                  .firstOrNull
+                                            : character,
+                                        chatService: chatService,
+                                      );
                                     },
                                   ),
                                 ],
@@ -996,7 +1024,10 @@ class _ChatPageState extends State<ChatPage> {
                   character.description.length > 30
                       ? '${character.description.substring(0, 30)}...'
                       : character.description,
-                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary(context)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textTertiary(context),
+                  ),
                 ),
             ],
           ),
@@ -1043,11 +1074,19 @@ class _ChatPageState extends State<ChatPage> {
                     left: i * 16.0,
                     child: Tooltip(
                       message: () {
-                        if (!chatService.isGroupRealismActive) return chars[i].name;
-                        final emo = chatService.getEmotionForGroupCharacter(chars[i]);
-                        final fix = chatService.getFixationForGroupCharacter(chars[i]);
-                        final base = '${chars[i].name}${emo != null ? ' • $emo' : ''}';
-                        return fix != null && fix.isNotEmpty ? '$base\nFixated: $fix' : base;
+                        if (!chatService.isGroupRealismActive)
+                          return chars[i].name;
+                        final emo = chatService.getEmotionForGroupCharacter(
+                          chars[i],
+                        );
+                        final fix = chatService.getFixationForGroupCharacter(
+                          chars[i],
+                        );
+                        final base =
+                            '${chars[i].name}${emo != null ? ' • $emo' : ''}';
+                        return fix != null && fix.isNotEmpty
+                            ? '$base\nFixated: $fix'
+                            : base;
                       }(),
                       child: Container(
                         decoration: BoxDecoration(
@@ -1055,7 +1094,9 @@ class _ChatPageState extends State<ChatPage> {
                           border: chatService.isGroupRealismActive
                               ? Border.all(
                                   color: EmotionLabels.ringColor(
-                                    chatService.getEmotionForGroupCharacter(chars[i]),
+                                    chatService.getEmotionForGroupCharacter(
+                                      chars[i],
+                                    ),
                                   ),
                                   width: 2.0,
                                 )
@@ -1065,7 +1106,9 @@ class _ChatPageState extends State<ChatPage> {
                           radius: 16,
                           backgroundColor: _groupCharacterColor(i),
                           backgroundImage: chars[i].imagePath != null
-                              ? FileImage(_resolveCharImage(chars[i].imagePath!))
+                              ? FileImage(
+                                  _resolveCharImage(chars[i].imagePath!),
+                                )
                               : null,
                           child: chars[i].imagePath == null
                               ? Text(
@@ -1097,7 +1140,10 @@ class _ChatPageState extends State<ChatPage> {
               ),
               Text(
                 '${chars.length} characters • ${group.turnOrder.name}',
-                style: TextStyle(fontSize: 12, color: AppColors.textTertiary(context)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textTertiary(context),
+                ),
               ),
             ],
           ),
@@ -1133,46 +1179,12 @@ class _ChatPageState extends State<ChatPage> {
     return colors[index % colors.length];
   }
 
-  /// Simple emotion → accent color for the realism ring around avatars.
-  Color _emotionColor(String? emotion) {
-    if (emotion == null) return Colors.grey;
-    switch (emotion.toLowerCase()) {
-      case 'joy':
-      case 'amusement':
-      case 'excitement':
-        return Colors.amber;
-      case 'sadness':
-      case 'grief':
-      case 'disappointment':
-        return Colors.blueGrey;
-      case 'anger':
-      case 'annoyance':
-        return Colors.redAccent;
-      case 'fear':
-      case 'nervousness':
-        return Colors.deepPurpleAccent;
-      case 'love':
-      case 'affection':
-      case 'caring':
-        return Colors.pinkAccent;
-      case 'surprise':
-      case 'curiosity':
-        return Colors.cyanAccent;
-      default:
-        return Colors.tealAccent;
-    }
-  }
-
-
-
   void _showGroupSettingsDialog(ChatService chatService) {
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
     showDialog(
       context: context,
-      builder: (dialogContext) => GroupSettingsDialog(
-        chatService: chatService,
-        groupRepo: groupRepo,
-      ),
+      builder: (dialogContext) =>
+          GroupSettingsDialog(chatService: chatService, groupRepo: groupRepo),
     );
   }
 
@@ -1626,7 +1638,11 @@ class _ChatPageState extends State<ChatPage> {
                   Icon(
                     Icons.check_circle,
                     size: 20,
-                    color: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                    color: AppColors.resolve(
+                      context,
+                      Colors.tealAccent,
+                      Colors.teal.shade700,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   const Text(
@@ -1646,7 +1662,11 @@ class _ChatPageState extends State<ChatPage> {
                         'Evolved $count time${count > 1 ? "s" : ""}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                          color: AppColors.resolve(
+                            context,
+                            Colors.tealAccent,
+                            Colors.teal.shade700,
+                          ),
                         ),
                       ),
                       if (evolvedP != null && evolvedP.isNotEmpty) ...[
@@ -1656,7 +1676,11 @@ class _ChatPageState extends State<ChatPage> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                            color: AppColors.resolve(
+                              context,
+                              Colors.tealAccent,
+                              Colors.teal.shade700,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -1667,7 +1691,11 @@ class _ChatPageState extends State<ChatPage> {
                             color: AppColors.surfaceContainerOf(context),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: AppColors.resolve(context, Colors.tealAccent.withValues(alpha: 0.3), Colors.teal.shade200.withValues(alpha: 0.4)),
+                              color: AppColors.resolve(
+                                context,
+                                Colors.tealAccent.withValues(alpha: 0.3),
+                                Colors.teal.shade200.withValues(alpha: 0.4),
+                              ),
                             ),
                           ),
                           constraints: const BoxConstraints(maxHeight: 120),
@@ -1689,7 +1717,11 @@ class _ChatPageState extends State<ChatPage> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                            color: AppColors.resolve(
+                              context,
+                              Colors.tealAccent,
+                              Colors.teal.shade700,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -1700,7 +1732,11 @@ class _ChatPageState extends State<ChatPage> {
                             color: AppColors.surfaceContainerOf(context),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: AppColors.resolve(context, Colors.tealAccent.withValues(alpha: 0.3), Colors.teal.shade200.withValues(alpha: 0.4)),
+                              color: AppColors.resolve(
+                                context,
+                                Colors.tealAccent.withValues(alpha: 0.3),
+                                Colors.teal.shade200.withValues(alpha: 0.4),
+                              ),
                             ),
                           ),
                           constraints: const BoxConstraints(maxHeight: 120),
@@ -1940,7 +1976,9 @@ class _ChatPageState extends State<ChatPage> {
                                 final confirm = await showDialog<bool>(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
-                                    backgroundColor: AppColors.surfaceOf(context),
+                                    backgroundColor: AppColors.surfaceOf(
+                                      context,
+                                    ),
                                     title: const Text('Delete Chat?'),
                                     content: Text(
                                       'This will permanently delete this chat and all its messages.\n\n"${s['preview']}"',
@@ -2262,7 +2300,7 @@ class _ChatPageState extends State<ChatPage> {
       scenario: character?.scenario,
       worldInfo: worldInfo,
       personaName: personaService.persona.name,
-                  personaText: personaService.persona.persona,
+      personaText: personaService.persona.persona,
       recentMessages: recentMessages,
       llmService: llmService,
       onAccept: onAccept,
@@ -2316,7 +2354,8 @@ class _ChatPageState extends State<ChatPage> {
               cursor: SystemMouseCursors.resizeRow,
               child: GestureDetector(
                 onVerticalDragStart: (_) => _dragAccumulator = 0,
-                onVerticalDragUpdate: (details) => _handleInputResize(details.delta.dy),
+                onVerticalDragUpdate: (details) =>
+                    _handleInputResize(details.delta.dy),
                 onVerticalDragEnd: (_) => _dragAccumulator = 0,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
@@ -2328,7 +2367,11 @@ class _ChatPageState extends State<ChatPage> {
                       height: 3,
                       width: 50,
                       decoration: BoxDecoration(
-                        color: AppColors.resolve(context, Colors.white38, Colors.black38),
+                        color: AppColors.resolve(
+                          context,
+                          Colors.white38,
+                          Colors.black38,
+                        ),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -2340,510 +2383,541 @@ class _ChatPageState extends State<ChatPage> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.surfaceContainerOf(context),
-                border: Border(top: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.35))),
+                border: Border(
+                  top: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.35),
+                  ),
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
 
                 children: [
                   // Persona Switcher
-              Consumer<UserPersonaService>(
-                builder: (context, personaService, _) {
-                  final persona = personaService.persona;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0, bottom: 6),
-                    child: GestureDetector(
-                      onTap: () => showDialog(
-                        context: context,
-                        builder: (_) => const UserPersonaDialog(),
-                      ),
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: AppColors.resolve(context, Colors.white24, Colors.black12),
-                        backgroundImage: persona.avatarPath != null
-                            ? FileImage(File(persona.avatarPath!))
-                            : null,
-                        child: persona.avatarPath == null
-                            ? Icon(
-                                Icons.person,
-                                size: 18,
-                                color: AppColors.iconSecondary(context),
-                              )
-                            : null,
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              // Chat Management Menu
-              PopupMenuButton<String>(
-                icon: Icon(Icons.folder_open, color: AppColors.iconSecondary(context)),
-                padding: EdgeInsets.zero,
-                tooltip: 'Chat Management',
-                onSelected: (value) {
-                  if (value == 'new_chat') {
-                    _showClearChatConfirmation(context);
-                  } else if (value == 'history') {
-                    _showHistoryDialog(context);
-                  } else if (value == 'import') {
-                    _importChat();
-                  } else if (value == 'export') {
-                    _exportChat();
-                  } else if (value == 'evolution') {
-                    _showEvolutionDialog(context, chatService);
-                  } else if (value == 'context') {
-                    showDialog(
-                      context: context,
-                      builder: (_) =>
-                          ContextViewerDialog(chatService: chatService),
-                    );
-                  } else if (value == 'fork_group') {
-                    _showForkToGroupDialog(context, chatService);
-                  } else if (value == 'kobold_log') {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const KoboldLogDialog(),
-                    );
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'new_chat',
-                    child: Row(
-                      children: [
-                        Icon(Icons.chat_bubble_outline, size: 20),
-                        SizedBox(width: 12),
-                        Text('New Chat'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'history',
-                    child: Row(
-                      children: [
-                        Icon(Icons.history, size: 20),
-                        SizedBox(width: 12),
-                        Text('Chat History'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'import',
-                    child: Row(
-                      children: [
-                        Icon(Icons.file_upload, size: 20),
-                        SizedBox(width: 12),
-                        Text('Import Chat'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'export',
-                    child: Row(
-                      children: [
-                        Icon(Icons.file_download, size: 20),
-                        SizedBox(width: 12),
-                        Text('Export Chat'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'context',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.analytics_outlined,
-                          size: 20,
-                          color: Colors.cyanAccent,
-                        ),
-                        SizedBox(width: 12),
-                        Text('Context Budget'),
-                      ],
-                    ),
-                  ),
-                  if (chatService.activeCharacter != null &&
-                      Provider.of<StorageService>(
-                        context,
-                        listen: false,
-                      ).characterEvolutionEnabled)
-                    PopupMenuItem(
-                      value: 'evolution',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.psychology_alt,
-                            size: 20,
-                            color: Colors.tealAccent,
+                  Consumer<UserPersonaService>(
+                    builder: (context, personaService, _) {
+                      final persona = personaService.persona;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0, bottom: 6),
+                        child: GestureDetector(
+                          onTap: () => showDialog(
+                            context: context,
+                            builder: (_) => const UserPersonaDialog(),
                           ),
-                          SizedBox(width: 12),
-                          Text('Character Evolution'),
-                        ],
-                      ),
-                    ),
-                  if (chatService.activeCharacter != null)
-                    const PopupMenuItem(
-                      value: 'fork_group',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.group_add,
-                            size: 20,
-                            color: Colors.purpleAccent,
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: AppColors.resolve(
+                              context,
+                              Colors.white24,
+                              Colors.black12,
+                            ),
+                            backgroundImage: persona.avatarPath != null
+                                ? FileImage(File(persona.avatarPath!))
+                                : null,
+                            child: persona.avatarPath == null
+                                ? Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: AppColors.iconSecondary(context),
+                                  )
+                                : null,
                           ),
-                          SizedBox(width: 12),
-                          Text('Fork to Group Chat'),
-                        ],
-                      ),
-                    ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'kobold_log',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.terminal,
-                          size: 20,
-                          color: Colors.greenAccent,
                         ),
-                        SizedBox(width: 12),
-                        Text('KoboldCpp Log'),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                ],
-              ),
 
-              // Image Generation Menu
-              Consumer<StorageService>(
-                builder: (context, storage, _) {
-                  if (!storage.imageGenEnabled) return const SizedBox.shrink();
-                  return PopupMenuButton<ImageGenMode>(
-                    icon: const Icon(
-                      Icons.auto_awesome,
-                      color: Colors.purpleAccent,
+                  // Chat Management Menu
+                  PopupMenuButton<String>(
+                    icon: Icon(
+                      Icons.folder_open,
+                      color: AppColors.iconSecondary(context),
                     ),
                     padding: EdgeInsets.zero,
-                    tooltip: 'Generate Image',
-                    onSelected: (mode) =>
-                        _showImageGenDialog(context, chatService, mode),
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: ImageGenMode.customPrompt,
+                    tooltip: 'Chat Management',
+                    onSelected: (value) {
+                      if (value == 'new_chat') {
+                        _showClearChatConfirmation(context);
+                      } else if (value == 'history') {
+                        _showHistoryDialog(context);
+                      } else if (value == 'import') {
+                        _importChat();
+                      } else if (value == 'export') {
+                        _exportChat();
+                      } else if (value == 'evolution') {
+                        _showEvolutionDialog(context, chatService);
+                      } else if (value == 'context') {
+                        showDialog(
+                          context: context,
+                          builder: (_) =>
+                              ContextViewerDialog(chatService: chatService),
+                        );
+                      } else if (value == 'fork_group') {
+                        _showForkToGroupDialog(context, chatService);
+                      } else if (value == 'kobold_log') {
+                        showDialog(
+                          context: context,
+                          builder: (_) => const KoboldLogDialog(),
+                        );
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'new_chat',
+                        child: Row(
+                          children: [
+                            Icon(Icons.chat_bubble_outline, size: 20),
+                            SizedBox(width: 12),
+                            Text('New Chat'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'history',
+                        child: Row(
+                          children: [
+                            Icon(Icons.history, size: 20),
+                            SizedBox(width: 12),
+                            Text('Chat History'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'import',
+                        child: Row(
+                          children: [
+                            Icon(Icons.file_upload, size: 20),
+                            SizedBox(width: 12),
+                            Text('Import Chat'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'export',
+                        child: Row(
+                          children: [
+                            Icon(Icons.file_download, size: 20),
+                            SizedBox(width: 12),
+                            Text('Export Chat'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'context',
                         child: Row(
                           children: [
                             Icon(
-                              Icons.brush,
+                              Icons.analytics_outlined,
                               size: 20,
-                              color: Colors.purpleAccent,
+                              color: Colors.cyanAccent,
                             ),
                             SizedBox(width: 12),
-                            Text('Custom Prompt'),
+                            Text('Context Budget'),
                           ],
                         ),
                       ),
-                      PopupMenuItem(
-                        value: ImageGenMode.visualizeScene,
+                      if (chatService.activeCharacter != null &&
+                          Provider.of<StorageService>(
+                            context,
+                            listen: false,
+                          ).characterEvolutionEnabled)
+                        PopupMenuItem(
+                          value: 'evolution',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.psychology_alt,
+                                size: 20,
+                                color: Colors.tealAccent,
+                              ),
+                              SizedBox(width: 12),
+                              Text('Character Evolution'),
+                            ],
+                          ),
+                        ),
+                      if (chatService.activeCharacter != null)
+                        const PopupMenuItem(
+                          value: 'fork_group',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.group_add,
+                                size: 20,
+                                color: Colors.purpleAccent,
+                              ),
+                              SizedBox(width: 12),
+                              Text('Fork to Group Chat'),
+                            ],
+                          ),
+                        ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'kobold_log',
                         child: Row(
                           children: [
                             Icon(
-                              Icons.landscape,
+                              Icons.terminal,
                               size: 20,
-                              color: Colors.green,
+                              color: Colors.greenAccent,
                             ),
                             SizedBox(width: 12),
-                            Text('Visualize Scene'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: ImageGenMode.fromLastMessage,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.chat_bubble_outline,
-                              size: 20,
-                              color: Colors.blueAccent,
-                            ),
-                            SizedBox(width: 12),
-                            Text('From Last Message'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuDivider(),
-                      PopupMenuItem(
-                        value: ImageGenMode.characterPortrait,
-                        child: Row(
-                          children: [
-                            Icon(Icons.face, size: 20, color: Colors.amber),
-                            SizedBox(width: 12),
-                            Text('Character Portrait'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: ImageGenMode.chatBackground,
-                        child: Row(
-                          children: [
-                            Icon(Icons.wallpaper, size: 20, color: Colors.teal),
-                            SizedBox(width: 12),
-                            Text('Chat Background'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: ImageGenMode.userAvatar,
-                        child: Row(
-                          children: [
-                            Icon(Icons.person, size: 20, color: Colors.orange),
-                            SizedBox(width: 12),
-                            Text('User Avatar'),
+                            Text('KoboldCpp Log'),
                           ],
                         ),
                       ),
                     ],
-                  );
-                },
-              ),
-
-              const SizedBox(width: 4),
-
-              Expanded(
-                child: AppTextField(
-                  controller: _controller,
-                  focusNode: _chatFocusNode,
-                  maxLines: 10,
-                  minLines: _inputMinLines,
-                  textInputAction: TextInputAction.newline,
-                  style: TextStyle(color: AppColors.textPrimary(context)),
-                  spellCheckConfiguration: SpellCheckConfiguration.disabled(),
-                  decoration: InputDecoration(
-                    hintText: chatService.observerMode
-                        ? 'Direct the scene...'
-                        : 'Type a message...',
-                    hintStyle: TextStyle(
-                      color: chatService.observerMode
-                          ? Colors.amberAccent.withValues(alpha: 0.6)
-                          : AppColors.textTertiary(context),
-                    ),
-                    filled: true,
-                    fillColor: AppColors.surfaceContainerOf(context),
-                    isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              // Impersonate button (magic wand — AI writes your next message)
-              Tooltip(
-                message: 'Impersonate (AI writes your message)',
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.auto_fix_high,
-                    color: Colors.amberAccent,
-                  ),
-                  padding: EdgeInsets.zero,
-                  onPressed: chatService.isGenerating
-                      ? null
-                      : () {
-                          final prefix = _controller.text;
-                          chatService.impersonateUser(
-                            prefix: prefix,
-                            onToken: (accumulated) {
-                              _controller.text = accumulated;
-                              _controller.selection =
-                                  TextSelection.fromPosition(
-                                    TextPosition(offset: accumulated.length),
-                                  );
-                            },
-                          );
-                        },
-                ),
-              ),
-              // Mic button (push-to-talk STT)
-              Consumer2<SttService, StorageService>(
-                builder: (context, sttService, storage, _) {
-                  if (!storage.sttEnabled || !sttService.isEngineUsable) {
-                    return const SizedBox.shrink();
-                  }
-                  if (sttService.isTranscribing) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.blueAccent,
+
+                  // Image Generation Menu
+                  Consumer<StorageService>(
+                    builder: (context, storage, _) {
+                      if (!storage.imageGenEnabled)
+                        return const SizedBox.shrink();
+                      return PopupMenuButton<ImageGenMode>(
+                        icon: const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.purpleAccent,
                         ),
-                      ),
-                    );
-                  }
-                  return Tooltip(
-                    message: sttService.isRecording
-                        ? 'Stop recording'
-                        : 'Voice input',
-                    child: IconButton(
-                      icon: Icon(
-                        sttService.isRecording ? Icons.stop_circle : Icons.mic,
-                        color: sttService.isRecording
-                            ? Colors.redAccent
-                            : AppColors.iconSecondary(context),
-                      ),
-                      onPressed: chatService.isGenerating
-                          ? null
-                          : () async {
-                              if (sttService.isRecording) {
-                                final text = await sttService
-                                    .stopRecordingAndTranscribe();
-                                if (text != null && text.isNotEmpty) {
-                                  if (storage.autoSendTranscription &&
-                                      _controller.text.isEmpty) {
-                                    chatService.sendMessage(text);
-                                  } else {
-                                    _controller.text = _controller.text.isEmpty
-                                        ? text
-                                        : '${_controller.text} $text';
-                                    _controller.selection =
-                                        TextSelection.fromPosition(
-                                          TextPosition(
-                                            offset: _controller.text.length,
-                                          ),
-                                        );
-                                  }
-                                }
-                              } else {
-                                final micOk = await sttService
-                                    .checkMicAvailable();
-                                if (!micOk && context.mounted) {
-                                  _showNoMicDialog(context);
-                                  return;
-                                }
-                                await sttService.startRecording();
-                              }
-                            },
-                    ),
-                  );
-                },
-              ),
-              // Call button (voice call mode)
-              Consumer2<SttService, StorageService>(
-                builder: (context, sttService, storage, _) {
-                  if (!storage.sttEnabled ||
-                      !sttService.isEngineUsable ||
-                      chatService.isGroupMode) {
-                    return const SizedBox.shrink();
-                  }
-                  return Tooltip(
-                    message: 'Start voice call',
-                    child: IconButton(
-                      icon: const Icon(Icons.call, color: Colors.greenAccent),
-                      onPressed: chatService.isGenerating || sttService.isBusy
-                          ? null
-                          : () async {
-                              final micOk = await sttService
-                                  .checkMicAvailable();
-                              if (!micOk && context.mounted) {
-                                _showNoMicDialog(context);
-                                return;
-                              }
-                              setState(() => _isCallActive = true);
-                            },
-                    ),
-                  );
-                },
-              ),
-              // Auto-play button (observer mode only)
-              if (chatService.isGroupMode &&
-                  chatService.observerMode &&
-                  !chatService.isGenerating)
-                Tooltip(
-                  message: chatService.autoPlayActive
-                      ? 'Pause auto-chat'
-                      : 'Start auto-chat',
-                  child: IconButton(
-                    icon: Icon(
-                      chatService.autoPlayActive
-                          ? Icons.pause_circle_filled
-                          : Icons.play_circle_filled,
-                      color: chatService.autoPlayActive
-                          ? Colors.orangeAccent
-                          : Colors.amberAccent,
-                    ),
-                    onPressed: () {
-                      if (chatService.autoPlayActive) {
-                        chatService.stopAutoPlay();
-                      } else {
-                        chatService.startAutoPlay();
-                      }
+                        padding: EdgeInsets.zero,
+                        tooltip: 'Generate Image',
+                        onSelected: (mode) =>
+                            _showImageGenDialog(context, chatService, mode),
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: ImageGenMode.customPrompt,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.brush,
+                                  size: 20,
+                                  color: Colors.purpleAccent,
+                                ),
+                                SizedBox(width: 12),
+                                Text('Custom Prompt'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: ImageGenMode.visualizeScene,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.landscape,
+                                  size: 20,
+                                  color: Colors.green,
+                                ),
+                                SizedBox(width: 12),
+                                Text('Visualize Scene'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: ImageGenMode.fromLastMessage,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 20,
+                                  color: Colors.blueAccent,
+                                ),
+                                SizedBox(width: 12),
+                                Text('From Last Message'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuDivider(),
+                          PopupMenuItem(
+                            value: ImageGenMode.characterPortrait,
+                            child: Row(
+                              children: [
+                                Icon(Icons.face, size: 20, color: Colors.amber),
+                                SizedBox(width: 12),
+                                Text('Character Portrait'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: ImageGenMode.chatBackground,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.wallpaper,
+                                  size: 20,
+                                  color: Colors.teal,
+                                ),
+                                SizedBox(width: 12),
+                                Text('Chat Background'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: ImageGenMode.userAvatar,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.person,
+                                  size: 20,
+                                  color: Colors.orange,
+                                ),
+                                SizedBox(width: 12),
+                                Text('User Avatar'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
                     },
                   ),
-                ),
-              // Next Character button (group mode only, not in auto-play)
-              if (chatService.isGroupMode &&
-                  !chatService.isGenerating &&
-                  !chatService.autoPlayActive)
-                Tooltip(
-                  message: chatService.nextCharacter != null
-                      ? 'Next: ${chatService.nextCharacter!.name}'
-                      : 'Trigger next character',
-                  child: IconButton(
-                    icon: const Icon(Icons.group, color: Colors.purpleAccent),
-                    onPressed: () => chatService.triggerNextCharacter(),
-                  ),
-                ),
-              chatService.isGenerating
-                  ? IconButton(
-                      icon: const Icon(
-                        Icons.stop_circle,
-                        color: Colors.redAccent,
+
+                  const SizedBox(width: 4),
+
+                  Expanded(
+                    child: AppTextField(
+                      controller: _controller,
+                      focusNode: _chatFocusNode,
+                      maxLines: 10,
+                      minLines: _inputMinLines,
+                      textInputAction: TextInputAction.newline,
+                      style: TextStyle(color: AppColors.textPrimary(context)),
+                      spellCheckConfiguration:
+                          SpellCheckConfiguration.disabled(),
+                      decoration: InputDecoration(
+                        hintText: chatService.observerMode
+                            ? 'Direct the scene...'
+                            : 'Type a message...',
+                        hintStyle: TextStyle(
+                          color: chatService.observerMode
+                              ? Colors.amberAccent.withValues(alpha: 0.6)
+                              : AppColors.textTertiary(context),
+                        ),
+                        filled: true,
+                        fillColor: AppColors.surfaceContainerOf(context),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                       ),
-                      tooltip: chatService.autoPlayActive
-                          ? 'Stop Auto-Chat'
-                          : 'Stop Generation',
-                      onPressed: () {
-                        chatService.stopAutoPlay();
-                        chatService.stopGeneration();
-                      },
-                    )
-                  : Tooltip(
-                      message: chatService.observerMode
-                          ? 'Send director note'
-                          : 'Send message',
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Impersonate button (magic wand — AI writes your next message)
+                  Tooltip(
+                    message: 'Impersonate (AI writes your message)',
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.auto_fix_high,
+                        color: Colors.amberAccent,
+                      ),
+                      padding: EdgeInsets.zero,
+                      onPressed: chatService.isGenerating
+                          ? null
+                          : () {
+                              final prefix = _controller.text;
+                              chatService.impersonateUser(
+                                prefix: prefix,
+                                onToken: (accumulated) {
+                                  _controller.text = accumulated;
+                                  _controller
+                                      .selection = TextSelection.fromPosition(
+                                    TextPosition(offset: accumulated.length),
+                                  );
+                                },
+                              );
+                            },
+                    ),
+                  ),
+                  // Mic button (push-to-talk STT)
+                  Consumer2<SttService, StorageService>(
+                    builder: (context, sttService, storage, _) {
+                      if (!storage.sttEnabled || !sttService.isEngineUsable) {
+                        return const SizedBox.shrink();
+                      }
+                      if (sttService.isTranscribing) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8.0),
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.blueAccent,
+                            ),
+                          ),
+                        );
+                      }
+                      return Tooltip(
+                        message: sttService.isRecording
+                            ? 'Stop recording'
+                            : 'Voice input',
+                        child: IconButton(
+                          icon: Icon(
+                            sttService.isRecording
+                                ? Icons.stop_circle
+                                : Icons.mic,
+                            color: sttService.isRecording
+                                ? Colors.redAccent
+                                : AppColors.iconSecondary(context),
+                          ),
+                          onPressed: chatService.isGenerating
+                              ? null
+                              : () async {
+                                  if (sttService.isRecording) {
+                                    final text = await sttService
+                                        .stopRecordingAndTranscribe();
+                                    if (text != null && text.isNotEmpty) {
+                                      if (storage.autoSendTranscription &&
+                                          _controller.text.isEmpty) {
+                                        chatService.sendMessage(text);
+                                      } else {
+                                        _controller.text =
+                                            _controller.text.isEmpty
+                                            ? text
+                                            : '${_controller.text} $text';
+                                        _controller.selection =
+                                            TextSelection.fromPosition(
+                                              TextPosition(
+                                                offset: _controller.text.length,
+                                              ),
+                                            );
+                                      }
+                                    }
+                                  } else {
+                                    final micOk = await sttService
+                                        .checkMicAvailable();
+                                    if (!micOk && context.mounted) {
+                                      _showNoMicDialog(context);
+                                      return;
+                                    }
+                                    await sttService.startRecording();
+                                  }
+                                },
+                        ),
+                      );
+                    },
+                  ),
+                  // Call button (voice call mode)
+                  Consumer2<SttService, StorageService>(
+                    builder: (context, sttService, storage, _) {
+                      if (!storage.sttEnabled ||
+                          !sttService.isEngineUsable ||
+                          chatService.isGroupMode) {
+                        return const SizedBox.shrink();
+                      }
+                      return Tooltip(
+                        message: 'Start voice call',
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.call,
+                            color: Colors.greenAccent,
+                          ),
+                          onPressed:
+                              chatService.isGenerating || sttService.isBusy
+                              ? null
+                              : () async {
+                                  final micOk = await sttService
+                                      .checkMicAvailable();
+                                  if (!micOk && context.mounted) {
+                                    _showNoMicDialog(context);
+                                    return;
+                                  }
+                                  setState(() => _isCallActive = true);
+                                },
+                        ),
+                      );
+                    },
+                  ),
+                  // Auto-play button (observer mode only)
+                  if (chatService.isGroupMode &&
+                      chatService.observerMode &&
+                      !chatService.isGenerating)
+                    Tooltip(
+                      message: chatService.autoPlayActive
+                          ? 'Pause auto-chat'
+                          : 'Start auto-chat',
                       child: IconButton(
                         icon: Icon(
-                          chatService.observerMode
-                              ? Icons.movie_creation
-                              : Icons.send,
-                          color: chatService.observerMode
-                              ? Colors.amberAccent
-                              : Colors.blueAccent,
+                          chatService.autoPlayActive
+                              ? Icons.pause_circle_filled
+                              : Icons.play_circle_filled,
+                          color: chatService.autoPlayActive
+                              ? Colors.orangeAccent
+                              : Colors.amberAccent,
                         ),
                         onPressed: () {
-                          if (_controller.text.isNotEmpty &&
-                              !chatService.isGenerating) {
-                            chatService.sendMessage(_controller.text);
-                            _controller.clear();
-                            WidgetsBinding.instance.addPostFrameCallback(
-                              (_) => _scrollToBottom(),
-                            );
+                          if (chatService.autoPlayActive) {
+                            chatService.stopAutoPlay();
+                          } else {
+                            chatService.startAutoPlay();
                           }
                         },
                       ),
                     ),
-            ],
-          ),
+                  // Next Character button (group mode only, not in auto-play)
+                  if (chatService.isGroupMode &&
+                      !chatService.isGenerating &&
+                      !chatService.autoPlayActive)
+                    Tooltip(
+                      message: chatService.nextCharacter != null
+                          ? 'Next: ${chatService.nextCharacter!.name}'
+                          : 'Trigger next character',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.group,
+                          color: Colors.purpleAccent,
+                        ),
+                        onPressed: () => chatService.triggerNextCharacter(),
+                      ),
+                    ),
+                  chatService.isGenerating
+                      ? IconButton(
+                          icon: const Icon(
+                            Icons.stop_circle,
+                            color: Colors.redAccent,
+                          ),
+                          tooltip: chatService.autoPlayActive
+                              ? 'Stop Auto-Chat'
+                              : 'Stop Generation',
+                          onPressed: () {
+                            chatService.stopAutoPlay();
+                            chatService.stopGeneration();
+                          },
+                        )
+                      : Tooltip(
+                          message: chatService.observerMode
+                              ? 'Send director note'
+                              : 'Send message',
+                          child: IconButton(
+                            icon: Icon(
+                              chatService.observerMode
+                                  ? Icons.movie_creation
+                                  : Icons.send,
+                              color: chatService.observerMode
+                                  ? Colors.amberAccent
+                                  : Colors.blueAccent,
+                            ),
+                            onPressed: () {
+                              if (_controller.text.isNotEmpty &&
+                                  !chatService.isGenerating) {
+                                chatService.sendMessage(_controller.text);
+                                _controller.clear();
+                                WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => _scrollToBottom(),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
-    ),
-    ],
     );
   }
 
@@ -2901,7 +2975,11 @@ class _ChatPageState extends State<ChatPage> {
                   width: 3,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.resolve(context, Colors.white24, Colors.black12),
+                    color: AppColors.resolve(
+                      context,
+                      Colors.white24,
+                      Colors.black12,
+                    ),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -2928,7 +3006,11 @@ class _ChatPageState extends State<ChatPage> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceOf(context),
-        border: Border(left: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.35))),
+        border: Border(
+          left: BorderSide(
+            color: AppColors.borderOf(context).withValues(alpha: 0.35),
+          ),
+        ),
       ),
       child: Column(
         children: [
@@ -2940,22 +3022,23 @@ class _ChatPageState extends State<ChatPage> {
                 listen: false,
               );
               final isExpressionEnabled = storage.expressionEnabled;
-              final hasAvatars = character.avatarImages != null &&
+              final hasAvatars =
+                  character.avatarImages != null &&
                   character.avatarImages!.isNotEmpty;
 
               File? expressionFile;
               String? expressionKey;
               String? expressionEmoji;
 
-              if (isExpressionEnabled && hasAvatars && !chat.isEvaluatingRealism) {
+              if (isExpressionEnabled &&
+                  hasAvatars &&
+                  !chat.isEvaluatingRealism) {
                 final avatar = chat.resolveExpressionAvatar(
                   character,
                   rerollIfSame: storage.expressionRerollSame,
                 );
                 if (avatar != null) {
-                  final avatarDir = storage.characterAvatarDir(
-                    character.name,
-                  );
+                  final avatarDir = storage.characterAvatarDir(character.name);
                   expressionFile = File('${avatarDir.path}/${avatar.filename}');
                   expressionKey = avatar.id;
                   final label = chat.currentExpressionLabel;
@@ -2981,33 +3064,42 @@ class _ChatPageState extends State<ChatPage> {
                   fallbackWidget = Center(
                     child: Text(
                       emoji,
-                      style: TextStyle(
-                        fontSize: _sidebarWidth * 0.5,
-                      ),
+                      style: TextStyle(fontSize: _sidebarWidth * 0.5),
                     ),
                   );
                 } else if (fallback == 'prime' && hasAvatars) {
                   // Show prime avatar
-                  final primeAvatar = character.avatarImages!.where(
-                    (a) => a.displayOrder + 1 == character.primeAvatarIndex,
-                  ).isEmpty
+                  final primeAvatar =
+                      character.avatarImages!
+                          .where(
+                            (a) =>
+                                a.displayOrder + 1 ==
+                                character.primeAvatarIndex,
+                          )
+                          .isEmpty
                       ? character.avatarImages!.first
                       : character.avatarImages!.firstWhere(
-                          (a) => a.displayOrder + 1 == character.primeAvatarIndex,
+                          (a) =>
+                              a.displayOrder + 1 == character.primeAvatarIndex,
                         );
                   final avatarDir = storage.characterAvatarDir(character.name);
-                  displayFile = File('${avatarDir.path}/${primeAvatar.filename}');
+                  displayFile = File(
+                    '${avatarDir.path}/${primeAvatar.filename}',
+                  );
                   expressionKey = primeAvatar.id;
                 } else {
                   // 'neutral' or default: show neutral avatar if available, else character image
                   if (hasAvatars) {
-                    final neutralAvatar = character.avatarImages!.where(
-                      (a) => a.label?.toLowerCase() == 'neutral',
-                    ).toList();
+                    final neutralAvatar = character.avatarImages!
+                        .where((a) => a.label?.toLowerCase() == 'neutral')
+                        .toList();
                     if (neutralAvatar.isNotEmpty) {
-                      final avatarDir = storage.characterAvatarDir(character.name);
-                      displayFile =
-                          File('${avatarDir.path}/${neutralAvatar.first.filename}');
+                      final avatarDir = storage.characterAvatarDir(
+                        character.name,
+                      );
+                      displayFile = File(
+                        '${avatarDir.path}/${neutralAvatar.first.filename}',
+                      );
                       expressionKey = neutralAvatar.first.id;
                       expressionEmoji = EmotionLabels.emoji['neutral'];
                     }
@@ -3048,8 +3140,16 @@ class _ChatPageState extends State<ChatPage> {
                         fit: BoxFit.cover,
                         alignment: Alignment.topCenter,
                         errorBuilder: (_, _, _) => Container(
-                          color: AppColors.resolve(context, Colors.black26, Colors.black.withValues(alpha: 0.1)),
-                          child: Icon(Icons.person, color: AppColors.iconSecondary(context), size: 64),
+                          color: AppColors.resolve(
+                            context,
+                            Colors.black26,
+                            Colors.black.withValues(alpha: 0.1),
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            color: AppColors.iconSecondary(context),
+                            size: 64,
+                          ),
                         ),
                       ),
                     ),
@@ -3064,7 +3164,11 @@ class _ChatPageState extends State<ChatPage> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.resolve(context, Colors.black.withOpacity(0.7), Colors.black.withOpacity(0.45)),
+                            color: AppColors.resolve(
+                              context,
+                              Colors.black.withOpacity(0.7),
+                              Colors.black.withOpacity(0.45),
+                            ),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -3092,7 +3196,11 @@ class _ChatPageState extends State<ChatPage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.35))),
+              border: Border(
+                bottom: BorderSide(
+                  color: AppColors.borderOf(context).withValues(alpha: 0.35),
+                ),
+              ),
             ),
             child: SizedBox(
               width: double.infinity,
@@ -3101,126 +3209,131 @@ class _ChatPageState extends State<ChatPage> {
                 elevation: 8,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.textSecondary(context),
-                  side: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.4)),
-                ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.3)),
-              ),
-              offset: const Offset(0, 8),
-              onSelected: (value) async {
-                switch (value) {
-                  case 'edit_character':
-                    final result = await showDialog(
-                      context: context,
-                      builder: (context) =>
-                          EditCharacterDialog(character: character),
-                    );
-                    if (result == true) {
-                      setState(() {});
-                    }
-                    break;
-                  case 'expressions':
-                    final storage = Provider.of<StorageService>(
-                      context,
-                      listen: false,
-                    );
-                    final repo = Provider.of<CharacterRepository>(
-                      context,
-                      listen: false,
-                    );
-                    final result = await CharacterAvatarsDialog.show(
-                      context: context,
-                      character: character,
-                      repository: repo,
-                      storage: storage,
-                    );
-                    if (result == true) {
-                      setState(() {});
-                    }
-                    break;
-                  case 'ui':
-                    showDialog(
-                      context: context,
-                      builder: (context) => UiSettingsDialog(character: character),
-                    );
-                    break;
-                  case 'chat':
-                    showDialog(
-                      context: context,
-                      builder: (context) => const ChatSettingsDialog(),
-                    );
-                    break;
-                  case 'model':
-                    showDialog(
-                      context: context,
-                      builder: (context) => const ModelSettingsDialog(),
-                    );
-                    break;
-                  case 'tts':
-                    showDialog(
-                      context: context,
-                      builder: (context) => const TtsSettingsDialog(),
-                    );
-                    break;
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: 'edit_character',
-                  child: _SettingsMenuItem(
-                    icon: Icons.edit_outlined,
-                    label: 'Edit Character',
+                  side: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.4),
                   ),
                 ),
-                PopupMenuItem(
-                  value: 'expressions',
-                  child: _SettingsMenuItem(
-                    icon: Icons.mood_outlined,
-                    label: 'Expression Images',
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.3),
                   ),
                 ),
-                PopupMenuItem(
-                  value: 'ui',
-                  child: _SettingsMenuItem(
-                    icon: Icons.tune_outlined,
-                    label: 'UI Settings',
+                offset: const Offset(0, 8),
+                onSelected: (value) async {
+                  switch (value) {
+                    case 'edit_character':
+                      final result = await showDialog(
+                        context: context,
+                        builder: (context) =>
+                            EditCharacterDialog(character: character),
+                      );
+                      if (result == true) {
+                        setState(() {});
+                      }
+                      break;
+                    case 'expressions':
+                      final storage = Provider.of<StorageService>(
+                        context,
+                        listen: false,
+                      );
+                      final repo = Provider.of<CharacterRepository>(
+                        context,
+                        listen: false,
+                      );
+                      final result = await CharacterAvatarsDialog.show(
+                        context: context,
+                        character: character,
+                        repository: repo,
+                        storage: storage,
+                      );
+                      if (result == true) {
+                        setState(() {});
+                      }
+                      break;
+                    case 'ui':
+                      showDialog(
+                        context: context,
+                        builder: (context) =>
+                            UiSettingsDialog(character: character),
+                      );
+                      break;
+                    case 'chat':
+                      showDialog(
+                        context: context,
+                        builder: (context) => const ChatSettingsDialog(),
+                      );
+                      break;
+                    case 'model':
+                      showDialog(
+                        context: context,
+                        builder: (context) => const ModelSettingsDialog(),
+                      );
+                      break;
+                    case 'tts':
+                      showDialog(
+                        context: context,
+                        builder: (context) => const TtsSettingsDialog(),
+                      );
+                      break;
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'edit_character',
+                    child: _SettingsMenuItem(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit Character',
+                    ),
                   ),
-                ),
-                PopupMenuDivider(height: 1),
-                PopupMenuItem(
-                  value: 'chat',
-                  child: _SettingsMenuItem(
-                    icon: Icons.chat_bubble_outline,
-                    label: 'Chat Settings',
+                  PopupMenuItem(
+                    value: 'expressions',
+                    child: _SettingsMenuItem(
+                      icon: Icons.mood_outlined,
+                      label: 'Expression Images',
+                    ),
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'model',
-                  child: _SettingsMenuItem(
-                    icon: Icons.memory_outlined,
-                    label: 'Model Settings',
+                  PopupMenuItem(
+                    value: 'ui',
+                    child: _SettingsMenuItem(
+                      icon: Icons.tune_outlined,
+                      label: 'UI Settings',
+                    ),
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'tts',
-                  child: _SettingsMenuItem(
-                    icon: Icons.volume_up_outlined,
-                    label: 'TTS Settings',
+                  PopupMenuDivider(height: 1),
+                  PopupMenuItem(
+                    value: 'chat',
+                    child: _SettingsMenuItem(
+                      icon: Icons.chat_bubble_outline,
+                      label: 'Chat Settings',
+                    ),
                   ),
-                ),
-              ],
+                  PopupMenuItem(
+                    value: 'model',
+                    child: _SettingsMenuItem(
+                      icon: Icons.memory_outlined,
+                      label: 'Model Settings',
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'tts',
+                    child: _SettingsMenuItem(
+                      icon: Icons.volume_up_outlined,
+                      label: 'TTS Settings',
+                    ),
+                  ),
+                ],
                 child: const Text(
                   'Settings',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70),
                 ),
-            ),
               ),
             ),
+          ),
 
-            Expanded(
-              child: ListView(
+          Expanded(
+            child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 // ── Author's Note ──
@@ -3245,10 +3358,18 @@ class _ChatPageState extends State<ChatPage> {
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.resolve(context, Colors.purpleAccent.withValues(alpha: 0.12), Colors.purple.shade50.withValues(alpha: 0.6)),
+                          color: AppColors.resolve(
+                            context,
+                            Colors.purpleAccent.withValues(alpha: 0.12),
+                            Colors.purple.shade50.withValues(alpha: 0.6),
+                          ),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: AppColors.resolve(context, Colors.purpleAccent.withValues(alpha: 0.4), Colors.purple.shade200.withValues(alpha: 0.5)),
+                            color: AppColors.resolve(
+                              context,
+                              Colors.purpleAccent.withValues(alpha: 0.4),
+                              Colors.purple.shade200.withValues(alpha: 0.5),
+                            ),
                           ),
                         ),
                         child: Row(
@@ -3256,7 +3377,11 @@ class _ChatPageState extends State<ChatPage> {
                             Icon(
                               Icons.psychology,
                               size: 16,
-                              color: AppColors.resolve(context, Colors.purpleAccent, Colors.purple.shade700),
+                              color: AppColors.resolve(
+                                context,
+                                Colors.purpleAccent,
+                                Colors.purple.shade700,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -3267,7 +3392,11 @@ class _ChatPageState extends State<ChatPage> {
                                     'CURRENT FIXATION',
                                     style: TextStyle(
                                       fontSize: 9,
-                                      color: AppColors.resolve(context, Colors.purpleAccent, Colors.purple.shade700),
+                                      color: AppColors.resolve(
+                                        context,
+                                        Colors.purpleAccent,
+                                        Colors.purple.shade700,
+                                      ),
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 1.2,
                                     ),
@@ -3323,13 +3452,23 @@ class _ChatPageState extends State<ChatPage> {
                     final count = chat.characterEvolutionCount;
                     return _CollapsibleSidebarSection(
                       icon: Icons.psychology_alt,
-                      iconColor: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                      iconColor: AppColors.resolve(
+                        context,
+                        Colors.tealAccent,
+                        Colors.teal.shade700,
+                      ),
                       title: 'Character Evolution',
                       trailing: Text(
                         count > 0 ? 'Evolved $count×' : 'Not evolved',
                         style: TextStyle(
                           fontSize: 11,
-                          color: count > 0 ? AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700) : AppColors.textTertiary(context),
+                          color: count > 0
+                              ? AppColors.resolve(
+                                  context,
+                                  Colors.tealAccent,
+                                  Colors.teal.shade700,
+                                )
+                              : AppColors.textTertiary(context),
                         ),
                       ),
                       initiallyExpanded: false,
@@ -3352,7 +3491,13 @@ class _ChatPageState extends State<ChatPage> {
                                   color: AppColors.surfaceContainerOf(context),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                    color: AppColors.resolve(context, Colors.tealAccent.withValues(alpha: 0.3), Colors.teal.shade200.withValues(alpha: 0.4)),
+                                    color: AppColors.resolve(
+                                      context,
+                                      Colors.tealAccent.withValues(alpha: 0.3),
+                                      Colors.teal.shade200.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 constraints: const BoxConstraints(
@@ -3385,7 +3530,13 @@ class _ChatPageState extends State<ChatPage> {
                                   color: AppColors.surfaceContainerOf(context),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                    color: AppColors.resolve(context, Colors.tealAccent.withValues(alpha: 0.3), Colors.teal.shade200.withValues(alpha: 0.4)),
+                                    color: AppColors.resolve(
+                                      context,
+                                      Colors.tealAccent.withValues(alpha: 0.3),
+                                      Colors.teal.shade200.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 constraints: const BoxConstraints(
@@ -3528,7 +3679,11 @@ class _ChatPageState extends State<ChatPage> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceOf(context),
-        border: Border(left: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.35))),
+        border: Border(
+          left: BorderSide(
+            color: AppColors.borderOf(context).withValues(alpha: 0.35),
+          ),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3537,7 +3692,11 @@ class _ChatPageState extends State<ChatPage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.35))),
+              border: Border(
+                bottom: BorderSide(
+                  color: AppColors.borderOf(context).withValues(alpha: 0.35),
+                ),
+              ),
             ),
             child: Column(
               children: [
@@ -3558,7 +3717,11 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.textSecondary(context),
-                          side: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.4)),
+                          side: BorderSide(
+                            color: AppColors.borderOf(
+                              context,
+                            ).withValues(alpha: 0.4),
+                          ),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                         ),
                       ),
@@ -3579,7 +3742,11 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.textSecondary(context),
-                          side: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.4)),
+                          side: BorderSide(
+                            color: AppColors.borderOf(
+                              context,
+                            ).withValues(alpha: 0.4),
+                          ),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                         ),
                       ),
@@ -3600,7 +3767,11 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.textSecondary(context),
-                          side: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.4)),
+                          side: BorderSide(
+                            color: AppColors.borderOf(
+                              context,
+                            ).withValues(alpha: 0.4),
+                          ),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                         ),
                       ),
@@ -3616,7 +3787,11 @@ class _ChatPageState extends State<ChatPage> {
                     label: const Text('Group Settings'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textSecondary(context),
-                      side: BorderSide(color: AppColors.borderOf(context).withValues(alpha: 0.4)),
+                      side: BorderSide(
+                        color: AppColors.borderOf(
+                          context,
+                        ).withValues(alpha: 0.4),
+                      ),
                     ),
                   ),
                 ),
@@ -3632,7 +3807,10 @@ class _ChatPageState extends State<ChatPage> {
                     const SizedBox(width: 8),
                     Text(
                       'Director Mode',
-                      style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13),
+                      style: TextStyle(
+                        color: AppColors.textSecondary(context),
+                        fontSize: 13,
+                      ),
                     ),
                     const Spacer(),
                     Switch(
@@ -3690,13 +3868,15 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                             ),
                             child: Slider(
-                              value: _dragDirectorDelay ?? storage.directorDelay,
+                              value:
+                                  _dragDirectorDelay ?? storage.directorDelay,
                               min: 0.5,
                               max: 60.0,
                               divisions: 119,
                               activeColor: Colors.amberAccent,
                               inactiveColor: Colors.white12,
-                              onChanged: (val) => setState(() => _dragDirectorDelay = val),
+                              onChanged: (val) =>
+                                  setState(() => _dragDirectorDelay = val),
                               onChangeEnd: (val) {
                                 _dragDirectorDelay = null;
                                 storage.setDirectorDelay(val);
@@ -3779,15 +3959,24 @@ class _ChatPageState extends State<ChatPage> {
                   chatService: chatService,
                   avatarColor: color,
                   isNextSpeaker: isNext,
-                  isExpanded: isNext, // current/next speaker gets the full 1:1-parity rich view
-                  onTap: chatService.isGenerating ? () {} : () => chatService.setNextCharacter(ch),
+                  isExpanded:
+                      isNext, // current/next speaker gets the full 1:1-parity rich view
+                  onTap: chatService.isGenerating
+                      ? () {}
+                      : () => chatService.setNextCharacter(ch),
                   avatarFile: avatarFile,
                   evolutionCount: evolutionCount,
                   canRemove: canRemove,
                   onRemove: canRemove
                       ? () async {
-                          final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
-                          await chatService.removeCharacterFromGroup(ch, groupRepo);
+                          final groupRepo = Provider.of<GroupChatRepository>(
+                            context,
+                            listen: false,
+                          );
+                          await chatService.removeCharacterFromGroup(
+                            ch,
+                            groupRepo,
+                          );
                         }
                       : null,
                   onOpenObjectives: () {
@@ -3917,9 +4106,10 @@ class _ChatPageState extends State<ChatPage> {
                           subtitle: Text(
                             () {
                               final base = '${v.language} · ${v.gender}';
-                              final currentEngine =
-                                  Provider.of<StorageService>(ctx, listen: false)
-                                      .ttsEngine;
+                              final currentEngine = Provider.of<StorageService>(
+                                ctx,
+                                listen: false,
+                              ).ttsEngine;
                               if (v.engine != currentEngine) {
                                 return '$base (incompatible with $currentEngine)';
                               }
@@ -4191,7 +4381,8 @@ class _ChatPageState extends State<ChatPage> {
   ) {
     final charRepo = Provider.of<CharacterRepository>(context, listen: false);
     // characterIds removed from GroupChat (decoupled). Use chatService or group members for active set.
-    final currentIds = <String>[]; // TODO: derive from active group members when needed
+    final currentIds =
+        <String>[]; // TODO: derive from active group members when needed
 
     // Get characters not already in the group
     final available = charRepo.characters.where((c) {
@@ -4338,10 +4529,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final isDirectorNote = message.characterId == '__director__';
     final isChanceTimeNarration =
         message.activeMetadata?['is_chance_time_narration'] == true;
-     final bubbleOpacity = Provider.of<StorageService>(context).bubbleOpacity;
-     final storage = Provider.of<StorageService>(context);
+    final bubbleOpacity = Provider.of<StorageService>(context).bubbleOpacity;
+    final storage = Provider.of<StorageService>(context);
 
-     // Chance Time narrations get a special centered banner
+    // Chance Time narrations get a special centered banner
     if (isChanceTimeNarration) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 32),
@@ -4376,7 +4567,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.resolve(context, const Color(0xFFFFD166), const Color(0xFFB45309)),
+                    color: AppColors.resolve(
+                      context,
+                      const Color(0xFFFFD166),
+                      const Color(0xFFB45309),
+                    ),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -4410,36 +4605,44 @@ class _MessageBubbleState extends State<_MessageBubble> {
           Flexible(
             child: Container(
               padding: const EdgeInsets.all(12),
-               decoration: BoxDecoration(
-                  color: isDirectorNote
-                      ? AppColors.resolve(
+              decoration: BoxDecoration(
+                color: isDirectorNote
+                    ? AppColors.resolve(
+                        context,
+                        Colors.amberAccent.withValues(
+                          alpha: 0.1 * bubbleOpacity,
+                        ),
+                        const Color(
+                          0xFFD97706,
+                        ).withValues(alpha: 0.12 * bubbleOpacity),
+                      )
+                    : message.isUser
+                    ? storage
+                          .getUserBubbleColor(character)
+                          .withValues(alpha: bubbleOpacity)
+                    : storage
+                          .getAiBubbleColor(character)
+                          .withValues(alpha: bubbleOpacity),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(12),
+                  topRight: const Radius.circular(12),
+                  bottomLeft: message.isUser && !isDirectorNote
+                      ? const Radius.circular(12)
+                      : Radius.zero,
+                  bottomRight: message.isUser && !isDirectorNote
+                      ? Radius.zero
+                      : const Radius.circular(12),
+                ),
+                border: isDirectorNote
+                    ? Border.all(
+                        color: AppColors.resolve(
                           context,
-                          Colors.amberAccent.withValues(alpha: 0.1 * bubbleOpacity),
-                          const Color(0xFFD97706).withValues(alpha: 0.12 * bubbleOpacity),
-                        )
-                      : message.isUser
-                      ? storage.getUserBubbleColor(character).withValues(alpha: bubbleOpacity)
-                      : storage.getAiBubbleColor(character).withValues(alpha: bubbleOpacity),
-                 borderRadius: BorderRadius.only(
-                   topLeft: const Radius.circular(12),
-                   topRight: const Radius.circular(12),
-                   bottomLeft: message.isUser && !isDirectorNote
-                       ? const Radius.circular(12)
-                       : Radius.zero,
-                   bottomRight: message.isUser && !isDirectorNote
-                       ? Radius.zero
-                       : const Radius.circular(12),
-                 ),
-                 border: isDirectorNote
-                     ? Border.all(
-                         color: AppColors.resolve(
-                           context,
-                           Colors.amberAccent.withValues(alpha: 0.3),
-                           const Color(0xFFD97706).withValues(alpha: 0.35),
-                         ),
-                       )
-                     : null,
-               ),
+                          Colors.amberAccent.withValues(alpha: 0.3),
+                          const Color(0xFFD97706).withValues(alpha: 0.35),
+                        ),
+                      )
+                    : null,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -4450,7 +4653,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         Icon(
                           Icons.movie_creation,
                           size: 14,
-                          color: AppColors.resolve(context, Colors.amberAccent, const Color(0xFFD97706)),
+                          color: AppColors.resolve(
+                            context,
+                            Colors.amberAccent,
+                            const Color(0xFFD97706),
+                          ),
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -4458,7 +4665,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
-                            color: AppColors.resolve(context, Colors.amberAccent, const Color(0xFFD97706)),
+                            color: AppColors.resolve(
+                              context,
+                              Colors.amberAccent,
+                              const Color(0xFFD97706),
+                            ),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -4470,14 +4681,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               context,
                               listen: false,
                             );
-                             final nameWidget = Text(
-                               message.sender,
-                               style: TextStyle(
-                                 fontWeight: FontWeight.bold,
-                                 fontSize: 12,
-                                 color: widget.senderColor ?? storage.getDialogueColor(character),
-                               ),
-                             );
+                            final nameWidget = Text(
+                              message.sender,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color:
+                                    widget.senderColor ??
+                                    storage.getDialogueColor(character),
+                              ),
+                            );
                             if (chatService.isGroupMode) {
                               return GestureDetector(
                                 onTap: () {
@@ -4793,13 +5006,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         );
                       },
                     ),
-                    _StyledChatMessage(
-                      text: message.displayText,
-                      isUser: message.isUser,
-                      externalImagesAllowed: widget.externalImagesAllowed,
-                      onRequestImagePermission: widget.onRequestImagePermission,
-                      character: widget.character ?? widget.chatService?.activeCharacter,
-                    ),
+                  _StyledChatMessage(
+                    text: message.displayText,
+                    isUser: message.isUser,
+                    externalImagesAllowed: widget.externalImagesAllowed,
+                    onRequestImagePermission: widget.onRequestImagePermission,
+                    character:
+                        widget.character ?? widget.chatService?.activeCharacter,
+                  ),
                   if (message.activeMetadata != null)
                     _buildRealismIndicator(message.activeMetadata!),
                   // Swipe arrows for alternate greetings on first message
@@ -5225,14 +5439,37 @@ class _MessageBubbleState extends State<_MessageBubble> {
         String label = need[0].toUpperCase() + need.substring(1);
 
         switch (need) {
-          case 'hunger':      icon = Icons.restaurant;     color = Colors.orangeAccent; break;
-          case 'bladder':     icon = Icons.water_drop;     color = Colors.lightBlueAccent; break;
-          case 'energy':      icon = Icons.bolt;           color = Colors.amberAccent; break;
-          case 'social':      icon = Icons.people;         color = Colors.pinkAccent; break;
-          case 'fun':         icon = Icons.celebration;    color = Colors.deepPurpleAccent; break;
-          case 'hygiene':     icon = Icons.shower;         color = Colors.cyanAccent; break;
-          case 'comfort':     icon = Icons.chair;          color = Colors.greenAccent; break;
-          default:            icon = Icons.circle;         color = Colors.grey;
+          case 'hunger':
+            icon = Icons.restaurant;
+            color = Colors.orangeAccent;
+            break;
+          case 'bladder':
+            icon = Icons.water_drop;
+            color = Colors.lightBlueAccent;
+            break;
+          case 'energy':
+            icon = Icons.bolt;
+            color = Colors.amberAccent;
+            break;
+          case 'social':
+            icon = Icons.people;
+            color = Colors.pinkAccent;
+            break;
+          case 'fun':
+            icon = Icons.celebration;
+            color = Colors.deepPurpleAccent;
+            break;
+          case 'hygiene':
+            icon = Icons.shower;
+            color = Colors.cyanAccent;
+            break;
+          case 'comfort':
+            icon = Icons.chair;
+            color = Colors.greenAccent;
+            break;
+          default:
+            icon = Icons.circle;
+            color = Colors.grey;
         }
 
         final chip = Row(
@@ -5503,8 +5740,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: needsChipList.expand((c) => [c, const SizedBox(width: 8)]).toList()
-                ..removeLast(),
+              children:
+                  needsChipList
+                      .expand((c) => [c, const SizedBox(width: 8)])
+                      .toList()
+                    ..removeLast(),
             ),
           ),
         ],
@@ -5620,7 +5860,9 @@ class _StyledChatMessage extends StatelessWidget {
       if (match.start > lastEnd) {
         final textBefore = text.substring(lastEnd, match.start).trim();
         if (textBefore.isNotEmpty) {
-          widgets.add(_buildStyledText(context, textBefore, scaledSize, character));
+          widgets.add(
+            _buildStyledText(context, textBefore, scaledSize, character),
+          );
         }
       }
 
@@ -5644,7 +5886,9 @@ class _StyledChatMessage extends StatelessWidget {
     if (lastEnd < text.length) {
       final textAfter = text.substring(lastEnd).trim();
       if (textAfter.isNotEmpty) {
-        widgets.add(_buildStyledText(context, textAfter, scaledSize, character));
+        widgets.add(
+          _buildStyledText(context, textAfter, scaledSize, character),
+        );
       }
     }
 
@@ -5654,7 +5898,12 @@ class _StyledChatMessage extends StatelessWidget {
     );
   }
 
-  Widget _buildStyledText(BuildContext context, String segment, double scaledSize, CharacterCard? character) {
+  Widget _buildStyledText(
+    BuildContext context,
+    String segment,
+    double scaledSize,
+    CharacterCard? character,
+  ) {
     final storageService = Provider.of<StorageService>(context);
     final fontFamily = storageService.getChatFontFamily(character);
     final textColor = isUser
@@ -5662,10 +5911,7 @@ class _StyledChatMessage extends StatelessWidget {
         : storageService.getAiTextColor(character);
     final plainStyle = _applyGoogleFont(
       fontFamily,
-      TextStyle(
-        color: textColor,
-        fontSize: scaledSize,
-      ),
+      TextStyle(color: textColor, fontSize: scaledSize),
     );
     final dialogueStyle = _applyGoogleFont(
       fontFamily,
@@ -5723,11 +5969,7 @@ class _StyledChatMessage extends StatelessWidget {
           segment,
           style: _applyGoogleFont(
             fontFamily,
-            TextStyle(
-              color: textColor,
-              fontSize: scaledSize,
-              height: 1.4,
-            ),
+            TextStyle(color: textColor, fontSize: scaledSize, height: 1.4),
           ),
         ),
       );
@@ -5738,11 +5980,7 @@ class _StyledChatMessage extends StatelessWidget {
         text: TextSpan(
           style: _applyGoogleFont(
             fontFamily,
-            TextStyle(
-              color: textColor,
-              fontSize: scaledSize,
-              height: 1.4,
-            ),
+            TextStyle(color: textColor, fontSize: scaledSize, height: 1.4),
           ),
           children: spans,
         ),
@@ -5797,7 +6035,8 @@ class _ExternalImageWidget extends StatefulWidget {
 
 class _ExternalImageWidgetState extends State<_ExternalImageWidget> {
   // ignore: unused_field
-  bool _loading = false; // Kept for potential future loading UI in external image widget
+  bool _loading =
+      false; // Kept for potential future loading UI in external image widget
   File? _cachedFile;
   String? _error;
 
@@ -6050,10 +6289,7 @@ class _ExternalImageWidgetState extends State<_ExternalImageWidget> {
 class _SidebarSection extends StatefulWidget {
   final String title;
   final String content;
-  const _SidebarSection({
-    required this.title,
-    required this.content,
-  });
+  const _SidebarSection({required this.title, required this.content});
 
   @override
   State<_SidebarSection> createState() => _SidebarSectionState();
@@ -6102,7 +6338,10 @@ class _SidebarSectionState extends State<_SidebarSection> {
             padding: const EdgeInsets.only(left: 20.0),
             child: Text(
               widget.content,
-              style: TextStyle(color: AppColors.textTertiary(context), fontSize: 12),
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 12,
+              ),
             ),
           ),
         ],
@@ -6237,7 +6476,10 @@ class _LorebookSectionState extends State<_LorebookSection> {
                           .isEmpty)
                         Text(
                           'No enabled entries.',
-                          style: TextStyle(color: AppColors.textTertiary(context), fontSize: 12),
+                          style: TextStyle(
+                            color: AppColors.textTertiary(context),
+                            fontSize: 12,
+                          ),
                         ),
 
                       ...widget.character.lorebook!.entries
@@ -6287,7 +6529,9 @@ class _LorebookSectionState extends State<_LorebookSection> {
                                           ? 'Always Active'
                                           : entry.displayName,
                                       style: TextStyle(
-                                        color: (entry.isTriggered || entry.constant)
+                                        color:
+                                            (entry.isTriggered ||
+                                                entry.constant)
                                             ? AppColors.textPrimary(context)
                                             : AppColors.textSecondary(context),
                                         fontSize: 12,
@@ -6304,7 +6548,10 @@ class _LorebookSectionState extends State<_LorebookSection> {
                   )
                 : Text(
                     'No lorebook entries.',
-                    style: TextStyle(color: AppColors.textTertiary(context), fontSize: 12),
+                    style: TextStyle(
+                      color: AppColors.textTertiary(context),
+                      fontSize: 12,
+                    ),
                   ),
           ),
         ],
@@ -6335,10 +6582,7 @@ class _SceneTimeSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                _timeEmoji(time),
-                style: const TextStyle(fontSize: 13),
-              ),
+              Text(_timeEmoji(time), style: const TextStyle(fontSize: 13)),
               const SizedBox(width: 5),
               Text(
                 _timeLabel(time),
@@ -6403,8 +6647,14 @@ class _SceneTimeSection extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: time == period
-                            ? AppColors.resolve(context, Colors.amber, Colors.amber.shade700)
-                            : AppColors.borderOf(context).withValues(alpha: 0.25),
+                            ? AppColors.resolve(
+                                context,
+                                Colors.amber,
+                                Colors.amber.shade700,
+                              )
+                            : AppColors.borderOf(
+                                context,
+                              ).withValues(alpha: 0.25),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -6413,7 +6663,11 @@ class _SceneTimeSection extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 8,
                         color: time == period
-                            ? AppColors.resolve(context, Colors.amber, Colors.amber.shade800)
+                            ? AppColors.resolve(
+                                context,
+                                Colors.amber,
+                                Colors.amber.shade800,
+                              )
                             : AppColors.textTertiary(context),
                       ),
                     ),
@@ -6527,14 +6781,20 @@ class _GroupLorebookSectionState extends State<_GroupLorebookSection> {
                 if (activeEntries.isNotEmpty) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.greenAccent.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       '${activeEntries.length}',
-                      style: const TextStyle(fontSize: 10, color: Colors.greenAccent),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.greenAccent,
+                      ),
                     ),
                   ),
                 ],
@@ -6549,7 +6809,10 @@ class _GroupLorebookSectionState extends State<_GroupLorebookSection> {
             child: activeEntries.isEmpty
                 ? Text(
                     'No active lorebook entries.',
-                    style: TextStyle(color: AppColors.textTertiary(context), fontSize: 12),
+                    style: TextStyle(
+                      color: AppColors.textTertiary(context),
+                      fontSize: 12,
+                    ),
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -6664,7 +6927,7 @@ class _AuthorNoteSectionState extends State<_AuthorNoteSection> {
             Tooltip(
               message: isGroup
                   ? 'Group Author\'s Note — injected for every character in the group.\n'
-                    'For per-character author\'s notes, go to Group Settings → Prompt Engineering.'
+                        'For per-character author\'s notes, go to Group Settings → Prompt Engineering.'
                   : 'Author\'s Note — injected into the character\'s context.',
               child: Text(
                 isGroup ? "Group Author's Note" : "Author's Note",
@@ -6685,7 +6948,10 @@ class _AuthorNoteSectionState extends State<_AuthorNoteSection> {
           style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
           decoration: InputDecoration(
             hintText: 'Instructions injected into context...',
-            hintStyle: TextStyle(color: AppColors.textTertiary(context), fontSize: 12),
+            hintStyle: TextStyle(
+              color: AppColors.textTertiary(context),
+              fontSize: 12,
+            ),
             filled: true,
             fillColor: AppColors.surfaceContainerOf(context),
             border: OutlineInputBorder(
@@ -6698,7 +6964,13 @@ class _AuthorNoteSectionState extends State<_AuthorNoteSection> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppColors.resolve(context, Colors.blueAccent, Colors.blue.shade700)),
+              borderSide: BorderSide(
+                color: AppColors.resolve(
+                  context,
+                  Colors.blueAccent,
+                  Colors.blue.shade700,
+                ),
+              ),
             ),
             contentPadding: const EdgeInsets.all(10),
           ),
@@ -6737,7 +7009,10 @@ class _AuthorNoteSectionState extends State<_AuthorNoteSection> {
                           'Strong: an urgent directive the AI should apply immediately.',
                       child: Text(
                         'Strength: ',
-                        style: TextStyle(color: AppColors.textSecondary(context), fontSize: 11),
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                     Expanded(
@@ -6751,7 +7026,9 @@ class _AuthorNoteSectionState extends State<_AuthorNoteSection> {
                             overlayRadius: 12,
                           ),
                           activeTrackColor: sliderColor,
-                          inactiveTrackColor: AppColors.borderOf(context).withValues(alpha: 0.3),
+                          inactiveTrackColor: AppColors.borderOf(
+                            context,
+                          ).withValues(alpha: 0.3),
                           thumbColor: sliderColor,
                         ),
                         child: Slider(
@@ -6878,7 +7155,11 @@ class _SummarySectionState extends State<_SummarySection> {
                 Icon(
                   Icons.auto_stories,
                   size: 14,
-                  color: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                  color: AppColors.resolve(
+                    context,
+                    Colors.tealAccent,
+                    Colors.teal.shade700,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -6898,7 +7179,11 @@ class _SummarySectionState extends State<_SummarySection> {
                       height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                        color: AppColors.resolve(
+                          context,
+                          Colors.tealAccent,
+                          Colors.teal.shade700,
+                        ),
                       ),
                     ),
                   ),
@@ -6911,7 +7196,11 @@ class _SummarySectionState extends State<_SummarySection> {
                         storage.setSummaryEnabled(val);
                         if (val) setState(() => _expanded = true);
                       },
-                      activeTrackColor: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                      activeTrackColor: AppColors.resolve(
+                        context,
+                        Colors.tealAccent,
+                        Colors.teal.shade700,
+                      ),
                     ),
                   ),
                 ),
@@ -6926,7 +7215,10 @@ class _SummarySectionState extends State<_SummarySection> {
               padding: const EdgeInsets.only(top: 4, left: 20),
               child: Text(
                 'Auto-summarize conversations so the AI remembers earlier events even after they leave the context window.',
-                style: TextStyle(fontSize: 11, color: AppColors.textTertiary(context)),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textTertiary(context),
+                ),
               ),
             ),
 
@@ -6939,7 +7231,10 @@ class _SummarySectionState extends State<_SummarySection> {
                 controller: _controller,
                 maxLines: 6,
                 minLines: 2,
-                style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
+                style: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontSize: 12,
+                ),
                 decoration: InputDecoration(
                   hintText:
                       'No summary yet. It will generate after enough messages...',
@@ -6959,7 +7254,13 @@ class _SummarySectionState extends State<_SummarySection> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700)),
+                    borderSide: BorderSide(
+                      color: AppColors.resolve(
+                        context,
+                        Colors.tealAccent,
+                        Colors.teal.shade700,
+                      ),
+                    ),
                   ),
                   contentPadding: const EdgeInsets.all(10),
                 ),
@@ -6994,7 +7295,11 @@ class _SummarySectionState extends State<_SummarySection> {
                                 : Icons.pause,
                             size: 14,
                             color: widget.chatService.summaryPaused
-                                ? AppColors.resolve(context, Colors.orangeAccent, Colors.orange.shade700)
+                                ? AppColors.resolve(
+                                    context,
+                                    Colors.orangeAccent,
+                                    Colors.orange.shade700,
+                                  )
                                 : AppColors.iconSecondary(context),
                           ),
                           const SizedBox(width: 4),
@@ -7005,7 +7310,11 @@ class _SummarySectionState extends State<_SummarySection> {
                             style: TextStyle(
                               fontSize: 10,
                               color: widget.chatService.summaryPaused
-                                  ? AppColors.resolve(context, Colors.orangeAccent, Colors.orange.shade700)
+                                  ? AppColors.resolve(
+                                      context,
+                                      Colors.orangeAccent,
+                                      Colors.orange.shade700,
+                                    )
                                   : AppColors.textSecondary(context),
                             ),
                           ),
@@ -7124,13 +7433,16 @@ class _SummarySectionState extends State<_SummarySection> {
                           ),
                         ),
                         child: Slider(
-                          value: _dragSummaryInterval ?? storage.summaryInterval.toDouble(),
+                          value:
+                              _dragSummaryInterval ??
+                              storage.summaryInterval.toDouble(),
                           min: 3,
                           max: 50,
                           divisions: 47,
                           activeColor: Colors.tealAccent,
                           inactiveColor: Colors.white12,
-                          onChanged: (val) => setState(() => _dragSummaryInterval = val),
+                          onChanged: (val) =>
+                              setState(() => _dragSummaryInterval = val),
                           onChangeEnd: (val) {
                             _dragSummaryInterval = null;
                             storage.setSummaryInterval(val.toInt());
@@ -7166,13 +7478,16 @@ class _SummarySectionState extends State<_SummarySection> {
                           ),
                         ),
                         child: Slider(
-                          value: _dragSummaryMaxWords ?? storage.summaryMaxWords.toDouble(),
+                          value:
+                              _dragSummaryMaxWords ??
+                              storage.summaryMaxWords.toDouble(),
                           min: 50,
                           max: 1000,
                           divisions: 19,
                           activeColor: Colors.tealAccent,
                           inactiveColor: Colors.white12,
-                          onChanged: (val) => setState(() => _dragSummaryMaxWords = val),
+                          onChanged: (val) =>
+                              setState(() => _dragSummaryMaxWords = val),
                           onChangeEnd: (val) {
                             _dragSummaryMaxWords = null;
                             storage.setSummaryMaxWords(val.toInt());
@@ -7577,11 +7892,17 @@ class _MemorySectionState extends State<_MemorySection> {
                     children: [
                       Text(
                         'Memories per turn',
-                        style: TextStyle(color: AppColors.textSecondary(context), fontSize: 11),
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
+                          fontSize: 11,
+                        ),
                       ),
                       const Spacer(),
                       Text(
-                        (_dragRagRetrievalCount ?? storage.ragRetrievalCount.toDouble()).round() == 0
+                        (_dragRagRetrievalCount ??
+                                        storage.ragRetrievalCount.toDouble())
+                                    .round() ==
+                                0
                             ? 'All'
                             : '${(_dragRagRetrievalCount ?? storage.ragRetrievalCount.toDouble()).round()}',
                         style: const TextStyle(
@@ -7600,13 +7921,16 @@ class _MemorySectionState extends State<_MemorySection> {
                       ),
                     ),
                     child: Slider(
-                      value: _dragRagRetrievalCount ?? storage.ragRetrievalCount.toDouble(),
+                      value:
+                          _dragRagRetrievalCount ??
+                          storage.ragRetrievalCount.toDouble(),
                       min: 0,
                       max: 50,
                       divisions: 50,
                       activeColor: Colors.purpleAccent,
                       inactiveColor: Colors.white12,
-                      onChanged: (val) => setState(() => _dragRagRetrievalCount = val),
+                      onChanged: (val) =>
+                          setState(() => _dragRagRetrievalCount = val),
                       onChangeEnd: (val) {
                         _dragRagRetrievalCount = null;
                         storage.setRagRetrievalCount(val.round());
@@ -7639,13 +7963,16 @@ class _MemorySectionState extends State<_MemorySection> {
                       ),
                     ),
                     child: Slider(
-                      value: _dragRagWindowSize ?? storage.ragWindowSize.toDouble(),
+                      value:
+                          _dragRagWindowSize ??
+                          storage.ragWindowSize.toDouble(),
                       min: 3,
                       max: 10,
                       divisions: 7,
                       activeColor: Colors.purpleAccent,
                       inactiveColor: Colors.white12,
-                      onChanged: (val) => setState(() => _dragRagWindowSize = val),
+                      onChanged: (val) =>
+                          setState(() => _dragRagWindowSize = val),
                       onChangeEnd: (val) {
                         _dragRagWindowSize = null;
                         storage.setRagWindowSize(val.round());
@@ -7719,12 +8046,15 @@ class _MemorySectionState extends State<_MemorySection> {
                       ],
                     ),
                     Slider(
-                      value: _dragAutoPersonaInterval ?? storage.autoPersonaInterval.toDouble(),
+                      value:
+                          _dragAutoPersonaInterval ??
+                          storage.autoPersonaInterval.toDouble(),
                       min: 5,
                       max: 50,
                       divisions: 9,
                       activeColor: Colors.purpleAccent,
-                      onChanged: (val) => setState(() => _dragAutoPersonaInterval = val),
+                      onChanged: (val) =>
+                          setState(() => _dragAutoPersonaInterval = val),
                       onChangeEnd: (val) {
                         _dragAutoPersonaInterval = null;
                         storage.setAutoPersonaInterval(val.round());
@@ -7749,7 +8079,10 @@ class _MemorySectionState extends State<_MemorySection> {
                       const SizedBox(width: 6),
                       Text(
                         'Character Evolution',
-                        style: TextStyle(color: AppColors.textSecondary(context), fontSize: 11),
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
+                          fontSize: 11,
+                        ),
                       ),
                       const Spacer(),
                       SizedBox(
@@ -7785,12 +8118,15 @@ class _MemorySectionState extends State<_MemorySection> {
                       ],
                     ),
                     Slider(
-                      value: _dragEvolutionInterval ?? storage.evolutionInterval.toDouble(),
+                      value:
+                          _dragEvolutionInterval ??
+                          storage.evolutionInterval.toDouble(),
                       min: 10,
                       max: 50,
                       divisions: 8,
                       activeColor: Colors.tealAccent,
-                      onChanged: (val) => setState(() => _dragEvolutionInterval = val),
+                      onChanged: (val) =>
+                          setState(() => _dragEvolutionInterval = val),
                       onChangeEnd: (val) {
                         _dragEvolutionInterval = null;
                         storage.setEvolutionInterval(val.round());
@@ -8684,28 +9020,75 @@ class _RealismSectionState extends State<_RealismSection> {
 
           // Neutral / low tiers — use context-aware versions for light mode readability
           if (tier >= 3) {
-            return AppColors.resolve(context, Colors.lightBlue, Colors.blue.shade700);
+            return AppColors.resolve(
+              context,
+              Colors.lightBlue,
+              Colors.blue.shade700,
+            );
           }
           if (tier >= 2) {
-            return AppColors.resolve(context, Colors.blueGrey, Colors.blueGrey.shade700);
+            return AppColors.resolve(
+              context,
+              Colors.blueGrey,
+              Colors.blueGrey.shade700,
+            );
           }
           if (tier >= 1) {
-            return AppColors.resolve(context, Colors.grey.shade400, Colors.grey.shade700);
+            return AppColors.resolve(
+              context,
+              Colors.grey.shade400,
+              Colors.grey.shade700,
+            );
           }
           if (tier == 0) {
             return AppColors.textTertiary(context);
           }
 
           // Negative tiers (mostly dark reds/browns in dark mode — they become readable darks on light)
-          if (tier >= -1) return AppColors.resolve(context, Colors.orangeAccent.shade100, Colors.orange.shade700);
-          if (tier >= -2) return AppColors.resolve(context, Colors.redAccent.shade100, Colors.red.shade600);
+          if (tier >= -1)
+            return AppColors.resolve(
+              context,
+              Colors.orangeAccent.shade100,
+              Colors.orange.shade700,
+            );
+          if (tier >= -2)
+            return AppColors.resolve(
+              context,
+              Colors.redAccent.shade100,
+              Colors.red.shade600,
+            );
           if (tier >= -3) return Colors.redAccent;
           if (tier >= -4) return Colors.red;
-          if (tier >= -5) return AppColors.resolve(context, Colors.red.shade900, Colors.red.shade800);
-          if (tier >= -6) return AppColors.resolve(context, Colors.brown.shade900, Colors.brown.shade700);
-          if (tier >= -7) return AppColors.resolve(context, Colors.deepOrange.shade900, Colors.deepOrange.shade700);
-          if (tier >= -8) return AppColors.resolve(context, Colors.amber.shade900, Colors.amber.shade800);
-          if (tier >= -9) return AppColors.resolve(context, Colors.orange.shade900, Colors.orange.shade800);
+          if (tier >= -5)
+            return AppColors.resolve(
+              context,
+              Colors.red.shade900,
+              Colors.red.shade800,
+            );
+          if (tier >= -6)
+            return AppColors.resolve(
+              context,
+              Colors.brown.shade900,
+              Colors.brown.shade700,
+            );
+          if (tier >= -7)
+            return AppColors.resolve(
+              context,
+              Colors.deepOrange.shade900,
+              Colors.deepOrange.shade700,
+            );
+          if (tier >= -8)
+            return AppColors.resolve(
+              context,
+              Colors.amber.shade900,
+              Colors.amber.shade800,
+            );
+          if (tier >= -9)
+            return AppColors.resolve(
+              context,
+              Colors.orange.shade900,
+              Colors.orange.shade800,
+            );
           return AppColors.textPrimary(context);
         }
 
@@ -8716,7 +9099,9 @@ class _RealismSectionState extends State<_RealismSection> {
           decoration: BoxDecoration(
             color: AppColors.cardOf(context),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.borderOf(context).withValues(alpha: 0.15)),
+            border: Border.all(
+              color: AppColors.borderOf(context).withValues(alpha: 0.15),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -8779,7 +9164,12 @@ class _RealismSectionState extends State<_RealismSection> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Divider(color: AppColors.borderOf(context).withValues(alpha: 0.2), height: 1),
+                      Divider(
+                        color: AppColors.borderOf(
+                          context,
+                        ).withValues(alpha: 0.2),
+                        height: 1,
+                      ),
                       const SizedBox(height: 10),
 
                       // ── Short-Term Tension ──
@@ -8824,7 +9214,9 @@ class _RealismSectionState extends State<_RealismSection> {
                         child: LinearProgressIndicator(
                           value: chat.shortTermProgressPercent,
                           minHeight: 5,
-                          backgroundColor: AppColors.borderOf(context).withValues(alpha: 0.2),
+                          backgroundColor: AppColors.borderOf(
+                            context,
+                          ).withValues(alpha: 0.2),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             shortTermColor,
                           ),
@@ -8874,7 +9266,9 @@ class _RealismSectionState extends State<_RealismSection> {
                         child: LinearProgressIndicator(
                           value: chat.longTermProgressPercent,
                           minHeight: 5,
-                          backgroundColor: AppColors.borderOf(context).withValues(alpha: 0.2),
+                          backgroundColor: AppColors.borderOf(
+                            context,
+                          ).withValues(alpha: 0.2),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             longTermColor,
                           ),
@@ -8928,7 +9322,9 @@ class _RealismSectionState extends State<_RealismSection> {
                         child: LinearProgressIndicator(
                           value: chat.trustProgressPercent,
                           minHeight: 5,
-                          backgroundColor: AppColors.borderOf(context).withValues(alpha: 0.2),
+                          backgroundColor: AppColors.borderOf(
+                            context,
+                          ).withValues(alpha: 0.2),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             chat.trustLevel < 0
                                 ? Colors.redAccent
@@ -8983,7 +9379,9 @@ class _RealismSectionState extends State<_RealismSection> {
                             GestureDetector(
                               onTap: () => chat.nudgeTimePeriod(-1),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 child: Icon(
                                   Icons.chevron_left,
                                   size: 16,
@@ -9004,7 +9402,9 @@ class _RealismSectionState extends State<_RealismSection> {
                             GestureDetector(
                               onTap: () => chat.nudgeTimePeriod(1),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 child: Icon(
                                   Icons.chevron_right,
                                   size: 16,
@@ -9035,8 +9435,14 @@ class _RealismSectionState extends State<_RealismSection> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: chat.timeOfDay == period
-                                        ? AppColors.resolve(context, Colors.amber, Colors.amber.shade700)
-                                        : AppColors.borderOf(context).withValues(alpha: 0.25),
+                                        ? AppColors.resolve(
+                                            context,
+                                            Colors.amber,
+                                            Colors.amber.shade700,
+                                          )
+                                        : AppColors.borderOf(
+                                            context,
+                                          ).withValues(alpha: 0.25),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -9045,7 +9451,11 @@ class _RealismSectionState extends State<_RealismSection> {
                                   style: TextStyle(
                                     fontSize: 8,
                                     color: chat.timeOfDay == period
-                                        ? AppColors.resolve(context, Colors.amber, Colors.amber.shade800)
+                                        ? AppColors.resolve(
+                                            context,
+                                            Colors.amber,
+                                            Colors.amber.shade800,
+                                          )
                                         : AppColors.textTertiary(context),
                                   ),
                                 ),
@@ -9095,7 +9505,10 @@ class _RealismSectionState extends State<_RealismSection> {
                       const SizedBox(height: 4),
                       Text(
                         'Time advances automatically as you chat. Manual controls remain available.',
-                        style: TextStyle(color: AppColors.textTertiary(context), fontSize: 10),
+                        style: TextStyle(
+                          color: AppColors.textTertiary(context),
+                          fontSize: 10,
+                        ),
                       ),
                       const SizedBox(height: 12),
 
@@ -9137,9 +9550,13 @@ class _RealismSectionState extends State<_RealismSection> {
                       const SizedBox(height: 4),
                       Text(
                         'Tracks hunger, bladder, energy, social, fun, hygiene, comfort. Affects AI prompts & behavior when low.',
-                        style: TextStyle(color: AppColors.textTertiary(context), fontSize: 10),
+                        style: TextStyle(
+                          color: AppColors.textTertiary(context),
+                          fontSize: 10,
+                        ),
                       ),
-                      if (chat.needsSimEnabled && chat.needsVector.isNotEmpty) ...[
+                      if (chat.needsSimEnabled &&
+                          chat.needsVector.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         for (final entry in chat.needsVector.entries)
                           Padding(
@@ -9149,27 +9566,48 @@ class _RealismSectionState extends State<_RealismSection> {
                                 SizedBox(
                                   width: 58,
                                   child: Text(
-                                    entry.key[0].toUpperCase() + entry.key.substring(1),
-                                    style: TextStyle(fontSize: 10, color: AppColors.textSecondary(context)),
+                                    entry.key[0].toUpperCase() +
+                                        entry.key.substring(1),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.textSecondary(context),
+                                    ),
                                   ),
                                 ),
                                 Expanded(
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(2),
                                     child: LinearProgressIndicator(
-                                      value: (entry.value / 100.0).clamp(0.0, 1.0),
+                                      value: (entry.value / 100.0).clamp(
+                                        0.0,
+                                        1.0,
+                                      ),
                                       minHeight: 4,
-                                      backgroundColor: AppColors.borderOf(context).withValues(alpha: 0.2),
+                                      backgroundColor: AppColors.borderOf(
+                                        context,
+                                      ).withValues(alpha: 0.2),
                                       valueColor: AlwaysStoppedAnimation<Color>(
-                                        entry.value <= ChatService.needCriticalThreshold
+                                        entry.value <=
+                                                ChatService
+                                                    .needCriticalThreshold
                                             ? Colors.redAccent
-                                            : AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                                            : AppColors.resolve(
+                                                context,
+                                                Colors.tealAccent,
+                                                Colors.teal.shade700,
+                                              ),
                                       ),
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Text('${entry.value}', style: TextStyle(fontSize: 9, color: AppColors.textTertiary(context))),
+                                Text(
+                                  '${entry.value}',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: AppColors.textTertiary(context),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -9180,7 +9618,12 @@ class _RealismSectionState extends State<_RealismSection> {
                       _NsfwEnhancementsSection(chat: chat),
 
                       const SizedBox(height: 12),
-                      Divider(color: AppColors.borderOf(context).withValues(alpha: 0.2), height: 1),
+                      Divider(
+                        color: AppColors.borderOf(
+                          context,
+                        ).withValues(alpha: 0.2),
+                        height: 1,
+                      ),
                       const SizedBox(height: 10),
 
                       // ── Realism Performance ──
@@ -9189,7 +9632,11 @@ class _RealismSectionState extends State<_RealismSection> {
                           Icon(
                             Icons.speed,
                             size: 14,
-                            color: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                            color: AppColors.resolve(
+                              context,
+                              Colors.tealAccent,
+                              Colors.teal.shade700,
+                            ),
                           ),
                           const SizedBox(width: 5),
                           Expanded(
@@ -9202,7 +9649,11 @@ class _RealismSectionState extends State<_RealismSection> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                                      color: AppColors.resolve(
+                                        context,
+                                        Colors.tealAccent,
+                                        Colors.teal.shade700,
+                                      ),
                                     ),
                                   ),
                                   TextSpan(
@@ -9220,7 +9671,11 @@ class _RealismSectionState extends State<_RealismSection> {
                             height: 20,
                             child: Switch(
                               value: storageService.realismOneShotEval,
-                              activeThumbColor: AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700),
+                              activeThumbColor: AppColors.resolve(
+                                context,
+                                Colors.tealAccent,
+                                Colors.teal.shade700,
+                              ),
                               onChanged: chat.isGenerating
                                   ? null
                                   : (val) {
@@ -9233,7 +9688,10 @@ class _RealismSectionState extends State<_RealismSection> {
                       const SizedBox(height: 4),
                       Text(
                         'Fuses relationship + scene evals into a single LLM call to double the processing speed. May be less accurate on < 8B param models.',
-                        style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
+                        style: TextStyle(
+                          color: AppColors.textTertiary(context),
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -9457,55 +9915,84 @@ class _NsfwEnhancementsSectionState extends State<_NsfwEnhancementsSection> {
                 if (widget.chat.nsfwCooldownEnabled) ...[
                   Row(
                     children: [
-                       Icon(
-                         widget.chat.arousalTier >= 6
-                             ? Icons.local_fire_department
-                             : widget.chat.arousalTier <= -1
-                             ? Icons.ac_unit
-                             : Icons.favorite_border,
-                         size: 13,
-                         color: widget.chat.arousalTier >= 6
-                             ? AppColors.resolve(context, Colors.deepOrangeAccent, Colors.deepOrange.shade700)
-                             : widget.chat.arousalTier <= -1
-                             ? AppColors.resolve(context, Colors.lightBlueAccent, Colors.blue.shade700)
-                             : AppColors.iconSecondary(context),
-                       ),
-                       const SizedBox(width: 5),
-                       Expanded(
-                         child: Text(
-                           'Lust: ${widget.chat.arousalTierName}',
-                           style: TextStyle(
-                             fontSize: 12,
-                             color: widget.chat.arousalTier >= 6
-                                 ? AppColors.resolve(context, Colors.deepOrangeAccent, Colors.deepOrange.shade700)
-                                 : widget.chat.arousalTier <= -1
-                                 ? AppColors.resolve(context, Colors.lightBlueAccent, Colors.blue.shade700)
-                                 : AppColors.textSecondary(context),
-                           ),
-                           overflow: TextOverflow.ellipsis,
-                         ),
-                       ),
-                       const SizedBox(width: 8),
-                       Text(
-                         '${widget.chat.arousalLevel.clamp(-100, 100)}/100',
-                         style: TextStyle(
-                           fontSize: 10,
-                           color: AppColors.textTertiary(context),
-                         ),
-                       ),
+                      Icon(
+                        widget.chat.arousalTier >= 6
+                            ? Icons.local_fire_department
+                            : widget.chat.arousalTier <= -1
+                            ? Icons.ac_unit
+                            : Icons.favorite_border,
+                        size: 13,
+                        color: widget.chat.arousalTier >= 6
+                            ? AppColors.resolve(
+                                context,
+                                Colors.deepOrangeAccent,
+                                Colors.deepOrange.shade700,
+                              )
+                            : widget.chat.arousalTier <= -1
+                            ? AppColors.resolve(
+                                context,
+                                Colors.lightBlueAccent,
+                                Colors.blue.shade700,
+                              )
+                            : AppColors.iconSecondary(context),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          'Lust: ${widget.chat.arousalTierName}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: widget.chat.arousalTier >= 6
+                                ? AppColors.resolve(
+                                    context,
+                                    Colors.deepOrangeAccent,
+                                    Colors.deepOrange.shade700,
+                                  )
+                                : widget.chat.arousalTier <= -1
+                                ? AppColors.resolve(
+                                    context,
+                                    Colors.lightBlueAccent,
+                                    Colors.blue.shade700,
+                                  )
+                                : AppColors.textSecondary(context),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${widget.chat.arousalLevel.clamp(-100, 100)}/100',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textTertiary(context),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 3),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(3),
                     child: LinearProgressIndicator(
-                      value: (widget.chat.arousalLevel.abs() / 100).clamp(0.0, 1.0),
+                      value: (widget.chat.arousalLevel.abs() / 100).clamp(
+                        0.0,
+                        1.0,
+                      ),
                       minHeight: 4,
-                      backgroundColor: AppColors.borderOf(context).withValues(alpha: 0.25),
+                      backgroundColor: AppColors.borderOf(
+                        context,
+                      ).withValues(alpha: 0.25),
                       valueColor: AlwaysStoppedAnimation<Color>(
                         widget.chat.arousalTier >= 6
-                            ? AppColors.resolve(context, Colors.deepOrangeAccent, Colors.deepOrange.shade700)
-                            : AppColors.resolve(context, Colors.lightBlueAccent, Colors.blue.shade700),
+                            ? AppColors.resolve(
+                                context,
+                                Colors.deepOrangeAccent,
+                                Colors.deepOrange.shade700,
+                              )
+                            : AppColors.resolve(
+                                context,
+                                Colors.lightBlueAccent,
+                                Colors.blue.shade700,
+                              ),
                       ),
                     ),
                   ),
@@ -9639,7 +10126,9 @@ class _ChaosModeSection extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: (chat.chaosPressure / 100).clamp(0.0, 1.0),
                       minHeight: 5,
-                      backgroundColor: AppColors.borderOf(context).withValues(alpha: 0.2),
+                      backgroundColor: AppColors.borderOf(
+                        context,
+                      ).withValues(alpha: 0.2),
                       valueColor: AlwaysStoppedAnimation<Color>(_pressureColor),
                     ),
                   ),
@@ -9697,13 +10186,19 @@ class _ChaosModeSection extends StatelessWidget {
                           ),
                           borderRadius: BorderRadius.circular(8),
                           border: chat.hasPendingChaosEvent
-                              ? Border.all(color: AppColors.borderOf(context).withValues(alpha: 0.3))
+                              ? Border.all(
+                                  color: AppColors.borderOf(
+                                    context,
+                                  ).withValues(alpha: 0.3),
+                                )
                               : null,
                           boxShadow: chat.hasPendingChaosEvent
                               ? []
                               : [
                                   BoxShadow(
-                                    color: const Color(0xFFFFD166).withValues(alpha: 0.3),
+                                    color: const Color(
+                                      0xFFFFD166,
+                                    ).withValues(alpha: 0.3),
                                     blurRadius: 10,
                                   ),
                                 ],
@@ -9801,7 +10296,9 @@ class _ObjectiveSectionState extends State<_ObjectiveSection> {
           decoration: BoxDecoration(
             color: AppColors.cardOf(context),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.borderOf(context).withValues(alpha: 0.15)),
+            border: Border.all(
+              color: AppColors.borderOf(context).withValues(alpha: 0.15),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -9817,11 +10314,7 @@ class _ObjectiveSectionState extends State<_ObjectiveSection> {
                       color: AppColors.iconSecondary(context),
                     ),
                     const SizedBox(width: 4),
-                    Icon(
-                      Icons.flag,
-                      size: 14,
-                      color: Colors.orangeAccent,
-                    ),
+                    Icon(Icons.flag, size: 14, color: Colors.orangeAccent),
                     const SizedBox(width: 6),
                     Text(
                       'Objectives',
@@ -9848,10 +10341,7 @@ class _ObjectiveSectionState extends State<_ObjectiveSection> {
                 const SizedBox(height: 6),
                 Text(
                   '▸ ${currentTask['description']}',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.orangeAccent,
-                  ),
+                  style: TextStyle(fontSize: 10, color: Colors.orangeAccent),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -9883,11 +10373,7 @@ class _ObjectiveSectionState extends State<_ObjectiveSection> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.star,
-                          size: 14,
-                          color: Colors.orangeAccent,
-                        ),
+                        Icon(Icons.star, size: 14, color: Colors.orangeAccent),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -9926,7 +10412,10 @@ class _ObjectiveSectionState extends State<_ObjectiveSection> {
                       const SizedBox(width: 4),
                       Text(
                         'NSFW Tasks',
-                        style: TextStyle(fontSize: 11, color: AppColors.textSecondary(context)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary(context),
+                        ),
                       ),
                       const Spacer(),
                       SizedBox(
@@ -9975,7 +10464,9 @@ class _ObjectiveSectionState extends State<_ObjectiveSection> {
                                   : 'Generate Tasks',
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.surfaceContainerOf(context),
+                              backgroundColor: AppColors.surfaceContainerOf(
+                                context,
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               textStyle: const TextStyle(fontSize: 12),
                             ),
@@ -9991,7 +10482,9 @@ class _ObjectiveSectionState extends State<_ObjectiveSection> {
                           child: DropdownButton<int>(
                             value: _taskCount,
                             underline: const SizedBox.shrink(),
-                            dropdownColor: AppColors.surfaceContainerOf(context),
+                            dropdownColor: AppColors.surfaceContainerOf(
+                              context,
+                            ),
                             style: TextStyle(
                               color: AppColors.textPrimary(context),
                               fontSize: 12,
@@ -10096,7 +10589,10 @@ class _ObjectiveSectionState extends State<_ObjectiveSection> {
                       children: [
                         Text(
                           'Check every ',
-                          style: TextStyle(fontSize: 10, color: AppColors.textSecondary(context)),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textSecondary(context),
+                          ),
                         ),
                         SizedBox(
                           width: 80,
@@ -10106,8 +10602,14 @@ class _ObjectiveSectionState extends State<_ObjectiveSection> {
                               thumbShape: const RoundSliderThumbShape(
                                 enabledThumbRadius: 5,
                               ),
-                              activeTrackColor: AppColors.resolve(context, Colors.white30, Colors.black26),
-                              inactiveTrackColor: AppColors.borderOf(context).withValues(alpha: 0.2),
+                              activeTrackColor: AppColors.resolve(
+                                context,
+                                Colors.white30,
+                                Colors.black26,
+                              ),
+                              inactiveTrackColor: AppColors.borderOf(
+                                context,
+                              ).withValues(alpha: 0.2),
                               thumbColor: AppColors.textSecondary(context),
                             ),
                             child: Slider(
@@ -10412,7 +10914,10 @@ class _EditableTaskRowState extends State<_EditableTaskRow> {
                 ? TextField(
                     controller: _controller,
                     autofocus: true,
-                    style: TextStyle(color: AppColors.textPrimary(context), fontSize: 11),
+                    style: TextStyle(
+                      color: AppColors.textPrimary(context),
+                      fontSize: 11,
+                    ),
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
@@ -10480,7 +10985,11 @@ class _EditableTaskRowState extends State<_EditableTaskRow> {
           else
             GestureDetector(
               onTap: () => setState(() => _editing = true),
-              child: Icon(Icons.edit, size: 12, color: AppColors.iconSecondary(context)),
+              child: Icon(
+                Icons.edit,
+                size: 12,
+                color: AppColors.iconSecondary(context),
+              ),
             ),
 
           const SizedBox(width: 4),
@@ -10488,7 +10997,11 @@ class _EditableTaskRowState extends State<_EditableTaskRow> {
           // Delete button
           GestureDetector(
             onTap: widget.onDelete,
-            child: Icon(Icons.close, size: 12, color: AppColors.iconSecondary(context)),
+            child: Icon(
+              Icons.close,
+              size: 12,
+              color: AppColors.iconSecondary(context),
+            ),
           ),
         ],
       ),
@@ -10855,7 +11368,9 @@ class _RealismProcessingOverlayState extends State<_RealismProcessingOverlay>
                                                   .chatService
                                                   .realismEvalStreamTextClean,
                                               style: TextStyle(
-                                                color: accentColor.withOpacity(0.8),
+                                                color: accentColor.withOpacity(
+                                                  0.8,
+                                                ),
                                                 fontSize: 11.5,
                                                 fontFamily: 'monospace',
                                                 height: 1.65,
@@ -10871,7 +11386,8 @@ class _RealismProcessingOverlayState extends State<_RealismProcessingOverlay>
                               ),
                             ),
                           ),
-                          if (widget.chatService.isEvaluatingRealism || widget.chatService.isProcessingGreeting) ...[
+                          if (widget.chatService.isEvaluatingRealism ||
+                              widget.chatService.isProcessingGreeting) ...[
                             Padding(
                               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                               child: Column(
@@ -10880,12 +11396,16 @@ class _RealismProcessingOverlayState extends State<_RealismProcessingOverlay>
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: ElevatedButton(
-                                      onPressed: widget.chatService.isCancellingRealismEval
-                                    ? null
-                                    : () => widget.chatService.cancelRealismEval(),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.redAccent,
-                                ),
+                                      onPressed:
+                                          widget
+                                              .chatService
+                                              .isCancellingRealismEval
+                                          ? null
+                                          : () => widget.chatService
+                                                .cancelRealismEval(),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.redAccent,
+                                      ),
                                       child: const Text(
                                         'Cancel Realism',
                                         style: TextStyle(color: Colors.white),
@@ -11536,10 +12056,7 @@ class _PulsingIconState extends State<_PulsingIcon>
 }
 
 class _SettingsMenuItem extends StatelessWidget {
-  const _SettingsMenuItem({
-    required this.icon,
-    required this.label,
-  });
+  const _SettingsMenuItem({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -11550,13 +12067,7 @@ class _SettingsMenuItem extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: Colors.white70),
         const SizedBox(width: 12),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-          ),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 13)),
       ],
     );
   }

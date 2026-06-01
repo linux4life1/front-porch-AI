@@ -34,20 +34,29 @@ jobs:
 
       - name: Run Flutter Analyze on changed Dart files only
         run: |
-          # Get list of changed Dart files in this PR/push
-          CHANGED_DART=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref || 'dev' }}...HEAD -- '*.dart' || true)
+          # Get list of changed Dart files, compared against the *current state of the
+          # target branch itself* (Rawhide for Rawhide work, dev for dev work, etc.).
+          #
+          # The old logic had a hard-coded `|| 'dev'` fallback that made the entire
+          # "changed files only" gate garbage for Rawhide (the primary development
+          # branch). Rawhide pushes must diff against origin/Rawhide, not dev.
+          #
+          # - pull_request: github.base_ref is the target (e.g. Rawhide)
+          # - push: github.ref_name is the branch being pushed to (e.g. Rawhide)
+          BASE_BRANCH="${{ github.base_ref || github.ref_name || 'Rawhide' }}"
+          CHANGED_DART=$(git diff --name-only --diff-filter=ACM "origin/$BASE_BRANCH...HEAD" -- '*.dart' || true)
 
           if [ -z "$CHANGED_DART" ]; then
             echo "No Dart files changed in this run — skipping analyze."
             exit 0
           fi
 
-          echo "Dart files changed:"
+          echo "Dart files changed (relative to origin/$BASE_BRANCH):"
           echo "$CHANGED_DART"
           echo ""
 
           # Now that the codebase is clean (0 warnings), we can be stricter on new code.
-          # New warnings introduced in a PR will now fail the job.
+          # New warnings introduced in a PR/push will now fail the job.
           flutter analyze --no-fatal-infos $CHANGED_DART
 
   full-lint:

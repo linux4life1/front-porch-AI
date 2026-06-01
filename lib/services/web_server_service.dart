@@ -542,7 +542,9 @@ class WebServerService extends ChangeNotifier {
         characters = characters.where((c) {
           if (c.name.toLowerCase().contains(searchTerm)) return true;
           final tags = _tryParseJsonList(c.tags);
-          if (tags.any((t) => t.toString().toLowerCase().contains(searchTerm))) {
+          if (tags.any(
+            (t) => t.toString().toLowerCase().contains(searchTerm),
+          )) {
             return true;
           }
           return false;
@@ -900,21 +902,21 @@ class WebServerService extends ChangeNotifier {
           fullCard = await _characterRepository!.getCharacterCardById(id);
         }
         fullCard ??= CharacterCard(
-            name: character.name,
-            description: character.description,
-            personality: character.personality,
-            scenario: character.scenario,
-            firstMessage: character.firstMessage,
-            mesExample: character.mesExample,
-            systemPrompt: character.systemPrompt,
-            postHistoryInstructions: character.postHistoryInstructions,
-            alternateGreetings: character.alternateGreetings.isNotEmpty
-                ? List<String>.from(jsonDecode(character.alternateGreetings))
-                : [],
-            tags: character.tags.isNotEmpty
-                ? List<String>.from(jsonDecode(character.tags))
-                : [],
-          );
+          name: character.name,
+          description: character.description,
+          personality: character.personality,
+          scenario: character.scenario,
+          firstMessage: character.firstMessage,
+          mesExample: character.mesExample,
+          systemPrompt: character.systemPrompt,
+          postHistoryInstructions: character.postHistoryInstructions,
+          alternateGreetings: character.alternateGreetings.isNotEmpty
+              ? List<String>.from(jsonDecode(character.alternateGreetings))
+              : [],
+          tags: character.tags.isNotEmpty
+              ? List<String>.from(jsonDecode(character.tags))
+              : [],
+        );
         await V2CardService().saveCardAsPng(fullCard, destPath, destPath);
       } catch (e) {
         debugPrint('[WebServer] Failed to embed V2 card data: $e');
@@ -1995,19 +1997,27 @@ class WebServerService extends ChangeNotifier {
         await s.setDrawThingsGrpcHost(body['drawThingsGrpcHost'].toString());
       }
       if (body.containsKey('drawThingsGrpcPort')) {
-        await s.setDrawThingsGrpcPort((body['drawThingsGrpcPort'] as num).toInt());
+        await s.setDrawThingsGrpcPort(
+          (body['drawThingsGrpcPort'] as num).toInt(),
+        );
       }
       if (body.containsKey('drawThingsSampler')) {
-        await s.setDrawThingsSampler((body['drawThingsSampler'] as num).toInt());
+        await s.setDrawThingsSampler(
+          (body['drawThingsSampler'] as num).toInt(),
+        );
       }
       if (body.containsKey('drawThingsShift')) {
         await s.setDrawThingsShift((body['drawThingsShift'] as num).toDouble());
       }
       if (body.containsKey('drawThingsStrength')) {
-        await s.setDrawThingsStrength((body['drawThingsStrength'] as num).toDouble());
+        await s.setDrawThingsStrength(
+          (body['drawThingsStrength'] as num).toDouble(),
+        );
       }
       if (body.containsKey('drawThingsSeedMode')) {
-        await s.setDrawThingsSeedMode((body['drawThingsSeedMode'] as num).toInt());
+        await s.setDrawThingsSeedMode(
+          (body['drawThingsSeedMode'] as num).toInt(),
+        );
       }
       if (body.containsKey('drawThingsTeaCache')) {
         await s.setDrawThingsTeaCache(body['drawThingsTeaCache'] as bool);
@@ -2534,7 +2544,8 @@ class WebServerService extends ChangeNotifier {
       await _characterRepository!.deleteCharacter(
         character,
         chatsDir: _storageService.chatsDir,
-        cloudSyncService: _cloudSyncService, // enables soft-delete flag + reconcile-driven remote cleanup
+        cloudSyncService:
+            _cloudSyncService, // enables soft-delete flag + reconcile-driven remote cleanup
       );
 
       return shelf.Response.ok(
@@ -2562,9 +2573,7 @@ class WebServerService extends ChangeNotifier {
       }
 
       // Fallback to raw DB row only if repository is unavailable (still better than 500)
-      final dbCharacter = card == null
-          ? await _db!.getCharacterById(id)
-          : null;
+      final dbCharacter = card == null ? await _db!.getCharacterById(id) : null;
 
       // Build V2 character card JSON in the canonical portable shape
       final Map<String, dynamic> data = card != null
@@ -2602,10 +2611,7 @@ class WebServerService extends ChangeNotifier {
 
       // Embed character data as tEXt chunk
       final resultPng = _embedPngTextChunk(pngBytes, 'chara', charaB64);
-      final safeName = displayName.replaceAll(
-        RegExp(r'[^a-zA-Z0-9_-]'),
-        '_',
-      );
+      final safeName = displayName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
 
       return shelf.Response.ok(
         resultPng,
@@ -2962,7 +2968,10 @@ class WebServerService extends ChangeNotifier {
       final body = jsonDecode(await request.readAsString());
       final id = body['id']?.toString() ?? '';
       if (id.isEmpty) return _errorResponse(400, 'Group id is required');
-      await _groupChatRepository!.delete(id, cloudSyncService: _cloudSyncService); // enables deletion propagation via soft flag + reconcile
+      await _groupChatRepository!.delete(
+        id,
+        cloudSyncService: _cloudSyncService,
+      ); // enables deletion propagation via soft flag + reconcile
       return shelf.Response.ok(
         jsonEncode({'status': 'ok'}),
         headers: {'Content-Type': 'application/json'},
@@ -3042,7 +3051,9 @@ class WebServerService extends ChangeNotifier {
         final db = await AppDatabase.instance();
         for (final ch in additionalChars) {
           final mid = const Uuid().v4();
-          final avDir = Directory(p.join(_storageService!.groupsDir.path, group.id, 'avatars'));
+          final avDir = Directory(
+            p.join(_storageService.groupsDir.path, group.id, 'avatars'),
+          );
           await avDir.create(recursive: true);
           await _characterRepository!.duplicateCharacter(
             ch,
@@ -3066,10 +3077,18 @@ class WebServerService extends ChangeNotifier {
               tags: Value(jsonEncode(ch.tags)),
               avatarFilename: Value('$mid.png'),
               ttsVoice: Value(ch.ttsVoice),
-              lorebook: Value(ch.lorebook != null ? jsonEncode(ch.lorebook!.toJson()) : null),
+              lorebook: Value(
+                ch.lorebook != null ? jsonEncode(ch.lorebook!.toJson()) : null,
+              ),
               worldNames: Value(jsonEncode(ch.worldNames)),
-              frontPorchExtensions: Value(ch.frontPorchExtensions != null ? jsonEncode(ch.frontPorchExtensions!.toJson()) : null),
-              rawExtensions: Value(ch.rawExtensions != null ? jsonEncode(ch.rawExtensions!) : null),
+              frontPorchExtensions: Value(
+                ch.frontPorchExtensions != null
+                    ? jsonEncode(ch.frontPorchExtensions!.toJson())
+                    : null,
+              ),
+              rawExtensions: Value(
+                ch.rawExtensions != null ? jsonEncode(ch.rawExtensions!) : null,
+              ),
               memberState: Value('{}'),
             ),
           );

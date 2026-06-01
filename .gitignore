@@ -115,6 +115,9 @@ aur_key.pub
 tools/embed_server/target/
 *.png
 
+# Allow DMG background image (the *.png rule above would otherwise block it)
+!assets/macos/dmg-background.png
+
 # Testing
 .llm_context/
 bug_triage.md

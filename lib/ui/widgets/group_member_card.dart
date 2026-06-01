@@ -663,65 +663,81 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     if (tier >= 6) return Colors.pink.shade200;
     if (tier >= 5) return Colors.orangeAccent;
     if (tier >= 4) return Colors.greenAccent;
-    if (tier >= 3)
+    if (tier >= 3) {
       return AppColors.resolve(context, Colors.lightBlue, Colors.blue.shade700);
-    if (tier >= 2)
+    }
+    if (tier >= 2) {
       return AppColors.resolve(
         context,
         Colors.blueGrey,
         Colors.blueGrey.shade700,
       );
-    if (tier >= 1)
+    }
+    if (tier >= 1) {
       return AppColors.resolve(
         context,
         Colors.grey.shade400,
         Colors.grey.shade700,
       );
-    if (tier == 0) return AppColors.textTertiary(context);
-    if (tier >= -1)
+    }
+    if (tier == 0) {
+      return AppColors.textTertiary(context);
+    }
+    if (tier >= -1) {
       return AppColors.resolve(
         context,
         Colors.orangeAccent.shade100,
         Colors.orange.shade700,
       );
-    if (tier >= -2)
+    }
+    if (tier >= -2) {
       return AppColors.resolve(
         context,
         Colors.redAccent.shade100,
         Colors.red.shade600,
       );
-    if (tier >= -3) return Colors.redAccent;
-    if (tier >= -4) return Colors.red;
-    if (tier >= -5)
+    }
+    if (tier >= -3) {
+      return Colors.redAccent;
+    }
+    if (tier >= -4) {
+      return Colors.red;
+    }
+    if (tier >= -5) {
       return AppColors.resolve(
         context,
         Colors.red.shade900,
         Colors.red.shade800,
       );
-    if (tier >= -6)
+    }
+    if (tier >= -6) {
       return AppColors.resolve(
         context,
         Colors.brown.shade900,
         Colors.brown.shade700,
       );
-    if (tier >= -7)
+    }
+    if (tier >= -7) {
       return AppColors.resolve(
         context,
         Colors.deepOrange.shade900,
         Colors.deepOrange.shade700,
       );
-    if (tier >= -8)
+    }
+    if (tier >= -8) {
       return AppColors.resolve(
         context,
         Colors.amber.shade900,
         Colors.amber.shade800,
       );
-    if (tier >= -9)
+    }
+    if (tier >= -9) {
       return AppColors.resolve(
         context,
         Colors.orange.shade900,
         Colors.orange.shade800,
       );
+    }
     return AppColors.textPrimary(context);
   }
 

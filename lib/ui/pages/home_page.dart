@@ -2124,10 +2124,8 @@ class _HomePageState extends State<HomePage> {
         );
         await avDir.create(recursive: true);
         final targetAvatar = File(path.join(avDir.path, '$memberId.png'));
-        if (tempPng != null) {
-          await tempPng.copy(targetAvatar.path);
-          // Embed already present from temp creation step (reused); PNG is valid for later extract.
-        }
+        await tempPng.copy(targetAvatar.path);
+        // tempPng is guaranteed non-null here (set in embedded or fallback placeholder path above)
 
         // Map raw (portable V2 shape) to typed GroupMembers row. Inline (no new helper).
         final data = (raw['data'] is Map)
@@ -2424,8 +2422,9 @@ class _HomePageState extends State<HomePage> {
                 m.avatarFilename!,
               )
             : null;
-        if (resolvedPath == null || !await File(resolvedPath).exists())
+        if (resolvedPath == null || !await File(resolvedPath).exists()) {
           continue;
+        }
         final card = m.toCharacterCard(resolvedImagePath: resolvedPath);
         await charRepo.duplicateCharacter(
           card,

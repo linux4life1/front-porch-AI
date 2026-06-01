@@ -30,7 +30,10 @@ class GGUFModelInfo {
     if (nLayers <= 0) return 0;
     // Rough allowance for header + non-layer tensors (embeddings, norms, etc.)
     const int headerOverhead = 50 * 1024 * 1024; // 50 MB conservative
-    final weightsSize = (fileSizeBytes - headerOverhead).clamp(0, fileSizeBytes);
+    final weightsSize = (fileSizeBytes - headerOverhead).clamp(
+      0,
+      fileSizeBytes,
+    );
     return (weightsSize / nLayers).round();
   }
 }
@@ -250,7 +253,9 @@ class GGUFParser {
   /// gauges, etc.).
   ///
   /// Returns null if the file cannot be read or is not a supported GGUF.
-  static Future<GGUFModelInfo?> getModelArchitectureInfo(String filePath) async {
+  static Future<GGUFModelInfo?> getModelArchitectureInfo(
+    String filePath,
+  ) async {
     final file = File(filePath);
     if (!await file.exists()) return null;
 
@@ -297,39 +302,83 @@ class GGUFParser {
         dynamic value;
         // (Same compact switch as getKvCacheBytesPerToken — kept in sync for now)
         switch (valType) {
-          case 0: value = data.getUint8(offset); offset += 1; break;
-          case 1: value = data.getInt8(offset); offset += 1; break;
-          case 2: value = data.getUint16(offset, Endian.little); offset += 2; break;
-          case 3: value = data.getInt16(offset, Endian.little); offset += 2; break;
-          case 4: value = data.getUint32(offset, Endian.little); offset += 4; break;
-          case 5: value = data.getInt32(offset, Endian.little); offset += 4; break;
-          case 6: value = data.getFloat32(offset, Endian.little); offset += 4; break;
-          case 7: value = data.getUint8(offset) != 0; offset += 1; break;
+          case 0:
+            value = data.getUint8(offset);
+            offset += 1;
+            break;
+          case 1:
+            value = data.getInt8(offset);
+            offset += 1;
+            break;
+          case 2:
+            value = data.getUint16(offset, Endian.little);
+            offset += 2;
+            break;
+          case 3:
+            value = data.getInt16(offset, Endian.little);
+            offset += 2;
+            break;
+          case 4:
+            value = data.getUint32(offset, Endian.little);
+            offset += 4;
+            break;
+          case 5:
+            value = data.getInt32(offset, Endian.little);
+            offset += 4;
+            break;
+          case 6:
+            value = data.getFloat32(offset, Endian.little);
+            offset += 4;
+            break;
+          case 7:
+            value = data.getUint8(offset) != 0;
+            offset += 1;
+            break;
           case 8:
-            final strLen = data.getUint64(offset, Endian.little).toInt(); offset += 8;
-            value = utf8.decode(bytes.sublist(offset, offset + strLen), allowMalformed: true);
+            final strLen = data.getUint64(offset, Endian.little).toInt();
+            offset += 8;
+            value = utf8.decode(
+              bytes.sublist(offset, offset + strLen),
+              allowMalformed: true,
+            );
             offset += strLen;
             break;
           case 9:
-            final arrType = data.getUint32(offset, Endian.little); offset += 4;
-            final arrLen = data.getUint64(offset, Endian.little).toInt(); offset += 8;
+            final arrType = data.getUint32(offset, Endian.little);
+            offset += 4;
+            final arrLen = data.getUint64(offset, Endian.little).toInt();
+            offset += 8;
             if (arrType == 8) {
               for (var j = 0; j < arrLen; j++) {
-                final l = data.getUint64(offset, Endian.little).toInt(); offset += 8 + l;
+                final l = data.getUint64(offset, Endian.little).toInt();
+                offset += 8 + l;
               }
             } else {
               int size = 0;
               if (arrType == 0 || arrType == 1 || arrType == 7) {
                 size = 1;
-              } else if (arrType == 2 || arrType == 3) size = 2;
-              else if (arrType >= 4 && arrType <= 6) size = 4;
-              else if (arrType >= 10 && arrType <= 12) size = 8;
+              } else if (arrType == 2 || arrType == 3) {
+                size = 2;
+              } else if (arrType >= 4 && arrType <= 6) {
+                size = 4;
+              } else if (arrType >= 10 && arrType <= 12) {
+                size = 8;
+              }
               offset += arrLen * size;
             }
             break;
-          case 10: value = data.getUint64(offset, Endian.little); offset += 8; break;
-          case 11: value = data.getInt64(offset, Endian.little); offset += 8; break;
-          case 12: value = data.getFloat64(offset, Endian.little); offset += 8; break;
+          case 10:
+            value = data.getUint64(offset, Endian.little);
+            offset += 8;
+            break;
+          case 11:
+            value = data.getInt64(offset, Endian.little);
+            offset += 8;
+            break;
+          case 12:
+            value = data.getFloat64(offset, Endian.little);
+            offset += 8;
+            break;
         }
 
         if (value != null &&
@@ -345,14 +394,23 @@ class GGUFParser {
       final arch = meta['general.architecture'] as String? ?? 'llama';
       final dynamic nLayersDyn = meta['$arch.block_count'];
       final dynamic nHeadsDyn = meta['$arch.attention.head_count'];
-      final dynamic nKvHeadsDyn = meta['$arch.attention.head_count_kv'] ?? nHeadsDyn;
+      final dynamic nKvHeadsDyn =
+          meta['$arch.attention.head_count_kv'] ?? nHeadsDyn;
       final dynamic nEmbdDyn = meta['$arch.embedding_length'];
 
       if (nLayersDyn != null && nHeadsDyn != null && nEmbdDyn != null) {
-        final int nLayers = nLayersDyn is int ? nLayersDyn : int.tryParse(nLayersDyn.toString()) ?? 0;
-        final int nHeads = nHeadsDyn is int ? nHeadsDyn : int.tryParse(nHeadsDyn.toString()) ?? 0;
-        final int nKvHeads = nKvHeadsDyn is int ? nKvHeadsDyn : int.tryParse(nKvHeadsDyn.toString()) ?? 0;
-        final int nEmbd = nEmbdDyn is int ? nEmbdDyn : int.tryParse(nEmbdDyn.toString()) ?? 0;
+        final int nLayers = nLayersDyn is int
+            ? nLayersDyn
+            : int.tryParse(nLayersDyn.toString()) ?? 0;
+        final int nHeads = nHeadsDyn is int
+            ? nHeadsDyn
+            : int.tryParse(nHeadsDyn.toString()) ?? 0;
+        final int nKvHeads = nKvHeadsDyn is int
+            ? nKvHeadsDyn
+            : int.tryParse(nKvHeadsDyn.toString()) ?? 0;
+        final int nEmbd = nEmbdDyn is int
+            ? nEmbdDyn
+            : int.tryParse(nEmbdDyn.toString()) ?? 0;
 
         if (nHeads > 0) {
           final headDim = nEmbd / nHeads;

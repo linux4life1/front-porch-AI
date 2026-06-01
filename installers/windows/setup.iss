@@ -15,7 +15,7 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}/issues
 ; Use user-local install directory so no elevation is needed
 DefaultDirName={#ifdef PRE_RELEASE}{localappdata}\{#MyAppName} Beta{#else}{localappdata}\{#MyAppName}{#endif}
-DefaultGroupName={#MyAppName}
+DefaultGroupName={#ifdef NIGHTLY}Front Porch AI Nightly{#else}{#MyAppName}{#endif}
 LicenseFile={#MyAppLicenseFile}
 OutputBaseFilename={#ifdef PRE_RELEASE}Front_Porch_AI_Beta_Setup{#else}Front_Porch_AI_Setup{#endif}
 OutputDir=.
@@ -55,9 +55,9 @@ Source: "{#MyAppBuildDir}\..\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: delete
 Filename: "{app}\.installed"; Section: "install"; Key: "method"; String: "innosetup"
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{group}\{#ifdef NIGHTLY}Front Porch AI Nightly{#else}{#MyAppName}{#endif}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\Uninstall {#ifdef NIGHTLY}Front Porch AI Nightly{#else}{#MyAppName}{#endif}"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\{#ifdef NIGHTLY}Front Porch AI Nightly{#else}{#MyAppName}{#endif}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 ; Install Visual C++ 2015-2022 Redistributable silently first.
