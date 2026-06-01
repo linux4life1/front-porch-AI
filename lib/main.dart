@@ -31,6 +31,8 @@ import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart'; // Keep original import for MainLayout
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/database.dart';
+// ignore: unused_import — used in the commented-out auto-cleanup block below
+import 'package:front_porch_ai/database/database_cleanup.dart';
 import 'package:front_porch_ai/database/data_migration_service.dart';
 
 // Barrel imports for the most common services and widgets used directly in main.dart
@@ -105,6 +107,18 @@ void main(List<String> args) async {
   try {
     await DataMigrationService.cleanupLegacyFiles();
   } catch (_) {}
+
+  // TODO: Enable after verifying DatabaseCleanup behaves correctly in production
+  // try {
+  //   final report = await DatabaseCleanup.checkOrphans(db);
+  //   if (report.totalOrphans > 0 || report.totalBrokenRefs > 0) {
+  //     debugPrint('[DB] Found ${report.totalOrphans + report.totalBrokenRefs}'
+  //         ' orphaned records — running cleanup');
+  //     await DatabaseCleanup.cleanOrphans(db);
+  //   }
+  // } catch (e) {
+  //   debugPrint('[DB] Orphan cleanup failed: $e (non-fatal)');
+  // }
 
   WindowOptions windowOptions = const WindowOptions(
     size: Size(1280, 720),
