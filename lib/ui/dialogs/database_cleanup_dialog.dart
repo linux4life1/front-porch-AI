@@ -260,6 +260,7 @@ class _DatabaseCleanupDialogState extends State<DatabaseCleanupDialog> {
     _Category('data_bank_entries', 'Orphaned data bank entries', Icons.storage),
     _Category('message_embeddings', 'Orphaned message embeddings', Icons.memory),
     _Category('sessions', 'Orphaned sessions', Icons.chat),
+    _Category('group_orphan_sessions', 'Orphaned group sessions', Icons.group_work),
     _Category('messages', 'Orphaned messages', Icons.message),
   ];
 

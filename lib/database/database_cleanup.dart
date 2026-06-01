@@ -18,6 +18,7 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:front_porch_ai/database/database.dart';
 
@@ -74,6 +75,7 @@ class DatabaseCleanup {
     orphanCounts['message_embeddings'] =
         await _countOrphanMessageEmbeddings(db);
     orphanCounts['sessions'] = await _countOrphanSessions(db);
+    orphanCounts['group_orphan_sessions'] = await _countOrphanGroupSessions(db);
     orphanCounts['messages'] = await _countOrphanMessages(db);
 
     brokenRefCounts['memory_sources'] = await _countBrokenMemorySources(db);
@@ -101,6 +103,7 @@ class DatabaseCleanup {
     removedCounts['message_embeddings'] =
         await _deleteOrphanMessageEmbeddings(db);
     removedCounts['sessions'] = await _deleteOrphanSessionsCascade(db);
+    removedCounts['group_orphan_sessions'] = await _deleteOrphanGroupSessionsCascade(db);
     removedCounts['messages'] = await _deleteOrphanMessages(db);
 
     fixedRefCounts['memory_sources'] = await _fixBrokenMemorySources(db);
@@ -151,6 +154,16 @@ class DatabaseCleanup {
     return (result.first.data['c'] as int?) ?? 0;
   }
 
+  static Future<int> _countOrphanGroupSessions(AppDatabase db) async {
+    final result = await db.customSelect('''
+      SELECT COUNT(*) AS c FROM sessions s
+      LEFT JOIN groups g ON g.id = s.group_id
+      WHERE s.character_id IS NULL AND s.group_id IS NOT NULL
+        AND (g.id IS NULL OR g.deleted_at IS NOT NULL)
+    ''').get();
+    return (result.first.data['c'] as int?) ?? 0;
+  }
+
   static Future<int> _countOrphanMessages(AppDatabase db) async {
     final result = await db.customSelect('''
       SELECT COUNT(*) AS c FROM messages m
@@ -174,7 +187,9 @@ class DatabaseCleanup {
       try {
         final ids = List<String>.from(jsonDecode(raw));
         if (ids.any((id) => !validIds.contains(id))) broken++;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[DB Cleanup] Failed to parse memory_sources: $e');
+      }
     }
     return broken;
   }
@@ -196,17 +211,21 @@ class DatabaseCleanup {
     Set<String> validIds,
   ) async {
     final rows = await db.customSelect('''
-      SELECT $column FROM $table
+      SELECT id, $column FROM $table
       WHERE deleted_at IS NULL AND $column IS NOT NULL AND $column != '[]'
     ''').get();
     int broken = 0;
     for (final row in rows) {
       final raw = row.data[column] as String?;
+      final rowId = row.data['id'] as String? ?? '?';
       if (raw == null || raw.isEmpty) continue;
       try {
         final ids = List<String>.from(jsonDecode(raw));
         if (ids.any((id) => !validIds.contains(id))) broken++;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint(
+          '[DB Cleanup] Failed to parse $column in $table row $rowId: $e');
+      }
     }
     return broken;
   }
@@ -262,6 +281,34 @@ class DatabaseCleanup {
     ''', updates: {});
   }
 
+  /// Deletes group-orphaned sessions and cascades to their messages + embeddings.
+  static Future<int> _deleteOrphanGroupSessionsCascade(AppDatabase db) async {
+    await db.customUpdate('''
+      DELETE FROM message_embeddings WHERE session_id IN (
+        SELECT s.id FROM sessions s
+        LEFT JOIN groups g ON g.id = s.group_id
+        WHERE s.character_id IS NULL AND s.group_id IS NOT NULL
+          AND (g.id IS NULL OR g.deleted_at IS NOT NULL)
+      )
+    ''', updates: {});
+    await db.customUpdate('''
+      DELETE FROM messages WHERE session_id IN (
+        SELECT s.id FROM sessions s
+        LEFT JOIN groups g ON g.id = s.group_id
+        WHERE s.character_id IS NULL AND s.group_id IS NOT NULL
+          AND (g.id IS NULL OR g.deleted_at IS NOT NULL)
+      )
+    ''', updates: {});
+    return db.customUpdate('''
+      DELETE FROM sessions WHERE rowid IN (
+        SELECT s.rowid FROM sessions s
+        LEFT JOIN groups g ON g.id = s.group_id
+        WHERE s.character_id IS NULL AND s.group_id IS NOT NULL
+          AND (g.id IS NULL OR g.deleted_at IS NOT NULL)
+      )
+    ''', updates: {});
+  }
+
   static Future<int> _deleteOrphanMessages(AppDatabase db) async {
     return db.customUpdate('''
       DELETE FROM messages WHERE session_id NOT IN (
@@ -294,7 +341,10 @@ class DatabaseCleanup {
           );
           fixed++;
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint(
+          '[DB Cleanup] Failed to parse memory_sources for character $charId: $e');
+      }
     }
     return fixed;
   }
@@ -335,7 +385,10 @@ class DatabaseCleanup {
           );
           fixed++;
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint(
+          '[DB Cleanup] Failed to parse $column in $table row $groupId: $e');
+      }
     }
     return fixed;
   }
@@ -355,4 +408,5 @@ class DatabaseCleanup {
     ''').get();
     return rows.map((r) => r.data['id'] as String).toSet();
   }
+
 }
