@@ -2589,6 +2589,8 @@ class WebServerService extends ChangeNotifier {
         groupName: body['group_name']?.toString(),
         scenario: body['scenario']?.toString(),
         turnOrder: turnOrder,
+        entranceText: body['entrance_text']?.toString(),
+        entranceCreative: body['entrance_creative'] == true,
       );
 
       if (group == null) return _errorResponse(500, 'Fork failed');

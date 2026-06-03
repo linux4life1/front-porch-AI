@@ -6181,6 +6181,8 @@
 
         const selected = new Set();
         let turnOrder = 'roundRobin';
+        let entranceText = '';
+        let creative = false;
 
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay active';
@@ -6200,6 +6202,18 @@
 
                 <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px">Scenario (optional)</label>
                 <textarea id="fork-group-scenario" class="settings-textarea" rows="2" placeholder="Set the scene for the group conversation..." style="width:100%;margin-bottom:12px"></textarea>
+
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px">Entrance for added character (optional)</label>
+                <textarea id="fork-entrance" class="settings-textarea" rows="2" placeholder="How the new character enters the scene..." style="width:100%;margin-bottom:4px">${esc(entranceText)}</textarea>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">How your text is used:</label>
+                <label style="display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--text-muted);margin-bottom:8px;cursor:pointer">
+                    <input type="radio" name="fork-entrance-mode" value="verbatim" ${!creative ? 'checked' : ''} style="margin-top:2px">
+                    <span><strong style="color:var(--text-secondary)">Opening line (default)</strong><br>Your text starts the character's first message; they continue from it.</span>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--text-muted);margin-bottom:12px;cursor:pointer">
+                    <input type="radio" name="fork-entrance-mode" value="direction" ${creative ? 'checked' : ''} style="margin-top:2px">
+                    <span><strong style="color:var(--text-secondary)">Direction</strong><br>The AI writes the entrance based on your text.</span>
+                </label>
 
                 <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px">Turn Order</label>
                 <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -6241,6 +6255,18 @@
                 });
             });
 
+            // Preserve entrance text across re-renders
+            overlay.querySelector('#fork-entrance').addEventListener('input', (e) => {
+                entranceText = e.target.value;
+            });
+
+            // Entrance mode radios (both options always visible — no re-render needed)
+            overlay.querySelectorAll('input[name="fork-entrance-mode"]').forEach(r => {
+                r.addEventListener('change', (e) => {
+                    creative = (e.target.value === 'direction');
+                });
+            });
+
             // Cancel
             overlay.querySelector('#fork-cancel').addEventListener('click', () => {
                 overlay.remove();
@@ -6250,6 +6276,7 @@
             overlay.querySelector('#fork-create').addEventListener('click', async () => {
                 const name = overlay.querySelector('#fork-group-name').value.trim();
                 const scenario = overlay.querySelector('#fork-group-scenario').value.trim();
+                const entrance = overlay.querySelector('#fork-entrance').value.trim();
                 const createBtn = overlay.querySelector('#fork-create');
                 createBtn.disabled = true;
                 createBtn.textContent = 'Forking...';
@@ -6261,6 +6288,8 @@
                         group_name: name || undefined,
                         scenario: scenario || undefined,
                         turn_order: turnOrder,
+                        entrance_text: entrance || undefined,
+                        entrance_creative: creative,
                     }),
                 });
 

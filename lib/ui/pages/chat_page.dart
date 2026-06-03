@@ -3880,6 +3880,8 @@ class _ChatPageState extends State<ChatPage> {
       text: chatService.activeCharacter?.name ?? 'Group',
     );
     final scenarioController = TextEditingController();
+    final entranceController = TextEditingController();
+    var entranceCreative = false;
     var turnOrder = TurnOrder.roundRobin;
 
     showDialog(
@@ -3903,7 +3905,9 @@ class _ChatPageState extends State<ChatPage> {
           ),
           content: SizedBox(
             width: 420,
-            height: 450,
+            // Adaptive: gives the character list room for ~2 characters, but
+            // stays within ~80% of screen height so it never overflows laptops.
+            height: (MediaQuery.of(ctx).size.height * 0.8).clamp(480.0, 560.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -3937,6 +3941,67 @@ class _ChatPageState extends State<ChatPage> {
                     focusedBorder: UnderlineInputBorder(
                       borderSide: BorderSide(color: Colors.purpleAccent),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                AppTextField(
+                  controller: entranceController,
+                  style: const TextStyle(color: Colors.white),
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Entrance for added character (optional)',
+                    labelStyle: TextStyle(color: Colors.white54),
+                    hintText: 'How the new character enters the scene...',
+                    hintStyle: TextStyle(color: Colors.white24),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white24),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.purpleAccent),
+                    ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 4, bottom: 2),
+                  child: Text(
+                    'How your text is used:',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ),
+                RadioListTile<bool>(
+                  value: false,
+                  groupValue: entranceCreative,
+                  activeColor: Colors.purpleAccent,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  onChanged: (_) =>
+                      setDialogState(() => entranceCreative = false),
+                  title: const Text(
+                    'Opening line (default)',
+                    style: TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    "Your text starts the character's first message; they continue from it.",
+                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ),
+                RadioListTile<bool>(
+                  value: true,
+                  groupValue: entranceCreative,
+                  activeColor: Colors.purpleAccent,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  onChanged: (_) =>
+                      setDialogState(() => entranceCreative = true),
+                  title: const Text(
+                    'Direction',
+                    style: TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    'The AI writes the entrance based on your text.',
+                    style: TextStyle(color: Colors.white54, fontSize: 11),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -4067,6 +4132,8 @@ class _ChatPageState extends State<ChatPage> {
                         groupName: nameController.text.trim(),
                         scenario: scenarioController.text.trim(),
                         turnOrder: turnOrder,
+                        entranceText: entranceController.text.trim(),
+                        entranceCreative: entranceCreative,
                       );
                       if (group != null && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(

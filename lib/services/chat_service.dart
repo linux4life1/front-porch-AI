@@ -336,6 +336,14 @@ class ChatService extends ChangeNotifier {
   List<CharacterCard> _groupCharacters = [];
   int _turnIndex = 0;
 
+  // One-shot overrides for a forked-in character's custom entrance.
+  // _forcedNextSpeaker forces the next group turn to a specific character
+  // (overriding round-robin/random); _entranceDirective is a hidden, single-use
+  // instruction injected into the prompt so the entrance is flavored without
+  // appearing as a visible message. Both are consumed on the next generation.
+  CharacterCard? _forcedNextSpeaker;
+  String? _entranceDirective;
+
   // ── Director Mode ──
   bool _observerMode = false;
   bool _autoPlayActive = false;
@@ -1741,6 +1749,8 @@ class ChatService extends ChangeNotifier {
     String? groupName,
     String? scenario,
     TurnOrder turnOrder = TurnOrder.roundRobin,
+    String? entranceText,
+    bool entranceCreative = false,
   }) async {
     if (_isGenerating) return null;
     if (_activeCharacter == null || _characterRepository == null) return null;
@@ -1829,6 +1839,45 @@ class ChatService extends ChangeNotifier {
 
     // Switch to the new group (this loads the session we just created)
     await setActiveGroup(group);
+
+    // ── Custom entrance for the forked-in character ──
+    // Only the first additional character gets an entrance (multi-char pinned).
+    final entrance = entranceText?.trim() ?? '';
+    if (entrance.isNotEmpty && additionalCharacters.isNotEmpty) {
+      final newChar = additionalCharacters.first;
+      final newCharId = _getCharacterIdFromCard(newChar);
+      final resolved = _groupCharacters.firstWhere(
+        (c) => _getCharacterIdFromCard(c) == newCharId,
+        orElse: () => newChar,
+      );
+
+      if (entranceCreative) {
+        // Creative: feed the entrance as a hidden, one-shot directive and let the
+        // new character generate their own entrance flavored by it.
+        _forcedNextSpeaker = resolved;
+        _entranceDirective =
+            '${newChar.name} is now entering the scene. '
+            'Write ${newChar.name}\'s entrance in their own voice, '
+            'guided by this direction: $entrance';
+        await _generateResponse(GenerationMode.normal);
+      } else {
+        // Verbatim: seed the new character's opening message with the entrance
+        // text, then continue from it so they react to their own entrance.
+        // Trailing blank line keeps the setup and the generated reaction on
+        // separate lines (continue mode merges as originalText + tokens).
+        _messages.add(
+          ChatMessage(
+            text: '$entrance\n\n',
+            sender: newChar.name,
+            isUser: false,
+            characterId: newCharId,
+          ),
+        );
+        await _saveChat();
+        notifyListeners();
+        await _generateResponse(GenerationMode.continue_);
+      }
+    }
 
     return group;
   }
@@ -3803,6 +3852,18 @@ if (_realismEnabled && _activeGroup == null && _activeCharacter!.frontPorchExten
 
   /// Pick which character speaks next based on turn order.
   CharacterCard _pickNextGroupCharacter() {
+    // One-shot override (e.g. a forked-in character's custom entrance) wins over
+    // both round-robin and random, then clears itself so normal order resumes.
+    if (_forcedNextSpeaker != null) {
+      final forced = _forcedNextSpeaker!;
+      _forcedNextSpeaker = null;
+      final idx = _groupCharacters.indexWhere((c) => c.name == forced.name);
+      if (idx >= 0) {
+        _turnIndex = idx + 1; // keep round-robin aligned after the entrance
+        return _groupCharacters[idx];
+      }
+      return forced;
+    }
     if (_activeGroup!.turnOrder == TurnOrder.random) {
       return _groupCharacters[Random().nextInt(_groupCharacters.length)];
     }
@@ -3991,6 +4052,14 @@ if (_realismEnabled && _activeGroup == null && _activeCharacter!.frontPorchExten
       String authorNoteBlock = '';
       if (_authorNote.isNotEmpty) {
         authorNoteBlock = _buildAuthorNoteBlock();
+      }
+
+      // One-shot entrance directive — a hidden instruction (e.g. how a freshly
+      // forked-in character should enter the scene). Consumed here so it only
+      // influences this single generation and never persists as a message.
+      if (_entranceDirective != null) {
+        authorNoteBlock += '[${_entranceDirective!}]\n';
+        _entranceDirective = null;
       }
 
       // Build summary block if available
