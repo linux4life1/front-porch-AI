@@ -459,6 +459,15 @@ Group chats let multiple characters converse together in one session — with fu
 
 You can also convert an existing single-character chat into a group later via Chat Settings.
 
+### Forking a 1:1 Chat into a Group — Custom Entrance
+
+When you fork a one-on-one chat into a group (chat menu → **Fork to Group Chat**), you can dictate how the newly added character makes their entrance using the optional **Entrance** field and a mode selector:
+
+- **Opening line (default)** — your text becomes the start of the new character's first message, and the model continues from it. Use this to write the literal opening beat (e.g. *"A new person enters the room in an angry huff…"*); the character then reacts from there.
+- **Direction** — your text is treated as stage direction. The AI writes the character's entrance in their own voice, guided by it (e.g. *"It's storming outside and they enter angrily"*). The direction itself never appears as a message.
+
+The forked-in character always delivers this entrance first, regardless of the group's Round Robin / Random turn order; normal turn order resumes afterward. Leave the Entrance field blank to have them simply join without an introduction.
+
 ### Turn Order
 
 The **Turn Order** setting (editable in group creation and chat settings) controls who speaks when:
