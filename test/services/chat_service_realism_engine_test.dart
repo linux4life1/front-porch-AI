@@ -389,12 +389,15 @@ void main() {
 
       // Deltas should have been applied via the one-shot path.
       expect(chat.affectionScore, anyOf(greaterThanOrEqualTo(startBond), greaterThan(startBond - 20)));
-      // Contract: the one-shot prompt was used.
+      // Contract: the fused one-shot eval prompt was used. The one-shot path
+      // emits a single prompt asking for all deltas at once (relationship_delta,
+      // trust_delta, etc.) — distinct from the multi-call narrative prompt
+      // ("autonomous story engine"). Assert on markers actually present in
+      // _evaluateOneShotCall's prompt.
       expect(
         fakeLlm.seenPrompts.any((p) =>
-            p.toLowerCase().contains('autonomous story engine') ||
-            p.toLowerCase().contains('one shot') ||
-            p.contains('bond_delta')),
+            p.contains('relationship_delta') &&
+            p.contains('trust_delta')),
         isTrue,
       );
     });
