@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-06-06 (Realign stale test assertions to green Rawhide CI — Tier 1)
+- Problem: Rawhide CI was red on every push. 4 of the 6 failures were stale tests asserting behavior that production code intentionally changed, not real regressions.
+- Root causes:
+  - `avatar_repository_test.dart`: asserted DB `schemaVersion == 29`; schema is now 32 (bumped 3× without updating the test).
+  - `chat_message_test.dart` (3 tests): the `ChatMessage` constructor now clamps an out-of-range `swipeIndex` to 0 (guards against corrupted DB rows, see chat_service.dart:188). The tests predated the clamp — they set `swipeIndex` beyond the `swipes` list and expected either a RangeError throw or metadata at the (now-clamped-away) index.
+- Changes (test-only, no production code):
+  - Schema assertion 29 → 32.
+  - "swipeIndex out of range" test rewritten to assert the new clamp-to-0 + no-throw behavior.
+  - "activeMetadata at current index" and "pads with nulls" tests given a `swipes` list long enough that their `swipeIndex` survives the clamp, preserving each test's original intent rather than weakening assertions.
+- Impact: 4 of 6 Rawhide failures fixed. The 2 remaining (Realism Engine seed 55→110 and one-shot delta false) are deliberately left for a separate branch — they may be real regressions in a parity-sensitive area.
+- Verification: `flutter test` on both files (50 pass); `flutter analyze` clean on both.
+- Files: `test/services/avatar_repository_test.dart`, `test/services/chat_message_test.dart`, `.claude/changelog.md`
+- Hygiene: New private methods: 0. Methods deleted: 0. Production code touched: none.
+
 ## 2026-06-03 (Thinking models: increase objective/task generation limits + robust stripping)
 - User report: "most models think way more than 600 tokens" for subtask generation. The previous 600 maxLength (and 1024 for completion checks) was insufficient once <think> reasoning is emitted before the final "Output ONLY a numbered list..." or "Answer only YES or NO".
 - Changes:

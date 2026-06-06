@@ -64,7 +64,9 @@ void main() {
       expect(msg.swipes, isEmpty);
     });
 
-    test('swipeIndex out of range throws RangeError', () {
+    test('swipeIndex out of range is clamped to 0 instead of throwing', () {
+      // The constructor clamps an out-of-range swipeIndex to 0 to prevent
+      // RangeError crashes from corrupted DB rows or previous buggy state.
       final msg = ChatMessage(
         text: 'Hello',
         sender: 'Luna',
@@ -73,7 +75,8 @@ void main() {
         swipeIndex: 99,
       );
 
-      expect(() => msg.text, throwsRangeError);
+      expect(msg.swipeIndex, 0);
+      expect(msg.text, 'Hello');
     });
   });
 
@@ -277,6 +280,7 @@ void main() {
         text: 'Hello',
         sender: 'Luna',
         isUser: false,
+        swipes: ['Hello', 'Hi'],
         swipeMetadata: [
           null,
           {'swipeKey': 'swipeValue'},
@@ -313,6 +317,7 @@ void main() {
         text: 'Hello',
         sender: 'Luna',
         isUser: false,
+        swipes: ['Hello', 'Hi', 'Hey'],
         swipeMetadata: [null, null, null],
         swipeIndex: 2,
       );
