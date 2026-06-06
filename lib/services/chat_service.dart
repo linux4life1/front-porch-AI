@@ -3981,13 +3981,14 @@ class ChatService extends ChangeNotifier {
           _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
 
       _realismEnabled = extSeed.realismEnabled;
-      // Migration: scale old scores (±150) to new range (±300)
-      _affectionScore = _migrateShortTermScore(
-        extSeed.shortTermBond.clamp(-300, 300),
-      );
-      _longTermScore = _migrateLongTermScore(
-        extSeed.longTermBond.clamp(-300, 300),
-      );
+      // V2.5 card seeds are authored on the current ±300 scale
+      // (see FrontPorchExtensions.shortTermBond/longTermBond docs: "-300 to 300").
+      // Do NOT run the legacy ±150→±300 migration here — that helper exists only
+      // for upgrading previously-persisted *session* scores (see _loadLastSession /
+      // loadSession). Applying it to a fresh card seed double-counts the value
+      // (e.g. a card authored at 55 would start every new chat at 110).
+      _affectionScore = extSeed.shortTermBond.clamp(-300, 300);
+      _longTermScore = extSeed.longTermBond.clamp(-300, 300);
       _trustLevel = extSeed.trustLevel.clamp(-100, 100);
       _dayCount = extSeed.dayCount.clamp(1, 9999);
       _timeOfDay = extSeed.timeOfDay;
