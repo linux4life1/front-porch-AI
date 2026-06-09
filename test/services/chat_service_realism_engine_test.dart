@@ -270,9 +270,11 @@ void main() {
           await chat.startNewChat();
 
           expect(chat.realismEnabled, isTrue);
-          // V2.5 seed path: shortTermBond 55 (<=150) migrates *2 via seedFromV2OrExt -> 110.
-          // (Trust 11 unaffected by bond migrate; longTerm would also *2 if present.)
-          expect(chat.relationshipService.affectionScore, 110);
+          // V2.5 card seed path: shortTermBond 55 is authored on the ±300 scale and
+          // seeds as-is (plain clamp, no *2). The legacy ±150→±300 migration only
+          // applies to persisted session loads, not fresh card seeds.
+          // (Trust 11 likewise seeds unchanged.)
+          expect(chat.relationshipService.affectionScore, 55);
           expect(chat.relationshipService.trustLevel, 11);
           if (chat.needsSimEnabled) {
             expect(chat.needsSimulation.vector, isNotEmpty);
