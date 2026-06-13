@@ -459,6 +459,37 @@ Group chats let multiple characters converse together in one session — with fu
 
 You can also convert an existing single-character chat into a group later via Chat Settings.
 
+### Forking a 1:1 Chat into a Group (with custom entrances)
+
+From a single-character chat, the chat menu's **Fork to Group Chat** opens a
+short step-by-step wizard:
+
+1. **Characters** — pick who joins. Drag to reorder; the order is the order they
+   enter the scene.
+2. **Setup** — group name, optional scenario, and turn order.
+3. **Entrance (one step per added character)** — *optional* per character.
+   Decide how each newcomer arrives:
+   - **Opening line** — your text is used as the character's entrance exactly as
+     written (no AI generation).
+   - **Direction** — the AI writes the entrance in the character's own voice,
+     guided by your text (the direction never appears as a message).
+   - **Leave it blank** — the character is simply inserted into the turn order
+     with no special entrance.
+4. **Review** — confirm the roster, settings, and who gets an entrance, then
+   **Fork to Group**.
+
+Each character with an entrance takes a one-off turn to make it, in the order
+you arranged them. The group's rotation order becomes: the original
+participant(s), then the arrivals **with** an entrance (in the order added),
+then the arrivals **without** an entrance at the end. In **Round Robin**, once
+all the entrances are done, the **next turn goes to whoever falls right after
+the last entrant** in that order — i.e. the first silent arrival, or wrapping
+back to the original if there were none. In **Random** mode the next speaker is
+random as usual.
+
+> The web UI's fork is single-step (no per-character entrances) for now; the
+> stepped wizard is in the desktop app.
+
 ### Turn Order
 
 The **Turn Order** setting (editable in group creation and chat settings) controls who speaks when:

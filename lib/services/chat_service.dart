@@ -198,6 +198,11 @@ class ChatService extends ChangeNotifier {
   // doesn't explicitly pass groupRepo every time). Set from main.dart provider setup.
   GroupChatRepository? _groupChatRepository;
 
+  // One-shot hidden directive for a forked-in character's custom entrance
+  // (Direction mode). Injected into the prompt, consumed on the next generation;
+  // the forced-speaker side is handled by GroupTurnManager.setNextSpeaker.
+  String? _entranceDirective;
+
   // ── Clean delegation layer (GroupTurnManager is the real owner) ────────
   // These keep the rest of the (very large) file readable while we finish
   // the migration. All group state now lives in _groupManager.
@@ -2490,10 +2495,15 @@ class ChatService extends ChangeNotifier {
     String? groupName,
     String? scenario,
     TurnOrder turnOrder = TurnOrder.roundRobin,
+    Map<String, ({String text, bool creative})> entrances = const {},
   }) async {
     if (_isGenerating) return null;
     if (_activeCharacter == null || _characterRepository == null) return null;
     if (_messages.isEmpty) return null;
+    // 1:1 → group only. Forking from an existing group would rebuild a group
+    // from just the active speaker (dropping the other members), so refuse it —
+    // use "Add Character to Group" for an existing group instead.
+    if (_activeGroup != null) return null;
 
     final originalCharId = _getCharacterIdFromCard(_activeCharacter!);
 
@@ -2518,12 +2528,24 @@ class ChatService extends ChangeNotifier {
     );
     await groupRepo.save(group);
 
+    // Rotation order rule for the new group: original participant(s) first,
+    // then arrivals WITH an entrance (in the order added), then arrivals
+    // WITHOUT an entrance at the end. Member insertion order *is* the
+    // round-robin order (the members table has no explicit sort column), so we
+    // insert in exactly that order.
+    bool hasEntrance(CharacterCard c) =>
+        (entrances[c.name]?.text.trim().isNotEmpty) ?? false;
+    final entranceArrivals = additionalCharacters.where(hasEntrance).toList();
+    final silentArrivals =
+        additionalCharacters.where((c) => !hasEntrance(c)).toList();
+    final orderedArrivals = [...entranceArrivals, ...silentArrivals];
+
     // Decoupled model: ensure members exist for the original 1:1 character
     // and every additional character. Without this, the group loads empty
     // (setActiveGroup / GroupTurnManager will have no one to speak).
     // Ported from the fix originally contributed in PR #44 by @MisterLotto.
     await _createGroupMember(group.id, _activeCharacter!);
-    for (final c in additionalCharacters) {
+    for (final c in orderedArrivals) {
       await _createGroupMember(group.id, c);
     }
 
@@ -2586,6 +2608,77 @@ class ChatService extends ChangeNotifier {
 
     // Switch to the new group (this loads the session we just created)
     await setActiveGroup(group, groupRepo: groupRepo);
+
+    // Run any custom entrances WITHOUT blocking the caller, so the wizard can
+    // navigate to the group immediately and the entrance messages stream into
+    // the now-visible chat instead of waiting behind a spinner. Entrants cut in
+    // one-by-one in the order they were added.
+    if (entranceArrivals.isNotEmpty) {
+      unawaited(() async {
+        try {
+          for (final addCard in entranceArrivals) {
+            final entry = entrances[addCard.name]!;
+            final text = entry.text.trim();
+
+            // Members are copied under fresh UUIDs on fork, so resolve by name
+            // (stable) and use the resolved member's id — else the entrance
+            // attributes to the wrong member.
+            final resolved = _groupCharacters.firstWhere(
+              (c) => c.name == addCard.name,
+              orElse: () => addCard,
+            );
+            final resolvedId = _getCharacterIdFromCard(resolved);
+
+            if (entry.creative) {
+              // Direction: hidden one-shot directive; force this char to speak.
+              _groupManager?.setNextSpeaker(resolved);
+              _entranceDirective =
+                  'Stage direction (hidden — do NOT quote, repeat, or copy this '
+                  'text into the reply): ${resolved.name} enters the scene now, '
+                  'following this intent — "$text". Write ${resolved.name}\'s '
+                  'entrance fresh, in their own voice and words.';
+              await _generateResponse(GenerationMode.normal);
+            } else {
+              // Opening line: the entrance IS the user's text, verbatim — it
+              // becomes the character's message as-is, no LLM generation.
+              _messages.add(
+                ChatMessage(
+                  text: text,
+                  sender: resolved.name,
+                  isUser: false,
+                  characterId: resolvedId,
+                ),
+              );
+              await _saveChat();
+              notifyListeners();
+            }
+          }
+        } catch (e) {
+          debugPrint('[Fork:Entrance] generation failed: $e');
+        } finally {
+          // The entrances are one-off cut-ins. In round-robin the next turn goes
+          // to whoever falls right after the LAST entrant in the rotation order
+          // (originals, then entrance arrivals, then silent arrivals) — i.e. the
+          // first silent arrival, or wrapping back to the original if there are
+          // none. advanceAfterRegeneration parks the pointer at last-entrant + 1.
+          // Done in `finally` so a generation hiccup can't leave the rotation
+          // stuck on the entrant. Random needs no fix-up.
+          final lastEntrantName = entranceArrivals.last.name;
+          if (turnOrder == TurnOrder.roundRobin &&
+              _groupCharacters.any((c) => c.name == lastEntrantName)) {
+            final lastEntrant = _groupCharacters.firstWhere(
+              (c) => c.name == lastEntrantName,
+            );
+            _groupManager?.advanceAfterRegeneration(lastEntrant);
+          }
+          // The turn pointer changed after generation finished. GroupTurnManager
+          // notifies its own listeners, but the chat UI watches ChatService, so
+          // we must propagate here — otherwise the next-speaker indicator keeps
+          // showing the (stale) entrant even though the pointer is correct.
+          notifyListeners();
+        }
+      }());
+    }
 
     return group;
   }
@@ -5671,6 +5764,13 @@ class ChatService extends ChangeNotifier {
           }
           authorNoteBlock += perCharBlock;
         }
+      }
+
+      // One-shot entrance directive (forked-in character) — hidden, consumed
+      // here so it influences only this generation and never persists.
+      if (_entranceDirective != null) {
+        authorNoteBlock += '[${_entranceDirective!}]\n';
+        _entranceDirective = null;
       }
 
       // Build summary block if available

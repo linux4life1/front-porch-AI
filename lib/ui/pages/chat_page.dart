@@ -49,6 +49,7 @@ import 'package:front_porch_ai/ui/dialogs/group_settings_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/group_objectives_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/kobold_log_dialog.dart';
+import 'package:front_porch_ai/ui/pages/fork_to_group_page.dart';
 
 class StyledTextController extends TextEditingController
     implements SpellCheckResultsProvider {
@@ -2410,7 +2411,11 @@ class _ChatPageState extends State<ChatPage> {
                               ContextViewerDialog(chatService: chatService),
                         );
                       } else if (value == 'fork_group') {
-                        _showForkToGroupDialog(context, chatService);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ForkToGroupPage(),
+                          ),
+                        );
                       } else if (value == 'kobold_log') {
                         showDialog(
                           context: context,
@@ -2492,7 +2497,8 @@ class _ChatPageState extends State<ChatPage> {
                             ],
                           ),
                         ),
-                      if (chatService.activeCharacter != null)
+                      if (chatService.activeCharacter != null &&
+                          chatService.activeGroup == null)
                         const PopupMenuItem(
                           value: 'fork_group',
                           child: Row(
@@ -3994,238 +4000,6 @@ class _ChatPageState extends State<ChatPage> {
             child: SummarySection(chatService: chatService),
           ),
         ],
-      ),
-    );
-  }
-
-  /// Show dialog to fork current 1:1 chat into a group chat.
-  void _showForkToGroupDialog(BuildContext context, ChatService chatService) {
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-    final currentCharId = chatService.activeCharacter != null
-        ? (chatService.activeCharacter!.imagePath != null
-              ? p.basenameWithoutExtension(
-                  chatService.activeCharacter!.imagePath!,
-                )
-              : chatService.activeCharacter!.name
-                    .replaceAll(RegExp(r'[^\w\s]'), '')
-                    .replaceAll(' ', '_'))
-        : '';
-
-    // Get all characters except the current one
-    final available = charRepo.characters.where((c) {
-      final id = c.imagePath != null
-          ? p.basenameWithoutExtension(c.imagePath!)
-          : c.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
-      return id != currentCharId;
-    }).toList();
-
-    final selected = <CharacterCard>{};
-    final nameController = TextEditingController(
-      text: chatService.activeCharacter?.name ?? 'Group',
-    );
-    final scenarioController = TextEditingController();
-    var turnOrder = TurnOrder.roundRobin;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.surfaceOf(context),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Colors.purpleAccent, width: 0.5),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.group_add, color: Colors.purpleAccent),
-              SizedBox(width: 10),
-              Text(
-                'Fork to Group Chat',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 420,
-            height: 450,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppTextField(
-                  controller: nameController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Group Name',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white24),
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.purpleAccent),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                AppTextField(
-                  controller: scenarioController,
-                  style: const TextStyle(color: Colors.white),
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Scenario (optional)',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    hintText: 'Set the scene for the group conversation...',
-                    hintStyle: TextStyle(color: Colors.white24),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white24),
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.purpleAccent),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Text(
-                      'Turn Order:',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                    const SizedBox(width: 12),
-                    ChoiceChip(
-                      label: const Text('Round Robin'),
-                      selected: turnOrder == TurnOrder.roundRobin,
-                      selectedColor: Colors.purpleAccent,
-                      onSelected: (_) => setDialogState(
-                        () => turnOrder = TurnOrder.roundRobin,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: const Text('Random'),
-                      selected: turnOrder == TurnOrder.random,
-                      selectedColor: Colors.purpleAccent,
-                      onSelected: (_) =>
-                          setDialogState(() => turnOrder = TurnOrder.random),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Select characters to add (${selected.length} selected):',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: available.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No other characters available.\nImport or create characters first.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white38),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: available.length,
-                          itemBuilder: (context, index) {
-                            final ch = available[index];
-                            final isSelected = selected.contains(ch);
-                            return CheckboxListTile(
-                              value: isSelected,
-                              activeColor: Colors.purpleAccent,
-                              onChanged: (val) {
-                                setDialogState(() {
-                                  if (val == true) {
-                                    selected.add(ch);
-                                  } else {
-                                    selected.remove(ch);
-                                  }
-                                  // Update group name
-                                  final names = [
-                                    chatService.activeCharacter!.name,
-                                    ...selected.map((c) => c.name),
-                                  ];
-                                  nameController.text = names.join(' & ');
-                                });
-                              },
-                              secondary: CircleAvatar(
-                                radius: 18,
-                                backgroundImage: ch.imagePath != null
-                                    ? FileImage(
-                                        _resolveCharImage(ch.imagePath!),
-                                      )
-                                    : null,
-                                child: ch.imagePath == null
-                                    ? Text(ch.name[0])
-                                    : null,
-                              ),
-                              title: Text(
-                                ch.name,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              subtitle: Text(
-                                ch.description.length > 50
-                                    ? '${ch.description.substring(0, 50)}...'
-                                    : ch.description,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white38,
-                                ),
-                              ),
-                              dense: true,
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.white54),
-              ),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.call_split),
-              label: const Text('Fork'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purpleAccent,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: selected.isEmpty
-                  ? null
-                  : () async {
-                      Navigator.pop(ctx);
-                      final groupRepo = Provider.of<GroupChatRepository>(
-                        context,
-                        listen: false,
-                      );
-                      final group = await chatService.forkToGroupChat(
-                        selected.toList(),
-                        groupRepo,
-                        groupName: nameController.text.trim(),
-                        scenario: scenarioController.text.trim(),
-                        turnOrder: turnOrder,
-                      );
-                      if (group != null && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Group "${group.name}" created from fork!',
-                            ),
-                            backgroundColor: Colors.purpleAccent.shade700,
-                          ),
-                        );
-                      }
-                    },
-            ),
-          ],
-        ),
       ),
     );
   }

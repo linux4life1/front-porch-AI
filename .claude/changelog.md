@@ -51,6 +51,16 @@
 - **Verification**: `flutter analyze` clean (0 issues); full project analyze: 0 new warnings/errors. No DB schema change (stored in existing `front_porch_extensions` JSON column). Existing characters default to 80 for all baselines.
 - **Commit**: will be filled after `git commit`.
 
+## 2026-06-11 (feat: fork-to-group wizard with per-character custom entrances)
+
+- **Branch**: feat/group-entrance-wizard (PR #50 → Rawhide; rebased onto current Rawhide).
+- **Feature**: replaces the "Fork to Group Chat" popup with a stepped wizard. Each added character gets an optional entrance — **Opening line** (used verbatim, no LLM) or **Direction** (the LLM writes it from a hidden note), or blank (silent join).
+- **Turn order**: rotation = `[original(s), arrivals with an entrance (add order), arrivals without an entrance]`; after the entrances the next turn falls to whoever follows the **last entrant** (`GroupTurnManager.advanceAfterRegeneration`). A `notifyListeners()` on ChatService after the advance refreshes the next-speaker indicator. Random mode unaffected.
+- **Fork is 1:1 → group only**: menu item hidden in groups; `forkToGroupChat` guards against running from a group (Add Character to Group is the path for existing groups).
+- **Files**: chat_service.dart, group_turn_manager.dart, chat_page.dart, fork_to_group_page.dart + _steps.dart + _characters_step.dart, group_entrance_test.dart, docs/user-guide.md, docs/Rawhide.md.
+- **Review fixes** (PR #50): removed an accidentally-committed local `build_and_deploy.ps1`; keyed the entrances map by `stableGroupId` (not name); guarded the one-shot entrance directive against a mid-sequence user turn; surface entrance-generation failures in-chat instead of swallowing; corrected the entrance-step hint text.
+- **Verification**: `flutter analyze` clean; `group_entrance_test` green; maintainer confirmed turn order + both modes in-app.
+
 ## 2026-06-09 (test surfaces: Director/Verifier realism_verification dedicated test)
 
 - **Files changed**: test/services/chat/realism_verification_test.dart (major surface upgrade), test/services/chat/needs_impact_evaluator_test.dart (qualified passive note), docs/Rawhide.md (note), .claude/changelog.md.
