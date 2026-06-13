@@ -19,12 +19,12 @@
 // Step bodies for ForkToGroupPage, extracted as focused widgets. The page
 // (fork_to_group_page.dart) owns all state + nav and passes what each step needs.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
 
@@ -35,15 +35,23 @@ Color forkAccent(BuildContext context) => AppColors.resolve(
   const Color(0xFF6D28D9),
 );
 
-/// Shared avatar used across the fork wizard steps.
+/// Shared avatar used across the fork wizard steps. Resolves the image path via
+/// StorageService (same as the rest of the app) so relative paths work too.
 Widget forkAvatar(BuildContext context, CharacterCard c, {double radius = 20}) {
+  final path = c.imagePath;
+  final hasImage = path != null && path.isNotEmpty;
   return CircleAvatar(
     radius: radius,
     backgroundColor: AppColors.surfaceContainerOf(context),
-    backgroundImage: c.imagePath != null ? FileImage(File(c.imagePath!)) : null,
-    child: c.imagePath == null
-        ? Text(c.name.isNotEmpty ? c.name[0] : '?')
+    backgroundImage: hasImage
+        ? FileImage(
+            Provider.of<StorageService>(
+              context,
+              listen: false,
+            ).resolveCharacterImage(path),
+          )
         : null,
+    child: hasImage ? null : Text(c.name.isNotEmpty ? c.name[0] : '?'),
   );
 }
 
@@ -149,7 +157,6 @@ class ForkEntranceStep extends StatelessWidget {
   const ForkEntranceStep({
     super.key,
     required this.character,
-    required this.originalName,
     required this.controller,
     required this.creative,
     required this.turnOrder,
@@ -157,7 +164,6 @@ class ForkEntranceStep extends StatelessWidget {
   });
 
   final CharacterCard character;
-  final String? originalName;
   final TextEditingController controller;
   final bool creative;
   final TurnOrder turnOrder;
@@ -261,8 +267,8 @@ class ForkEntranceStep extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'After all entrances, ${originalName ?? "the original character"} '
-              'speaks next, then normal round-robin resumes.',
+              'After all entrances, the next turn follows whoever falls right '
+              'after the last arrival in the rotation.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textTertiary(context),

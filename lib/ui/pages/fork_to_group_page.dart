@@ -103,8 +103,8 @@ class _ForkToGroupPageState extends State<ForkToGroupPage> {
   void _addCharacter(CharacterCard card) {
     setState(() {
       _added.add(card);
-      _entranceCtrls.putIfAbsent(card.name, () => TextEditingController());
-      _entranceCreative.putIfAbsent(card.name, () => false);
+      _entranceCtrls.putIfAbsent(card.stableGroupId, () => TextEditingController());
+      _entranceCreative.putIfAbsent(card.stableGroupId, () => false);
       _refreshAutoName();
     });
   }
@@ -112,8 +112,8 @@ class _ForkToGroupPageState extends State<ForkToGroupPage> {
   void _removeCharacter(CharacterCard card) {
     setState(() {
       _added.remove(card);
-      _entranceCtrls.remove(card.name)?.dispose();
-      _entranceCreative.remove(card.name);
+      _entranceCtrls.remove(card.stableGroupId)?.dispose();
+      _entranceCreative.remove(card.stableGroupId);
       _refreshAutoName();
       if (_currentStep >= _totalSteps) _currentStep = _totalSteps - 1;
     });
@@ -160,13 +160,16 @@ class _ForkToGroupPageState extends State<ForkToGroupPage> {
     final chat = context.read<ChatService>();
     final groupRepo = context.read<GroupChatRepository>();
 
+    // Keyed by stableGroupId (unique) so two characters that happen to share a
+    // name don't overwrite each other's entrance.
     final entrances = <String, ({String text, bool creative})>{};
     for (final c in _added) {
-      final text = _entranceCtrls[c.name]?.text.trim() ?? '';
+      final id = c.stableGroupId;
+      final text = _entranceCtrls[id]?.text.trim() ?? '';
       if (text.isNotEmpty) {
-        entrances[c.name] = (
+        entrances[id] = (
           text: text,
-          creative: _entranceCreative[c.name] ?? false,
+          creative: _entranceCreative[id] ?? false,
         );
       }
     }
@@ -260,12 +263,11 @@ class _ForkToGroupPageState extends State<ForkToGroupPage> {
       final c = _added[_currentStep - 2];
       return ForkEntranceStep(
         character: c,
-        originalName: _original?.name,
-        controller: _entranceCtrls[c.name]!,
-        creative: _entranceCreative[c.name] ?? false,
+        controller: _entranceCtrls[c.stableGroupId]!,
+        creative: _entranceCreative[c.stableGroupId] ?? false,
         turnOrder: _turnOrder,
         onCreativeChanged: (v) =>
-            setState(() => _entranceCreative[c.name] = v),
+            setState(() => _entranceCreative[c.stableGroupId] = v),
       );
     }
     return ForkReviewStep(
@@ -273,8 +275,8 @@ class _ForkToGroupPageState extends State<ForkToGroupPage> {
       turnOrder: _turnOrder,
       scenario: _scenarioController.text.trim(),
       added: _added,
-      entranceTextFor: (c) => _entranceCtrls[c.name]?.text.trim() ?? '',
-      creativeFor: (c) => _entranceCreative[c.name] ?? false,
+      entranceTextFor: (c) => _entranceCtrls[c.stableGroupId]?.text.trim() ?? '',
+      creativeFor: (c) => _entranceCreative[c.stableGroupId] ?? false,
     );
   }
 

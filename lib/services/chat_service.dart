@@ -150,6 +150,12 @@ class ChatService extends ChangeNotifier {
   Map<String, dynamic>?
   _pendingRealismMetadata; // stores deltas for the next generation
   bool _isGenerating = false;
+  // True while a forked-in character's custom entrance sequence is running
+  // (fire-and-forget after forkToGroupChat). Blocks user-triggered turns so the
+  // one-shot _entranceDirective can't be consumed/overwritten by a racing user
+  // turn. (Follow-up: pass the directive as a local into _generateResponse to
+  // drop the shared field entirely.)
+  bool _entrancesInFlight = false;
   bool _isLoadingSession = false;
   bool _cancelRequested = false;
   int _generationEpoch = 0;
@@ -2534,7 +2540,7 @@ class ChatService extends ChangeNotifier {
     // round-robin order (the members table has no explicit sort column), so we
     // insert in exactly that order.
     bool hasEntrance(CharacterCard c) =>
-        (entrances[c.name]?.text.trim().isNotEmpty) ?? false;
+        (entrances[_getCharacterIdFromCard(c)]?.text.trim().isNotEmpty) ?? false;
     final entranceArrivals = additionalCharacters.where(hasEntrance).toList();
     final silentArrivals =
         additionalCharacters.where((c) => !hasEntrance(c)).toList();
@@ -2614,10 +2620,11 @@ class ChatService extends ChangeNotifier {
     // the now-visible chat instead of waiting behind a spinner. Entrants cut in
     // one-by-one in the order they were added.
     if (entranceArrivals.isNotEmpty) {
+      _entrancesInFlight = true; // block user turns until the sequence finishes
       unawaited(() async {
         try {
           for (final addCard in entranceArrivals) {
-            final entry = entrances[addCard.name]!;
+            final entry = entrances[_getCharacterIdFromCard(addCard)]!;
             final text = entry.text.trim();
 
             // Members are copied under fresh UUIDs on fork, so resolve by name
@@ -2631,13 +2638,35 @@ class ChatService extends ChangeNotifier {
 
             if (entry.creative) {
               // Direction: hidden one-shot directive; force this char to speak.
+              // Sanitize so the user's text can't break out of the [bracketed]
+              // author-note injection or split it across lines.
+              final safeText = text
+                  .replaceAll(']', ')')
+                  .replaceAll(RegExp(r'\s+'), ' ')
+                  .trim();
               _groupManager?.setNextSpeaker(resolved);
               _entranceDirective =
                   'Stage direction (hidden — do NOT quote, repeat, or copy this '
                   'text into the reply): ${resolved.name} enters the scene now, '
-                  'following this intent — "$text". Write ${resolved.name}\'s '
+                  'following this intent — "$safeText". Write ${resolved.name}\'s '
                   'entrance fresh, in their own voice and words.';
-              await _generateResponse(GenerationMode.normal);
+              try {
+                await _generateResponse(GenerationMode.normal);
+              } catch (e) {
+                // Surface the failure so the user isn't left wondering why the
+                // group loaded with no entrance.
+                debugPrint('[Fork:Entrance] ${resolved.name} failed: $e');
+                _entranceDirective = null; // don't leak into a later turn
+                _messages.add(
+                  ChatMessage(
+                    text: '⚠ ${resolved.name}\'s entrance could not be generated.',
+                    sender: 'System',
+                    isUser: false,
+                  ),
+                );
+                await _saveChat();
+                notifyListeners();
+              }
             } else {
               // Opening line: the entrance IS the user's text, verbatim — it
               // becomes the character's message as-is, no LLM generation.
@@ -2654,7 +2683,7 @@ class ChatService extends ChangeNotifier {
             }
           }
         } catch (e) {
-          debugPrint('[Fork:Entrance] generation failed: $e');
+          debugPrint('[Fork:Entrance] sequence failed: $e');
         } finally {
           // The entrances are one-off cut-ins. In round-robin the next turn goes
           // to whoever falls right after the LAST entrant in the rotation order
@@ -2671,6 +2700,7 @@ class ChatService extends ChangeNotifier {
             );
             _groupManager?.advanceAfterRegeneration(lastEntrant);
           }
+          _entrancesInFlight = false; // user turns allowed again
           // The turn pointer changed after generation finished. GroupTurnManager
           // notifies its own listeners, but the chat UI watches ChatService, so
           // we must propagate here — otherwise the next-speaker indicator keeps
@@ -4345,6 +4375,9 @@ class ChatService extends ChangeNotifier {
         text.trim().isEmpty) {
       return;
     }
+    // Don't let a user turn start while forked-in entrances are still playing —
+    // it would race the one-shot entrance directive / turn positioning.
+    if (_entrancesInFlight) return;
     clearSuggestions();
 
     // ── Slash Command Handling ──────────────────────────────────────────
