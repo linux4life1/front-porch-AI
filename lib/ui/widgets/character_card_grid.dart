@@ -824,6 +824,71 @@ class CharacterCardGrid extends StatelessWidget {
     );
   }
 
+  /// Resolves up to [max] avatar image Files for the first characters in
+  /// [folder]. The folder stores filename references, so map each to the
+  /// matching library card to recover its real (possibly subdir'd) image path.
+  List<File> _folderPreviewImages(
+    BuildContext context,
+    CharacterFolder folder,
+    int max,
+  ) {
+    if (folder.characterPaths.isEmpty) return const [];
+    final repo = Provider.of<CharacterRepository>(context, listen: false);
+    final byFilename = <String, String>{};
+    for (final c in repo.characters) {
+      final p = c.imagePath;
+      if (p != null) byFilename.putIfAbsent(path.basename(p), () => p);
+    }
+    final files = <File>[];
+    for (final ref in folder.characterPaths) {
+      final full = byFilename[path.basename(ref)];
+      if (full != null) {
+        files.add(onResolveCharImage(full));
+        if (files.length >= max) break;
+      }
+    }
+    return files;
+  }
+
+  /// A 2x2 thumbnail grid of folder member avatars (iOS-style). Missing slots
+  /// render as subtle placeholders so the grid stays square for 1-3 members.
+  Widget _buildFolderPreviewGrid(
+    BuildContext context,
+    List<File> images,
+    double side,
+  ) {
+    const gap = 3.0;
+    final cell = (side - gap) / 2;
+    Widget tile(int i) {
+      final img = i < images.length ? images[i] : null;
+      return Container(
+        width: cell,
+        height: cell,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerOf(context),
+          borderRadius: BorderRadius.circular(6),
+          image: img != null
+              ? DecorationImage(image: FileImage(img), fit: BoxFit.cover)
+              : null,
+        ),
+      );
+    }
+
+    Widget row(int a, int b) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [tile(a), const SizedBox(width: gap), tile(b)],
+    );
+
+    return SizedBox(
+      width: side,
+      height: side,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [row(0, 1), const SizedBox(height: gap), row(2, 3)],
+      ),
+    );
+  }
+
   Widget _buildFolderCard(BuildContext context, CharacterFolder folder) {
     final charCount = folder.characterPaths.length;
 
@@ -856,18 +921,32 @@ class CharacterCardGrid extends StatelessWidget {
                 final isSmall = constraints.maxHeight < 200;
                 final isTiny = constraints.maxHeight < 140;
                 final iconSize = isTiny ? 32.0 : (isSmall ? 48.0 : 72.0);
+                // Scale the preview to the card width so it fills a real chunk
+                // of the card (and scales with the grid size) rather than a
+                // fixed thumbnail that looks tiny on larger cards.
+                final previewSide = (constraints.maxWidth * 0.66).clamp(
+                  56.0,
+                  170.0,
+                );
                 final fontSize = isTiny ? 11.0 : (isSmall ? 13.0 : 16.0);
+
+                // Preview the first few characters inside the folder (2x2).
+                // Empty folders fall back to the plain folder icon.
+                final previews = _folderPreviewImages(context, folder, 4);
 
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.folder,
-                      size: iconSize,
-                      color: isHovering
-                          ? Colors.amber
-                          : AppColors.iconSecondary(context),
-                    ),
+                    if (previews.isEmpty)
+                      Icon(
+                        Icons.folder,
+                        size: iconSize,
+                        color: isHovering
+                            ? Colors.amber
+                            : AppColors.iconSecondary(context),
+                      )
+                    else
+                      _buildFolderPreviewGrid(context, previews, previewSide),
                     SizedBox(height: isTiny ? 4 : (isSmall ? 8 : 16)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),

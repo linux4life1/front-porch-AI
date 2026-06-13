@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-06-12 (feat: folder character previews on the home screen)
+
+- **Files changed**: lib/ui/widgets/character_card_grid.dart, docs/Rawhide.md, .claude/changelog.md.
+- **Feature**: folder cards on the home grid render a 2×2 preview of the first up-to-4 member avatars instead of the generic folder icon. Empty folders still show the icon; folders with 1-3 members fill the remaining slots with subtle placeholders so the thumbnail stays square.
+- **Impl**: `_folderPreviewImages` maps the folder's filename references → matching library cards (by basename) → their real `imagePath`, resolved via the grid's existing `onResolveCharImage` (so characters stored in subdirs work too); `_buildFolderPreviewGrid` renders the 2×2. Preview size scales with card width (`maxWidth * 0.66`, clamped 56–170) so it tracks the grid-size setting. AppColors only; 2 new private helper methods, no dead code.
+- **Verification**: `flutter analyze` clean (full project); manual check on the home screen (empty / partial / full folders, varying grid sizes).
+- **Branch**: feat/folder-character-preview (off Rawhide).
+
 ## 2026-06-12 (fix: needs baseline sliders now respected on new chat)
 
 - **Files changed**: lib/services/chat/needs_simulation.dart (added `initializeFreshWithDefaults`), lib/services/chat_service.dart (3 call sites updated), test/services/chat/needs_simulation_test.dart (added test).

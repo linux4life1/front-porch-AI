@@ -4,6 +4,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements
 
+- 📁 **Folder previews on the home screen** — folders now show a 2×2 thumbnail of the first few characters inside them instead of a plain folder icon, so you can tell at a glance what's in each one. The preview scales with your grid size; empty folders keep the classic folder icon.
+
 - 🔄 **Manual Needs Reprocessing** — you can now forcefully reprocess the Needs deltas of the latest AI message using the Director/Verifier. A new "Manual Reprocess" button sits below the Needs chips. Clicking it opens a dialog where you can enter a custom critique (e.g., "The character ate a granola bar and an energy drink"). The Realism Engine will then use your explicit feedback to reconstruct the scene's impacts on the character's Needs vector with the specified intensity scale. Look for the "✓ Director corrected (manual)" pill on the message once done!
 
 - 🐛 **Fixed missing Needs reactions from characters** — Needs levels (hunger, comfort, bladder, etc.) were no longer impacting the character's internal thoughts and roleplay due to a regression where the descriptive text prompts were accidentally abbreviated in the code. We've restored the full injection prompts so characters will now appropriately complain or struggle when their needs hit noticeable or critical levels.
