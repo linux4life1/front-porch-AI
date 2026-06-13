@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:path/path.dart' as path;
 
@@ -47,6 +48,7 @@ class PseudoRemoteService extends LLMService {
         _isRunning = true;
         _modelReady = true;
         notifyListeners();
+        await _syncVersionFromResponse(response);
       }
     } catch (_) {
     } finally {
@@ -282,11 +284,26 @@ class PseudoRemoteService extends LLMService {
         _modelReady = true;
         _stopReadinessProbe();
         notifyListeners();
+        await _syncVersionFromResponse(response);
       }
     } catch (_) {
     } finally {
       client.close();
     }
+  }
+
+  Future<void> _syncVersionFromResponse(http.Response response) async {
+    if (_executablePath == null) return;
+    try {
+      final v = jsonDecode(response.body)['version'] as String?;
+      if (v != null && v.isNotEmpty) {
+        await KoboldBinaryVersion.write(
+          path.dirname(_executablePath!),
+          version: v,
+          size: File(_executablePath!).lengthSync(),
+        );
+      }
+    } catch (_) {}
   }
 
   void _parseLoadingStatus(String data) {

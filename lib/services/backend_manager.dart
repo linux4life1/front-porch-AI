@@ -16,10 +16,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
+import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 class BackendManager extends ChangeNotifier {
@@ -30,6 +32,12 @@ class BackendManager extends ChangeNotifier {
   String? _error;
 
   String _statusMessage = '';
+  String? _localVersion;
+  int? _localSize;
+  String? _remoteVersion;
+  int? _remoteAssetSize;
+  bool _isCheckingVersion = false;
+  String? _versionError;
   String _arch = 'x64';
   bool _useRocm = false;
   bool _hasCuda = false;
@@ -41,6 +49,31 @@ class BackendManager extends ChangeNotifier {
   String? get backendPath => _backendPath;
   String? get error => _error;
   String get statusMessage => _statusMessage;
+  String? get localVersion => _localVersion;
+  int? get localSize => _localSize;
+  String? get remoteVersion => _remoteVersion;
+  int? get remoteAssetSize => _remoteAssetSize;
+  bool get isCheckingVersion => _isCheckingVersion;
+  String? get versionError => _versionError;
+
+  bool get isUpdateAvailable {
+    if (_localVersion == null) return true;
+    if (_remoteVersion == null) return false;
+    if (_localVersion != _remoteVersion) return true;
+    if (_remoteAssetSize != null &&
+        _localSize != null &&
+        _localSize != _remoteAssetSize) {
+      return true;
+    }
+    return false;
+  }
+
+  String get localVersionDisplay {
+    if (_localVersion == null) return '';
+    if (_localSize == null) return 'v$_localVersion';
+    return 'v$_localVersion, ${_formatFileSize(_localSize!)}';
+  }
+
   bool get isIntelMac => Platform.isMacOS && _arch != 'arm64';
 
   BackendManager(this._storageService) {
@@ -92,6 +125,12 @@ class BackendManager extends ChangeNotifier {
       }
     }
     await checkBackendAvailability();
+    if (_storageService.rootPath != null) {
+      final v = await KoboldBinaryVersion.read(_storageService.binDir.path);
+      _localVersion = v.version;
+      _localSize = v.size;
+    }
+    checkForUpdates();
   }
 
   Future<void> checkBackendAvailability() async {
@@ -129,6 +168,9 @@ class BackendManager extends ChangeNotifier {
     if (foundFile != null) {
       _backendPath = foundFile.path;
       _statusMessage = 'Ready';
+      final v = await KoboldBinaryVersion.read(_storageService.binDir.path);
+      _localVersion = v.version;
+      _localSize = v.size;
       // On Linux/Mac, ensure executable permission
       if (!Platform.isWindows) {
         await Process.run('chmod', ['+x', _backendPath!]);
@@ -143,6 +185,43 @@ class BackendManager extends ChangeNotifier {
       _statusMessage = 'Not Installed';
     }
     notifyListeners();
+  }
+
+  Future<void> checkForUpdates() async {
+    if (_isCheckingVersion) return;
+    _isCheckingVersion = true;
+    _versionError = null;
+    notifyListeners();
+    try {
+      final client = http.Client();
+      try {
+        final response = await client
+            .get(Uri.parse(
+                'https://api.github.com/repos/LostRuins/koboldcpp/releases/latest'))
+            .timeout(const Duration(seconds: 10));
+        if (response.statusCode == 200) {
+          final body = jsonDecode(response.body);
+          final tag = (body['tag_name'] as String?) ?? '';
+          _remoteVersion = tag.replaceFirst(RegExp(r'^[vV]'), '');
+          final exeName = _getExecutableName();
+          for (final a in (body['assets'] as List?) ?? []) {
+            if (a['name'] == exeName) {
+              _remoteAssetSize = a['size'] as int?;
+              break;
+            }
+          }
+        } else {
+          _versionError = 'GitHub API: HTTP ${response.statusCode}';
+        }
+      } finally {
+        client.close();
+      }
+    } catch (_) {
+      _versionError = 'Could not check for updates';
+    } finally {
+      _isCheckingVersion = false;
+      notifyListeners();
+    }
   }
 
   Future<void> downloadBackend() async {
@@ -163,6 +242,9 @@ class BackendManager extends ChangeNotifier {
     _downloadProgress = 0.0;
     _statusMessage = 'Initializing download...';
     notifyListeners();
+
+    // Ensure we have remote version info for accurate version file
+    if (_remoteVersion == null) await checkForUpdates();
 
     try {
       print('AG_DEBUG: Starting download process...');
@@ -290,6 +372,14 @@ class BackendManager extends ChangeNotifier {
         );
       }
 
+      if (_remoteVersion != null) {
+        await KoboldBinaryVersion.write(
+          _storageService.binDir.path,
+          version: _remoteVersion!,
+          size: fileSize,
+        );
+      }
+
       _isDownloading = false;
       _downloadProgress = 1.0;
       _statusMessage = 'Finalizing...';
@@ -298,6 +388,7 @@ class BackendManager extends ChangeNotifier {
       print('AG_DEBUG: Checking backend availability...');
       await Future.delayed(const Duration(milliseconds: 500)); // Brief pause
       await checkBackendAvailability();
+      checkForUpdates();
       print('AG_DEBUG: Backend check complete. Status: $_statusMessage');
     } catch (e, stack) {
       _isDownloading = false;
@@ -325,6 +416,15 @@ class BackendManager extends ChangeNotifier {
       return '${d.inMinutes}m ${d.inSeconds.remainder(60)}s';
     }
     return '${d.inSeconds}s';
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(0)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
   String _getExecutableName() {

@@ -1624,7 +1624,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         children: [
                           Text(
                             backendManager.backendPath != null
-                                ? 'Status: Ready'
+                                ? 'Status: Ready${backendManager.localVersionDisplay.isNotEmpty ? ' (${backendManager.localVersionDisplay})' : ''}'
                                 : 'Status: Missing',
                             style: TextStyle(
                               color: backendManager.backendPath != null
@@ -1644,7 +1644,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                     ),
-                    if (backendManager.isDownloading)
+                    if (backendManager.isDownloading ||
+                        backendManager.isCheckingVersion)
                       const SizedBox(
                         width: 20,
                         height: 20,
@@ -1652,11 +1653,25 @@ class _SettingsPageState extends State<SettingsPage> {
                       )
                     else
                       ElevatedButton(
-                        onPressed: () => backendManager.downloadBackend(),
+                        onPressed:
+                            backendManager.backendPath == null
+                                ? () => backendManager.downloadBackend()
+                                : backendManager.versionError != null ||
+                                        backendManager.remoteVersion == null
+                                    ? () => backendManager.checkForUpdates()
+                                    : backendManager.isUpdateAvailable
+                                        ? () => backendManager.downloadBackend()
+                                        : null,
                         child: Text(
-                          backendManager.backendPath != null
-                              ? 'Update'
-                              : 'Download',
+                          backendManager.backendPath == null
+                              ? 'Download'
+                              : backendManager.versionError != null
+                                  ? 'Check (failed)'
+                                  : backendManager.remoteVersion == null
+                                      ? 'Check for Updates'
+                                      : backendManager.isUpdateAvailable
+                                          ? 'Update to v${backendManager.remoteVersion}'
+                                          : 'Up to date',
                         ),
                       ),
                   ],

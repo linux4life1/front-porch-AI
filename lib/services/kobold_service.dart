@@ -22,6 +22,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/http.dart' show ClientException;
+import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:path/path.dart' as path;
@@ -112,6 +113,7 @@ class KoboldService extends ChangeNotifier
           _modelReady = true;
           _modelJustLoaded = true;
           notifyListeners();
+          await _syncVersionFromResponse(response);
         } else {
           // Orphaned zombie from a previous app instance (e.g. after update).
           // Kill it so we can start fresh on the same port.
@@ -829,6 +831,7 @@ class KoboldService extends ChangeNotifier
         _modelJustLoaded = true;
         _stopReadinessProbe();
         notifyListeners();
+        await _syncVersionFromResponse(response);
       }
     } catch (_) {
       // Not ready yet — silently retry on the next tick.
@@ -868,6 +871,20 @@ class KoboldService extends ChangeNotifier
         notifyListeners();
       }
     }
+  }
+
+  Future<void> _syncVersionFromResponse(http.Response response) async {
+    if (_executablePath == null) return;
+    try {
+      final v = jsonDecode(response.body)['version'] as String?;
+      if (v != null && v.isNotEmpty) {
+        await KoboldBinaryVersion.write(
+          path.dirname(_executablePath!),
+          version: v,
+          size: File(_executablePath!).lengthSync(),
+        );
+      }
+    } catch (_) {}
   }
 
   /// Regex matching KoboldCPP per-token / per-batch progress messages.
