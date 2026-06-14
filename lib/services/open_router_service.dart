@@ -285,9 +285,28 @@ class OpenRouterService extends LLMService {
       'messages': messages,
     };
 
-    // Add reasoning params when enabled
-    if (params.reasoningEnabled) {
-      payload['reasoning'] = {'effort': params.reasoningEffort};
+    // Add reasoning params.
+    // For Continue (and call mode) we force enabled:false + max_tokens:0 .
+    // This gives OpenRouter (and Nano-GPT etc.) the strongest signal to disable thinking
+    // for models like Kimi K2.6:thinking, DeepSeek hybrids, etc.
+    // We always include the 'enabled' key so the disable is explicit.
+    if (params.reasoningEnabled || params.reasoningMaxTokens != null) {
+      final reasoning = <String, dynamic>{
+        'enabled': params.reasoningEnabled,
+      };
+      if (params.reasoningEnabled) {
+        reasoning['effort'] = params.reasoningEffort;
+      }
+      if (params.reasoningMaxTokens != null) {
+        reasoning['max_tokens'] = params.reasoningMaxTokens;
+      }
+      // When suppressing reasoning (e.g. Continue with budget 0), also ask the provider
+      // to exclude reasoning tokens from the response entirely. This matches how SillyTavern
+      // handles "Request model reasoning" = off for OpenRouter models.
+      if (!params.reasoningEnabled) {
+        reasoning['exclude'] = true;
+      }
+      payload['reasoning'] = reasoning;
     }
 
     // Add stop sequences if present
@@ -376,8 +395,10 @@ class OpenRouterService extends LLMService {
                 }
                 yield reasoning;
               } else {
-                // Reasoning wasn't requested — yield as regular content
-                yield reasoning;
+                // Reasoning wasn't requested (e.g. forced off for Continue to match SillyTavern behavior).
+                // Discard it entirely instead of yielding as content. This prevents thinking text
+                // from leaking into the visible character response even if the model/provider
+                // still emits some reasoning deltas.
               }
               continue;
             }
@@ -416,7 +437,11 @@ class OpenRouterService extends LLMService {
               if (reasoning != null &&
                   reasoning is String &&
                   reasoning.isNotEmpty) {
-                yield reasoning;
+                // Only yield if we actually requested/wrapped reasoning.
+                // Otherwise discard (SillyTavern-style strict handling for unrequested reasoning).
+                if (wrapThinking) {
+                  yield reasoning;
+                }
               }
               final content = delta['content'];
               if (content != null && content is String && content.isNotEmpty) {

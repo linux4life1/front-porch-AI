@@ -159,8 +159,20 @@ class PseudoRemoteService extends LLMService {
       'messages': messages,
     };
 
-    if (params.reasoningEnabled) {
-      payload['reasoning'] = {'effort': params.reasoningEffort};
+    if (params.reasoningEnabled || params.reasoningMaxTokens != null) {
+      final reasoning = <String, dynamic>{
+        'enabled': params.reasoningEnabled,
+      };
+      if (params.reasoningEnabled) {
+        reasoning['effort'] = params.reasoningEffort;
+      }
+      if (params.reasoningMaxTokens != null) {
+        reasoning['max_tokens'] = params.reasoningMaxTokens;
+      }
+      if (!params.reasoningEnabled) {
+        reasoning['exclude'] = true;
+      }
+      payload['reasoning'] = reasoning;
     }
 
     if (params.stopSequences != null && params.stopSequences!.isNotEmpty) {

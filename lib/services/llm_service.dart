@@ -34,6 +34,10 @@ class GenerationParams {
   final List<String>? stopSequences;
   final bool reasoningEnabled;
   final String reasoningEffort;
+  /// Optional maximum tokens the model may spend on its internal reasoning/thinking trace.
+  /// Used by OpenRouter and compatible providers (e.g. Nano-GPT) via the `reasoning.max_tokens` field.
+  /// Setting to 0 on Continue generations helps force non-thinking / direct output on models that support budget control (Kimi K2, DeepSeek hybrids, Qwen3 thinking variants, etc.).
+  final int? reasoningMaxTokens;
   final List<String>? bannedPhrases;
 
   /// Optional system prompt for chat APIs. When provided, OpenRouter/LM Studio
@@ -70,6 +74,7 @@ class GenerationParams {
     this.stopSequences,
     this.reasoningEnabled = false,
     this.reasoningEffort = 'medium',
+    this.reasoningMaxTokens,
     this.bannedPhrases,
     this.systemPrompt,
     this.grammar,
