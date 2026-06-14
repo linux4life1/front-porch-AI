@@ -140,10 +140,17 @@ void main(List<String> args) async {
       final windowMaximized = prefs.getBool(_k('window_maximized')) ?? false;
 
       if (windowMaximized) {
-        // Restore maximized: apply saved size, then maximize
-        // (position is handled by the OS when maximized)
-        if (windowWidth != null && windowHeight != null) {
-          await windowManager.setSize(Size(windowWidth, windowHeight));
+        // Restore the non-maximized bounds first (so the OS remembers
+        // the correct "restore down" size), then maximize. This never
+        // puts the window at full-screen size in non-maximized state,
+        // which was the root cause of the Windows ghost frame issue.
+        if (windowX != null &&
+            windowY != null &&
+            windowWidth != null &&
+            windowHeight != null) {
+          await windowManager.setBounds(
+            Rect.fromLTWH(windowX, windowY, windowWidth, windowHeight),
+          );
         }
         await windowManager.maximize();
       } else if (windowX != null &&
@@ -659,12 +666,28 @@ class _MyAppState extends State<MyApp> with WindowListener {
   Completer<bool>? _importChoiceCompleter;
   List<String> _importItems = [];
 
+  // Track normal (non-maximized) window bounds for correct save/restore
+  double _normalWidth = 1280;
+  double _normalHeight = 720;
+  double? _normalX;
+  double? _normalY;
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
     // Run migration after first frame, then reunification if needed
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Capture initial window bounds after restore so tracking is correct
+      // even if user maximizes without any interactive resize this session.
+      if (!await windowManager.isMaximized()) {
+        final size = await windowManager.getSize();
+        final position = await windowManager.getPosition();
+        _normalWidth = size.width;
+        _normalHeight = size.height;
+        _normalX = position.dx;
+        _normalY = position.dy;
+      }
       await _checkDbHealth();
       // Show stable DB import dialog on first beta launch (before migration)
       await _showStableDbImportIfNeeded();
@@ -758,18 +781,51 @@ class _MyAppState extends State<MyApp> with WindowListener {
   }
 
   @override
+  void onWindowResized() async {
+    if (!await windowManager.isMaximized()) {
+      final size = await windowManager.getSize();
+      _normalWidth = size.width;
+      _normalHeight = size.height;
+    }
+  }
+
+  @override
+  void onWindowMoved() async {
+    if (!await windowManager.isMaximized()) {
+      final pos = await windowManager.getPosition();
+      _normalX = pos.dx;
+      _normalY = pos.dy;
+    }
+  }
+
+  @override
   void onWindowClose() async {
     // Save window state (size, position, maximized) before cleanup.
     // Must happen early while the window is still alive and queryable.
     try {
-      final size = await windowManager.getSize();
-      final position = await windowManager.getPosition();
       final isMax = await windowManager.isMaximized();
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble(_k('window_width'), size.width);
-      await prefs.setDouble(_k('window_height'), size.height);
-      await prefs.setDouble(_k('window_x'), position.dx);
-      await prefs.setDouble(_k('window_y'), position.dy);
+
+      if (isMax) {
+        // Save tracked NON-maximized bounds so the restore code never
+        // sets the window to full-screen size in non-maximized state.
+        // This eliminates the ghost frame root cause on Windows.
+        await prefs.setDouble(_k('window_width'), _normalWidth);
+        await prefs.setDouble(_k('window_height'), _normalHeight);
+        await prefs.setDouble(_k('window_x'), _normalX ?? 0);
+        await prefs.setDouble(_k('window_y'), _normalY ?? 0);
+      } else {
+        final size = await windowManager.getSize();
+        final position = await windowManager.getPosition();
+        _normalWidth = size.width;
+        _normalHeight = size.height;
+        _normalX = position.dx;
+        _normalY = position.dy;
+        await prefs.setDouble(_k('window_width'), size.width);
+        await prefs.setDouble(_k('window_height'), size.height);
+        await prefs.setDouble(_k('window_x'), position.dx);
+        await prefs.setDouble(_k('window_y'), position.dy);
+      }
       await prefs.setBool(_k('window_maximized'), isMax);
     } catch (e) {
       debugPrint('Failed to save window state: $e');
