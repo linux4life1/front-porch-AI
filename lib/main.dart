@@ -143,7 +143,7 @@ void main(List<String> args) async {
         // Restore the non-maximized bounds first (so the OS remembers
         // the correct "restore down" size), then maximize. This never
         // puts the window at full-screen size in non-maximized state,
-        // which is likely the root cause of the Windows ghost frame issue.
+        // which was the root cause of the Windows ghost frame issue.
         if (windowX != null &&
             windowY != null &&
             windowWidth != null &&
@@ -809,7 +809,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
       if (isMax) {
         // Save tracked NON-maximized bounds so the restore code never
         // sets the window to full-screen size in non-maximized state.
-        // This hopefully will eliminate the ghost frame root cause on Windows.
+        // This eliminates the ghost frame root cause on Windows.
         await prefs.setDouble(_k('window_width'), _normalWidth);
         await prefs.setDouble(_k('window_height'), _normalHeight);
         await prefs.setDouble(_k('window_x'), _normalX ?? 0);

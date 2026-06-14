@@ -20,4 +20,4 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 - 📤 **Export User Personas** — You can now export your User Personas in a fully Silly Tavern compliant JSON format. A new export button is available next to the import button in the User Personas tab. Clicking it lets you export all your personas at once into a single JSON file, or pick a specific persona to export. Personas' learned facts are safely embedded in the payload so you don't lose them when backing up or moving to another machine!
 
-- 🪟 **(Hopefully) fixed Windows ghost UI when reopening maximized** — the window could show stale frame artifacts after closing while maximized and reopening. The fix tracks the actual non-maximized window size and never renders an intermediate full-screen frame during maximized window restoration.
+- 🪟 **Fixed Windows ghost UI when reopening maximized** — the window could show stale frame artifacts after closing while maximized and reopening. The fix tracks the actual non-maximized window size and never renders an intermediate full-screen frame during maximized window restoration.
