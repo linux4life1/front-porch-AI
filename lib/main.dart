@@ -680,13 +680,17 @@ class _MyAppState extends State<MyApp> with WindowListener {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Capture initial window bounds after restore so tracking is correct
       // even if user maximizes without any interactive resize this session.
-      if (!await windowManager.isMaximized()) {
-        final size = await windowManager.getSize();
-        final position = await windowManager.getPosition();
-        _normalWidth = size.width;
-        _normalHeight = size.height;
-        _normalX = position.dx;
-        _normalY = position.dy;
+      try {
+        if (!await windowManager.isMaximized()) {
+          final size = await windowManager.getSize();
+          final position = await windowManager.getPosition();
+          _normalWidth = size.width;
+          _normalHeight = size.height;
+          _normalX = position.dx;
+          _normalY = position.dy;
+        }
+      } catch (e) {
+        debugPrint('Failed to capture initial window bounds: $e');
       }
       await _checkDbHealth();
       // Show stable DB import dialog on first beta launch (before migration)
@@ -782,19 +786,41 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
   @override
   void onWindowResized() async {
-    if (!await windowManager.isMaximized()) {
-      final size = await windowManager.getSize();
-      _normalWidth = size.width;
-      _normalHeight = size.height;
+    try {
+      if (!await windowManager.isMaximized()) {
+        final size = await windowManager.getSize();
+        _normalWidth = size.width;
+        _normalHeight = size.height;
+      }
+    } catch (e) {
+      debugPrint('Failed to capture window size: $e');
     }
   }
 
   @override
   void onWindowMoved() async {
-    if (!await windowManager.isMaximized()) {
+    try {
+      if (!await windowManager.isMaximized()) {
+        final pos = await windowManager.getPosition();
+        _normalX = pos.dx;
+        _normalY = pos.dy;
+      }
+    } catch (e) {
+      debugPrint('Failed to capture window position: $e');
+    }
+  }
+
+  @override
+  void onWindowUnmaximize() async {
+    try {
+      final size = await windowManager.getSize();
       final pos = await windowManager.getPosition();
+      _normalWidth = size.width;
+      _normalHeight = size.height;
       _normalX = pos.dx;
       _normalY = pos.dy;
+    } catch (e) {
+      debugPrint('Failed to capture window bounds after unmaximize: $e');
     }
   }
 
@@ -812,8 +838,8 @@ class _MyAppState extends State<MyApp> with WindowListener {
         // This eliminates the ghost frame root cause on Windows.
         await prefs.setDouble(_k('window_width'), _normalWidth);
         await prefs.setDouble(_k('window_height'), _normalHeight);
-        await prefs.setDouble(_k('window_x'), _normalX ?? 0);
-        await prefs.setDouble(_k('window_y'), _normalY ?? 0);
+        await prefs.setDouble(_k('window_x'), _normalX ?? 0.0);
+        await prefs.setDouble(_k('window_y'), _normalY ?? 0.0);
       } else {
         final size = await windowManager.getSize();
         final position = await windowManager.getPosition();
