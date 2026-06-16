@@ -139,6 +139,17 @@ void main(List<String> args) async {
       final windowY = prefs.getDouble(_k('window_y'));
       final windowMaximized = prefs.getBool(_k('window_maximized')) ?? false;
 
+      // NOTE: Users upgrading from builds before PR #53 may have saved
+      // full-screen rect values in window_* prefs (old code used
+      // unconditional getSize() in onWindowClose regardless of maximize
+      // state). setBounds(fullscreen) + maximize() could in theory
+      // reproduce ghosting, but setBounds to the already-maximized size
+      // is a no-op and the bug doesn't trigger. Even without this defense,
+      // the stale values self-heal on the first non-maximized close (which
+      // saves correct bounds). This upgrade concern is only actionable if
+      // the _normal* seeding gap (see the NOTE in onWindowClose's max save
+      // branch) is ever fixed — that fix would need a migration guard here
+      // to ignore dimension values at or above screen resolution.
       if (windowMaximized) {
         // Restore the non-maximized bounds first (so the OS remembers
         // the correct "restore down" size), then maximize. This never
@@ -836,6 +847,21 @@ class _MyAppState extends State<MyApp> with WindowListener {
         // Save tracked NON-maximized bounds so the restore code never
         // sets the window to full-screen size in non-maximized state.
         // This eliminates the ghost frame root cause on Windows.
+        //
+        // NOTE: _normal* fields are populated ONLY from live windowManager
+        // queries during this session (post-frame capture, resize/move
+        // listeners, unmaximize). They are NOT seeded from the persisted
+        // window_* prefs on launch. Consequence: if the user launches
+        // maximized, never unmaximizes or resizes, and closes while still
+        // maximized, stale defaults are saved here (1280x720 / 0) rather
+        // than their actual normal geometry. This works across
+        // Windows/macOS/Linux because each OS internally preserves the
+        // pre-maximize "restore down" rect and applies it when the window
+        // is unmaximized after next launch — the stale prefs are simply
+        // overwritten. If a platform ever drops this behavior, the fix is
+        // to unconditionally seed _normal* from persisted prefs in the
+        // post-frame callback (around line 682), before or instead of the
+        // live capture. See PR #53 for the full ghost-frame analysis.
         await prefs.setDouble(_k('window_width'), _normalWidth);
         await prefs.setDouble(_k('window_height'), _normalHeight);
         await prefs.setDouble(_k('window_x'), _normalX ?? 0.0);
