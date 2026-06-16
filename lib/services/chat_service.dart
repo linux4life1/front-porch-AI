@@ -5819,9 +5819,15 @@ class ChatService extends ChangeNotifier {
       ChatMessage? _continuePoppedMessage;
       if (mode == GenerationMode.continue_ && _messages.isNotEmpty) {
         _continuePoppedMessage = _messages.removeLast();
-        // Set the suffix to the last message text so the LLM continues from it
-        suffix =
-            "\n${_continuePoppedMessage.sender}: ${_continuePoppedMessage.text}";
+        final partial = _continuePoppedMessage.text;
+        // For Continue: feed straight existing messages as the prompt (per user request).
+        // The suffix is the raw text of the message being continued (no re-added "Sender: " label).
+        // This makes the continuation prompt contain the plain previous messages + the exact
+        // partial text to extend, so the model continues the string directly without beginning
+        // the output with "Rachel:" or the speaker name.
+        // CRITICAL RULE: Strictly forbid the model from writing *anything* for {{user}} (actions, dialogue, thoughts, "he said", "you feel", etc.).
+        // This is a cardinal sin in AI RP. Only extend the provided partial text from the current speaker's POV and voice.
+        suffix = "\n[CRITICAL RULE: The text below is an incomplete response from the *current speaker only*. You MUST ONLY generate more text that continues *this exact response* in the speaker's voice, style, and perspective. NEVER write any dialogue, actions, thoughts, narration, or descriptions for {{user}} or from {{user}}'s point of view. NEVER add new speaker labels or switch characters. Only append to the text below. Stop if it would require {{user}} content.]\n" + partial;
       }
 
       // Declare variables before try block so they're accessible after finally
@@ -5923,6 +5929,19 @@ class ChatService extends ChangeNotifier {
         if (_continuePoppedMessage != null) {
           _messages.add(_continuePoppedMessage);
         }
+      }
+
+      if (mode == GenerationMode.continue_) {
+        // Drop the needs/realism/relationship/chaos/objective/catastrophe state injections
+        // for Continue. Per user request: the continue prompt should be straight existing
+        // messages (the plain history transcript + the partial text to continue from).
+        // The runtime state blocks make the continuation feel injected and discordant.
+        realismBlock = '';
+        chanceTimeBlock = '';
+        objectiveBlock = '';
+        needsCatastropheBlock = '';
+        // Also skip RAG "earlier memories" for pure straight continuation.
+        droppedMessages = 0;
       }
 
       // ── RAG Memory Retrieval ──
@@ -6084,12 +6103,26 @@ class ChatService extends ChangeNotifier {
         stopSequences.add('\nUser:');
         stopSequences.add('\n${_userPersonaService.persona.name}:');
       }
+
+      // For Continue mode, do *not* stop on the current speaker's name.
+      // This lets the model produce long, natural extensions of the existing message
+      // in that character's voice without the name stop cutting it off mid-continuation.
+      // We still stop on other speakers or the user (to catch unwanted new turns).
+      String? continueSpeakerName;
+      if (mode == GenerationMode.continue_ && _messages.isNotEmpty && !_messages.last.isUser) {
+        continueSpeakerName = _messages.last.sender;
+      }
+
       if (_activeGroup != null) {
         for (final ch in _groupCharacters) {
+          if (continueSpeakerName != null && ch.name == continueSpeakerName) continue;
           stopSequences.add('\n${ch.name}:');
         }
       } else {
-        stopSequences.add('\n${_activeCharacter!.name}:');
+        final cur = _activeCharacter!.name;
+        if (continueSpeakerName == null || cur != continueSpeakerName) {
+          stopSequences.add('\n$cur:');
+        }
       }
       final stopList = stopSequences.toList();
 
@@ -6129,6 +6162,11 @@ class ChatService extends ChangeNotifier {
             ? false
             : g2.resolveReasoningEnabled(_storageService),
         reasoningEffort: g2.resolveReasoningEffort(_storageService),
+        // Force zero thinking budget on Continue (and call mode) for providers like OpenRouter/Nano-GPT.
+        // This tells supported models (Kimi K2 Thinking, DeepSeek hybrid reasoning models, certain Qwen3 etc.)
+        // to spend 0 tokens on internal reasoning and answer directly, preventing the model from dumping
+        // its next analysis/think block into the visible character response.
+        reasoningMaxTokens: (_callMode || mode == GenerationMode.continue_) ? 0 : null,
         bannedPhrases: g2.resolveBannedPhrases(_storageService).isNotEmpty
             ? g2.resolveBannedPhrases(_storageService)
             : null,
@@ -6527,7 +6565,16 @@ class ChatService extends ChangeNotifier {
 
       // Only finalize if this generation is still current
       if (epoch == _generationEpoch) {
-        final finalResponse = accumulatedResponse.trim();
+        String finalResponse = accumulatedResponse.trim();
+
+        // SillyTavern-like safety net for Continue (and call mode): even after requesting
+        // enabled:false + max_tokens:0 + exclude:true on the provider, some thinking models
+        // (Kimi 2.6:thinking etc.) can still emit stray <think> or reasoning text.
+        // Strip it from the final text before it becomes part of the character's message.
+        // This matches ST's "Strip Reasoning Tags" behavior as a client-side backstop.
+        if (mode == GenerationMode.continue_ || _callMode) {
+          finalResponse = _stripThinkBlocks(finalResponse);
+        }
 
         // Snapshot which entries were already triggered before scanning the AI response.
         // We will only decrement those — newly AI-triggered entries must keep their
