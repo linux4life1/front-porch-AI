@@ -404,6 +404,25 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                           onChanged: (val) =>
                               storage.setTtsIgnoreAsterisks(val),
                         ),
+                        SwitchListTile(
+                          title: const Text(
+                            'Replace curly quotation marks',
+                            style: TextStyle(color: Colors.white, fontSize: 14),
+                          ),
+                          subtitle: const Text(
+                            'Converts “curly quotes” to "straight quotes" before sending to TTS',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                          value: storage.ttsReplaceCurlyQuotes,
+                          activeTrackColor: Colors.blueAccent,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          onChanged: (val) =>
+                              storage.setTtsReplaceCurlyQuotes(val),
+                        ),
 
                         const SizedBox(height: 16),
 

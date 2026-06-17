@@ -1668,6 +1668,7 @@ class WebServerService extends ChangeNotifier {
           'elevenlabsStyle': s.elevenlabsStyle,
           'ttsNarrateQuotedOnly': s.ttsNarrateQuotedOnly,
           'ttsIgnoreAsterisks': s.ttsIgnoreAsterisks,
+          'ttsReplaceCurlyQuotes': s.ttsReplaceCurlyQuotes,
           // TTS available voices
           'ttsVoices': _ttsService != null
               ? _ttsService!.activeVoices
@@ -1972,6 +1973,9 @@ class WebServerService extends ChangeNotifier {
       }
       if (body.containsKey('ttsIgnoreAsterisks')) {
         await s.setTtsIgnoreAsterisks(body['ttsIgnoreAsterisks'] as bool);
+      }
+      if (body.containsKey('ttsReplaceCurlyQuotes')) {
+        await s.setTtsReplaceCurlyQuotes(body['ttsReplaceCurlyQuotes'] as bool);
       }
 
       // Image Gen

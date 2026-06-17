@@ -39,6 +39,7 @@ class TtsSettings with SettingsBase {
   double _elevenlabsStyle = 0.0;
   bool _ttsNarrateQuotedOnly = false;
   bool _ttsIgnoreAsterisks = false;
+  bool _ttsReplaceCurlyQuotes = false;
   int _ttsConcurrency = Platform.numberOfProcessors.clamp(1, 8);
   int _ttsAudioLookahead = 6;
   double _directorDelay = 15.0;
@@ -58,6 +59,7 @@ class TtsSettings with SettingsBase {
   double get elevenlabsStyle => _elevenlabsStyle;
   bool get ttsNarrateQuotedOnly => _ttsNarrateQuotedOnly;
   bool get ttsIgnoreAsterisks => _ttsIgnoreAsterisks;
+  bool get ttsReplaceCurlyQuotes => _ttsReplaceCurlyQuotes;
   int get ttsConcurrency => _ttsConcurrency.clamp(1, 8);
   int get ttsAudioLookahead => _ttsAudioLookahead;
   double get directorDelay => _directorDelay;
@@ -87,6 +89,7 @@ class TtsSettings with SettingsBase {
     _ttsNarrateQuotedOnly =
         prefs?.getBool(k('tts_narrate_quoted_only')) ?? false;
     _ttsIgnoreAsterisks = prefs?.getBool(k('tts_ignore_asterisks')) ?? false;
+    _ttsReplaceCurlyQuotes = prefs?.getBool(k('tts_replace_curly_quotes')) ?? false;
     _directorDelay = prefs?.getDouble(k('director_delay')) ?? 15.0;
   }
 
@@ -177,6 +180,12 @@ class TtsSettings with SettingsBase {
   Future<void> setTtsIgnoreAsterisks(bool value) async {
     _ttsIgnoreAsterisks = value;
     await prefs?.setBool(k('tts_ignore_asterisks'), value);
+    notify();
+  }
+
+  Future<void> setTtsReplaceCurlyQuotes(bool value) async {
+    _ttsReplaceCurlyQuotes = value;
+    await prefs?.setBool(k('tts_replace_curly_quotes'), value);
     notify();
   }
 

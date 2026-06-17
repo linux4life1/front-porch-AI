@@ -1158,6 +1158,15 @@ See docs for current bundling instructions.
   String _sanitizeText(String text) {
     var result = text;
 
+    // ── Replace curly quotation marks with straight ones (must run before narration filters) ──
+    if (_storageService.ttsReplaceCurlyQuotes) {
+      result = result
+          .replaceAll('\u201C', '"')
+          .replaceAll('\u201D', '"')
+          .replaceAll('\u2018', "'")
+          .replaceAll('\u2019', "'");
+    }
+
     // ── Narration filters (SillyTavern-style) ──
     // Step 1: If ignoreAsterisks, remove all *...* blocks (including content inside them)
     if (_storageService.ttsIgnoreAsterisks) {
@@ -1210,6 +1219,7 @@ See docs for current bundling instructions.
       '',
     );
     result = result.replaceAll(RegExp(r'\s+'), ' ');
+
     return result.trim();
   }
 

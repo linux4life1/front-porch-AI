@@ -267,6 +267,9 @@ class StorageService extends ChangeNotifier {
   bool get ttsIgnoreAsterisks => ttsSettings.ttsIgnoreAsterisks;
   Future<void> setTtsIgnoreAsterisks(bool v) =>
       ttsSettings.setTtsIgnoreAsterisks(v);
+  bool get ttsReplaceCurlyQuotes => ttsSettings.ttsReplaceCurlyQuotes;
+  Future<void> setTtsReplaceCurlyQuotes(bool v) =>
+      ttsSettings.setTtsReplaceCurlyQuotes(v);
   int get ttsAudioLookahead => ttsSettings.ttsAudioLookahead;
   Future<void> setTtsAudioLookahead(int v) =>
       ttsSettings.setTtsAudioLookahead(v);
