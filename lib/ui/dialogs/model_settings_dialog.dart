@@ -74,7 +74,10 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     _apiKeyController.text = storage.remoteApiKey;
     _modelNameController.text = storage.remoteModelName;
 
-    _scanLocalPresets();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scanLocalPresets();
+    });
   }
 
   void _scanLocalPresets() {
