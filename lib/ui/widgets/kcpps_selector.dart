@@ -95,7 +95,9 @@ class _KcppsSelectorState extends State<KcppsSelector> {
         widget.storage.kcppsHasModel && widget.storage.kcppsModelFileExists;
     if (valid != _lastValidModel) {
       _lastValidModel = valid;
-      widget.onModelStatusChanged?.call(valid);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onModelStatusChanged?.call(valid);
+      });
     }
   }
 

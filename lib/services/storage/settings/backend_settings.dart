@@ -117,8 +117,10 @@ class BackendSettings with SettingsBase {
     final parsed = PresetSettings.parseKcppsFile(_activeKcppsPath);
     _kcppsHasModel =
         parsed != null &&
-        parsed['model'] is String &&
-        (parsed['model'] as String).trim().isNotEmpty;
+        ((parsed['model_param'] is String &&
+                (parsed['model_param'] as String).trim().isNotEmpty) ||
+            (parsed['model'] is String &&
+                (parsed['model'] as String).trim().isNotEmpty));
     if (parsed != null && parsed['contextsize'] is int) {
       _contextSize = parsed['contextsize'] as int;
     }
