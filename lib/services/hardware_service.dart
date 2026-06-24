@@ -20,6 +20,15 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
+/// Parsed output of `nvidia-smi --query-gpu=name,memory.total`.
+/// Used internally by [HardwareService._parseNvidiaSmi] so the multi-line CSV
+/// response can be consumed in one shot.
+class _NvidiaSmiResult {
+  final String name;
+  final int vramMb;
+  _NvidiaSmiResult({required this.name, required this.vramMb});
+}
+
 class HardwareInfo {
   final String gpuName;
   final int vramMb;
@@ -113,20 +122,30 @@ class HardwareService extends ChangeNotifier {
     }
 
     // Detect GPU & VRAM
-    // Try lspci first for name
+    // Try lspci first for name. On systems with both an iGPU (VGA compatible
+    // controller) and a discrete NVIDIA card (often listed as "3D controller"
+    // because NVIDIA Optimus/hybrid setups don't expose a VGA BAR), we prefer
+    // the discrete GPU — the iGPU is irrelevant for LLM inference.
     try {
       final lspci = await Process.run('lspci', []);
       if (lspci.exitCode == 0) {
         final lines = lspci.stdout.toString().split('\n');
+        String? vgaCandidate;
+        String? threeDCandidate;
         for (final line in lines) {
-          if (line.contains('VGA') ||
-              line.contains('3D controller') ||
-              line.contains('Display controller')) {
-            gpuName = line.substring(line.indexOf(':') + 1).trim();
-            // Clean up name
-            gpuName = gpuName.replaceAll(RegExp(r'\[.*?\]'), '').trim();
-            break; // Take first one
+          if (line.contains('VGA') || line.contains('Display controller')) {
+            vgaCandidate ??= line;
+          } else if (line.contains('3D controller')) {
+            threeDCandidate ??= line;
           }
+        }
+        // Prefer the 3D controller entry when present — on hybrid laptops this
+        // is the discrete NVIDIA/AMD GPU, while the VGA entry is the Intel iGPU.
+        final gpuLine = threeDCandidate ?? vgaCandidate;
+        if (gpuLine != null) {
+          gpuName = gpuLine.substring(gpuLine.indexOf(':') + 1).trim();
+          // Clean up name
+          gpuName = gpuName.replaceAll(RegExp(r'\[.*?\]'), '').trim();
         }
       }
     } catch (e) {
@@ -134,26 +153,23 @@ class HardwareService extends ChangeNotifier {
     }
 
     // Determine vendor
-    final lowerName = gpuName.toLowerCase();
-    if (lowerName.contains('nvidia')) {
-      vendor = 'Nvidia';
-    } else if (lowerName.contains('amd') || lowerName.contains('ati')) {
-      vendor = 'AMD';
-    } else if (lowerName.contains('intel')) {
-      vendor = 'Intel';
-    }
+    vendor = _vendorFromName(gpuName);
 
-    // VRAM detection
+    // nvidia-smi is authoritative for NVIDIA cards — it gives both the
+    // marketing name (e.g. "NVIDIA GeForce RTX 5060 Ti") and accurate VRAM,
+    // which lspci cannot reliably provide for very new GPUs.
     if (vendor == 'Nvidia') {
-      try {
-        final res = await Process.run('nvidia-smi', [
-          '--query-gpu=memory.total',
-          '--format=csv,noheader,nounits',
-        ]);
-        if (res.exitCode == 0) {
-          vramMb = int.tryParse(res.stdout.toString().trim()) ?? 0;
+      final smi = await _runNvidiaSmi([
+        '--query-gpu=name,memory.total',
+        '--format=csv,noheader,nounits',
+      ]);
+      if (smi != null) {
+        final parsed = _parseNvidiaSmi(smi.stdout.toString());
+        if (parsed.name.isNotEmpty && parsed.name != 'Unknown GPU') {
+          gpuName = parsed.name;
         }
-      } catch (_) {}
+        if (parsed.vramMb > 0) vramMb = parsed.vramMb;
+      }
     } else if (vendor == 'AMD') {
       // Try sysfs for AMD VRAM (amdgpu driver exposes this)
       try {
@@ -323,53 +339,122 @@ class HardwareService extends ChangeNotifier {
     String vendor = 'Unknown';
 
     try {
-      // Method 1: Registry (Preferred for >4GB VRAM)
-      // Checks HKLM\SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\*
-      // for HardwareInformation.qwMemorySize (64-bit VRAM size)
-      final regResult = await Process.run('powershell', [
-        '-command',
-        r"Get-ItemProperty 'HKLM:\SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\*' -ErrorAction SilentlyContinue | Select-Object DriverDesc, 'HardwareInformation.qwMemorySize' | ConvertTo-Json",
+      // Method 0: nvidia-smi — authoritative source for NVIDIA cards.
+      // Run this FIRST because:
+      //   - Win32_VideoController.AdapterRAM is uint32 and overflows to 0 for
+      //     any card with VRAM that is an exact multiple of 4 GB (8/16/24 GB).
+      //   - HardwareInformation.qwMemorySize in the registry is not reliably
+      //     populated for brand-new architectures (e.g. RTX 50-series
+      //     "Blackwell" on early 596.x drivers).
+      //   - nvidia-smi reports the marketing name + accurate VRAM in one call.
+      // _runNvidiaSmi() also tries absolute paths because the NVIDIA driver
+      // sometimes installs nvidia-smi only under NVSMI/ without adding it to
+      // PATH — which is the most common reason an RTX 5060 Ti shows up as
+      // "Unknown GPU" on a fresh Windows install.
+      final smiResult = await _runNvidiaSmi([
+        '--query-gpu=name,memory.total',
+        '--format=csv,noheader,nounits',
       ]);
+      if (smiResult != null) {
+        final parsed = _parseNvidiaSmi(smiResult.stdout.toString());
+        if (parsed.name.isNotEmpty && parsed.name != 'Unknown GPU') {
+          gpuName = parsed.name;
+        }
+        if (parsed.vramMb > 0) vramMb = parsed.vramMb;
+        debugPrint('[Hardware] nvidia-smi (Method 0): $gpuName, ${vramMb}MB');
+      }
 
-      // Ignore exit code 1 if we get valid JSON output (PowerShell might error on some registry keys but succeed on others)
-      if (regResult.stdout.toString().trim().isNotEmpty) {
-        try {
-          var json = jsonDecode(regResult.stdout.toString());
-          if (json is! List) json = [json];
+      // Method 1: Registry (preferred for >4GB VRAM when nvidia-smi is absent).
+      // Checks HKLM\SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\*
+      // for HardwareInformation.qwMemorySize (64-bit VRAM size).
+      // Note: we extract DriverDesc even when qwMemorySize is missing — early
+      // drivers for new architectures often populate the name but not the
+      // 64-bit VRAM size, and we'd otherwise lose the GPU name entirely.
+      if (gpuName == 'Unknown GPU' || vramMb == 0) {
+        final regResult = await Process.run('powershell', [
+          '-command',
+          r"Get-ItemProperty 'HKLM:\SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\*' -ErrorAction SilentlyContinue | Select-Object DriverDesc, 'HardwareInformation.qwMemorySize' | ConvertTo-Json",
+        ]);
 
-          // Find the best GPU (highest VRAM)
-          var bestGpu = json[0];
-          int maxVram = 0;
+        // Ignore exit code 1 if we get valid JSON output (PowerShell might
+        // error on some registry keys but succeed on others).
+        if (regResult.stdout.toString().trim().isNotEmpty) {
+          try {
+            var json = jsonDecode(regResult.stdout.toString());
+            if (json is! List) json = [json];
 
-          for (var item in json) {
-            // qwMemorySize is returned as a long number, sometimes string in JSON
-            var memSize = item['HardwareInformation.qwMemorySize'];
-            int size = 0;
-            if (memSize is int) {
-              size = memSize;
-            } else if (memSize is String) {
-              size = int.tryParse(memSize) ?? 0;
+            // Find the best GPU (highest VRAM). Track a separate
+            // "named candidate" so we can still recover a name when no item
+            // has a usable qwMemorySize.
+            var bestGpu = json[0];
+            var namedGpu = json[0];
+            bool namedGpuSet = false;
+            int maxVram = 0;
+
+            for (var item in json) {
+              // qwMemorySize is returned as a long number, sometimes string.
+              // Windows PowerShell 5.1's ConvertTo-Json may also emit very
+              // large values (16 GiB = 17_179_869_184 bytes) in scientific
+              // notation, so handle int / double / String uniformly.
+              var memSize = item['HardwareInformation.qwMemorySize'];
+              int size = 0;
+              if (memSize is int) {
+                size = memSize;
+              } else if (memSize is double) {
+                size = memSize.round();
+              } else if (memSize is String) {
+                size =
+                    int.tryParse(memSize) ??
+                    double.tryParse(memSize)?.round() ??
+                    0;
+              }
+
+              if (size > maxVram) {
+                maxVram = size;
+                bestGpu = item;
+              }
+
+              // Remember the first item that actually has a DriverDesc so we
+              // can fall back to it when no item has VRAM info.
+              final desc = item['DriverDesc'];
+              if (!namedGpuSet && desc is String && desc.trim().isNotEmpty) {
+                namedGpu = item;
+                namedGpuSet = true;
+              }
             }
 
-            if (size > maxVram) {
-              maxVram = size;
-              bestGpu = item;
+            if (maxVram > 0) {
+              if (vramMb == 0) {
+                vramMb = (maxVram / (1024 * 1024)).round();
+              }
+              final desc = bestGpu['DriverDesc'];
+              if (gpuName == 'Unknown GPU' &&
+                  desc is String &&
+                  desc.trim().isNotEmpty) {
+                gpuName = desc;
+              }
+            } else if (namedGpuSet && gpuName == 'Unknown GPU') {
+              // No usable VRAM in registry, but we did find a DriverDesc —
+              // use it rather than leaving the user with "Unknown GPU".
+              final desc = namedGpu['DriverDesc'];
+              if (desc is String && desc.trim().isNotEmpty) {
+                gpuName = desc;
+              }
             }
+            debugPrint('[Hardware] registry (Method 1): $gpuName, ${vramMb}MB');
+          } catch (e) {
+            print('Registry VRAM parse error: $e');
           }
-
-          if (maxVram > 0) {
-            vramMb = (maxVram / (1024 * 1024)).round();
-            gpuName = bestGpu['DriverDesc'] ?? 'Unknown GPU';
-          }
-        } catch (e) {
-          print('Registry VRAM parse error: $e');
         }
       }
 
-      // Method 2: WMI (Fallback if Registry failed or returned 0)
+      // Method 2: WMI (fallback if Registry failed or returned 0).
       // WARNING: Win32_VideoController.AdapterRAM is uint32 — overflows to 0
-      // for GPUs with VRAM that is an exact multiple of 4GB (8GB, 16GB, 24GB, etc.)
-      if (vramMb == 0) {
+      // for GPUs with VRAM that is an exact multiple of 4GB (8GB, 16GB, 24GB).
+      // On multi-GPU systems (e.g. Intel iGPU + NVIDIA dGPU), we deliberately
+      // prefer discrete GPU vendors so the iGPU doesn't win the max-RAM race
+      // simply because the dGPU's AdapterRAM overflowed to 0.
+      if (gpuName == 'Unknown GPU' || vramMb == 0) {
         final gpuResult = await Process.run('powershell', [
           '-command',
           'Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, AdapterCompatibility | ConvertTo-Json',
@@ -379,79 +464,77 @@ class HardwareService extends ChangeNotifier {
           final output = gpuResult.stdout.toString().trim();
           if (output.isNotEmpty) {
             var json = jsonDecode(output);
-            if (json is List) {
-              var topGpu = json[0];
+            if (json is! List) json = [json];
+
+            // First pass: look for a discrete GPU (NVIDIA/AMD) by name.
+            // AdapterRAM cannot be trusted for >4GB cards.
+            var topGpu = json[0];
+            bool foundDiscrete = false;
+            for (var item in json) {
+              final name = (item['Name'] ?? '').toString();
+              final v = _vendorFromName(name);
+              if (v == 'Nvidia' || v == 'AMD') {
+                topGpu = item;
+                foundDiscrete = true;
+                break;
+              }
+            }
+            // Second pass: if no discrete GPU was found, fall back to the
+            // historical behaviour of picking the highest AdapterRAM.
+            if (!foundDiscrete) {
               int maxRam = 0;
               for (var item in json) {
-                int ram = item['AdapterRAM'] ?? 0;
+                final raw = item['AdapterRAM'];
+                final int ram = raw is int
+                    ? raw
+                    : (raw is String ? int.tryParse(raw) ?? 0 : 0);
                 if (ram > maxRam) {
                   maxRam = ram;
                   topGpu = item;
                 }
               }
-              json = topGpu;
             }
-            if (gpuName == 'Unknown GPU') gpuName = json['Name'] ?? 'Unknown';
-            final adapterRam = json['AdapterRAM'] ?? 0;
-            if (adapterRam > 0) {
-              vramMb = (adapterRam / (1024 * 1024)).round();
+            if (gpuName == 'Unknown GPU') {
+              final name = topGpu['Name'];
+              if (name is String && name.trim().isNotEmpty) {
+                gpuName = name;
+              }
             }
+            final adapterRam = topGpu['AdapterRAM'];
+            final int adapterRamInt = adapterRam is int
+                ? adapterRam
+                : (adapterRam is String ? int.tryParse(adapterRam) ?? 0 : 0);
+            if (adapterRamInt > 0 && vramMb == 0) {
+              vramMb = (adapterRamInt / (1024 * 1024)).round();
+            }
+            debugPrint('[Hardware] WMI (Method 2): $gpuName, ${vramMb}MB');
           }
         }
       }
 
-      // Method 3: nvidia-smi — always preferred for Nvidia name + VRAM.
-      // Runs when: (a) VRAM is still 0 (registry + WMI both failed or overflowed),
-      //        or  (b) GPU name is still unknown.
-      // The RTX 50-series (Blackwell) hits the uint32 overflow at exactly 16 GB,
-      // and newer drivers may not populate qwMemorySize for new architectures yet.
-      // nvidia-smi is always the authoritative source for Nvidia cards.
-      if (vramMb == 0 || gpuName == 'Unknown GPU') {
-        try {
-          final smiResult = await Process.run('nvidia-smi', [
-            '--query-gpu=name,memory.total',
-            '--format=csv,noheader,nounits',
-          ]);
-          if (smiResult.exitCode == 0) {
-            final lines = smiResult.stdout.toString().trim().split('\n');
-            // Pick the GPU with the most VRAM (matches what registry/WMI did)
-            int bestVram = vramMb;
-            String bestName = gpuName;
-            for (final line in lines) {
-              final parts = line.split(',').map((s) => s.trim()).toList();
-              if (parts.length >= 2) {
-                final smiVram = int.tryParse(parts[1]) ?? 0;
-                if (smiVram > bestVram) {
-                  bestVram = smiVram;
-                  bestName = parts[0];
-                }
-                // Always take the name if we still don't have one
-                if (gpuName == 'Unknown GPU' && parts[0].isNotEmpty) {
-                  bestName = parts[0];
-                  bestVram = smiVram > 0 ? smiVram : bestVram;
-                }
-              }
-            }
-            if (bestName != 'Unknown GPU') gpuName = bestName;
-            if (bestVram > 0) vramMb = bestVram;
-            debugPrint('[Hardware] nvidia-smi: $gpuName, ${vramMb}MB');
+      // Method 3: nvidia-smi final sweep — fill in any blanks that registry
+      // and WMI couldn't (e.g. RTX 50-series where both Microsoft APIs return
+      // nothing useful). _runNvidiaSmi() tries PATH and absolute install
+      // locations, so this also recovers from "nvidia-smi not in PATH".
+      if (vramMb == 0 || gpuName == 'Unknown GPU' || vendor == 'Unknown') {
+        final smiResult = await _runNvidiaSmi([
+          '--query-gpu=name,memory.total',
+          '--format=csv,noheader,nounits',
+        ]);
+        if (smiResult != null) {
+          final parsed = _parseNvidiaSmi(smiResult.stdout.toString());
+          if (gpuName == 'Unknown GPU' &&
+              parsed.name.isNotEmpty &&
+              parsed.name != 'Unknown GPU') {
+            gpuName = parsed.name;
           }
-        } catch (_) {
-          // nvidia-smi not available — Nvidia card without drivers, fall through
+          if (vramMb == 0 && parsed.vramMb > 0) vramMb = parsed.vramMb;
+          debugPrint('[Hardware] nvidia-smi (Method 3): $gpuName, ${vramMb}MB');
         }
       }
 
       // Determine Vendor from Name
-      final nameLower = gpuName.toLowerCase();
-      if (nameLower.contains('nvidia') || nameLower.contains('geforce')) {
-        vendor = 'Nvidia';
-      } else if (nameLower.contains('amd') || nameLower.contains('radeon')) {
-        vendor = 'AMD';
-      } else if (nameLower.contains('intel') ||
-          nameLower.contains('iris') ||
-          nameLower.contains('uhd')) {
-        vendor = 'Intel';
-      }
+      vendor = _vendorFromName(gpuName);
     } catch (e) {
       print('Windows GPU detection failed: $e');
     }
@@ -490,8 +573,17 @@ class HardwareService extends ChangeNotifier {
           for (var item in json) {
             final name = item['Name'] ?? '';
             if (name == gpuName || gpuName == 'Unknown GPU') {
-              final sharedMem = (item['SharedSystemMemory'] ?? 0) as int;
-              final dedicatedMem = (item['AdapterRAM'] ?? 0) as int;
+              // SharedSystemMemory / AdapterRAM are uint32 in WMI but ConvertTo-Json
+              // can occasionally emit them as strings on older PowerShell — coerce.
+              int toInt(dynamic v) {
+                if (v is int) return v;
+                if (v is String) return int.tryParse(v) ?? 0;
+                if (v is double) return v.round();
+                return 0;
+              }
+
+              final sharedMem = toInt(item['SharedSystemMemory']);
+              final dedicatedMem = toInt(item['AdapterRAM']);
               final sharedMb = (sharedMem / (1024 * 1024)).round();
               final dedicatedMb = (dedicatedMem / (1024 * 1024)).round();
               // If shared memory is significantly larger than dedicated,
@@ -525,16 +617,135 @@ class HardwareService extends ChangeNotifier {
   bool _hasCuda = false;
   bool _hasRocm = false;
 
+  /// Runs `nvidia-smi` with the given args, trying PATH first and then the
+  /// common Windows install locations.
+  ///
+  /// Returns the [ProcessResult] when nvidia-smi exits with code 0, or `null`
+  /// when the binary cannot be found or returns a non-zero exit code.
+  ///
+  /// Why this exists: the NVIDIA driver on Windows sometimes installs
+  /// `nvidia-smi.exe` only under `C:\Program Files\NVIDIA Corporation\NVSMI\`
+  /// without adding that directory to PATH. A plain `Process.run('nvidia-smi',
+  /// ...)` then throws `ProcessException`, the caller's `catch (_)` swallows
+  /// it, and the user is left with "Unknown GPU" even though their RTX 5060 Ti
+  /// is perfectly functional. This helper recovers from that scenario.
+  Future<ProcessResult?> _runNvidiaSmi(List<String> args) async {
+    // 1) Try the bare command — works on Linux, macOS, and most Windows
+    //    installs (System32\nvidia-smi.exe is in PATH by default).
+    try {
+      final result = await Process.run('nvidia-smi', args);
+      if (result.exitCode == 0) return result;
+      debugPrint(
+        '[Hardware] nvidia-smi on PATH returned exit code '
+        '${result.exitCode}: ${result.stderr}',
+      );
+    } catch (e) {
+      debugPrint('[Hardware] nvidia-smi not on PATH: $e');
+    }
+
+    // 2) On Windows, try the well-known absolute install locations.
+    if (Platform.isWindows) {
+      const fallbackPaths = <String>[
+        r'C:\Windows\System32\nvidia-smi.exe',
+        r'C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe',
+        r'C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi',
+      ];
+      for (final path in fallbackPaths) {
+        if (!await File(path).exists()) continue;
+        try {
+          final result = await Process.run(path, args);
+          if (result.exitCode == 0) return result;
+          debugPrint(
+            '[Hardware] $path returned exit code ${result.exitCode}: '
+            '${result.stderr}',
+          );
+        } catch (e) {
+          debugPrint('[Hardware] failed to run $path: $e');
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Parses `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,
+  /// nounits` output into a name + VRAM-in-MB pair.
+  ///
+  /// Handles multi-GPU systems by picking the entry with the largest VRAM.
+  /// Also tolerates older nvidia-smi versions that ignore `nounits` and emit
+  /// a "MiB" / "MB" suffix after the number.
+  _NvidiaSmiResult _parseNvidiaSmi(String stdout) {
+    final lines = stdout.trim().split('\n');
+    String bestName = 'Unknown GPU';
+    int bestVram = 0;
+    for (final line in lines) {
+      if (line.trim().isEmpty) continue;
+      // CSV split — but only on the first comma, in case the GPU name itself
+      // contains a comma (rare but possible for some workstation cards).
+      final commaIdx = line.indexOf(',');
+      if (commaIdx < 0) continue;
+      final namePart = line.substring(0, commaIdx).trim();
+      final vramPart = line.substring(commaIdx + 1).trim();
+      if (namePart.isEmpty) continue;
+
+      // Strip any trailing unit suffix ("MiB", "MB", "Mib", ...) and parse.
+      final vramDigits = RegExp(r'^(\d+)').firstMatch(vramPart);
+      final smiVram = vramDigits == null
+          ? 0
+          : int.tryParse(vramDigits.group(1)!) ?? 0;
+
+      if (smiVram > bestVram) {
+        bestVram = smiVram;
+        bestName = namePart;
+      } else if (bestName == 'Unknown GPU' && namePart.isNotEmpty) {
+        // No VRAM yet but we finally have a name — take it.
+        bestName = namePart;
+        if (smiVram > 0) bestVram = smiVram;
+      }
+    }
+    return _NvidiaSmiResult(name: bestName, vramMb: bestVram);
+  }
+
+  /// Maps a GPU marketing name to one of 'Nvidia', 'AMD', 'Intel', 'Unknown'.
+  ///
+  /// Recognises a broad set of substrings so very new architectures (RTX
+  /// 50-series "Blackwell", Intel Arc, AMD Radeon RX 7000) are still routed to
+  /// the right backend even before driver-level identification kicks in.
+  String _vendorFromName(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('nvidia') ||
+        lower.contains('geforce') ||
+        lower.contains('quadro') ||
+        lower.contains('rtx ') ||
+        lower.contains('gtx ') ||
+        lower.contains('tesla ')) {
+      return 'Nvidia';
+    }
+    if (lower.contains('amd') ||
+        lower.contains('radeon') ||
+        lower.contains('ati ') ||
+        lower.contains('firepro') ||
+        lower.contains('instinct')) {
+      return 'AMD';
+    }
+    if (lower.contains('intel') ||
+        lower.contains('iris') ||
+        lower.contains('uhd') ||
+        lower.contains('arc ')) {
+      return 'Intel';
+    }
+    return 'Unknown';
+  }
+
   Future<void> _checkDrivers() async {
     _hasCuda = false;
     _hasRocm = false;
 
-    // CUDA Check (nvidia-smi) — skip on macOS where it doesn't exist
+    // CUDA Check (nvidia-smi) — skip on macOS where it doesn't exist.
+    // Use _runNvidiaSmi() so we still detect CUDA when the driver installed
+    // nvidia-smi only under NVSMI/ (not in PATH).
     if (!Platform.isMacOS) {
-      try {
-        final res = await Process.run('nvidia-smi', []);
-        if (res.exitCode == 0) _hasCuda = true;
-      } catch (_) {}
+      final res = await _runNvidiaSmi([]);
+      if (res != null) _hasCuda = true;
     }
 
     // ROCm/HIP Check
