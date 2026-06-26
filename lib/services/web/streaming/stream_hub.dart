@@ -22,17 +22,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-/// Single multiplexed WebSocket fan-out for the rewritten server.
+/// Single multiplexed WebSocket fan-out for the web server.
 ///
-/// Collapses the legacy server's three independent SSE channels (chat tokens via
-/// WebChatBridge, chargen progress, story-pipeline progress) into one
-/// authenticated socket with a typed event envelope. The browser sends the
-/// HttpOnly session cookie on the upgrade, so there is no `?token=` in the URL.
+/// One authenticated socket with a typed event envelope carries everything the
+/// old per-feature SSE channels used to (chat tokens, chargen progress,
+/// story-pipeline progress). The browser sends the HttpOnly session cookie on
+/// the upgrade, so there is no `?token=` in the URL.
 ///
 /// Depends only on a token [Stream] + an `isGenerating` probe (not the whole
-/// ChatService) so it stays unit-testable. Phase 2 wires the chat-token source;
-/// chargen/story progress are attached via [broadcast] when their facades land
-/// in Phase 3.
+/// ChatService) so it stays unit-testable. Chargen/story progress are pushed
+/// via [broadcast] from their facades.
 class StreamHub {
   StreamHub(Stream<String> tokenStream, this._isGenerating) {
     _tokenSub = tokenStream.listen(_onToken);

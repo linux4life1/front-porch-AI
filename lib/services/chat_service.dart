@@ -1180,8 +1180,8 @@ class ChatService extends ChangeNotifier {
   final List<DateTime> _tokenTimestamps =
       []; // Rolling window for TPS measurement
 
-  // ── Web SSE token broadcast ──
-  // External consumers (e.g. WebChatBridge) listen to this for real-time token streaming.
+  // ── Web token broadcast ──
+  // External consumers (the web server's StreamHub) listen to this for real-time token streaming.
   final StreamController<String> _tokenBroadcast =
       StreamController<String>.broadcast();
   Stream<String> get tokenStream => _tokenBroadcast.stream;

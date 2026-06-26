@@ -374,7 +374,7 @@ class CharacterCardGrid extends StatelessWidget {
                     // Full reload via loadCharacters() (DB re-query + fresh PNG extensions/avatars)
                     // so external direct writers (Character Card Forge, web imports, etc.) are
                     // picked up immediately without app restart. Matches the established pattern
-                    // used by cloud sync, web_server_service, and main.dart startup.
+                    // used by cloud sync, the web server, and main.dart startup.
                     IconButton(
                       tooltip:
                           'Refresh character list (pick up external changes, e.g. Character Card Forge)',

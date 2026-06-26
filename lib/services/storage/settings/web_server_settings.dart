@@ -20,19 +20,13 @@ import 'settings_base.dart';
 
 /// Persisted web-server settings.
 ///
-/// The rewritten server (lib/services/web) uses a real account (Argon2id
-/// password + optional TOTP) in the database; its runtime state (sessions,
-/// presence, tunnels) lives on WebServerHost. The legacy [WebServerService]
-/// still ships alongside it (behind the `webServerUseNewBackend` flag) and
-/// uses the plaintext [webServerPin] below — kept until the legacy server is
-/// deleted at cutover.
+/// The server (lib/services/web) uses a real account (Argon2id password +
+/// optional TOTP) in the database; its runtime state (sessions, presence,
+/// tunnels) lives on WebServerHost. These are just the persisted bind/remote
+/// preferences.
 class WebServerSettings with SettingsBase {
   bool _webServerEnabled = false;
   int _webServerPort = 8085;
-
-  // Legacy plaintext PIN — used only by the legacy WebServerService until it is
-  // removed at cutover. The rewritten server ignores it.
-  String _webServerPin = '';
 
   // Bind policy: localhost-only by default; LAN access is explicit opt-in.
   // Remote access goes through Tailscale/ngrok.
@@ -50,7 +44,6 @@ class WebServerSettings with SettingsBase {
 
   bool get webServerEnabled => _webServerEnabled;
   int get webServerPort => _webServerPort;
-  String get webServerPin => _webServerPin;
   bool get webServerAllowLan => _webServerAllowLan;
   String get webServerNgrokAuthToken => _webServerNgrokAuthToken;
   bool get webServerAutoRemote => _webServerAutoRemote;
@@ -58,7 +51,6 @@ class WebServerSettings with SettingsBase {
   void load() {
     _webServerEnabled = prefs?.getBool(k('web_server_enabled')) ?? false;
     _webServerPort = prefs?.getInt(k('web_server_port')) ?? 8085;
-    _webServerPin = prefs?.getString(k('web_server_pin')) ?? '';
     _webServerAllowLan = prefs?.getBool(k('web_server_allow_lan')) ?? false;
     _webServerNgrokAuthToken =
         prefs?.getString(k('web_server_ngrok_authtoken')) ?? '';
@@ -75,13 +67,6 @@ class WebServerSettings with SettingsBase {
   Future<void> setWebServerPort(int value) async {
     _webServerPort = value;
     await prefs?.setInt(k('web_server_port'), value);
-    notify();
-  }
-
-  /// Legacy PIN setter — used only by the legacy WebServerService.
-  Future<void> setWebServerPin(String value) async {
-    _webServerPin = value;
-    await prefs?.setString(k('web_server_pin'), value);
     notify();
   }
 

@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/services/web_server_service.dart';
+import 'package:front_porch_ai/services/web/web_server_host.dart';
 
 /// Full-screen overlay that blocks the Flutter desktop UI when a remote
 /// web client is connected via the HTTP server.
@@ -30,7 +30,7 @@ class RemoteLockOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<WebServerService>(
+    return Consumer<WebServerHost>(
       builder: (context, webServer, _) {
         if (!webServer.hasActiveClient) {
           return const SizedBox.shrink();

@@ -45,13 +45,10 @@ import 'package:front_porch_ai/services/web/tunnels/tunnel_manager.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
 
-/// Lifecycle owner for the rewritten web server (the new ChangeNotifier that
-/// `main.dart` and settings UI talk to). It only bootstraps + binds; all request
-/// behavior lives in [buildWebHandler] and the route groups.
-///
-/// Phase 1: serves auth + static + health, behind the
-/// `webServerUseNewBackend` flag alongside the legacy WebServerService. The
-/// legacy server is deleted at Phase 6 cutover.
+/// Lifecycle owner for the web server (the ChangeNotifier that `main.dart` and
+/// the settings UI talk to). It only bootstraps + binds; all request behavior
+/// lives in [buildWebHandler] and the route groups. This is the sole web server
+/// — the legacy `WebServerService` was removed at cutover.
 class WebServerHost extends ChangeNotifier {
   WebServerHost(this._storage);
 

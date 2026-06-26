@@ -49,9 +49,7 @@ import 'package:front_porch_ai/services/embedding_sidecar.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/audiobook_generator_service.dart';
 import 'package:front_porch_ai/services/file_consolidation_service.dart';
-import 'package:front_porch_ai/services/web_server_service.dart';
 import 'package:front_porch_ai/services/web/web_server_host.dart';
-import 'package:front_porch_ai/services/web_chat_bridge.dart';
 
 // Cloud provider implementations (not re-exported from the services barrel)
 import 'package:front_porch_ai/services/cloud_providers/webdav_provider.dart';
@@ -472,7 +470,7 @@ void main(List<String> args) async {
             return previous ?? ImageGenService(storage);
           },
         ),
-        // Porch Stories: repository + pipeline must be above WebServerService
+        // Porch Stories: repository + pipeline must be above WebServerHost
         ChangeNotifierProvider(
           create: (context) {
             final repo = StoryRepository(db);
@@ -521,147 +519,10 @@ void main(List<String> args) async {
             );
           },
         ),
-        ChangeNotifierProxyProvider<StorageService, WebServerService>(
-          create: (context) {
-            final chatService = Provider.of<ChatService>(
-              context,
-              listen: false,
-            );
-            final ws = WebServerService(
-              Provider.of<StorageService>(context, listen: false),
-            );
-            ws.setDatabase(db);
-            ws.setCharacterRepository(
-              Provider.of<CharacterRepository>(context, listen: false),
-            );
-            ws.setChatService(chatService);
-            // Scene Guest background portraits (resolved here since ImageGenService
-            // is registered below ChatService in the provider tree).
-            chatService.setImageGenService(
-              Provider.of<ImageGenService>(context, listen: false),
-            );
-            ws.setChatBridge(WebChatBridge(chatService));
-            ws.setLLMProvider(Provider.of<LLMProvider>(context, listen: false));
-            ws.setFolderService(
-              Provider.of<FolderService>(context, listen: false),
-            );
-            ws.setTtsService(Provider.of<TtsService>(context, listen: false));
-            ws.setUserPersonaService(
-              Provider.of<UserPersonaService>(context, listen: false),
-            );
-            ws.setGroupChatRepository(
-              Provider.of<GroupChatRepository>(context, listen: false),
-            );
-            ws.setCloudSyncService(
-              Provider.of<CloudSyncService>(context, listen: false),
-            );
-            ws.setImageGenService(
-              Provider.of<ImageGenService>(context, listen: false),
-            );
-            ws.setEmbeddingSidecar(
-              Provider.of<EmbeddingSidecar>(context, listen: false),
-            );
-            ws.setStoryRepository(
-              Provider.of<StoryRepository>(context, listen: false),
-            );
-            ws.setStoryPipelineService(
-              Provider.of<StoryPipelineService>(context, listen: false),
-            );
-            return ws;
-          },
-          update: (context, storage, previous) {
-            if (previous != null) {
-              final chatService = Provider.of<ChatService>(
-                context,
-                listen: false,
-              );
-              previous.setChatService(chatService);
-              chatService.setImageGenService(
-                Provider.of<ImageGenService>(context, listen: false),
-              );
-              previous.setCharacterRepository(
-                Provider.of<CharacterRepository>(context, listen: false),
-              );
-              previous.setLLMProvider(
-                Provider.of<LLMProvider>(context, listen: false),
-              );
-              previous.setFolderService(
-                Provider.of<FolderService>(context, listen: false),
-              );
-              previous.setTtsService(
-                Provider.of<TtsService>(context, listen: false),
-              );
-              previous.setUserPersonaService(
-                Provider.of<UserPersonaService>(context, listen: false),
-              );
-              previous.setGroupChatRepository(
-                Provider.of<GroupChatRepository>(context, listen: false),
-              );
-              previous.setCloudSyncService(
-                Provider.of<CloudSyncService>(context, listen: false),
-              );
-              previous.setImageGenService(
-                Provider.of<ImageGenService>(context, listen: false),
-              );
-              previous.setEmbeddingSidecar(
-                Provider.of<EmbeddingSidecar>(context, listen: false),
-              );
-              previous.setStoryRepository(
-                Provider.of<StoryRepository>(context, listen: false),
-              );
-              previous.setStoryPipelineService(
-                Provider.of<StoryPipelineService>(context, listen: false),
-              );
-              return previous;
-            }
-            final chatService = Provider.of<ChatService>(
-              context,
-              listen: false,
-            );
-            final ws = WebServerService(storage);
-            ws.setDatabase(db);
-            ws.setCharacterRepository(
-              Provider.of<CharacterRepository>(context, listen: false),
-            );
-            ws.setChatService(chatService);
-            // Scene Guest background portraits (resolved here since ImageGenService
-            // is registered below ChatService in the provider tree).
-            chatService.setImageGenService(
-              Provider.of<ImageGenService>(context, listen: false),
-            );
-            ws.setChatBridge(WebChatBridge(chatService));
-            ws.setLLMProvider(Provider.of<LLMProvider>(context, listen: false));
-            ws.setFolderService(
-              Provider.of<FolderService>(context, listen: false),
-            );
-            ws.setTtsService(Provider.of<TtsService>(context, listen: false));
-            ws.setUserPersonaService(
-              Provider.of<UserPersonaService>(context, listen: false),
-            );
-            ws.setGroupChatRepository(
-              Provider.of<GroupChatRepository>(context, listen: false),
-            );
-            ws.setCloudSyncService(
-              Provider.of<CloudSyncService>(context, listen: false),
-            );
-            ws.setImageGenService(
-              Provider.of<ImageGenService>(context, listen: false),
-            );
-            ws.setEmbeddingSidecar(
-              Provider.of<EmbeddingSidecar>(context, listen: false),
-            );
-            ws.setStoryRepository(
-              Provider.of<StoryRepository>(context, listen: false),
-            );
-            ws.setStoryPipelineService(
-              Provider.of<StoryPipelineService>(context, listen: false),
-            );
-            return ws;
-          },
-        ),
-        // New web server (rewrite) — coexists with the legacy WebServerService
-        // behind the `webServerUseNewBackend` flag; the legacy provider above is
-        // deleted at cutover. Wires the same collaborators via setX.
+        // Web server: the React PWA + Dart shelf rewrite (lib/services/web).
+        // Started on launch (_autoStartWebServer) or via the Settings toggle.
+        // Collaborators are wired via setX. ChatService's own ImageGenService
+        // (Scene Guest portraits) is wired in the post-frame block below.
         ChangeNotifierProvider<WebServerHost>(
           create: (context) {
             final host = WebServerHost(
@@ -980,7 +841,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
     // Stop web server
     try {
-      final webServer = Provider.of<WebServerService>(context, listen: false);
+      final webServer = Provider.of<WebServerHost>(context, listen: false);
       if (webServer.isRunning) {
         await webServer.stop();
       }
@@ -1067,6 +928,18 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     );
                     chatService.setExpressionClassifierService(classifier);
                   } catch (_) {}
+                  // Wire ImageGenService into ChatService for Scene Guest
+                  // background portraits (previously done in the legacy web
+                  // server provider's create, removed at cutover).
+                  try {
+                    final chatService = Provider.of<ChatService>(
+                      context,
+                      listen: false,
+                    );
+                    chatService.setImageGenService(
+                      Provider.of<ImageGenService>(context, listen: false),
+                    );
+                  } catch (_) {}
                   // Wire UpdateService shutdown callback so child processes
                   // (KoboldCPP, web server, embedding sidecar) are stopped
                   // before exit(0) in installNow(), which bypasses onWindowClose.
@@ -1091,7 +964,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                         if (pseudo.isRunning) await pseudo.stop();
                       } catch (_) {}
                       try {
-                        final webServer = Provider.of<WebServerService>(
+                        final webServer = Provider.of<WebServerHost>(
                           context,
                           listen: false,
                         );
@@ -2213,7 +2086,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
     await storage.initialized;
     if (!storage.webServerSettings.webServerEnabled) return;
 
-    final webServer = Provider.of<WebServerService>(context, listen: false);
+    final webServer = Provider.of<WebServerHost>(context, listen: false);
     await webServer.start(storage.webServerSettings.webServerPort);
   }
 }

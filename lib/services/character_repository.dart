@@ -93,7 +93,7 @@ class CharacterRepository extends ChangeNotifier {
     // rapid or concurrent calls. Skip redundant work while a load is already in flight.
     // This prevents interleaved _characters mutations and flickering isLoading state.
     // A skipped call also skips the initial _isLoading=true/notify (no spurious flicker for that caller).
-    // Fire-and-forget callers (e.g. some web_server_service paths) may be dropped when busy;
+    // Fire-and-forget callers (e.g. some web server paths) may be dropped when busy;
     // the in-flight load will still deliver the final update to listeners.
     if (_isLoading) return;
 

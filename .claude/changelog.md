@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-06-26 (chore: legacy web server cutover + deletion — Phase 6 final)
+The new server (lib/services/web) reached full parity, so the legacy server is now the default AND deleted — ending the sanctioned temporary parallelism. ~24k lines removed (the 5,677-line `web_server_service.dart` god file + the whole `lib/services/web_server/` tree + `web_chat_bridge.dart` + the old vanilla-JS `assets/web/` UI).
+- **Default flip** (`main.dart`): `_autoStartWebServer` (launch), the window-close stop, and the UpdateService shutdown callback now use `WebServerHost` instead of `WebServerService`. The Settings toggle already used the host. So a normal launch now serves the React PWA rewrite — previously it still auto-started the legacy server.
+- **Preserved wiring**: the Scene Guest `chatService.setImageGenService(...)` that lived in the legacy provider's `create` moved to the post-frame wiring block (next to the TTS/classifier wiring) so portraits still work.
+- **Deleted**: `lib/services/web_server_service.dart`, `lib/services/web_server/` (routes/middleware/sse/helpers), `lib/services/web_chat_bridge.dart`, `assets/web/{index.html,css,js}`. `pubspec` only registered `assets/web_app/`, so no pubspec edit was needed.
+- **Legacy PIN removed**: `webServerPin`/`setWebServerPin` dropped from `StorageService` + `WebServerSettings` (only the legacy server used the plaintext PIN; the rewrite uses Argon2id+TOTP accounts). The `web_server_pin` pref key is simply no longer read.
+- **Repointed**: `remote_lock_overlay.dart` Consumer `WebServerService` → `WebServerHost` (API-compatible: hasActiveClient/connectedClientInfo/lanIp/port/disconnectClient). Stale comments mentioning the deleted classes scrubbed across `chat_service`, `character_repository`, `character_card_grid`, `stream_hub`, `web_server_host`.
+- **Verification**: full `flutter analyze lib` clean; `flutter analyze test` clean; `flutter test test/services/web` 66/66; `dart fix --dry-run` nothing to fix. **Needs maintainer smoke-test**: launch the desktop app, enable the web server, confirm it serves the React UI and a remote client locks the desktop. (Can't launch the Flutter app in this container.)
+- **Commit**: (this commit)
+
 ## 2026-06-26 (feat: Porch Stories web UI — structure, writer, reader, PS3)
 Final phase: the granular authoring + reading surface, completing the full Porch Stories web port.
 - **`hooks/useStory.ts`** (new): shared load + WS-progress subscription + `run(stage, {actIndex,sceneIndex,beatIndex})`. Used by structure/writer/reader **and retrofitted into the PS2 dashboard**, removing the duplicated load/WS/run block (one source of truth now).
