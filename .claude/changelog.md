@@ -2838,3 +2838,9 @@ Brief reason: Addressed the confirmed correctness/cleanup findings from the revi
 - Not committed: pubspec.lock transitive bumps (unrelated tooling run), left unstaged.
 - Verification: npm run lint (tsc) clean; npm run build green (bundle rebuilt + committed). Confirmed on Mac desktop + iPhone over the Tailscale preview: desktop fills/scales, mobile good, drawer left, title→home works.
 - Commit: (this commit)
+
+## 2026-06-26 — Phase 3: resume older GROUP session restores per-character realism (Rawhide)
+- Files: lib/services/chat/chat_service_session_load.dart (loadSession: added the symmetric `else` branch calling the existing _loadGroupRealismStateFromSession(session), mirroring _loadLastSession's group branch).
+- Reason: loadSession() (used when you pick an OLDER session from the in-chat Conversations drawer) only handled the 1:1 branch (scene guests); for a group it never repopulated _groupRealism, so resuming an older group chat silently dropped every member's bond/trust/emotion/fixation/arousal/needs. _loadLastSession already did this correctly — loadSession was the asymmetric sibling. All-platform correctness fix (affects desktop + web). Reuses the existing helper; no new method; keeps the two load paths in lock-step per the "keep load blocks in sync" rule.
+- Verification: flutter analyze (chat_service_session_load.dart + chat_service.dart) → No issues found.
+- Commit: (this commit)

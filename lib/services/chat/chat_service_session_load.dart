@@ -424,6 +424,12 @@ extension ChatServiceSessionLoad on ChatService {
         _offeredOrIgnoredGuestNames.clear();
         // (clears + restores _sceneGuestIds/_sceneGuestCards + guest evolution)
         _loadSceneGuestsFromSession(session);
+      } else {
+        // Group session: restore live per-character realism/needs from the
+        // session column — mirrors the _loadLastSession group branch so resuming
+        // an OLDER group session via the in-chat history drawer no longer drops
+        // each member's bond/trust/emotion/fixation/arousal/needs.
+        _loadGroupRealismStateFromSession(session);
       }
       _authorNote = session.authorNote;
       _authorNoteStrength = session.authorNoteDepth;
