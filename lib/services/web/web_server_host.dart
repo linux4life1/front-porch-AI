@@ -189,16 +189,6 @@ class WebServerHost extends ChangeNotifier {
         ? GroupFacade(_groupChatRepository!, _storage)
         : null;
 
-    final groupAuthoringFacade =
-        (_groupChatRepository != null && _characterRepository != null)
-            ? GroupAuthoringFacade(
-                _groupChatRepository!,
-                _characterRepository!,
-                db,
-                _storage,
-              )
-            : null;
-
     final settingsFacade = _llmProvider != null
         ? SettingsFacade(_storage, _llmProvider!)
         : null;
@@ -227,7 +217,6 @@ class WebServerHost extends ChangeNotifier {
       chatFacade: chatFacade,
       chatToolsFacade: chatToolsFacade,
       groupFacade: groupFacade,
-      groupAuthoringFacade: groupAuthoringFacade,
       settingsFacade: settingsFacade,
       worldFacade: worldFacade,
       backendFacade: backendFacade,

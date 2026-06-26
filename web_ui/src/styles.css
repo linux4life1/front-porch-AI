@@ -237,6 +237,45 @@ button.ghost { background: transparent; border-color: var(--border); }
   text-transform: capitalize;
 }
 
+/* ── Unified cast bar ─────────────────────────────────────────── */
+.cast-bar { border-bottom: 1px solid var(--border); background: var(--surface); padding: 6px 10px; }
+.cast-row { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.cast-chip {
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+  border: 1px solid var(--border); border-radius: 999px; padding: 2px 4px 2px 2px; background: var(--bg);
+}
+.cast-chip.focused { border-color: var(--accent); }
+.cast-chip.next { box-shadow: 0 0 0 1px var(--ok) inset; }
+.cast-chip-main { display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 2px 4px; }
+.cast-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; background: var(--surface-2); display: grid; place-items: center; }
+.cast-avatar.initial { color: var(--accent); font-size: 0.8rem; }
+.cast-name { font-size: 0.82rem; font-weight: 600; }
+.cast-role { font-size: 0.62rem; color: var(--muted); text-transform: capitalize; }
+.cast-actions { display: flex; }
+.cast-add {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; padding: 0;
+  display: grid; place-items: center; font-size: 1rem; background: var(--surface-2);
+}
+.cast-controls { display: flex; gap: 6px; margin-top: 4px; }
+button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; background: transparent; border-color: var(--border); }
+.cast-banner {
+  margin-top: 4px; padding: 4px 8px; border-radius: 8px; font-size: 0.78rem;
+  background: var(--surface-2); color: var(--muted);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.cast-banner.error { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
+.cast-banner.detect { background: rgba(59, 130, 246, 0.14); color: var(--text); }
+.msg-speaker { font-size: 0.7rem; color: var(--muted); align-self: flex-start; margin: 2px 0 1px 4px; }
+
+/* ── Character picker modal ───────────────────────────────────── */
+.picker-modal {
+  width: min(560px, 94%); max-height: 86vh; margin: auto; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+}
+.drawer-backdrop { align-items: center; }
+.picker-grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+
 /* ── Realism chips + sidebar ──────────────────────────────────── */
 .msg-row { display: flex; flex-direction: column; }
 .msg-row .bubble.user { align-self: flex-end; }
@@ -460,12 +499,8 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
   position: absolute; top: 4px; right: 4px;
   background: rgba(15, 23, 42, 0.7); color: #fff; opacity: 0; transition: opacity 0.12s;
 }
-.card-edit {
-  position: absolute; top: 4px; right: 34px;
-  background: rgba(15, 23, 42, 0.7); color: #fff; opacity: 0; transition: opacity 0.12s;
-}
-.group-card:hover .card-delete, .group-card:hover .card-edit { opacity: 1; }
-@media (hover: none) { .card-delete, .card-edit { opacity: 1; } }
+.group-card:hover .card-delete { opacity: 1; }
+@media (hover: none) { .card-delete { opacity: 1; } }
 
 /* Selectable character cards (group member picker). */
 .char-card.selected { outline: 2px solid var(--accent); border-radius: var(--radius); }

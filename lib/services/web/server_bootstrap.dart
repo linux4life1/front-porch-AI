@@ -68,13 +68,7 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
   if (deps.chatToolsFacade != null) {
     WebChatToolsRoutes(deps.chatToolsFacade!, router);
   }
-  if (deps.groupFacade != null) {
-    WebGroupRoutes(
-      deps.groupFacade!,
-      router,
-      authoring: deps.groupAuthoringFacade,
-    );
-  }
+  if (deps.groupFacade != null) WebGroupRoutes(deps.groupFacade!, router);
   if (deps.settingsFacade != null) {
     WebSettingsRoutes(deps.settingsFacade!, router);
   }

@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/web/util/request_body.dart';
 class WebChatRoutes {
   WebChatRoutes(this._facade, Router router) {
     router.get('/api/chat/state', _state);
+    router.get('/api/chat/participant/<id>/realism', _participantRealism);
     router.get('/api/chat/sessions', _sessions);
     router.get('/api/personas', _personas);
     router.post('/api/personas/select', _selectPersona);
@@ -52,6 +53,13 @@ class WebChatRoutes {
 
   shelf.Response _state(shelf.Request request) =>
       JsonResponse.ok(_facade.state());
+
+  /// Realism for one cast participant (focus-scoped sidebar in the unified UI).
+  shelf.Response _participantRealism(shelf.Request request, String id) {
+    final realism = _facade.participantRealism(id);
+    if (realism == null) return JsonResponse.error(404, 'Participant not found');
+    return JsonResponse.ok(realism);
+  }
 
   /// List the active character's saved conversations (newest first) so the web
   /// UI can show the Conversations drawer and resume any of them.

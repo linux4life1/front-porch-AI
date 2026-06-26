@@ -30,7 +30,6 @@ export 'character_authoring_facade.dart';
 export 'character_facade.dart';
 export 'chat_facade.dart';
 export 'chat_tools_facade.dart';
-export 'group_authoring_facade.dart';
 export 'group_facade.dart';
 export 'image_facade.dart';
 export 'settings_facade.dart';

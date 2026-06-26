@@ -130,7 +130,92 @@ class ChatFacade {
       // expression portrait and only refetch when the mood actually changes.
       // Read-only — no reclassification here, so 1:1/group parity is unaffected.
       'expressionLabel': _chat.currentExpressionLabel,
+      // Unified participant cast (host + scene guests in 1:1; members in group).
+      // The single roster the unified chat UI iterates — no mode branching.
+      'cast': _castJson(),
+      // Transient scene-guest banner (creating/joining a guest) + a pending
+      // "new character detected — add them?" offer, mirroring the desktop.
+      'guestActivity': {
+        'status': _chat.guestActivityStatus,
+        'isError': _chat.guestActivityIsError,
+        'busy': _chat.isGuestBusy,
+      },
+      'pendingDetection': _chat.pendingGuestDetection?.name,
     };
+  }
+
+  /// The unified cast as JSON. Each entry carries enough to render a roster
+  /// (avatar, role, emotion, next-up) and to scope the sidebar via [id]
+  /// (stableGroupId). Avatars resolve to the character endpoint for host/guests
+  /// and the group-member endpoint for members.
+  List<Map<String, dynamic>> _castJson() {
+    final groupId = _chat.activeGroup?.id;
+    final nextDbId = _chat.nextCharacter?.dbId;
+    final isGroup = _chat.isGroupMode;
+    return _chat.cast.map((p) {
+      final card = p.card;
+      final avatarUrl = (isGroup && groupId != null)
+          ? '/api/groups/$groupId/members/${card.dbId}/avatar'
+          : '/api/characters/${card.dbId}/avatar';
+      return {
+        'id': p.id,
+        'dbId': card.dbId,
+        'name': p.name,
+        'isHost': p.isHost,
+        'isLite': p.isLite,
+        'realismEnabled': p.realismEnabled,
+        'emotion': !p.realismEnabled
+            ? null
+            : (isGroup
+                ? _chat.getEmotionForGroupCharacter(card)
+                : _chat.characterEmotion),
+        'isNext': card.dbId != null && card.dbId == nextDbId,
+        'hasAvatar': card.imagePath != null && card.imagePath!.isNotEmpty,
+        'avatarUrl': avatarUrl,
+      };
+    }).toList();
+  }
+
+  /// Realism for a single cast participant (focus-scoped sidebar). Host →
+  /// full snapshot; group member → per-member scores via the group getters;
+  /// lite guest → realism disabled. Returns null if the id isn't in the cast.
+  Map<String, dynamic>? participantRealism(String participantId) {
+    for (final p in _chat.cast) {
+      if (p.id != participantId) continue;
+      if (!p.realismEnabled) return {'realismEnabled': false};
+      if (p.isHost) return {'realismEnabled': true, ..._realismSnapshot()};
+      final card = p.card;
+      final emotion = _chat.getEmotionForGroupCharacter(card) ?? '';
+      // Shape-compatible with the host snapshot so the shared Insight panel
+      // renders members too. Per-member tier/percent aren't exposed by the
+      // group getters, so those default to '' / 0 (the raw scores still show).
+      return {
+        'realismEnabled': true,
+        'bond': {
+          'score': _chat.getAffectionForGroupCharacter(card),
+          'tier': '',
+          'percent': 0,
+        },
+        'longTerm': {'score': 0, 'tier': '', 'percent': 0},
+        'trust': {
+          'level': _chat.getTrustForGroupCharacter(card),
+          'tier': '',
+          'percent': 0,
+        },
+        'emotion': emotion,
+        'emotionIntensity':
+            _chat.getEmotionIntensityForGroupCharacter(card) ?? '',
+        'mood': emotion,
+        'arousal': {
+          'level': _chat.getArousalForGroupCharacter(card),
+          'tier': '',
+        },
+        'fixation': _chat.getFixationForGroupCharacter(card) ?? '',
+        'needsEnabled': true,
+        'needs': _chat.getNeedsForGroupCharacter(card),
+      };
+    }
+    return null;
   }
 
   /// Current Realism Engine state for the web sidebar — mirrors the desktop

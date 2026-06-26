@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { ChatSocket } from '../api/ws';
 import { ChatTools } from '../components/ChatTools';
+import { CastBar, type CastMember } from '../components/CastBar';
+import { CharacterPicker } from '../components/CharacterPicker';
 
 interface Chips {
   bondDelta?: number;
@@ -28,6 +30,7 @@ interface Message {
   swipeIndex?: number;
   hasThinking?: boolean;
   thinkingContent?: string;
+  characterId?: string;
 }
 interface Realism {
   bond: { score: number; tier: string; percent: number };
@@ -60,6 +63,9 @@ interface ChatState {
   greetingIndex?: number;
   totalGreetings?: number;
   expressionLabel?: string;
+  cast?: CastMember[];
+  guestActivity?: { status: string | null; isError: boolean; busy: boolean };
+  pendingDetection?: string | null;
 }
 interface SessionSummary {
   id: string;
@@ -102,6 +108,11 @@ export function ChatPage() {
   // Slash-command cheat sheet: shown while the draft starts with '/', until the
   // user dismisses it (Close / Esc) or leaves slash mode.
   const [slashDismissed, setSlashDismissed] = useState(false);
+  // Unified-cast UI: which participant the sidebar is scoped to, the add-picker,
+  // and the focused participant's realism (null = use the default host snapshot).
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [focusRealism, setFocusRealism] = useState<Realism | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const showSlash = draft.trimStart().startsWith('/') && !slashDismissed;
@@ -111,6 +122,12 @@ export function ChatPage() {
     setState(s);
     setToolsBump((b) => b + 1);
   }, []);
+
+  // Keep a focused member's realism live as the chat updates.
+  useEffect(() => {
+    if (focusedId) void focusParticipant(focusedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toolsBump]);
 
   useEffect(() => {
     void refresh();
@@ -186,6 +203,28 @@ export function ChatPage() {
     await refresh();
   };
 
+  // Cast actions are driven by the in-chat slash commands (they route through
+  // ChatService, so behavior matches the desktop). join/promote/speak/exit/scan.
+  const sendCommand = async (cmd: string) => {
+    await api.post('/api/chat/send', { text: cmd });
+    await refresh();
+  };
+  // Scope the sidebar to a cast participant. Host (and lite guests) use the main
+  // realism snapshot; other members fetch their own.
+  const focusParticipant = async (id: string) => {
+    setFocusedId(id);
+    const member = state?.cast?.find((c) => c.id === id);
+    if (!member || member.isHost || !member.realismEnabled) {
+      setFocusRealism(null);
+      return;
+    }
+    try {
+      setFocusRealism(await api.get<Realism>(`/api/chat/participant/${id}/realism`));
+    } catch {
+      setFocusRealism(null);
+    }
+  };
+
   // ── Conversations drawer ────────────────────────────────────────
   const openSessions = async () => {
     setShowSessions(true);
@@ -231,9 +270,14 @@ export function ChatPage() {
   }
 
   const lastIndex = state.messages.length - 1;
-  const insight = state.realism ? (
+  const cast = state.cast ?? [];
+  const multiCast = cast.length > 1;
+  // Speaker lookup for per-message avatars/names in a multi-character scene.
+  const castById = new Map(cast.map((c) => [c.id, c]));
+  const realismForPanel = focusRealism ?? state.realism;
+  const insight = realismForPanel ? (
     <Insight
-      realism={state.realism}
+      realism={realismForPanel}
       lorebook={state.lorebook}
       authorNote={state.authorNote ?? ''}
       authorNoteDepth={state.authorNoteDepth ?? 4}
@@ -280,9 +324,26 @@ export function ChatPage() {
           </div>
         </div>
 
+        <CastBar
+          cast={cast}
+          focusedId={focusedId}
+          busy={state.isGenerating}
+          guestStatus={state.guestActivity?.status ?? null}
+          guestIsError={state.guestActivity?.isError ?? false}
+          pendingDetection={state.pendingDetection ?? null}
+          onFocus={focusParticipant}
+          onAdd={() => setShowPicker(true)}
+          onCommand={sendCommand}
+        />
+
         <div className="chat-messages" ref={scrollRef}>
-          {state.messages.map((m) => (
+          {state.messages.map((m) => {
+            const speaker = !m.isUser && m.characterId ? castById.get(m.characterId) : undefined;
+            return (
             <div key={m.index} className="msg-row">
+              {multiCast && speaker && (
+                <span className="msg-speaker">{speaker.name}</span>
+              )}
               {m.hasThinking && m.thinkingContent && (
                 <details className="thinking">
                   <summary>💭 Thoughts</summary>
@@ -319,7 +380,8 @@ export function ChatPage() {
                 </>
               )}
             </div>
-          ))}
+            );
+          })}
           {streaming && <div className="bubble ai streaming">{streaming}</div>}
         </div>
 
@@ -377,6 +439,16 @@ export function ChatPage() {
           )}
         </div>
       </div>
+
+      {showPicker && (
+        <CharacterPicker
+          onPick={(name, full) => {
+            void sendCommand(`/join ${full ? '--full ' : ''}${name}`);
+            setShowPicker(false);
+          }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
 
       {/* Persistent insight column on desktop (CSS-hidden on phones). */}
       {insight && <aside className="chat-aside">{insight}</aside>}

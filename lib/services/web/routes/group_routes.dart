@@ -19,30 +19,21 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
-import 'package:front_porch_ai/services/web/facade/group_authoring_facade.dart';
 import 'package:front_porch_ai/services/web/facade/group_facade.dart';
 import 'package:front_porch_ai/services/web/util/json_response.dart';
-import 'package:front_porch_ai/services/web/util/request_body.dart';
 
-/// Group-chat endpoints: list / member avatar / delete (read+delete), plus
-/// create / edit / detail authoring when the authoring facade is wired.
-/// Opening a group is handled by the chat routes (`/api/chat/select-group`).
+/// Group-chat endpoints: list / member avatar / delete. Groups are *created* and
+/// *edited* in-chat now via the unified cast flow (`/join --full`, `/promote`),
+/// not an upfront wizard — so there are no create/edit endpoints here. Opening a
+/// group is handled by the chat routes (`/api/chat/select-group`).
 class WebGroupRoutes {
-  WebGroupRoutes(this._facade, Router router, {GroupAuthoringFacade? authoring})
-      : _authoring = authoring {
+  WebGroupRoutes(this._facade, Router router) {
     router.get('/api/groups', _list);
-    // Static authoring paths before the '<id>' captures.
-    if (authoring != null) router.post('/api/groups/create', _create);
     router.get('/api/groups/<id>/members/<memberId>/avatar', _avatar);
     router.post('/api/groups/<id>/delete', _delete);
-    if (authoring != null) {
-      router.get('/api/groups/<id>/detail', _detail);
-      router.post('/api/groups/<id>', _edit);
-    }
   }
 
   final GroupFacade _facade;
-  final GroupAuthoringFacade? _authoring;
 
   Future<shelf.Response> _list(shelf.Request request) async =>
       JsonResponse.ok({'groups': await _facade.list()});
@@ -51,37 +42,6 @@ class WebGroupRoutes {
     final ok = await _facade.delete(id);
     if (!ok) return JsonResponse.error(404, 'Group not found');
     return JsonResponse.ok({'status': 'deleted'});
-  }
-
-  Future<shelf.Response> _create(shelf.Request request) async {
-    final body = await _json(request);
-    final result = await _authoring!.create(body);
-    if (result == null) {
-      return JsonResponse.badRequest('name and at least 2 members are required');
-    }
-    return JsonResponse.ok(result);
-  }
-
-  Future<shelf.Response> _detail(shelf.Request request, String id) async {
-    final detail = await _authoring!.detail(id);
-    if (detail == null) return JsonResponse.error(404, 'Group not found');
-    return JsonResponse.ok(detail);
-  }
-
-  Future<shelf.Response> _edit(shelf.Request request, String id) async {
-    final ok = await _authoring!.edit(id, await _json(request));
-    if (!ok) {
-      return JsonResponse.error(400, 'Group not found or invalid membership');
-    }
-    return JsonResponse.ok(await _authoring.detail(id) ?? {'status': 'ok'});
-  }
-
-  Future<Map<String, dynamic>> _json(shelf.Request request) async {
-    try {
-      return await RequestBody.readJsonMap(request);
-    } catch (_) {
-      return const {};
-    }
   }
 
   Future<shelf.Response> _avatar(

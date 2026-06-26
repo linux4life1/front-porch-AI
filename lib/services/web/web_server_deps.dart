@@ -45,7 +45,6 @@ class WebServerDeps {
     this.chatFacade,
     this.chatToolsFacade,
     this.groupFacade,
-    this.groupAuthoringFacade,
     this.settingsFacade,
     this.worldFacade,
     this.backendFacade,
@@ -78,10 +77,6 @@ class WebServerDeps {
 
   /// Group-chat library adapter — null until the group repository is injected.
   final GroupFacade? groupFacade;
-
-  /// Group-chat authoring adapter (create/edit/membership) — null until the
-  /// group + character repositories are injected.
-  final GroupAuthoringFacade? groupAuthoringFacade;
 
   /// Generation/backend settings adapter — null until the LLM provider is wired.
   final SettingsFacade? settingsFacade;

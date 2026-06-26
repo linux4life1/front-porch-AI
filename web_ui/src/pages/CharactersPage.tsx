@@ -163,13 +163,6 @@ export function CharactersPage() {
         </button>
         <button
           className="ghost import-btn"
-          onClick={() => navigate('/groups/new')}
-          title="Create a new group chat"
-        >
-          ＋ Group
-        </button>
-        <button
-          className="ghost import-btn"
           disabled={importing}
           onClick={() => fileRef.current?.click()}
           title="Import character card (PNG / .byaf)"
@@ -242,13 +235,6 @@ export function CharactersPage() {
                   </div>
                   <div className="char-name">{g.name}</div>
                   <div className="char-meta">{g.memberCount} members</div>
-                </button>
-                <button
-                  className="icon-btn card-edit"
-                  title="Edit group"
-                  onClick={() => navigate(`/groups/edit/${g.id}`)}
-                >
-                  ✎
                 </button>
                 <button
                   className="icon-btn card-delete"
