@@ -32,6 +32,7 @@ import 'package:front_porch_ai/services/web/routes/group_routes.dart';
 import 'package:front_porch_ai/services/web/routes/remote_routes.dart';
 import 'package:front_porch_ai/services/web/routes/settings_routes.dart';
 import 'package:front_porch_ai/services/web/routes/static_routes.dart';
+import 'package:front_porch_ai/services/web/routes/story_routes.dart';
 import 'package:front_porch_ai/services/web/routes/stream_routes.dart';
 import 'package:front_porch_ai/services/web/routes/voice_routes.dart';
 import 'package:front_porch_ai/services/web/routes/world_routes.dart';
@@ -84,6 +85,7 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
     );
   }
   if (deps.voiceFacade != null) WebVoiceRoutes(deps.voiceFacade!, router);
+  if (deps.storyFacade != null) WebStoryRoutes(deps.storyFacade!, router);
   if (deps.tunnelManager != null) {
     WebRemoteRoutes(deps, deps.tunnelManager!, router);
   }

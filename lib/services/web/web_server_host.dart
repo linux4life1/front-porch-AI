@@ -30,6 +30,8 @@ import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
+import 'package:front_porch_ai/services/story_pipeline_service.dart';
+import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/stt_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -66,6 +68,8 @@ class WebServerHost extends ChangeNotifier {
   ImageGenService? _imageGenService;
   TtsService? _ttsService;
   SttService? _sttService;
+  StoryRepository? _storyRepository;
+  StoryPipelineService? _storyPipelineService;
 
   HttpServer? _server;
   AuthService? _auth;
@@ -125,6 +129,9 @@ class WebServerHost extends ChangeNotifier {
       _imageGenService = service;
   void setTtsService(TtsService service) => _ttsService = service;
   void setSttService(SttService service) => _sttService = service;
+  void setStoryRepository(StoryRepository repo) => _storyRepository = repo;
+  void setStoryPipelineService(StoryPipelineService service) =>
+      _storyPipelineService = service;
 
   /// The auth service (lazily built once a database is available) — exposed so
   /// settings UI can surface account/2FA state.
@@ -218,6 +225,11 @@ class WebServerHost extends ChangeNotifier {
         ? VoiceFacade(_ttsService!, _sttService!, _storage)
         : null;
 
+    final storyFacade =
+        (_storyRepository != null && _storyPipelineService != null)
+            ? StoryFacade(_storyRepository!, _storyPipelineService!, streamHub)
+            : null;
+
     final tunnelManager =
         _tunnelManager = TunnelManager(bindPort, tailscale: tailscale);
 
@@ -237,6 +249,7 @@ class WebServerHost extends ChangeNotifier {
       backendFacade: backendFacade,
       imageFacade: imageFacade,
       voiceFacade: voiceFacade,
+      storyFacade: storyFacade,
       tunnelManager: tunnelManager,
       onClientActive: markClientActive,
     );

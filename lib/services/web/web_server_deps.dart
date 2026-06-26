@@ -51,6 +51,7 @@ class WebServerDeps {
     this.backendFacade,
     this.imageFacade,
     this.voiceFacade,
+    this.storyFacade,
     this.tunnelManager,
     this.onClientActive,
   });
@@ -101,6 +102,10 @@ class WebServerDeps {
   /// Voice adapter (TTS synthesis + STT transcription) — null until the TTS and
   /// STT services are injected.
   final VoiceFacade? voiceFacade;
+
+  /// Porch Stories adapter — null until the story repository + pipeline are
+  /// injected.
+  final StoryFacade? storyFacade;
 
   /// Remote-access (Tailscale/ngrok/port-forward) orchestrator. Created once the
   /// server is bound (it needs the live port). Null before bind.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-06-26 (feat: Porch Stories web backend, PS1)
+First phase of the full Porch Stories web port. The generator (`StoryPipelineService`) and store (`StoryRepository`) are already fully headless, so PS1 is a thin facade + routes + WS-progress wiring — no desktop changes.
+- **`story_facade.dart`** (new): project CRUD (list/get/create/save/delete over `StoryRepository`), `status()`, `export(text|markdown)`, `chatPreview()`, and `runStage(id, stage, {actIndex,sceneIndex,beatIndex})` dispatching every pipeline stage (chat-distiller, story-architect, act-structure, scene-weaver, beat-director, draft-edit, auto-write-scene, regenerate-scene, full-act, autopilot). Stages run fire-and-forget; progress streams as `story_status`, completion as `story_updated {id}` / `story_error`. Progress listener is **scoped to each job's lifetime** (added/removed per run) so nothing leaks across server restarts (the pipeline is a long-lived singleton; the hub is per-start).
+- **`story_routes.dart`** (new): `/api/stories` (GET list, POST create), `/api/stories/status`, `/api/stories/<id>` (GET, POST save), `/api/stories/<id>/run|delete|export|chat-preview`. Specific paths registered before the `<id>` param route so `/status` isn't swallowed.
+- **Wiring**: StoryFacade in the facades barrel, `WebServerDeps`, `server_bootstrap`, `WebServerHost` (new `setStoryRepository`/`setStoryPipelineService`, built when both present); `main.dart` injects both into the host (mirrors the legacy server's existing story wiring).
+- **Tests**: `story_facade_test.dart` — CRUD round-trip (create→list→get→save→delete), safe no-ops on unknown id, runStage rejects an unknown stage. Uses a noSuchMethod pipeline double (CRUD never touches the LLM).
+- **Verification**: `flutter analyze lib/services/web lib/main.dart test/services/web` clean; `flutter test test/services/web` 66/66; (frontend in PS2/PS3).
+- **Commit**: (this commit)
+
 ## 2026-06-26 (docs+a11y: web parity sign-off, W8 code-level)
 W8's code-level portion (the manual cross-browser passes can't run headless and are listed for the maintainer).
 - **`docs/web-parity.md`** (new): authoritative desktop→web parity checklist across chat, realism/needs, characters, groups/cast, worlds/personas, image gen, voice, models, settings/account/remote, PWA/a11y. Marks full/adapted/desktop-setup-only/no-go/pending, lists the manual browser+device sign-off items only the maintainer can do, and records Porch Stories as scope-pending.

@@ -701,6 +701,12 @@ void main(List<String> args) async {
             host.setSttService(
               Provider.of<SttService>(context, listen: false),
             );
+            host.setStoryRepository(
+              Provider.of<StoryRepository>(context, listen: false),
+            );
+            host.setStoryPipelineService(
+              Provider.of<StoryPipelineService>(context, listen: false),
+            );
             return host;
           },
         ),
