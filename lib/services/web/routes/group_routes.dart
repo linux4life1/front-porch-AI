@@ -21,6 +21,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/web/facade/group_facade.dart';
 import 'package:front_porch_ai/services/web/util/json_response.dart';
+import 'package:front_porch_ai/services/web/util/request_body.dart';
 
 /// Group-chat endpoints: list / member avatar / delete. Groups are *created* and
 /// *edited* in-chat now via the unified cast flow (`/join --full`, `/promote`),
@@ -31,6 +32,7 @@ class WebGroupRoutes {
     router.get('/api/groups', _list);
     router.get('/api/groups/<id>/members/<memberId>/avatar', _avatar);
     router.post('/api/groups/<id>/delete', _delete);
+    router.post('/api/groups/<id>/settings', _settings);
   }
 
   final GroupFacade _facade;
@@ -42,6 +44,20 @@ class WebGroupRoutes {
     final ok = await _facade.delete(id);
     if (!ok) return JsonResponse.error(404, 'Group not found');
     return JsonResponse.ok({'status': 'deleted'});
+  }
+
+  /// Update a group's settings (name / prompts / scenario / turn order /
+  /// per-member overrides) — settings-only, not membership.
+  Future<shelf.Response> _settings(shelf.Request request, String id) async {
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(request);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON body');
+    }
+    final ok = await _facade.updateSettings(id, body);
+    if (!ok) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok({'status': 'ok'});
   }
 
   Future<shelf.Response> _avatar(

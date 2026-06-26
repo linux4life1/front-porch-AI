@@ -17,6 +17,8 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/database/database.dart' show Objective;
+import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/chat_participant.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
@@ -33,13 +35,21 @@ class ChatToolsFacade {
   final StorageService _storage;
   final StreamHub? _hub;
 
-  /// Full tools snapshot mirroring the desktop sidebar sections.
-  Map<String, dynamic> state() {
+  /// Full tools snapshot mirroring the desktop sidebar sections. When
+  /// [participantId] is given (a cast member's stableGroupId), the per-character
+  /// blocks (objectives, NSFW arousal) are scoped to that focused participant so
+  /// the whole sidebar follows the cast focus — not just the realism panel.
+  Map<String, dynamic> state({String? participantId}) {
     final chaos = _chat.chaosModeService;
     final nsfw = _chat.nsfwService;
     final time = _chat.timeService;
+    final focused = _focusedParticipant(participantId);
+    final focusedCard = focused?.card ?? _chat.activeCharacter;
+    final focusedIsMember =
+        focused != null && !focused.isHost && focused.realismEnabled;
     return {
       'realismEnabled': _chat.realismEnabled,
+      'focusedId': focused?.id,
       'memory': {
         'ragEnabled': _storage.ragEnabled,
         'ragRetrievalCount': _storage.ragRetrievalCount,
@@ -68,8 +78,13 @@ class ChatToolsFacade {
       'nsfw': {
         'cooldownEnabled': nsfw.nsfwCooldownEnabled,
         'cooldownTurnsRemaining': nsfw.cooldownTurnsRemaining,
-        'arousalLevel': nsfw.arousalLevel,
-        'arousalTier': nsfw.arousalTierName,
+        // Arousal is per-character: scope to the focused member in a group;
+        // the host scalar otherwise. (Tier name is only derivable for the host
+        // scalar, so members show the raw level.)
+        'arousalLevel': focusedIsMember
+            ? _chat.getArousalForGroupCharacter(focusedCard!)
+            : nsfw.arousalLevel,
+        'arousalTier': focusedIsMember ? '' : nsfw.arousalTierName,
       },
       'time': {
         'timeOfDay': time.timeOfDay,
@@ -77,12 +92,71 @@ class ChatToolsFacade {
         'weekday': time.narrativeWeekday,
         'passageEnabled': time.passageOfTimeEnabled,
       },
-      'objectives': {
-        'primary': _objJson(_chat.primaryObjective),
-        'secondary':
-            _chat.secondaryObjectives.map(_objJson).whereType<Map>().toList(),
+      // Objectives are per-character; scope to the focused participant (lite
+      // guests have none). getObjectivesForGroupCharacter returns the global
+      // list in 1:1, so this is correct in both modes.
+      'objectives': _objectivesBlock(
+        (focused?.isLite ?? false) ? null : focusedCard,
+      ),
+      // Group-only settings (turn order / director / prompts), gated below.
+      'group': _groupBlock(),
+    };
+  }
+
+  /// The focused cast participant, or null when none/unknown.
+  ChatParticipant? _focusedParticipant(String? id) {
+    if (id == null) return null;
+    for (final p in _chat.cast) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  /// Objectives block for [card] (split primary/secondary). Empty when null.
+  Map<String, dynamic> _objectivesBlock(CharacterCard? card) {
+    if (card == null) {
+      return {
+        'primary': null,
+        'secondary': const [],
         'isChecking': _chat.isCheckingCompletion,
-      },
+      };
+    }
+    Objective? primary;
+    final secondary = <Objective>[];
+    for (final o in _chat.getObjectivesForGroupCharacter(card)) {
+      if (o.isPrimary && primary == null) {
+        primary = o;
+      } else {
+        secondary.add(o);
+      }
+    }
+    return {
+      'primary': _objJson(primary),
+      'secondary': secondary.map(_objJson).whereType<Map>().toList(),
+      'isChecking': _chat.isCheckingCompletion,
+    };
+  }
+
+  /// Group-only settings for the sidebar's group section (null in 1:1). The web
+  /// gates this block on `group != null`. Per-member prompt overrides are keyed
+  /// by stableGroupId (== ChatParticipant.id).
+  Map<String, dynamic>? _groupBlock() {
+    final g = _chat.activeGroup;
+    if (g == null) return null;
+    return {
+      'name': g.name,
+      'turnOrder': g.turnOrder.name,
+      'directorMode': _chat.observerMode,
+      'systemPrompt': g.systemPrompt,
+      'scenario': g.scenario,
+      'firstMessage': g.firstMessage,
+      'members': _chat.cast
+          .map((p) => {
+                'id': p.id,
+                'name': p.name,
+                'prompt': g.characterSystemPrompts[p.id] ?? '',
+              })
+          .toList(),
     };
   }
 
@@ -121,6 +195,12 @@ class ChatToolsFacade {
 
   Future<void> setPassageOfTime(bool v) async {
     await _chat.setPassageOfTimeEnabled(v);
+    _notify();
+  }
+
+  /// Group director (observer) mode — group-only; the web gates the control.
+  void setDirectorMode(bool v) {
+    _chat.setObserverMode(v);
     _notify();
   }
 
@@ -173,10 +253,18 @@ class ChatToolsFacade {
     _notify();
   }
 
-  // ── Objectives (per-character; default to the active character, matching the
-  //    desktop sidebar — no targetCharacter override) ────────────────────────
-  Future<void> setObjective(String goal, {bool isPrimary = true}) async {
-    await _chat.setObjective(goal, isPrimary: isPrimary);
+  // ── Objectives (per-character; scoped to the focused cast participant so a
+  //    new goal attaches to whoever the sidebar is focused on) ───────────────
+  Future<void> setObjective(
+    String goal, {
+    bool isPrimary = true,
+    String? participantId,
+  }) async {
+    await _chat.setObjective(
+      goal,
+      isPrimary: isPrimary,
+      targetCharacter: _focusedParticipant(participantId)?.card,
+    );
     _notify();
   }
 
@@ -219,18 +307,22 @@ class ChatToolsFacade {
     _notify();
   }
 
-  /// Resolve an objective by id across primary+secondary, run [action], notify.
-  /// The single objective lookup helper — keeps the task ops above one-liners.
+  /// Resolve an objective by id, run [action], notify. Searches every cast
+  /// participant's objectives (not just the host's) so task ops work on whoever
+  /// the sidebar is focused on, in 1:1 or group.
   Future<bool> _withObjective(
     String id,
     Future<void> Function(Objective) action,
   ) async {
+    final seen = <String>{};
     final all = <Objective>[
       if (_chat.primaryObjective != null) _chat.primaryObjective!,
       ..._chat.secondaryObjectives,
+      for (final p in _chat.cast) ..._chat.getObjectivesForGroupCharacter(p.card),
     ];
     Objective? match;
     for (final o in all) {
+      if (!seen.add(o.id)) continue;
       if (o.id == id) {
         match = o;
         break;

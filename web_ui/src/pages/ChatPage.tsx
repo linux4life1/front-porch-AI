@@ -52,10 +52,12 @@ interface LoreEntry {
 }
 interface ChatState {
   character: { name: string; id: string } | null;
+  chatTitle?: string | null;
   sessionId: string | null;
   messages: Message[];
   isGenerating: boolean;
   isGroupMode?: boolean;
+  groupId?: string | null;
   realism?: Realism;
   lorebook?: LoreEntry[];
   authorNote?: string;
@@ -258,7 +260,10 @@ export function ChatPage() {
 
   if (!state) return <div className="centered"><div className="spinner" /></div>;
 
-  if (!state.character) {
+  const cast = state.cast ?? [];
+  // A chat is active if there's a cast (group or 1:1) or a host character.
+  // (In a group, state.character is null — the cast carries the participants.)
+  if (cast.length === 0 && !state.character) {
     return (
       <div className="page centered-col">
         <p className="muted">No character selected.</p>
@@ -270,8 +275,14 @@ export function ChatPage() {
   }
 
   const lastIndex = state.messages.length - 1;
-  const cast = state.cast ?? [];
   const multiCast = cast.length > 1;
+  // The focused participant (sidebar scope + header avatar); default to the
+  // host, else the first cast member.
+  const focused = cast.find((c) => c.id === focusedId) ?? cast.find((c) => c.isHost) ?? cast[0];
+  const title = state.chatTitle || state.character?.name || 'Chat';
+  // Editing targets a real library character — the 1:1 host or a scene guest,
+  // never a group member (denormalized copies aren't web-editable).
+  const editId = !state.isGroupMode ? focused?.dbId ?? state.character?.id : undefined;
   // Speaker lookup for per-message avatars/names in a multi-character scene.
   const castById = new Map(cast.map((c) => [c.id, c]));
   const realismForPanel = focusRealism ?? state.realism;
@@ -282,10 +293,15 @@ export function ChatPage() {
       authorNote={state.authorNote ?? ''}
       authorNoteDepth={state.authorNoteDepth ?? 4}
       onSaveAuthorNote={saveAuthorNote}
-      characterId={state.character.id}
+      characterId={focused?.dbId ?? state.character?.id ?? ''}
       expressionLabel={state.expressionLabel}
       isGroup={state.isGroupMode ?? false}
+      focusedIsHost={focused?.isHost ?? !state.isGroupMode}
+      focusedAvatarUrl={focused?.avatarUrl}
       toolsKey={toolsBump}
+      focusedId={focusedId}
+      groupId={state.groupId ?? null}
+      onCommand={sendCommand}
     />
   ) : null;
 
@@ -294,21 +310,25 @@ export function ChatPage() {
       <div className="chat-view">
         <div className="chat-header">
           <div className="chat-header-id">
-            {!state.isGroupMode && (
-              <ExpressionPortrait
-                characterId={state.character.id}
-                expressionLabel={state.expressionLabel}
-                className="chat-header-avatar"
-              />
+            {focused && (
+              focused.isHost && !state.isGroupMode ? (
+                <ExpressionPortrait
+                  characterId={focused.dbId ?? state.character?.id ?? ''}
+                  expressionLabel={state.expressionLabel}
+                  className="chat-header-avatar"
+                />
+              ) : (
+                <img src={focused.avatarUrl} alt="" className="chat-header-avatar" />
+              )
             )}
-            <span className="chat-title">{state.character.name}</span>
+            <span className="chat-title">{title}</span>
           </div>
           <div className="chat-header-actions">
-            {!state.isGroupMode && (
+            {editId && (
               <button
                 className="link-btn"
                 title="Edit character"
-                onClick={() => navigate(`/edit/${state.character!.id}`)}
+                onClick={() => navigate(`/edit/${editId}`)}
               >
                 ✎
               </button>
@@ -635,7 +655,12 @@ function Insight({
   characterId,
   expressionLabel,
   isGroup,
+  focusedIsHost,
+  focusedAvatarUrl,
   toolsKey,
+  focusedId,
+  groupId,
+  onCommand,
 }: {
   realism: Realism;
   lorebook?: LoreEntry[];
@@ -645,24 +670,33 @@ function Insight({
   characterId: string;
   expressionLabel?: string;
   isGroup: boolean;
+  focusedIsHost: boolean;
+  focusedAvatarUrl?: string;
   toolsKey: number;
+  focusedId: string | null;
+  groupId: string | null;
+  onCommand: (cmd: string) => void;
 }) {
   const [note, setNote] = useState(authorNote);
   useEffect(() => setNote(authorNote), [authorNote]);
   return (
     <div className="realism-panel">
-      {!isGroup && (
-        <div className="portrait-wrap">
+      <div className="portrait-wrap">
+        {/* Mood-expression portrait for the host in 1:1; the focused member's
+            avatar otherwise (no per-member expression endpoint). */}
+        {focusedIsHost && !isGroup ? (
           <ExpressionPortrait
             characterId={characterId}
             expressionLabel={expressionLabel}
             className="portrait"
           />
-          {(realism.mood || realism.emotion) && (
-            <span className="portrait-mood">{realism.mood || realism.emotion}</span>
-          )}
-        </div>
-      )}
+        ) : focusedAvatarUrl ? (
+          <img src={focusedAvatarUrl} alt="" className="portrait" />
+        ) : null}
+        {(realism.mood || realism.emotion) && (
+          <span className="portrait-mood">{realism.mood || realism.emotion}</span>
+        )}
+      </div>
       <StatBar label="Bond" value={`${realism.bond.tier} · ${realism.bond.score}`} percent={realism.bond.percent} />
       <StatBar label="Long-term" value={`${realism.longTerm.tier} · ${realism.longTerm.score}`} percent={realism.longTerm.percent} />
       <StatBar
@@ -686,7 +720,7 @@ function Insight({
         </>
       )}
 
-      <ChatTools reloadKey={toolsKey} />
+      <ChatTools reloadKey={toolsKey} focusedId={focusedId} groupId={groupId} onCommand={onCommand} />
 
       <h4 className="section-label">Author's note</h4>
       <textarea

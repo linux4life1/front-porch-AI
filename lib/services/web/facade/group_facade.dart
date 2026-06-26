@@ -20,6 +20,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
@@ -61,6 +62,35 @@ class GroupFacade {
   Future<bool> delete(String groupId) async {
     if (_groups.getById(groupId) == null) return false;
     await _groups.delete(groupId);
+    return true;
+  }
+
+  /// Update a group's *settings* (not membership): name, system prompt,
+  /// scenario, first message, turn order, and per-member system-prompt
+  /// overrides. Settings-only edit via GroupChatRepository.save — distinct from
+  /// the removed create wizard. Returns false if the group isn't found.
+  Future<bool> updateSettings(String groupId, Map<String, dynamic> f) async {
+    final g = _groups.getById(groupId);
+    if (g == null) return false;
+    if (f['name'] is String) g.name = f['name'] as String;
+    if (f['systemPrompt'] is String) g.systemPrompt = f['systemPrompt'] as String;
+    if (f['scenario'] is String) g.scenario = f['scenario'] as String;
+    if (f['firstMessage'] is String) {
+      g.firstMessage = f['firstMessage'] as String;
+    }
+    if (f['turnOrder'] is String) {
+      g.turnOrder =
+          f['turnOrder'] == 'random' ? TurnOrder.random : TurnOrder.roundRobin;
+    }
+    final prompts = f['characterSystemPrompts'];
+    if (prompts is Map) {
+      g.characterSystemPrompts
+        ..clear()
+        ..addAll(prompts.map(
+          (k, v) => MapEntry(k.toString(), v.toString()),
+        ));
+    }
+    await _groups.save(g);
     return true;
   }
 

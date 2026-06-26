@@ -30,6 +30,7 @@ import 'package:front_porch_ai/database/database.dart' show Objective;
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_generation_settings.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
+import 'package:front_porch_ai/models/chat_participant.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
@@ -286,6 +287,17 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   GroupChat? get activeGroup => null;
   @override
   bool get chaosNsfwEnabled => _chaos.chaosNsfwEnabled;
+
+  // Unified-cast surface (empty / 1:1 defaults for the simple test doubles).
+  @override
+  List<ChatParticipant> get cast => const [];
+  @override
+  bool get observerMode => false;
+  @override
+  List<Objective> getObjectivesForGroupCharacter(CharacterCard character) =>
+      const [];
+  // getArousalForGroupCharacter is an extension on ChatService (resolves on the
+  // static type), so it needs no fake override.
 
   // Objective surface — empty by default (renders the "propose an objective" UI).
   @override

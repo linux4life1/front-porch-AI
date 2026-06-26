@@ -39,12 +39,16 @@ class WebChatToolsRoutes {
   final ChatToolsFacade _facade;
 
   shelf.Response _state(shelf.Request request) =>
-      JsonResponse.ok(_facade.state());
+      JsonResponse.ok(_snapshot(request));
+
+  /// Tools snapshot scoped to the focused cast participant (`?participant=<id>`).
+  Map<String, dynamic> _snapshot(shelf.Request request) =>
+      _facade.state(participantId: request.url.queryParameters['participant']);
 
   /// Apply global memory/summary settings (only keys present are changed).
   Future<shelf.Response> _settings(shelf.Request request) async {
     await _facade.applySettings(await _json(request));
-    return JsonResponse.ok(_facade.state());
+    return JsonResponse.ok(_snapshot(request));
   }
 
   /// Flip one chat-scoped boolean toggle: realism / chaos / chaosNsfw /
@@ -69,10 +73,12 @@ class WebChatToolsRoutes {
         await _facade.setPassageOfTime(value);
       case 'summaryPaused':
         _facade.setSummaryPaused(value);
+      case 'director':
+        _facade.setDirectorMode(value);
       default:
         return JsonResponse.badRequest('Unknown toggle: $name');
     }
-    return JsonResponse.ok(_facade.state());
+    return JsonResponse.ok(_snapshot(request));
   }
 
   /// Nudge the scene clock by `delta` periods (+1 / -1).
@@ -81,7 +87,7 @@ class WebChatToolsRoutes {
     final delta = body['delta'];
     if (delta is! int) return JsonResponse.badRequest('delta (int) is required');
     await _facade.nudgeTime(delta);
-    return JsonResponse.ok(_facade.state());
+    return JsonResponse.ok(_snapshot(request));
   }
 
   /// Summary actions: regenerate, or set the summary text directly.
@@ -95,7 +101,7 @@ class WebChatToolsRoutes {
     } else {
       return JsonResponse.badRequest('action=regenerate or text is required');
     }
-    return JsonResponse.ok(_facade.state());
+    return JsonResponse.ok(_snapshot(request));
   }
 
   /// Objective lifecycle: set a new goal, generate tasks, check completion, or
@@ -109,7 +115,12 @@ class WebChatToolsRoutes {
         if (goal == null || goal.trim().isEmpty) {
           return JsonResponse.badRequest('goal is required');
         }
-        await _facade.setObjective(goal, isPrimary: body['isPrimary'] != false);
+        await _facade.setObjective(
+          goal,
+          isPrimary: body['isPrimary'] != false,
+          participantId: body['participant']?.toString() ??
+              request.url.queryParameters['participant'],
+        );
       case 'generate':
         final id = body['id']?.toString();
         if (id == null) return JsonResponse.badRequest('id is required');
@@ -139,7 +150,7 @@ class WebChatToolsRoutes {
       default:
         return JsonResponse.badRequest('Unknown objective action: $action');
     }
-    return JsonResponse.ok(_facade.state());
+    return JsonResponse.ok(_snapshot(request));
   }
 
   /// Task operations on an objective: add / toggle / update / remove.
@@ -175,7 +186,7 @@ class WebChatToolsRoutes {
         return JsonResponse.badRequest('Unknown task action: $action');
     }
     if (!ok) return JsonResponse.error(404, 'Objective not found');
-    return JsonResponse.ok(_facade.state());
+    return JsonResponse.ok(_snapshot(request));
   }
 
   Future<Map<String, dynamic>> _json(shelf.Request request) async {

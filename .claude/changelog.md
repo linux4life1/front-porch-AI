@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-06-26 (feat: web unified-chat consistency WU4)
+Closes the WU gaps found by reviewing whether sidebar widgets/settings sit in the right place.
+- **ChatTools follows focus** (`chat_tools_facade.dart`, `chat_tools_routes.dart`, `ChatTools.tsx`): `state({participantId})` scopes **objectives** + **NSFW arousal** to the focused cast participant (via `getObjectivesForGroupCharacter` / `getArousalForGroupCharacter`); all tool GET/POST calls carry `?participant=<id>`; `setObjective` attaches a new goal to the focused participant (`targetCharacter`); `_withObjective` now searches every cast member's objectives so task ops work for any focus.
+- **Group bug fix:** in Rawhide's unified model `activeCharacter` is null in a group, so the web's old `if (!state.character)` guard blanked group chats. Added `chatTitle` to chat state and switched the page guard/header to the **cast** — groups render again.
+- **Portrait + edit follow focus** (`ChatPage.tsx`): header avatar + insight portrait show the focused participant (mood-expression for the 1:1 host, static avatar otherwise); the edit button targets the focused library character and is hidden for group members (not web-editable).
+- **Group-settings section, gated on `isGroupMode`** (`GroupSettings` in `ChatTools.tsx`; `GroupFacade.updateSettings` + `POST /api/groups/<id>/settings`): turn order (live via `/turnorder`), director mode (`setObserverMode`), group system prompt / scenario / first message, and per-member prompt overrides — settings-only save through `GroupChatRepository.save` (not the removed create wizard).
+- **Tests:** extended `FakeChatService` (cast/observerMode/getObjectivesForGroupCharacter); new `group_settings_test.dart` (updateSettings persists + unknown-id false).
+- **Verification:** `flutter analyze` (web + fakes) clean; `flutter test test/services/web` 54/54; `web_ui` tsc + vite build green.
+- **Commit:** (this commit)
+
 ## 2026-06-26 (feat: web unified-chat realignment WU1–WU3)
 Realign the web chat to Rawhide's unified "one chat, changing cast" model (PR #66), since the web had been built against the old split 1:1-vs-group model.
 - **WU1 — backend** (`chat_facade.dart` + `chat_routes.dart`): `state()` now includes the unified `cast` (host + scene guests / members) with per-entry {id, dbId, name, isHost, isLite, realismEnabled, emotion, isNext, avatarUrl} + a `guestActivity` banner + `pendingDetection`. New `GET /api/chat/participant/<id>/realism` returns focus-scoped realism (host → full snapshot; member → per-member scores via `getXForGroupCharacter`; lite guest → disabled). **Cast actions need no new endpoints** — the frontend drives them with the in-chat slash commands (`/join`, `/promote`, `/speak`, `/exit`, `/scan`) through the existing `/api/chat/send`, so behavior matches the desktop.

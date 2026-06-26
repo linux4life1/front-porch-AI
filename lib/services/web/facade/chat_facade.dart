@@ -92,6 +92,9 @@ class ChatFacade {
       'character': activeChar != null
           ? {'name': activeChar.name, 'id': activeChar.dbId}
           : null,
+      // Title for the unified header: group name in a group, else the host name
+      // (activeCharacter is null in a group, so the client can't rely on it).
+      'chatTitle': _chat.activeGroup?.name ?? activeChar?.name,
       'sessionId': _chat.currentSessionId,
       'sessionName': _chat.sessionName,
       'messages': messages,
