@@ -314,6 +314,8 @@ export function ChatPage() {
       focusedId={focusedId}
       groupId={state.groupId ?? null}
       onCommand={sendCommand}
+      cast={cast}
+      onFocus={focusParticipant}
     />
   ) : null;
 
@@ -324,13 +326,13 @@ export function ChatPage() {
           <div className="chat-header-id">
             {focused && (
               focused.isHost && !state.isGroupMode ? (
-                <ExpressionPortrait
-                  characterId={focused.dbId ?? state.character?.id ?? ''}
-                  expressionLabel={state.expressionLabel}
+                <SmartImg
+                  primary={`/api/chat/expression-avatar?v=${encodeURIComponent(state.expressionLabel ?? '')}`}
+                  fallback={`/api/characters/${focused.dbId ?? state.character?.id ?? ''}/avatar`}
                   className="chat-header-avatar"
                 />
               ) : (
-                <img src={focused.avatarUrl} alt="" className="chat-header-avatar" />
+                <SmartImg primary={focused.avatarUrl ?? ''} className="chat-header-avatar" />
               )
             )}
             <span className="chat-title">{title}</span>
@@ -497,7 +499,7 @@ export function ChatPage() {
       {/* Insight as a slide-over drawer on phones. */}
       {showStats && insight && (
         <div className="drawer-backdrop" onClick={() => setShowStats(false)}>
-          <div className="sessions-drawer" onClick={(e) => e.stopPropagation()}>
+          <div className="sessions-drawer stats-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-head">
               <span>Chat insight</span>
               <button className="link-btn" onClick={() => setShowStats(false)}>Close</button>
@@ -625,31 +627,56 @@ function ChipsRow({ chips }: { chips: Chips }) {
   );
 }
 
-/** Character portrait that prefers the mood-driven expression avatar and falls
- *  back to the static card avatar. The `expressionLabel` cache-busts the image
- *  so the portrait swaps when the active emotion changes (on `chat_updated`). */
-function ExpressionPortrait({
-  characterId,
-  expressionLabel,
-  className,
-}: {
-  characterId: string;
-  expressionLabel?: string;
-  className: string;
-}) {
-  const expr = `/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`;
-  const fallback = `/api/characters/${characterId}/avatar`;
-  const [src, setSrc] = useState(expr);
-  useEffect(() => setSrc(expr), [expr]);
+/** A bare <img> that tries `primary`, falls back to `fallback`, and renders
+ *  nothing (no broken-image glyph) if both fail. Used for the small chat-header
+ *  avatar. */
+function SmartImg({ primary, fallback, className }: { primary: string; fallback?: string; className: string }) {
+  const [src, setSrc] = useState(primary);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setSrc(primary);
+    setFailed(false);
+  }, [primary]);
+  if (failed) return null;
   return (
     <img
       className={className}
       src={src}
       alt=""
       onError={() => {
-        if (src !== fallback) setSrc(fallback);
+        if (fallback && src !== fallback) setSrc(fallback);
+        else setFailed(true);
       }}
     />
+  );
+}
+
+/** Self-hiding character portrait. Prefers `primary` (the mood-driven expression
+ *  avatar for the 1:1 host — cache-busted by mood — or a member's avatar) and
+ *  falls back to the static card avatar; if every source fails it renders NOTHING
+ *  instead of a broken-image placeholder. The mood also appears in the Mood stat
+ *  row, so hiding here loses no information. */
+function Portrait({ primary, fallback, mood }: { primary: string; fallback?: string; mood?: string }) {
+  const [src, setSrc] = useState(primary);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setSrc(primary);
+    setFailed(false);
+  }, [primary]);
+  if (failed) return null;
+  return (
+    <div className="portrait-wrap">
+      <img
+        className="portrait"
+        src={src}
+        alt=""
+        onError={() => {
+          if (fallback && src !== fallback) setSrc(fallback);
+          else setFailed(true);
+        }}
+      />
+      {mood && <span className="portrait-mood">{mood}</span>}
+    </div>
   );
 }
 
@@ -685,6 +712,8 @@ function Insight({
   focusedId,
   groupId,
   onCommand,
+  cast,
+  onFocus,
 }: {
   realism: Realism;
   lorebook?: LoreEntry[];
@@ -700,27 +729,41 @@ function Insight({
   focusedId: string | null;
   groupId: string | null;
   onCommand: (cmd: string) => void;
+  cast?: CastMember[];
+  onFocus?: (id: string) => void;
 }) {
   const [note, setNote] = useState(authorNote);
   useEffect(() => setNote(authorNote), [authorNote]);
   return (
     <div className="realism-panel">
-      <div className="portrait-wrap">
-        {/* Mood-expression portrait for the host in 1:1; the focused member's
-            avatar otherwise (no per-member expression endpoint). */}
-        {focusedIsHost && !isGroup ? (
-          <ExpressionPortrait
-            characterId={characterId}
-            expressionLabel={expressionLabel}
-            className="portrait"
-          />
-        ) : focusedAvatarUrl ? (
-          <img src={focusedAvatarUrl} alt="" className="portrait" />
-        ) : null}
-        {(realism.mood || realism.emotion) && (
-          <span className="portrait-mood">{realism.mood || realism.emotion}</span>
-        )}
-      </div>
+      {/* Group: switch which member's stats you're viewing (the cast bar is
+          covered by this panel on phone, so the switcher lives here too). */}
+      {isGroup && cast && cast.length > 1 && onFocus && (
+        <div className="insight-cast">
+          {cast.map((c) => (
+            <button
+              key={c.id}
+              className={`insight-cast-chip${c.id === focusedId ? ' active' : ''}`}
+              onClick={() => onFocus(c.id)}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Mood-expression portrait — host in 1:1, focused member otherwise.
+          Self-hides if no image loads (no broken placeholder), and is hidden
+          entirely on phones via CSS ([data-layout="phone"] .portrait-wrap) —
+          it's too much for the small screen. */}
+      {focusedIsHost && !isGroup ? (
+        <Portrait
+          primary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
+          fallback={`/api/characters/${characterId}/avatar`}
+          mood={realism.mood || realism.emotion}
+        />
+      ) : focusedAvatarUrl ? (
+        <Portrait primary={focusedAvatarUrl} mood={realism.mood || realism.emotion} />
+      ) : null}
       <StatBar label="Bond" value={`${realism.bond.tier} · ${realism.bond.score}`} percent={realism.bond.percent} />
       <StatBar label="Long-term" value={`${realism.longTerm.tier} · ${realism.longTerm.score}`} percent={realism.longTerm.percent} />
       <StatBar
@@ -732,7 +775,9 @@ function Insight({
       <div className="stat-line"><span>Mood</span><span className="muted">{realism.mood || realism.emotion || '—'}</span></div>
       <div className="stat-line"><span>Arousal</span><span className="muted">{realism.arousal.tier} · {realism.arousal.level}</span></div>
       {realism.fixation && (
-        <div className="stat-line"><span>Fixation</span><span className="muted">{realism.fixation}</span></div>
+        <div className="stat-fixation">
+          <span className="fixation-label">Fixation</span> {realism.fixation}
+        </div>
       )}
       {realism.needsEnabled && Object.keys(realism.needs).length > 0 && (
         <>

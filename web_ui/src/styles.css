@@ -291,6 +291,10 @@ button.ghost { background: transparent; border-color: var(--border); }
   background: rgba(15, 23, 42, 0.78); color: var(--text);
   text-transform: capitalize;
 }
+/* Phone: no expression portrait (too much for the small screen — the mood still
+   shows in the Mood stat row), and the Chat insight drawer goes full-screen. */
+[data-layout="phone"] .portrait-wrap { display: none; }
+[data-layout="phone"] .stats-drawer { width: 100%; max-width: none; }
 
 /* ── Unified cast bar ─────────────────────────────────────────── */
 .cast-bar { border-bottom: 1px solid var(--border); background: var(--surface); padding: 6px 10px; }
@@ -320,7 +324,14 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 }
 .cast-banner.error { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
 .cast-banner.detect { background: rgba(59, 130, 246, 0.14); color: var(--text); }
-.msg-speaker { font-size: 0.7rem; color: var(--muted); align-self: flex-start; margin: 2px 0 1px 4px; }
+/* Sticky so the speaker stays visible while scrolling through a long group
+   message — you never lose track of who's talking. The --bg background hides the
+   message text scrolling underneath it. */
+.msg-speaker {
+  position: sticky; top: 0; z-index: 2; align-self: flex-start;
+  font-size: 0.7rem; font-weight: 600; color: var(--muted);
+  background: var(--bg); padding: 3px 8px; border-radius: 0 0 8px 8px; margin: 0 0 2px;
+}
 
 /* ── Character picker modal ───────────────────────────────────── */
 .picker-modal {
@@ -353,6 +364,19 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 .stat-fill.warn { background: var(--logwarn, #f0c000); }
 .stat-fill.danger { background: var(--danger); }
 .stat-line { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 2px 0; }
+/* Fixation: purple-accented label so it pops instead of melding into the panel. */
+.stat-fixation { font-size: 0.85rem; color: var(--text); padding: 4px 0; line-height: 1.4; }
+.fixation-label {
+  color: var(--group-accent-bright); font-weight: 700; margin-right: 6px;
+  text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04em;
+}
+/* Group stats: member switcher chips at the top of the insight panel. */
+.insight-cast { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.insight-cast-chip {
+  padding: 5px 10px; border-radius: 999px; font-size: 0.8rem;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+}
+.insight-cast-chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .lore-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .lore { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
 .lore-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
