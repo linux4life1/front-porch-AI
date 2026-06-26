@@ -44,6 +44,7 @@ import 'package:front_porch_ai/services/folder_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/world.dart' as world_model;
 import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/stt_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
 import 'package:front_porch_ai/services/update_service.dart';
@@ -378,6 +379,25 @@ class FakeTtsService extends ChangeNotifier implements TtsService {
   bool get isDownloadingModel => false;
   @override
   String? get lastError => null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// [SttService] double that avoids the real constructor's platform-channel
+/// [AudioRecorder] (which throws MissingPluginException in headless tests).
+/// Defaults to unavailable; [transcribeAudioFile] returns a canned value so
+/// VoiceFacade's transcribe path is exercisable without Whisper.
+class FakeSttService extends ChangeNotifier implements SttService {
+  FakeSttService({this.available = false, this.transcript});
+
+  final bool available;
+  final String? transcript;
+
+  @override
+  bool get isAvailable => available;
+  @override
+  Future<String?> transcribeAudioFile(String audioPath) async => transcript;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

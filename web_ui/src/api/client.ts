@@ -61,6 +61,33 @@ export const api = {
     });
     return handle<T>(res);
   },
+  /** POST JSON and get the response body as audio/binary (TTS synthesis). */
+  postForBlob: async (path: string, body?: unknown): Promise<Blob> => {
+    const res = await fetch(path, {
+      method: 'POST',
+      credentials: 'include',
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new ApiError(res.status, text || `Request failed (${res.status})`, {});
+    }
+    return res.blob();
+  },
+  /** POST a raw recording blob and get JSON back (STT transcription). The
+   *  container extension rides as a query param so the server names the temp
+   *  file Whisper reads. */
+  postBlob: async <T>(path: string, blob: Blob, ext: string): Promise<T> => {
+    const sep = path.includes('?') ? '&' : '?';
+    const res = await fetch(`${path}${sep}ext=${encodeURIComponent(ext)}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': blob.type || 'application/octet-stream' },
+      body: blob,
+    });
+    return handle<T>(res);
+  },
   /** Absolute URL for an asset/image endpoint (cookie auth applies). */
   url: (path: string) => path,
 };

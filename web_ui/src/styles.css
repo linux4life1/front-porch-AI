@@ -533,6 +533,10 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
   border-radius: var(--radius); border: 1px solid var(--border);
 }
 
+/* Voice: the mic button pulses red while recording. */
+.icon-btn.mic.recording { color: var(--danger, #e5484d); animation: mic-pulse 1s ease-in-out infinite; }
+@keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
 /* ── Persona manager ──────────────────────────────────────────── */
 .persona-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; }
 .persona-list li {

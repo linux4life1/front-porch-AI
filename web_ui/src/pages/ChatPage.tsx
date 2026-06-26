@@ -9,6 +9,7 @@ import { ChatTools } from '../components/ChatTools';
 import { CastBar, type CastMember } from '../components/CastBar';
 import { CharacterPicker } from '../components/CharacterPicker';
 import { MessageContent } from '../components/MessageContent';
+import { SpeakButton, MicButton } from '../components/VoiceControls';
 
 interface Chips {
   bondDelta?: number;
@@ -116,7 +117,11 @@ export function ChatPage() {
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [focusRealism, setFocusRealism] = useState<Realism | null>(null);
+  // Voice capability snapshot (TTS on? STT usable?) — gates the Speak/Mic UI.
+  const [voice, setVoice] = useState<{ ttsEnabled: boolean; sttAvailable: boolean } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const canMic = !!voice?.sttAvailable && typeof window !== 'undefined' && window.isSecureContext;
 
   const showSlash = draft.trimStart().startsWith('/') && !slashDismissed;
 
@@ -147,6 +152,12 @@ export function ChatPage() {
     socket.connect();
     return () => socket.close();
   }, [refresh]);
+
+  useEffect(() => {
+    api.get<{ ttsEnabled: boolean; sttAvailable: boolean }>('/api/voice/status')
+      .then(setVoice)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -392,6 +403,7 @@ export function ChatPage() {
                     m={m}
                     isLast={m.index === lastIndex}
                     busy={state.isGenerating}
+                    canSpeak={!!voice?.ttsEnabled}
                     onSwipe={swipe}
                     onRegenerate={regenerate}
                     onContinue={continueGen}
@@ -451,6 +463,12 @@ export function ChatPage() {
             placeholder="Message…"
             rows={1}
           />
+          {canMic && (
+            <MicButton
+              disabled={state.isGenerating}
+              onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
+            />
+          )}
           {state.isGenerating ? (
             <button className="primary" onClick={stop}>Stop</button>
           ) : (
@@ -528,6 +546,7 @@ function MessageActions({
   m,
   isLast,
   busy,
+  canSpeak,
   onSwipe,
   onRegenerate,
   onContinue,
@@ -537,6 +556,7 @@ function MessageActions({
   m: Message;
   isLast: boolean;
   busy: boolean;
+  canSpeak: boolean;
   onSwipe: (index: number, direction: number) => void;
   onRegenerate: () => void;
   onContinue: () => void;
@@ -563,6 +583,7 @@ function MessageActions({
           <button className="icon-btn" title="Continue" disabled={busy} onClick={onContinue}>⏩</button>
         </>
       )}
+      {canSpeak && !m.isUser && m.text.trim() !== '' && <SpeakButton text={m.text} />}
       <button className="icon-btn" title="Edit" disabled={busy} onClick={onEdit}>✎</button>
       <button className="icon-btn" title="Delete" disabled={busy} onClick={onDelete}>🗑</button>
     </div>

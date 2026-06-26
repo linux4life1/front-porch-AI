@@ -695,6 +695,12 @@ void main(List<String> args) async {
             host.setImageGenService(
               Provider.of<ImageGenService>(context, listen: false),
             );
+            host.setTtsService(
+              Provider.of<TtsService>(context, listen: false),
+            );
+            host.setSttService(
+              Provider.of<SttService>(context, listen: false),
+            );
             return host;
           },
         ),

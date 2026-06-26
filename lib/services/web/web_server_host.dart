@@ -30,6 +30,8 @@ import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
+import 'package:front_porch_ai/services/stt_service.dart';
+import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/web/auth/auth_service.dart';
@@ -62,6 +64,8 @@ class WebServerHost extends ChangeNotifier {
   WorldRepository? _worldRepository;
   ModelManager? _modelManager;
   ImageGenService? _imageGenService;
+  TtsService? _ttsService;
+  SttService? _sttService;
 
   HttpServer? _server;
   AuthService? _auth;
@@ -119,6 +123,8 @@ class WebServerHost extends ChangeNotifier {
   void setModelManager(ModelManager manager) => _modelManager = manager;
   void setImageGenService(ImageGenService service) =>
       _imageGenService = service;
+  void setTtsService(TtsService service) => _ttsService = service;
+  void setSttService(SttService service) => _sttService = service;
 
   /// The auth service (lazily built once a database is available) — exposed so
   /// settings UI can surface account/2FA state.
@@ -204,6 +210,10 @@ class WebServerHost extends ChangeNotifier {
         ? ImageFacade(_imageGenService!, _storage)
         : null;
 
+    final voiceFacade = (_ttsService != null && _sttService != null)
+        ? VoiceFacade(_ttsService!, _sttService!, _storage)
+        : null;
+
     final tunnelManager =
         _tunnelManager = TunnelManager(bindPort, tailscale: tailscale);
 
@@ -221,6 +231,7 @@ class WebServerHost extends ChangeNotifier {
       worldFacade: worldFacade,
       backendFacade: backendFacade,
       imageFacade: imageFacade,
+      voiceFacade: voiceFacade,
       tunnelManager: tunnelManager,
       onClientActive: markClientActive,
     );

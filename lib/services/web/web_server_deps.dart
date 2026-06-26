@@ -49,6 +49,7 @@ class WebServerDeps {
     this.worldFacade,
     this.backendFacade,
     this.imageFacade,
+    this.voiceFacade,
     this.tunnelManager,
     this.onClientActive,
   });
@@ -91,6 +92,10 @@ class WebServerDeps {
 
   /// Image-generation adapter — null until the ImageGenService is injected.
   final ImageFacade? imageFacade;
+
+  /// Voice adapter (TTS synthesis + STT transcription) — null until the TTS and
+  /// STT services are injected.
+  final VoiceFacade? voiceFacade;
 
   /// Remote-access (Tailscale/ngrok/port-forward) orchestrator. Created once the
   /// server is bound (it needs the live port). Null before bind.

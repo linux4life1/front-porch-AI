@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-06-26 (feat: web voice — TTS playback + STT dictation, W6)
+Deliverable #3 (W6) from the ordered list: voice on the web UI. TTS is synthesized on the host but played on the *client* device; STT records on the client and uploads for transcription. The host never plays or records — full thin reuse of TtsService/SttService.
+- **Backend** (`voice_facade.dart`, new): `status()` (ttsEnabled/ttsEngine/sttEnabled/sttAvailable); `speak(text, voiceKey)` → `TtsService.generateAudioFile` bytes + MIME (wav, or mpeg for ElevenLabs), null when TTS off; `transcribe(bytes, ext)` → writes a temp file and calls STT, cleans up. Guards: empty text / disabled / empty body / STT unavailable all return null.
+- **Backend** (`stt_service.dart`): new public `transcribeAudioFile(path)` wrapping the existing private `_transcribe` (so the web can transcribe a client-uploaded file; the host recorder path is unchanged). Single public method, no parallel impl.
+- **Routes** (`voice_routes.dart`, new): `GET /api/voice/status`; `POST /api/tts/speak` (JSON in, audio bytes out); `POST /api/stt/transcribe` (raw audio body, `?ext=`, capped at uploadMaxBytes, JSON `{text}` out).
+- **Wiring**: `VoiceFacade` added to the facades barrel, `WebServerDeps`, `server_bootstrap` (registered when present), and `WebServerHost` (new `setTtsService`/`setSttService`, built when both are injected); `main.dart` injects both into the host (mirrors the legacy server's existing TTS/STT wiring).
+- **Frontend** (`VoiceControls.tsx`, new): `SpeakButton` (synthesize + play via `new Audio(blobUrl)`) and `MicButton` (MediaRecorder → upload → transcript), the latter gated on `window.isSecureContext`. `client.ts` gained `postForBlob` (JSON→binary) and `postBlob` (raw upload→JSON). `ChatPage.tsx` fetches `/api/voice/status`, shows 🔊 on AI replies when TTS is on, and a 🎤 in the input when STT is usable + secure context; `.icon-btn.mic.recording` pulse CSS.
+- **Tests**: new `voice_facade_test.dart` (status flags, speak no-op when off, transcribe no-op when unavailable/empty). New `FakeSttService` (avoids the real ctor's platform-channel AudioRecorder, which throws MissingPluginException headless).
+- **Verification**: `flutter analyze` (web + main + stt + tests + fakes) clean; `flutter test test/services/web` 61/61; `dart fix --dry-run` nothing to fix; `web_ui` tsc + vite build green.
+- **Commit**: (this commit)
+
 ## 2026-06-26 (feat: web image-gen → insert into chat)
 Deliverable #2 from the post-WU4 ordered list: let the web UI put a generated image into the conversation (the W5 "generate + insert into chat" deferral), reusing the desktop chat's existing inline-image rendering rather than inventing a new message type.
 - **Backend** (`image_facade.dart`): `generate()` now also returns `filename` (basename of the saved PNG); new `savedImageFile(name)` resolves a saved image for serving with strict basename-only guards (rejects `/`, `\`, `..`, empty).

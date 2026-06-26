@@ -334,6 +334,30 @@ class SttService extends ChangeNotifier {
     }
   }
 
+  /// Transcribe an already-saved audio file (any format Whisper/ffmpeg can read).
+  /// Used by the web server when a browser uploads mic audio recorded on the
+  /// client — the host never records. Reuses the same Whisper helper path as the
+  /// desktop recorder. The caller owns the file's lifecycle.
+  Future<String?> transcribeAudioFile(String audioPath) async {
+    if (!File(audioPath).existsSync()) {
+      _lastError = 'Audio file not found';
+      return null;
+    }
+    _isTranscribing = true;
+    notifyListeners();
+    try {
+      final result = await _transcribe(audioPath);
+      if (result != null && result.isNotEmpty) {
+        _lastTranscription = result;
+        _lastError = null;
+      }
+      return result;
+    } finally {
+      _isTranscribing = false;
+      notifyListeners();
+    }
+  }
+
   Future<String?> stopRecordingAndTranscribe() async {
     if (!_isRecording) return null;
 
