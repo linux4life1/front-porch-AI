@@ -225,6 +225,13 @@ class GroupMember {
       } catch (_) {}
     }
 
+    // A character stored in a GroupChat's member table is a FULL member by
+    // definition — Scene Guests (tier 'lite') live in the 1:1 guest list, never
+    // here. Strip any leftover 'lite' tier (e.g. a character that first joined a
+    // scene as a guest before being added as a group member) so it isn't
+    // mislabeled "Guest" in the cast and gets full Realism/Needs in the group.
+    if (fpExt?.tier == 'lite') fpExt!.tier = null;
+
     return CharacterCard(
       name: name,
       description: description,

@@ -2851,3 +2851,9 @@ Brief reason: Addressed the confirmed correctness/cleanup findings from the revi
 - Known-remaining (backend, flagged for a focused fix): a full group member can show as "Guest" (cast isLite mislabel) and group-member avatars resolve via the wrong id in _castJson — both are group-cast data issues, not display bugs (the avatar fallback hides the breakage for now).
 - Verification: npm run lint (tsc) clean; npm run build green (bundle rebuilt + committed); live on the Tailscale preview.
 - Commit: (this commit)
+
+## 2026-06-26 — Group members no longer mislabeled "Guest" (Rawhide)
+- Files: lib/models/group_member.dart (toCharacterCard: if the parsed FrontPorchExtensions.tier == 'lite', reset it to null).
+- Reason: A full group member could render as "Guest" in the cast (and have its Realism/Needs disabled) because its stored card carried a leftover tier 'lite' — the Scene-Guest (Lite NPC) marker — from having first joined a scene as a guest before being added to the group's member table. But a character in a GroupChat's member table IS a full member by definition (Scene Guests live in the separate 1:1 guest list, never the members table), so the lite tier there is always a stale artifact. Normalizing it at card construction fixes the label, re-enables realism for that member, and is correct on both desktop and web. isLite (= tier=='lite') now reflects only true scene guests.
+- Verification: flutter analyze (group_member.dart + character_card.dart) → No issues found.
+- Commit: (this commit)
