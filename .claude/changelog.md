@@ -2857,3 +2857,9 @@ Brief reason: Addressed the confirmed correctness/cleanup findings from the revi
 - Reason: A full group member could render as "Guest" in the cast (and have its Realism/Needs disabled) because its stored card carried a leftover tier 'lite' — the Scene-Guest (Lite NPC) marker — from having first joined a scene as a guest before being added to the group's member table. But a character in a GroupChat's member table IS a full member by definition (Scene Guests live in the separate 1:1 guest list, never the members table), so the lite tier there is always a stale artifact. Normalizing it at card construction fixes the label, re-enables realism for that member, and is correct on both desktop and web. isLite (= tier=='lite') now reflects only true scene guests.
 - Verification: flutter analyze (group_member.dart + character_card.dart) → No issues found.
 - Commit: (this commit)
+
+## 2026-06-26 — Web: cast chips show name only (Rawhide)
+- Files: web_ui/src/components/CastBar.tsx (removed the CastAvatar component + its image/initial rendering and the now-unused useState import; cast chips show just the member name + role).
+- Reason: Group-member avatars don't resolve in the cast (the cast card doesn't carry the group-member id, so the member-avatar URL 404s) and the colored-initial fallback looked cluttered. Per request, cast chips now show just the name (cleaner; the real-avatar wiring is deferred). Reverts the short-lived initial fallback from the prior commit.
+- Verification: tsc clean; vite build green.
+- Commit: (this commit)

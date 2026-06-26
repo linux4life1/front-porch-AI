@@ -8,31 +8,6 @@
 // in-chat slash commands (which route through ChatService), so behavior matches
 // the desktop exactly.
 
-import { useState } from 'react';
-
-/** Cast avatar that degrades gracefully: tries the member/character image, then
- *  the library character endpoint (group-member copies share their origin's
- *  avatar), and finally a colored initial — never a broken-image box. */
-function CastAvatar({ url, dbId, name, has }: { url: string; dbId: string | null; name: string; has: boolean }) {
-  const fallback = dbId ? `/api/characters/${dbId}/avatar` : '';
-  const [src, setSrc] = useState(url);
-  const [broken, setBroken] = useState(false);
-  if (!has || broken) {
-    return <span className="cast-avatar initial">{name.charAt(0).toUpperCase()}</span>;
-  }
-  return (
-    <img
-      src={src}
-      alt=""
-      className="cast-avatar"
-      onError={() => {
-        if (fallback && src !== fallback) setSrc(fallback);
-        else setBroken(true);
-      }}
-    />
-  );
-}
-
 export interface CastMember {
   id: string;
   dbId: string | null;
@@ -80,7 +55,6 @@ export function CastBar({
             className={`cast-chip${c.id === focusedId ? ' focused' : ''}${c.isNext ? ' next' : ''}`}
           >
             <button className="cast-chip-main" onClick={() => onFocus(c.id)} title="Focus this character">
-              <CastAvatar url={c.avatarUrl} dbId={c.dbId} name={c.name} has={c.hasAvatar} />
               <span className="cast-name">{c.name}</span>
               <span className="cast-role">
                 {c.isHost ? 'host' : c.isLite ? 'guest' : 'member'}
