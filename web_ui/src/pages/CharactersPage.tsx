@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { InstallHint } from '../components/InstallHint';
 
@@ -36,7 +36,18 @@ export function CharactersPage() {
   const [chars, setChars] = useState<Character[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [folderId, setFolderId] = useState<string | null>(null);
+  // Current folder lives in the URL (?folder=<id>) so tapping the app title /
+  // "Front Porch AI" (a link to "/") returns to the library root from anywhere,
+  // and browser back/forward walks the folder history.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const folderId = searchParams.get('folder');
+  const setFolderId = (id: string | null) =>
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (id) next.set('folder', id);
+      else next.delete('folder');
+      return next;
+    });
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('name');
   const [loading, setLoading] = useState(true);
@@ -135,7 +146,7 @@ export function CharactersPage() {
   };
 
   return (
-    <div className="page">
+    <div className="page library">
       <InstallHint />
       <div className="search-row">
         <input
@@ -207,11 +218,11 @@ export function CharactersPage() {
       )}
 
       {!searching && subfolders.length > 0 && (
-        <div className="folder-row">
+        <div className="lib-grid">
           {subfolders.map((f) => (
-            <button key={f.id} className="folder-card" onClick={() => setFolderId(f.id)}>
-              <span className="folder-icon">📁</span>
-              <span className="folder-name">{f.name}</span>
+            <button key={f.id} className="lib-card folder-card" onClick={() => setFolderId(f.id)}>
+              <span className="folder-glyph" aria-hidden>📁</span>
+              <span className="lib-name">{f.name}</span>
             </button>
           ))}
         </div>
@@ -220,12 +231,12 @@ export function CharactersPage() {
       {!searching && folderId === null && groups.length > 0 && (
         <>
           <h3 className="section-label">Group chats</h3>
-          <div className="char-grid">
+          <div className="lib-grid">
             {groups.map((g) => (
-              <div key={g.id} className="char-card group-card">
-                <button className="card-open" onClick={() => openGroup(g)}>
-                  <div className="group-avatars">
-                    {g.members.slice(0, 3).map((m) =>
+              <div key={g.id} className="lib-card group-card">
+                <button className="lib-open" onClick={() => openGroup(g)}>
+                  <div className="lib-art group-art" data-count={Math.min(g.members.length, 4)}>
+                    {g.members.slice(0, 4).map((m) =>
                       m.hasAvatar ? (
                         <img
                           key={m.id}
@@ -234,14 +245,16 @@ export function CharactersPage() {
                           loading="lazy"
                         />
                       ) : (
-                        <span key={m.id} className="char-initial small">
+                        <span key={m.id} className="lib-art-fallback">
                           {m.name.charAt(0).toUpperCase()}
                         </span>
                       ),
                     )}
                   </div>
-                  <div className="char-name">{g.name}</div>
-                  <div className="char-meta">{g.memberCount} members</div>
+                  <div className="lib-info">
+                    <div className="lib-name-row"><span className="lib-name">👥 {g.name}</span></div>
+                    <span className="lib-sub">{g.memberCount} members</span>
+                  </div>
                 </button>
                 <button
                   className="icon-btn card-delete"
@@ -266,18 +279,29 @@ export function CharactersPage() {
           {chars.length === 0 ? (
             <p className="muted">No characters here.</p>
           ) : (
-            <div className="char-grid">
+            <div className="lib-grid">
               {chars.map((c) => (
-                <button key={c.id} className="char-card" onClick={() => openCharacter(c)}>
-                  <div className="char-avatar">
+                <button key={c.id} className="lib-card" onClick={() => openCharacter(c)}>
+                  <div className="lib-art">
                     {c.hasAvatar ? (
                       <img src={`/api/characters/${c.id}/avatar`} alt="" loading="lazy" />
                     ) : (
-                      <span className="char-initial">{c.name.charAt(0).toUpperCase()}</span>
+                      <span className="lib-art-fallback">{c.name.charAt(0).toUpperCase()}</span>
                     )}
                   </div>
-                  <div className="char-name">{c.name}</div>
-                  {c.messageCount > 0 && <div className="char-meta">{c.messageCount} msgs</div>}
+                  <div className="lib-info">
+                    <div className="lib-name-row">
+                      <span className="lib-name">{c.name}</span>
+                      {c.messageCount > 0 && <span className="lib-msgs">💬 {c.messageCount}</span>}
+                    </div>
+                    {c.tags.length > 0 && (
+                      <div className="tag-pills">
+                        {c.tags.slice(0, 3).map((t) => (
+                          <span key={t} className="tag-pill">{t}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>

@@ -116,45 +116,76 @@ label input { margin-top: 6px; }
   display: flex; flex-direction: column; height: 100%; height: 100dvh;
 }
 .app-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; gap: 10px;
   padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top));
   border-bottom: 1px solid var(--border); background: var(--surface);
 }
-.app-title { font-weight: 700; }
+.hamburger { font-size: 1.4rem; line-height: 1; padding: 6px 10px; }
+.app-title { font-weight: 700; color: var(--text); text-decoration: none; }
 .app-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.app-nav {
-  display: flex; border-top: 1px solid var(--border); background: var(--surface);
-}
-.nav-item {
-  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 8px 2px calc(8px + env(safe-area-inset-bottom));
-  color: var(--muted); text-decoration: none; font-size: 0.62rem;
-}
-.nav-item.active { color: var(--accent); }
-/* Keep tab labels on one line so a row of tabs never overflows / wraps. */
-.app-nav .nav-item > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Nav items are used in the desktop side rail and the phone drawer (both carry
+   .side-nav, which restyles them as full-width rows below). */
+.nav-item { text-decoration: none; color: var(--muted); }
 .nav-icon { font-size: 1.2rem; }
 
-/* ── Desktop / tablet shell: persistent labeled side rail ─────── */
+/* ── Desktop / tablet shell: persistent Dart-style side rail ───── */
 .app-shell.cols { flex-direction: row; }
 .side-nav {
-  width: 210px; flex-shrink: 0; display: flex; flex-direction: column;
+  width: 250px; flex-shrink: 0; display: flex; flex-direction: column;
   background: var(--surface); border-right: 1px solid var(--border);
   padding: 14px 10px; gap: 4px;
   padding-top: calc(14px + env(safe-area-inset-top));
 }
-.side-brand { font-weight: 700; font-size: 1.05rem; padding: 6px 10px 12px; }
+.side-brand {
+  display: block; text-decoration: none;
+  font-weight: 800; font-size: 1.05rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text); padding: 6px 10px 14px;
+}
 .side-links { display: flex; flex-direction: column; gap: 2px; }
 .side-nav .nav-item {
-  flex-direction: row; align-items: center; gap: 12px; justify-content: flex-start;
-  padding: 11px 12px; border-radius: 10px; font-size: 0.95rem;
+  flex: 0 0 auto; flex-direction: row; align-items: center; gap: 12px;
+  justify-content: flex-start; padding: 11px 12px; border-radius: 8px;
+  font-size: 0.95rem; color: var(--muted);
 }
-.side-nav .nav-item.active { background: rgba(59, 130, 246, 0.14); }
-.side-nav .nav-icon { font-size: 1.1rem; }
-.side-logout { margin-top: auto; text-align: left; padding: 12px; }
+.side-nav .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+.side-nav .nav-item.active { background: rgba(59, 130, 246, 0.14); color: var(--accent); font-weight: 700; }
+.side-nav .nav-icon { font-size: 1.2rem; }
+.side-footer {
+  margin-top: auto; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 10px 6px 4px;
+}
+.side-social-link {
+  width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--surface-2); text-decoration: none; font-size: 1rem;
+}
+.side-logout { text-align: left; padding: 8px 10px; }
 .app-main { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
+/* ── Phone: hamburger + slide-in nav drawer (replaces bottom tabs) ── */
+/* Higher specificity than the base .drawer-backdrop (which justifies right for
+   the conversations/picker drawers) so the nav drawer opens on the LEFT,
+   regardless of source order. */
+.drawer-backdrop.nav-backdrop { justify-content: flex-start; }
+.nav-drawer {
+  width: min(280px, 86%); height: 100%; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+  border-right: 1px solid var(--border);
+  padding-top: calc(14px + env(safe-area-inset-top));
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  /* Pin to the LEFT regardless of the backdrop's justify-content (auto margin
+     wins over justify-content), so this can never flip to the right side. */
+  margin-right: auto;
+}
+.nav-drawer .drawer-head { padding: 0 6px 10px; }
+
+/* LAYOUT RULE (paired with Layout.tsx writing document root data-layout):
+   desktop-first base CSS; every phone delta is scoped under [data-layout="phone"]
+   so it can NEVER leak to desktop. Width media queries are only for intrinsic
+   reflow + the chat reading cap — not for overriding base rules. */
 .page { padding: 16px; max-width: 720px; margin: 0 auto; }
+/* Grid pages (the library) break out of the reading column to fill wide screens. */
+[data-layout="desktop"] .page.library,
+[data-layout="tablet"] .page.library { max-width: none; padding: 20px 24px; }
 .callout {
   background: var(--surface-2); border: 1px solid var(--accent);
   border-radius: var(--radius); padding: 14px; margin-bottom: 16px; font-size: 0.9rem;
@@ -203,33 +234,19 @@ button.ghost { background: transparent; border-color: var(--border); }
   font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--muted); margin: 14px 0 8px;
 }
-.folder-row {
-  display: grid; gap: 10px; margin-bottom: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-}
-.folder-card {
-  display: flex; align-items: center; gap: 8px; padding: 12px;
-  text-align: left; background: var(--card);
-}
-.folder-icon { font-size: 1.3rem; }
-.folder-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.group-avatars {
-  width: 72px; height: 72px; border-radius: 50%; overflow: hidden;
-  background: var(--surface-2); display: flex; align-items: center;
-  justify-content: center;
-}
-.group-avatars img {
-  width: 50%; height: 50%; object-fit: cover; border-radius: 50%;
-  margin: -3px; border: 2px solid var(--card);
-}
-.char-initial.small { font-size: 1rem; }
+/* (Old library folder/group/circle-avatar styles removed — the library now uses
+   the art-forward .lib-* cards below. The compact .char-* card classes remain
+   for the CharacterPicker modal only.) */
 
-/* ── Character grid ───────────────────────────────────────────── */
+/* ── Library toolbar ──────────────────────────────────────────── */
 .search { margin-bottom: 16px; }
-.search-row { display: flex; gap: 8px; margin-bottom: 16px; }
-.search-row .search { margin-bottom: 0; }
-.sort-select { width: auto; flex-shrink: 0; }
-.import-btn { flex-shrink: 0; white-space: nowrap; }
+/* Desktop-first: the toolbar stays on one line. Phones wrap it (scoped so it
+   can't affect desktop) — see the layout rule at the top of this file. */
+.search-row { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+[data-layout="phone"] .search-row { flex-wrap: wrap; }
+.search-row .search { flex: 1 1 220px; min-width: 0; margin-bottom: 0; }
+.sort-select { width: auto; flex: 0 0 auto; }
+.import-btn { flex: 0 0 auto; white-space: nowrap; }
 .char-grid {
   display: grid; gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -533,18 +550,56 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
   .stats-btn { display: none; } /* insight is persistent; no drawer toggle needed */
 }
 
-/* ── Group card delete overlay ────────────────────────────────── */
-.group-card { position: relative; padding: 0; }
-.group-card .card-open {
-  background: none; border: none; width: 100%; padding: 10px;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+/* ── Library: art-forward cards (desktop-first; the grid auto-fills, so it
+   scales from a few columns on a laptop to many on a wide monitor) ───────── */
+.lib-grid {
+  display: grid; gap: 16px; margin-bottom: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.lib-card {
+  position: relative; display: flex; flex-direction: column; padding: 0; text-align: left;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card);
+  overflow: hidden; cursor: pointer; transition: border-color 0.12s, transform 0.12s;
+}
+.lib-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.lib-open {
+  background: none; border: none; padding: 0; width: 100%; cursor: pointer;
+  display: flex; flex-direction: column; text-align: left;
+}
+.lib-art {
+  width: 100%; aspect-ratio: 3 / 4; background: var(--surface-2);
+  display: grid; place-items: center; overflow: hidden;
+}
+.lib-art img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.lib-art-fallback { font-size: 2.4rem; color: var(--accent); }
+.lib-info { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lib-name-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.lib-name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-msgs { font-size: 0.7rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.lib-sub { font-size: 0.72rem; color: var(--muted); }
+.lib-card .tag-pills { display: flex; flex-wrap: wrap; gap: 4px; overflow: hidden; max-height: 1.55rem; }
+.lib-card .tag-pill {
+  font-size: 0.64rem; padding: 2px 6px; border-radius: var(--radius-badge);
+  background: var(--tag-bg); border: 1px solid var(--tag-border); color: var(--tag-text); white-space: nowrap;
+}
+/* Group cards: purple accent + a member collage cover. */
+.lib-card.group-card { border-color: var(--group-border); }
+.group-art { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr; place-items: stretch; gap: 1px; }
+.group-art[data-count="1"] { grid-template-columns: 1fr; }
+.group-art img { width: 100%; height: 100%; object-fit: cover; min-height: 0; }
+.group-art .lib-art-fallback {
+  width: 100%; height: 100%; min-height: 0; display: grid; place-items: center;
+  background: var(--surface); font-size: 1.4rem;
 }
 .card-delete {
-  position: absolute; top: 4px; right: 4px;
+  position: absolute; top: 6px; right: 6px; z-index: 2;
   background: rgba(15, 23, 42, 0.7); color: #fff; opacity: 0; transition: opacity 0.12s;
 }
 .group-card:hover .card-delete { opacity: 1; }
 @media (hover: none) { .card-delete { opacity: 1; } }
+/* Folder cards: compact row (no cover art). */
+.lib-card.folder-card { flex-direction: row; align-items: center; gap: 10px; padding: 14px 12px; }
+.lib-card.folder-card .folder-glyph { font-size: 1.6rem; flex-shrink: 0; }
 
 /* Selectable character cards (group member picker). */
 .char-card.selected { outline: 2px solid var(--accent); border-radius: var(--radius); }
@@ -629,7 +684,7 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .persona-list li {
   display: flex; align-items: center; gap: 10px; font-size: 0.9rem;
   padding: 10px; border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--surface-2);
 }
 .persona-list li.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .persona-av {

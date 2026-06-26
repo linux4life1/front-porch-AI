@@ -39,6 +39,23 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    // Bind all interfaces + allow the Tailscale (.ts.net) host so the dev server
+    // is reachable from a phone over Tailscale for live mobile preview. Dev-only;
+    // does not affect the production build served by the Dart server.
+    host: true,
+    allowedHosts: ['localhost', '.ts.net'],
+    port: 5173,
+    proxy: {
+      '/api': { target: 'http://localhost:8085', changeOrigin: true },
+      '/ws': { target: 'ws://localhost:8085', ws: true },
+    },
+  },
+  // `vite preview` serves the real production build (minified, no HMR) for a
+  // fast, deterministic mobile preview over Tailscale — a refresh always shows
+  // the latest rebuild. Same proxy as dev so /api + /ws hit the desktop app.
+  preview: {
+    host: true,
+    allowedHosts: ['localhost', '.ts.net'],
     port: 5173,
     proxy: {
       '/api': { target: 'http://localhost:8085', changeOrigin: true },
