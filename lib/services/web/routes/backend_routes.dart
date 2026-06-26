@@ -47,6 +47,7 @@ class WebBackendRoutes {
       router.get('/api/image/config', _imageConfig);
       router.post('/api/image/config', _imageUpdateConfig);
       router.post('/api/image/generate', _imageGenerate);
+      router.get('/api/image/saved/<name>', _imageSaved);
     }
   }
 
@@ -131,6 +132,18 @@ class WebBackendRoutes {
       return JsonResponse.error(502, _image.config()['statusMessage']?.toString() ?? 'Generation failed');
     }
     return JsonResponse.ok(result);
+  }
+
+  Future<shelf.Response> _imageSaved(shelf.Request r, String name) async {
+    final file = _image!.savedImageFile(name);
+    if (file == null) return JsonResponse.error(404, 'Image not found');
+    return shelf.Response.ok(
+      file.openRead(),
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'private, max-age=86400',
+      },
+    );
   }
 
   Future<Map<String, dynamic>> _json(shelf.Request request) async {

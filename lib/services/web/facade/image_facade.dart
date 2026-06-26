@@ -17,6 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -106,6 +109,25 @@ class ImageFacade {
     return {
       'image': 'data:image/png;base64,${base64Encode(bytes)}',
       'savedPath': savedPath,
+      // Basename only — the client references this to serve the saved image
+      // (GET /api/image/saved/<filename>) and to insert it into a chat.
+      'filename': savedPath != null ? p.basename(savedPath) : null,
     };
+  }
+
+  /// Resolve a previously-saved generated image by [name] (basename only) for
+  /// serving over HTTP. Returns null on a missing file or a path-traversal
+  /// attempt. Mirrors [ImageGenService]'s images directory layout.
+  File? savedImageFile(String name) {
+    if (name.isEmpty ||
+        name.contains('/') ||
+        name.contains(r'\') ||
+        name.contains('..')) {
+      return null;
+    }
+    final root = _storage.rootPath;
+    if (root == null || root.isEmpty) return null;
+    final file = File(p.join(root, 'KoboldManager', 'images', name));
+    return file.existsSync() ? file : null;
   }
 }

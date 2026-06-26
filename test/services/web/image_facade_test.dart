@@ -64,5 +64,20 @@ void main() {
     test('generate rejects an empty prompt', () async {
       expect(await facade.generate({'prompt': '   '}), isNull);
     });
+
+    test('savedImageFile resolves real files and blocks traversal', () async {
+      final root = Directory.systemTemp.createTempSync('fpai_img_root_');
+      await storage.setRootPath(root.path);
+      final imagesDir = Directory('${root.path}/KoboldManager/images')
+        ..createSync(recursive: true);
+      File('${imagesDir.path}/img_1.png').writeAsBytesSync([1, 2, 3]);
+
+      expect(facade.savedImageFile('img_1.png'), isNotNull);
+      expect(facade.savedImageFile('missing.png'), isNull);
+      // Path-traversal / absolute / nested names are rejected outright.
+      expect(facade.savedImageFile('../secret.png'), isNull);
+      expect(facade.savedImageFile('sub/img_1.png'), isNull);
+      expect(facade.savedImageFile(''), isNull);
+    });
   });
 }

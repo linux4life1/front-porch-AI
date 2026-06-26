@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-06-26 (feat: web image-gen → insert into chat)
+Deliverable #2 from the post-WU4 ordered list: let the web UI put a generated image into the conversation (the W5 "generate + insert into chat" deferral), reusing the desktop chat's existing inline-image rendering rather than inventing a new message type.
+- **Backend** (`image_facade.dart`): `generate()` now also returns `filename` (basename of the saved PNG); new `savedImageFile(name)` resolves a saved image for serving with strict basename-only guards (rejects `/`, `\`, `..`, empty).
+- **Backend** (`chat_facade.dart`): new `insertImage(filename)` appends `![generated image](/api/image/saved/<name>)` to the **last** message via the existing `editMessage` path (no new ChatService surface; metadata preserved). Returns false when there's no message to attach to.
+- **Routes**: `GET /api/image/saved/<name>` (serves the PNG, `backend_routes.dart`) and `POST /api/chat/insert-image` (`chat_routes.dart`).
+- **Frontend**: new `MessageContent.tsx` renders inline `![alt](url)` images in chat bubbles (parity with desktop `ExternalImageWidget`); `ChatPage.tsx` uses it. `ModelsPage.tsx` image panel gains an **Insert into chat** button (+ `.chat-image` / `.image-result-actions` CSS).
+- **Tests**: `image_facade_test.dart` (savedImageFile resolve + traversal blocks); new `chat_insert_image_test.dart` (append to last / empty-messages false / blank-name false). `FakeChatService.editMessage` now mutates the seeded message so the edit path is observable.
+- **Verification**: `flutter analyze lib/services/web test/services/web` clean; `flutter test test/services/web` 58/58; `dart fix --dry-run` nothing to fix; `web_ui` tsc + vite build green.
+- **Commit**: (this commit)
+
 ## 2026-06-26 (feat: web unified-chat consistency WU4)
 Closes the WU gaps found by reviewing whether sidebar widgets/settings sit in the right place.
 - **ChatTools follows focus** (`chat_tools_facade.dart`, `chat_tools_routes.dart`, `ChatTools.tsx`): `state({participantId})` scopes **objectives** + **NSFW arousal** to the focused cast participant (via `getObjectivesForGroupCharacter` / `getArousalForGroupCharacter`); all tool GET/POST calls carry `?participant=<id>`; `setObjective` attaches a new goal to the focused participant (`targetCharacter`); `_withObjective` now searches every cast member's objectives so task ops work for any focus.

@@ -4,6 +4,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements
 
+- 📲 **Web app: drop a generated image straight into your chat** — generate an image in the web UI's Image Generation panel and you'll now see an **Insert into chat** button next to Download. One tap attaches the picture to the latest message in your open conversation, where it renders inline — just like images do in the desktop chat. (Web UI.)
+
 - 🖼️ **Turn on Image Generation right from Settings** — the ✨ Image Studio button only appears in chat once image generation is switched on, but that switch used to be tucked away inside the character creator — so it was easy to never realize the feature existed. There's now a clear **Image Generation** toggle in **Settings → Voice & Media**: flip it on and the Image Studio button shows up in your chat toolbar. (Backend, model and LoRA setup still live inside the Image Studio.)
 
 - 🔁 **Windows updates now install right where the app already lives — even a custom folder** — after a recent change gave each channel its own install folder, the Nightly in-app updater started dropping a *second* copy into AppData and leaving the one you were running untouched — so the app never moved to the new version and kept nagging you to update over and over. Updates now install **in place, in the exact folder you originally chose** (any drive, any path), so the build you run is the one that gets updated and the loop is gone. Brand-new installs still let you **pick where to install** as before. (Windows only.)

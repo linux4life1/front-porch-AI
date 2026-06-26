@@ -525,6 +525,13 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .file-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .image-result { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .image-result img { max-width: 100%; border-radius: var(--radius); border: 1px solid var(--border); }
+.image-result-actions { display: flex; align-items: center; gap: 12px; }
+
+/* Inline images embedded in chat messages (![alt](url)). */
+.chat-image {
+  display: block; max-width: 100%; margin-top: 8px;
+  border-radius: var(--radius); border: 1px solid var(--border);
+}
 
 /* ── Persona manager ──────────────────────────────────────────── */
 .persona-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; }

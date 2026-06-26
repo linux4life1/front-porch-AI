@@ -264,6 +264,8 @@ function ImageSection({ onError }: { onError: (s: string) => void }) {
   const [prompt, setPrompt] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [image, setImage] = useState<string | null>(null);
+  const [filename, setFilename] = useState<string | null>(null);
+  const [inserted, setInserted] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -279,10 +281,19 @@ function ImageSection({ onError }: { onError: (s: string) => void }) {
     if (!prompt.trim()) return;
     setBusy(true);
     setImage(null);
-    api.post<{ image: string }>('/api/image/generate', { prompt })
-      .then((r) => setImage(r.image))
+    setFilename(null);
+    setInserted(false);
+    api.post<{ image: string; filename: string | null }>('/api/image/generate', { prompt })
+      .then((r) => { setImage(r.image); setFilename(r.filename); })
       .catch((e) => onError(e instanceof ApiError ? e.message : 'Generation failed'))
       .finally(() => setBusy(false));
+  };
+
+  const insertIntoChat = () => {
+    if (!filename) return;
+    api.post('/api/chat/insert-image', { filename })
+      .then(() => setInserted(true))
+      .catch((e) => onError(e instanceof ApiError ? e.message : 'Could not insert into chat'));
   };
 
   return (
@@ -327,7 +338,14 @@ function ImageSection({ onError }: { onError: (s: string) => void }) {
       {image && (
         <div className="image-result">
           <img src={image} alt="Generated" />
-          <a className="help-link" href={image} download="generated.png">Download</a>
+          <div className="image-result-actions">
+            <a className="help-link" href={image} download="generated.png">Download</a>
+            {filename && (
+              <button className="secondary" disabled={inserted} onClick={insertIntoChat}>
+                {inserted ? 'Inserted ✓' : 'Insert into chat'}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </section>

@@ -329,6 +329,12 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   // Message bubble surface.
   @override
   List<ChatMessage> get messages => List.unmodifiable(_messages);
+  // Mutates the seeded message in place so facade edit paths (e.g. inserting a
+  // generated image into the last message) are observable in unit tests.
+  @override
+  void editMessage(int index, String newText) {
+    if (index >= 0 && index < _messages.length) _messages[index].text = newText;
+  }
   @override
   bool get isGroupMode => false;
   @override

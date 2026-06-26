@@ -8,6 +8,7 @@ import { ChatSocket } from '../api/ws';
 import { ChatTools } from '../components/ChatTools';
 import { CastBar, type CastMember } from '../components/CastBar';
 import { CharacterPicker } from '../components/CharacterPicker';
+import { MessageContent } from '../components/MessageContent';
 
 interface Chips {
   bondDelta?: number;
@@ -385,7 +386,7 @@ export function ChatPage() {
                 </div>
               ) : (
                 <>
-                  <div className={m.isUser ? 'bubble user' : 'bubble ai'}>{m.text}</div>
+                  <div className={m.isUser ? 'bubble user' : 'bubble ai'}><MessageContent text={m.text} /></div>
                   {!m.isUser && m.chips && <ChipsRow chips={m.chips} />}
                   <MessageActions
                     m={m}

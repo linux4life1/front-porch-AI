@@ -350,6 +350,25 @@ class ChatFacade {
     _notify();
   }
 
+  /// Append a generated image (served at `/api/image/saved/<filename>`) to the
+  /// most recent message as inline markdown, so it renders in the conversation —
+  /// parity with the desktop chat's inline-image rendering. Reuses the existing
+  /// edit path (no new ChatService surface). Returns false when there is no
+  /// message to attach to.
+  bool insertImage(String filename) {
+    final name = filename.trim();
+    if (name.isEmpty) return false;
+    final messages = _chat.messages;
+    if (messages.isEmpty) return false;
+    final index = messages.length - 1;
+    final current = messages[index].text;
+    final markdown = '![generated image](/api/image/saved/$name)';
+    final newText = current.isEmpty ? markdown : '$current\n\n$markdown';
+    _chat.editMessage(index, newText);
+    _notify();
+    return true;
+  }
+
   void setAuthorNote(String note, {int? strength}) {
     _chat.setAuthorNote(note, strength: strength);
     _notify();
