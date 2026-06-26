@@ -1,10 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// "Install to your phone" affordance. Android/Chromium fire a
-// `beforeinstallprompt` we can trigger from a button; iOS Safari NEVER fires
-// one (Apple has no install prompt), so there we just show the manual
-// Share -> "Add to Home Screen" steps. Renders nothing once installed.
+// "Install to your phone" affordance — shown ONLY when the browser actually
+// offers an install prompt (Android/Chromium fire `beforeinstallprompt`). iOS
+// Safari has no such prompt, and nagging someone who is *already* using the web
+// app on their phone to "connect / add to home screen" is just noise — so on
+// iOS (and anywhere without a real prompt) this renders nothing.
 
 import { useEffect, useState } from 'react';
 
@@ -19,10 +20,6 @@ function isStandalone(): boolean {
     // iOS Safari exposes this non-standard flag when launched from the home screen.
     (window.navigator as unknown as { standalone?: boolean }).standalone === true
   );
-}
-
-function isIos(): boolean {
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
 }
 
 export function InstallHint() {
@@ -44,16 +41,11 @@ export function InstallHint() {
     };
   }, []);
 
-  if (installed || dismissed) return null;
-
-  // Only meaningful over a secure origin (Tailscale/ngrok HTTPS or localhost).
-  if (!window.isSecureContext) return null;
-
-  const ios = isIos();
-  if (!ios && !deferred) return null; // Android with no prompt yet / desktop
+  // Render nothing unless the browser handed us a real, actionable install
+  // prompt (so no iOS nag, no desktop no-op banner).
+  if (installed || dismissed || !deferred) return null;
 
   const install = async () => {
-    if (!deferred) return;
     await deferred.prompt();
     await deferred.userChoice;
     setDeferred(null);
@@ -62,27 +54,14 @@ export function InstallHint() {
   return (
     <div className="install-hint">
       <div className="install-hint-body">
-        <strong>Install Front Porch on your phone</strong>
-        {ios ? (
-          <p className="muted small">
-            Tap the <span aria-label="Share">Share</span> button below, then choose
-            <strong> “Add to Home Screen.”</strong> It opens like a real app.
-          </p>
-        ) : (
-          <p className="muted small">
-            Add it to your home screen for a full-screen, app-like experience.
-          </p>
-        )}
+        <strong>Install Front Porch</strong>
+        <p className="muted small">
+          Add it to your home screen for a full-screen, app-like experience.
+        </p>
       </div>
       <div className="install-hint-actions">
-        {!ios && deferred && (
-          <button className="primary" onClick={install}>
-            Install
-          </button>
-        )}
-        <button className="link-btn" onClick={() => setDismissed(true)}>
-          Dismiss
-        </button>
+        <button className="primary" onClick={install}>Install</button>
+        <button className="link-btn" onClick={() => setDismissed(true)}>Dismiss</button>
       </div>
     </div>
   );

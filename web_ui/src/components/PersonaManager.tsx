@@ -93,8 +93,14 @@ export function PersonaManager() {
 
       <ul className="persona-list">
         {personas.map((p) => (
-          <li key={p.id}>
-            <span>{p.label}{p.active ? ' · active' : ''}</span>
+          <li key={p.id} className={p.active ? 'active' : undefined}>
+            <span className="persona-av" aria-hidden>
+              {(p.name || p.label || '?').charAt(0).toUpperCase()}
+            </span>
+            <span className="persona-main">
+              <span className="pname">{p.label}</span>
+              {p.active && <span className="pactive">Active</span>}
+            </span>
             <span className="persona-actions">
               <button className="icon-btn" title="Edit" onClick={() => beginEdit(p.id)}>✎</button>
               <button

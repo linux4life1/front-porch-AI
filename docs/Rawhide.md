@@ -4,6 +4,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements
 
+- 📱 **Web app: a real phone experience** — the web UI no longer feels broken on iPhone/iPad. Content stays inside the screen (no more cut-off edges or sideways scrolling), the bottom toolbar and message box sit clear of the notch and home bar, and tapping a text field no longer zooms the page around. The whole app now picks up Front Porch's colors instead of looking flat and grey — chat replies color *actions* and "dialogue" the way the desktop does, and the persona list got real cards. The redundant "add to home screen / connect" nag is gone once you're already using it on your phone. (Web UI.)
+
 - 📖 **Web app: write whole novels with Porch Stories** — the full story generator is now on the web. Create a story, walk the setup wizard (concept, genres/mood, POV, pacing, maturity, and optionally seed it from your existing character chats), then generate the story bible, act structure, and prose — or hit **Autopilot** and let it write the entire thing. Drill into the act → scene → beat structure to generate or rewrite any piece, read the finished book with per-scene read-aloud, and export to .txt/.md. Generation streams live progress so you can watch it work. (Web UI.)
 
 - ✨ **Web app: create characters with AI** — the web library now has an **✨ AI Create** button next to ＋ Create. Describe a character (name + concept, optional personality keywords, optional mature-content toggle) and the AI writes the whole card — personality, example dialogue, lorebook, first message and more — then drops you straight into the editor to tweak and save. You watch it build step-by-step as it goes. Uses whatever LLM you've got running. (Web UI.)
