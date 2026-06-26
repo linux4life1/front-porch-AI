@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-06-26 (feat: Porch Stories web UI — structure, writer, reader, PS3)
+Final phase: the granular authoring + reading surface, completing the full Porch Stories web port.
+- **`hooks/useStory.ts`** (new): shared load + WS-progress subscription + `run(stage, {actIndex,sceneIndex,beatIndex})`. Used by structure/writer/reader **and retrofitted into the PS2 dashboard**, removing the duplicated load/WS/run block (one source of truth now).
+- **`StoryStructurePage.tsx`** (`/stories/:id/structure`): act → scene → beat tree; per-act generate-scenes / full-act; per-scene generate-beats / auto-write / open-writer; valence + written-count indicators.
+- **`StoryWriterPage.tsx`** (`/stories/:id/write/:act/:scene`): per-beat draft/final prose, per-beat (re)generate (`draft-edit`), generate-beats, auto-write-scene, per-beat 🔊 (reuses `SpeakButton`).
+- **`StoryReaderPage.tsx`** (`/stories/:id/read`): assembled prose in reading order (act → scene → beat, final||draft), per-scene read-aloud.
+- **Dashboard**: re-added "Structure & write →" and "Read 📖" buttons (now that the routes exist).
+- **Routes/CSS**: 3 routes in `App.tsx`; structure/writer/reader CSS.
+- **Docs**: `docs/web-parity.md` Porch Stories rows flipped to ✅ (epub/audiobook export left ⏳); user-facing note in `docs/Rawhide.md`.
+- **Verification**: `web_ui` tsc + vite build green. No Dart changed (web tests still 66/66).
+- **Commit**: (this commit)
+
 ## 2026-06-26 (feat: Porch Stories web UI — list + setup + bible, PS2)
 Second phase: the React surface for project management, the setup wizard, and the story-bible dashboard (generate + progress + export). End-to-end usable on its own — you can configure a story, run autopilot to generate the whole thing, and export it (the granular structure/writer/reader lands in PS3).
 - **`storyTypes.ts`** (new): TS interfaces mirroring the Dart `StoryProject` JSON (snake_case to survive the save round-trip; `scenes`/`beats`/`prose` kept opaque), plus the option lists (POV/genres/moods/styles/pace/maturity/tiers).

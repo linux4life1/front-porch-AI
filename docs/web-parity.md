@@ -151,10 +151,18 @@ viewers, raw `.kcpps` launch-flag authoring, and RAG/embedding-sidecar *setup*
 (the per-chat "use memory" toggle stays). The app updater and these are
 desktop-only by design.
 
-## ⏳ Porch Stories (novel generator)
+## Porch Stories (novel generator)
 
-Not yet built on the web and **scope unconfirmed**. The desktop has a full story
-pipeline (dashboard, setup, multi-stage pipeline run, structure editor, writer,
-reader) driven by `StoryPipelineService`. A web port is a sizable multi-page
-effort with WebSocket progress. Pending an explicit in/out decision; tracked
-separately from this sign-off.
+| Feature | Status | Notes |
+|--------|:--:|------|
+| Project list (create / open / delete) | ✅ | `/stories`. |
+| Setup wizard (concept, style, AI config, chat-history seed) | ✅ | 3-step StepIndicator wizard. |
+| Story-bible dashboard (concept/cast/threads/lore/acts) | ✅ | Generate via architect / act-structure / autopilot; live progress over WS. |
+| Act → scene → beat structure tree | ✅ | Generate scenes/beats/full-act; per-scene auto-write. |
+| Beat-by-beat prose writer | ✅ | Per-beat (re)generate; auto-write scene; per-beat 🔊. |
+| Reader | ✅ | Assembled prose in reading order, per-scene read-aloud (reuses voice). |
+| Export (.txt / .md) | ✅ | |
+| Export (.epub / audiobook) | ⏳ | Desktop has dedicated generators; not yet exposed as web download routes. |
+
+The whole pipeline is driven by the headless `StoryPipelineService` over the web
+facade — no desktop code changed.

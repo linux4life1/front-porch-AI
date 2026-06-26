@@ -4,6 +4,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements
 
+- 📖 **Web app: write whole novels with Porch Stories** — the full story generator is now on the web. Create a story, walk the setup wizard (concept, genres/mood, POV, pacing, maturity, and optionally seed it from your existing character chats), then generate the story bible, act structure, and prose — or hit **Autopilot** and let it write the entire thing. Drill into the act → scene → beat structure to generate or rewrite any piece, read the finished book with per-scene read-aloud, and export to .txt/.md. Generation streams live progress so you can watch it work. (Web UI.)
+
 - ✨ **Web app: create characters with AI** — the web library now has an **✨ AI Create** button next to ＋ Create. Describe a character (name + concept, optional personality keywords, optional mature-content toggle) and the AI writes the whole card — personality, example dialogue, lorebook, first message and more — then drops you straight into the editor to tweak and save. You watch it build step-by-step as it goes. Uses whatever LLM you've got running. (Web UI.)
 
 - 🔊 **Web app: hear replies and talk back** — the web UI now has voice. Tap the **🔊** under any character reply to hear it spoken *on the device you're holding* (your phone or laptop, not the host PC), and use the **🎤** button by the message box to dictate instead of type. Voice uses whatever TTS/STT engine you've set up on the desktop app, and the controls only appear when those are turned on — the mic also needs a secure connection (Tailscale, ngrok, or localhost), so it won't show on a plain-LAN address. (Web UI.)

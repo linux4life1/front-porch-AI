@@ -17,6 +17,9 @@ import { WorldsPage } from './pages/WorldsPage';
 import { StoriesPage } from './pages/StoriesPage';
 import { StorySetupPage } from './pages/StorySetupPage';
 import { StoryDashboardPage } from './pages/StoryDashboardPage';
+import { StoryStructurePage } from './pages/StoryStructurePage';
+import { StoryWriterPage } from './pages/StoryWriterPage';
+import { StoryReaderPage } from './pages/StoryReaderPage';
 import { ModelsPage } from './pages/ModelsPage';
 import { AccountPage } from './pages/AccountPage';
 
@@ -46,6 +49,9 @@ export function App() {
         <Route path="/stories" element={<StoriesPage />} />
         <Route path="/stories/:id" element={<StoryDashboardPage />} />
         <Route path="/stories/:id/setup" element={<StorySetupPage />} />
+        <Route path="/stories/:id/structure" element={<StoryStructurePage />} />
+        <Route path="/stories/:id/write/:act/:scene" element={<StoryWriterPage />} />
+        <Route path="/stories/:id/read" element={<StoryReaderPage />} />
         <Route path="/models" element={<ModelsPage />} />
         <Route path="/edit/:id" element={<CharacterEditPage />} />
         <Route path="/account" element={<AccountPage />} />

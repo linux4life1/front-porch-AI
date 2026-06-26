@@ -5,54 +5,14 @@
 // lore, acts), drive the pipeline (architect / act-structure / autopilot) with
 // live progress over the WS hub, export, and jump to the structure/writer.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
-import { ChatSocket } from '../api/ws';
-import type { StoryProject, StoryStatus } from '../storyTypes';
+import { useStory } from '../hooks/useStory';
 
 export function StoryDashboardPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const [p, setP] = useState<StoryProject | null>(null);
-  const [status, setStatus] = useState<StoryStatus | null>(null);
-  const [error, setError] = useState('');
-  const socketRef = useRef<ChatSocket | null>(null);
-
-  const load = useCallback(() => {
-    api.get<StoryProject>(`/api/stories/${id}`).then(setP).catch((e) =>
-      setError(e instanceof ApiError ? e.message : 'Failed to load'));
-  }, [id]);
-
-  useEffect(load, [load]);
-  useEffect(() => {
-    api.get<StoryStatus>('/api/stories/status').then(setStatus).catch(() => {});
-    const socket = new ChatSocket((e) => {
-      if (e.event === 'story_status') {
-        setStatus(e as unknown as StoryStatus);
-      } else if (e.event === 'story_updated') {
-        setStatus((s) => (s ? { ...s, running: false } : s));
-        load();
-      } else if (e.event === 'story_error') {
-        setStatus((s) => (s ? { ...s, running: false } : s));
-        setError(e.error || 'Generation failed');
-      }
-    });
-    socket.connect();
-    socketRef.current = socket;
-    return () => socket.close();
-  }, [load]);
-
-  const run = async (stage: string) => {
-    setError('');
-    setStatus({ running: true, step: '', status: 'Starting…', tokens: 0 });
-    try {
-      await api.post(`/api/stories/${id}/run`, { stage });
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not start');
-      setStatus((s) => (s ? { ...s, running: false } : s));
-    }
-  };
+  const { project: p, status, error, setError, run } = useStory(id);
 
   const exportAs = async (format: 'text' | 'markdown') => {
     try {
@@ -110,6 +70,14 @@ export function StoryDashboardPage() {
           </button>
           <button className="ghost" disabled={busy} onClick={() => run('autopilot')}>Autopilot (everything)</button>
         </div>
+        {hasActs && (
+          <div className="btn-row" style={{ marginTop: 10 }}>
+            <button className="primary" onClick={() => navigate(`/stories/${id}/structure`)}>Structure &amp; write →</button>
+            {p.prose && Object.keys(p.prose).length > 0 && (
+              <button className="ghost" onClick={() => navigate(`/stories/${id}/read`)}>Read 📖</button>
+            )}
+          </div>
+        )}
       </section>
 
       {hasBible && (

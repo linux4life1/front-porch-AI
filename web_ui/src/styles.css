@@ -554,6 +554,18 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .spinner.small { width: 20px; height: 20px; }
 .story-cast-row, .story-act-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
 .story-cast-row:last-child, .story-act-row:last-child { border-bottom: none; }
+.story-scene-row { padding: 8px 0; border-top: 1px solid var(--border); }
+.scene-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.valence { font-size: 0.75rem; padding: 1px 6px; border-radius: 999px; }
+.valence.vpos { background: rgba(80, 200, 120, 0.18); color: #4ade80; }
+.valence.vneg { background: rgba(255, 107, 107, 0.18); color: var(--danger); }
+.beat-card .beat-prose { display: flex; gap: 8px; align-items: flex-start; }
+.beat-card .beat-prose p { white-space: pre-wrap; flex: 1; }
+.reader { max-width: 640px; line-height: 1.7; }
+.reader-act-title { margin-top: 24px; text-align: center; }
+.reader-scene { margin: 16px 0; }
+.reader-scene-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.reader-scene p { white-space: pre-wrap; margin: 8px 0; }
 
 /* AI character creator: live generation steps. */
 .chargen-steps { margin: 8px 0 0; padding-left: 20px; }
