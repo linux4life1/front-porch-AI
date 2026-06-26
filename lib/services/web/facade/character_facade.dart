@@ -1,0 +1,378 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
+import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/chat_service.dart';
+import 'package:front_porch_ai/services/folder_service.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/v2_card_service.dart';
+import 'package:front_porch_ai/services/web/util/lorebook_json.dart';
+
+/// Thin read adapter over the character store for the rewritten web server.
+///
+/// Reuses the exact AppDatabase/FolderService calls the legacy server used so
+/// the JSON contract (and therefore parity) is preserved; the route layer only
+/// shapes HTTP responses.
+class CharacterFacade {
+  CharacterFacade(
+    this._db,
+    this._storage,
+    this._folders,
+    this._chat,
+    this._repo,
+  );
+
+  final AppDatabase _db;
+  final StorageService _storage;
+  final CharacterRepository? _repo;
+  final FolderService? _folders;
+  final ChatService? _chat;
+
+  /// List characters with optional search/folder filtering and sort, matching
+  /// the legacy `/api/characters` payload.
+  Future<List<Map<String, dynamic>>> list({
+    String? search,
+    String? folder,
+    String sort = 'name',
+  }) async {
+    var characters = await _db.getAllCharacters();
+    final msgCounts = await _db.getMessageCountsPerCharacter();
+    final term = search?.toLowerCase();
+
+    if (term != null && term.isNotEmpty) {
+      characters = characters.where((c) {
+        if (c.name.toLowerCase().contains(term)) return true;
+        return _jsonList(c.tags)
+            .any((t) => t.toString().toLowerCase().contains(term));
+      }).toList();
+    } else if (_folders != null) {
+      if (folder != null && folder.isNotEmpty) {
+        final inFolder = _folders.getCharactersInFolder(folder);
+        characters = characters
+            .where((c) =>
+                c.imagePath != null &&
+                inFolder.contains(p.basename(c.imagePath!)))
+            .toList();
+      } else {
+        final foldered = _folders.getUnfolderedCharacterPaths();
+        characters = characters
+            .where((c) =>
+                c.imagePath == null ||
+                !foldered.contains(p.basename(c.imagePath!)))
+            .toList();
+      }
+    }
+
+    switch (sort) {
+      case 'recent':
+        characters = characters.reversed.toList();
+        break;
+      case 'messages':
+        characters.sort(
+          (a, b) => (msgCounts[b.id] ?? 0).compareTo(msgCounts[a.id] ?? 0),
+        );
+        break;
+      case 'name':
+      default:
+        characters.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+    }
+
+    return characters
+        .map((c) => {
+              'id': c.id,
+              'name': c.name,
+              'description': c.description,
+              'scenario': c.scenario,
+              'personality': c.personality,
+              'tags': _jsonList(c.tags),
+              'hasAvatar': c.imagePath != null && c.imagePath!.isNotEmpty,
+              'folderId': c.folderId ?? '',
+              'messageCount': msgCounts[c.id] ?? 0,
+            })
+        .toList();
+  }
+
+  /// The character folder tree (id, name, parentId) so the web library can show
+  /// folder navigation. Character membership is queried separately via
+  /// `list(folder: id)`, which already routes through FolderService.
+  List<Map<String, dynamic>> folders() {
+    final svc = _folders;
+    if (svc == null) return const [];
+    return svc.folders
+        .map((f) => {
+              'id': f.id,
+              'name': f.name,
+              if (f.parentId != null) 'parentId': f.parentId,
+            })
+        .toList();
+  }
+
+  /// Edit an existing character's core text fields. Reuses the desktop save
+  /// path (mutate the in-memory CharacterCard + CharacterRepository.update),
+  /// which re-writes the V2 PNG card and the DB row. Returns false if the
+  /// repository isn't wired or the character isn't found. Only keys present in
+  /// [fields] are changed.
+  Future<bool> update(String id, Map<String, dynamic> fields) async {
+    final repo = _repo;
+    if (repo == null) return false;
+    CharacterCard? card;
+    for (final c in repo.characters) {
+      if (c.dbId == id) {
+        card = c;
+        break;
+      }
+    }
+    if (card == null) return false;
+
+    String pick(String key, String current) =>
+        fields.containsKey(key) ? (fields[key]?.toString() ?? current) : current;
+    card.name = pick('name', card.name);
+    card.description = pick('description', card.description);
+    card.personality = pick('personality', card.personality);
+    card.scenario = pick('scenario', card.scenario);
+    card.firstMessage = pick('firstMessage', card.firstMessage);
+    card.mesExample = pick('mesExample', card.mesExample);
+    card.systemPrompt = pick('systemPrompt', card.systemPrompt);
+    card.postHistoryInstructions =
+        pick('postHistoryInstructions', card.postHistoryInstructions);
+    final tags = fields['tags'];
+    if (tags is List) card.tags = tags.map((e) => e.toString()).toList();
+    final greetings = fields['alternateGreetings'];
+    if (greetings is List) {
+      card.alternateGreetings = greetings.map((e) => e.toString()).toList();
+    }
+    // Per-character lorebook editing: only replace when the key is present so a
+    // partial edit doesn't wipe existing lore. An explicit empty list clears it.
+    if (fields.containsKey('lorebook')) {
+      card.lorebook = buildLorebookFromJson(fields['lorebook']);
+    }
+
+    await repo.updateCharacter(card);
+    return true;
+  }
+
+  /// Create a brand-new character from web wizard fields. Mirrors the desktop
+  /// `create_character_page._saveCharacter`: build the card + Realism seeds, write
+  /// a V2 PNG (embedding the extensions so the seeds survive — the DB has no
+  /// realism columns) with a synthesized placeholder avatar, then add it via the
+  /// same [CharacterRepository.addCharacter] path. Returns {id, name} or null.
+  Future<Map<String, dynamic>?> create(Map<String, dynamic> fields) async {
+    final repo = _repo;
+    if (repo == null) return null;
+    final name = fields['name']?.toString().trim() ?? '';
+    if (name.isEmpty) return null;
+
+    int asInt(String key, int fallback) {
+      final v = fields[key];
+      return v is int ? v : fallback;
+    }
+
+    bool asBool(String key) => fields[key] == true;
+    List<String> asStrList(dynamic v) =>
+        v is List ? v.map((e) => e.toString()).toList() : const [];
+
+    // Always build extensions (even when realism is off) so configured values
+    // survive — matching the desktop comment. The flag only gates runtime use.
+    final fpExt = FrontPorchExtensions(
+      realismEnabled: asBool('realismEnabled'),
+      shortTermBond: asInt('shortTermBond', 0),
+      longTermBond: asInt('longTermBond', 0),
+      trustLevel: asInt('trustLevel', 0),
+      characterEmotion: fields['characterEmotion']?.toString() ?? '',
+      emotionIntensity: fields['emotionIntensity']?.toString() ?? 'mild',
+      nsfwCooldownEnabled: asBool('nsfwCooldownEnabled'),
+      chaosModeEnabled: asBool('chaosModeEnabled'),
+      needsSimEnabled: asBool('needsSimEnabled'),
+      currentTask: fields['currentTask']?.toString() ?? '',
+    )..ensureStableId();
+
+    final card = CharacterCard(
+      name: name,
+      description: fields['description']?.toString() ?? '',
+      personality: fields['personality']?.toString() ?? '',
+      scenario: fields['scenario']?.toString() ?? '',
+      firstMessage: fields['firstMessage']?.toString() ?? '',
+      mesExample: fields['mesExample']?.toString() ?? '',
+      systemPrompt: fields['systemPrompt']?.toString() ?? '',
+      postHistoryInstructions:
+          fields['postHistoryInstructions']?.toString() ?? '',
+      alternateGreetings:
+          asStrList(fields['alternateGreetings']).where((g) => g.trim().isNotEmpty).toList(),
+      tags: asStrList(fields['tags']),
+      lorebook: buildLorebookFromJson(fields['lorebook']),
+      frontPorchExtensions: fpExt,
+    );
+
+    try {
+      final charDir = _storage.charactersDir;
+      if (!charDir.existsSync()) charDir.createSync(recursive: true);
+      final safeName =
+          name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
+      final imagePath = p.join(
+        charDir.path,
+        '${safeName}_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      card.imagePath = imagePath;
+      // sourceImagePath null → V2CardService synthesizes a placeholder avatar.
+      await V2CardService().saveCardAsPng(card, imagePath, null);
+      await repo.addCharacter(card);
+      return {'id': card.dbId, 'name': card.name};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Import a character card uploaded from the web (V2 PNG or .byaf). Writes the
+  /// bytes to a temp file and reuses the desktop import path
+  /// ([CharacterRepository.importCharacter]) so parsing/parity is identical.
+  /// Returns the new character's {id, name}, or null on failure.
+  Future<Map<String, dynamic>?> importBytes(
+    List<int> bytes,
+    String filename,
+  ) async {
+    final repo = _repo;
+    if (repo == null) return null;
+    final ext = p.extension(filename).isNotEmpty ? p.extension(filename) : '.png';
+    final tmp = File(p.join(
+      Directory.systemTemp.path,
+      'fpa_import_${DateTime.now().microsecondsSinceEpoch}$ext',
+    ));
+    try {
+      await tmp.writeAsBytes(bytes, flush: true);
+      final card = await repo.importCharacter(tmp);
+      if (card == null) return null;
+      return {'id': card.dbId, 'name': card.name};
+    } catch (_) {
+      return null;
+    } finally {
+      try {
+        if (tmp.existsSync()) await tmp.delete();
+      } catch (_) {}
+    }
+  }
+
+  /// Resolve the on-disk avatar file for the active character's *current
+  /// expression* (mood-driven portrait), or null if expressions aren't in use
+  /// or no avatar matches. Reuses [ChatService.resolveExpressionAvatar] — a
+  /// pure read that performs no reclassification, so Realism parity is intact.
+  File? activeExpressionAvatarFile() {
+    final chat = _chat;
+    if (chat == null) return null;
+    final activeChar = chat.activeCharacter;
+    if (activeChar == null) return null;
+    final avatar = chat.resolveExpressionAvatar(activeChar);
+    if (avatar == null) return null;
+    final safeName = activeChar.name
+        .replaceAll(RegExp(r'[^\w\s\-]'), '')
+        .replaceAll(' ', '_');
+    final avatarsDir = p.join(_storage.charactersDir.path, safeName, 'avatars');
+    final file = avatar.file(avatarsDir);
+    return file.existsSync() ? file : null;
+  }
+
+  /// Resolve the on-disk avatar file for [id], or null if none.
+  Future<File?> avatarFile(String id) async {
+    try {
+      final c = await _db.getCharacterById(id);
+      if (c.imagePath == null || c.imagePath!.isEmpty) return null;
+      final file = File(
+        p.join(_storage.charactersDir.path, p.basename(c.imagePath!)),
+      );
+      return file.existsSync() ? file : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Full character card detail, matching the legacy `/detail` payload
+  /// (including session-scoped evolution state when a chat is active).
+  Future<Map<String, dynamic>?> detail(String id) async {
+    try {
+      final c = await _db.getCharacterById(id);
+      return {
+        'id': c.id,
+        'name': c.name,
+        'description': c.description,
+        'personality': c.personality,
+        'scenario': c.scenario,
+        'firstMessage': c.firstMessage,
+        'mesExample': c.mesExample,
+        'systemPrompt': c.systemPrompt,
+        'postHistoryInstructions': c.postHistoryInstructions,
+        'alternateGreetings': _jsonList(c.alternateGreetings),
+        'tags': _jsonList(c.tags),
+        'worldNames': _jsonList(c.worldNames),
+        'lorebook': _normalizeLorebook(c.lorebook),
+        'ttsVoice': c.ttsVoice,
+        'imagePath': c.imagePath,
+        'evolvedPersonality': _chat?.getEffectivePersonality ?? '',
+        'evolvedScenario': _chat?.getEffectiveScenario ?? '',
+        'evolutionCount': _chat?.characterEvolutionCount ?? 0,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<dynamic> _jsonList(String raw) {
+    try {
+      final v = jsonDecode(raw);
+      return v is List ? v : const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Normalize the DB lorebook blob (keys array / comment) into the frontend
+  /// shape (comma-joined key string / name), as the legacy detail handler did.
+  Map<String, dynamic>? _normalizeLorebook(String? raw) {
+    if (raw == null) return null;
+    try {
+      final parsed = jsonDecode(raw);
+      if (parsed is! Map<String, dynamic> || parsed['entries'] is! List) {
+        return parsed is Map<String, dynamic> ? parsed : null;
+      }
+      final entries = (parsed['entries'] as List).map((e) {
+        if (e is! Map<String, dynamic>) return e;
+        final keyStr = e['keys'] is List
+            ? (e['keys'] as List).map((k) => k.toString()).join(', ')
+            : (e['key']?.toString() ?? '');
+        return {
+          'name': e['comment']?.toString() ?? e['name']?.toString() ?? '',
+          'key': keyStr,
+          'content': e['content']?.toString() ?? '',
+          'enabled': e['enabled'] ?? true,
+          'constant': e['constant'] ?? false,
+          'stickyDepth': e['sticky_depth'] ?? e['insertion_order'] ?? 4,
+        };
+      }).toList();
+      return {'entries': entries};
+    } catch (_) {
+      return null;
+    }
+  }
+}

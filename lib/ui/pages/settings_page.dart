@@ -32,7 +32,8 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
 import 'package:front_porch_ai/services/optimization_service.dart';
-import 'package:front_porch_ai/services/web_server_service.dart';
+import 'package:front_porch_ai/services/web/web_server_host.dart';
+import 'package:front_porch_ai/ui/dialogs/web_access_setup_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/rocm_guidance_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/database_cleanup_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/generate_kcpps_dialog.dart';
@@ -1970,7 +1971,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 24),
           _buildSectionHeader('Web Server', context),
           const SizedBox(height: 8),
-          Consumer2<StorageService, WebServerService>(
+          Consumer2<StorageService, WebServerHost>(
             builder: (context, storage, webServer, _) {
               return Container(
                 padding: const EdgeInsets.all(12),
@@ -2008,6 +2009,10 @@ class _SettingsPageState extends State<SettingsPage> {
                             await storage.setWebServerEnabled(val);
                             if (val) {
                               await webServer.start(storage.webServerPort);
+                              // Guide the user through how they'll reach it.
+                              if (context.mounted) {
+                                await WebAccessSetupDialog.show(context);
+                              }
                             } else {
                               await webServer.stop();
                             }
@@ -2065,55 +2070,13 @@ class _SettingsPageState extends State<SettingsPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('PIN', style: theme.textTheme.bodySmall),
+                                Text('Login', style: theme.textTheme.bodySmall),
                                 const SizedBox(height: 4),
-                                SizedBox(
-                                  width: 120,
-                                  child: TextFormField(
-                                    initialValue: storage.webServerPin,
-                                    keyboardType: TextInputType.number,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      letterSpacing: 4,
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: theme.scaffoldBackgroundColor,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
-                                          ),
-                                      hintText: '6 digits',
-                                      hintStyle: TextStyle(
-                                        color: Colors.white24,
-                                        letterSpacing: 1,
-                                      ),
-                                    ),
-                                    maxLength: 6,
-                                    buildCounter:
-                                        (
-                                          _, {
-                                          required currentLength,
-                                          required isFocused,
-                                          maxLength,
-                                        }) => null,
-                                    onFieldSubmitted: (val) async {
-                                      if (val.length >= 4 &&
-                                          int.tryParse(val) != null) {
-                                        await storage.setWebServerPin(val);
-                                      }
-                                    },
-                                    onChanged: (val) async {
-                                      if (val.length == 6 &&
-                                          int.tryParse(val) != null) {
-                                        await storage.setWebServerPin(val);
-                                      }
-                                    },
+                                const Text(
+                                  'Account + optional 2FA\n(create it in the browser)',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ],

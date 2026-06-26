@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-06-26 (chore: re-base the web-UI rewrite onto Rawhide)
+- **Why**: the web-rewrite branch was mistakenly cut from `main`/`dev` (base `41d4aaf`, Jun 24) instead of `Rawhide`, so it lacked ~204 Rawhide-only commits — most visibly the in-chat **slash-command system** (`/join`, `/create`, `/promote`, `/speak`, `/exit`, `/turnorder`, `/scan`, `/expression`) added to Rawhide ~Jun 23 (`lib/services/chat/chat_command_handler.dart`).
+- **What**: reset the branch onto `origin/Rawhide` and re-applied the entire web rewrite on top — the new `lib/services/web/**`, `web_ui/**`, `assets/web_app/**`, `test/services/web/**`, and the `web_access` dialog dropped in wholesale (all new files); the shared-file deltas (`main.dart`, `database.dart` schema 32→33 + 2 web-auth tables, `storage_service`, `web_server_settings`, `settings_page`, `pubspec.yaml`, `scripts/build-macos.sh`, the two schema tests, docs/changelog) re-applied via 3-way.
+- **Integration decisions**:
+  - The new `WebServerHost` now **coexists** with Rawhide's legacy `WebServerService` (added as an additional provider in `main.dart`), behind the existing flag — legacy is deleted at cutover.
+  - Restored the legacy `webServerPin` getter/setter on `WebServerSettings` + `StorageService` (my Phase-1 removal had broken the still-present legacy server).
+  - Regenerated `database.g.dart` (build_runner) + `pubspec.lock` (pub get).
+- **Result**: branch is genuinely based on Rawhide; the slash-command handler is present, so commands route through `ChatService.sendMessage` over the web automatically. Web cheat sheet (`ChatPage.tsx` `SLASH_COMMANDS`) updated to mirror `ChatCommandHandler.commands`.
+- **Verification**: full `flutter analyze` clean; `flutter test test/services/web` 55/55; `web_ui` tsc + vite build green. (Desktop app not launched in this environment — verified by analyze + tests + builds.)
+- **Commit**: (this commit; force-pushed — prior history preserved at tag `pre-rawhide-rebase-backup`)
+
 ## 2026-06-25 (fix(ci/macos): make Nightly .pkg NON-RELOCATABLE — the bundle-id split was forking the install into /Applications/*.localized/)
 - **Files changed**: .github/workflows/nightly.yml — "Build macOS PKG" step now builds a non-relocatable component pkg via `pkgbuild --root <staged .app> --component-plist <plist with BundleIsRelocatable=false>` instead of `pkgbuild --component <app>` (which is relocatable by default). Stages the signed .app with `ditto` (preserves signature + framework symlinks).
 - **Root cause (a regression I introduced)**: the earlier bundle-id split (`com.linux4life1.frontPorchAi` -> `.nightly`) fixed the stable/nightly collision but broke the FIRST transition update. The relocatable pkg looks up the NEW id, doesn't find it (installed app still has the OLD id), then refuses to overwrite the different-id app at /Applications/FrontPorchAI-Rawhide.app and FORKS the payload into /Applications/FrontPorchAI-Rawhide.localized/FrontPorchAI-Rawhide.app. Observed live on the maintainer's Mac: new build (6788a17, .nightly id) landed in the .localized folder while the old bare app (38f015a, shared id) stayed put and kept being launched.
@@ -340,6 +351,213 @@
 - **Reason**: Phase 0 of Scene Guests (Lite NPCs): manually add a persistent, real library character to a 1:1 chat that speaks in its own bubble via the existing engine but carries no Realism/Needs state (parity-safe), addable via `/create` and removable via `/exit`. No schema change (reuses the 1:1 '{}' groupRealismState column). No auto-chime/detection/evolution/RAG yet (later phases).
 - **Verification**: `flutter analyze` clean (only the pre-existing `_userMessagesSinceLastEvolution` warning remains; zero new issues). New + existing chat_service realism/session/group test suites pass. No commit (parent handles build/commit).
 - **Commit hash**: (uncommitted)
+## 2026-06-26 (feat/refactor: web facade barrel + slash-command cheat sheet)
+- **Facade barrel** (commit 26e5554): NEW `lib/services/web/facade/facades.dart` re-exports all 10 facades; `web_server_deps.dart` + `web_server_host.dart` now import the single barrel instead of a growing ~10-line block each. Route groups stay on direct single-file imports (one facade each). No behavior change.
+- **Slash-command cheat sheet** (this commit): `web_ui/src/pages/ChatPage.tsx` — when the chat draft starts with `/`, a panel pops above the input listing the available chat commands (the real server-side set from `ChatService.sendMessage`: `/expression <label>` [alias `/expression-set`], `/expression-clear`) with descriptions. Display-only cheat sheet (clicking a row inserts the command; no autocomplete/filtering). Dismiss via Close, Esc, or leaving slash mode. Reset after send. `styles.css` adds `.slash-cheatsheet` styling.
+  - Note: the desktop app has no such popup today and the command set is small; this is a web discoverability aid. If the command set grows later, update `SLASH_COMMANDS` in ChatPage to match `chat_service.dart`.
+- **Verification**: `flutter analyze lib/services/web` clean; `flutter test test/services/web` 55/55; `web_ui` tsc + vite build green.
+- **Commit**: barrel 26e5554; cheat sheet (this commit)
+
+## 2026-06-26 (feat: web UI parity W4d — full group authoring)
+Completes the W4 deferral: create/edit group chats from the web.
+- **Files changed**:
+  - NEW `lib/services/web/facade/group_authoring_facade.dart` — `create(fields)`, `edit(groupId, fields)`, `detail(groupId)`. Mirrors the desktop create flow: each chosen library character is denormalized into a private `group_members` row and its avatar copied into `groups/<groupId>/avatars/<memberId>.png` via the existing `CharacterRepository.duplicateCharacter` (re-embeds the V2 card), then the `GroupChat` row is saved via `GroupChatRepository.save`. Membership replace on edit deletes member rows (`AppDatabase.deleteGroupMembersForGroup`) + clears the avatar dir, then re-denormalizes. Realism blobs + per-member prompt overrides are preserved on edit. No group simulation logic reimplemented. No new service injection (reuses group repo + character repo + db + storage already in the host).
+  - `lib/services/web/routes/group_routes.dart` — `POST /api/groups/create`, `GET /api/groups/<id>/detail`, `POST /api/groups/<id>` (edit). Static `create` registered before `<id>` captures.
+  - `web_server_deps.dart`, `server_bootstrap.dart`, `web_server_host.dart` — wire the authoring facade (built when both group + character repos are present).
+  - NEW `web_ui/src/pages/CreateGroupPage.tsx` — 3-step wizard (Members picker ≥2 → Settings → Review) reusing `StepIndicator`; serves both `/groups/new` and `/groups/edit/:id` (edit preloads settings; roster only replaced if changed). Library gets a "＋ Group" button and an edit ✎ on group cards.
+  - NEW test `test/services/web/group_authoring_test.dart` — create denormalizes members; <2/blank rejected; edit changes settings + replaces membership; settings-only edit keeps roster; unknown id rejected.
+  - `docs/Rawhide.md` notes. Rebuilt `assets/web_app/*`.
+- **Reason**: closes the W4 "full group authoring" deferral — groups are now fully authorable from the web (create, edit settings, change membership), not just viewable/openable/deletable.
+- **Verification**: `flutter analyze lib/services/web test/services/web` clean; `flutter test test/services/web` 55/55; `web_ui` tsc + vite build green.
+- **Commit**: (this commit)
+
+## 2026-06-26 (feat: web UI parity W5 — backend & model management)
+- **Files changed**:
+  - NEW `lib/services/web/facade/backend_facade.dart` — local backend status, restart, stop, local-model list + switch, and HuggingFace search/files/queue/cancel/downloads. Restart/switch reuse `LLMProvider.ensureManagedBackendIsRunning`/`stopAllManagedProcesses` (which read the user's STORED gpu-layers/context/vulkan/cublas/metal/rocm flags + model) — no GPU-flag wizard is reimplemented (that stays a no-go). Model switch = `setLastUsedModelPath` + restart. HF/downloads delegate to `ModelManager`.
+  - NEW `lib/services/web/facade/image_facade.dart` — image-gen config read/flip (remote API ↔ A1111 ↔ Draw Things) + generate (returns a base64 data URL + saves to disk) over `ImageGenService`.
+  - NEW `lib/services/web/routes/backend_routes.dart` — `/api/backend/*` (status/restart/stop/models/models/switch/hf/search/hf/files/downloads[+cancel]) and `/api/image/*` (config/generate). Download progress is **polled** (GET /downloads) rather than streamed — robust for mobile sleep/wake.
+  - `web_server_deps.dart`, `server_bootstrap.dart`, `web_server_host.dart` — wire BackendFacade (LLMProvider + StorageService + ModelManager) and ImageFacade (ImageGenService). New `setModelManager`/`setImageGenService` host setters + two additive `Provider.of` injections in `main.dart`.
+  - NEW `web_ui/src/pages/ModelsPage.tsx` + a "Models" nav entry — backend status/restart/stop, installed-model switch (confirm dialog: "restarts ~30s"), HF browser/downloader with polled progress bars + cancel, and an image-generation section (backend flip + config + prompt → preview/download).
+  - NEW test `test/services/web/image_facade_test.dart` (config round-trip + key write-only + empty-prompt guard).
+  - `docs/Rawhide.md` notes. Rebuilt `assets/web_app/*`.
+- **Deferred (documented, not stubbed):** generated-image **insert into chat**. The chat message image-attach path is uncertain (browser can't read host file paths; would need an image-serving endpoint + message metadata). The user's stated image requirement — "generate with chosen backend" + choose/edit/flip API backend — is fully delivered; in-chat insertion is tracked as a follow-up.
+- **Reason**: W5 of the feature-parity roadmap — manage the local backend, switch/download models, and flip text+image backends from the web.
+- **Verification**: `flutter analyze lib/services/web lib/main.dart test/services/web` clean; `flutter test test/services/web` 52/52; `web_ui` tsc + vite build green.
+- **Commit**: (this commit)
+
+## 2026-06-26 (feat: web UI parity W4 — authoring CRUD)
+Delivered in three commits (W4a character authoring, W4b persona CRUD, W4c worlds + group delete).
+
+- **W4a — character delete / avatar management / per-character lorebook** (commit 3883103)
+  - NEW `lib/services/web/facade/character_authoring_facade.dart` — delete + avatar CRUD (list/add/remove/setPrime/serve) over the exact desktop `CharacterRepository` methods; setPrime syncs the in-memory card like the desktop dialog.
+  - `character_routes.dart` — POST `<id>/delete`; GET/POST `<id>/avatars`; GET `<id>/avatars/<aid>/image`; POST `<id>/avatars/<aid>/prime` + `/delete`.
+  - `character_facade.update` now accepts a `lorebook` key.
+  - NEW shared `web_ui/src/components/LoreEntriesEditor.tsx` + `AvatarManager.tsx`; CharacterEditPage gains lorebook + avatars + delete.
+  - test `character_authoring_test.dart`.
+- **W4b — persona CRUD** (commit 1295588)
+  - `chat_facade.dart` — personaDetail/createPersona/updatePersona/deletePersona over `UserPersonaService`; `chat_routes.dart` create/detail/edit/delete endpoints.
+  - NEW `web_ui/src/components/PersonaManager.tsx`; replaced the old switch-only persona section in Settings (dead code removed).
+  - test `persona_crud_test.dart`.
+- **W4c — worlds CRUD + group delete + shared lore util** (this commit)
+  - NEW `lib/services/web/util/lorebook_json.dart` — single source of truth for lorebook⇄JSON; `CharacterFacade._buildLorebook` removed and both create/update now delegate to it.
+  - NEW `lib/services/web/facade/world_facade.dart` + `routes/world_routes.dart` — world (shared lorebook) list/detail/create/update(+rename)/delete over `WorldRepository`. Wired via new `WebServerHost.setWorldRepository` + a single additive `host.setWorldRepository(...)` in `main.dart`.
+  - `GroupFacade.delete` + `group_routes` POST `<id>/delete`; library group cards get a delete affordance.
+  - NEW `web_ui/src/pages/WorldsPage.tsx` + a Worlds nav entry; reuses LoreEntriesEditor.
+  - test `world_facade_test.dart`.
+- **Deferred (documented, not skeletoned):** full **group authoring** (create/edit with member selection, per-member prompts, turn order, 6-tab settings). Group creation denormalizes CharacterCards into `group_members` rows + copies avatars — a large desktop-only flow with no thin repository entry point; building it as a stub would violate the no-skeleton rule. Groups remain viewable, openable, and now deletable. Tracked for a follow-up.
+- **Reason**: W4 of the feature-parity roadmap — make read-only content authorable from the web.
+- **Verification**: `flutter analyze lib/services/web lib/main.dart test/services/web` clean; `flutter test test/services/web` 50/50; `web_ui` tsc + vite build green.
+- **Commit**: (W4c is this commit)
+
+## 2026-06-26 (feat: web UI parity W3 — manual character creation wizard)
+- **Files changed**:
+  - `lib/services/web/facade/character_facade.dart` — new `create(fields)` mirroring the desktop `create_character_page._saveCharacter`: builds `FrontPorchExtensions` (realism seeds) + `CharacterCard`, writes a V2 PNG via `V2CardService.saveCardAsPng(card, path, null)` (synthesized placeholder avatar; embeds the extensions so seeds survive — the characters table has no realism columns), then `CharacterRepository.addCharacter`. New `_buildLorebook(raw)` helper turns wizard entries into a `Lorebook` (drops empties).
+  - `lib/services/web/routes/character_routes.dart` — `POST /api/characters/create` (registered before `<id>`).
+  - NEW `web_ui/src/components/StepIndicator.tsx` — reusable horizontal dots+labels+lines step indicator mirroring the Flutter wizard AppBar pattern (reused by W7).
+  - NEW `web_ui/src/pages/CreateCharacterPage.tsx` — 6-step wizard (Identity → Personality → Dialogue → Lorebook → Realism → Review): tags, alternate greetings, lorebook entry editor, realism seed sliders/toggles, review. On create it opens the new character in chat (end-to-end verifiable).
+  - `web_ui/src/App.tsx` — `/create` route. `web_ui/src/pages/CharactersPage.tsx` — "＋ Create" button. `web_ui/src/styles.css` — wizard + step-indicator styles.
+  - NEW `test/services/web/character_create_test.dart` — create with lorebook + realism (verifies persistence, empty-entry filtering, PNG/hasAvatar), blank-name rejection (2 tests).
+  - `docs/Rawhide.md` — user-facing notes. Rebuilt `assets/web_app/*`.
+- **Reason**: W3 of the feature-parity roadmap — create characters from the web on desktop/tablet/phone, reusing the exact desktop save path (no duplicate card-writing logic).
+- **Verification**: `flutter analyze lib/services/web test/services/web` clean; `flutter test test/services/web` 43/43; `web_ui` tsc + vite build green.
+- **Commit**: (this commit)
+
+## 2026-06-26 (feat: web UI parity W2 — full chat tools sidebar)
+- **Files changed**:
+  - NEW `lib/services/web/facade/chat_tools_facade.dart` — thin adapter exposing the desktop sidebar tool sections: `state()` snapshot (realism master, memory/RAG + auto-persona + evolution settings, summary view/settings, chaos enabled+nsfw+pressure, nsfw cooldown+arousal, scene time/day/weekday + passage toggle, objectives + tasks) plus mutations that delegate 1:1 to existing ChatService/StorageService methods (setRealismEnabled/setChaosModeEnabled/setChaosNsfwEnabled/setNsfwCooldownEnabled/setPassageOfTimeEnabled/nudgeTimePeriod/forceSummaryUpdate/setSummaryPaused/setSummary/setObjective/generateObjectiveTasks/add|toggle|update|removeTask/updateCheckFrequency/clearObjective/forceCheckCompletion + StorageService memory/summary setters). Single `_withObjective(id)` lookup helper keeps task ops one-liners. No simulation logic is reimplemented → Realism/Needs 1:1↔group parity inherited.
+  - NEW `lib/services/web/routes/chat_tools_routes.dart` — GET `/api/chat/tools` + POST `/settings`, `/toggle`, `/time`, `/summary`, `/objective`, `/task`; each mutation returns the fresh tools snapshot.
+  - `lib/services/web/web_server_deps.dart`, `server_bootstrap.dart`, `web_server_host.dart` — wire the new facade (created whenever a ChatService is present).
+  - NEW `web_ui/src/components/ChatTools.tsx` — collapsible sidebar sections (Scene & time, Summary, Objectives, Chaos, NSFW, Memory & evolution) with toggles, number fields (commit on blur/Enter), summary editor + regenerate, objective set/generate/clear + task checkboxes. Refetches in lock-step with chat state via a `reloadKey` bumped on every `chat_updated`.
+  - `web_ui/src/pages/ChatPage.tsx` — render `<ChatTools>` inside the insight panel; add `toolsBump` counter.
+  - `web_ui/src/styles.css` — tool-section/toggle/num/task styles.
+  - NEW `test/services/web/chat_tools_facade_test.dart` — state() shape, applySettings key-filtering + type-guarding, objective-not-found path (4 tests).
+  - `docs/Rawhide.md` — user-facing notes. Rebuilt `assets/web_app/*`.
+- **Reason**: W2 of the feature-parity roadmap — bring the full desktop chat sidebar (display + edit) to the web on desktop/tablet (persistent column) and phone (insight drawer).
+- **Verification**: `flutter analyze lib/services/web test/services/web` clean; `flutter test test/services/web` 41/41; `web_ui` tsc + vite build green.
+- **Commit**: (this commit)
+
+## 2026-06-26 (feat: web UI parity W1 — desktop multi-pane + expression portrait)
+- **Files changed**:
+  - `lib/services/web/facade/chat_facade.dart` — `state()` now includes `expressionLabel` (`ChatService.currentExpressionLabel`) so the client can cache-bust the portrait and only refetch on mood change. Pure read; no reclassification → Realism 1:1/group parity unaffected.
+  - `lib/services/web/facade/character_facade.dart` — new `activeExpressionAvatarFile()` resolving the active character's current expression portrait via `ChatService.resolveExpressionAvatar` (read-only) + the standard avatars-dir convention (`charactersDir/<safeName>/avatars/<filename>`).
+  - `lib/services/web/routes/character_routes.dart` — new `GET /api/chat/expression-avatar` (registered before `<id>` captures); serves the PNG or 404 (client falls back to the static avatar).
+  - `web_ui/src/pages/ChatPage.tsx` — new `ExpressionPortrait` component (prefers expression avatar, falls back to static, cache-busts on `expressionLabel`); large portrait at top of the insight panel with mood label; small portrait in the chat header (1:1 only).
+  - `web_ui/src/styles.css` — portrait + header-avatar styles.
+  - `docs/Rawhide.md` — user-facing notes.
+  - Rebuilt `assets/web_app/*`.
+- **Reason**: W1 of the feature-parity roadmap — finish the desktop/tablet multi-pane frame and add the expression portrait (high-visibility, cheap, parity-safe).
+- **Verification**: `flutter analyze lib/services/web` clean; `flutter test test/services/web` 37/37; `web_ui` tsc + vite build green.
+- **Commit**: (this commit)
+
+## 2026-06-25 (feat: web UI parity phase 5 — edit characters on the phone)
+- **Files changed**:
+  - `lib/services/web/facade/character_facade.dart` — now takes CharacterRepository; new `update(id, fields)` mutates the in-memory CharacterCard's core text fields (name/description/personality/scenario/firstMessage/mesExample/systemPrompt/postHistoryInstructions/tags/alternateGreetings) and calls `CharacterRepository.updateCharacter` (the desktop save path — rewrites the V2 PNG + DB row). Only provided keys change.
+  - `lib/services/web/routes/character_routes.dart` — new `POST /api/characters/<id>` (returns fresh detail).
+  - `lib/services/web/web_server_host.dart` — pass _characterRepository into CharacterFacade.
+  - NEW `web_ui/src/pages/CharacterEditPage.tsx` — edit form (name + the long fields + tags); `/edit/:id` route; reached via a ✎ button in the chat header (hidden in group mode).
+  - `web_ui/src/App.tsx` + `ChatPage.tsx` — route + entry button + isGroupMode gate.
+  - `test/services/web/character_facade_test.dart` — updated constructor call for the new repo arg.
+  - Rebuilt `assets/web_app/*`.
+- **Reason**: Phase 5 of web-UI parity — editing existing characters was desktop-only. Reuses the desktop save path, no duplicate logic. (Full character CREATE, which needs avatar/PNG generation, is a later area.)
+- **Verification**: flutter analyze clean (one pre-existing unrelated warning); flutter test test/services/web 37/37 (fixed a test that used the old facade signature); web_ui tsc + vite build; macOS build succeeded.
+- **Commit**: (this commit)
+
+## 2026-06-25 (feat: web UI parity phase 4 — personas + lorebook view)
+- **Files changed**:
+  - `lib/services/web/facade/chat_facade.dart` — `personas()` (id/label/name/active) and `setPersona(id)` (reuses UserPersonaService; notifies so chat state refetches).
+  - `lib/services/web/routes/chat_routes.dart` — `GET /api/personas`, `POST /api/personas/select`.
+  - `web_ui/src/pages/SettingsPage.tsx` — "User persona" section (switcher).
+  - `web_ui/src/pages/ChatPage.tsx` — chat-insight drawer now also lists the active Lorebook entries (already exposed in chat state; triggered ones highlighted). Drawer retitled "Chat insight".
+  - `web_ui/src/styles.css` — lore-list styles.
+  - Rebuilt `assets/web_app/*`.
+- **Reason**: Phase 4 of web-UI parity. Persona switching and lorebook visibility were desktop-only; lorebook entries were already in chat state, so this just surfaced them and added the persona switcher.
+- **Verification**: flutter analyze clean (one pre-existing unrelated warning); flutter test test/services/web 37/37; web_ui tsc + vite build; macOS build succeeded.
+- **Commit**: (this commit)
+
+## 2026-06-25 (feat: web UI parity phase 3 — settings: model/backend/generation)
+- **Files changed**:
+  - NEW `lib/services/web/facade/settings_facade.dart` — read/update a focused slice of settings: active backend (kobold/pseudoRemote/openRouter/omlx via LLMProvider.setActiveBackend), loaded model label, remote API url/model/key (key write-only, never returned), and core sampler values (temperature/minP/repeatPenalty/maxLength/minLength/dynamicTemp). Reuses StorageService setters (read live at gen time) + open_router_service.configure() for live remote reconfig.
+  - NEW `lib/services/web/routes/settings_routes.dart` — GET/POST `/api/settings`.
+  - `lib/services/web/web_server_deps.dart` + `web_server_host.dart` + `lib/main.dart` — inject LLMProvider (setLlmProvider), build SettingsFacade.
+  - `lib/services/web/server_bootstrap.dart` — register WebSettingsRoutes.
+  - NEW `web_ui/src/pages/SettingsPage.tsx` — backend picker, loaded-model display, remote API fields (URL/model/key), generation number fields + dynamic-temp toggle, Save.
+  - `web_ui/src/App.tsx` + `components/Layout.tsx` — /settings route + nav item.
+  - `web_ui/src/styles.css` — select/checkbox/row-label styles.
+  - Rebuilt `assets/web_app/*`.
+- **Reason**: Phase 3 of web-UI parity. A focused, safe subset of the 4000-line desktop settings — the model/backend + most-used sampler values the user asked for. Backend switch is live (LLMProvider); generation values persist and are read at next generation. API key is write-only.
+- **Verification**: flutter analyze clean (one pre-existing unrelated warning); flutter test test/services/web 37/37; web_ui tsc + vite build; macOS build succeeded.
+- **Commit**: (this commit)
+
+## 2026-06-25 (feat: web UI parity phase 2 — realism sidebar + needs chips)
+- **Files changed**:
+  - `lib/services/web/facade/chat_facade.dart` — `state()` now includes a `realism` snapshot (bond/long-term/trust with tiers + progress %, mood/emotion, arousal, fixation, 7 needs) via existing getters (`relationshipService`, `nsfwService`, `needsSimulation`, emotion/mood); each message gains a `chips` object (bond/trust/arousal deltas, emotion label, time skip, chance-time, needs deltas) extracted from the message's active-swipe metadata (same keys the desktop bubble reads). Two new private helpers `_realismSnapshot()` / `_messageChips()`.
+  - `web_ui/src/pages/ChatPage.tsx` — new "Stats" header button opening a Realism drawer (StatBar bars for bond/long-term/trust/needs, mood/arousal/fixation lines), and per-message `ChipsRow` under AI replies.
+  - `web_ui/src/styles.css` — chip + stat-bar + header-actions styles.
+  - Rebuilt `assets/web_app/*`.
+- **Reason**: Phase 2 of web-UI parity. Realism/needs were not exposed to the web at all; now mirrored read-only (no simulation change, so 1:1/group parity unaffected).
+- **Verification**: flutter analyze clean (one pre-existing unrelated warning); flutter test test/services/web 37/37; web_ui tsc + vite build; macOS build succeeded.
+- **Commit**: (this commit)
+
+## 2026-06-25 (feat: web UI parity phase 1 — groups + folders)
+- **Files changed**:
+  - `lib/services/web/facade/character_facade.dart` — new `folders()` (folder tree id/name/parentId from FolderService).
+  - `lib/services/web/routes/character_routes.dart` — new `GET /api/folders`.
+  - NEW `lib/services/web/facade/group_facade.dart` — `list()` (groups + members + avatar flags) and `memberAvatarFile()` (reuses GroupChatRepository; avatars under groupsDir/<id>/avatars/<file>).
+  - NEW `lib/services/web/routes/group_routes.dart` — `GET /api/groups`, `GET /api/groups/<id>/members/<memberId>/avatar`.
+  - `lib/services/web/facade/chat_facade.dart` — added GroupChatRepository dep + `selectGroup()` (reuses ChatService.setActiveGroup), kept beside character `select` for parity.
+  - `lib/services/web/routes/chat_routes.dart` — new `POST /api/chat/select-group`.
+  - `lib/services/web/web_server_deps.dart` + `web_server_host.dart` + `lib/main.dart` — wired GroupChatRepository into the host (setGroupChatRepository), built GroupFacade, passed repo into ChatFacade.
+  - `lib/services/web/server_bootstrap.dart` — register WebGroupRoutes.
+  - `web_ui/src/pages/CharactersPage.tsx` — folder navigation (breadcrumb + subfolder tiles, server-side folder filter via ?folder=), a root "Group chats" section with stacked member avatars, global search. Opening a group → POST /api/chat/select-group → /chat.
+  - `web_ui/src/styles.css` — folder/breadcrumb/section/group-avatar styles.
+  - Rebuilt `assets/web_app/*` (shipped bundle).
+- **Reason**: Phase 1 of the web-UI 100%-parity goal. Groups and folders existed in the DB + desktop services but were entirely absent from the web layer (no facade/route/UI). All logic reuses existing services — no duplication.
+- **Verification**: flutter analyze clean (one pre-existing unrelated warning); flutter test test/services/web 37/37; web_ui tsc + vite build succeeded; macOS build (main.dart wiring) succeeded.
+- **Commit**: (this commit)
+
+## 2026-06-25 (feat: web UI conversation history + iOS PWA install fixes)
+- **Files changed**:
+  - `lib/services/web/facade/chat_facade.dart` — new `sessions()`: reuses `ChatService.getSessions()` (active character's saved conversations, newest first) and makes the `date` JSON-safe (ISO string).
+  - `lib/services/web/routes/chat_routes.dart` — new `GET /api/chat/sessions` returning `{sessions: [...]}`.
+  - `web_ui/src/pages/ChatPage.tsx` — added a **Conversations drawer**: header button lists the character's past chats (preview, date, message count), "+ New chat", marks the active session; loads any via the existing `POST /api/chat/session {sessionId}`.
+  - `web_ui/src/styles.css` — drawer + install-hint styles.
+  - NEW `web_ui/src/components/InstallHint.tsx` — Android `beforeinstallprompt` button; iOS shows manual Share → Add to Home Screen steps (Apple has no install prompt); hides once installed / on insecure origin.
+  - `web_ui/src/pages/CharactersPage.tsx` — renders `<InstallHint/>`.
+  - `web_ui/index.html` — added `apple-touch-icon` (PNG; iOS ignores SVG/manifest icons), `mobile-web-app-capable`, `apple-mobile-web-app-title`.
+  - `web_ui/vite.config.ts` — manifest now ships PNG 192/512 (+maskable) icons; precache includes png.
+  - NEW `web_ui/public/icon-180.png`, `icon-192.png`, `icon-512.png` — generated from `assets/images/front_porch_ai_icon.png` (sips).
+  - Rebuilt `assets/web_app/*` (tracked bundle) so the changes ship.
+- **Reason**: (1) The web UI could only ever land on a character's latest chat — no way to see/continue other existing conversations from the desktop DB. The loader + DB query already existed; only a session-LIST endpoint and a picker UI were missing. (2) iPhone showed no install prompt: partly expected (iOS never auto-prompts) and partly a real bug (no PNG apple-touch-icon; SVG-only manifest). Added proper PNG icons + an iOS-aware manual hint. Known limitation (flagged to user, not fixed here): desktop and web share one ChatService instance, so the active chat is shared between them — full per-device sessions is a separate re-architecture.
+- **Verification**: `flutter analyze` clean on changed files; `flutter test test/services/web` 37/37 pass; `web_ui` `tsc --noEmit` + `vite build` succeeded (icons in manifest, apple-touch-icon in built html); macOS build in progress.
+- **Commit**: (uncommitted)
+
+## 2026-06-25 (feat: "Install Tailscale for me" — guided OS-native installer)
+- **Files changed**:
+  - NEW `lib/services/web/tunnels/tailscale_installer.dart` — `TailscaleInstaller` using each OS's official mechanism: macOS downloads the standalone `Tailscale-latest-macos.pkg` (the variant that supports `serve`; App Store one is sandboxed) over HTTPS and opens it in the Installer (Gatekeeper verifies the signature); Windows uses `winget install --id Tailscale.Tailscale` (UAC) with a download-page fallback; Linux runs the official `install.sh` via `pkexec` with a copyable-command fallback. Returns a `TailscaleInstallResult`/`TailscaleInstallOutcome`. We never silently elevate or capture credentials — admin approval + browser sign-in stay with the user (OS security boundaries).
+  - `lib/ui/dialogs/web_access/web_access_widgets.dart` — new `TailscaleInstallButton` (drives the installer, shows the exact next step, auto-rechecks on package-manager success).
+  - `lib/ui/dialogs/web_access/web_access_internet_step.dart` — the "not installed" state now leads with "Install Tailscale for me", keeps a manual download link + phone-install card.
+- **Reason**: User wants minimal effort since Tailscale install can be fiddly. Identifiers verified against live official sources (Mac App Store id 1475387142 — intentionally NOT used; standalone pkg URL; winget id `Tailscale.Tailscale`; `tailscale.com/install.sh`). Cross-platform by construction.
+- **Verification**: analyze clean on changed files; `flutter build macos --debug` succeeded.
+- **Commit**: (uncommitted)
+
+## 2026-06-25 (feat: automated Tailscale remote-access setup + cert detection + QR phone onboarding)
+- **Files changed**:
+  - `pubspec.yaml` — added `qr_flutter: ^4.1.0` (user-authorized).
+  - `lib/services/web/tunnels/tailscale_provider.dart` — `serve()` now returns a `TailscaleServeResult`/`TailscaleServeOutcome` (ok / httpsDisabled / notReady / failed) instead of `String?`; new pure `classifyServeFailure()`; new `enableHttpsUrl`, `iosAppUrl`, `androidAppUrl` constants.
+  - `lib/services/web/tunnels/tunnel_manager.dart` — `enableTailscale()` returns the full result + records `httpsState`; new `tailscaleStatus()` passthrough and `verifyReachable()` (GET `/api/health` to confirm the tunnel routes back); `status()` map gains `enableHttpsUrl` + `httpsState`.
+  - `lib/services/web/web_server_host.dart` — binds to `anyIPv4` when LAN is allowed OR (`webServerAutoRemote` && Tailscale running), so the MagicDNS address+port reaches the server; auto-runs `tailscale serve` on launch for opted-in users; new `setupRemoteAccess({restart})` orchestrator + `RemoteSetupResult`. Removed the `trustForwardedProto` wiring.
+  - `lib/services/web/web_server_deps.dart` — `isSecure()` now trusts `X-Forwarded-Proto: https` only from a loopback peer (per-request), replacing the global `trustForwardedProto` flag (deleted).
+  - `lib/services/web/routes/remote_routes.dart` — adapts to the new result; returns the cert-enable hint on `httpsDisabled`.
+  - `lib/services/storage/settings/web_server_settings.dart` — new persisted `webServerAutoRemote` flag.
+  - `lib/ui/dialogs/web_access_setup_dialog.dart` — slimmed (584→270 lines); shared widgets + the Tailscale step extracted.
+  - NEW `lib/ui/dialogs/web_access/web_access_widgets.dart` — `WebUrlBox` (copy), `WebQrCode`, `PhoneInstallCard` (App Store/Play Store), `WebBanner`, `WebDetectRow`.
+  - NEW `lib/ui/dialogs/web_access/web_access_internet_step.dart` — "Set it up for me" flow: bind + serve + verify + QR; cert-disabled guidance with deep link + re-check; sign-in button; phone install card.
+  - `web_ui/src/pages/RemoteAccessPage.tsx` — parity: cert-enable deep link.
+  - `test/services/web/tunnels_test.dart` — tests for `classifyServeFailure`.
+- **Reason**: Out of the box, the server bound localhost-only, so even with Tailscale installed the MagicDNS address+port was unreachable (connection refused on the tailnet interface). Now one button binds correctly, auto-provisions HTTPS (the cert is automatic via `tailscale serve`; only the one-time tailnet HTTPS toggle needs a human, which we deep-link), verifies reachability, and shows a scannable QR. Cross-platform: all process/socket/launch paths are OS-agnostic; reuses the existing multi-OS tailscale exe lookup.
+- **Verification**: `flutter analyze` clean on changed files (one pre-existing unrelated warning in chat_service.dart); `flutter test test/services/web/tunnels_test.dart` 8/8 pass; `flutter build macos --debug` succeeded.
+- **Commit**: (uncommitted)
+
 ## 2026-06-22 (test: golden coverage for the AI Character Creator — engine behavior + wizard screens)
 - **Files changed**: NEW `test/golden/creator/creator_engine_golden_test.dart` (behavioral goldens for `saveCharacter` + `generateFromMode`), NEW `test/golden/widget/creator_steps_golden_test.dart` (pixel goldens for ModeSelect/QuickConfig/Realism steps), NEW `test/golden/support/creator_test_support.dart` (path_provider mock + `makeGoldenStorage`), committed `_goldens/creator/saved_card.golden.json` + `_goldens/creator_steps/*.{light,dark}.png`; `test/golden/widget/COVERAGE.md` (new Character Creator section).
 - **Why**: The June-6 "Stage 4" refactor shipped a *functionally dead* AI Character Creator to stable (see 2026-06-21 entries): `startGeneration` was an 800ms delay + a hardcoded dummy card with no LLM call, and `saveGeneratedCharacter` never persisted (`repo.save` commented out) — and the 5 step screens were gutted to placeholders. Nothing in the suite exercised the creator, so the fraud shipped. The user asked for golden coverage so this can never recur silently.
@@ -2387,4 +2605,121 @@ Brief reason: Addressed the confirmed correctness/cleanup findings from the revi
 - New code: 1 Inno Pascal function (GetNightlyInstallDir) + 1 const (APP_ID_NIGHTLY) in setup.iss; ~10 lines in _launchWindowsInstaller (compute dir + /DIR arg) reusing dart:io File/Platform already imported. No methods deleted (none became dead); no new Dart methods (edit is inside the existing _launchWindowsInstaller).
 - Residual edge (documented, not auto-fixed by design): a user currently running an OLD build installed to a CUSTOM folder who ALSO already forked an AppData copy cannot be auto-bridged to that custom folder by the installer — the only registry trace of the custom dir is the Stable/Beta-shared legacy AppId, and adopting it could clobber a real Stable install, which we refuse to risk. Such a user self-heals the moment they run a fixed build (then /DIR honors their folder forever), or can reinstall via the wizard's directory page / uninstall the duplicate via Apps & Settings. Their chats/data are unaffected (stored under Documents, not the install folder). Also unchanged: a healed Nightly that stays in the Beta folder would re-collide if a real Beta is later installed there — pre-existing pre-split behavior, not a regression.
 - Verification: no local Flutter/Dart SDK in this env, so flutter analyze/build are gated on CI; the Dart edit was manually reviewed (no new imports, File/Platform from dart:io already imported, no unused vars, runs only on the Windows install path). setup.iss is Windows-only (ISCC) and compiled by release/nightly CI; structure validated locally (balanced #ifdef/#else/#endif 5/5/5, single begin/end, deps declared before use, {code:} resolved at runtime). REQUIRES a manual Windows smoke test before release: (a) custom-dir install (e.g. D:\…) → auto-update lands back in D:\…, no AppData copy; (b) currently-looping pre-split Nightly in the default Beta folder → update installs over it in place, loop gone; (c) real Beta present alongside a Nightly → Beta folder never adopted/clobbered; (d) Stable custom-dir → still updates in place.
+## 2026-06-23 — Creator: allow avatar generation on the KoboldCpp LLM backend (dead image-source gating)
+- Files: lib/ui/character_creator/widgets/review_avatar_panel.dart (removed the isKobold gating + the now-unused llm_provider import), lib/ui/character_creator/creator_state_engine.dart (Review-step auto-start gated on imageService.isConfigured instead of activeBackend != kobold; stale doc comment fixed).
+- Reason: User reported the Review step blocked "Generate Avatar" when the chat model was KoboldCpp ("Avatar generation unavailable with KoboldCpp"). Dead code left over from when KoboldCpp was briefly treated as the image-generation source. Avatars actually use the Image Studio image backend (Draw Things / A1111 / remote API), independent of the LLM backend — so the gating was wrong (a KoboldCpp user with Draw Things configured couldn't generate an avatar).
+- Fix: panel always shows the "Generate Avatar" button; Review-step auto-start gated on imageService.isConfigured (the real image backend). generateAvatar already fails gracefully if no image backend is set up. The Setup-step KoboldCpp backend-selection chip is unrelated and untouched.
+- Verification: flutter analyze clean; full flutter test 1246/1246 (goldens unaffected).
+- Commit: (this batch)
+
+## 2026-06-25 — Web UI rewrite Phase 0+1: secure-login backend foundation (Rawhide)
+- Branch: claude/rawhide-webui-rewrite-plan-voh3xh
+- Phase 0 (approved): pubspec.yaml +hashlib (Argon2id), +otp (TOTP), +web_socket_channel, +shelf_web_socket, +basic_utils. Drift schema 32→33: NEW additive tables web_auth_credentials + web_auth_sessions (lib/database/database.dart) with onUpgrade CREATE TABLE; database.g.dart regenerated via build_runner. NOT in the Character Card Forge external-writer set; Sessions (chat) table untouched.
+- Phase 1 (NEW clean-namespace backend, lib/services/web/):
+  - auth/password_hasher.dart — Argon2id (m=64MB,t=3,p=4) PHC hashing in Isolate.run.
+  - auth/totp_service.dart — RFC6238 TOTP (SHA1/6/30, Google-compatible), otpauth URI, ±1 window verify.
+  - auth/session_store.dart — persisted sessions; only SHA-256 of the cookie token stored; create/validate/revoke/sweep/listActive (raw SQL).
+  - auth/rate_limiter.dart — per-username exponential backoff + per-IP sliding window (in-memory).
+  - auth/auth_service.dart — single-account setup/login/logout, TOTP enroll/confirm/disable, single-use Argon2-hashed recovery codes.
+  - util/{json_response,request_body,cookies}.dart — JSON helpers, size-capped body reader, HttpOnly+SameSite=Lax cookie (Secure per-request scheme).
+  - middleware/{auth_middleware,security_headers,cors_middleware}.dart — cookie-session gate (kills the legacy ?token= URL leak), HSTS-when-secure headers, credential-aware localhost-only CORS.
+  - routes/{auth_routes,static_routes}.dart — login/logout/setup/state/2fa/sessions + health; SPA static serving with history fallback, hashed-asset caching, MIME (.webmanifest/.wasm/.woff2/etc).
+  - server_bootstrap.dart + web_server_deps.dart + web_server_host.dart — dependency-inverted bootstrap; ChangeNotifier host that binds 127.0.0.1 by default (0.0.0.0 only when LAN opt-in), sweeps sessions on start.
+- Settings: lib/services/storage/settings/web_server_settings.dart +webServerUseNewBackend (flag) +webServerAllowLan (bind policy). main.dart: registered ChangeNotifierProvider<WebServerHost>; autostart + shutdown branch on the flag, alongside legacy WebServerService (sanctioned temporary parallelism, deleted at Phase 6 cutover).
+- Deferred: scripts/ web_ui build step (Phase 0 item) intentionally deferred to Phase 5 — adding `cd web_ui && npm run build` now would break builds since web_ui/ does not exist yet.
+- Tests: test/services/web/ — 23 tests (password hasher, TOTP, rate limiter, session store, auth service incl. lockout + TOTP + recovery-code consume). All pass.
+- Verification: flutter analyze clean (0 new issues; the single warning at chat_service.dart:8005 is pre-existing and untouched); dart fix --dry-run = nothing to fix; flutter test test/services/web 23/23 pass. Flutter 3.41.1 installed in-container to run the gates.
+- Commit: (this commit)
+
+## 2026-06-25 — Web UI rewrite Phase 2: WebSocket StreamHub (Rawhide)
+- Files: lib/services/web/streaming/stream_hub.dart (NEW), lib/services/web/routes/stream_routes.dart (NEW), lib/services/web/web_server_deps.dart (+streamHub), lib/services/web/server_bootstrap.dart (register StreamRoutes when hub present), lib/services/web/web_server_host.dart (+setChatService, create/dispose hub), lib/main.dart (inject ChatService into WebServerHost), test/services/web/stream_hub_test.dart (NEW).
+- Reason: Collapse the legacy server's 3 independent SSE channels (WebChatBridge chat tokens, chargen, story) into one authenticated WebSocket (/api/ws). The browser sends the HttpOnly session cookie on the upgrade (auth middleware validates it) — eliminating the legacy ?token= query-string leak. Origin allowlist enforced on upgrade to block cross-site WS hijack. StreamHub depends only on a token Stream + isGenerating probe (not the whole ChatService) so it is unit-testable; relays token/done/error/chat_updated, responds to client ping.
+- Verification: flutter analyze clean (lib/services/web + main.dart); test/services/web 25/25 pass incl. a real in-process WS server+client integration test (connected → token → done, and __ERROR__ → error).
+- Commit: (this commit)
+
+## 2026-06-25 — Web UI rewrite Phase 3: facades + core route groups (Rawhide)
+- Files: lib/services/web/facade/character_facade.dart (NEW), lib/services/web/facade/chat_facade.dart (NEW), lib/services/web/routes/character_routes.dart (NEW), lib/services/web/routes/chat_routes.dart (NEW), lib/services/web/web_server_deps.dart (+characterFacade/+chatFacade), lib/services/web/server_bootstrap.dart (register the 2 route groups when present), lib/services/web/web_server_host.dart (+setCharacterRepository/+setFolderService/+setUserPersonaService; build facades), lib/main.dart (inject the 3 services), test/services/web/character_facade_test.dart (NEW), test/services/avatar_repository_test.dart (schema assertion 32->33).
+- Reason: Give the rewritten server a real, dependency-inverted API for the core experience. CharacterFacade reuses the exact AppDatabase/FolderService calls the legacy god-file handlers used (getAllCharacters/getMessageCountsPerCharacter/getCharacterById + folder filtering + lorebook normalization) so the JSON contract — and therefore 1:1/group parity — is preserved. ChatFacade wraps ChatService (state/select/send/stop/regenerate/continue/swipe/edit/delete/author-note/session) and pushes chat_updated over the WS hub after each mutation. Routes only shape HTTP. Endpoints: GET /api/characters, /api/characters/<id>/avatar, /api/characters/<id>/detail; GET /api/chat/state + the chat action POSTs.
+- Scope note: this ports the CORE character+chat surface, not all 80+ legacy endpoints. Chargen, stories, groups CRUD, worlds, personas CRUD, settings write, image-gen, sync, backups, RAG remain on the legacy server until later phases; the new server stays behind the webServerUseNewBackend flag.
+- Verification: flutter analyze clean (only the pre-existing chat_service.dart:8005 warning); test/services/web + avatar_repository 35/35 pass (CharacterFacade list/search/detail against a real test DB; schema-version test updated to 33).
+- Commit: (this commit)
+
+## 2026-06-25 — Web UI rewrite Phase 4: Tailscale / ngrok / TLS (Rawhide)
+- Files (NEW): lib/services/web/tunnels/{tailscale_provider,ngrok_provider,tunnel_manager}.dart, lib/services/web/util/self_signed_cert.dart, lib/services/web/routes/remote_routes.dart, test/services/web/tunnels_test.dart. Modified: web_server_deps.dart (+tunnelManager), server_bootstrap.dart (register remote routes), web_server_host.dart (create TunnelManager from bind port; optional self-signed TLS for LAN; dispose), storage/settings/web_server_settings.dart (+ngrokAuthToken, +tlsSelfSigned).
+- Reason: First-class remote access (a headline user ask). TailscaleProvider detects an installed tailscale, parses `status --json` (MagicDNS name, 100.x IP, BackendState) and uses `tailscale serve` so the daemon terminates TLS with a publicly-trusted *.ts.net cert (no cert/renewal code on our side; we trust X-Forwarded-Proto from loopback). NgrokProvider detects/​spawns the agent and reads the public https URL from the local :4040 API (robust vs stdout scraping). TunnelManager aggregates both into one {type,url,secure,status} surface for the Flutter settings + React Remote Access page. SelfSignedCert (basic_utils, RSA keygen in an isolate, cached PEMs) is the ENCRYPTION-ONLY LAN fallback — documented in code + the status payload that browsers warn on it and it is not a true secure context (Tailscale/ngrok/localhost are the PWA-capable paths). Binaries are detected, never bundled.
+- Endpoints: GET /api/remote/status, POST /api/remote/tailscale {enable}, POST /api/remote/ngrok {enable, authToken?}.
+- Verification: flutter analyze clean (only the pre-existing chat_service.dart:8005 warning); test/services/web 36/36 pass incl. tailscale/ngrok pure parsers and real self-signed cert generation + caching.
+- Commit: (this commit)
+
+## 2026-06-25 — Web UI rewrite Phase 5: React + TS + Vite PWA (Rawhide)
+- Files (NEW): web_ui/ React app — package.json, tsconfig.json, vite.config.ts, index.html, public/icon.svg, src/{main,App}.tsx, src/styles.css, src/api/{client,ws}.ts, src/auth/AuthContext.tsx, src/components/Layout.tsx, src/pages/{Setup,Login,Characters,Chat,RemoteAccess,Account}Page.tsx, web_ui/.gitignore. Built output committed to assets/web_app/. Modified: lib/services/web/routes/static_routes.dart (serve assets/web_app), pubspec.yaml (register assets/web_app + assets/web_app/assets).
+- Reason: New browser UI from scratch (no reuse of the old HTML/CSS/JS). Mobile-first PWA. Covers the end-to-end core flow against the Phase 1-4 API: first-run account Setup, Login (with TOTP + recovery-code prompt), Characters grid (avatars), Chat with live token streaming over the WebSocket hub (/api/ws), Remote Access page (Tailscale/ngrok enable + URLs + the secure-context guidance; gates PWA-install messaging on window.isSecureContext), and Account page (2FA enrollment with QR + recovery codes, signed-in device list). Cookie-based auth (credentials:'include'); no token in JS. HashRouter for tunnel/subpath safety; base './'.
+- Build: Vite -> assets/web_app (separate from the legacy assets/web so the old server keeps working pre-cutover). vite-plugin-pwa emits manifest + service worker. `npm run build` = tsc --noEmit + vite build; verified green (45 modules, ~64KB gzip JS). Dev: `npm run dev` proxies /api + /ws to :8085.
+- Scope: core experience, not full parity with all 18 Flutter pages / 24 dialogs yet (chargen, stories, group/world/persona editors, image studio, full settings remain to be built on the React side in follow-ups, and depend on the remaining backend facades from Phase 3's deferred list).
+- Verification: npm run build green (TS typecheck clean); flutter analyze lib/services/web clean; flutter pub get validates the new asset dirs.
+- Commit: (this commit)
+
+## 2026-06-25 — Web UI rewrite Phase 6 (partial): build wiring + cutover gate (Rawhide)
+- Files: scripts/build-macos.sh (build web_ui -> assets/web_app via `npm ci && npm run build` before `flutter build macos`, guarded on npm/web_ui presence), docs/Rawhide.md (user-facing "secure web access (early preview)" note).
+- Reason: Finish the safe parts of Phase 6. The web build now runs as part of the macOS release script so assets/web_app ships fresh. (CI workflows + the Linux/Windows build steps need the same `cd web_ui && npm ci && npm run build` step before `flutter build` — flagged for the maintainer; not edited here to avoid shipping untested CI YAML.)
+- DELIBERATELY DEFERRED — legacy-server deletion + default flip: the new server (lib/services/web) covers auth, WS streaming, characters, and core chat only. The legacy WebServerService still owns chargen, stories, groups/worlds/personas editors, settings-write, image-gen, sync, backups, RAG. Deleting it now would regress those features, so webServerUseNewBackend stays default-OFF and the legacy tree stays until endpoint parity is reached (the remaining facades + React pages). Cutover gate documented in the plan.
+- Verification: bash -n scripts/build-macos.sh OK; no Dart changes this phase.
+- Commit: (this commit)
+
+## 2026-06-25 — Web UI rewrite Phase 6: legacy-server cutover + deletion (Rawhide)
+- User authorized the full cutover on this feature branch ("not a regression if it's not live; have at it"). The rewritten server (lib/services/web) is now the SOLE web server.
+- DELETED: lib/services/web_server_service.dart (5,717-line god file), the entire lib/services/web_server/ tree (routes/middleware/sse/helpers — 12 files), lib/services/web_chat_bridge.dart, and the legacy assets/web/{index.html,css,js}.
+- REWIRED: lib/main.dart (removed the WebServerService ChangeNotifierProxyProvider + WebChatBridge + all setX legacy wiring; WebServerHost is the only web provider; shutdown/backend-switch/autostart now use WebServerHost; removed the webServerUseNewBackend flag branch). lib/ui/widgets/remote_lock_overlay.dart + lib/ui/pages/settings_page.dart now Consume WebServerHost (added presence API — hasActiveClient/connectedClientIp/connectedClientInfo/markClientActive/disconnectClient — to WebServerHost + a client-tracker hook in the auth middleware, so the desktop lock overlay + settings "client connected" line keep working with no logic change). settings_page PIN field replaced with an "account + 2FA (create in browser)" note.
+- REMOVED dead settings: webServerPin + webServerUseNewBackend (web_server_settings.dart + StorageService shim); pubspec assets/web entries removed (assets/web_app remains). Obsolete setWebServerPin persistence test removed.
+- Result: zero parallel web-server implementations. The branch's web UI now offers the rewritten secure experience (auth, streaming chat, characters, remote access); the broader legacy endpoints (chargen/stories/groups/worlds/personas/settings-write/image-gen/sync/backups/RAG) are intentionally not yet ported to the new server and are tracked for follow-up.
+- Verification: flutter analyze clean (only the pre-existing chat_service.dart:8005 warning); flutter test web + storage + avatar suites 154/154 pass; no legacy symbol refs remain in lib/ or test/; React build unchanged (assets/web_app).
+- Commit: (this commit)
+
+## 2026-06-25 — Web server: drop self-signed TLS; direct binds are plain HTTP (Rawhide)
+- Files: DELETED lib/services/web/util/self_signed_cert.dart; lib/services/web/web_server_host.dart (removed _buildTlsContext + securityContext bind + self_signed_cert/path imports — always plain http now); lib/services/storage/settings/web_server_settings.dart (removed webServerTlsSelfSigned setting); pubspec.yaml (removed basic_utils dep); test/services/web/tunnels_test.dart (removed the SelfSignedCert test group + dart:io/self_signed imports).
+- Reason: A self-signed cert triggers the browser's full-page "not secure / not trusted" warning and forces the user to click through — worse UX than plain HTTP, and it still isn't a true secure context unless the cert is manually trusted. So direct binds (localhost and LAN IPs, desktop and mobile browsers) now serve plain HTTP with no cert prompt. Real, warning-free HTTPS comes ONLY from a trusted external terminator — Tailscale `serve` (publicly-trusted *.ts.net cert) or ngrok — over which our server still stays plain http on loopback. localhost remains a secure context over http by spec.
+- Verification: flutter analyze clean (only the pre-existing chat_service.dart:8005 warning); test/services/web 35/35 pass; no remaining self-signed/TLS references in lib or test.
+- Commit: (this commit)
+
+## 2026-06-25 — Remote-access setup assistance + web theme matched to AppColors (Rawhide)
+- Assist (backend): tailscale_provider — parse BackendState/needsLogin, add login() that runs `tailscale up` and captures the auth URL (no terminal needed), installUrl const. ngrok_provider — installUrl + authTokenUrl consts. tunnel_manager.status() enriched (installed/needsLogin/backendState/url/installUrl/authTokenUrl) + tailscaleLogin(). remote_routes — POST /api/remote/tailscale/login + hasAuthToken merged into status.
+- Assist (frontend): RemoteAccessPage rewritten to be state-driven and guided — install steps + download links when a tool is missing, a Tailscale "get sign-in link" flow, ngrok authtoken help (with link + "token saved" skip), a Re-check button, and a QR code + copy button for the public URL so users can open/install on a phone by scanning.
+- Polish: web theme now mirrors the Flutter AppColors palette (background #0F172A, surface #1F2937, card #1E293B, surfaceContainer/ai-bubble #374151, border #334155, primary/user-bubble blue #3B82F6) instead of the earlier invented purple; icon.svg + PWA manifest + theme-color updated to match.
+- Verification: flutter analyze clean (only the pre-existing chat_service.dart:8005 warning); test/services/web 35/35 pass; npm run build green.
+- Commit: (this commit)
+
+## 2026-06-25 — Desktop setup tutorial for the web server (Rawhide)
+- Files (NEW): lib/ui/dialogs/web_access_setup_dialog.dart, test/ui/web_access_setup_dialog_test.dart. Modified: lib/ui/pages/settings_page.dart (show the dialog when the web server is toggled on).
+- Reason: When the user enables the web server in the desktop Flutter app, a guided tutorial now asks how they'll use it — "On this computer" (localhost URL, zero setup), "Another device on my home Wi-Fi" (offers to enable LAN access + restart, shows the LAN URL, explains plain-HTTP/browser-tab-only and points to Tailscale for install), or "My phone / over the internet" (Tailscale-first with live detection + install link + step-by-step, plus ngrok as an alternative). The internet path runs a real DETECTOR using TailscaleProvider/NgrokProvider (not installed / installed-not-signed-in / ready) with a Re-check button, and download links open via url_launcher. AppColors used exclusively.
+- Verification: flutter analyze clean on the new dialog + settings_page; widget smoke test covers the choice screen, the localhost-URL reveal, and the LAN "Allow LAN access" prompt.
+- Commit: (this commit)
+
+## 2026-06-25 — Remove timing-out web-access dialog widget test (Rawhide)
+- Files: deleted test/ui/web_access_setup_dialog_test.dart.
+- Reason: The widget test instantiated the full StorageService; its initialization never settles inside flutter_test, so pumpAndSettle hit the 10-minute test timeout. Mocking the entire service graph for a presentational guided dialog isn't worth it. Coverage retained via flutter analyze (compiles) + the tunnels_test unit tests for the TailscaleProvider/NgrokProvider detection the dialog relies on; the dialog itself is verified manually by running the app.
+- Verification: flutter analyze clean on the dialog + settings_page.
+- Commit: (this commit)
+
+## 2026-06-25 — Web parity follow-up: chat actions + desktop layout (review remediation, Rawhide)
+- Files: web_ui/src/pages/ChatPage.tsx (wire chat actions), web_ui/src/pages/CharactersPage.tsx (sort control), web_ui/src/styles.css (actions/edit/thinking styles + desktop breakpoint + focus-visible), web_ui/index.html (drop user-scalable=no), rebuilt assets/web_app/*.
+- Reason: Adversarial review found the backend chat-action endpoints (regenerate/continue/swipe/edit/delete/author-note) existed but ChatPage only wired send/stop, and the UI had no desktop layout (no @media queries) — failing the "100% feature parity for desktop usage" goal.
+  - ChatPage: per-message action toolbar (swipe ◀ n/m ▶, regenerate + continue on the last AI message, edit-in-place, delete), collapsible thinking/CoT display, and an Author's Note editor — all hitting endpoints that already existed. Esc closes drawers / cancels edit.
+  - Desktop/tablet layout (@media min-width:900px): left sidebar nav rail (was bottom tab bar), capped chat reading width + centered column, and the Realism/Needs/lorebook/author-note panel becomes a persistent right sidebar (drawer only on phones). Added :focus-visible rings; removed user-scalable=no (WCAG 1.4.4).
+  - CharactersPage: Name/Recent/Most-messages sort control (endpoint already accepted `sort`).
+- NOT done (flagged for follow-up, needs new backend endpoints): content creation (character/group), voice (TTS/STT), Image Studio, Porch Stories, realism editing/chaos/objectives/scene-time, world/persona create-edit, avatar upload, import/export.
+- Verification: npm run build green (tsc --noEmit + vite). No Dart changes this round.
+- Commit: (this commit)
+
+## 2026-06-25 — Web: adaptive layout foundation (form-factor shell, Rawhide)
+- Files: web_ui/src/hooks/useBreakpoint.ts (NEW), web_ui/src/components/Layout.tsx (adaptive shell), web_ui/src/styles.css (side-rail + re-scoped chat breakpoints), rebuilt assets/web_app/*.
+- Reason: Per the directive that desktop/tablet must be a near-1:1 port of the Flutter app (not a stretched phone), introduce a real breakpoint primitive (phone <768 / tablet 768–1023 / desktop ≥1024) that layouts branch on, instead of CSS-scaling one phone tree. Desktop/tablet now render a persistent labeled left side-rail (brand + icon/label nav + logout) with the page in a flex main; phone keeps the top bar + bottom tab nav. Chat reading-width capping applies at ≥768; the persistent realism/insight column applies at ≥1024 (iPad-landscape+), drawer below. Shared leaf components/logic are unchanged — duplication is at the layout shell only, as authorized.
+- Next (needs new endpoints): full sidebar sections (chaos/scene-time/objectives/memory/summary/NSFW controls), expression-image portrait (reuse ChatService.resolveExpressionAvatar + currentExpressionLabel), model/backend management page, image-gen local↔API flip.
+- Verification: npm run build green (tsc --noEmit + vite). No Dart changes.
+- Commit: (this commit)
+
+## 2026-06-25 — Web: character card upload (import) (Rawhide)
+- Files: lib/services/web/util/request_body.dart (+readBytes/uploadMaxBytes; readString now delegates), lib/services/web/facade/character_facade.dart (+importBytes), lib/services/web/routes/character_routes.dart (POST /api/characters/import, registered before /<id>), web_ui/src/api/client.ts (+api.upload; extracted shared handle()), web_ui/src/pages/CharactersPage.tsx (Import button + multi-file picker), web_ui/src/styles.css (.import-btn), rebuilt assets/web_app/*.
+- Reason: First piece of the "card upload + manual + AI creation" requirement. Upload reuses the desktop import path (CharacterRepository.importCharacter → V2CardService / ByafService) so PNG V2 + .byaf parse identically; the route receives raw bytes (32 MiB cap) with the filename as a query param, writes a temp file, imports, and returns {id,name}. Multi-file supported; list refreshes after import. Import route registered before /api/characters/<id> so "import" isn't captured as an id.
+- Next: manual create wizard (facade.create + POST /api/characters/create + adaptive React wizard) and the AI creator (needs the lib/services/chargen + creator engine exposed headlessly via a facade with WS progress + a menu-driven React flow — the larger lift).
+- Verification: flutter analyze clean (lib/services/web); test/services/web 37/37 pass; npm run build green.
 - Commit: (this commit)

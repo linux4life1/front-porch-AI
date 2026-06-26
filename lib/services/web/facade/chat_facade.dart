@@ -1,0 +1,392 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:path/path.dart' as p;
+
+import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/chat_service.dart';
+import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/user_persona_service.dart';
+import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
+
+/// Thin adapter over [ChatService] for the rewritten web server. Mirrors the
+/// legacy chat handlers' JSON contract and pushes a `chat_updated` signal over
+/// the WebSocket hub after any state-changing action so clients refetch state.
+class ChatFacade {
+  ChatFacade(
+    this._chat,
+    this._characters,
+    this._personas,
+    this._hub,
+    this._groups,
+  );
+
+  final ChatService _chat;
+  final CharacterRepository _characters;
+  final UserPersonaService? _personas;
+  final StreamHub? _hub;
+  final GroupChatRepository? _groups;
+
+  /// Full chat state payload (matches legacy `/api/chat/state`).
+  Map<String, dynamic> state() {
+    final activeChar = _chat.activeCharacter;
+    final messages = _chat.messages.asMap().entries.map((e) {
+      final m = e.value;
+      final chips = _messageChips(m.activeMetadata);
+      return {
+        'index': e.key,
+        'sender': m.sender,
+        'text': m.displayText,
+        'isUser': m.isUser,
+        'hasThinking': m.hasThinking,
+        'thinkingContent': m.thinkingContent,
+        'thinkingDurationMs': m.thinkingDurationMs,
+        'swipeCount': m.swipes.length,
+        'swipeIndex': m.swipeIndex,
+        'characterId': m.characterId,
+        'chips': ?chips,
+      };
+    }).toList();
+
+    final lorebook = <Map<String, dynamic>>[];
+    void addEntries(Iterable<dynamic> entries, String prefix) {
+      for (final entry in entries) {
+        if (!entry.enabled) continue;
+        lorebook.add({
+          'key': entry.key,
+          'name': prefix.isEmpty
+              ? entry.displayName
+              : '$prefix: ${entry.displayName}',
+          'isTriggered': entry.isTriggered,
+          'constant': entry.constant,
+          'remainingDepth': entry.remainingDepth,
+        });
+      }
+    }
+
+    if (activeChar?.lorebook != null) {
+      addEntries(activeChar!.lorebook!.entries, '');
+    }
+    if (_chat.isGroupMode) {
+      for (final ch in _chat.groupCharacters) {
+        if (ch.lorebook != null) addEntries(ch.lorebook!.entries, ch.name);
+      }
+    }
+
+    return {
+      'character': activeChar != null
+          ? {'name': activeChar.name, 'id': activeChar.dbId}
+          : null,
+      'sessionId': _chat.currentSessionId,
+      'sessionName': _chat.sessionName,
+      'messages': messages,
+      'isGenerating': _chat.isGenerating,
+      'isGroupMode': _chat.isGroupMode,
+      'groupId': _chat.activeGroup?.id,
+      'groupMembers': _chat.isGroupMode
+          ? _chat.groupCharacters
+              .map((c) => {
+                    'name': c.name,
+                    'charId': c.imagePath != null
+                        ? p.basenameWithoutExtension(c.imagePath!)
+                        : c.name
+                            .replaceAll(RegExp(r'[^\w\s]'), '')
+                            .replaceAll(' ', '_'),
+                    'hasAvatar':
+                        c.imagePath != null && c.imagePath!.isNotEmpty,
+                    'dbId': c.dbId,
+                  })
+              .toList()
+          : null,
+      'tokensPerSecond': _chat.tokensPerSecond,
+      'tokensGenerated': _chat.tokensGenerated,
+      'authorNote': _chat.authorNote,
+      'authorNoteDepth': _chat.authorNoteStrength,
+      'summary': _chat.summary,
+      'summaryLastIndex': _chat.summaryLastIndex,
+      'summaryPaused': _chat.summaryPaused,
+      'isSummaryGenerating': _chat.isSummaryGenerating,
+      'greetingIndex': _chat.greetingIndex,
+      'totalGreetings': activeChar?.allGreetings.length ?? 1,
+      'userPersonaName': _personas?.persona.name ?? 'User',
+      'lorebook': lorebook,
+      'realism': _realismSnapshot(),
+      // Active expression label (mood) so the web client can cache-bust the
+      // expression portrait and only refetch when the mood actually changes.
+      // Read-only — no reclassification here, so 1:1/group parity is unaffected.
+      'expressionLabel': _chat.currentExpressionLabel,
+    };
+  }
+
+  /// Current Realism Engine state for the web sidebar — mirrors the desktop
+  /// realism section (bond/long-term/trust + tiers/progress, mood/emotion,
+  /// arousal, fixation, and the 7 Sims-style needs). Pure reads of existing
+  /// service getters; no simulation changes, so 1:1/group parity is unaffected.
+  Map<String, dynamic> _realismSnapshot() {
+    final rel = _chat.relationshipService;
+    final nsfw = _chat.nsfwService;
+    return {
+      'bond': {
+        'score': rel.affectionScore,
+        'tier': rel.shortTermTierName,
+        'percent': rel.shortTermProgressPercent,
+      },
+      'longTerm': {
+        'score': rel.longTermScore,
+        'tier': rel.longTermTierName,
+        'percent': rel.longTermProgressPercent,
+      },
+      'trust': {
+        'level': rel.trustLevel,
+        'tier': rel.trustTierName,
+        'percent': rel.trustProgressPercent,
+      },
+      'emotion': _chat.characterEmotion,
+      'emotionIntensity': _chat.emotionIntensity,
+      'mood': _chat.moodLabel,
+      'arousal': {
+        'level': nsfw.arousalLevel,
+        'tier': nsfw.arousalTierName,
+      },
+      'fixation': rel.activeFixation,
+      'needsEnabled': _chat.needsSimEnabled,
+      'needs':
+          _chat.needsSimEnabled ? _chat.needsSimulation.vector : <String, int>{},
+    };
+  }
+
+  /// Extract the per-message Realism chip deltas from a message's active-swipe
+  /// metadata (the same keys the desktop bubble reads), omitting zeros/empties.
+  Map<String, dynamic>? _messageChips(Map<String, dynamic>? md) {
+    if (md == null) return null;
+    final out = <String, dynamic>{};
+    for (final entry in const {
+      'bond_delta': 'bondDelta',
+      'trust_delta': 'trustDelta',
+      'arousal_delta': 'arousalDelta',
+    }.entries) {
+      final v = md[entry.key];
+      if (v is int && v != 0) out[entry.value] = v;
+    }
+    for (final entry in const {
+      'emotion_label': 'emotionLabel',
+      'bond_reason': 'bondReason',
+      'trust_reason': 'trustReason',
+      'time_skip_to': 'timeSkipTo',
+      'chance_time_event': 'chanceTimeEvent',
+    }.entries) {
+      final v = md[entry.key];
+      if (v is String && v.isNotEmpty) out[entry.value] = v;
+    }
+    final needs = md['needs_deltas'];
+    if (needs is Map) {
+      final nz = <String, dynamic>{};
+      needs.forEach((k, v) {
+        if (v is int && v != 0) nz[k.toString()] = v;
+      });
+      if (nz.isNotEmpty) out['needsDeltas'] = nz;
+    }
+    return out.isEmpty ? null : out;
+  }
+
+  /// Select the active character by its DB id. Returns false if not found.
+  Future<bool> select(String characterId) async {
+    final card =
+        _characters.characters.where((c) => c.dbId == characterId).firstOrNull;
+    if (card == null) return false;
+    await _chat.setActiveCharacter(card);
+    _notify();
+    return true;
+  }
+
+  /// Open a group chat as the active conversation. Returns false if the group
+  /// isn't found or groups aren't wired. Mirrors [select] for parity with the
+  /// desktop (which loads the group's last session via setActiveGroup).
+  Future<bool> selectGroup(String groupId) async {
+    final groups = _groups;
+    if (groups == null) return false;
+    final group = groups.getById(groupId);
+    if (group == null) return false;
+    await _chat.setActiveGroup(group, groupRepo: groups);
+    _notify();
+    return true;
+  }
+
+  void send(String text) {
+    _chat.sendMessage(text);
+    _notify();
+  }
+
+  void stop() {
+    _chat.stopGeneration();
+    _notify();
+  }
+
+  void regenerate() {
+    _chat.regenerateLastMessage();
+    _notify();
+  }
+
+  void continueGeneration() {
+    _chat.continueGeneration();
+    _notify();
+  }
+
+  void swipe(int messageIndex, int direction) {
+    _chat.swipeMessage(messageIndex, direction);
+    _notify();
+  }
+
+  void edit(int index, String text) {
+    _chat.editMessage(index, text);
+    _notify();
+  }
+
+  void delete(int index) {
+    _chat.deleteMessage(index);
+    _notify();
+  }
+
+  void setAuthorNote(String note, {int? strength}) {
+    _chat.setAuthorNote(note, strength: strength);
+    _notify();
+  }
+
+  /// All user personas (id, label, active flag) for the web persona switcher.
+  List<Map<String, dynamic>> personas() {
+    final svc = _personas;
+    if (svc == null) return const [];
+    final activeId = svc.persona.id;
+    return svc.personas
+        .map((p) => {
+              'id': p.id,
+              'label': p.displayLabel,
+              'name': p.name,
+              'active': p.id == activeId,
+            })
+        .toList();
+  }
+
+  /// Switch the active user persona. Returns false if personas aren't wired.
+  Future<bool> setPersona(String id) async {
+    final svc = _personas;
+    if (svc == null) return false;
+    await svc.setActivePersona(id);
+    _notify();
+    return true;
+  }
+
+  /// Full persona detail for the editor (text + name/title), or null if absent.
+  Map<String, dynamic>? personaDetail(String id) {
+    final svc = _personas;
+    if (svc == null) return null;
+    for (final p in svc.personas) {
+      if (p.id == id) {
+        return {
+          'id': p.id,
+          'title': p.title,
+          'name': p.name,
+          'persona': p.persona,
+        };
+      }
+    }
+    return null;
+  }
+
+  /// Create a new persona (and make it active, matching the desktop). Returns
+  /// false if personas aren't wired.
+  Future<bool> createPersona(Map<String, dynamic> f) async {
+    final svc = _personas;
+    if (svc == null) return false;
+    await svc.createPersona(
+      f['title']?.toString() ?? '',
+      f['name']?.toString() ?? 'User',
+      f['persona']?.toString() ?? '',
+      null,
+    );
+    _notify();
+    return true;
+  }
+
+  /// Edit an existing persona's text fields (only provided keys change).
+  Future<bool> updatePersona(String id, Map<String, dynamic> f) async {
+    final svc = _personas;
+    if (svc == null) return false;
+    UserPersona? existing;
+    for (final p in svc.personas) {
+      if (p.id == id) {
+        existing = p;
+        break;
+      }
+    }
+    if (existing == null) return false;
+    await svc.updatePersona(existing.copyWith(
+      title: f.containsKey('title') ? f['title']?.toString() : null,
+      name: f.containsKey('name') ? f['name']?.toString() : null,
+      persona: f.containsKey('persona') ? f['persona']?.toString() : null,
+    ));
+    _notify();
+    return true;
+  }
+
+  /// Delete a persona. The service refuses to delete the last one (throws),
+  /// which we surface as false. Returns false if personas aren't wired.
+  Future<bool> deletePersona(String id) async {
+    final svc = _personas;
+    if (svc == null) return false;
+    try {
+      await svc.deletePersona(id);
+    } catch (_) {
+      return false;
+    }
+    _notify();
+    return true;
+  }
+
+  /// All saved conversations for the currently-active character/group, newest
+  /// first — so the web UI can list past chats and let the user resume any of
+  /// them via [session]. Reuses ChatService's own session lister; only adapts
+  /// the `date` field to a JSON-safe ISO string.
+  Future<List<Map<String, dynamic>>> sessions() async {
+    final raw = await _chat.getSessions();
+    return raw.map((s) {
+      final date = s['date'];
+      return {
+        ...s,
+        'date': date is DateTime ? date.toIso8601String() : date,
+      };
+    }).toList();
+  }
+
+  /// New chat or load an existing session. Returns the resulting session id.
+  Future<String?> session({String? action, String? sessionId}) async {
+    if (action == 'new') {
+      await _chat.startNewChat();
+    } else if (sessionId != null) {
+      await _chat.loadSession(sessionId);
+    } else {
+      return null;
+    }
+    _notify();
+    return _chat.currentSessionId;
+  }
+
+  String? get currentSessionId => _chat.currentSessionId;
+
+  void _notify() => _hub?.broadcastChatUpdate();
+}

@@ -500,6 +500,49 @@ class GroupMembers extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Web UI secure-login account credentials (the rewritten web server's auth).
+///
+/// Single-account model: exactly one row with id 'local'. Replaces the old
+/// plaintext 6-digit web-server PIN. This is a NEW table (v33) — it is NOT in
+/// the Character Card Forge external-direct-writer set (characters/sessions/
+/// messages/avatar_images/sync_meta) and must never be confused with the chat
+/// [Sessions] table.
+class WebAuthCredentials extends Table {
+  TextColumn get id => text()(); // always 'local' for the single host account
+  TextColumn get username => text()();
+  TextColumn get passwordHash => text()(); // Argon2id PHC string (hashlib)
+  TextColumn get totpSecret => text().nullable()(); // base32, only if 2FA set up
+  BoolColumn get totpEnabled => boolean().withDefault(const Constant(false))();
+  TextColumn get recoveryCodes =>
+      text().nullable()(); // JSON array of Argon2id-hashed single-use codes
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Persisted web-login sessions (one row per signed-in device).
+///
+/// The raw cookie token is never stored — only its SHA-256 ([tokenHash]) — so a
+/// DB leak cannot be replayed as a live session. Time fields are epoch
+/// milliseconds for precise sliding-expiry math. NEW table (v33); not an
+/// external-writer table.
+class WebAuthSessions extends Table {
+  TextColumn get id => text()(); // internal row uuid (NOT the cookie value)
+  TextColumn get tokenHash => text()(); // SHA-256 hex of the raw cookie token
+  TextColumn get userId => text()(); // -> web_auth_credentials.id
+  IntColumn get createdAt => integer().withDefault(const Constant(0))();
+  IntColumn get lastSeenAt => integer().withDefault(const Constant(0))();
+  IntColumn get expiresAt => integer().withDefault(const Constant(0))();
+  TextColumn get userAgent => text().nullable()();
+  TextColumn get ip => text().nullable()();
+  BoolColumn get revoked => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 // ── Database Definition ─────────────────────────────────────────────────
 
 @DriftDatabase(
@@ -518,6 +561,8 @@ class GroupMembers extends Table {
     SyncMeta,
     AvatarImages,
     GroupMembers, // group-owned characters (clean break from library; see class docs)
+    WebAuthCredentials, // v33 — web secure-login account
+    WebAuthSessions, // v33 — persisted web-login sessions
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -957,7 +1002,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 32;
+  int get schemaVersion => 33;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1484,6 +1529,38 @@ class AppDatabase extends _$AppDatabase {
             'ALTER TABLE groups ADD COLUMN character_system_prompts TEXT NOT NULL DEFAULT "{}"',
           );
         } catch (_) {}
+      }
+      if (from < 33) {
+        // v32→v33: web secure-login tables for the rewritten web server.
+        // Replaces the old plaintext web-server PIN with username + Argon2id
+        // password + optional TOTP, and persists per-device sessions (so they
+        // survive app restart). Both are NEW tables — additive and outside the
+        // Character Card Forge external-writer set, so this cannot break it.
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS web_auth_credentials (
+            id TEXT NOT NULL PRIMARY KEY,
+            username TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            totp_secret TEXT,
+            totp_enabled INTEGER NOT NULL DEFAULT 0,
+            recovery_codes TEXT,
+            created_at INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS web_auth_sessions (
+            id TEXT NOT NULL PRIMARY KEY,
+            token_hash TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT 0,
+            last_seen_at INTEGER NOT NULL DEFAULT 0,
+            expires_at INTEGER NOT NULL DEFAULT 0,
+            user_agent TEXT,
+            ip TEXT,
+            revoked INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
       }
     },
   );

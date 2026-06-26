@@ -11336,6 +11336,1090 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
   }
 }
 
+class $WebAuthCredentialsTable extends WebAuthCredentials
+    with TableInfo<$WebAuthCredentialsTable, WebAuthCredential> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WebAuthCredentialsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _usernameMeta = const VerificationMeta(
+    'username',
+  );
+  @override
+  late final GeneratedColumn<String> username = GeneratedColumn<String>(
+    'username',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _passwordHashMeta = const VerificationMeta(
+    'passwordHash',
+  );
+  @override
+  late final GeneratedColumn<String> passwordHash = GeneratedColumn<String>(
+    'password_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totpSecretMeta = const VerificationMeta(
+    'totpSecret',
+  );
+  @override
+  late final GeneratedColumn<String> totpSecret = GeneratedColumn<String>(
+    'totp_secret',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _totpEnabledMeta = const VerificationMeta(
+    'totpEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> totpEnabled = GeneratedColumn<bool>(
+    'totp_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("totp_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _recoveryCodesMeta = const VerificationMeta(
+    'recoveryCodes',
+  );
+  @override
+  late final GeneratedColumn<String> recoveryCodes = GeneratedColumn<String>(
+    'recovery_codes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    username,
+    passwordHash,
+    totpSecret,
+    totpEnabled,
+    recoveryCodes,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'web_auth_credentials';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WebAuthCredential> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('username')) {
+      context.handle(
+        _usernameMeta,
+        username.isAcceptableOrUnknown(data['username']!, _usernameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_usernameMeta);
+    }
+    if (data.containsKey('password_hash')) {
+      context.handle(
+        _passwordHashMeta,
+        passwordHash.isAcceptableOrUnknown(
+          data['password_hash']!,
+          _passwordHashMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_passwordHashMeta);
+    }
+    if (data.containsKey('totp_secret')) {
+      context.handle(
+        _totpSecretMeta,
+        totpSecret.isAcceptableOrUnknown(data['totp_secret']!, _totpSecretMeta),
+      );
+    }
+    if (data.containsKey('totp_enabled')) {
+      context.handle(
+        _totpEnabledMeta,
+        totpEnabled.isAcceptableOrUnknown(
+          data['totp_enabled']!,
+          _totpEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recovery_codes')) {
+      context.handle(
+        _recoveryCodesMeta,
+        recoveryCodes.isAcceptableOrUnknown(
+          data['recovery_codes']!,
+          _recoveryCodesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WebAuthCredential map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WebAuthCredential(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      username: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}username'],
+      )!,
+      passwordHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}password_hash'],
+      )!,
+      totpSecret: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}totp_secret'],
+      ),
+      totpEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}totp_enabled'],
+      )!,
+      recoveryCodes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recovery_codes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $WebAuthCredentialsTable createAlias(String alias) {
+    return $WebAuthCredentialsTable(attachedDatabase, alias);
+  }
+}
+
+class WebAuthCredential extends DataClass
+    implements Insertable<WebAuthCredential> {
+  final String id;
+  final String username;
+  final String passwordHash;
+  final String? totpSecret;
+  final bool totpEnabled;
+  final String? recoveryCodes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const WebAuthCredential({
+    required this.id,
+    required this.username,
+    required this.passwordHash,
+    this.totpSecret,
+    required this.totpEnabled,
+    this.recoveryCodes,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['username'] = Variable<String>(username);
+    map['password_hash'] = Variable<String>(passwordHash);
+    if (!nullToAbsent || totpSecret != null) {
+      map['totp_secret'] = Variable<String>(totpSecret);
+    }
+    map['totp_enabled'] = Variable<bool>(totpEnabled);
+    if (!nullToAbsent || recoveryCodes != null) {
+      map['recovery_codes'] = Variable<String>(recoveryCodes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  WebAuthCredentialsCompanion toCompanion(bool nullToAbsent) {
+    return WebAuthCredentialsCompanion(
+      id: Value(id),
+      username: Value(username),
+      passwordHash: Value(passwordHash),
+      totpSecret: totpSecret == null && nullToAbsent
+          ? const Value.absent()
+          : Value(totpSecret),
+      totpEnabled: Value(totpEnabled),
+      recoveryCodes: recoveryCodes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recoveryCodes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory WebAuthCredential.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WebAuthCredential(
+      id: serializer.fromJson<String>(json['id']),
+      username: serializer.fromJson<String>(json['username']),
+      passwordHash: serializer.fromJson<String>(json['passwordHash']),
+      totpSecret: serializer.fromJson<String?>(json['totpSecret']),
+      totpEnabled: serializer.fromJson<bool>(json['totpEnabled']),
+      recoveryCodes: serializer.fromJson<String?>(json['recoveryCodes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'username': serializer.toJson<String>(username),
+      'passwordHash': serializer.toJson<String>(passwordHash),
+      'totpSecret': serializer.toJson<String?>(totpSecret),
+      'totpEnabled': serializer.toJson<bool>(totpEnabled),
+      'recoveryCodes': serializer.toJson<String?>(recoveryCodes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  WebAuthCredential copyWith({
+    String? id,
+    String? username,
+    String? passwordHash,
+    Value<String?> totpSecret = const Value.absent(),
+    bool? totpEnabled,
+    Value<String?> recoveryCodes = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => WebAuthCredential(
+    id: id ?? this.id,
+    username: username ?? this.username,
+    passwordHash: passwordHash ?? this.passwordHash,
+    totpSecret: totpSecret.present ? totpSecret.value : this.totpSecret,
+    totpEnabled: totpEnabled ?? this.totpEnabled,
+    recoveryCodes: recoveryCodes.present
+        ? recoveryCodes.value
+        : this.recoveryCodes,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  WebAuthCredential copyWithCompanion(WebAuthCredentialsCompanion data) {
+    return WebAuthCredential(
+      id: data.id.present ? data.id.value : this.id,
+      username: data.username.present ? data.username.value : this.username,
+      passwordHash: data.passwordHash.present
+          ? data.passwordHash.value
+          : this.passwordHash,
+      totpSecret: data.totpSecret.present
+          ? data.totpSecret.value
+          : this.totpSecret,
+      totpEnabled: data.totpEnabled.present
+          ? data.totpEnabled.value
+          : this.totpEnabled,
+      recoveryCodes: data.recoveryCodes.present
+          ? data.recoveryCodes.value
+          : this.recoveryCodes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebAuthCredential(')
+          ..write('id: $id, ')
+          ..write('username: $username, ')
+          ..write('passwordHash: $passwordHash, ')
+          ..write('totpSecret: $totpSecret, ')
+          ..write('totpEnabled: $totpEnabled, ')
+          ..write('recoveryCodes: $recoveryCodes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    username,
+    passwordHash,
+    totpSecret,
+    totpEnabled,
+    recoveryCodes,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WebAuthCredential &&
+          other.id == this.id &&
+          other.username == this.username &&
+          other.passwordHash == this.passwordHash &&
+          other.totpSecret == this.totpSecret &&
+          other.totpEnabled == this.totpEnabled &&
+          other.recoveryCodes == this.recoveryCodes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class WebAuthCredentialsCompanion extends UpdateCompanion<WebAuthCredential> {
+  final Value<String> id;
+  final Value<String> username;
+  final Value<String> passwordHash;
+  final Value<String?> totpSecret;
+  final Value<bool> totpEnabled;
+  final Value<String?> recoveryCodes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const WebAuthCredentialsCompanion({
+    this.id = const Value.absent(),
+    this.username = const Value.absent(),
+    this.passwordHash = const Value.absent(),
+    this.totpSecret = const Value.absent(),
+    this.totpEnabled = const Value.absent(),
+    this.recoveryCodes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WebAuthCredentialsCompanion.insert({
+    required String id,
+    required String username,
+    required String passwordHash,
+    this.totpSecret = const Value.absent(),
+    this.totpEnabled = const Value.absent(),
+    this.recoveryCodes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       username = Value(username),
+       passwordHash = Value(passwordHash);
+  static Insertable<WebAuthCredential> custom({
+    Expression<String>? id,
+    Expression<String>? username,
+    Expression<String>? passwordHash,
+    Expression<String>? totpSecret,
+    Expression<bool>? totpEnabled,
+    Expression<String>? recoveryCodes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (username != null) 'username': username,
+      if (passwordHash != null) 'password_hash': passwordHash,
+      if (totpSecret != null) 'totp_secret': totpSecret,
+      if (totpEnabled != null) 'totp_enabled': totpEnabled,
+      if (recoveryCodes != null) 'recovery_codes': recoveryCodes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WebAuthCredentialsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? username,
+    Value<String>? passwordHash,
+    Value<String?>? totpSecret,
+    Value<bool>? totpEnabled,
+    Value<String?>? recoveryCodes,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return WebAuthCredentialsCompanion(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      passwordHash: passwordHash ?? this.passwordHash,
+      totpSecret: totpSecret ?? this.totpSecret,
+      totpEnabled: totpEnabled ?? this.totpEnabled,
+      recoveryCodes: recoveryCodes ?? this.recoveryCodes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (username.present) {
+      map['username'] = Variable<String>(username.value);
+    }
+    if (passwordHash.present) {
+      map['password_hash'] = Variable<String>(passwordHash.value);
+    }
+    if (totpSecret.present) {
+      map['totp_secret'] = Variable<String>(totpSecret.value);
+    }
+    if (totpEnabled.present) {
+      map['totp_enabled'] = Variable<bool>(totpEnabled.value);
+    }
+    if (recoveryCodes.present) {
+      map['recovery_codes'] = Variable<String>(recoveryCodes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebAuthCredentialsCompanion(')
+          ..write('id: $id, ')
+          ..write('username: $username, ')
+          ..write('passwordHash: $passwordHash, ')
+          ..write('totpSecret: $totpSecret, ')
+          ..write('totpEnabled: $totpEnabled, ')
+          ..write('recoveryCodes: $recoveryCodes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $WebAuthSessionsTable extends WebAuthSessions
+    with TableInfo<$WebAuthSessionsTable, WebAuthSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WebAuthSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tokenHashMeta = const VerificationMeta(
+    'tokenHash',
+  );
+  @override
+  late final GeneratedColumn<String> tokenHash = GeneratedColumn<String>(
+    'token_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastSeenAtMeta = const VerificationMeta(
+    'lastSeenAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastSeenAt = GeneratedColumn<int>(
+    'last_seen_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<int> expiresAt = GeneratedColumn<int>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _userAgentMeta = const VerificationMeta(
+    'userAgent',
+  );
+  @override
+  late final GeneratedColumn<String> userAgent = GeneratedColumn<String>(
+    'user_agent',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _ipMeta = const VerificationMeta('ip');
+  @override
+  late final GeneratedColumn<String> ip = GeneratedColumn<String>(
+    'ip',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revokedMeta = const VerificationMeta(
+    'revoked',
+  );
+  @override
+  late final GeneratedColumn<bool> revoked = GeneratedColumn<bool>(
+    'revoked',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("revoked" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tokenHash,
+    userId,
+    createdAt,
+    lastSeenAt,
+    expiresAt,
+    userAgent,
+    ip,
+    revoked,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'web_auth_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WebAuthSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('token_hash')) {
+      context.handle(
+        _tokenHashMeta,
+        tokenHash.isAcceptableOrUnknown(data['token_hash']!, _tokenHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tokenHashMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('last_seen_at')) {
+      context.handle(
+        _lastSeenAtMeta,
+        lastSeenAt.isAcceptableOrUnknown(
+          data['last_seen_at']!,
+          _lastSeenAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    }
+    if (data.containsKey('user_agent')) {
+      context.handle(
+        _userAgentMeta,
+        userAgent.isAcceptableOrUnknown(data['user_agent']!, _userAgentMeta),
+      );
+    }
+    if (data.containsKey('ip')) {
+      context.handle(_ipMeta, ip.isAcceptableOrUnknown(data['ip']!, _ipMeta));
+    }
+    if (data.containsKey('revoked')) {
+      context.handle(
+        _revokedMeta,
+        revoked.isAcceptableOrUnknown(data['revoked']!, _revokedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WebAuthSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WebAuthSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      tokenHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}token_hash'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastSeenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_seen_at'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      userAgent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_agent'],
+      ),
+      ip: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ip'],
+      ),
+      revoked: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}revoked'],
+      )!,
+    );
+  }
+
+  @override
+  $WebAuthSessionsTable createAlias(String alias) {
+    return $WebAuthSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class WebAuthSession extends DataClass implements Insertable<WebAuthSession> {
+  final String id;
+  final String tokenHash;
+  final String userId;
+  final int createdAt;
+  final int lastSeenAt;
+  final int expiresAt;
+  final String? userAgent;
+  final String? ip;
+  final bool revoked;
+  const WebAuthSession({
+    required this.id,
+    required this.tokenHash,
+    required this.userId,
+    required this.createdAt,
+    required this.lastSeenAt,
+    required this.expiresAt,
+    this.userAgent,
+    this.ip,
+    required this.revoked,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['token_hash'] = Variable<String>(tokenHash);
+    map['user_id'] = Variable<String>(userId);
+    map['created_at'] = Variable<int>(createdAt);
+    map['last_seen_at'] = Variable<int>(lastSeenAt);
+    map['expires_at'] = Variable<int>(expiresAt);
+    if (!nullToAbsent || userAgent != null) {
+      map['user_agent'] = Variable<String>(userAgent);
+    }
+    if (!nullToAbsent || ip != null) {
+      map['ip'] = Variable<String>(ip);
+    }
+    map['revoked'] = Variable<bool>(revoked);
+    return map;
+  }
+
+  WebAuthSessionsCompanion toCompanion(bool nullToAbsent) {
+    return WebAuthSessionsCompanion(
+      id: Value(id),
+      tokenHash: Value(tokenHash),
+      userId: Value(userId),
+      createdAt: Value(createdAt),
+      lastSeenAt: Value(lastSeenAt),
+      expiresAt: Value(expiresAt),
+      userAgent: userAgent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userAgent),
+      ip: ip == null && nullToAbsent ? const Value.absent() : Value(ip),
+      revoked: Value(revoked),
+    );
+  }
+
+  factory WebAuthSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WebAuthSession(
+      id: serializer.fromJson<String>(json['id']),
+      tokenHash: serializer.fromJson<String>(json['tokenHash']),
+      userId: serializer.fromJson<String>(json['userId']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      lastSeenAt: serializer.fromJson<int>(json['lastSeenAt']),
+      expiresAt: serializer.fromJson<int>(json['expiresAt']),
+      userAgent: serializer.fromJson<String?>(json['userAgent']),
+      ip: serializer.fromJson<String?>(json['ip']),
+      revoked: serializer.fromJson<bool>(json['revoked']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'tokenHash': serializer.toJson<String>(tokenHash),
+      'userId': serializer.toJson<String>(userId),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'lastSeenAt': serializer.toJson<int>(lastSeenAt),
+      'expiresAt': serializer.toJson<int>(expiresAt),
+      'userAgent': serializer.toJson<String?>(userAgent),
+      'ip': serializer.toJson<String?>(ip),
+      'revoked': serializer.toJson<bool>(revoked),
+    };
+  }
+
+  WebAuthSession copyWith({
+    String? id,
+    String? tokenHash,
+    String? userId,
+    int? createdAt,
+    int? lastSeenAt,
+    int? expiresAt,
+    Value<String?> userAgent = const Value.absent(),
+    Value<String?> ip = const Value.absent(),
+    bool? revoked,
+  }) => WebAuthSession(
+    id: id ?? this.id,
+    tokenHash: tokenHash ?? this.tokenHash,
+    userId: userId ?? this.userId,
+    createdAt: createdAt ?? this.createdAt,
+    lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    userAgent: userAgent.present ? userAgent.value : this.userAgent,
+    ip: ip.present ? ip.value : this.ip,
+    revoked: revoked ?? this.revoked,
+  );
+  WebAuthSession copyWithCompanion(WebAuthSessionsCompanion data) {
+    return WebAuthSession(
+      id: data.id.present ? data.id.value : this.id,
+      tokenHash: data.tokenHash.present ? data.tokenHash.value : this.tokenHash,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastSeenAt: data.lastSeenAt.present
+          ? data.lastSeenAt.value
+          : this.lastSeenAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      userAgent: data.userAgent.present ? data.userAgent.value : this.userAgent,
+      ip: data.ip.present ? data.ip.value : this.ip,
+      revoked: data.revoked.present ? data.revoked.value : this.revoked,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebAuthSession(')
+          ..write('id: $id, ')
+          ..write('tokenHash: $tokenHash, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('userAgent: $userAgent, ')
+          ..write('ip: $ip, ')
+          ..write('revoked: $revoked')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    tokenHash,
+    userId,
+    createdAt,
+    lastSeenAt,
+    expiresAt,
+    userAgent,
+    ip,
+    revoked,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WebAuthSession &&
+          other.id == this.id &&
+          other.tokenHash == this.tokenHash &&
+          other.userId == this.userId &&
+          other.createdAt == this.createdAt &&
+          other.lastSeenAt == this.lastSeenAt &&
+          other.expiresAt == this.expiresAt &&
+          other.userAgent == this.userAgent &&
+          other.ip == this.ip &&
+          other.revoked == this.revoked);
+}
+
+class WebAuthSessionsCompanion extends UpdateCompanion<WebAuthSession> {
+  final Value<String> id;
+  final Value<String> tokenHash;
+  final Value<String> userId;
+  final Value<int> createdAt;
+  final Value<int> lastSeenAt;
+  final Value<int> expiresAt;
+  final Value<String?> userAgent;
+  final Value<String?> ip;
+  final Value<bool> revoked;
+  final Value<int> rowid;
+  const WebAuthSessionsCompanion({
+    this.id = const Value.absent(),
+    this.tokenHash = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastSeenAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.userAgent = const Value.absent(),
+    this.ip = const Value.absent(),
+    this.revoked = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WebAuthSessionsCompanion.insert({
+    required String id,
+    required String tokenHash,
+    required String userId,
+    this.createdAt = const Value.absent(),
+    this.lastSeenAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.userAgent = const Value.absent(),
+    this.ip = const Value.absent(),
+    this.revoked = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       tokenHash = Value(tokenHash),
+       userId = Value(userId);
+  static Insertable<WebAuthSession> custom({
+    Expression<String>? id,
+    Expression<String>? tokenHash,
+    Expression<String>? userId,
+    Expression<int>? createdAt,
+    Expression<int>? lastSeenAt,
+    Expression<int>? expiresAt,
+    Expression<String>? userAgent,
+    Expression<String>? ip,
+    Expression<bool>? revoked,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tokenHash != null) 'token_hash': tokenHash,
+      if (userId != null) 'user_id': userId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (userAgent != null) 'user_agent': userAgent,
+      if (ip != null) 'ip': ip,
+      if (revoked != null) 'revoked': revoked,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WebAuthSessionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? tokenHash,
+    Value<String>? userId,
+    Value<int>? createdAt,
+    Value<int>? lastSeenAt,
+    Value<int>? expiresAt,
+    Value<String?>? userAgent,
+    Value<String?>? ip,
+    Value<bool>? revoked,
+    Value<int>? rowid,
+  }) {
+    return WebAuthSessionsCompanion(
+      id: id ?? this.id,
+      tokenHash: tokenHash ?? this.tokenHash,
+      userId: userId ?? this.userId,
+      createdAt: createdAt ?? this.createdAt,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      userAgent: userAgent ?? this.userAgent,
+      ip: ip ?? this.ip,
+      revoked: revoked ?? this.revoked,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (tokenHash.present) {
+      map['token_hash'] = Variable<String>(tokenHash.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (lastSeenAt.present) {
+      map['last_seen_at'] = Variable<int>(lastSeenAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<int>(expiresAt.value);
+    }
+    if (userAgent.present) {
+      map['user_agent'] = Variable<String>(userAgent.value);
+    }
+    if (ip.present) {
+      map['ip'] = Variable<String>(ip.value);
+    }
+    if (revoked.present) {
+      map['revoked'] = Variable<bool>(revoked.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebAuthSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('tokenHash: $tokenHash, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('userAgent: $userAgent, ')
+          ..write('ip: $ip, ')
+          ..write('revoked: $revoked, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -11356,6 +12440,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   late final $AvatarImagesTable avatarImages = $AvatarImagesTable(this);
   late final $GroupMembersTable groupMembers = $GroupMembersTable(this);
+  late final $WebAuthCredentialsTable webAuthCredentials =
+      $WebAuthCredentialsTable(this);
+  late final $WebAuthSessionsTable webAuthSessions = $WebAuthSessionsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -11375,6 +12464,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     syncMeta,
     avatarImages,
     groupMembers,
+    webAuthCredentials,
+    webAuthSessions,
   ];
 }
 
@@ -16621,6 +17712,568 @@ typedef $$GroupMembersTableProcessedTableManager =
       GroupMemberRow,
       PrefetchHooks Function()
     >;
+typedef $$WebAuthCredentialsTableCreateCompanionBuilder =
+    WebAuthCredentialsCompanion Function({
+      required String id,
+      required String username,
+      required String passwordHash,
+      Value<String?> totpSecret,
+      Value<bool> totpEnabled,
+      Value<String?> recoveryCodes,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$WebAuthCredentialsTableUpdateCompanionBuilder =
+    WebAuthCredentialsCompanion Function({
+      Value<String> id,
+      Value<String> username,
+      Value<String> passwordHash,
+      Value<String?> totpSecret,
+      Value<bool> totpEnabled,
+      Value<String?> recoveryCodes,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$WebAuthCredentialsTableFilterComposer
+    extends Composer<_$AppDatabase, $WebAuthCredentialsTable> {
+  $$WebAuthCredentialsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get username => $composableBuilder(
+    column: $table.username,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get totpSecret => $composableBuilder(
+    column: $table.totpSecret,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get totpEnabled => $composableBuilder(
+    column: $table.totpEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recoveryCodes => $composableBuilder(
+    column: $table.recoveryCodes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WebAuthCredentialsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WebAuthCredentialsTable> {
+  $$WebAuthCredentialsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get username => $composableBuilder(
+    column: $table.username,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get totpSecret => $composableBuilder(
+    column: $table.totpSecret,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get totpEnabled => $composableBuilder(
+    column: $table.totpEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recoveryCodes => $composableBuilder(
+    column: $table.recoveryCodes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WebAuthCredentialsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WebAuthCredentialsTable> {
+  $$WebAuthCredentialsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get username =>
+      $composableBuilder(column: $table.username, builder: (column) => column);
+
+  GeneratedColumn<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get totpSecret => $composableBuilder(
+    column: $table.totpSecret,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get totpEnabled => $composableBuilder(
+    column: $table.totpEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recoveryCodes => $composableBuilder(
+    column: $table.recoveryCodes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$WebAuthCredentialsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WebAuthCredentialsTable,
+          WebAuthCredential,
+          $$WebAuthCredentialsTableFilterComposer,
+          $$WebAuthCredentialsTableOrderingComposer,
+          $$WebAuthCredentialsTableAnnotationComposer,
+          $$WebAuthCredentialsTableCreateCompanionBuilder,
+          $$WebAuthCredentialsTableUpdateCompanionBuilder,
+          (
+            WebAuthCredential,
+            BaseReferences<
+              _$AppDatabase,
+              $WebAuthCredentialsTable,
+              WebAuthCredential
+            >,
+          ),
+          WebAuthCredential,
+          PrefetchHooks Function()
+        > {
+  $$WebAuthCredentialsTableTableManager(
+    _$AppDatabase db,
+    $WebAuthCredentialsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WebAuthCredentialsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WebAuthCredentialsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WebAuthCredentialsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> username = const Value.absent(),
+                Value<String> passwordHash = const Value.absent(),
+                Value<String?> totpSecret = const Value.absent(),
+                Value<bool> totpEnabled = const Value.absent(),
+                Value<String?> recoveryCodes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebAuthCredentialsCompanion(
+                id: id,
+                username: username,
+                passwordHash: passwordHash,
+                totpSecret: totpSecret,
+                totpEnabled: totpEnabled,
+                recoveryCodes: recoveryCodes,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String username,
+                required String passwordHash,
+                Value<String?> totpSecret = const Value.absent(),
+                Value<bool> totpEnabled = const Value.absent(),
+                Value<String?> recoveryCodes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebAuthCredentialsCompanion.insert(
+                id: id,
+                username: username,
+                passwordHash: passwordHash,
+                totpSecret: totpSecret,
+                totpEnabled: totpEnabled,
+                recoveryCodes: recoveryCodes,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WebAuthCredentialsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WebAuthCredentialsTable,
+      WebAuthCredential,
+      $$WebAuthCredentialsTableFilterComposer,
+      $$WebAuthCredentialsTableOrderingComposer,
+      $$WebAuthCredentialsTableAnnotationComposer,
+      $$WebAuthCredentialsTableCreateCompanionBuilder,
+      $$WebAuthCredentialsTableUpdateCompanionBuilder,
+      (
+        WebAuthCredential,
+        BaseReferences<
+          _$AppDatabase,
+          $WebAuthCredentialsTable,
+          WebAuthCredential
+        >,
+      ),
+      WebAuthCredential,
+      PrefetchHooks Function()
+    >;
+typedef $$WebAuthSessionsTableCreateCompanionBuilder =
+    WebAuthSessionsCompanion Function({
+      required String id,
+      required String tokenHash,
+      required String userId,
+      Value<int> createdAt,
+      Value<int> lastSeenAt,
+      Value<int> expiresAt,
+      Value<String?> userAgent,
+      Value<String?> ip,
+      Value<bool> revoked,
+      Value<int> rowid,
+    });
+typedef $$WebAuthSessionsTableUpdateCompanionBuilder =
+    WebAuthSessionsCompanion Function({
+      Value<String> id,
+      Value<String> tokenHash,
+      Value<String> userId,
+      Value<int> createdAt,
+      Value<int> lastSeenAt,
+      Value<int> expiresAt,
+      Value<String?> userAgent,
+      Value<String?> ip,
+      Value<bool> revoked,
+      Value<int> rowid,
+    });
+
+class $$WebAuthSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $WebAuthSessionsTable> {
+  $$WebAuthSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tokenHash => $composableBuilder(
+    column: $table.tokenHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userAgent => $composableBuilder(
+    column: $table.userAgent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ip => $composableBuilder(
+    column: $table.ip,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get revoked => $composableBuilder(
+    column: $table.revoked,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WebAuthSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WebAuthSessionsTable> {
+  $$WebAuthSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tokenHash => $composableBuilder(
+    column: $table.tokenHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userAgent => $composableBuilder(
+    column: $table.userAgent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ip => $composableBuilder(
+    column: $table.ip,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get revoked => $composableBuilder(
+    column: $table.revoked,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WebAuthSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WebAuthSessionsTable> {
+  $$WebAuthSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get tokenHash =>
+      $composableBuilder(column: $table.tokenHash, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<String> get userAgent =>
+      $composableBuilder(column: $table.userAgent, builder: (column) => column);
+
+  GeneratedColumn<String> get ip =>
+      $composableBuilder(column: $table.ip, builder: (column) => column);
+
+  GeneratedColumn<bool> get revoked =>
+      $composableBuilder(column: $table.revoked, builder: (column) => column);
+}
+
+class $$WebAuthSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WebAuthSessionsTable,
+          WebAuthSession,
+          $$WebAuthSessionsTableFilterComposer,
+          $$WebAuthSessionsTableOrderingComposer,
+          $$WebAuthSessionsTableAnnotationComposer,
+          $$WebAuthSessionsTableCreateCompanionBuilder,
+          $$WebAuthSessionsTableUpdateCompanionBuilder,
+          (
+            WebAuthSession,
+            BaseReferences<
+              _$AppDatabase,
+              $WebAuthSessionsTable,
+              WebAuthSession
+            >,
+          ),
+          WebAuthSession,
+          PrefetchHooks Function()
+        > {
+  $$WebAuthSessionsTableTableManager(
+    _$AppDatabase db,
+    $WebAuthSessionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WebAuthSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WebAuthSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WebAuthSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> tokenHash = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> lastSeenAt = const Value.absent(),
+                Value<int> expiresAt = const Value.absent(),
+                Value<String?> userAgent = const Value.absent(),
+                Value<String?> ip = const Value.absent(),
+                Value<bool> revoked = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebAuthSessionsCompanion(
+                id: id,
+                tokenHash: tokenHash,
+                userId: userId,
+                createdAt: createdAt,
+                lastSeenAt: lastSeenAt,
+                expiresAt: expiresAt,
+                userAgent: userAgent,
+                ip: ip,
+                revoked: revoked,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String tokenHash,
+                required String userId,
+                Value<int> createdAt = const Value.absent(),
+                Value<int> lastSeenAt = const Value.absent(),
+                Value<int> expiresAt = const Value.absent(),
+                Value<String?> userAgent = const Value.absent(),
+                Value<String?> ip = const Value.absent(),
+                Value<bool> revoked = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebAuthSessionsCompanion.insert(
+                id: id,
+                tokenHash: tokenHash,
+                userId: userId,
+                createdAt: createdAt,
+                lastSeenAt: lastSeenAt,
+                expiresAt: expiresAt,
+                userAgent: userAgent,
+                ip: ip,
+                revoked: revoked,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WebAuthSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WebAuthSessionsTable,
+      WebAuthSession,
+      $$WebAuthSessionsTableFilterComposer,
+      $$WebAuthSessionsTableOrderingComposer,
+      $$WebAuthSessionsTableAnnotationComposer,
+      $$WebAuthSessionsTableCreateCompanionBuilder,
+      $$WebAuthSessionsTableUpdateCompanionBuilder,
+      (
+        WebAuthSession,
+        BaseReferences<_$AppDatabase, $WebAuthSessionsTable, WebAuthSession>,
+      ),
+      WebAuthSession,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -16653,4 +18306,8 @@ class $AppDatabaseManager {
       $$AvatarImagesTableTableManager(_db, _db.avatarImages);
   $$GroupMembersTableTableManager get groupMembers =>
       $$GroupMembersTableTableManager(_db, _db.groupMembers);
+  $$WebAuthCredentialsTableTableManager get webAuthCredentials =>
+      $$WebAuthCredentialsTableTableManager(_db, _db.webAuthCredentials);
+  $$WebAuthSessionsTableTableManager get webAuthSessions =>
+      $$WebAuthSessionsTableTableManager(_db, _db.webAuthSessions);
 }

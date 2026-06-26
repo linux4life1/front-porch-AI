@@ -50,6 +50,7 @@ import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/audiobook_generator_service.dart';
 import 'package:front_porch_ai/services/file_consolidation_service.dart';
 import 'package:front_porch_ai/services/web_server_service.dart';
+import 'package:front_porch_ai/services/web/web_server_host.dart';
 import 'package:front_porch_ai/services/web_chat_bridge.dart';
 
 // Cloud provider implementations (not re-exported from the services barrel)
@@ -656,6 +657,45 @@ void main(List<String> args) async {
               Provider.of<StoryPipelineService>(context, listen: false),
             );
             return ws;
+          },
+        ),
+        // New web server (rewrite) — coexists with the legacy WebServerService
+        // behind the `webServerUseNewBackend` flag; the legacy provider above is
+        // deleted at cutover. Wires the same collaborators via setX.
+        ChangeNotifierProvider<WebServerHost>(
+          create: (context) {
+            final host = WebServerHost(
+              Provider.of<StorageService>(context, listen: false),
+            );
+            host.setDatabase(db);
+            host.setChatService(
+              Provider.of<ChatService>(context, listen: false),
+            );
+            host.setCharacterRepository(
+              Provider.of<CharacterRepository>(context, listen: false),
+            );
+            host.setGroupChatRepository(
+              Provider.of<GroupChatRepository>(context, listen: false),
+            );
+            host.setLlmProvider(
+              Provider.of<LLMProvider>(context, listen: false),
+            );
+            host.setFolderService(
+              Provider.of<FolderService>(context, listen: false),
+            );
+            host.setUserPersonaService(
+              Provider.of<UserPersonaService>(context, listen: false),
+            );
+            host.setWorldRepository(
+              Provider.of<WorldRepository>(context, listen: false),
+            );
+            host.setModelManager(
+              Provider.of<ModelManager>(context, listen: false),
+            );
+            host.setImageGenService(
+              Provider.of<ImageGenService>(context, listen: false),
+            );
+            return host;
           },
         ),
       ],

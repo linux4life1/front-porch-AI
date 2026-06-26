@@ -762,13 +762,8 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('web_server_port'), 9090);
     });
-
-    test('setWebServerPin persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.setWebServerPin('1234');
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('web_server_pin'), '1234');
-    });
+    // The legacy web-server PIN was removed in the web UI rewrite (replaced by a
+    // real account: Argon2id password + optional TOTP). No PIN setting to test.
   });
 
   // ─── Summary Settings ─────────────────────────────────────────────

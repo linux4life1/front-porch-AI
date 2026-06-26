@@ -1,0 +1,48 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+
+// The build is served by the rewritten Dart web server (lib/services/web)
+// from assets/web_app. `base: './'` keeps asset URLs relative so it works
+// behind any mount (localhost, Tailscale, ngrok). In dev, /api and /ws are
+// proxied to the running Flutter desktop app's web server on :8085.
+export default defineConfig({
+  base: './',
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: {
+        name: 'Front Porch AI',
+        short_name: 'Front Porch',
+        description: 'AI character chat — Front Porch AI',
+        theme_color: '#1f2937',
+        background_color: '#0f172a',
+        display: 'standalone',
+        start_url: './',
+        scope: './',
+        icons: [
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+        ],
+      },
+      workbox: {
+        navigateFallback: 'index.html',
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+      },
+    }),
+  ],
+  build: {
+    outDir: '../assets/web_app',
+    emptyOutDir: true,
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': { target: 'http://localhost:8085', changeOrigin: true },
+      '/ws': { target: 'ws://localhost:8085', ws: true },
+    },
+  },
+});

@@ -216,12 +216,13 @@ class StorageService extends ChangeNotifier {
   // Web server
   bool get webServerEnabled => webServerSettings.webServerEnabled;
   int get webServerPort => webServerSettings.webServerPort;
+  // Legacy PIN delegation — used only by the legacy WebServerService.
   String get webServerPin => webServerSettings.webServerPin;
+  Future<void> setWebServerPin(String v) =>
+      webServerSettings.setWebServerPin(v);
   Future<void> setWebServerEnabled(bool v) =>
       webServerSettings.setWebServerEnabled(v);
   Future<void> setWebServerPort(int v) => webServerSettings.setWebServerPort(v);
-  Future<void> setWebServerPin(String v) =>
-      webServerSettings.setWebServerPin(v);
 
   // TTS / STT / voice (directorDelay on tts; kv authoritative in backend, callBuffer in stt; thins route to canonical to avoid dupe state)
   bool get ttsEnabled => ttsSettings.ttsEnabled;

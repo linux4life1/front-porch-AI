@@ -46,6 +46,7 @@ dependencies:
   flutter_inappwebview: ^6.2.0-beta.3
   window_manager: ^0.5.1
   url_launcher: ^6.2.5
+  qr_flutter: ^4.1.0
   package_info_plus: ^9.0.0
   audioplayers: ^6.5.1
   webdav_client: ^1.2.2
@@ -58,6 +59,10 @@ dependencies:
   record: ^6.2.0
   shelf: ^1.4.2
   shelf_router: ^1.1.4
+  shelf_web_socket: ^2.0.0 # WebSocket upgrade handler for the streaming hub (Phase 2)
+  web_socket_channel: ^3.0.1 # WS channel abstraction (server + client/tests)
+  hashlib: ^1.21.0 # Argon2id password hashing for the web secure login
+  otp: ^3.1.4 # RFC 6238 TOTP for optional web-login 2FA
   simple_spell_checker: ^1.3.1
   simple_spell_checker_en_lan: ^1.3.1
   crop_your_image: ^2.0.0
@@ -95,9 +100,11 @@ flutter:
     - assets/images/
     - assets/backgrounds/
     - assets/audio/
-    - assets/web/
-    - assets/web/css/
-    - assets/web/js/
+    # React PWA (built from web_ui/ by `npm run build`). Served by the web
+    # server (lib/services/web) from assets/web_app. Directory entries are
+    # non-recursive, so the Vite assets/ subdir is listed explicitly.
+    - assets/web_app/
+    - assets/web_app/assets/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

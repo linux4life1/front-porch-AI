@@ -105,6 +105,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.3.0"
+  base32:
+    dependency: transitive
+    description:
+      name: base32
+      sha256: "37548444aaee8bd5e91db442ce69ee3a79d3652ed47c1fa7568aa3bb9af0aea5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.0"
   boolean_selector:
     dependency: transitive
     description:
@@ -536,6 +544,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.2"
+  hashlib:
+    dependency: "direct main"
+    description:
+      name: hashlib
+      sha256: f547a6273fa2bba211e903f32b234a6a7097aca1d218d2391f40021d25e7f200
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.24.0"
+  hashlib_codecs:
+    dependency: transitive
+    description:
+      name: hashlib_codecs
+      sha256: "8cea9ccafcfeaa7324d2ae52c61c69f7ff71f4237507a018caab31b9e416e3b1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.6.0"
   hooks:
     dependency: transitive
     description:
@@ -720,6 +744,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "9.3.0"
+  otp:
+    dependency: "direct main"
+    description:
+      name: otp
+      sha256: "998e73b5cd831a13fa654cf2cbb169d027f74b4928853ff26aa9311ead66ed7c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.0"
   package_config:
     dependency: transitive
     description:
@@ -872,6 +904,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.0"
+  qr:
+    dependency: transitive
+    description:
+      name: qr
+      sha256: "5a1d2586170e172b8a8c8470bbbffd5eb0cd38a66c0d77155ea138d3af3a4445"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.2"
+  qr_flutter:
+    dependency: "direct main"
+    description:
+      name: qr_flutter
+      sha256: "5095f0fc6e3f71d08adef8feccc8cea4f12eec18a2e31c2e8d82cb6019f4b097"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.1.0"
   recase:
     dependency: transitive
     description:
@@ -1057,13 +1105,13 @@ packages:
     source: hosted
     version: "1.1.4"
   shelf_web_socket:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: shelf_web_socket
-      sha256: "3632775c8e90d6c9712f883e633716432a27758216dfb61bd86a8321c0580925"
+      sha256: cc36c297b52866d203dbf9332263c94becc2fe0ceaa9681d07b6ef9807023b67
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.0"
+    version: "2.0.1"
   simple_spell_checker:
     dependency: "direct main"
     description:
@@ -1197,6 +1245,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.9"
+  timezone:
+    dependency: transitive
+    description:
+      name: timezone
+      sha256: dd14a3b83cfd7cb19e7888f1cbc20f258b8d71b54c06f79ac585f14093a287d1
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.10.1"
   typed_data:
     dependency: transitive
     description:
@@ -1318,7 +1374,7 @@ packages:
     source: hosted
     version: "1.0.1"
   web_socket_channel:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: web_socket_channel
       sha256: d645757fb0f4773d602444000a8131ff5d48c9e47adfe9772652dd1a4f2d45c8

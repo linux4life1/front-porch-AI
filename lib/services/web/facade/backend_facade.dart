@@ -1,0 +1,142 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/model_manager.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+
+/// Web adapter for local-backend lifecycle, local-model switching, and the
+/// HuggingFace model browser/downloader. Reuses [LLMProvider]'s managed-backend
+/// start/stop (which reads the user's stored GPU flags + model — so no GPU-flag
+/// wizard is reimplemented here) and [ModelManager]'s search/download queue.
+class BackendFacade {
+  BackendFacade(this._llm, this._storage, this._models);
+
+  final LLMProvider _llm;
+  final StorageService _storage;
+  final ModelManager _models;
+
+  /// Live backend status for the web Models page (read-only).
+  Map<String, dynamic> status() {
+    final k = _llm.koboldService;
+    return {
+      'backend': _storage.backendSettings.remoteModelName.isEmpty,
+      'isLocal': _llm.isLocal,
+      'running': k.isRunning,
+      'starting': k.isStarting,
+      'modelReady': k.modelReady,
+      'statusMessage': k.modelLoadingStatus,
+      'loadedModel': _loadedModelName(),
+    };
+  }
+
+  String _loadedModelName() {
+    final path = _storage.lastUsedModelPath;
+    if (path == null || path.isEmpty) return 'No model selected';
+    return path.split(RegExp(r'[/\\]')).last;
+  }
+
+  /// Restart the managed local backend with the current model + stored flags.
+  Future<void> restart() async {
+    await _llm.stopAllManagedProcesses();
+    await _llm.ensureManagedBackendIsRunning();
+  }
+
+  Future<void> stop() => _llm.stopAllManagedProcesses();
+
+  /// List installed local .gguf models (rescans disk first).
+  Future<List<Map<String, dynamic>>> localModels() async {
+    await _models.refreshModels();
+    final current = _storage.lastUsedModelPath;
+    return _models.localModels
+        .map((m) => {
+              'name': m.filename,
+              'path': m.path,
+              'sizeBytes': m.sizeBytes,
+              'quant': m.quantType.name,
+              'paramCountB': m.paramCountB,
+              'loaded': m.path == current,
+            })
+        .toList();
+  }
+
+  /// Switch the loaded local model and restart the backend so it takes effect.
+  /// Reuses the stored launch flags (no GPU config is exposed). Returns false if
+  /// the path isn't a known local model.
+  Future<bool> switchModel(String path) async {
+    final known = _models.localModels.any((m) => m.path == path);
+    if (!known) return false;
+    await _storage.backendSettings.setLastUsedModelPath(path);
+    await restart();
+    return true;
+  }
+
+  // ── HuggingFace browser + downloader ─────────────────────────────────────
+  Future<List<Map<String, dynamic>>> searchHf(String query) async {
+    final results = await _models.searchHFModels(query);
+    return results
+        .map((m) => {
+              'id': m.id,
+              'name': m.name,
+              'author': m.author,
+              'likes': m.likes,
+              'downloads': m.downloads,
+              'description': m.description,
+            })
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> modelFiles(String repoId) async {
+    final files = await _models.getModelFiles(repoId);
+    return files
+        .map((f) => {
+              'filename': f.filename,
+              'sizeBytes': f.sizeBytes,
+              'repoId': f.repoId,
+              'quant': f.quantType.name,
+            })
+        .toList();
+  }
+
+  /// Queue a GGUF file for download. The client supplies repoId + filename; we
+  /// re-resolve the typed [HFModelFile] so the download has the correct URL/hash.
+  /// Returns the new task id, or null if the file isn't found in the repo.
+  Future<String?> queueDownload(String repoId, String filename) async {
+    final files = await _models.getModelFiles(repoId);
+    for (final f in files) {
+      if (f.filename == filename) {
+        return _models.queueDownload(f).id;
+      }
+    }
+    return null;
+  }
+
+  bool cancelDownload(String taskId) => _models.cancelDownload(taskId);
+
+  /// Current download queue (for the web to poll progress while active).
+  List<Map<String, dynamic>> downloads() => _models.downloadManager.queue
+      .map((t) => {
+            'id': t.id,
+            'filename': t.filename,
+            'state': t.state.name,
+            'progress': t.progress,
+            'speedBytesPerSec': t.speedBytesPerSec,
+            'etaSeconds': t.etaSeconds,
+          })
+      .toList();
+}

@@ -102,6 +102,16 @@ if [ "$DO_ML" -eq 1 ]; then
   echo "==> Installing Flutter dependencies..."
   flutter pub get
 
+  # Build the rewritten React PWA (web_ui/) into assets/web_app so Flutter
+  # bundles a fresh web UI. Skipped gracefully if npm/web_ui is absent (e.g. the
+  # legacy web server is still the default until the parity cutover).
+  if [ -d "$ROOT/web_ui" ] && command -v npm &>/dev/null; then
+    echo "==> Building web UI (React + Vite) into assets/web_app..."
+    ( cd "$ROOT/web_ui" && npm ci && npm run build )
+  else
+    echo "==> Skipping web UI build (web_ui/ or npm not present)."
+  fi
+
   echo "==> Building embedding server (Rust)..."
   if ! command -v cargo &>/dev/null; then
     echo "Error: Rust toolchain not found. Install it from https://rustup.rs/"

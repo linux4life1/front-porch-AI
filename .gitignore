@@ -122,6 +122,13 @@ tools/embed_server/target/
 !test/golden/widget/_goldens/
 !test/golden/widget/_goldens/**
 
+# Allow the web-app PWA icons (the *.png rule above would block them). The
+# installable web UI needs real PNG icons — iOS ignores SVG/manifest-only icons
+# for "Add to Home Screen". Both the source (web_ui/public) and the shipped
+# build output (assets/web_app) must be tracked.
+!web_ui/public/icon-*.png
+!assets/web_app/icon-*.png
+
 # Testing
 .llm_context/
 bug_triage.md
