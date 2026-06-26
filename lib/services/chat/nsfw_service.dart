@@ -115,8 +115,16 @@ class NsfwService {
   }
 
   /// Get arousal tier name matching the relationship system
-  String get arousalTierName {
-    final tier = arousalTier;
+  String get arousalTierName => arousalTierLabel(_arousalLevel);
+
+  /// Per-level read helper (web per-group-member stats panel).
+  String arousalTierNameForLevel(int level) => arousalTierLabel(level);
+
+  /// Pure arousal tier name for a level (-100..100). Shared by the live getter
+  /// and read-only per-member consumers (web group stats panel).
+  static String arousalTierLabel(int level) {
+    final raw = level ~/ 10;
+    final tier = raw > 10 ? 10 : (raw < -10 ? -10 : raw);
     // Use same tier names as relationship system but adapted for arousal
     if (tier >= 10) return 'Feverish';
     if (tier == 9) return 'Ecstatic';

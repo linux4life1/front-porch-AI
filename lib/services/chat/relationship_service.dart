@@ -192,101 +192,90 @@ class RelationshipService {
   int get turnsSinceLongTermCheck => _turnsSinceLongTermCheck;
   int get shortTermDeltasSummary => _shortTermDeltasSummary;
 
-  // Progress helpers for relationship bars (UI + tests).
-  int get shortTermProgressTarget {
-    final absScore = _affectionScore.abs();
-    if (absScore < 15) return 15;
-    if (absScore < 30) return 30;
-    if (absScore < 50) return 50;
-    if (absScore < 80) return 80;
-    if (absScore < 120) return 120;
-    if (absScore < 160) return 160;
-    if (absScore < 200) return 200;
-    if (absScore < 250) return 250;
-    return 300; // max for ±300 range
+  // Progress helpers for relationship bars (UI + tests). Delegate to the pure
+  // static scale helpers (below) so the band math is one source of truth, shared
+  // with read-only per-member consumers (the web group stats panel).
+  int get shortTermProgressTarget => _bondScaleTarget(_affectionScore.abs());
+  int get shortTermProgressBase => _bondScaleBase(_affectionScore.abs());
+  double get shortTermProgressPercent => bondScalePercent(_affectionScore);
+
+  int get longTermProgressTarget => _bondScaleTarget(_longTermScore.abs());
+  int get longTermProgressBase => _bondScaleBase(_longTermScore.abs());
+  double get longTermProgressPercent => bondScalePercent(_longTermScore);
+
+  int get trustProgressBase => _trustScaleBase(_trustLevel.abs());
+  int get trustProgressTarget => _trustScaleTarget(_trustLevel.abs());
+  double get trustProgressPercent => trustScalePercent(_trustLevel);
+
+  // ── Pure tier/percent scale helpers — single source of truth, shared by the
+  // live instance getters above AND read-only per-member consumers (the web
+  // group stats panel computes a member's tier/bar from its raw scores). ──────
+  /// 0..1 progress within the current bond / long-term tier band (±300 scale).
+  static double bondScalePercent(int score) {
+    final abs = score.abs();
+    final base = _bondScaleBase(abs);
+    final total = _bondScaleTarget(abs) - base;
+    return total <= 0 ? 0.0 : ((abs - base) / total).clamp(0.0, 1.0);
   }
 
-  int get shortTermProgressBase {
-    final absScore = _affectionScore.abs();
-    if (absScore < 15) return 0;
-    if (absScore < 30) return 15;
-    if (absScore < 50) return 30;
-    if (absScore < 80) return 50;
-    if (absScore < 120) return 80;
-    if (absScore < 160) return 120;
-    if (absScore < 200) return 160;
-    if (absScore < 250) return 200;
+  static int _bondScaleBase(int abs) {
+    if (abs < 15) return 0;
+    if (abs < 30) return 15;
+    if (abs < 50) return 30;
+    if (abs < 80) return 50;
+    if (abs < 120) return 80;
+    if (abs < 160) return 120;
+    if (abs < 200) return 160;
+    if (abs < 250) return 200;
     return 250;
   }
 
-  double get shortTermProgressPercent {
-    final current = _affectionScore.abs() - shortTermProgressBase;
-    final total = shortTermProgressTarget - shortTermProgressBase;
-    return (current / total).clamp(0.0, 1.0);
-  }
-
-  int get longTermProgressTarget {
-    final absScore = _longTermScore.abs();
-    if (absScore < 15) return 15;
-    if (absScore < 30) return 30;
-    if (absScore < 50) return 50;
-    if (absScore < 80) return 80;
-    if (absScore < 120) return 120;
-    if (absScore < 160) return 160;
-    if (absScore < 200) return 200;
-    if (absScore < 250) return 250;
+  static int _bondScaleTarget(int abs) {
+    if (abs < 15) return 15;
+    if (abs < 30) return 30;
+    if (abs < 50) return 50;
+    if (abs < 80) return 80;
+    if (abs < 120) return 120;
+    if (abs < 160) return 160;
+    if (abs < 200) return 200;
+    if (abs < 250) return 250;
     return 300; // max for ±300 range
   }
 
-  int get longTermProgressBase {
-    final absScore = _longTermScore.abs();
-    if (absScore < 15) return 0;
-    if (absScore < 30) return 15;
-    if (absScore < 50) return 30;
-    if (absScore < 80) return 50;
-    if (absScore < 120) return 80;
-    if (absScore < 160) return 120;
-    if (absScore < 200) return 160;
-    if (absScore < 250) return 200;
-    return 250;
+  /// 0..1 progress within the current trust tier band (±100 scale).
+  static double trustScalePercent(int level) {
+    final abs = level.abs();
+    final base = _trustScaleBase(abs);
+    final total = _trustScaleTarget(abs) - base;
+    return total <= 0 ? 0.0 : ((abs - base) / total).clamp(0.0, 1.0);
   }
 
-  double get longTermProgressPercent {
-    final current = _longTermScore.abs() - longTermProgressBase;
-    final total = longTermProgressTarget - longTermProgressBase;
-    return (current / total).clamp(0.0, 1.0);
-  }
-
-  int get trustProgressBase {
-    final absScore = _trustLevel.abs();
-    if (absScore < 10) return 0;
-    if (absScore < 25) return 10;
-    if (absScore < 45) return 25;
-    if (absScore < 70) return 45;
-    if (absScore < 100) return 70;
+  static int _trustScaleBase(int abs) {
+    if (abs < 10) return 0;
+    if (abs < 25) return 10;
+    if (abs < 45) return 25;
+    if (abs < 70) return 45;
+    if (abs < 100) return 70;
     return 100;
   }
 
-  int get trustProgressTarget {
-    final absScore = _trustLevel.abs();
-    if (absScore < 10) return 10;
-    if (absScore < 25) return 25;
-    if (absScore < 45) return 45;
-    if (absScore < 70) return 70;
+  static int _trustScaleTarget(int abs) {
+    if (abs < 10) return 10;
+    if (abs < 25) return 25;
+    if (abs < 45) return 45;
+    if (abs < 70) return 70;
     return 100;
-  }
-
-  double get trustProgressPercent {
-    final current = _trustLevel.abs() - trustProgressBase;
-    final total = trustProgressTarget - trustProgressBase;
-    return (current / total).clamp(0.0, 1.0);
   }
 
   /// Human-readable tier name for the current relationship level.
   /// Calculate tier for 21-tier system (-10 to +10) for short/long-term bonds
   /// with new range ±300.
-  String get shortTermTierName {
-    switch (_relationshipTier) {
+  String get shortTermTierName => bondTierLabel(_relationshipTier);
+
+  /// Pure bond/short-term tier name for a tier index (-10..10). Shared by the
+  /// live getter and read-only per-member consumers (web group stats panel).
+  static String bondTierLabel(int tier) {
+    switch (tier) {
       case 10:
         return 'Devoted';
       case 9:
@@ -334,8 +323,11 @@ class RelationshipService {
     }
   }
 
-  String get longTermTierName {
-    switch (_longTermTier) {
+  String get longTermTierName => longTermTierLabel(_longTermTier);
+
+  /// Pure long-term tier name for a tier index (-10..10).
+  static String longTermTierLabel(int tier) {
+    switch (tier) {
       case 10:
         return 'Soulmate / Devoted';
       case 9:
@@ -383,8 +375,11 @@ class RelationshipService {
     }
   }
 
-  String get trustTierName {
-    switch (trustTier) {
+  String get trustTierName => trustTierLabel(trustTier);
+
+  /// Pure trust tier name for a trust tier index.
+  static String trustTierLabel(int tier) {
+    switch (tier) {
       case 7:
         return 'Blind Trust';
       case 6:
@@ -423,6 +418,16 @@ class RelationshipService {
   /// Public for any load-site default computation that needs it (e.g. group scalar
   /// fallbacks). Internal logic always prefers provided group tier or computes.
   int calculateTier(int score) => _calculateTier(score);
+
+  // Per-score read helpers for consumers that need a tier name / bar percent for
+  // an arbitrary score without mutating live state (e.g. the web per-group-member
+  // stats panel). Compose the pure label/scale statics — single source of truth.
+  String bondTierNameForScore(int score) => bondTierLabel(calculateTier(score));
+  String longTermTierNameForScore(int score) =>
+      longTermTierLabel(calculateTier(score));
+  String trustTierNameForLevel(int level) => trustTierLabel(calculateTier(level));
+  double bondPercentForScore(int score) => bondScalePercent(score);
+  double trustPercentForLevel(int level) => trustScalePercent(level);
 
   /// Public migrate helpers for load paths (kept internal impl private; surface
   /// only for the 2-3 legacy scale sites in ChatService that load persisted old

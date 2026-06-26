@@ -188,30 +188,38 @@ class ChatFacade {
       if (!p.realismEnabled) return {'realismEnabled': false};
       if (p.isHost) return {'realismEnabled': true, ..._realismSnapshot()};
       final card = p.card;
+      final rel = _chat.relationshipService;
       final emotion = _chat.getEmotionForGroupCharacter(card) ?? '';
-      // Shape-compatible with the host snapshot so the shared Insight panel
-      // renders members too. Per-member tier/percent aren't exposed by the
-      // group getters, so those default to '' / 0 (the raw scores still show).
+      final intensity = _chat.getEmotionIntensityForGroupCharacter(card) ?? '';
+      final bondScore = _chat.getAffectionForGroupCharacter(card);
+      final trustLevel = _chat.getTrustForGroupCharacter(card);
+      final arousalLevel = _chat.getArousalForGroupCharacter(card);
+      // Per-member tier names + bar percents via the shared relationship/nsfw
+      // scale helpers, so a group member's stats read IDENTICALLY to the 1:1 host
+      // (no blank tiers / empty bars). Long-term isn't tracked per member → 0.
       return {
         'realismEnabled': true,
         'bond': {
-          'score': _chat.getAffectionForGroupCharacter(card),
-          'tier': '',
+          'score': bondScore,
+          'tier': rel.bondTierNameForScore(bondScore),
+          'percent': rel.bondPercentForScore(bondScore),
+        },
+        'longTerm': {
+          'score': 0,
+          'tier': rel.longTermTierNameForScore(0),
           'percent': 0,
         },
-        'longTerm': {'score': 0, 'tier': '', 'percent': 0},
         'trust': {
-          'level': _chat.getTrustForGroupCharacter(card),
-          'tier': '',
-          'percent': 0,
+          'level': trustLevel,
+          'tier': rel.trustTierNameForLevel(trustLevel),
+          'percent': rel.trustPercentForLevel(trustLevel),
         },
         'emotion': emotion,
-        'emotionIntensity':
-            _chat.getEmotionIntensityForGroupCharacter(card) ?? '',
-        'mood': emotion,
+        'emotionIntensity': intensity,
+        'mood': intensity.isNotEmpty ? '$emotion ($intensity)' : emotion,
         'arousal': {
-          'level': _chat.getArousalForGroupCharacter(card),
-          'tier': '',
+          'level': arousalLevel,
+          'tier': _chat.nsfwService.arousalTierNameForLevel(arousalLevel),
         },
         'fixation': _chat.getFixationForGroupCharacter(card) ?? '',
         'needsEnabled': true,
