@@ -4,6 +4,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements
 
+- ✨ **Web app: create characters with AI** — the web library now has an **✨ AI Create** button next to ＋ Create. Describe a character (name + concept, optional personality keywords, optional mature-content toggle) and the AI writes the whole card — personality, example dialogue, lorebook, first message and more — then drops you straight into the editor to tweak and save. You watch it build step-by-step as it goes. Uses whatever LLM you've got running. (Web UI.)
+
 - 🔊 **Web app: hear replies and talk back** — the web UI now has voice. Tap the **🔊** under any character reply to hear it spoken *on the device you're holding* (your phone or laptop, not the host PC), and use the **🎤** button by the message box to dictate instead of type. Voice uses whatever TTS/STT engine you've set up on the desktop app, and the controls only appear when those are turned on — the mic also needs a secure connection (Tailscale, ngrok, or localhost), so it won't show on a plain-LAN address. (Web UI.)
 
 - 📲 **Web app: drop a generated image straight into your chat** — generate an image in the web UI's Image Generation panel and you'll now see an **Insert into chat** button next to Download. One tap attaches the picture to the latest message in your open conversation, where it renders inline — just like images do in the desktop chat. (Web UI.)

@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/web/middleware/security_headers.dart';
 import 'package:front_porch_ai/services/web/routes/auth_routes.dart';
 import 'package:front_porch_ai/services/web/routes/backend_routes.dart';
 import 'package:front_porch_ai/services/web/routes/character_routes.dart';
+import 'package:front_porch_ai/services/web/routes/chargen_routes.dart';
 import 'package:front_porch_ai/services/web/routes/chat_routes.dart';
 import 'package:front_porch_ai/services/web/routes/chat_tools_routes.dart';
 import 'package:front_porch_ai/services/web/routes/group_routes.dart';
@@ -65,6 +66,7 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
       authoring: deps.characterAuthoringFacade,
     );
   }
+  if (deps.chargenFacade != null) WebChargenRoutes(deps.chargenFacade!, router);
   if (deps.chatFacade != null) WebChatRoutes(deps.chatFacade!, router);
   if (deps.chatToolsFacade != null) {
     WebChatToolsRoutes(deps.chatToolsFacade!, router);

@@ -187,6 +187,10 @@ class WebServerHost extends ChangeNotifier {
         ? CharacterAuthoringFacade(_characterRepository!, _storage)
         : null;
 
+    final chargenFacade = _llmProvider != null
+        ? ChargenFacade(_llmProvider!, characterFacade, streamHub)
+        : null;
+
     final chatToolsFacade = chatService != null
         ? ChatToolsFacade(chatService, _storage, streamHub)
         : null;
@@ -224,6 +228,7 @@ class WebServerHost extends ChangeNotifier {
       streamHub: streamHub,
       characterFacade: characterFacade,
       characterAuthoringFacade: characterAuthoringFacade,
+      chargenFacade: chargenFacade,
       chatFacade: chatFacade,
       chatToolsFacade: chatToolsFacade,
       groupFacade: groupFacade,

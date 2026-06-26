@@ -227,18 +227,30 @@ class CharacterFacade {
       frontPorchExtensions: fpExt,
     );
 
+    return persistNewCard(card);
+  }
+
+  /// Persist a freshly-built [card] via the canonical path: write a V2 PNG into
+  /// the characters dir (synthesizing a placeholder avatar when none is set),
+  /// insert it through [CharacterRepository], and return {id, name}. Shared by
+  /// manual create and the AI chargen facade so there is a single save path.
+  /// Returns null when there is no repository or on failure.
+  Future<Map<String, dynamic>?> persistNewCard(CharacterCard card) async {
+    final repo = _repo;
+    if (repo == null) return null;
     try {
       final charDir = _storage.charactersDir;
       if (!charDir.existsSync()) charDir.createSync(recursive: true);
-      final safeName =
-          name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
-      final imagePath = p.join(
+      final base = (card.name.isEmpty ? 'character' : card.name)
+          .replaceAll(RegExp(r'[^\w\s]'), '')
+          .replaceAll(' ', '_');
+      final safeName = base.replaceAll('_', '').isEmpty ? 'character' : base;
+      card.imagePath = p.join(
         charDir.path,
         '${safeName}_${DateTime.now().millisecondsSinceEpoch}.png',
       );
-      card.imagePath = imagePath;
       // sourceImagePath null → V2CardService synthesizes a placeholder avatar.
-      await V2CardService().saveCardAsPng(card, imagePath, null);
+      await V2CardService().saveCardAsPng(card, card.imagePath!, null);
       await repo.addCharacter(card);
       return {'id': card.dbId, 'name': card.name};
     } catch (_) {

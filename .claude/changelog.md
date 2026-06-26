@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-06-26 (feat: web AI character creator, W7)
+W7 with the original "blocker" dissolved: the generator (`CharacterGenService.generateCharacter`) is already fully headless — the desktop `creator_state_engine` is only a UI wrapper — so NO engine extraction/refactor was needed (the user pointed this out via the existing `/create` headless path). The web AI creator is a thin driver over the existing engine.
+- **Backend** (`chargen_facade.dart`, new): `available` (LLM ready?); `startCreate(fields)` validates name + readiness, then kicks off generation in the background (returns immediately so mobile links don't hold a multi-minute request). `_run` calls `CharacterGenService.generateCharacter` (name/concept/personalityKeywords/nsfwEnabled), streams each sub-step over the hub as `chargen_status`, persists via the shared save path, and emits `chargen_done {id,name}` or `chargen_error {error}`.
+- **Backend** (`character_facade.dart`): extracted `persistNewCard(card)` from `create()` — the canonical PNG-write + `addCharacter` save path, now shared by manual create and AI chargen (no duplicate save logic). Added a degenerate-name fallback (`character_<epoch>`).
+- **Route** (`chargen_routes.dart`, new): `GET /api/chargen/status`, `POST /api/chargen/create` (background; 202-style `{status:'started'}`).
+- **Wiring**: ChargenFacade in the facades barrel, `WebServerDeps`, `server_bootstrap`, and `WebServerHost` (built from the already-injected LLMProvider + the always-built CharacterFacade + streamHub). No `main.dart` change needed.
+- **Frontend** (`CreateAiCharacterPage.tsx`, new, `/create-ai`): name/concept/keywords/NSFW form → POST create → live step list driven by `chargen_status` over the WS → navigate to `/edit/:id` on `chargen_done`. New "✨ AI Create" button beside ＋ Create in the library. `ws.ts` WsEvent extended with id/name/error. `.chargen-steps` CSS.
+- **Tests**: `chargen_facade_test.dart` exercises the unit-testable seam (`persistNewCard`): a generated card lands in the library with an id + on-disk PNG, and a symbol-only name gets the safe fallback filename. (The LLM generation itself needs a live backend, so it's not unit-tested.)
+- **Desktop untouched**: only `CharacterFacade` (web) changed; `CharacterGenService`/`SceneGuestFactory`/`creator_state_engine` are unmodified, so the desktop creator behaves exactly as before.
+- **Verification**: `flutter analyze lib/services/web test/services/web` clean; `flutter test test/services/web` 63/63; `dart fix --dry-run` nothing to fix; `web_ui` tsc + vite build green.
+- **Commit**: (this commit)
+
 ## 2026-06-26 (feat: web voice — TTS playback + STT dictation, W6)
 Deliverable #3 (W6) from the ordered list: voice on the web UI. TTS is synthesized on the host but played on the *client* device; STT records on the client and uploads for transcription. The host never plays or records — full thin reuse of TtsService/SttService.
 - **Backend** (`voice_facade.dart`, new): `status()` (ttsEnabled/ttsEngine/sttEnabled/sttAvailable); `speak(text, voiceKey)` → `TtsService.generateAudioFile` bytes + MIME (wav, or mpeg for ElevenLabs), null when TTS off; `transcribe(bytes, ext)` → writes a temp file and calls STT, cleans up. Guards: empty text / disabled / empty body / STT unavailable all return null.

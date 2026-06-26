@@ -533,6 +533,12 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
   border-radius: var(--radius); border: 1px solid var(--border);
 }
 
+/* AI character creator: live generation steps. */
+.chargen-steps { margin: 8px 0 0; padding-left: 20px; }
+.chargen-steps li { padding: 2px 0; color: var(--muted); }
+.chargen-steps li.done { color: var(--text); }
+.chargen-steps li.active { color: var(--accent); font-weight: 600; }
+
 /* Voice: the mic button pulses red while recording. */
 .icon-btn.mic.recording { color: var(--danger, #e5484d); animation: mic-pulse 1s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }

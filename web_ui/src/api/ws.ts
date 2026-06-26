@@ -5,7 +5,15 @@
 // (/api/ws). The HttpOnly session cookie authenticates the upgrade — no token
 // in the URL. Reconnects with backoff so a phone waking from sleep re-syncs.
 
-export type WsEvent = { event: string; data?: string };
+export type WsEvent = {
+  event: string;
+  data?: string;
+  // Extra fields carried by non-token events (e.g. chargen_done id/name,
+  // chargen_error error).
+  id?: string | number;
+  name?: string;
+  error?: string;
+};
 
 export class ChatSocket {
   private ws: WebSocket | null = null;

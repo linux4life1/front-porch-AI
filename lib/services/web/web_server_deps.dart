@@ -42,6 +42,7 @@ class WebServerDeps {
     this.streamHub,
     this.characterFacade,
     this.characterAuthoringFacade,
+    this.chargenFacade,
     this.chatFacade,
     this.chatToolsFacade,
     this.groupFacade,
@@ -69,6 +70,10 @@ class WebServerDeps {
   /// Character write-side adapter (delete + avatar management) — null until the
   /// CharacterRepository is injected.
   final CharacterAuthoringFacade? characterAuthoringFacade;
+
+  /// AI character-creator adapter — null until the LLM provider + character
+  /// facade are wired.
+  final ChargenFacade? chargenFacade;
 
   final ChatFacade? chatFacade;
 

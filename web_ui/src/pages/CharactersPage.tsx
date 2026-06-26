@@ -163,6 +163,13 @@ export function CharactersPage() {
         </button>
         <button
           className="ghost import-btn"
+          onClick={() => navigate('/create-ai')}
+          title="Generate a character with AI"
+        >
+          ✨ AI Create
+        </button>
+        <button
+          className="ghost import-btn"
           disabled={importing}
           onClick={() => fileRef.current?.click()}
           title="Import character card (PNG / .byaf)"

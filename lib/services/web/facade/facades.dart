@@ -28,6 +28,7 @@ library;
 export 'backend_facade.dart';
 export 'character_authoring_facade.dart';
 export 'character_facade.dart';
+export 'chargen_facade.dart';
 export 'chat_facade.dart';
 export 'chat_tools_facade.dart';
 export 'group_facade.dart';
