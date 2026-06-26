@@ -293,7 +293,14 @@ class ChatFacade {
     if (needs is Map) {
       final nz = <String, dynamic>{};
       needs.forEach((k, v) {
-        if (v is int && v != 0) nz[k.toString()] = v;
+        // NeedsSimulation.computeNeedsDeltasWithReasons stores {delta, reason}
+        // per need; tolerate a plain int too. Extract the signed delta either
+        // way — the chip UI only needs the number. (This is why needs chips
+        // never rendered on the web: every value is a Map, not an int.)
+        final delta = v is int
+            ? v
+            : (v is Map && v['delta'] is int ? v['delta'] as int : 0);
+        if (delta != 0) nz[k.toString()] = delta;
       });
       if (nz.isNotEmpty) out['needsDeltas'] = nz;
     }

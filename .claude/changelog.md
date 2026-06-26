@@ -2876,3 +2876,9 @@ Brief reason: Addressed the confirmed correctness/cleanup findings from the revi
 - Verification: tsc clean; vite build green; driven-browser broken-image scan = 0 on library + chat (desktop & phone).
 - Known-open (separate, investigating): per-message NEEDS delta chips never appear (bond/trust/arousal/emotion chips do) — needs_deltas isn't reaching message metadata on the web send path.
 - Commit: (this commit)
+
+## 2026-06-26 — Web: needs-delta chips now render (type mismatch) (Rawhide)
+- Files: lib/services/web/facade/chat_facade.dart (_messageChips: needs_deltas values are {delta, reason} maps, not ints — extract the signed delta from either shape instead of requiring `v is int`).
+- Reason: Per-message NEEDS chips (Hunger -2, Energy -1, …) never appeared on the web (bond/trust/arousal/emotion chips did). NeedsSimulation.computeNeedsDeltasWithReasons stores each need as {delta:int, reason:String}, but _messageChips filtered on `v is int && v != 0`, so every needs entry was a Map and got dropped. Now it reads v['delta'] (tolerating a plain int too). Confirmed via the driven-browser chip scan that needs deltas were systematically absent across all messages. Backend-only display fix; no simulation change.
+- Verification: flutter analyze clean. Needs the desktop app restarted (facade runs in-app); will re-verify in the driven browser (reload a group chat → needs chips present) after restart.
+- Commit: (this commit)
