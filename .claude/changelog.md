@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-06-26 (feat: Porch Stories web UI — list + setup + bible, PS2)
+Second phase: the React surface for project management, the setup wizard, and the story-bible dashboard (generate + progress + export). End-to-end usable on its own — you can configure a story, run autopilot to generate the whole thing, and export it (the granular structure/writer/reader lands in PS3).
+- **`storyTypes.ts`** (new): TS interfaces mirroring the Dart `StoryProject` JSON (snake_case to survive the save round-trip; `scenes`/`beats`/`prose` kept opaque), plus the option lists (POV/genres/moods/styles/pace/maturity/tiers).
+- **`StoriesPage.tsx`** (`/stories`): project grid, create (→ setup), delete.
+- **`StorySetupPage.tsx`** (`/stories/:id/setup`): 3-step `StepIndicator` wizard — Concept (title/concept/themes), Style (POV, act count, genre/mood chips, writing style/length/pace/dialogue/maturity), AI (model tier, seed-from-chat character multi-select via `/api/characters`, include-persona) — saves the full project.
+- **`StoryDashboardPage.tsx`** (`/stories/:id`): story-bible view (concept/status-quo/inciting/themes/style/cast/threads/lore/acts), pipeline buttons (distill, architect, act-structure, autopilot) with live progress from `story_status` over the WS hub (refetch on `story_updated`), and .txt/.md export download.
+- **Routes/nav**: 3 routes in `App.tsx`; 📖 Stories item in `Layout` nav. Story page CSS (`story-grid`, `chip-toggle`, `wizard-nav`, `story-progress`, …).
+- **Verification**: `web_ui` tsc + vite build green. No Dart changed (web tests still 66/66). The per-beat structure editor + reader follow in PS3.
+- **Commit**: (this commit)
+
 ## 2026-06-26 (feat: Porch Stories web backend, PS1)
 First phase of the full Porch Stories web port. The generator (`StoryPipelineService`) and store (`StoryRepository`) are already fully headless, so PS1 is a thin facade + routes + WS-progress wiring — no desktop changes.
 - **`story_facade.dart`** (new): project CRUD (list/get/create/save/delete over `StoryRepository`), `status()`, `export(text|markdown)`, `chatPreview()`, and `runStage(id, stage, {actIndex,sceneIndex,beatIndex})` dispatching every pipeline stage (chat-distiller, story-architect, act-structure, scene-weaver, beat-director, draft-edit, auto-write-scene, regenerate-scene, full-act, autopilot). Stages run fire-and-forget; progress streams as `story_status`, completion as `story_updated {id}` / `story_error`. Progress listener is **scoped to each job's lifetime** (added/removed per run) so nothing leaks across server restarts (the pipeline is a long-lived singleton; the hub is per-start).

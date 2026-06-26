@@ -533,6 +533,28 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
   border-radius: var(--radius); border: 1px solid var(--border);
 }
 
+/* Porch Stories */
+.story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.story-card { cursor: pointer; position: relative; display: flex; flex-direction: column; gap: 6px; }
+.story-card:hover { border-color: var(--accent); }
+.story-meta { display: flex; gap: 8px; align-items: center; font-size: 0.8rem; color: var(--muted); margin-top: auto; }
+.story-del { position: absolute; top: 8px; right: 8px; opacity: 0.6; }
+.clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.field-label { margin: 10px 0 4px; font-size: 0.85rem; color: var(--muted); }
+.chip-select { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-toggle {
+  padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border);
+  background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem;
+}
+.chip-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.char-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.wizard-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; }
+.story-progress { display: flex; align-items: center; gap: 12px; }
+.spinner.small { width: 20px; height: 20px; }
+.story-cast-row, .story-act-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.story-cast-row:last-child, .story-act-row:last-child { border-bottom: none; }
+
 /* AI character creator: live generation steps. */
 .chargen-steps { margin: 8px 0 0; padding-left: 20px; }
 .chargen-steps li { padding: 2px 0; color: var(--muted); }

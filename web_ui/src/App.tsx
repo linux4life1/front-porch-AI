@@ -14,6 +14,9 @@ import { CharacterEditPage } from './pages/CharacterEditPage';
 import { CreateCharacterPage } from './pages/CreateCharacterPage';
 import { CreateAiCharacterPage } from './pages/CreateAiCharacterPage';
 import { WorldsPage } from './pages/WorldsPage';
+import { StoriesPage } from './pages/StoriesPage';
+import { StorySetupPage } from './pages/StorySetupPage';
+import { StoryDashboardPage } from './pages/StoryDashboardPage';
 import { ModelsPage } from './pages/ModelsPage';
 import { AccountPage } from './pages/AccountPage';
 
@@ -40,6 +43,9 @@ export function App() {
         <Route path="/create" element={<CreateCharacterPage />} />
         <Route path="/create-ai" element={<CreateAiCharacterPage />} />
         <Route path="/worlds" element={<WorldsPage />} />
+        <Route path="/stories" element={<StoriesPage />} />
+        <Route path="/stories/:id" element={<StoryDashboardPage />} />
+        <Route path="/stories/:id/setup" element={<StorySetupPage />} />
         <Route path="/models" element={<ModelsPage />} />
         <Route path="/edit/:id" element={<CharacterEditPage />} />
         <Route path="/account" element={<AccountPage />} />
