@@ -325,7 +325,11 @@ export function ChatPage() {
         <div className="chat-header">
           <div className="chat-header-id">
             {focused && (
-              focused.isHost && !state.isGroupMode ? (
+              state.isGroupMode ? (
+                // Groups have no single avatar and member images don't resolve in
+                // the cast — show a group glyph rather than a broken image.
+                <span className="chat-header-avatar group" aria-hidden>👥</span>
+              ) : focused.isHost ? (
                 <SmartImg
                   primary={`/api/chat/expression-avatar?v=${encodeURIComponent(state.expressionLabel ?? '')}`}
                   fallback={`/api/characters/${focused.dbId ?? state.character?.id ?? ''}/avatar`}
@@ -637,7 +641,9 @@ function SmartImg({ primary, fallback, className }: { primary: string; fallback?
     setSrc(primary);
     setFailed(false);
   }, [primary]);
-  if (failed) return null;
+  // Never emit <img src=""> — Safari renders a broken-image box for an empty/odd
+  // src WITHOUT firing onError, so guard the empty case explicitly.
+  if (failed || !src) return null;
   return (
     <img
       className={className}
@@ -663,7 +669,7 @@ function Portrait({ primary, fallback, mood }: { primary: string; fallback?: str
     setSrc(primary);
     setFailed(false);
   }, [primary]);
-  if (failed) return null;
+  if (failed || !src) return null;
   return (
     <div className="portrait-wrap">
       <img
@@ -751,11 +757,11 @@ function Insight({
           ))}
         </div>
       )}
-      {/* Mood-expression portrait — host in 1:1, focused member otherwise.
-          Self-hides if no image loads (no broken placeholder), and is hidden
-          entirely on phones via CSS ([data-layout="phone"] .portrait-wrap) —
-          it's too much for the small screen. */}
-      {focusedIsHost && !isGroup ? (
+      {/* Mood-expression portrait for the 1:1 host (and 1:1 scene guests). NOT
+          shown in groups — member avatars don't resolve, so we'd only get a
+          broken image. Hidden on phones too via CSS ([data-layout="phone"]
+          .portrait-wrap). Self-hides if its image fails. */}
+      {isGroup ? null : focusedIsHost ? (
         <Portrait
           primary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
           fallback={`/api/characters/${characterId}/avatar`}

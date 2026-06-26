@@ -277,6 +277,7 @@ button.ghost { background: transparent; border-color: var(--border); }
   width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
   background: var(--surface-2); flex-shrink: 0;
 }
+.chat-header-avatar.group { display: grid; place-items: center; font-size: 1rem; }
 
 /* ── Expression portrait (insight panel) ──────────────────────── */
 .portrait-wrap { position: relative; align-self: center; }

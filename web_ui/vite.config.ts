@@ -43,7 +43,7 @@ export default defineConfig({
     // is reachable from a phone over Tailscale for live mobile preview. Dev-only;
     // does not affect the production build served by the Dart server.
     host: true,
-    allowedHosts: ['localhost', '.ts.net'],
+    allowedHosts: ['localhost', '.ts.net', 'host.docker.internal'],
     port: 5173,
     proxy: {
       '/api': { target: 'http://localhost:8085', changeOrigin: true },
@@ -55,7 +55,7 @@ export default defineConfig({
   // the latest rebuild. Same proxy as dev so /api + /ws hit the desktop app.
   preview: {
     host: true,
-    allowedHosts: ['localhost', '.ts.net'],
+    allowedHosts: ['localhost', '.ts.net', 'host.docker.internal'],
     port: 5173,
     proxy: {
       '/api': { target: 'http://localhost:8085', changeOrigin: true },

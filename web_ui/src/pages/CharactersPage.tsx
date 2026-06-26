@@ -243,6 +243,7 @@ export function CharactersPage() {
                           src={`/api/groups/${g.id}/members/${m.id}/avatar`}
                           alt=""
                           loading="lazy"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
                       ) : (
                         <span key={m.id} className="lib-art-fallback">
@@ -284,7 +285,12 @@ export function CharactersPage() {
                 <button key={c.id} className="lib-card" onClick={() => openCharacter(c)}>
                   <div className="lib-art">
                     {c.hasAvatar ? (
-                      <img src={`/api/characters/${c.id}/avatar`} alt="" loading="lazy" />
+                      <img
+                        src={`/api/characters/${c.id}/avatar`}
+                        alt=""
+                        loading="lazy"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
                     ) : (
                       <span className="lib-art-fallback">{c.name.charAt(0).toUpperCase()}</span>
                     )}
