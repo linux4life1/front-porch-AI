@@ -415,7 +415,9 @@ export function ChatPage() {
             </div>
             );
           })}
-          {streaming && <div className="bubble ai streaming">{streaming}</div>}
+          {streaming && (
+            <div className="bubble ai streaming" aria-live="polite">{streaming}</div>
+          )}
         </div>
 
         <div className="chat-input">

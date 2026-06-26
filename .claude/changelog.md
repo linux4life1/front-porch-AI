@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-06-26 (docs+a11y: web parity sign-off, W8 code-level)
+W8's code-level portion (the manual cross-browser passes can't run headless and are listed for the maintainer).
+- **`docs/web-parity.md`** (new): authoritative desktop→web parity checklist across chat, realism/needs, characters, groups/cast, worlds/personas, image gen, voice, models, settings/account/remote, PWA/a11y. Marks full/adapted/desktop-setup-only/no-go/pending, lists the manual browser+device sign-off items only the maintainer can do, and records Porch Stories as scope-pending.
+- **A11y** (`VoiceControls.tsx`, `ChatPage.tsx`): emoji-only voice buttons gained `aria-label` (+ `aria-pressed` on the mic); the streaming reply bubble is now an `aria-live="polite"` region so screen readers announce incoming text.
+- **PWA verified (no change needed)**: `InstallHint` already handles `beforeinstallprompt` + iOS manual steps + standalone detection; SW/manifest via vite-plugin-pwa; install is naturally gated to secure contexts by the browser.
+- **Verification**: `web_ui` tsc + vite build green. No Dart changed (web tests unaffected, 63/63 from W7).
+- **Commit**: (this commit)
+
 ## 2026-06-26 (feat: web AI character creator, W7)
 W7 with the original "blocker" dissolved: the generator (`CharacterGenService.generateCharacter`) is already fully headless — the desktop `creator_state_engine` is only a UI wrapper — so NO engine extraction/refactor was needed (the user pointed this out via the existing `/create` headless path). The web AI creator is a thin driver over the existing engine.
 - **Backend** (`chargen_facade.dart`, new): `available` (LLM ready?); `startCreate(fields)` validates name + readiness, then kicks off generation in the background (returns immediately so mobile links don't hold a multi-minute request). `_run` calls `CharacterGenService.generateCharacter` (name/concept/personalityKeywords/nsfwEnabled), streams each sub-step over the hub as `chargen_status`, persists via the shared save path, and emits `chargen_done {id,name}` or `chargen_error {error}`.

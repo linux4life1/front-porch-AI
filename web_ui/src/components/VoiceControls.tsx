@@ -32,7 +32,7 @@ export function SpeakButton({ text }: { text: string }) {
   };
 
   return (
-    <button className="icon-btn" title="Speak" disabled={busy} onClick={speak}>
+    <button className="icon-btn" title="Speak" aria-label="Speak this message" disabled={busy} onClick={speak}>
       {busy ? '…' : '🔊'}
     </button>
   );
@@ -94,6 +94,8 @@ export function MicButton({
     <button
       className={`icon-btn mic${recording ? ' recording' : ''}`}
       title={recording ? 'Stop & transcribe' : 'Speak to type'}
+      aria-label={recording ? 'Stop recording and transcribe' : 'Record voice to text'}
+      aria-pressed={recording}
       disabled={disabled || working}
       onClick={recording ? stop : start}
     >
