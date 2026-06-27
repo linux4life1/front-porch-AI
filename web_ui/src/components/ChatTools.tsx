@@ -29,7 +29,6 @@ interface ToolsState {
   realismEnabled: boolean;
   needsEnabled: boolean;
   realismOneShotEval: boolean;
-  needs: { decay: Record<string, number> };
   memory: {
     ragEnabled: boolean;
     ragRetrievalCount: number;
@@ -97,17 +96,6 @@ function NumField({
   );
 }
 
-/** The seven needs, in the desktop sidebar's order, with display labels. */
-const DECAY_NEEDS: [string, string][] = [
-  ['hunger', 'Hunger'],
-  ['bladder', 'Bladder'],
-  ['energy', 'Energy'],
-  ['social', 'Social'],
-  ['fun', 'Fun'],
-  ['hygiene', 'Hygiene'],
-  ['comfort', 'Comfort'],
-];
-
 /** Scene-time periods + their single-letter dot labels (mirror the desktop
  *  realism_section _timeDotLabel exactly: D / M / LM / A / E / N). */
 const TIME_DOTS: [string, string][] = [
@@ -118,42 +106,6 @@ const TIME_DOTS: [string, string][] = [
   ['evening', 'E'],
   ['night', 'N'],
 ];
-
-/** Range slider (0–20/turn) that tracks a local draft while dragging and only
- *  commits (POSTs) on release, so a group's per-member PNG writes don't fire on
- *  every drag tick. Mirrors the desktop Decay Rates sliders. */
-function DecaySlider({
-  label,
-  value,
-  onCommit,
-}: {
-  label: string;
-  value: number;
-  onCommit: (v: number) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  const commit = () => {
-    if (draft !== value) onCommit(draft);
-  };
-  return (
-    <label className="tool-slider">
-      <span className="tool-slider-head">
-        <span>{label}</span>
-        <span className="muted">{draft}/turn</span>
-      </span>
-      <input
-        type="range"
-        min={0}
-        max={20}
-        value={draft}
-        onChange={(e) => setDraft(parseInt(e.target.value, 10))}
-        onPointerUp={commit}
-        onKeyUp={commit}
-      />
-    </label>
-  );
-}
 
 export function ChatTools({
   reloadKey,
@@ -194,8 +146,6 @@ export function ChatTools({
     apply(api.post<ToolsState>(`/api/chat/tools/settings${q}`, fields));
   const toggle = (name: string, value: boolean) =>
     apply(api.post<ToolsState>(`/api/chat/tools/toggle${q}`, { name, value }));
-  const setDecay = (key: string, value: number) =>
-    apply(api.post<ToolsState>(`/api/chat/tools/decay${q}`, { key, value }));
 
   if (!t) return null;
 
@@ -222,20 +172,6 @@ export function ChatTools({
         </div>
       </details>
 
-      <details className="tool-section">
-        <summary>Needs decay rates</summary>
-        <div className="tool-body">
-          <p className="muted small">Adjust the baseline per-turn decay rate for each need.</p>
-          {DECAY_NEEDS.map(([key, label]) => (
-            <DecaySlider
-              key={key}
-              label={label}
-              value={t.needs.decay[key] ?? 5}
-              onCommit={(v) => setDecay(key, v)}
-            />
-          ))}
-        </div>
-      </details>
 
       <details className="tool-section">
         <summary>Memory &amp; evolution</summary>

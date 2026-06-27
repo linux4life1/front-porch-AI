@@ -30,7 +30,6 @@ class WebChatToolsRoutes {
     router.get('/api/chat/tools', _state);
     router.post('/api/chat/tools/settings', _settings);
     router.post('/api/chat/tools/toggle', _toggle);
-    router.post('/api/chat/tools/decay', _decay);
     router.post('/api/chat/tools/time', _time);
     router.post('/api/chat/tools/summary', _summary);
     router.post('/api/chat/tools/objective', _objective);
@@ -85,28 +84,6 @@ class WebChatToolsRoutes {
       default:
         return JsonResponse.badRequest('Unknown toggle: $name');
     }
-    return JsonResponse.ok(_snapshot(request));
-  }
-
-  /// Set one per-need baseline decay rate (0–20/turn). Body: { key, value:int }.
-  /// The key must be one of the seven needs; the facade branches 1:1 vs group.
-  Future<shelf.Response> _decay(shelf.Request request) async {
-    const keys = {
-      'hunger',
-      'bladder',
-      'energy',
-      'social',
-      'fun',
-      'hygiene',
-      'comfort',
-    };
-    final body = await _json(request);
-    final key = body['key']?.toString();
-    final value = body['value'];
-    if (key == null || !keys.contains(key) || value is! int) {
-      return JsonResponse.badRequest('valid need key and int value required');
-    }
-    await _facade.setDecayRate(key, value);
     return JsonResponse.ok(_snapshot(request));
   }
 
