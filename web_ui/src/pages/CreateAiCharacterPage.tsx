@@ -1,27 +1,41 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// AI character creator — a stepped wizard (Mode → Details → Output → Generate)
+// mirroring the desktop creator's three modes (Quick / Guided / Automated). All
+// three feed the same headless generator via POST /api/chargen/create; the
+// per-mode field assembly lives in chargenForm.ts so a web-created card matches a
+// desktop one. Progress streams over the WebSocket hub; on completion it jumps to
+// the editor.
 
-// AI character creator: describe a character, the host LLM generates a full
-// card (profile → interview → dialogue → lorebook → first message → …) and
-// persists it. Progress streams over the WebSocket hub so the page shows live
-// steps instead of a dead spinner; on completion it jumps to the editor.
-
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { ChatSocket } from '../api/ws';
+import { StepIndicator } from '../components/StepIndicator';
+import { DEFAULT_FORM, buildPayload, type ChargenForm, type ChargenMode } from '../components/aichargen/chargenForm';
+import { QuickConfig } from '../components/aichargen/QuickConfig';
+import { GuidedConfig } from '../components/aichargen/GuidedConfig';
+import { AutomatedConfig } from '../components/aichargen/AutomatedConfig';
+import { OutputSettings } from '../components/aichargen/OutputSettings';
+
+const STEPS = ['Mode', 'Details', 'Output', 'Generate'];
+
+const MODES: { id: ChargenMode; title: string; blurb: string; cls: string }[] = [
+  { id: 'quick', title: '⚡ Quick', blurb: 'A short concept — the LLM fills in the rest. Fastest.', cls: 'quick' },
+  { id: 'guided', title: '🧭 Guided', blurb: 'Your vision plus optional prompts and suggestion chips.', cls: 'guided' },
+  { id: 'automated', title: '🛠️ Automated', blurb: 'Archetype + a full appearance / backstory builder. Most control.', cls: 'automated' },
+];
 
 export function CreateAiCharacterPage() {
   const navigate = useNavigate();
-  const [name, setName] = useState('');
-  const [concept, setConcept] = useState('');
-  const [keywords, setKeywords] = useState('');
-  const [nsfw, setNsfw] = useState(false);
+  const [form, setForm] = useState<ChargenForm>(DEFAULT_FORM);
+  const set = (p: Partial<ChargenForm>) => setForm((f) => ({ ...f, ...p }));
+  const [step, setStep] = useState(0);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [steps, setSteps] = useState<string[]>([]);
   const [error, setError] = useState('');
-  const socketRef = useRef<ChatSocket | null>(null);
 
   useEffect(() => {
     api.get<{ available: boolean }>('/api/chargen/status')
@@ -29,8 +43,6 @@ export function CreateAiCharacterPage() {
       .catch(() => setAvailable(false));
   }, []);
 
-  // Listen for generation progress / completion. Mounted once; the socket is the
-  // same multiplexed hub the chat uses.
   useEffect(() => {
     const socket = new ChatSocket((e) => {
       if (e.event === 'chargen_status' && e.data) {
@@ -44,100 +56,103 @@ export function CreateAiCharacterPage() {
       }
     });
     socket.connect();
-    socketRef.current = socket;
     return () => socket.close();
   }, [navigate]);
 
   const generate = async () => {
-    if (!name.trim() || busy) return;
+    if (!form.name.trim() || busy) return;
     setBusy(true);
     setSteps([]);
     setError('');
     try {
-      await api.post('/api/chargen/create', {
-        name: name.trim(),
-        concept: concept.trim(),
-        personalityKeywords: keywords.trim(),
-        nsfwEnabled: nsfw,
-      });
+      await api.post('/api/chargen/create', buildPayload(form));
     } catch (e) {
       setBusy(false);
       setError(e instanceof ApiError ? e.message : 'Could not start generation');
     }
   };
 
+  const canAdvance = step !== 0 || form.name.trim().length > 0;
+
   return (
-    <div className="page">
+    <div className="page wizard">
       <header className="page-head">
         <button className="ghost" onClick={() => navigate('/')}>← Library</button>
         <h2>✨ AI Character Creator</h2>
       </header>
 
+      <StepIndicator steps={STEPS} current={step} onJump={busy ? undefined : setStep} />
+
       {available === false && (
-        <p className="muted">
-          No LLM backend is ready. Start or connect a model on the Models page
-          first.
-        </p>
+        <p className="muted">No LLM backend is ready — start or connect a model on the Models page first.</p>
       )}
 
-      <section className="card">
-        <label>
-          Name
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Aria Vale"
-            disabled={busy}
-          />
-        </label>
-        <label>
-          Concept
-          <textarea
-            rows={4}
-            value={concept}
-            onChange={(e) => setConcept(e.target.value)}
-            placeholder="A wandering bard with a sharp tongue and a hidden past…"
-            disabled={busy}
-          />
-        </label>
-        <label>
-          Personality keywords <span className="muted small">(optional)</span>
-          <input
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-            placeholder="witty, guarded, loyal"
-            disabled={busy}
-          />
-        </label>
-        <label className="row-label">
-          <input
-            type="checkbox"
-            checked={nsfw}
-            onChange={(e) => setNsfw(e.target.checked)}
-            disabled={busy}
-          />
-          Allow mature content
-        </label>
-        <button
-          className="primary"
-          disabled={busy || !name.trim() || available === false}
-          onClick={generate}
-        >
-          {busy ? 'Generating…' : 'Generate character'}
-        </button>
-        {error && <p className="error">{error}</p>}
-      </section>
+      <div className="wizard-body">
+        {step === 0 && (
+          <div className="cg-config">
+            <label className="cg-field">
+              <span className="cg-field-label">Name</span>
+              <input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Aria Vale" />
+            </label>
+            <div className="cg-mode-cards">
+              {MODES.map((m) => (
+                <button
+                  type="button"
+                  key={m.id}
+                  className={`cg-mode-card ${m.cls}${form.mode === m.id ? ' on' : ''}`}
+                  onClick={() => set({ mode: m.id })}
+                >
+                  <span className="cg-mode-title">{m.title}</span>
+                  <span className="cg-mode-blurb">{m.blurb}</span>
+                </button>
+              ))}
+            </div>
+            <label className="cg-field cg-toggle">
+              <input type="checkbox" checked={form.nsfw} onChange={(e) => set({ nsfw: e.target.checked })} />
+              <span>Allow mature content</span>
+            </label>
+          </div>
+        )}
 
-      {steps.length > 0 && (
-        <section className="card">
-          <h3>Progress</h3>
-          <ol className="chargen-steps">
-            {steps.map((s, i) => (
-              <li key={i} className={i === steps.length - 1 && busy ? 'active' : 'done'}>{s}</li>
-            ))}
-          </ol>
-        </section>
-      )}
+        {step === 1 && form.mode === 'quick' && <QuickConfig form={form} set={set} />}
+        {step === 1 && form.mode === 'guided' && <GuidedConfig form={form} set={set} />}
+        {step === 1 && form.mode === 'automated' && <AutomatedConfig form={form} set={set} />}
+
+        {step === 2 && <OutputSettings form={form} set={set} />}
+
+        {step === 3 && (
+          <div className="cg-config">
+            <div className="card cg-review">
+              <div><span className="muted small">Name</span><div>{form.name || '—'}</div></div>
+              <div><span className="muted small">Mode</span><div style={{ textTransform: 'capitalize' }}>{form.mode}</div></div>
+              <div><span className="muted small">Mature content</span><div>{form.nsfw ? 'On' : 'Off'}</div></div>
+              <div><span className="muted small">Lorebook</span><div>{form.generateLorebook ? `${form.loreDepth}` : 'Off'}</div></div>
+            </div>
+            <button
+              className="primary cg-generate"
+              disabled={busy || !form.name.trim() || available === false}
+              onClick={generate}
+            >
+              {busy ? 'Generating…' : '✨ Generate character'}
+            </button>
+            {error && <p className="error">{error}</p>}
+            {steps.length > 0 && (
+              <ol className="chargen-steps">
+                {steps.map((s, i) => (
+                  <li key={i} className={i === steps.length - 1 && busy ? 'active' : 'done'}>{s}</li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="wizard-nav">
+        <button disabled={step === 0 || busy} onClick={() => setStep(step - 1)}>← Back</button>
+        {step < STEPS.length - 1 && (
+          <button className="primary" disabled={!canAdvance} onClick={() => setStep(step + 1)}>Next →</button>
+        )}
+      </div>
     </div>
   );
 }

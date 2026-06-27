@@ -910,6 +910,42 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .chargen-steps li.done { color: var(--text); }
 .chargen-steps li.active { color: var(--accent); font-weight: 600; }
 
+/* ── AI character creator wizard (Quick / Guided / Automated) ───────────── */
+.cg-config { display: flex; flex-direction: column; gap: 12px; }
+.cg-field { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.cg-field-label { font-size: 0.82rem; color: var(--muted); }
+.cg-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cg-subhead {
+  margin: 8px 0 0; font-size: 0.92rem; color: var(--text);
+  border-top: 1px solid var(--border); padding-top: 12px;
+}
+.cg-toggle { flex-direction: row; align-items: center; gap: 8px; }
+.cg-toggle input { width: auto; }
+.cg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cg-chip {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 999px; padding: 5px 12px; font-size: 0.82rem; cursor: pointer;
+}
+.cg-chip:hover { border-color: var(--accent); }
+.cg-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.cg-mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cg-mode-card {
+  display: flex; flex-direction: column; gap: 6px; text-align: left;
+  padding: 16px; border-radius: var(--radius-card); cursor: pointer;
+  background: var(--card); border: 2px solid var(--border); color: var(--text);
+}
+.cg-mode-card:hover { border-color: var(--accent); }
+.cg-mode-title { font-weight: 700; font-size: 1rem; }
+.cg-mode-blurb { font-size: 0.8rem; color: var(--muted); line-height: 1.35; }
+.cg-mode-card.quick.on { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
+.cg-mode-card.guided.on { border-color: var(--action); box-shadow: 0 0 0 1px var(--action); }
+.cg-mode-card.automated.on { border-color: var(--accent-amber); box-shadow: 0 0 0 1px var(--accent-amber); }
+.cg-review { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.cg-generate { align-self: flex-start; }
+@media (max-width: 768px) {
+  .cg-mode-cards, .cg-grid2, .cg-review { grid-template-columns: 1fr; }
+}
+
 /* Voice: the mic button pulses red while recording. */
 .icon-btn.mic.recording { color: var(--danger, #e5484d); animation: mic-pulse 1s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }

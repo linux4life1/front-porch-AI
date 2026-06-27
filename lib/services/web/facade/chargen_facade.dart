@@ -56,19 +56,58 @@ class ChargenFacade {
     return {'ok': true};
   }
 
+  /// Coerce a JSON value to a `List<String>`, dropping blanks; falls back to
+  /// [fallback] when absent or empty. Used for greeting tones / lore categories.
+  List<String> _strList(dynamic v, List<String> fallback) {
+    if (v is List) {
+      final out = v.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
+      return out.isEmpty ? fallback : out;
+    }
+    return fallback;
+  }
+
   Future<void> _run(
     String name,
     Map<String, dynamic> fields,
     LLMService svc,
   ) async {
     try {
+      // Quick / Guided / Automated all flow through the same headless generator;
+      // the web wizard assembles concept + characterContext per-mode (mirroring
+      // the desktop creator_state_engine) and posts the full param set here. The
+      // only mode-specific server step is Automated injecting its assembled
+      // description verbatim (the desktop does the same — it doesn't trust the
+      // model's rewrite of a user-built description).
+      final mode = fields['mode']?.toString() ?? 'quick';
+      final concept = fields['concept']?.toString() ?? '';
       final card = await CharacterGenService(svc).generateCharacter(
         name: name,
-        concept: fields['concept']?.toString() ?? '',
+        concept: concept,
         personalityKeywords: fields['personalityKeywords']?.toString() ?? '',
+        artStyle: fields['artStyle']?.toString() ?? '',
+        greetingLength:
+            fields['greetingLength']?.toString() ?? 'Medium (2-4 paragraphs)',
+        altGreetingCount: (fields['altGreetingCount'] as num?)?.toInt() ?? 2,
+        greetingTones: _strList(fields['greetingTones'], const ['Neutral']),
+        generateLorebook: fields['generateLorebook'] != false,
+        loreCategories: _strList(fields['loreCategories'], const []),
+        loreDepth: fields['loreDepth']?.toString() ?? 'Standard',
+        age: fields['age']?.toString() ?? '',
+        sex: fields['sex']?.toString() ?? '',
+        relationship: fields['relationship']?.toString() ?? '',
+        descriptionDetail:
+            fields['descriptionDetail']?.toString() ?? '2-3 paragraphs',
+        backstory: fields['backstory']?.toString() ?? '',
+        scenario: fields['scenario']?.toString() ?? '',
+        characterContext: fields['characterContext']?.toString() ?? '',
+        generateDescription: mode != 'automated',
         nsfwEnabled: fields['nsfwEnabled'] == true,
+        reasoningEnabled: fields['reasoningEnabled'] == true,
         onStatus: (s) => _hub?.broadcast({'event': 'chargen_status', 'data': s}),
       );
+      if (card != null && mode == 'automated' && concept.isNotEmpty) {
+        card.description = concept;
+      }
       if (card == null) {
         _hub?.broadcast(
           {'event': 'chargen_error', 'error': 'generation produced no card'},
