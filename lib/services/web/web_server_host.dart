@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -81,6 +82,16 @@ class WebServerHost extends ChangeNotifier {
   // we can detach it on stop().
   VoidCallback? _realismListener;
   bool _wasEvaluatingRealism = false;
+
+  // Near-instant library live-sync: one debounced listener attached to the
+  // CharacterRepository, FolderService and GroupChatRepository (all
+  // ChangeNotifiers). Because the desktop UI and the web facades mutate through
+  // these same shared services, ANY library change — from the desktop app or a
+  // web client — fans a single `library_changed` event out to every connected
+  // browser so its library refreshes without a manual reload. Stored so we can
+  // detach + cancel on stop().
+  VoidCallback? _libraryListener;
+  Timer? _libraryDebounce;
 
   // Connected-client presence (drives the desktop remote-lock overlay + the
   // settings "client connected" line). Set on the first authenticated request.
@@ -209,6 +220,24 @@ class WebServerHost extends ChangeNotifier {
 
       _realismListener = onProcessing;
       chatService.addListener(onProcessing);
+    }
+
+    // Library live-sync: broadcast a single debounced `library_changed` whenever
+    // characters, folders or groups change (from the desktop or a web client),
+    // so every browser refreshes its library near-instantly. Debounced ~150ms to
+    // coalesce the multiple notifies a single op can fire (e.g. an import).
+    if (streamHub != null) {
+      void onLibraryChanged() {
+        _libraryDebounce?.cancel();
+        _libraryDebounce = Timer(const Duration(milliseconds: 150), () {
+          streamHub.broadcast({'event': 'library_changed'});
+        });
+      }
+
+      _libraryListener = onLibraryChanged;
+      _characterRepository?.addListener(onLibraryChanged);
+      _folderService?.addListener(onLibraryChanged);
+      _groupChatRepository?.addListener(onLibraryChanged);
     }
 
     final characterFacade = CharacterFacade(
@@ -358,6 +387,14 @@ class WebServerHost extends ChangeNotifier {
       _realismListener = null;
     }
     _wasEvaluatingRealism = false;
+    if (_libraryListener != null) {
+      _characterRepository?.removeListener(_libraryListener!);
+      _folderService?.removeListener(_libraryListener!);
+      _groupChatRepository?.removeListener(_libraryListener!);
+      _libraryListener = null;
+    }
+    _libraryDebounce?.cancel();
+    _libraryDebounce = null;
     await _streamHub?.dispose();
     _streamHub = null;
     await _tunnelManager?.dispose();

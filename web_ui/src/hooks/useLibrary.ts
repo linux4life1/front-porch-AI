@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
+import { ChatSocket } from '../api/ws';
 
 export interface LibChar {
   id: string;
@@ -135,6 +136,17 @@ export function useLibrary() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load characters'))
       .finally(() => setLoading(false));
   }, [folderId, search, sort, scope, reloadKey]);
+
+  // Live sync: the server broadcasts `library_changed` whenever characters /
+  // folders / groups change anywhere (the desktop app or another browser).
+  // Refetch on it so the library stays current without a manual reload.
+  useEffect(() => {
+    const socket = new ChatSocket((e) => {
+      if (e.event === 'library_changed') reload();
+    });
+    socket.connect();
+    return () => socket.close();
+  }, [reload]);
 
   const subfolders = useMemo(
     () => folders.filter((f) => (f.parentId ?? null) === folderId),
