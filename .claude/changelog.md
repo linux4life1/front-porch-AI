@@ -3001,3 +3001,15 @@ Brief reason: Addressed the confirmed correctness/cleanup findings from the revi
 - **Routes:** no new App.tsx route needed (all 6 story routes already registered; reader rework is in-page).
 - **Gates:** web_ui `npm run build` (tsc --noEmit + vite) green, bundle regenerated; flutter analyze tree-wide clean (No issues found); dart format applied to changed files.
 - **Commit:** (pending — orchestrator commits)
+
+## 2026-06-27 — WebUI chat: curly-quote dialogue coloring + auto-expanding composer
+- Files: web_ui/src/components/MessageContent.tsx, web_ui/src/components/ChatComposer.tsx, assets/web_app/** (rebuilt bundle)
+- Reason: (③) INLINE_RE only matched straight "…" quotes, so curly “…” dialogue (most cards/LLM output) rendered plain instead of amber — desktop colors it. Widened dialogue branch to match curly quotes. (④a) Composer textarea was fixed 1-row; added auto-grow up to 40% viewport then internal scroll, resets after send.
+- Verified live via Vite :5173 (DOM): 5 curly dialogue spans now #ffd54f amber, 0 escaped; composer 41px→167px at 7 lines under 360px cap. Screenshot: ~/Desktop/fpai-review/webui-chat-coloring-composer.png
+- Note: dialogue/action coloring stays AI-bubble-only on web (solid accent-blue user bubble → blue-on-blue illegibility); deliberate UX divergence from desktop.
+- Commit: 35b36b2
+
+## 2026-06-27 — WebUI chat: live dialogue/action coloring in the composer (④b) + auto-grow clip fix
+- Files: web_ui/src/components/rpText.tsx (new shared helper), web_ui/src/components/MessageContent.tsx (now uses shared renderRpInline), web_ui/src/components/ChatComposer.tsx (backdrop overlay), web_ui/src/styles.css (.composer-* overlay; removed clipping max-height:120px), assets/web_app/** (rebuilt bundle)
+- Reason: The composer was plain text — desktop colors the input live via StyledTextController. Added a transparent textarea over a colour-synced backdrop (MacroField technique) that colours "dialogue" amber + *action*/**emphasis** blue as you type. Extracted the inline coloring from MessageContent into shared rpText.renderRpInline (stripMarkers flag: bubbles strip * markers, composer keeps every char for caret alignment) — consolidation, no parallel impl. Also fixed a latent ④a bug: CSS max-height:120px was clipping the auto-grown textarea (overflow hidden → lines beyond ~120px invisible/unscrollable); JS now owns height (40% viewport then scroll), buttons pinned flex-end.
+- Verified live (Vite :5173) at BOTH desktop (1440) and phone (390): backdrop↔textarea identical scrollHeight + char-for-char text + 16px/24px metrics (caret glued); dialogue #ffd54f, action #90caf9 colour-only (fontStyle normal, weight 400); no horizontal page overflow on phone. Screenshots: ~/Desktop/fpai-review/webui-composer-coloring-{desktop,closeup}.png, webui-chat-phone.png

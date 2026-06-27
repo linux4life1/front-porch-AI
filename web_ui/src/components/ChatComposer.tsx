@@ -9,6 +9,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
+import { renderRpInline } from './rpText';
 
 // Mirrors ChatCommandHandler.commands (lib/services/chat/chat_command_handler.dart)
 // — the single source of truth for the desktop "type /" helper. Keep in sync if
@@ -41,16 +42,32 @@ export function ChatComposer({
   const showSlash = draft.trimStart().startsWith('/') && !slashDismissed;
 
   // Auto-grow the textarea with content, capped at ~40% of the viewport (then it
-  // scrolls). Resets to one line after sending (draft clears).
+  // scrolls). Resets to one line after sending (draft clears). The transparent
+  // textarea sits over a coloured backdrop (live dialogue/action coloring); both
+  // are kept the same height so the caret stays glued to the coloured glyphs.
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
     ta.style.height = 'auto';
     const max = Math.round(window.innerHeight * 0.4);
-    ta.style.height = `${Math.min(ta.scrollHeight, max)}px`;
+    const h = Math.min(ta.scrollHeight, max);
+    ta.style.height = `${h}px`;
     ta.style.overflowY = ta.scrollHeight > max ? 'auto' : 'hidden';
+    const bd = backdropRef.current;
+    if (bd) {
+      bd.style.height = `${h}px`;
+      bd.scrollTop = ta.scrollTop;
+    }
   }, [draft]);
+
+  // Keep the coloured backdrop scrolled in lock-step with the textarea.
+  const syncScroll = () => {
+    const bd = backdropRef.current;
+    const ta = taRef.current;
+    if (bd && ta) bd.scrollTop = ta.scrollTop;
+  };
 
   const send = () => {
     const text = draft.trim();
@@ -85,29 +102,37 @@ export function ChatComposer({
           ))}
         </div>
       )}
-      <textarea
-        ref={taRef}
-        style={{ resize: 'vertical' }}
-        value={draft}
-        onChange={(e) => {
-          const v = e.target.value;
-          setDraft(v);
-          if (!v.trimStart().startsWith('/')) setSlashDismissed(false);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape' && showSlash) {
-            e.preventDefault();
-            setSlashDismissed(true);
-            return;
-          }
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            send();
-          }
-        }}
-        placeholder="Message…"
-        rows={1}
-      />
+      <div className="composer-area">
+        <div className="composer-backdrop" ref={backdropRef} aria-hidden="true">
+          {renderRpInline(draft, 'c', false)}
+          {'\n'}
+        </div>
+        <textarea
+          ref={taRef}
+          className="composer-input"
+          value={draft}
+          spellCheck
+          onScroll={syncScroll}
+          onChange={(e) => {
+            const v = e.target.value;
+            setDraft(v);
+            if (!v.trimStart().startsWith('/')) setSlashDismissed(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && showSlash) {
+              e.preventDefault();
+              setSlashDismissed(true);
+              return;
+            }
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+          placeholder="Message…"
+          rows={1}
+        />
+      </div>
       {canMic && (
         <MicButton
           disabled={isGenerating}

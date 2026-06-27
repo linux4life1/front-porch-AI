@@ -475,10 +475,42 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 .bubble.ai .act { color: var(--action); font-style: italic; }
 .bubble.ai .act.bold { font-weight: 700; font-style: normal; }
 .chat-input {
-  display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); background: var(--surface);
+  display: flex; gap: 8px; align-items: flex-end;
+  padding: 10px; border-top: 1px solid var(--border); background: var(--surface);
 }
 .chat-input { position: relative; }
-.chat-input textarea { flex: 1; resize: none; max-height: 120px; }
+
+/* Composer = a transparent auto-growing textarea over a colour-synced backdrop
+ * that live-colours "dialogue"/*action* as you type (web mirror of the desktop
+ * StyledTextController). Backdrop and textarea MUST share an identical box model
+ * so the colour stays glued to the caret; height is JS-controlled (auto-grow to
+ * ~40% viewport, then internal scroll). */
+.chat-input .composer-area { position: relative; flex: 1; display: flex; }
+.chat-input .composer-backdrop,
+.chat-input .composer-input {
+  margin: 0; width: 100%; box-sizing: border-box;
+  font-family: inherit; font-size: 16px; line-height: 1.5;
+  letter-spacing: normal; tab-size: 4;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;
+}
+.chat-input .composer-backdrop {
+  position: absolute; inset: 0; overflow: hidden;
+  color: var(--text); background: var(--bg);
+  border-color: transparent; pointer-events: none;
+}
+.chat-input .composer-input {
+  position: relative; flex: 1; resize: none;
+  background: transparent; color: transparent; caret-color: var(--text);
+  overflow-y: hidden;
+}
+.chat-input .composer-input::placeholder { color: var(--muted); }
+/* Colour-only in the live composer (no italic/bold) so transparent textarea and
+ * coloured backdrop keep identical glyph metrics. Rendered bubbles add the
+ * italic/bold; the input intentionally doesn't (matches StyledTextController). */
+.chat-input .composer-backdrop .dlg { color: var(--dialogue); }
+.chat-input .composer-backdrop .act { color: var(--action); font-style: normal; font-weight: inherit; }
+.chat-input .composer-backdrop .act.bold { font-style: normal; font-weight: inherit; }
 
 /* ── Slash-command cheat sheet (chat input) ───────────────────── */
 .slash-cheatsheet {
