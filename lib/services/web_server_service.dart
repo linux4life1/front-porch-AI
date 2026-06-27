@@ -1706,6 +1706,8 @@ class WebServerService extends ChangeNotifier {
           'contextSize': s.backendSettings.contextSize,
           'dynamicTempEnabled': s.generationSettings.dynamicTempEnabled,
           'dynamicTempRange': s.generationSettings.dynamicTempRange,
+          'dynamicResponses': s.generationSettings.dynamicResponses,
+          'dynamicResponseInterval': s.generationSettings.dynamicResponseInterval,
           'stopSequences': s.generationSettings.stopSequences,
           // Backend / API — prefer runtime values from LLMProvider
           'activeBackend': s.backendSettings.backendType,
@@ -2119,6 +2121,12 @@ class WebServerService extends ChangeNotifier {
         await s.setDynamicTempRange(
           (body['dynamicTempRange'] as num).toDouble(),
         );
+      }
+      if (body.containsKey('dynamicResponses')) {
+        await s.setDynamicResponses(body['dynamicResponses'] as bool);
+      }
+      if (body.containsKey('dynamicResponseInterval')) {
+        await s.setDynamicResponseInterval(body['dynamicResponseInterval'] as int);
       }
 
       // Backend / API

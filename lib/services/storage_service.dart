@@ -460,6 +460,12 @@ class StorageService extends ChangeNotifier {
   double get dynamicTempRange => generationSettings.dynamicTempRange;
   Future<void> setDynamicTempRange(double v) =>
       generationSettings.setDynamicTempRange(v);
+  bool get dynamicResponses => generationSettings.dynamicResponses;
+  Future<void> setDynamicResponses(bool v) =>
+      generationSettings.setDynamicResponses(v);
+  int get dynamicResponseInterval => generationSettings.dynamicResponseInterval;
+  Future<void> setDynamicResponseInterval(int v) =>
+      generationSettings.setDynamicResponseInterval(v);
   int get maxLength => generationSettings.maxLength;
   Future<void> setMaxLength(int v) => generationSettings.setMaxLength(v);
   int get minLength => generationSettings.minLength;

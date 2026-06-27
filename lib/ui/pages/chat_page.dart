@@ -187,7 +187,14 @@ class _ChatPageState extends State<ChatPage> {
     final chat = Provider.of<ChatService>(context, listen: false);
     _chatService = chat;
     chat.addListener(_onChatServiceChanged);
+
+    // Resume timer if this is a pre-existing chat with history
+    chat.resumeDynamicResponses();
   }
+
+  // Lifecycle pausing intentionally omitted — the idle timer should fire when
+  // the user walks away (minimized/backgrounded). Pausing on dispose (page
+  // navigation) is sufficient to prevent phantom generations.
 
   void _onChatServiceChanged() {
     if (!mounted) return;
@@ -395,6 +402,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    _chatService?.pauseDynamicResponses();
     _ttsService?.removeListener(_onTtsChanged);
     _chatService?.removeListener(_onChatServiceChanged);
     _chatFocusNode.dispose();

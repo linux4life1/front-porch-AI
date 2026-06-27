@@ -536,6 +536,18 @@ extension ChatServiceGeneration on ChatService {
         droppedMessages = 0;
       }
 
+      // ── Dynamic Responses: synthetic user action ───────────────────────
+      // When the idle timer fired, inject a fake user action into the
+      // conversation prompt (not the saved _messages) so the model sees
+      // a natural input to respond to instead of falling back to assistant
+      // mode on the silence.
+      if (_pendingIdleCue != null) {
+        final userName = _userPersonaService.persona.name;
+        if (userName.isNotEmpty) {
+          history += '\n$userName: ...';
+        }
+      }
+
       // ── RAG Memory Retrieval ──
       // When messages are dropped from context, search for relevant past memories
       // Skip retrieval for brand new chats to prevent old memories from interfering
@@ -625,12 +637,18 @@ extension ChatServiceGeneration on ChatService {
 
       // Realism injection was already computed above for budget
 
+      // Inject fourth-wall idle cue if Dynamic Responses triggered
+      final idleCue = _pendingIdleCue;
+      final effectiveSystemPrompt = idleCue != null
+          ? "$systemPrompt\n\n$idleCue"
+          : systemPrompt;
+
       // Every backend now speaks the OpenAI chat protocol (local KoboldCpp via
       // its /v1/chat/completions door), so always send the system content as a
       // proper 'system' role message and the transcript as the 'user' message —
       // the server applies the model's instruct template server-side.
       final chatSystemPrompt =
-          "$systemPrompt\n$loreContent$personaBlock\n$userPersonaBlock"
+          "$effectiveSystemPrompt\n$loreContent$personaBlock\n$userPersonaBlock"
           "Scenario: $scenario\n$mesExampleBlock";
 
       final prompt =

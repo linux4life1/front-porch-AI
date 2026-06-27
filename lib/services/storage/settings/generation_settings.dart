@@ -35,6 +35,8 @@ class GenerationSettings with SettingsBase {
   int _repeatPenaltyTokens = 64;
   bool _dynamicTempEnabled = false;
   double _dynamicTempRange = 0.7;
+  bool _dynamicResponses = false;
+  int _dynamicResponseInterval = 60;
   double _xtcThreshold = 0.1;
   double _xtcProbability = 0.5;
   int _maxLength = 1024;
@@ -61,6 +63,8 @@ class GenerationSettings with SettingsBase {
   int get repeatPenaltyTokens => _repeatPenaltyTokens;
   bool get dynamicTempEnabled => _dynamicTempEnabled;
   double get dynamicTempRange => _dynamicTempRange;
+  bool get dynamicResponses => _dynamicResponses;
+  int get dynamicResponseInterval => _dynamicResponseInterval;
   double get xtcThreshold => _xtcThreshold;
   double get xtcProbability => _xtcProbability;
   int get maxLength => _maxLength;
@@ -78,6 +82,10 @@ class GenerationSettings with SettingsBase {
         prefs?.getBool(k('dynamic_temp_enabled')) ?? _dynamicTempEnabled;
     _dynamicTempRange =
         prefs?.getDouble(k('dynamic_temp_range')) ?? _dynamicTempRange;
+    _dynamicResponses =
+        prefs?.getBool(k('dynamic_responses')) ?? _dynamicResponses;
+    _dynamicResponseInterval =
+        prefs?.getInt(k('dynamic_response_interval')) ?? _dynamicResponseInterval;
     _xtcThreshold = prefs?.getDouble(k('xtc_threshold')) ?? _xtcThreshold;
     _xtcProbability = prefs?.getDouble(k('xtc_probability')) ?? _xtcProbability;
     _maxLength = prefs?.getInt(k('max_length')) ?? _maxLength;
@@ -137,6 +145,18 @@ class GenerationSettings with SettingsBase {
   Future<void> setDynamicTempRange(double value) async {
     _dynamicTempRange = value;
     await prefs?.setDouble(k('dynamic_temp_range'), value);
+    notify();
+  }
+
+  Future<void> setDynamicResponses(bool value) async {
+    _dynamicResponses = value;
+    await prefs?.setBool(k('dynamic_responses'), value);
+    notify();
+  }
+
+  Future<void> setDynamicResponseInterval(int value) async {
+    _dynamicResponseInterval = value;
+    await prefs?.setInt(k('dynamic_response_interval'), value);
     notify();
   }
 
