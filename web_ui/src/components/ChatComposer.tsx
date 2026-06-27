@@ -7,7 +7,7 @@
 // state; sending is delegated to onSend so all chat/network state stays in
 // ChatPage.
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
 
 // Mirrors ChatCommandHandler.commands (lib/services/chat/chat_command_handler.dart)
@@ -39,6 +39,18 @@ export function ChatComposer({
   const [draft, setDraft] = useState('');
   const [slashDismissed, setSlashDismissed] = useState(false);
   const showSlash = draft.trimStart().startsWith('/') && !slashDismissed;
+
+  // Auto-grow the textarea with content, capped at ~40% of the viewport (then it
+  // scrolls). Resets to one line after sending (draft clears).
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    const max = Math.round(window.innerHeight * 0.4);
+    ta.style.height = `${Math.min(ta.scrollHeight, max)}px`;
+    ta.style.overflowY = ta.scrollHeight > max ? 'auto' : 'hidden';
+  }, [draft]);
 
   const send = () => {
     const text = draft.trim();
@@ -74,6 +86,8 @@ export function ChatComposer({
         </div>
       )}
       <textarea
+        ref={taRef}
+        style={{ resize: 'vertical' }}
         value={draft}
         onChange={(e) => {
           const v = e.target.value;

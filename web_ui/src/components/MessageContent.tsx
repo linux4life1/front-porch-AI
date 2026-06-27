@@ -10,8 +10,9 @@
 // carry plain text content, never markup.
 
 const IMAGE_RE = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
-// Order matters: **bold** before *action* so the double-star wins.
-const INLINE_RE = /(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|("[^"\n]+")/g;
+// Order matters: **bold** before *action* so the double-star wins. Dialogue
+// matches both straight "…" and curly “…” quotes (cards/LLMs often use curly).
+const INLINE_RE = /(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|("[^"\n]+"|“[^”\n]+”)/g;
 
 // Color quoted dialogue / *action* / **emphasis** inside a plain text segment.
 function renderInline(text: string, keyBase: string): React.ReactNode[] {
