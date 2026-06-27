@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { PersonaManager } from '../components/PersonaManager';
 import { ModelPicker } from '../components/ModelPicker';
+import { ChatColorsSettings } from '../components/ChatColorsSettings';
 
 // A single backend picker (replacing the old Backend + Provider dropdowns,
 // which overlapped). Each entry maps to a real BackendType; the OpenAI-compatible
@@ -148,6 +149,8 @@ export function SettingsPage() {
       <h2>Settings</h2>
 
       <PersonaManager />
+
+      <ChatColorsSettings />
 
       <section className="card">
         <h3>Model &amp; backend</h3>

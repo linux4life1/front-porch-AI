@@ -23,9 +23,15 @@
   --radius: 12px;
   --radius-card: 16px;
   --radius-badge: 4px;
-  /* Chat message coloring (mirrors AppColors.dialogue / action). */
+  /* Chat message coloring (mirrors AppColors.dialogue / action). User-overridable
+     via Settings → Chat colors (chatColors.ts sets these on :root at runtime). */
   --dialogue: #ffd54f;
   --action: #90caf9;
+  /* Customizable chat bubble colors (default to the base tokens). */
+  --chat-user-bubble: var(--accent);
+  --chat-user-text: var(--accent-ink);
+  --chat-ai-bubble: var(--surface-2);
+  --chat-ai-text: var(--text);
   /* Tag pills (amber). */
   --tag-bg: rgba(255, 193, 7, 0.22);
   --tag-border: rgba(255, 193, 7, 0.45);
@@ -465,15 +471,16 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
   max-width: 85%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap;
   line-height: 1.4; word-break: break-word;
 }
-.bubble.user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
-.bubble.ai { align-self: flex-start; background: var(--surface-2); border-bottom-left-radius: 4px; }
+.bubble.user { align-self: flex-end; background: var(--chat-user-bubble); color: var(--chat-user-text); border-bottom-right-radius: 4px; }
+.bubble.ai { align-self: flex-start; background: var(--chat-ai-bubble); color: var(--chat-ai-text); border-bottom-right-radius: 16px; border-bottom-left-radius: 4px; }
 .bubble.streaming { opacity: 0.85; }
 /* RP text coloring (parity with desktop AppColors.dialogue / action): "quoted
-   dialogue" → amber, *actions* → italic blue, **emphasis** → bold blue. Scoped
-   to AI bubbles so it never clashes with the solid-blue user bubble. */
-.bubble.ai .dlg { color: var(--dialogue); }
-.bubble.ai .act { color: var(--action); font-style: italic; }
-.bubble.ai .act.bold { font-weight: 700; font-style: normal; }
+   dialogue" → amber, *actions* → italic blue, **emphasis** → bold blue. Applied
+   to BOTH bubbles (desktop colors user + AI alike); the user can recolor the user
+   bubble / text in Settings → Chat colors so the highlight stays legible. */
+.bubble .dlg { color: var(--dialogue); }
+.bubble .act { color: var(--action); font-style: italic; }
+.bubble .act.bold { font-weight: 700; font-style: normal; }
 .chat-input {
   display: flex; gap: 8px; align-items: flex-end;
   padding: 10px; border-top: 1px solid var(--border); background: var(--surface);
@@ -945,6 +952,16 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 @media (max-width: 768px) {
   .cg-mode-cards, .cg-grid2, .cg-review { grid-template-columns: 1fr; }
 }
+
+/* ── Chat colors settings ──────────────────────────────────────────────── */
+.color-rows { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; margin: 8px 0 12px; }
+.color-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; color: var(--text); }
+.color-row input[type='color'] {
+  width: 44px; height: 28px; padding: 0; border: 1px solid var(--border);
+  border-radius: 6px; background: none; cursor: pointer;
+}
+.color-preview { padding: 12px; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
+@media (max-width: 768px) { .color-rows { grid-template-columns: 1fr; } }
 
 /* Voice: the mic button pulses red while recording. */
 .icon-btn.mic.recording { color: var(--danger, #e5484d); animation: mic-pulse 1s ease-in-out infinite; }
