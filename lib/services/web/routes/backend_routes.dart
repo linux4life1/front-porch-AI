@@ -42,6 +42,8 @@ class WebBackendRoutes {
       router.get('/api/backend/downloads', _downloads);
       router.post('/api/backend/downloads', _queueDownload);
       router.post('/api/backend/downloads/<taskId>/cancel', _cancelDownload);
+      router.post('/api/backend/remote-models', _remoteModels);
+      router.post('/api/backend/test-connection', _testConnection);
     }
     if (image != null) {
       router.get('/api/image/config', _imageConfig);
@@ -111,6 +113,30 @@ class WebBackendRoutes {
     final ok = _backend!.cancelDownload(taskId);
     if (!ok) return JsonResponse.error(404, 'Download not found');
     return JsonResponse.ok({'downloads': _backend.downloads()});
+  }
+
+  // ── Remote (OpenAI-compatible) model picker ──────────────────────────────
+  // Optional apiUrl/apiKey in the body let the Settings page preview a provider
+  // before saving; the facade falls back to the stored remote credentials.
+  Future<shelf.Response> _remoteModels(shelf.Request r) async {
+    final body = await _json(r);
+    final models = await _backend!.remoteModels(
+      apiUrl: body['apiUrl']?.toString(),
+      apiKey: body['apiKey']?.toString(),
+    );
+    return JsonResponse.ok({'models': models});
+  }
+
+  Future<shelf.Response> _testConnection(shelf.Request r) async {
+    final body = await _json(r);
+    final message = await _backend!.testRemoteConnection(
+      apiUrl: body['apiUrl']?.toString(),
+      apiKey: body['apiKey']?.toString(),
+    );
+    return JsonResponse.ok({
+      'ok': message.toLowerCase().contains('success'),
+      'message': message,
+    });
   }
 
   // ── Image generation ─────────────────────────────────────────────────────

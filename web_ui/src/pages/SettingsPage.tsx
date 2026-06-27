@@ -4,6 +4,18 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { PersonaManager } from '../components/PersonaManager';
+import { ModelPicker } from '../components/ModelPicker';
+
+// Provider presets auto-fill the API URL for the common OpenAI-compatible
+// backends. "Custom" leaves the URL free for anything else (vLLM, LM Studio…).
+const PROVIDER_PRESETS: { id: string; label: string; url: string }[] = [
+  { id: 'nanogpt', label: 'Nano-GPT', url: 'https://nano-gpt.com/api/v1' },
+  { id: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/api/v1' },
+  { id: 'omlx', label: 'oMLX (local)', url: 'http://localhost:8000/v1' },
+  { id: 'custom', label: 'Custom', url: '' },
+];
+const presetForUrl = (url: string): string =>
+  PROVIDER_PRESETS.find((p) => p.url && p.url === url.trim())?.id ?? 'custom';
 
 interface Gen {
   temperature: number;
@@ -38,6 +50,8 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testMsg, setTestMsg] = useState('');
 
   const load = () => api.get<Settings>('/api/settings').then(setS).catch(() => {});
   useEffect(() => {
@@ -73,6 +87,36 @@ export function SettingsPage() {
     }
   };
 
+  // Selecting a provider preset just fills the API URL (Custom clears it for
+  // free entry). The model dropdown refetches off the new URL automatically.
+  const onPreset = (id: string) => {
+    const preset = PROVIDER_PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    if (id === 'custom') return; // keep the current URL editable
+    patch({ remoteApiUrl: preset.url });
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    setTestMsg('');
+    try {
+      const body: Record<string, unknown> = { apiUrl: s.remoteApiUrl };
+      if (apiKey.trim()) body.apiKey = apiKey.trim();
+      const r = await api.post<{ ok: boolean; message: string }>('/api/backend/test-connection', body);
+      setTestMsg(r.message);
+    } catch (e) {
+      setTestMsg(e instanceof ApiError ? e.message : 'Connection test failed');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  // Only KoboldCpp is "local" with no remote endpoint; openRouter / pseudoRemote
+  // / oMLX all use an OpenAI-compatible URL + model. Gate the remote controls on
+  // the *selected* backend (not the saved one) so they appear the moment you
+  // switch the dropdown, before saving.
+  const isRemoteSel = s.backend !== 'kobold';
+
   return (
     <div className="page">
       <h2>Settings</h2>
@@ -91,8 +135,20 @@ export function SettingsPage() {
         </label>
         <p className="muted small">Loaded model: <strong>{s.loadedModel}</strong> · context {s.contextSize}</p>
 
-        {!s.isLocal && (
+        {isRemoteSel && (
           <>
+            <label>
+              Provider
+              <select
+                value={presetForUrl(s.remoteApiUrl)}
+                onChange={(e) => onPreset(e.target.value)}
+                aria-label="Provider preset"
+              >
+                {PROVIDER_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            </label>
             <label>
               API URL
               <input
@@ -102,11 +158,12 @@ export function SettingsPage() {
               />
             </label>
             <label>
-              Model name
-              <input
+              Model
+              <ModelPicker
+                apiUrl={s.remoteApiUrl}
+                apiKey={apiKey}
                 value={s.remoteModelName}
-                onChange={(e) => patch({ remoteModelName: e.target.value })}
-                placeholder="e.g. anthropic/claude-3.5-sonnet"
+                onChange={(id) => patch({ remoteModelName: id })}
               />
             </label>
             <label>
@@ -118,6 +175,16 @@ export function SettingsPage() {
                 placeholder={s.hasApiKey ? '•••••• (leave blank to keep)' : 'paste your API key'}
               />
             </label>
+            <div className="test-conn-row">
+              <button className="ghost" onClick={testConnection} disabled={testing}>
+                {testing ? 'Testing…' : 'Test connection'}
+              </button>
+              {testMsg && (
+                <span className={`test-conn-msg${testMsg.toLowerCase().includes('success') ? ' ok' : ' bad'}`}>
+                  {testMsg}
+                </span>
+              )}
+            </div>
           </>
         )}
       </section>

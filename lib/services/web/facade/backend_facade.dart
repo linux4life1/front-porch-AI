@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
+import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Web adapter for local-backend lifecycle, local-model switching, and the
@@ -127,6 +128,49 @@ class BackendFacade {
   }
 
   bool cancelDownload(String taskId) => _models.cancelDownload(taskId);
+
+  // ── Remote (OpenAI-compatible) model picker ──────────────────────────────
+  // Resolve the credentials to probe a remote provider with: the caller may
+  // supply an as-yet-unsaved [apiUrl]/[apiKey] (so the Settings page can preview
+  // a provider before the user saves), otherwise we fall back to the stored
+  // remote settings. Local servers (oMLX / vLLM at localhost) need no key.
+  ({String url, String key}) _remoteCreds(String? apiUrl, String? apiKey) {
+    final b = _storage.backendSettings;
+    final url = (apiUrl != null && apiUrl.trim().isNotEmpty)
+        ? apiUrl.trim()
+        : b.remoteApiUrl;
+    final key = (apiKey != null && apiKey.isNotEmpty) ? apiKey : b.remoteApiKey;
+    return (url: url, key: key);
+  }
+
+  /// Fetch the provider's available models for the Settings model dropdown.
+  /// Reuses [OpenRouterService.fetchAvailableModels] via a throwaway client so
+  /// the live backend config isn't mutated until the user actually saves.
+  /// Returns id + display name + pricing label (empty list on failure/no key).
+  Future<List<Map<String, dynamic>>> remoteModels({
+    String? apiUrl,
+    String? apiKey,
+  }) async {
+    final c = _remoteCreds(apiUrl, apiKey);
+    final svc = OpenRouterService(apiUrl: c.url, apiKey: c.key);
+    final models = await svc.fetchAvailableModels();
+    return models
+        .map((m) => {
+              'id': m.id,
+              'name': m.name,
+              'pricing': m.pricingLabel,
+              'free': m.isFree,
+            })
+        .toList();
+  }
+
+  /// Test the remote API connection (same credential fallback as
+  /// [remoteModels]). Returns the human-readable status from the service.
+  Future<String> testRemoteConnection({String? apiUrl, String? apiKey}) async {
+    final c = _remoteCreds(apiUrl, apiKey);
+    final svc = OpenRouterService(apiUrl: c.url, apiKey: c.key);
+    return svc.testConnection();
+  }
 
   /// Current download queue (for the web to poll progress while active).
   List<Map<String, dynamic>> downloads() => _models.downloadManager.queue
