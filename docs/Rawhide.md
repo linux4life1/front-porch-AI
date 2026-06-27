@@ -4,6 +4,10 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements
 
+- 🧠 **Web app: watch the Realism Engine think** — when the AI is sizing up the scene, the web now shows the same live "engine is thinking" overlay as the desktop: a streaming read-out of the realism evaluation, the relationship/emotion/scene/trust stages, and a **Cancel Realism** button if you want to skip it. You'll also see when the Objective Engine is checking whether your goals/tasks got completed. (Web UI.)
+
+- 🗂️ **Web app: the chat side panel matches the desktop** — the panels are now in the expected order (Author's Note up top, Current Fixation highlighted above the relationship stats, then Memory, Chaos, Objectives, Summary, and so on), and you can **drag the panel's edge to resize it** to your taste (it remembers the width). (Web UI.)
+
 - 📥 **Web app: a real model manager** — the Models page now works like the desktop app. See your GPU and VRAM, tap a recommended-for-your-hardware chip to search, browse HuggingFace, and download with a proper queue: pause, resume, cancel, pause/resume all, and a live overall progress bar with per-file size and ETA. Delete installed models you don't want (the one in use is protected). Plus a fix so downloaded models always land in your real models folder. (Web UI.)
 
 - 🧠 **Web app: pick your API model from a real list** — when you're on a remote backend (Nano-GPT, OpenRouter, etc.) the generation model is no longer a blank box you have to type into. Choose your provider from a dropdown (it fills in the address for you), then pick the model from a searchable list pulled live from the provider — hundreds of models, type to filter, with pricing shown. A **Test connection** button confirms your key works. (Web UI.)
