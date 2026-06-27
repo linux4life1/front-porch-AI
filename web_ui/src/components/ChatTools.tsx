@@ -1,11 +1,13 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The chat "tools" sidebar — the memory / summary / chaos / NSFW / scene-time /
-// objective sections the desktop shows beside a chat. Reads /api/chat/tools and
-// drives the same ChatService/StorageService mutations the desktop sidebar does
-// (no logic lives here). Rendered inside the insight panel (persistent column on
-// desktop/landscape-tablet; the insight drawer on phone/portrait-tablet).
+// The chat "tools" sidebar — the memory / chaos / objectives / summary /
+// scene-time / NSFW sections the desktop shows beside a chat. Reads
+// /api/chat/tools and drives the same ChatService/StorageService mutations the
+// desktop sidebar does (no logic lives here). Section ORDER mirrors the desktop
+// sidebar (Memory → Chaos → Objectives → Summary → Scene & time → NSFW → Group).
+// Rendered inside the insight panel (persistent column on desktop/landscape-
+// tablet; the insight drawer on phone/portrait-tablet).
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
@@ -141,23 +143,104 @@ export function ChatTools({
   if (!t) return null;
 
   const obj = t.objectives.primary;
+  const checking = t.objectives.isChecking;
 
   return (
     <div className="chat-tools">
       <Toggle label="Realism engine" value={t.realismEnabled} onChange={(v) => toggle('realism', v)} />
 
-      <details className="tool-section" open>
-        <summary>Scene &amp; time</summary>
+      <details className="tool-section">
+        <summary>Memory &amp; evolution</summary>
         <div className="tool-body">
-          <div className="stat-line">
-            <span>{t.time.weekday}, day {t.time.dayCount}</span>
-            <span className="muted">{t.time.timeOfDay.replace(/_/g, ' ')}</span>
-          </div>
-          <div className="tool-row">
-            <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: -1 }))}>◀ Earlier</button>
-            <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: 1 }))}>Later ▶</button>
-          </div>
-          <Toggle label="Auto passage of time" value={t.time.passageEnabled} onChange={(v) => toggle('passageOfTime', v)} />
+          <Toggle label="Use memory (RAG)" value={t.memory.ragEnabled} onChange={(v) => settings({ ragEnabled: v })} />
+          {t.memory.ragEnabled && (
+            <>
+              <NumField label="Retrieve count" value={t.memory.ragRetrievalCount} onCommit={(v) => settings({ ragRetrievalCount: v })} />
+              <NumField label="Window size" value={t.memory.ragWindowSize} onCommit={(v) => settings({ ragWindowSize: v })} />
+            </>
+          )}
+          <Toggle label="Auto-persona learning" value={t.memory.autoPersonaEnabled} onChange={(v) => settings({ autoPersonaEnabled: v })} />
+          {t.memory.autoPersonaEnabled && (
+            <NumField label="Every (msgs)" value={t.memory.autoPersonaInterval} onCommit={(v) => settings({ autoPersonaInterval: v })} />
+          )}
+          <Toggle label="Character evolution" value={t.memory.evolutionEnabled} onChange={(v) => settings({ evolutionEnabled: v })} />
+          {t.memory.evolutionEnabled && (
+            <>
+              <NumField label="Every (msgs)" value={t.memory.evolutionInterval} onCommit={(v) => settings({ evolutionInterval: v })} />
+              <div className="stat-line"><span>Evolutions</span><span className="muted">{t.memory.evolutionCount}</span></div>
+            </>
+          )}
+        </div>
+      </details>
+
+      <details className="tool-section">
+        <summary>Chaos mode{t.chaos.enabled ? ` · ${t.chaos.pressure}%` : ''}</summary>
+        <div className="tool-body">
+          <Toggle label="Chaos mode" value={t.chaos.enabled} onChange={(v) => toggle('chaos', v)} />
+          {t.chaos.enabled && (
+            <>
+              <div className="stat-line"><span>Pressure</span><span className="muted">{t.chaos.pressure}%{t.chaos.hasPendingEvent ? ' · event ready' : ''}</span></div>
+              <Toggle label="Allow NSFW events" value={t.chaos.nsfwEnabled} onChange={(v) => toggle('chaosNsfw', v)} />
+            </>
+          )}
+        </div>
+      </details>
+
+      <details className="tool-section" open={checking}>
+        <summary>
+          Objectives{obj ? '' : ' (none)'}
+          {checking && <span className="obj-checking-tag"> · checking…</span>}
+        </summary>
+        <div className="tool-body">
+          {checking && (
+            <div className="obj-checking"><span className="proc-spinner sm" aria-hidden /> Checking objective &amp; task completion…</div>
+          )}
+          {obj ? (
+            <>
+              <div className="stat-line"><strong>{obj.objective}</strong></div>
+              {obj.tasks.length > 0 && (
+                <ul className="task-list">
+                  {obj.tasks.map((task, i) => (
+                    <li key={i}>
+                      <label className="task-item">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={() => apply(api.post<ToolsState>(`/api/chat/tools/task${q}`, { action: 'toggle', id: obj.id, taskIndex: i }))}
+                        />
+                        <span className={task.completed ? 'done' : ''}>{task.description}</span>
+                        <button className="icon-btn" title="Remove" onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/task${q}`, { action: 'remove', id: obj.id, taskIndex: i }))}>🗑</button>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="tool-row">
+                <button disabled={checking} onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'generate', id: obj.id }))}>
+                  Generate tasks
+                </button>
+                <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'clear', id: obj.id }))}>Clear</button>
+              </div>
+            </>
+          ) : (
+            <div className="tool-row">
+              <input
+                placeholder="Set a goal for this character…"
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+              />
+              <button
+                className="primary"
+                disabled={!goal.trim()}
+                onClick={() => {
+                  apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'set', goal }));
+                  setGoal('');
+                }}
+              >
+                Set
+              </button>
+            </div>
+          )}
         </div>
       </details>
 
@@ -188,67 +271,17 @@ export function ChatTools({
       </details>
 
       <details className="tool-section">
-        <summary>Objectives{obj ? '' : ' (none)'}</summary>
+        <summary>Scene &amp; time</summary>
         <div className="tool-body">
-          {obj ? (
-            <>
-              <div className="stat-line"><strong>{obj.objective}</strong></div>
-              {obj.tasks.length > 0 && (
-                <ul className="task-list">
-                  {obj.tasks.map((task, i) => (
-                    <li key={i}>
-                      <label className="task-item">
-                        <input
-                          type="checkbox"
-                          checked={task.completed}
-                          onChange={() => apply(api.post<ToolsState>(`/api/chat/tools/task${q}`, { action: 'toggle', id: obj.id, taskIndex: i }))}
-                        />
-                        <span className={task.completed ? 'done' : ''}>{task.description}</span>
-                        <button className="icon-btn" title="Remove" onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/task${q}`, { action: 'remove', id: obj.id, taskIndex: i }))}>🗑</button>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="tool-row">
-                <button disabled={t.objectives.isChecking} onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'generate', id: obj.id }))}>
-                  Generate tasks
-                </button>
-                <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'clear', id: obj.id }))}>Clear</button>
-              </div>
-            </>
-          ) : (
-            <div className="tool-row">
-              <input
-                placeholder="Set a goal for this character…"
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
-              />
-              <button
-                className="primary"
-                disabled={!goal.trim()}
-                onClick={() => {
-                  apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'set', goal }));
-                  setGoal('');
-                }}
-              >
-                Set
-              </button>
-            </div>
-          )}
-        </div>
-      </details>
-
-      <details className="tool-section">
-        <summary>Chaos mode{t.chaos.enabled ? ` · ${t.chaos.pressure}%` : ''}</summary>
-        <div className="tool-body">
-          <Toggle label="Chaos mode" value={t.chaos.enabled} onChange={(v) => toggle('chaos', v)} />
-          {t.chaos.enabled && (
-            <>
-              <div className="stat-line"><span>Pressure</span><span className="muted">{t.chaos.pressure}%{t.chaos.hasPendingEvent ? ' · event ready' : ''}</span></div>
-              <Toggle label="Allow NSFW events" value={t.chaos.nsfwEnabled} onChange={(v) => toggle('chaosNsfw', v)} />
-            </>
-          )}
+          <div className="stat-line">
+            <span>{t.time.weekday}, day {t.time.dayCount}</span>
+            <span className="muted">{t.time.timeOfDay.replace(/_/g, ' ')}</span>
+          </div>
+          <div className="tool-row">
+            <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: -1 }))}>◀ Earlier</button>
+            <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: 1 }))}>Later ▶</button>
+          </div>
+          <Toggle label="Auto passage of time" value={t.time.passageEnabled} onChange={(v) => toggle('passageOfTime', v)} />
         </div>
       </details>
 
@@ -259,30 +292,6 @@ export function ChatTools({
           <Toggle label="Post-climax cooldown" value={t.nsfw.cooldownEnabled} onChange={(v) => toggle('nsfwCooldown', v)} />
           {t.nsfw.cooldownEnabled && t.nsfw.cooldownTurnsRemaining > 0 && (
             <div className="stat-line"><span>Cooldown</span><span className="muted">{t.nsfw.cooldownTurnsRemaining} turns</span></div>
-          )}
-        </div>
-      </details>
-
-      <details className="tool-section">
-        <summary>Memory &amp; evolution</summary>
-        <div className="tool-body">
-          <Toggle label="Use memory (RAG)" value={t.memory.ragEnabled} onChange={(v) => settings({ ragEnabled: v })} />
-          {t.memory.ragEnabled && (
-            <>
-              <NumField label="Retrieve count" value={t.memory.ragRetrievalCount} onCommit={(v) => settings({ ragRetrievalCount: v })} />
-              <NumField label="Window size" value={t.memory.ragWindowSize} onCommit={(v) => settings({ ragWindowSize: v })} />
-            </>
-          )}
-          <Toggle label="Auto-persona learning" value={t.memory.autoPersonaEnabled} onChange={(v) => settings({ autoPersonaEnabled: v })} />
-          {t.memory.autoPersonaEnabled && (
-            <NumField label="Every (msgs)" value={t.memory.autoPersonaInterval} onCommit={(v) => settings({ autoPersonaInterval: v })} />
-          )}
-          <Toggle label="Character evolution" value={t.memory.evolutionEnabled} onChange={(v) => settings({ evolutionEnabled: v })} />
-          {t.memory.evolutionEnabled && (
-            <>
-              <NumField label="Every (msgs)" value={t.memory.evolutionInterval} onCommit={(v) => settings({ evolutionInterval: v })} />
-              <div className="stat-line"><span>Evolutions</span><span className="muted">{t.memory.evolutionCount}</span></div>
-            </>
           )}
         </div>
       </details>

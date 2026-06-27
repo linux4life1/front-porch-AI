@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { ChatSocket } from '../api/ws';
@@ -9,6 +9,7 @@ import { ChatTools } from '../components/ChatTools';
 import { CastBar, type CastMember } from '../components/CastBar';
 import { CharacterPicker } from '../components/CharacterPicker';
 import { MessageContent } from '../components/MessageContent';
+import { ProcessingOverlay, NO_PROCESSING, type Processing } from '../components/ProcessingOverlay';
 import { SpeakButton, MicButton } from '../components/VoiceControls';
 
 interface Chips {
@@ -62,6 +63,11 @@ interface ChatState {
   sessionId: string | null;
   messages: Message[];
   isGenerating: boolean;
+  isEvaluatingRealism?: boolean;
+  isCheckingCompletion?: boolean;
+  isProcessingGreeting?: boolean;
+  isVerifyingRealism?: boolean;
+  realismEvalText?: string;
   isGroupMode?: boolean;
   groupId?: string | null;
   realism?: Realism;
@@ -104,6 +110,14 @@ export function ChatPage() {
   const [state, setState] = useState<ChatState | null>(null);
   const [draft, setDraft] = useState('');
   const [streaming, setStreaming] = useState('');
+  // Realism/Objective engine overlay, driven by the `processing` WS event.
+  const [processing, setProcessing] = useState<Processing>(NO_PROCESSING);
+  // Resizable insight sidebar (desktop) — width persists across sessions.
+  const [asideWidth, setAsideWidth] = useState<number>(() => {
+    const v = typeof localStorage !== 'undefined' ? localStorage.getItem('fpai.asideWidth') : null;
+    const n = v ? parseInt(v, 10) : NaN;
+    return Number.isFinite(n) ? Math.min(560, Math.max(260, n)) : 320;
+  });
   const [showSessions, setShowSessions] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -138,6 +152,13 @@ export function ChatPage() {
     const s = await api.get<ChatState>('/api/chat/state');
     setState(s);
     setToolsBump((b) => b + 1);
+    // Safety net: if the engines are fully idle (and not generating), make sure
+    // the processing overlay is dismissed even if its final WS event was missed
+    // (e.g. a socket reconnect mid-eval). Never clears during an active eval —
+    // refresh() doesn't run then (the `processing` event drives the overlay).
+    if (!s.isEvaluatingRealism && !s.isCheckingCompletion && !s.isGenerating) {
+      setProcessing(NO_PROCESSING);
+    }
   }, []);
 
   // Keep a focused member's realism live as the chat updates.
@@ -154,6 +175,19 @@ export function ChatPage() {
       } else if (e.event === 'done' || e.event === 'error') {
         setStreaming('');
         void refresh();
+      } else if (e.event === 'processing') {
+        setProcessing(
+          e.active
+            ? {
+                active: true,
+                realism: !!e.realism,
+                objective: !!e.objective,
+                greeting: !!e.greeting,
+                verifying: !!e.verifying,
+                text: e.text ?? '',
+              }
+            : NO_PROCESSING,
+        );
       } else if (e.event === 'chat_updated' || e.event === 'generating') {
         void refresh();
       }
@@ -193,7 +227,32 @@ export function ChatPage() {
     await refresh();
   };
 
+  // Drag the insight sidebar's left edge to resize it (clamped 260–560px),
+  // persisting the chosen width. Dragging left widens (handle is on the left).
+  const startAsideResize = (e: ReactMouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = asideWidth;
+    const onMove = (ev: MouseEvent) => {
+      setAsideWidth(Math.min(560, Math.max(260, startW + (startX - ev.clientX))));
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      setAsideWidth((w) => {
+        try { localStorage.setItem('fpai.asideWidth', String(w)); } catch { /* ignore */ }
+        return w;
+      });
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
   const stop = () => api.post('/api/chat/stop');
+  const cancelRealism = () => {
+    setProcessing(NO_PROCESSING);
+    void api.post('/api/chat/cancel-realism').catch(() => {});
+  };
   const regenerate = async () => {
     await api.post('/api/chat/regenerate');
     await refresh();
@@ -472,6 +531,8 @@ export function ChatPage() {
           )}
         </div>
 
+        <ProcessingOverlay p={processing} onCancel={cancelRealism} />
+
         <div className="chat-input">
           {showSlash && (
             <div className="slash-cheatsheet" role="listbox" aria-label="Chat commands">
@@ -544,7 +605,12 @@ export function ChatPage() {
       )}
 
       {/* Persistent insight column on desktop (CSS-hidden on phones). */}
-      {insight && <aside className="chat-aside">{insight}</aside>}
+      {insight && (
+        <aside className="chat-aside" style={{ width: asideWidth }}>
+          <div className="aside-resizer" onMouseDown={startAsideResize} title="Drag to resize" />
+          {insight}
+        </aside>
+      )}
 
       {/* Insight as a slide-over drawer on phones. */}
       {showStats && insight && (
@@ -915,33 +981,8 @@ function Insight({
       ) : focusedAvatarUrl ? (
         <Portrait primary={focusedAvatarUrl} mood={realism.mood || realism.emotion} />
       ) : null}
-      <StatBar label="Bond" value={`${realism.bond.tier} · ${realism.bond.score}`} percent={realism.bond.percent} />
-      <StatBar label="Long-term" value={`${realism.longTerm.tier} · ${realism.longTerm.score}`} percent={realism.longTerm.percent} />
-      <StatBar
-        label="Trust"
-        value={`${realism.trust.tier} · ${realism.trust.level}`}
-        percent={realism.trust.percent}
-        tone={realism.trust.level < 0 ? 'danger' : ''}
-      />
-      <div className="stat-line"><span>Mood</span><span className="muted">{realism.mood || realism.emotion || '—'}</span></div>
-      <div className="stat-line"><span>Arousal</span><span className="muted">{realism.arousal.tier} · {realism.arousal.level}</span></div>
-      {realism.fixation && (
-        <div className="stat-fixation">
-          <span className="fixation-label">Fixation</span> {realism.fixation}
-        </div>
-      )}
-      {realism.needsEnabled && Object.keys(realism.needs).length > 0 && (
-        <>
-          <h4 className="section-label">Needs</h4>
-          {Object.entries(realism.needs).map(([k, v]) => (
-            <StatBar key={k} label={NEED_LABELS[k] ?? k} value={`${v}`} percent={v}
-              tone={v < 25 ? 'danger' : v < 50 ? 'warn' : ''} />
-          ))}
-        </>
-      )}
 
-      <ChatTools reloadKey={toolsKey} focusedId={focusedId} groupId={groupId} onCommand={onCommand} />
-
+      {/* Author's note sits near the top (matches the desktop sidebar order). */}
       <h4 className="section-label">Author's note</h4>
       <textarea
         className="note-input"
@@ -953,6 +994,34 @@ function Insight({
       <button className="primary note-save" onClick={() => onSaveAuthorNote(note, authorNoteDepth)}>
         Save note
       </button>
+
+      {/* Current fixation, highlighted, just above the realism stats (desktop order). */}
+      {realism.fixation && (
+        <div className="stat-fixation">
+          <span className="fixation-label">Current fixation</span> {realism.fixation}
+        </div>
+      )}
+      <StatBar label="Bond" value={`${realism.bond.tier} · ${realism.bond.score}`} percent={realism.bond.percent} />
+      <StatBar label="Long-term" value={`${realism.longTerm.tier} · ${realism.longTerm.score}`} percent={realism.longTerm.percent} />
+      <StatBar
+        label="Trust"
+        value={`${realism.trust.tier} · ${realism.trust.level}`}
+        percent={realism.trust.percent}
+        tone={realism.trust.level < 0 ? 'danger' : ''}
+      />
+      <div className="stat-line"><span>Mood</span><span className="muted">{realism.mood || realism.emotion || '—'}</span></div>
+      <div className="stat-line"><span>Arousal</span><span className="muted">{realism.arousal.tier} · {realism.arousal.level}</span></div>
+      {realism.needsEnabled && Object.keys(realism.needs).length > 0 && (
+        <>
+          <h4 className="section-label">Needs</h4>
+          {Object.entries(realism.needs).map(([k, v]) => (
+            <StatBar key={k} label={NEED_LABELS[k] ?? k} value={`${v}`} percent={v}
+              tone={v < 25 ? 'danger' : v < 50 ? 'warn' : ''} />
+          ))}
+        </>
+      )}
+
+      <ChatTools reloadKey={toolsKey} focusedId={focusedId} groupId={groupId} onCommand={onCommand} />
 
       {lorebook && lorebook.length > 0 && (
         <>

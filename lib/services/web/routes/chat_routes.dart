@@ -41,6 +41,7 @@ class WebChatRoutes {
     router.post('/api/chat/send', _send);
     router.post('/api/chat/stop', _stop);
     router.post('/api/chat/regenerate', _regenerate);
+    router.post('/api/chat/cancel-realism', _cancelRealism);
     router.post('/api/chat/continue', _continue);
     router.post('/api/chat/swipe', _swipe);
     router.post('/api/chat/edit', _edit);
@@ -152,6 +153,11 @@ class WebChatRoutes {
 
   shelf.Response _regenerate(shelf.Request request) {
     _facade.regenerate();
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  shelf.Response _cancelRealism(shelf.Request request) {
+    _facade.cancelRealismEval();
     return JsonResponse.ok({'status': 'ok'});
   }
 

@@ -76,6 +76,13 @@ class WebServerHost extends ChangeNotifier {
   TunnelManager? _tunnelManager;
   String? _lanIp;
 
+  // Realism-eval overlay streaming: a ChatService listener that pushes the
+  // accumulating eval text over the hub while the Realism Engine is thinking, so
+  // the web shows the same live "processing" overlay the desktop does. Stored so
+  // we can detach it on stop().
+  VoidCallback? _realismListener;
+  bool _wasEvaluatingRealism = false;
+
   // Connected-client presence (drives the desktop remote-lock overlay + the
   // settings "client connected" line). Set on the first authenticated request.
   bool _hasActiveClient = false;
@@ -173,6 +180,36 @@ class WebServerHost extends ChangeNotifier {
     final streamHub = _streamHub = chatService != null
         ? StreamHub(chatService.tokenStream, () => chatService.isGenerating)
         : null;
+
+    // Stream the Realism + Objective engines' "processing" state to the web
+    // overlay. ChatService notifies (debounced ~150ms) as eval chunks arrive; we
+    // only broadcast while something is actually processing, and emit one final
+    // {active:false} so the overlay dismisses. Cheap no-op on every other notify
+    // (just a couple of bool reads).
+    if (chatService != null && streamHub != null) {
+      void onProcessing() {
+        final realism = chatService.isEvaluatingRealism;
+        final objective = chatService.isCheckingCompletion;
+        final active = realism || objective;
+        if (active) {
+          streamHub.broadcast({
+            'event': 'processing',
+            'active': true,
+            'realism': realism,
+            'objective': objective,
+            'greeting': chatService.isProcessingGreeting,
+            'verifying': chatService.isVerifyingRealism,
+            'text': chatService.realismEvalStreamTextClean,
+          });
+        } else if (_wasEvaluatingRealism) {
+          streamHub.broadcast({'event': 'processing', 'active': false});
+        }
+        _wasEvaluatingRealism = active;
+      }
+
+      _realismListener = onProcessing;
+      chatService.addListener(onProcessing);
+    }
 
     final characterFacade = CharacterFacade(
       db,
@@ -282,6 +319,11 @@ class WebServerHost extends ChangeNotifier {
     final server = _server;
     if (server == null) return;
     _server = null;
+    if (_realismListener != null) {
+      _chatService?.removeListener(_realismListener!);
+      _realismListener = null;
+    }
+    _wasEvaluatingRealism = false;
     await _streamHub?.dispose();
     _streamHub = null;
     await _tunnelManager?.dispose();

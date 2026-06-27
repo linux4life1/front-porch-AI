@@ -99,6 +99,14 @@ class ChatFacade {
       'sessionName': _chat.sessionName,
       'messages': messages,
       'isGenerating': _chat.isGenerating,
+      // Processing-overlay state (mirrors the desktop Realism + Objective engine
+      // overlays). The WS pushes a live `processing` event during eval; these
+      // fields let a client that connects mid-eval render the overlay too.
+      'isEvaluatingRealism': _chat.isEvaluatingRealism,
+      'isCheckingCompletion': _chat.isCheckingCompletion,
+      'isProcessingGreeting': _chat.isProcessingGreeting,
+      'isVerifyingRealism': _chat.isVerifyingRealism,
+      'realismEvalText': _chat.realismEvalStreamTextClean,
       'isGroupMode': _chat.isGroupMode,
       'groupId': _chat.activeGroup?.id,
       'groupMembers': _chat.isGroupMode
@@ -349,6 +357,13 @@ class ChatFacade {
 
   void stop() {
     _chat.stopGeneration();
+    _notify();
+  }
+
+  /// Escape hatch for the realism-processing overlay's "Cancel Realism" button —
+  /// aborts an in-flight Realism eval (mirrors the desktop overlay action).
+  void cancelRealismEval() {
+    _chat.cancelRealismEval();
     _notify();
   }
 

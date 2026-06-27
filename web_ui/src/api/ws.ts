@@ -13,6 +13,14 @@ export type WsEvent = {
   id?: string | number;
   name?: string;
   error?: string;
+  // `processing` event (Realism + Objective engine overlay): which engine is
+  // running + the live eval stream text.
+  active?: boolean;
+  realism?: boolean;
+  objective?: boolean;
+  greeting?: boolean;
+  verifying?: boolean;
+  text?: string;
 };
 
 export class ChatSocket {
