@@ -73,6 +73,10 @@ export function ChatPage() {
   // Voice capability snapshot (TTS on? STT usable?) — gates the Speak/Mic UI.
   const [voice, setVoice] = useState<{ ttsEnabled: boolean; sttAvailable: boolean } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Coalesces bursts of `chat_updated` (a single turn fires several: send, guest
+  // actions, realism chip-attach, …) into one refresh so the transcript doesn't
+  // reload repeatedly while the engines work.
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const canMic = !!voice?.sttAvailable && typeof window !== 'undefined' && window.isSecureContext;
 
@@ -88,6 +92,17 @@ export function ChatPage() {
       setProcessing(NO_PROCESSING);
     }
   }, []);
+
+  // Trailing-debounced refresh for high-frequency `chat_updated` bursts: fires
+  // ~80ms after the last event so a flurry collapses into a single re-render
+  // (imperceptible delay; `done` and send() still refresh immediately).
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimer.current !== null) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => {
+      refreshTimer.current = null;
+      void refresh();
+    }, 80);
+  }, [refresh]);
 
   // Cast actions and the composer share one send path (both route through
   // ChatService server-side, so behavior matches the desktop).
@@ -126,8 +141,12 @@ export function ChatPage() {
       if (e.event === 'token' && e.data) {
         setStreaming((prev) => prev + e.data);
       } else if (e.event === 'done' || e.event === 'error') {
-        setStreaming('');
-        void refresh();
+        // Refresh FIRST, then drop the live streaming bubble — so the finalized
+        // message is already in state when the streaming bubble is removed. The
+        // two are identical text, so it swaps seamlessly with no flash/gap (the
+        // old order cleared the bubble, leaving the message blank until the GET
+        // returned ~100-300ms later).
+        void refresh().finally(() => setStreaming(''));
       } else if (e.event === 'processing') {
         setProcessing(
           e.active
@@ -142,12 +161,15 @@ export function ChatPage() {
             : NO_PROCESSING,
         );
       } else if (e.event === 'chat_updated' || e.event === 'generating') {
-        void refresh();
+        scheduleRefresh();
       }
     });
     socket.connect();
-    return () => socket.close();
-  }, [refresh]);
+    return () => {
+      socket.close();
+      if (refreshTimer.current !== null) clearTimeout(refreshTimer.current);
+    };
+  }, [refresh, scheduleRefresh]);
 
   useEffect(() => {
     api.get<{ ttsEnabled: boolean; sttAvailable: boolean }>('/api/voice/status')

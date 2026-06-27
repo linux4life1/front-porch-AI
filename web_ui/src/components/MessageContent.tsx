@@ -10,11 +10,16 @@
 // No HTML injection — only image src/alt are extracted, and the colored spans
 // carry plain text content, never markup.
 
+import { memo } from 'react';
 import { renderRpInline } from './rpText';
 
 const IMAGE_RE = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
 
-export function MessageContent({ text }: { text: string }) {
+// Memoised: the chat refreshes its whole state on every WS event (token / done /
+// chat_updated / realism processing), which re-renders the message list. Skipping
+// re-render for messages whose text is unchanged stops the transcript re-parsing
+// every bubble (and prevents inline <img> from flashing/refetching) on each tick.
+function MessageContentImpl({ text }: { text: string }) {
   const parts: React.ReactNode[] = [];
   let last = 0;
   let seg = 0;
@@ -39,3 +44,5 @@ export function MessageContent({ text }: { text: string }) {
     </>
   );
 }
+
+export const MessageContent = memo(MessageContentImpl);
