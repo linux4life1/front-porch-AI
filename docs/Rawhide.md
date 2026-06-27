@@ -4,6 +4,10 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements
 
+- ⚡ **Web app: replies stream live again** — on a computer or phone, the AI's reply now appears word-by-word as it's written, and regenerating a message updates in place. Previously (over the remote/Tailscale connection) the chat could look frozen and you'd only see the new message after leaving and re-opening the conversation. (Web UI.)
+
+- 🎭 **Web app: cleaner Realism & Needs chips — and *why* they changed** — the little stat chips under each reply now sit on two tidy rows (relationship deltas on top, Needs below) instead of one jumbled line. Tap (or hover) any chip with an ⓘ to read the reason the engine gave for that change. And on the latest reply you can now hit **Manual Reprocess** to tell the Realism Director how the Needs *should* have changed (with a written critique) and re-run it — with a one-tap **Revert** if you don't like the result. (Web UI.)
+
 - 🖥️ **Web app: the desktop browser now looks like the real app** — on a computer the library **fills the whole window** and the character grid scales to as many columns as fit, instead of a cramped strip floating in the middle. Characters and group chats are now **big cover-art cards** with tags and message counts (no more tiny circles). Desktop and mobile are now genuinely **separate layouts**, so improving one can't break the other — tap the **"Front Porch AI"** title anywhere to jump back to your library. (Web UI.)
 
 - 📱 **Web app: a real phone experience** — the web UI no longer feels broken on iPhone/iPad. Content stays inside the screen (no more cut-off edges or sideways scrolling), the bottom toolbar and message box sit clear of the notch and home bar, and tapping a text field no longer zooms the page around. The whole app now picks up Front Porch's colors instead of looking flat and grey — chat replies color *actions* and "dialogue" the way the desktop does, and the persona list got real cards. The redundant "add to home screen / connect" nag is gone once you're already using it on your phone. (Web UI.)
