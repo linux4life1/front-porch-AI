@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
+import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 /// Thin adapter over [ChatService] for the rewritten web server. Mirrors the
@@ -41,6 +42,10 @@ class ChatFacade {
   final UserPersonaService? _personas;
   final StreamHub? _hub;
   final GroupChatRepository? _groups;
+
+  /// Realism-READ leaf (host snapshot + per-member participant realism). Pure
+  /// reads of [ChatService]; co-located 1:1/group parity pair lives there.
+  late final ChatRealismRead _realism = ChatRealismRead(_chat);
 
   /// Full chat state payload (matches legacy `/api/chat/state`).
   Map<String, dynamic> state() {
@@ -111,18 +116,19 @@ class ChatFacade {
       'groupId': _chat.activeGroup?.id,
       'groupMembers': _chat.isGroupMode
           ? _chat.groupCharacters
-              .map((c) => {
+                .map(
+                  (c) => {
                     'name': c.name,
                     'charId': c.imagePath != null
                         ? p.basenameWithoutExtension(c.imagePath!)
                         : c.name
-                            .replaceAll(RegExp(r'[^\w\s]'), '')
-                            .replaceAll(' ', '_'),
-                    'hasAvatar':
-                        c.imagePath != null && c.imagePath!.isNotEmpty,
+                              .replaceAll(RegExp(r'[^\w\s]'), '')
+                              .replaceAll(' ', '_'),
+                    'hasAvatar': c.imagePath != null && c.imagePath!.isNotEmpty,
                     'dbId': c.dbId,
-                  })
-              .toList()
+                  },
+                )
+                .toList()
           : null,
       'tokensPerSecond': _chat.tokensPerSecond,
       'tokensGenerated': _chat.tokensGenerated,
@@ -136,7 +142,7 @@ class ChatFacade {
       'totalGreetings': activeChar?.allGreetings.length ?? 1,
       'userPersonaName': _personas?.persona.name ?? 'User',
       'lorebook': lorebook,
-      'realism': _realismSnapshot(),
+      'realism': _realism.snapshot(),
       // Active expression label (mood) so the web client can cache-bust the
       // expression portrait and only refetch when the mood actually changes.
       // Read-only — no reclassification here, so 1:1/group parity is unaffected.
@@ -178,8 +184,8 @@ class ChatFacade {
         'emotion': !p.realismEnabled
             ? null
             : (isGroup
-                ? _chat.getEmotionForGroupCharacter(card)
-                : _chat.characterEmotion),
+                  ? _chat.getEmotionForGroupCharacter(card)
+                  : _chat.characterEmotion),
         'isNext': card.dbId != null && card.dbId == nextDbId,
         'hasAvatar': card.imagePath != null && card.imagePath!.isNotEmpty,
         'avatarUrl': avatarUrl,
@@ -187,98 +193,11 @@ class ChatFacade {
     }).toList();
   }
 
-  /// Realism for a single cast participant (focus-scoped sidebar). Host →
-  /// full snapshot; group member → per-member scores via the group getters;
-  /// lite guest → realism disabled. Returns null if the id isn't in the cast.
-  Map<String, dynamic>? participantRealism(String participantId) {
-    for (final p in _chat.cast) {
-      if (p.id != participantId) continue;
-      if (!p.realismEnabled) return {'realismEnabled': false};
-      if (p.isHost) return {'realismEnabled': true, ..._realismSnapshot()};
-      final card = p.card;
-      final rel = _chat.relationshipService;
-      final emotion = _chat.getEmotionForGroupCharacter(card) ?? '';
-      final intensity = _chat.getEmotionIntensityForGroupCharacter(card) ?? '';
-      final bondScore = _chat.getAffectionForGroupCharacter(card);
-      final trustLevel = _chat.getTrustForGroupCharacter(card);
-      final arousalLevel = _chat.getArousalForGroupCharacter(card);
-      // Per-member tier names + bar percents via the shared relationship/nsfw
-      // scale helpers, so a group member's stats read IDENTICALLY to the 1:1 host
-      // (no blank tiers / empty bars). Long-term isn't tracked per member → 0.
-      return {
-        'realismEnabled': true,
-        'bond': {
-          'score': bondScore,
-          'tier': rel.bondTierNameForScore(bondScore),
-          'percent': rel.bondPercentForScore(bondScore),
-        },
-        'longTerm': {
-          'score': 0,
-          'tier': rel.longTermTierNameForScore(0),
-          'percent': 0,
-        },
-        'trust': {
-          'level': trustLevel,
-          'tier': rel.trustTierNameForLevel(trustLevel),
-          'percent': rel.trustPercentForLevel(trustLevel),
-        },
-        'emotion': emotion,
-        'emotionIntensity': intensity,
-        'mood': intensity.isNotEmpty ? '$emotion ($intensity)' : emotion,
-        'arousal': {
-          'level': arousalLevel,
-          'tier': _chat.nsfwService.arousalTierNameForLevel(arousalLevel),
-        },
-        'fixation': _chat.getFixationForGroupCharacter(card) ?? '',
-        // Gate needs on the SAME flag the host path uses (see _realismSnapshot):
-        // getNeedsForGroupCharacter always returns a full vector while group
-        // realism is active, so without this a member would still show needs
-        // bars after Needs is toggled off — 1:1↔group display parity.
-        'needsEnabled': _chat.needsSimEnabled,
-        'needs': _chat.needsSimEnabled
-            ? _chat.getNeedsForGroupCharacter(card)
-            : const <String, int>{},
-      };
-    }
-    return null;
-  }
-
-  /// Current Realism Engine state for the web sidebar — mirrors the desktop
-  /// realism section (bond/long-term/trust + tiers/progress, mood/emotion,
-  /// arousal, fixation, and the 7 Sims-style needs). Pure reads of existing
-  /// service getters; no simulation changes, so 1:1/group parity is unaffected.
-  Map<String, dynamic> _realismSnapshot() {
-    final rel = _chat.relationshipService;
-    final nsfw = _chat.nsfwService;
-    return {
-      'bond': {
-        'score': rel.affectionScore,
-        'tier': rel.shortTermTierName,
-        'percent': rel.shortTermProgressPercent,
-      },
-      'longTerm': {
-        'score': rel.longTermScore,
-        'tier': rel.longTermTierName,
-        'percent': rel.longTermProgressPercent,
-      },
-      'trust': {
-        'level': rel.trustLevel,
-        'tier': rel.trustTierName,
-        'percent': rel.trustProgressPercent,
-      },
-      'emotion': _chat.characterEmotion,
-      'emotionIntensity': _chat.emotionIntensity,
-      'mood': _chat.moodLabel,
-      'arousal': {
-        'level': nsfw.arousalLevel,
-        'tier': nsfw.arousalTierName,
-      },
-      'fixation': rel.activeFixation,
-      'needsEnabled': _chat.needsSimEnabled,
-      'needs':
-          _chat.needsSimEnabled ? _chat.needsSimulation.vector : <String, int>{},
-    };
-  }
+  /// Realism for a single cast participant (focus-scoped sidebar). Delegates to
+  /// the [ChatRealismRead] leaf, which co-locates the host snapshot and the
+  /// per-member branch (the 1:1-vs-group parity pair).
+  Map<String, dynamic>? participantRealism(String participantId) =>
+      _realism.participantRealism(participantId);
 
   /// Extract the per-message Realism chip deltas from a message's active-swipe
   /// metadata (the same keys the desktop bubble reads), omitting zeros/empties.
@@ -335,8 +254,9 @@ class ChatFacade {
 
   /// Select the active character by its DB id. Returns false if not found.
   Future<bool> select(String characterId) async {
-    final card =
-        _characters.characters.where((c) => c.dbId == characterId).firstOrNull;
+    final card = _characters.characters
+        .where((c) => c.dbId == characterId)
+        .firstOrNull;
     if (card == null) return false;
     await _chat.setActiveCharacter(card);
     _notify();
@@ -446,12 +366,14 @@ class ChatFacade {
     if (svc == null) return const [];
     final activeId = svc.persona.id;
     return svc.personas
-        .map((p) => {
-              'id': p.id,
-              'label': p.displayLabel,
-              'name': p.name,
-              'active': p.id == activeId,
-            })
+        .map(
+          (p) => {
+            'id': p.id,
+            'label': p.displayLabel,
+            'name': p.name,
+            'active': p.id == activeId,
+          },
+        )
         .toList();
   }
 
@@ -508,11 +430,13 @@ class ChatFacade {
       }
     }
     if (existing == null) return false;
-    await svc.updatePersona(existing.copyWith(
-      title: f.containsKey('title') ? f['title']?.toString() : null,
-      name: f.containsKey('name') ? f['name']?.toString() : null,
-      persona: f.containsKey('persona') ? f['persona']?.toString() : null,
-    ));
+    await svc.updatePersona(
+      existing.copyWith(
+        title: f.containsKey('title') ? f['title']?.toString() : null,
+        name: f.containsKey('name') ? f['name']?.toString() : null,
+        persona: f.containsKey('persona') ? f['persona']?.toString() : null,
+      ),
+    );
     _notify();
     return true;
   }
@@ -539,10 +463,7 @@ class ChatFacade {
     final raw = await _chat.getSessions();
     return raw.map((s) {
       final date = s['date'];
-      return {
-        ...s,
-        'date': date is DateTime ? date.toIso8601String() : date,
-      };
+      return {...s, 'date': date is DateTime ? date.toIso8601String() : date};
     }).toList();
   }
 
