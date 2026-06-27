@@ -1004,6 +1004,79 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .token-badge.warn { color: var(--logwarn); border-color: var(--logwarn); }
 .token-badge.danger { color: var(--danger); border-color: var(--danger); }
 
+/* ── Macro-aware field: {{macro}} highlighting + fullscreen editor ──────── */
+.macro-field { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
+.macro-field-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.85rem; color: var(--muted); min-height: 18px;
+}
+.macro-expand { font-size: 0.95rem; }
+.macro-area { position: relative; }
+/* Backdrop and textarea MUST share an identical box model so the coloured
+ * overlay stays glued to the caret. Both use a fixed 16px/1.5 (16px also avoids
+ * iOS focus-zoom) regardless of viewport. Scoped under .macro-area so they win
+ * over the generic `.modal textarea` rule inside the fullscreen editor. */
+.macro-area .macro-backdrop,
+.macro-area .macro-input {
+  margin: 0; width: 100%; box-sizing: border-box;
+  font-family: inherit; font-size: 16px; line-height: 1.5;
+  letter-spacing: normal; tab-size: 4;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;
+  scrollbar-gutter: stable;
+}
+.macro-area .macro-backdrop {
+  position: absolute; inset: 0; overflow: hidden;
+  color: var(--text); background: var(--bg);
+  border-color: transparent; pointer-events: none;
+}
+.macro-area .macro-input {
+  position: relative; display: block; resize: vertical;
+  background: transparent; color: transparent; caret-color: var(--text);
+  overflow: auto;
+}
+.macro-area .macro-input::placeholder { color: var(--muted); }
+.macro-token { background: transparent; color: var(--accent); font-weight: 600; }
+.macro-modal { width: min(720px, 94vw); }
+.macro-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 700; color: var(--text);
+}
+.macro-modal .macro-area .macro-input { min-height: 50vh; }
+.lore-edit .macro-field { margin: 0; }
+
+/* ── Image crop modal (avatar upload) ─────────────────────────── */
+.crop-modal { width: min(640px, 94vw); }
+.crop-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 700; color: var(--text);
+}
+.crop-hint { margin: 0; font-size: 0.78rem; }
+.crop-stage {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px; display: grid; place-items: center; overflow: hidden;
+}
+.crop-wrap { position: relative; display: inline-block; line-height: 0; }
+.crop-img {
+  display: block; max-width: 100%; max-height: 56vh;
+  user-select: none; -webkit-user-drag: none;
+}
+.crop-box {
+  position: absolute; box-sizing: border-box;
+  border: 2px solid var(--accent); cursor: move; touch-action: none;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+}
+.crop-handle {
+  position: absolute; width: 14px; height: 14px; background: var(--accent);
+  border: 2px solid var(--accent-ink); border-radius: 3px; touch-action: none;
+}
+.crop-handle.nw { left: -8px; top: -8px; cursor: nwse-resize; }
+.crop-handle.ne { right: -8px; top: -8px; cursor: nesw-resize; }
+.crop-handle.sw { left: -8px; bottom: -8px; cursor: nesw-resize; }
+.crop-handle.se { right: -8px; bottom: -8px; cursor: nwse-resize; }
+.crop-actions { display: flex; align-items: center; gap: 8px; }
+.crop-actions .spacer { flex: 1; }
+
 @media (max-width: 640px) {
   .realism-grid-2, .needs-row { grid-template-columns: 1fr; }
 }

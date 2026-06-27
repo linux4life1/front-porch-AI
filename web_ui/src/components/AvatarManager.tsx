@@ -3,10 +3,13 @@
 //
 // Avatar / expression-image manager for the character edit page: list a
 // character's avatars, upload new ones (with an optional emotion label), mark
-// the prime (default) one, and delete. Mirrors the desktop avatars dialog.
+// the prime (default) one, and delete. Mirrors the desktop avatars dialog —
+// including the interactive crop step (ImageCropModal) shown before upload, the
+// web mirror of the desktop ImageCropDialog.
 
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
+import { ImageCropModal } from './ImageCropModal';
 
 interface AvatarItem {
   id: string;
@@ -19,6 +22,7 @@ export function AvatarManager({ characterId }: { characterId: string }) {
   const [avatars, setAvatars] = useState<AvatarItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [pending, setPending] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const labelRef = useRef<HTMLInputElement>(null);
 
@@ -33,13 +37,15 @@ export function AvatarManager({ characterId }: { characterId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
 
-  const upload = async (file: File | null) => {
-    if (!file) return;
+  // Receives the cropped PNG blob from ImageCropModal, names it, and uploads.
+  const upload = async (blob: Blob) => {
+    setPending(null);
     setBusy(true);
     setError('');
     const label = (labelRef.current?.value ?? '').trim();
     const q = label ? `?label=${encodeURIComponent(label)}` : '';
     try {
+      const file = new File([blob], 'avatar.png', { type: blob.type || 'image/png' });
       const r = await api.upload<{ avatars: AvatarItem[] }>(
         `/api/characters/${characterId}/avatars${q}`,
         file,
@@ -102,12 +108,20 @@ export function AvatarManager({ characterId }: { characterId: string }) {
           accept="image/png,image/jpeg,image/webp"
           hidden
           onChange={(e) => {
-            void upload(e.target.files?.[0] ?? null);
+            const f = e.target.files?.[0] ?? null;
+            if (f) setPending(f);
             e.target.value = '';
           }}
         />
       </div>
       {error && <p className="error">{error}</p>}
+      {pending && (
+        <ImageCropModal
+          file={pending}
+          onCancel={() => setPending(null)}
+          onCropped={(blob) => void upload(blob)}
+        />
+      )}
     </div>
   );
 }

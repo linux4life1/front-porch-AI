@@ -8,6 +8,7 @@
 // import button bulk-loads SillyTavern / Chub / Front Porch lorebooks.
 
 import { useRef } from 'react';
+import { MacroField } from './MacroField';
 
 export interface LoreEntry {
   name: string;
@@ -84,11 +85,11 @@ export function LoreEntriesEditor({
             value={entry.key}
             onChange={(e) => update(i, { key: e.target.value })}
           />
-          <textarea
+          <MacroField
             placeholder="Lore content"
             rows={3}
             value={entry.content}
-            onChange={(e) => update(i, { content: e.target.value })}
+            onChange={(val) => update(i, { content: val })}
           />
           <div className="lore-edit-controls">
             <label className="tool-toggle">
@@ -111,9 +112,9 @@ export function LoreEntriesEditor({
               <span>Sticky depth</span>
               <input
                 type="number"
-                min={0}
+                min={1}
                 value={entry.stickyDepth}
-                onChange={(e) => update(i, { stickyDepth: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                onChange={(e) => update(i, { stickyDepth: Math.max(1, parseInt(e.target.value, 10) || 1) })}
               />
             </label>
             <button className="ghost" onClick={() => remove(i)}>
@@ -151,7 +152,16 @@ function parseLorebookJson(text: string): LoreEntry[] {
       content,
       enabled: e.enabled !== false && e.disable !== true,
       constant: e.constant === true,
-      stickyDepth: typeof e.sticky_depth === 'number' ? e.sticky_depth : typeof e.stickyDepth === 'number' ? e.stickyDepth : 1,
+      // Clamp to >=1: the Dart Lorebook model coerces 0 -> 1 on PNG reload, so a
+      // stored 0 would silently change after a round-trip. Keep it stable here.
+      stickyDepth: Math.max(
+        1,
+        typeof e.sticky_depth === 'number'
+          ? e.sticky_depth
+          : typeof e.stickyDepth === 'number'
+            ? e.stickyDepth
+            : 1,
+      ),
     });
   }
   return out;

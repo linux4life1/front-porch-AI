@@ -90,10 +90,11 @@ export function SelectRow({
   );
 }
 
-/** Color-coded approximate token-count badge (chars/4, like the desktop
- *  create/edit counter). Green under 1k, amber under 2k, red beyond. */
+/** Color-coded approximate token-count badge. Mirrors the desktop create/edit
+ *  counter exactly (edit_character_page.dart _updateTokenCount + _buildTokenBadge):
+ *  tokens = ceil(chars / 4); blue/ok under 2k, amber/warn under 4k, red beyond. */
 export function TokenBadge({ chars }: { chars: number }) {
-  const tokens = Math.round(chars / 4);
-  const tone = tokens > 2000 ? 'danger' : tokens > 1000 ? 'warn' : 'ok';
-  return <span className={`token-badge ${tone}`}>≈ {tokens.toLocaleString()} tokens</span>;
+  const tokens = Math.ceil(chars / 4);
+  const tone = tokens > 4000 ? 'danger' : tokens > 2000 ? 'warn' : 'ok';
+  return <span className={`token-badge ${tone}`}>~{tokens.toLocaleString()} tokens</span>;
 }

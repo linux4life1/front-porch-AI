@@ -12,6 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { AvatarManager } from '../components/AvatarManager';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
+import { MacroField } from '../components/MacroField';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { RealismFormSection } from '../components/realism/RealismFormSection';
 import { NeedsFormSection } from '../components/realism/NeedsFormSection';
@@ -95,12 +96,16 @@ export function CharacterEditPage() {
       .catch(() => setAllWorlds([]));
   }, [id]);
 
+  // Mirror the desktop _updateTokenCount exactly: name + the seven text fields +
+  // the alternate greetings. The lorebook is intentionally excluded (lore is
+  // injected on demand, not part of the base card budget).
   const tokenChars = useMemo(() => {
     if (!c) return 0;
-    const fieldText = FIELDS.reduce((sum, f) => sum + ((c[f.key] as string) ?? '').length, 0);
-    const loreText = lore.reduce((sum, e) => sum + e.content.length + e.key.length, 0);
-    return fieldText + loreText;
-  }, [c, lore]);
+    const fieldText =
+      c.name.length + FIELDS.reduce((sum, f) => sum + ((c[f.key] as string) ?? '').length, 0);
+    const greetingText = greetings.reduce((sum, g) => sum + g.length, 0);
+    return fieldText + greetingText;
+  }, [c, greetings]);
 
   if (error && !c) return <div className="page"><p className="error">{error}</p></div>;
   if (!c || !rv) return <div className="centered"><div className="spinner" /></div>;
@@ -163,14 +168,13 @@ export function CharacterEditPage() {
         <input value={c.name} onChange={(e) => setField('name', e.target.value)} />
       </label>
       {FIELDS.map((f) => (
-        <label key={f.key}>
-          {f.label}
-          <textarea
-            value={(c[f.key] as string) ?? ''}
-            rows={f.rows}
-            onChange={(e) => setField(f.key, e.target.value)}
-          />
-        </label>
+        <MacroField
+          key={f.key}
+          label={f.label}
+          rows={f.rows}
+          value={(c[f.key] as string) ?? ''}
+          onChange={(val) => setField(f.key, val)}
+        />
       ))}
       <label>
         Tags (comma-separated)
