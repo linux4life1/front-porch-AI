@@ -64,6 +64,9 @@ export function ChatInsight({
 }) {
   const [note, setNote] = useState(authorNote);
   useEffect(() => setNote(authorNote), [authorNote]);
+  // Author's Note strength (injection depth/weight, 1–10) — desktop parity.
+  const [strength, setStrength] = useState(authorNoteDepth);
+  useEffect(() => setStrength(authorNoteDepth), [authorNoteDepth]);
   return (
     <div className="realism-panel">
       {/* Group: switch which member's stats you're viewing (the cast bar is
@@ -104,7 +107,18 @@ export function ChatInsight({
         placeholder="Steer the narrative (injected near the end of context)…"
         rows={3}
       />
-      <button className="primary note-save" onClick={() => onSaveAuthorNote(note, authorNoteDepth)}>
+      <label className="row-label note-strength">
+        <span>Strength: {strength}</span>
+        <input
+          type="range"
+          min={1}
+          max={10}
+          step={1}
+          value={strength}
+          onChange={(e) => setStrength(Number(e.target.value))}
+        />
+      </label>
+      <button className="primary note-save" onClick={() => onSaveAuthorNote(note, strength)}>
         Save note
       </button>
 
