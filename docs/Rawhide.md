@@ -12,6 +12,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 - 📚 **Web app: richer lorebook editing + bulk import** — each lorebook entry now keeps its **Enabled** switch and **Sticky Depth** (these were silently dropped before), and you can **Import a lorebook JSON** (SillyTavern / Chub / Front Porch formats) to add many entries at once — in characters *and* worlds. (Web UI.)
 
+- 🗺️ **Web app: the Worlds page now matches the desktop** — my shared lorebooks finally look and work like the real app. Each world is a **color-coded card** that shows the **linked character's avatar** (or a tinted initial), its **entry count**, and what it's linked to, topped by a **stats dashboard** (Worlds / Lore Entries / Linked Worlds). I can **Import a whole world from JSON** (SillyTavern / Chub / Front Porch) and **Export any world to JSON** with one tap — so moving worlds between machines, or sharing them, just works. (Web UI.)
+
 - 👋 **Web app: alternate greetings & linked worlds are editable** — the character editor can now add/remove the alternate openings readers cycle through, and tick which **worlds/lorebooks** are attached to a character. A live **token estimate** badge shows roughly how big the card is as you type. (Web UI.)
 
 - 🖼️ **Web app: crop avatars before you upload them** — adding a character avatar or expression image on the web now opens the same kind of crop tool the desktop has: drag to reposition, pull a corner to resize, or hit **Zoom Out (Pad)** to give a too-tight image some breathing room, then **Crop & Save**. No more uploading the raw, uncropped file. (Web UI.)

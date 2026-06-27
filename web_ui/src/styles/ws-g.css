@@ -1,0 +1,179 @@
+/* Copyright (C) 2026 Front Porch AI
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * WS-G "Worlds & Lorebook" desktop-parity visuals: a stats dashboard strip and
+ * a color-coded world card grid (with linked-character avatars). Mirrors the
+ * desktop world_management_page (hero stats + colored world cards). Scoped to
+ * `wsg-` classes and uses only :root design tokens — no raw hex. The per-world
+ * accent is supplied at runtime via the `--world-accent` / `--world-accent-soft`
+ * / `--world-accent-line` custom properties set in JS (a deterministic HSL from
+ * the world name), reproducing the desktop's per-world color without hard-coding
+ * any colors here. The three fixed stat accents reuse existing :root tokens. */
+
+/* ── Stats dashboard ─────────────────────────────────────────────────────── */
+.wsg-stats-bar {
+  display: flex;
+  gap: 12px;
+  margin: 14px 0 4px;
+  flex-wrap: wrap;
+}
+.wsg-stat {
+  flex: 1 1 0;
+  min-width: 140px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.wsg-stat-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  border-radius: var(--radius);
+  color: var(--stat-accent);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.wsg-stat--worlds {
+  --stat-accent: var(--accent);
+}
+.wsg-stat--entries {
+  --stat-accent: var(--ok);
+}
+.wsg-stat--linked {
+  --stat-accent: var(--accent-amber);
+}
+.wsg-stat-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.wsg-stat-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.wsg-stat-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* ── World card grid ─────────────────────────────────────────────────────── */
+.wsg-world-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 14px 0 0;
+}
+.wsg-world-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  margin: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--world-accent, var(--accent));
+  border-radius: var(--radius-card);
+}
+.wsg-world-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.wsg-world-avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 1.2rem;
+  background: var(--world-accent, var(--accent));
+}
+.wsg-world-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.wsg-world-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wsg-world-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wsg-linked {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--world-accent, var(--accent));
+  background: var(--world-accent-soft, var(--surface-2));
+  border: 1px solid var(--world-accent-line, var(--border));
+  border-radius: 999px;
+}
+.wsg-linked span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wsg-world-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.wsg-world-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 1.45em;
+}
+.wsg-world-desc.empty {
+  color: var(--faint);
+  font-style: italic;
+}
+.wsg-world-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wsg-entry-chip {
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--world-accent, var(--accent));
+  background: var(--world-accent-soft, var(--surface-2));
+  border: 1px solid var(--world-accent-line, var(--border));
+  border-radius: var(--radius-badge);
+}
