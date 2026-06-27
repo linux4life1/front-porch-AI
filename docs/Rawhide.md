@@ -4,6 +4,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements
 
+- 🧠 **Web app: pick your API model from a real list** — when you're on a remote backend (Nano-GPT, OpenRouter, etc.) the generation model is no longer a blank box you have to type into. Choose your provider from a dropdown (it fills in the address for you), then pick the model from a searchable list pulled live from the provider — hundreds of models, type to filter, with pricing shown. A **Test connection** button confirms your key works. (Web UI.)
+
 - ⚡ **Web app: replies stream live again** — on a computer or phone, the AI's reply now appears word-by-word as it's written, and regenerating a message updates in place. Previously (over the remote/Tailscale connection) the chat could look frozen and you'd only see the new message after leaving and re-opening the conversation. (Web UI.)
 
 - 🎭 **Web app: cleaner Realism & Needs chips — and *why* they changed** — the little stat chips under each reply now sit on two tidy rows (relationship deltas on top, Needs below) instead of one jumbled line. Tap (or hover) any chip with an ⓘ to read the reason the engine gave for that change. And on the latest reply you can now hit **Manual Reprocess** to tell the Realism Director how the Needs *should* have changed (with a written critique) and re-run it — with a one-tap **Revert** if you don't like the result. (Web UI.)
