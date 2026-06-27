@@ -21,6 +21,8 @@ import 'dart:async';
 import 'package:front_porch_ai/models/story_project.dart';
 import 'package:front_porch_ai/services/story_pipeline_service.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
+import 'package:front_porch_ai/services/tts_service.dart';
+import 'package:front_porch_ai/services/web/facade/story_snapshot_builder.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 /// Web adapter for Porch Stories. The generator ([StoryPipelineService]) and the
@@ -28,11 +30,20 @@ import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 /// driver: project CRUD, fire-and-forget pipeline stages with progress streamed
 /// over the WebSocket hub, and export. No desktop code is reimplemented.
 class StoryFacade {
-  StoryFacade(this._repo, this._pipeline, this._hub);
+  StoryFacade(
+    this._repo,
+    this._pipeline,
+    this._hub, {
+    StorySnapshotBuilder? snapshotBuilder,
+    TtsService? tts,
+  }) : _snapshotBuilder = snapshotBuilder,
+       _tts = tts;
 
   final StoryRepository _repo;
   final StoryPipelineService _pipeline;
   final StreamHub? _hub;
+  final StorySnapshotBuilder? _snapshotBuilder;
+  final TtsService? _tts;
 
   bool _loaded = false;
 
@@ -42,19 +53,32 @@ class StoryFacade {
     _loaded = true;
   }
 
-  /// Library list (lightweight rows for the dashboard).
+  /// Library list (lightweight rows for the dashboard). Carries enough state for
+  /// the card's genre/mood line, granular status, and tier badge so the client
+  /// renders the same info the desktop home cards do.
   Future<List<Map<String, dynamic>>> list() async {
     await _ensureLoaded();
-    return _repo.projects
-        .map((p) => {
-              'id': p.dbId,
-              'title': p.title,
-              'concept': p.concept,
-              'actCount': p.acts.length,
-              'hasProse': p.prose.isNotEmpty,
-              'updatedAt': p.updatedAt.toIso8601String(),
-            })
-        .toList();
+    return _repo.projects.map((p) {
+      final sceneCount = p.scenes.values.fold<int>(
+        0,
+        (sum, s) => sum + s.length,
+      );
+      final proseCount = p.prose.values.where((b) => b.final_ != null).length;
+      return {
+        'id': p.dbId,
+        'title': p.title,
+        'concept': p.concept,
+        'actCount': p.acts.length,
+        'hasProse': p.prose.isNotEmpty,
+        'updatedAt': p.updatedAt.toIso8601String(),
+        'genre': p.style.genre,
+        'mood': p.style.mood,
+        'tier': p.promptTier.name,
+        'sceneCount': sceneCount,
+        'proseCount': proseCount,
+        'hasConcept': p.concept.trim().isNotEmpty,
+      };
+    }).toList();
   }
 
   /// The full project JSON (everything the editor/reader needs), or null.
@@ -75,10 +99,29 @@ class StoryFacade {
 
   /// Overwrite a project from the client's full JSON (bible/setup edits). The
   /// pipeline mutates the same in-memory reference, so reload to resync.
+  ///
+  /// `character_card_snapshots` are NOT trusted from the client — the web has no
+  /// card text. When a snapshot builder is wired, they are reconstructed
+  /// server-side from the selected character ids + an optional `character_roles`
+  /// map (charDbId → role) + the user persona, so "seed from chats" and "include
+  /// persona" actually carry card data into the pipeline.
   Future<bool> save(String id, Map<String, dynamic> json) async {
     await _ensureLoaded();
-    if (_repo.getById(id) == null) return false;
+    final previous = _repo.getById(id);
+    if (previous == null) return false;
     final updated = StoryProject.fromJson(json)..dbId = id;
+    if (_snapshotBuilder != null) {
+      final roles = <String, String>{};
+      final raw = json['character_roles'];
+      if (raw is Map) {
+        raw.forEach((k, v) => roles[k.toString()] = v.toString());
+      }
+      updated.characterCardSnapshots = _snapshotBuilder.build(
+        updated,
+        requestRoles: roles,
+        previous: previous,
+      );
+    }
     await _repo.saveProject(updated);
     await _repo.loadProjects();
     return true;
@@ -93,11 +136,11 @@ class StoryFacade {
 
   /// Current pipeline progress (also pushed live over the hub during a run).
   Map<String, dynamic> status() => {
-        'running': _pipeline.isRunning,
-        'step': _pipeline.currentStep,
-        'status': _pipeline.statusMessage,
-        'tokens': _pipeline.tokenCount,
-      };
+    'running': _pipeline.isRunning,
+    'step': _pipeline.currentStep,
+    'status': _pipeline.statusMessage,
+    'tokens': _pipeline.tokenCount,
+  };
 
   /// Kick off one pipeline [stage] in the background. Progress streams as
   /// `story_status`; on completion `story_updated {id}` (or `story_error`) tells
@@ -118,14 +161,20 @@ class StoryFacade {
 
     // Scope the progress listener to this job's lifetime so nothing leaks across
     // server restarts (the pipeline is a long-lived singleton; the hub is not).
-    void onProgress() => _hub?.broadcast({'event': 'story_status', ...status()});
+    void onProgress() =>
+        _hub?.broadcast({'event': 'story_status', ...status()});
     _pipeline.addListener(onProgress);
-    unawaited(job.then((_) async {
-      await _repo.loadProjects();
-      _hub?.broadcast({'event': 'story_updated', 'id': id});
-    }).catchError((Object e) {
-      _hub?.broadcast({'event': 'story_error', 'id': id, 'error': '$e'});
-    }).whenComplete(() => _pipeline.removeListener(onProgress)));
+    unawaited(
+      job
+          .then((_) async {
+            await _repo.loadProjects();
+            _hub?.broadcast({'event': 'story_updated', 'id': id});
+          })
+          .catchError((Object e) {
+            _hub?.broadcast({'event': 'story_error', 'id': id, 'error': '$e'});
+          })
+          .whenComplete(() => _pipeline.removeListener(onProgress)),
+    );
     return true;
   }
 
@@ -187,4 +236,19 @@ class StoryFacade {
     if (p == null) return const [];
     return _pipeline.getChatPreviewMessages(p);
   }
+
+  /// TTS voices for the per-character read-along voice picker — the same list the
+  /// desktop binds in the bible dashboard. Empty when TTS isn't wired.
+  List<Map<String, String>> voices() {
+    final tts = _tts;
+    if (tts == null) return const [];
+    return tts.activeVoices
+        .map((v) => {'id': v.id, 'name': v.name, 'engine': v.engine})
+        .toList();
+  }
+
+  /// Quick-concept archetype chips for the setup wizard (genre/style/concept
+  /// seeds). Mirrors the desktop "Quick concepts" + Refresh.
+  List<Map<String, String>> archetypes({int count = 6}) =>
+      StoryPipelineService.generateArchetypes(count: count);
 }

@@ -31,6 +31,8 @@ class WebStoryRoutes {
     router.get('/api/stories', _list);
     router.post('/api/stories', _create);
     router.get('/api/stories/status', _status);
+    router.get('/api/stories/voices', _voices);
+    router.get('/api/stories/archetypes', _archetypes);
     router.get('/api/stories/<id>', _get);
     router.post('/api/stories/<id>/run', _run);
     router.post('/api/stories/<id>/delete', _delete);
@@ -46,10 +48,22 @@ class WebStoryRoutes {
 
   Future<shelf.Response> _create(shelf.Request r) async {
     final body = await _json(r);
-    return JsonResponse.ok(await _facade.create(body['title']?.toString() ?? ''));
+    return JsonResponse.ok(
+      await _facade.create(body['title']?.toString() ?? ''),
+    );
   }
 
   shelf.Response _status(shelf.Request r) => JsonResponse.ok(_facade.status());
+
+  shelf.Response _voices(shelf.Request r) =>
+      JsonResponse.ok({'voices': _facade.voices()});
+
+  shelf.Response _archetypes(shelf.Request r) {
+    final n = int.tryParse(r.url.queryParameters['count'] ?? '') ?? 6;
+    return JsonResponse.ok({
+      'archetypes': _facade.archetypes(count: n.clamp(1, 12)),
+    });
+  }
 
   Future<shelf.Response> _get(shelf.Request r, String id) async {
     final story = await _facade.get(id);
@@ -59,7 +73,9 @@ class WebStoryRoutes {
 
   Future<shelf.Response> _save(shelf.Request r, String id) async {
     final body = await _json(r);
-    if (body.isEmpty) return JsonResponse.badRequest('project body is required');
+    if (body.isEmpty) {
+      return JsonResponse.badRequest('project body is required');
+    }
     final ok = await _facade.save(id, body);
     if (!ok) return JsonResponse.error(404, 'Story not found');
     return JsonResponse.ok({'status': 'ok'});
@@ -86,7 +102,10 @@ class WebStoryRoutes {
       beatIndex: asInt('beatIndex'),
     );
     if (!ok) {
-      return JsonResponse.error(404, 'Unknown story, stage, or missing indices');
+      return JsonResponse.error(
+        404,
+        'Unknown story, stage, or missing indices',
+      );
     }
     return JsonResponse.ok({'status': 'started'});
   }

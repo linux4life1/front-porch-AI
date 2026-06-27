@@ -53,6 +53,7 @@ class WebServerDeps {
     this.imageFacade,
     this.voiceFacade,
     this.storyFacade,
+    this.storyExportFacade,
     this.tunnelManager,
     this.onClientActive,
   });
@@ -111,6 +112,10 @@ class WebServerDeps {
   /// Porch Stories adapter — null until the story repository + pipeline are
   /// injected.
   final StoryFacade? storyFacade;
+
+  /// Host-bound Porch Stories export adapter (EPUB / audiobook / read-to-me) —
+  /// null until the story repository + TTS service are injected.
+  final StoryExportFacade? storyExportFacade;
 
   /// Remote-access (Tailscale/ngrok/port-forward) orchestrator. Created once the
   /// server is bound (it needs the live port). Null before bind.

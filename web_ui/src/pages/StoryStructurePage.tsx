@@ -1,11 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Act → scene → beat structure tree. Generate missing levels and jump into the
-// per-scene prose writer. Mirrors the desktop StoryStructurePage.
+// Act → scene → beat structure tree. Generate missing levels, view each act's
+// valence trajectory, see scene cast + completion, jump into the prose writer,
+// and rewrite an already-written scene. Mirrors the desktop StoryStructurePage.
 
 import { useNavigate, useParams } from 'react-router-dom';
 import { useStory } from '../hooks/useStory';
+import { ValenceSparkline } from './story/ValenceSparkline';
+import '../styles/ws-j.css';
 
 export function StoryStructurePage() {
   const { id = '' } = useParams();
@@ -42,9 +45,12 @@ export function StoryStructurePage() {
           <section key={ai} className="card">
             <div className="page-head">
               <h3>Act {act.number}: {act.title}</h3>
-              <button className="ghost small" disabled={busy} onClick={() => run('full-act', { actIndex: ai })}>
-                Generate full act
-              </button>
+              <div className="beat-badges">
+                {scenes.length > 0 && <ValenceSparkline values={scenes.map((s) => s.valence)} />}
+                <button className="ghost small" disabled={busy} onClick={() => run('full-act', { actIndex: ai })}>
+                  Generate full act
+                </button>
+              </div>
             </div>
             {act.description && <p className="muted small">{act.description}</p>}
 
@@ -56,13 +62,17 @@ export function StoryStructurePage() {
               scenes.map((sc, si) => {
                 const beats = p.beats[`${ai}-${si}`] ?? [];
                 const proseCount = Object.keys(p.prose).filter((k) => k.startsWith(`${ai}-${si}-`)).length;
+                const written = beats.length > 0 && proseCount >= beats.length;
                 return (
                   <div key={si} className="story-scene-row">
                     <div className="scene-head">
                       <strong>Scene {sc.number}: {sc.title}</strong>
-                      {sc.location && <span className="muted small"> · {sc.location}</span>}
                       <span className={`valence v${sc.valence >= 0 ? 'pos' : 'neg'}`}>{sc.valence > 0 ? `+${sc.valence}` : sc.valence}</span>
+                      {written && <span className="scene-complete">✓ written</span>}
                     </div>
+                    <p className="scene-cast">
+                      {[sc.location, (sc.cast_names || []).join(', ')].filter(Boolean).join(' • ')}
+                    </p>
                     {sc.description && <p className="muted small">{sc.description}</p>}
                     <div className="btn-row">
                       {beats.length === 0 ? (
@@ -75,6 +85,17 @@ export function StoryStructurePage() {
                           <button className="ghost small" disabled={busy} onClick={() => run('auto-write-scene', { actIndex: ai, sceneIndex: si })}>
                             Auto-write
                           </button>
+                          {written && (
+                            <button className="ghost small" disabled={busy}
+                              title="Clear and regenerate this scene's prose"
+                              onClick={() => {
+                                if (confirm(`Rewrite all prose for Scene ${sc.number}? This replaces the current draft.`)) {
+                                  run('regenerate-scene', { actIndex: ai, sceneIndex: si });
+                                }
+                              }}>
+                              Rewrite scene
+                            </button>
+                          )}
                           <button className="ghost small" onClick={() => navigate(`/stories/${id}/write/${ai}/${si}`)}>
                             Open writer →
                           </button>

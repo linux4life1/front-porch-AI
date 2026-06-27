@@ -63,7 +63,8 @@ class StaticRoutes {
 
   shelf.Response _serveFile(File file, String relPath) {
     final name = p.basename(relPath).toLowerCase();
-    final isImmutable = relPath.startsWith('assets/') &&
+    final isImmutable =
+        relPath.startsWith('assets/') &&
         name != 'index.html' &&
         !name.endsWith('.webmanifest');
     final isServiceWorker = name == 'sw.js' || name == 'service-worker.js';
@@ -72,10 +73,7 @@ class StaticRoutes {
         : 'no-cache, no-store, must-revalidate';
     return shelf.Response.ok(
       file.readAsBytesSync(),
-      headers: {
-        'Content-Type': _contentType(name),
-        'Cache-Control': cache,
-      },
+      headers: {'Content-Type': _contentType(name), 'Cache-Control': cache},
     );
   }
 
@@ -94,6 +92,8 @@ class StaticRoutes {
     if (name.endsWith('.ico')) return 'image/x-icon';
     if (name.endsWith('.woff2')) return 'font/woff2';
     if (name.endsWith('.woff')) return 'font/woff';
+    if (name.endsWith('.wav')) return 'audio/wav';
+    if (name.endsWith('.mp3')) return 'audio/mpeg';
     if (name.endsWith('.wasm')) return 'application/wasm';
     if (name.endsWith('.map')) return 'application/json';
     return 'application/octet-stream';
@@ -119,8 +119,15 @@ class StaticRoutes {
     if (Platform.isMacOS) {
       final contents = exeDir.parent;
       for (final fa in [
-        p.join(contents.path, 'Frameworks', 'App.framework', 'Versions', 'A',
-            'Resources', 'flutter_assets'),
+        p.join(
+          contents.path,
+          'Frameworks',
+          'App.framework',
+          'Versions',
+          'A',
+          'Resources',
+          'flutter_assets',
+        ),
         p.join(contents.path, 'Resources', 'flutter_assets'),
       ]) {
         final candidate = p.join(fa, 'assets', 'web_app');
@@ -129,8 +136,13 @@ class StaticRoutes {
     }
 
     // 3. Linux / Windows desktop release: data/flutter_assets next to exe.
-    final dataAssets =
-        p.join(exeDir.path, 'data', 'flutter_assets', 'assets', 'web_app');
+    final dataAssets = p.join(
+      exeDir.path,
+      'data',
+      'flutter_assets',
+      'assets',
+      'web_app',
+    );
     if (Directory(dataAssets).existsSync()) return dataAssets;
 
     debugPrint('[WebServer] Could not resolve web UI asset directory');

@@ -3,16 +3,20 @@
 
 // Story setup wizard: concept → style → AI config. Mirrors the desktop
 // StorySetupPage; saves the full project then sends you to the bible dashboard.
+// Character-card snapshots are rebuilt server-side from the selected ids + the
+// role map this page sends (the web has no card text), so seeding & persona work.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { StepIndicator } from '../components/StepIndicator';
+import { OptionTiles } from './story/OptionTiles';
 import {
-  type StoryProject,
-  POV_OPTIONS, GENRES, MOODS, WRITING_STYLES, PROSE_LENGTHS,
+  type StoryProject, type StoryArchetype,
+  POV_OPTIONS, ROLE_OPTIONS, GENRES, MOODS, WRITING_STYLES, PROSE_LENGTHS,
   PACES, DIALOGUE, MATURITY, PROMPT_TIERS,
 } from '../storyTypes';
+import '../styles/ws-j.css';
 
 const STEPS = ['Concept', 'Style', 'AI'];
 
@@ -21,17 +25,48 @@ export function StorySetupPage() {
   const navigate = useNavigate();
   const [p, setP] = useState<StoryProject | null>(null);
   const [chars, setChars] = useState<{ id: string; name: string }[]>([]);
+  const [roles, setRoles] = useState<Record<string, string>>({});
+  const [archetypes, setArchetypes] = useState<StoryArchetype[]>([]);
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const rolesInit = useRef(false);
 
   useEffect(() => {
-    api.get<StoryProject>(`/api/stories/${id}`).then(setP).catch((e) =>
-      setError(e instanceof ApiError ? e.message : 'Failed to load'));
+    api.get<StoryProject>(`/api/stories/${id}`).then(setP)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load'));
     api.get<{ id: string; name: string }[]>('/api/characters')
       .then((r) => setChars(r.map((c) => ({ id: c.id, name: c.name }))))
       .catch(() => {});
+    void rerollArchetypes();
   }, [id]);
+
+  // Restore role assignments from existing snapshots once both the project and
+  // the character list are loaded. Match by the snapshot's char `id` (web), or
+  // by name (snapshots written by the desktop carry no id) — so editing a
+  // desktop-made story on the web doesn't clobber its roles on save.
+  useEffect(() => {
+    if (!p || rolesInit.current) return;
+    const charSnaps = (p.character_card_snapshots || []).filter((s) => s.self_insert !== 'true');
+    if (charSnaps.length === 0) { rolesInit.current = true; return; }
+    if (chars.length === 0) return; // wait for the character list
+    const restored: Record<string, string> = {};
+    for (const snap of charSnaps) {
+      const cid = snap.id || chars.find((c) => c.name === snap.name)?.id;
+      if (cid) restored[cid] = snap.role || 'Supporting';
+    }
+    setRoles(restored);
+    rolesInit.current = true;
+  }, [p, chars]);
+
+  const rerollArchetypes = async () => {
+    try {
+      const r = await api.get<{ archetypes: StoryArchetype[] }>('/api/stories/archetypes');
+      setArchetypes(r.archetypes);
+    } catch {
+      setArchetypes([]);
+    }
+  };
 
   if (!p) {
     return <div className="page">{error ? <p className="error">{error}</p> : <div className="spinner" />}</div>;
@@ -44,13 +79,19 @@ export function StorySetupPage() {
   };
   const toggleChar = (cid: string) => {
     const cur = p.chat_history_character_ids;
-    set({ chat_history_character_ids: cur.includes(cid) ? cur.filter((x) => x !== cid) : [...cur, cid] });
+    const on = cur.includes(cid);
+    set({ chat_history_character_ids: on ? cur.filter((x) => x !== cid) : [...cur, cid] });
+    if (!on) {
+      // First selected character defaults to Protagonist, like the desktop.
+      const hasProtagonist = Object.values(roles).includes('Protagonist');
+      setRoles({ ...roles, [cid]: hasProtagonist ? 'Supporting' : 'Protagonist' });
+    }
   };
 
   const finish = async () => {
     setSaving(true);
     try {
-      await api.post(`/api/stories/${id}`, p);
+      await api.post(`/api/stories/${id}`, { ...p, character_roles: roles });
       navigate(`/stories/${id}`);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Save failed');
@@ -83,6 +124,14 @@ export function StorySetupPage() {
             <textarea rows={5} value={p.concept} onChange={(e) => set({ concept: e.target.value })}
               placeholder="The premise of your story…" />
           </label>
+          <p className="field-label">Quick concepts</p>
+          <div className="archetype-row">
+            {archetypes.map((a, i) => (
+              <button key={i} type="button" className="chip-toggle"
+                title={a.value} onClick={() => set({ concept: a.value })}>{a.label}</button>
+            ))}
+            <button type="button" className="archetype-refresh" onClick={rerollArchetypes}>↻ Refresh</button>
+          </div>
           <label>Themes <span className="muted small">(optional)</span>
             <input value={p.themes} onChange={(e) => set({ themes: e.target.value })}
               placeholder="redemption, found family…" />
@@ -111,26 +160,14 @@ export function StorySetupPage() {
               {WRITING_STYLES.map((o) => <option key={o}>{o}</option>)}
             </select>
           </label>
-          <label>Prose length
-            <select value={p.prose_length} onChange={(e) => set({ prose_length: e.target.value })}>
-              {PROSE_LENGTHS.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </label>
-          <label>Narrative pace
-            <select value={p.narrative_pace} onChange={(e) => set({ narrative_pace: e.target.value })}>
-              {PACES.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </label>
-          <label>Dialogue density
-            <select value={p.dialogue_density} onChange={(e) => set({ dialogue_density: e.target.value })}>
-              {DIALOGUE.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </label>
-          <label>Maturity
-            <select value={p.maturity_rating} onChange={(e) => set({ maturity_rating: e.target.value })}>
-              {MATURITY.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </label>
+          <OptionTiles label="Prose length" options={PROSE_LENGTHS}
+            value={p.prose_length} onChange={(v) => set({ prose_length: v })} />
+          <OptionTiles label="Narrative pace" options={PACES}
+            value={p.narrative_pace} onChange={(v) => set({ narrative_pace: v })} />
+          <OptionTiles label="Dialogue density" options={DIALOGUE}
+            value={p.dialogue_density} onChange={(v) => set({ dialogue_density: v })} />
+          <OptionTiles label="Maturity" options={MATURITY}
+            value={p.maturity_rating} onChange={(v) => set({ maturity_rating: v })} />
         </section>
       )}
 
@@ -156,11 +193,34 @@ export function StorySetupPage() {
                 ))}
             </div>
           )}
+          {p.use_chat_history && p.chat_history_character_ids.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <p className="field-label">Roles</p>
+              {chars.filter((c) => p.chat_history_character_ids.includes(c.id)).map((c) => (
+                <div key={c.id} className="cast-role-row">
+                  <span className="cast-name">{c.name}</span>
+                  <select value={roles[c.id] || 'Supporting'}
+                    onChange={(e) => setRoles({ ...roles, [c.id]: e.target.value })}>
+                    {ROLE_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
           <label className="row-label">
             <input type="checkbox" checked={p.include_user_persona}
               onChange={(e) => set({ include_user_persona: e.target.checked })} />
             Include my persona as a character
           </label>
+          {p.include_user_persona && (
+            <div className="persona-role">
+              <span className="muted small">Persona role</span>
+              <select value={p.user_persona_role || 'Protagonist'}
+                onChange={(e) => set({ user_persona_role: e.target.value })}>
+                {ROLE_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+          )}
         </section>
       )}
 
