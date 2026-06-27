@@ -46,6 +46,8 @@ interface Settings {
   remoteModelName: string;
   hasApiKey: boolean;
   contextSize: number;
+  reasoningEnabled: boolean;
+  reasoningEffort: string;
   generation: Gen;
 }
 
@@ -77,6 +79,8 @@ export function SettingsPage() {
         backend: s.backend,
         remoteApiUrl: s.remoteApiUrl,
         remoteModelName: s.remoteModelName,
+        reasoningEnabled: s.reasoningEnabled,
+        reasoningEffort: s.reasoningEffort,
         generation: s.generation,
       };
       if (apiKey.trim()) body.apiKey = apiKey.trim();
@@ -230,6 +234,28 @@ export function SettingsPage() {
             onChange={(e) => patchGen({ dynamicTempEnabled: e.target.checked })}
           />
         </label>
+        <label className="row-label">
+          <span>Reasoning / thinking</span>
+          <input
+            type="checkbox"
+            checked={s.reasoningEnabled}
+            onChange={(e) => patch({ reasoningEnabled: e.target.checked })}
+          />
+        </label>
+        {s.reasoningEnabled && (
+          <label>
+            Reasoning effort
+            <select value={s.reasoningEffort} onChange={(e) => patch({ reasoningEffort: e.target.value })}>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+        )}
+        <p className="muted small">
+          Turn on for reasoning models (e.g. GLM-*:thinking) so their thinking is captured and shown
+          as a collapsible block under each reply. Off discards the reasoning.
+        </p>
       </section>
 
       {error && <p className="error">{error}</p>}

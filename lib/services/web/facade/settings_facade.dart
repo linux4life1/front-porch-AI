@@ -51,6 +51,11 @@ class SettingsFacade {
       'remoteModelName': b.remoteModelName,
       'hasApiKey': b.remoteApiKey.isNotEmpty,
       'contextSize': b.contextSize,
+      // Reasoning / "thinking" — for reasoning models (GLM-*:thinking, etc.) this
+      // must be on or the provider's reasoning tokens are discarded and no
+      // <think> block is ever produced for the chat to show.
+      'reasoningEnabled': b.reasoningEnabled,
+      'reasoningEffort': b.reasoningEffort,
       'generation': {
         'temperature': g.temperature,
         'minP': g.minP,
@@ -88,6 +93,11 @@ class SettingsFacade {
       await b.setRemoteApiKey(apiKey);
       remoteChanged = true;
     }
+
+    final reasoning = body['reasoningEnabled'];
+    if (reasoning is bool) await b.setReasoningEnabled(reasoning);
+    final effort = body['reasoningEffort']?.toString();
+    if (effort != null && effort.isNotEmpty) await b.setReasoningEffort(effort);
     if (remoteChanged) {
       _llm.openRouterService.configure(
         apiUrl: b.remoteApiUrl,

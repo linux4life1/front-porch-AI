@@ -888,3 +888,13 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 /* Objective completion-check indicator in the Objectives sidebar section. */
 .obj-checking { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--ok); margin-bottom: 6px; }
 .obj-checking-tag { color: var(--ok); font-weight: 600; }
+
+/* Streaming reasoning ("thinking…") shown above the in-progress reply. */
+.streaming-think {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 9px; margin-bottom: 6px;
+}
+.streaming-think-body {
+  font-size: 0.78rem; line-height: 1.45; color: var(--muted); white-space: pre-wrap;
+  max-height: 140px; overflow-y: auto; -webkit-overflow-scrolling: touch; margin-top: 3px;
+}

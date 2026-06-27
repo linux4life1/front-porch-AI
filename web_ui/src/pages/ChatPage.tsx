@@ -526,9 +526,31 @@ export function ChatPage() {
             </div>
             );
           })}
-          {streaming && (
-            <div className="bubble ai streaming" aria-live="polite">{streaming}</div>
-          )}
+          {streaming && (() => {
+            // Separate a (possibly still-open) <think> block so reasoning streams
+            // into a muted "thinking…" area and the reply shows below — mirrors
+            // how the finished message renders its collapsible thinking block.
+            const open = streaming.indexOf('<think>');
+            let thinking = '';
+            let rest = streaming;
+            if (open !== -1) {
+              const after = streaming.slice(open + 7);
+              const close = after.indexOf('</think>');
+              thinking = close === -1 ? after : after.slice(0, close);
+              rest = streaming.slice(0, open) + (close === -1 ? '' : after.slice(close + 8));
+            }
+            return (
+              <div className="bubble ai streaming" aria-live="polite">
+                {thinking.trim() && (
+                  <div className="streaming-think">
+                    <span className="muted small">💭 thinking…</span>
+                    <div className="streaming-think-body">{thinking}</div>
+                  </div>
+                )}
+                {rest && <MessageContent text={rest} />}
+              </div>
+            );
+          })()}
         </div>
 
         <ProcessingOverlay p={processing} onCancel={cancelRealism} />
