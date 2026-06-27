@@ -787,10 +787,6 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .char-card.selected { outline: 2px solid var(--accent); border-radius: var(--radius); }
 
 /* ── Worlds page ──────────────────────────────────────────────── */
-.world-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 10px; }
-.world-row { display: flex; align-items: center; justify-content: space-between; margin: 0; }
-.world-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.world-actions { display: flex; gap: 2px; flex-shrink: 0; }
 .world-edit { margin-top: 16px; }
 
 /* ── Models & backends page ───────────────────────────────────── */
