@@ -255,7 +255,7 @@ class WebServerHost extends ChangeNotifier {
         : null;
 
     final worldFacade = _worldRepository != null
-        ? WorldFacade(_worldRepository!)
+        ? WorldFacade(_worldRepository!, _characterRepository)
         : null;
 
     final backendFacade = (_llmProvider != null && _modelManager != null)
