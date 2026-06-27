@@ -4036,8 +4036,39 @@ class ChatService extends ChangeNotifier {
   /// Matches the side-effect style of [setNsfwCooldownEnabled] and [setChaosModeEnabled].
   Future<void> setNeedsSimEnabled(bool enabled) async {
     _needsSimEnabled = enabled;
-    _needsSimEnabled =
-        enabled; // setEnabled removed; control in god _needsSimEnabled (sim reads via cb)
+    // Enabling mid-chat: the needs vector is only seeded at chat start (see
+    // chat_entry/group_entry), so a toggle-on after a needs-off start leaves it
+    // empty and the sidebar shows no scores. Seed it now from the active
+    // character/group baselines, mirroring the chat-start init so 1:1 and group
+    // behave identically.
+    if (enabled && _needsSimulation.vector.isEmpty) {
+      if (_activeGroup != null) {
+        _needsSimulation.initializeFreshWithDefaults(const {
+          'hunger': 80,
+          'bladder': 80,
+          'energy': 80,
+          'social': 80,
+          'fun': 80,
+          'hygiene': 80,
+          'comfort': 80,
+        });
+      } else {
+        final ext = _activeCharacter?.frontPorchExtensions;
+        if (ext != null) {
+          _needsSimulation.initializeFreshWithDefaults({
+            'hunger': ext.needsBaselineHunger,
+            'bladder': ext.needsBaselineBladder,
+            'energy': ext.needsBaselineEnergy,
+            'social': ext.needsBaselineSocial,
+            'fun': ext.needsBaselineFun,
+            'hygiene': ext.needsBaselineHygiene,
+            'comfort': ext.needsBaselineComfort,
+          });
+        } else {
+          _needsSimulation.initializeFresh();
+        }
+      }
+    }
     await _saveChat();
     notifyListeners();
   }
