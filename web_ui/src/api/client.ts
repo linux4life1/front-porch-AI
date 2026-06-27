@@ -61,6 +61,15 @@ export const api = {
     });
     return handle<T>(res);
   },
+  /** GET a binary response body (ebook / audiobook download). */
+  getForBlob: async (path: string): Promise<Blob> => {
+    const res = await fetch(path, { method: 'GET', credentials: 'include' });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new ApiError(res.status, text || `Request failed (${res.status})`, {});
+    }
+    return res.blob();
+  },
   /** POST JSON and get the response body as audio/binary (TTS synthesis). */
   postForBlob: async (path: string, body?: unknown): Promise<Blob> => {
     const res = await fetch(path, {

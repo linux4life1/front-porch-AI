@@ -275,9 +275,30 @@ class WebServerHost extends ChangeNotifier {
         ? VoiceFacade(_ttsService!, _sttService!, _storage)
         : null;
 
+    // Snapshots are rebuilt server-side from authoritative card text + roles, so
+    // "seed from chats" / "include persona" actually carry data into the
+    // pipeline (the web client has no card text to send).
+    final snapshotBuilder = _characterRepository != null
+        ? StorySnapshotBuilder(_characterRepository!, _userPersonaService)
+        : null;
     final storyFacade =
         (_storyRepository != null && _storyPipelineService != null)
-        ? StoryFacade(_storyRepository!, _storyPipelineService!, streamHub)
+        ? StoryFacade(
+            _storyRepository!,
+            _storyPipelineService!,
+            streamHub,
+            snapshotBuilder: snapshotBuilder,
+            tts: _ttsService,
+          )
+        : null;
+
+    final storyExportFacade = (_storyRepository != null && _ttsService != null)
+        ? StoryExportFacade(
+            _storyRepository!,
+            _ttsService!,
+            _storage,
+            streamHub,
+          )
         : null;
 
     final tunnelManager = _tunnelManager = TunnelManager(
@@ -303,6 +324,7 @@ class WebServerHost extends ChangeNotifier {
       imageFacade: imageFacade,
       voiceFacade: voiceFacade,
       storyFacade: storyFacade,
+      storyExportFacade: storyExportFacade,
       tunnelManager: tunnelManager,
       onClientActive: markClientActive,
     );

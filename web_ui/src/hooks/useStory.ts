@@ -3,8 +3,9 @@
 //
 // Shared Porch Stories hook: loads a project, subscribes to pipeline progress
 // over the WS hub, and exposes a `run(stage, …)` that kicks off a background
-// pipeline stage. Used by the dashboard, structure, writer, and reader pages so
-// the load + progress + refetch logic lives in one place.
+// pipeline stage, plus `save(...)` for in-place edits (act titles, cast voices)
+// and a chat-history preview loader. Used by the dashboard, structure, writer,
+// and reader pages so the load + progress + refetch logic lives in one place.
 
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
@@ -58,5 +59,28 @@ export function useStory(id: string) {
     }
   }, [id]);
 
-  return { project, status, error, setError, run, reload };
+  /// Persist the full project (in-place edits). Optionally merge a [patch] and a
+  /// [characterRoles] map (charDbId → role) that the server uses to rebuild the
+  /// card snapshots. Reloads on success so the client resyncs.
+  const save = useCallback(
+    async (
+      patch?: Partial<StoryProject>,
+      characterRoles?: Record<string, string>,
+    ): Promise<boolean> => {
+      if (!project) return false;
+      const body: Record<string, unknown> = { ...project, ...patch };
+      if (characterRoles) body.character_roles = characterRoles;
+      try {
+        await api.post(`/api/stories/${id}`, body);
+        reload();
+        return true;
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : 'Save failed');
+        return false;
+      }
+    },
+    [id, project, reload],
+  );
+
+  return { project, status, error, run, save, reload };
 }

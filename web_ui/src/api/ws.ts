@@ -21,6 +21,10 @@ export type WsEvent = {
   greeting?: boolean;
   verifying?: boolean;
   text?: string;
+  // Story audiobook compile events (story_audiobook_status / _ready / _error).
+  progress?: number;
+  status?: string;
+  generating?: boolean;
 };
 
 export class ChatSocket {

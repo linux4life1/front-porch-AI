@@ -12,6 +12,27 @@ export interface StoryListItem {
   actCount: number;
   hasProse: boolean;
   updatedAt: string;
+  // Enriched fields for the library card (genre/mood line, granular status,
+  // tier badge) — mirror the desktop home cards.
+  genre: string;
+  mood: string;
+  tier: string;
+  sceneCount: number;
+  proseCount: number;
+  hasConcept: boolean;
+}
+
+/** A quick-concept seed for the setup wizard (genre/style/concept). */
+export interface StoryArchetype {
+  label: string;
+  value: string;
+}
+
+/** A TTS voice for the per-character read-along picker. */
+export interface StoryVoice {
+  id: string;
+  name: string;
+  engine: string;
 }
 
 export interface StoryStyle {
@@ -117,26 +138,80 @@ export interface StoryStatus {
   tokens: number;
 }
 
+// ── Option lists (1:1 with the desktop StorySetupPage) ──
 export const POV_OPTIONS = [
   'First Person',
   'Third Person Limited',
   'Third Person Omniscient',
 ];
+
+/** Story-character roles (first selected character defaults to Protagonist). */
+export const ROLE_OPTIONS = [
+  'Protagonist',
+  'Antagonist',
+  'Supporting',
+  'Love Interest',
+  'Mentor',
+];
+
 export const GENRES = [
-  'Fantasy', 'Sci-Fi', 'Romance', 'Mystery', 'Thriller', 'Horror',
-  'Adventure', 'Drama', 'Comedy', 'Historical', 'Slice of Life', 'Dystopian',
+  'Fantasy', 'Sci-Fi', 'Romance', 'Thriller', 'Horror', 'Literary Fiction',
+  'Mystery', 'Historical', 'Comedy', 'Drama', 'Adventure', 'Dystopian',
+  'Paranormal', 'Western', 'Slice of Life',
 ];
 export const MOODS = [
-  'Dark', 'Light', 'Gritty', 'Whimsical', 'Tense', 'Cozy',
-  'Melancholic', 'Hopeful', 'Epic', 'Intimate',
+  'Dark', 'Light', 'Gritty', 'Whimsical', 'Melancholy', 'Tense', 'Hopeful',
+  'Bittersweet', 'Eerie', 'Nostalgic', 'Epic', 'Intimate', 'Satirical',
 ];
-export const WRITING_STYLES = ['Minimalist', 'Lyrical', 'Pulpy', 'Literary', 'Cinematic'];
-export const PROSE_LENGTHS = ['Short', 'Standard', 'Epic'];
-export const PACES = ['Slow Burn', 'Balanced', 'Fast-Paced'];
-export const DIALOGUE = ['Sparse', 'Balanced', 'Dialogue-Heavy'];
-export const MATURITY = ['Clean', 'Mature', 'Explicit'];
+export const WRITING_STYLES = [
+  'Minimalist', 'Lyrical/Poetic', 'Pulpy/Action', 'Literary', 'Conversational',
+  'Gothic', 'Hardboiled', 'Philosophical', 'Cinematic', 'Fairy-Tale',
+];
+
+// Length / pace / dialogue / maturity carry explanatory subtitles on desktop.
+export const PROSE_LENGTHS: Record<string, string> = {
+  Short: 'Novella (~20K words)',
+  Standard: 'Novel (~50K words)',
+  Epic: 'Long novel (~80K+ words)',
+};
+export const PACES: Record<string, string> = {
+  'Slow Burn': 'Atmospheric, detailed worldbuilding',
+  Balanced: 'Mix of action and reflection',
+  'Fast-Paced': 'Tight scenes, rapid plot movement',
+};
+export const DIALOGUE: Record<string, string> = {
+  Sparse: 'Mostly narrative prose',
+  Balanced: 'Even mix of dialogue and prose',
+  'Dialogue-Heavy': 'Character-driven, lots of conversation',
+};
+export const MATURITY: Record<string, string> = {
+  Clean: 'All ages, no violence or language',
+  Mature: 'Adult themes, moderate violence',
+  Explicit: 'Graphic content, no restrictions',
+};
+
 export const PROMPT_TIERS: { value: string; label: string }[] = [
   { value: 'frontier', label: 'Frontier (cloud APIs / large models)' },
   { value: 'largLocal', label: 'Large local (70B+)' },
   { value: 'smallLocal', label: 'Small local (7–13B)' },
 ];
+
+/** Short label for a prompt tier (library card badge). */
+export const TIER_LABELS: Record<string, string> = {
+  frontier: 'Frontier',
+  largLocal: 'Large Local',
+  smallLocal: 'Small Local',
+};
+
+/** Beat-type → CSS modifier class for the colored badge in the writer. */
+export const BEAT_TYPE_CLASS: Record<string, string> = {
+  Action: 'action',
+  Reaction: 'reaction',
+  Dialogue: 'dialogue',
+  Revelation: 'revelation',
+  Resolution: 'resolution',
+};
+
+/** Pacing index → glyph (0 Slow, 1 Balanced, 2 Fast). */
+export const PACING_GLYPH = ['🐢', '➖', '⚡'];
+export const PACING_LABEL = ['Slow', 'Balanced', 'Fast'];

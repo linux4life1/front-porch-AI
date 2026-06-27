@@ -19,7 +19,6 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -27,6 +26,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:front_porch_ai/ui/widgets/custom_page_flip.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/story_pipeline_service.dart';
+import 'package:front_porch_ai/services/story_narration_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/models/story_project.dart';
 
@@ -141,199 +141,20 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     }
   }
 
-  /// Parse text into narration and dialogue segments, identifying speakers.
-  List<_VoiceSegment> _parseVoiceSegments(
-    String text,
-    List<StoryCastMember> cast,
-  ) {
-    final segments = <_VoiceSegment>[];
-    // Match quoted dialogue: "...", "...", or "..."
-    final dialoguePattern = RegExp(r'["""]([^"""]+)["""]');
-    int lastEnd = 0;
-
-    for (final match in dialoguePattern.allMatches(text)) {
-      // Add narration before this dialogue
-      if (match.start > lastEnd) {
-        final narration = text.substring(lastEnd, match.start).trim();
-        if (narration.isNotEmpty) {
-          segments.add(
-            _VoiceSegment(text: narration, voiceKey: null, characterName: null),
-          );
-        }
-      }
-
-      // Find the speaker by looking for a character name within ~100 chars before/after the quote
-      final searchStart = (match.start - 100).clamp(0, text.length);
-      final searchEnd = (match.end + 60).clamp(0, text.length);
-      final context = text.substring(searchStart, searchEnd).toLowerCase();
-
-      String? matchedVoice;
-      String? matchedName;
-      for (final c in cast) {
-        if (c.voiceModel != null && c.voiceModel!.isNotEmpty) {
-          // Check for first name or full name in the surrounding context
-          final firstName = c.name.split(' ').first.toLowerCase();
-          if (context.contains(firstName)) {
-            matchedVoice = c.voiceModel;
-            matchedName = c.name;
-            break;
-          }
-        }
-      }
-
-      segments.add(
-        _VoiceSegment(
-          text: match.group(1) ?? '',
-          voiceKey: matchedVoice,
-          characterName: matchedName,
-        ),
-      );
-      lastEnd = match.end;
-    }
-
-    // Add remaining narration
-    if (lastEnd < text.length) {
-      final remaining = text.substring(lastEnd).trim();
-      if (remaining.isNotEmpty) {
-        segments.add(
-          _VoiceSegment(text: remaining, voiceKey: null, characterName: null),
-        );
-      }
-    }
-
-    // If no dialogue found, return the whole text as one narration segment
-    if (segments.isEmpty) {
-      segments.add(
-        _VoiceSegment(text: text, voiceKey: null, characterName: null),
-      );
-    }
-
-    return segments;
-  }
-
-  /// Generate audio for a page, using per-character voices for dialogue segments.
-  /// Returns a single WAV file with all segments stitched together in order.
+  /// Generate audio for a page, using per-character voices for dialogue
+  /// segments, stitched into one WAV. Delegates to the shared
+  /// [StoryNarrationService] (the same engine the web read-to-me uses).
   Future<File?> _generatePageAudio(
     String pageText,
     TtsService tts,
     List<StoryCastMember> cast,
-  ) async {
-    final hasVoicedCharacters = cast.any(
-      (c) => c.voiceModel != null && c.voiceModel!.isNotEmpty,
+  ) {
+    return StoryNarrationService.synthesizeStitchedWav(
+      pageText,
+      cast,
+      tts,
+      isCancelled: () => !_isReadingAlong,
     );
-
-    // Fast path: no character voices configured, use single default voice
-    if (!hasVoicedCharacters) {
-      return tts.generateAudioFile(pageText);
-    }
-
-    // Parse into voice segments and generate each sequentially
-    final segments = _parseVoiceSegments(pageText, cast);
-    final segmentFiles = <File>[];
-
-    for (final seg in segments) {
-      if (!_isReadingAlong) break;
-      final file = await tts.generateAudioFile(
-        seg.text,
-        voiceKey: seg.voiceKey,
-      );
-      if (file != null) segmentFiles.add(file);
-    }
-
-    if (segmentFiles.isEmpty) return null;
-    if (segmentFiles.length == 1) return segmentFiles.first;
-
-    // Stitch multiple WAV files into one by concatenating PCM data
-    try {
-      final pcmChunks = <List<int>>[];
-      int sampleRate = 24000;
-      int numChannels = 1;
-      int bitsPerSample = 16;
-
-      for (final wavFile in segmentFiles) {
-        final bytes = await wavFile.readAsBytes();
-        if (bytes.length < 44) continue;
-
-        // Parse WAV header to find data chunk
-        final bd = ByteData.sublistView(bytes);
-        sampleRate = bd.getUint32(24, Endian.little);
-        numChannels = bd.getUint16(22, Endian.little);
-        bitsPerSample = bd.getUint16(34, Endian.little);
-
-        // Find the "data" chunk
-        int dataOffset = 12;
-        while (dataOffset + 8 < bytes.length) {
-          final chunkId = String.fromCharCodes(
-            bytes.sublist(dataOffset, dataOffset + 4),
-          );
-          final chunkSize = bd.getUint32(dataOffset + 4, Endian.little);
-          if (chunkId == 'data') {
-            dataOffset += 8;
-            final end = (dataOffset + chunkSize).clamp(0, bytes.length).toInt();
-            pcmChunks.add(bytes.sublist(dataOffset, end));
-            break;
-          }
-          dataOffset += 8 + chunkSize.toInt();
-        }
-      }
-
-      if (pcmChunks.isEmpty) return segmentFiles.first;
-
-      // Calculate total PCM size
-      int totalPcm = 0;
-      for (final chunk in pcmChunks) {
-        totalPcm += chunk.length;
-      }
-
-      // Build new WAV header + concatenated PCM
-      final byteRate = sampleRate * numChannels * (bitsPerSample >> 3);
-      final blockAlign = numChannels * (bitsPerSample >> 3);
-      final header = ByteData(44);
-
-      // RIFF header
-      header.setUint8(0, 0x52);
-      header.setUint8(1, 0x49);
-      header.setUint8(2, 0x46);
-      header.setUint8(3, 0x46);
-      header.setUint32(4, 36 + totalPcm, Endian.little);
-      header.setUint8(8, 0x57);
-      header.setUint8(9, 0x41);
-      header.setUint8(10, 0x56);
-      header.setUint8(11, 0x45);
-      // fmt chunk
-      header.setUint8(12, 0x66);
-      header.setUint8(13, 0x6d);
-      header.setUint8(14, 0x74);
-      header.setUint8(15, 0x20);
-      header.setUint32(16, 16, Endian.little);
-      header.setUint16(20, 1, Endian.little); // PCM
-      header.setUint16(22, numChannels, Endian.little);
-      header.setUint32(24, sampleRate, Endian.little);
-      header.setUint32(28, byteRate, Endian.little);
-      header.setUint16(32, blockAlign, Endian.little);
-      header.setUint16(34, bitsPerSample, Endian.little);
-      // data chunk
-      header.setUint8(36, 0x64);
-      header.setUint8(37, 0x61);
-      header.setUint8(38, 0x74);
-      header.setUint8(39, 0x61);
-      header.setUint32(40, totalPcm, Endian.little);
-
-      // Write to temp file
-      final tempDir = await Directory.systemTemp.createTemp('readalong_');
-      final outFile = File('${tempDir.path}/stitched.wav');
-      final sink = outFile.openWrite();
-      sink.add(header.buffer.asUint8List());
-      for (final chunk in pcmChunks) {
-        sink.add(chunk);
-      }
-      await sink.close();
-
-      return outFile;
-    } catch (e) {
-      debugPrint('[ReadAlong] WAV stitch error: $e');
-      return segmentFiles.first; // Fallback to first segment
-    }
   }
 
   Future<void> _startReadAlong() async {
@@ -1783,15 +1604,4 @@ class _BookPage {
     this.actIndex,
     this.sceneIndex,
   });
-}
-
-// End of file
-
-/// A segment of text with an optional character voice for TTS narration.
-class _VoiceSegment {
-  final String text;
-  final String? voiceKey; // TTS voice model ID, null = default narrator
-  final String? characterName;
-
-  const _VoiceSegment({required this.text, this.voiceKey, this.characterName});
 }
