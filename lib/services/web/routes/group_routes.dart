@@ -31,6 +31,8 @@ class WebGroupRoutes {
   WebGroupRoutes(this._facade, Router router) {
     router.get('/api/groups', _list);
     router.get('/api/groups/<id>/members/<memberId>/avatar', _avatar);
+    router.get('/api/groups/<id>/export.png', _export);
+    router.post('/api/groups/<id>/extract', _extract);
     router.post('/api/groups/<id>/delete', _delete);
     router.post('/api/groups/<id>/settings', _settings);
   }
@@ -58,6 +60,32 @@ class WebGroupRoutes {
     final ok = await _facade.updateSettings(id, body);
     if (!ok) return JsonResponse.error(404, 'Group not found');
     return JsonResponse.ok({'status': 'ok'});
+  }
+
+  /// Export a group as a self-contained Group Card PNG download.
+  Future<shelf.Response> _export(shelf.Request request, String id) async {
+    final result = await _facade.exportGroupCardBytes(id);
+    if (result == null) return shelf.Response.notFound('Group not found');
+    final stem = (result['name'] as String).replaceAll(
+      RegExp(r'[^a-zA-Z0-9_-]'),
+      '_',
+    );
+    final name = stem.isEmpty ? 'group' : stem;
+    return shelf.Response.ok(
+      result['bytes'] as List<int>,
+      headers: {
+        'Content-Type': 'image/png',
+        'Content-Disposition': 'attachment; filename="$name.group.png"',
+        'Cache-Control': 'no-store',
+      },
+    );
+  }
+
+  /// Extract a group's members into the library as independent characters.
+  Future<shelf.Response> _extract(shelf.Request request, String id) async {
+    final extracted = await _facade.extractMembers(id);
+    if (extracted == null) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok({'extracted': extracted});
   }
 
   Future<shelf.Response> _avatar(

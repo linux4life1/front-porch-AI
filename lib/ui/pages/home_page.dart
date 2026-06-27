@@ -1913,14 +1913,16 @@ class _HomePageState extends State<HomePage> {
           card,
           charactersDirPath: storage.charactersDir.path,
         );
-        await v2Service.saveCardAsPng(card, pngPath, preview.extractedImagePath);
+        await v2Service.saveCardAsPng(
+          card,
+          pngPath,
+          preview.extractedImagePath,
+        );
         final imported = await repo.importCharacter(
           File(pngPath),
           worldRepo: worldRepo,
         );
-        if (importChats &&
-            preview.messages.isNotEmpty &&
-            imported != null) {
+        if (importChats && preview.messages.isNotEmpty && imported != null) {
           final db = await AppDatabase.instance();
           await byafService.importChatHistory(db, preview, imported);
         }
@@ -2861,27 +2863,9 @@ class _HomePageState extends State<HomePage> {
 
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
     final storage = Provider.of<StorageService>(context, listen: false);
+    final db = Provider.of<AppDatabase>(context, listen: false);
 
     final members = await groupRepo.getMembersForGroup(group.id);
-
-    // Always produce a CharacterCard for 100% of members (use '' when no
-    // private avatar file exists; toCharacterCard and downstream tolerate it).
-    final memberCards = <CharacterCard>[];
-    for (final m in members) {
-      String? resolvedPath;
-      if (m.avatarFilename != null) {
-        final p = path.join(
-          storage.groupsDir.path,
-          group.id,
-          'avatars',
-          m.avatarFilename!,
-        );
-        if (await File(p).exists()) {
-          resolvedPath = p;
-        }
-      }
-      memberCards.add(m.toCharacterCard(resolvedImagePath: resolvedPath ?? ''));
-    }
 
     if (members.isEmpty) {
       if (context.mounted) {
@@ -2890,99 +2874,6 @@ class _HomePageState extends State<HomePage> {
         );
       }
       return;
-    }
-
-    // Embed current avatar images (or synthesize full placeholder PNGs with
-    // complete V2 metadata) as base64 for perfect roundtrip fidelity.
-    // Every member gets an avatar_base64 entry and an _original_stable_id
-    // (file basename when real avatar existed, else the group_members UUID)
-    // so realism relationships, objectives, system prompts etc. remap correctly
-    // even for members that had no avatar at export time.
-    final rawMembersWithAvatars = <Map<String, dynamic>>[];
-
-    // Snapshot per-character objectives for portable Group Card
-    final memberObjectives = <String, List<Map<String, dynamic>>>{};
-    try {
-      final db = Provider.of<AppDatabase>(context, listen: false);
-      for (final card in memberCards) {
-        final charId = _getCharacterIdFromCard(card);
-        final objs = await db.getObjectivesForCharacter(charId);
-        if (objs.isNotEmpty) {
-          memberObjectives[charId] = objs
-              .map(
-                (o) => {
-                  'objective': o.objective,
-                  'tasks': o.tasks,
-                  'isPrimary': o.isPrimary,
-                  'active': o.active,
-                  'checkFrequency': o.checkFrequency,
-                  'injectionDepth': o.injectionDepth,
-                },
-              )
-              .toList();
-        }
-      }
-    } catch (_) {
-      // Best effort for objectives snapshot
-    }
-
-    for (int i = 0; i < memberCards.length; i++) {
-      final card = memberCards[i];
-      final m = members[i];
-      final raw = Map<String, dynamic>.from(card.toJson());
-
-      String? stableIdForRemap;
-      bool hasRealAvatar = false;
-
-      if (card.imagePath != null && card.imagePath!.isNotEmpty) {
-        try {
-          stableIdForRemap = path.basenameWithoutExtension(card.imagePath!);
-
-          final imageFile = File(card.imagePath!);
-          if (await imageFile.exists()) {
-            final bytes = await imageFile.readAsBytes();
-            raw['avatar_base64'] = base64Encode(bytes);
-            hasRealAvatar = true;
-          }
-        } catch (_) {
-          // Best effort — don't fail the whole export over one avatar.
-        }
-      }
-
-      if (!hasRealAvatar) {
-        // Synthesize a complete valid PNG (placeholder image + full chara
-        // metadata) so this member is 100% present and extractable later.
-        try {
-          final v2 = V2CardService();
-          final bytes = await v2.encodeCharacterCardToPngBytes(card, null);
-          raw['avatar_base64'] = base64Encode(bytes);
-        } catch (_) {
-          // If synthesis also fails, still include the textual data; import
-          // side has its own legacy placeholder path as final safety net.
-        }
-        // Use the stable group_members UUID when there was never an avatar file.
-        stableIdForRemap ??= m.id;
-      }
-
-      if (stableIdForRemap != null && stableIdForRemap.isNotEmpty) {
-        raw['_original_stable_id'] = stableIdForRemap;
-      }
-
-      // Group Card portable origin (cast-unification work): carry the member's
-      // TRUE library origin (portable) so a re-import can reconnect it to the
-      // source library character. DISTINCT from
-      // `_original_stable_id` above, which is the export INSTANCE id used only for
-      // realism relationship remap. `m.originStableId` is the origin library
-      // character's stableGroupId (image-basename derived, cross-machine portable);
-      // null for legacy/origin-unknown members — omit the key entirely then. The
-      // machine-local `originLibraryDbId` is deliberately NOT exported (unused +
-      // meaningless on another device).
-      final originLibStableId = m.originStableId;
-      if (originLibStableId != null && originLibStableId.isNotEmpty) {
-        raw['_origin_library_stable_id'] = originLibStableId;
-      }
-
-      rawMembersWithAvatars.add(raw);
     }
 
     final safeName = group.name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
@@ -2999,55 +2890,14 @@ class _HomePageState extends State<HomePage> {
       }
 
       try {
-        // Build the portable GroupCard (full member snapshots)
-        // Critical: For the realism snapshot we send the *immutable baseline seed*,
-        // not the evolved state from chatting.
-        final portable = GroupCard(
-          name: group.name,
-          members: memberCards,
-          rawMemberData:
-              rawMembersWithAvatars, // includes avatar_base64 for fidelity
-          turnOrder: group.turnOrder.name,
-          autoAdvance: group.autoAdvance,
-          directorMode: group.directorMode,
-          firstMessage: group.firstMessage,
-          scenario: group.scenario,
-          systemPrompt: group.systemPrompt,
-          characterSystemPrompts: group.characterSystemPrompts,
-          chaosModeEnabled: group.chaosModeEnabled,
-          chaosNsfwEnabled: group.chaosNsfwEnabled,
-          groupLorebook: group.groupLorebook,
-          worldIds: group.worldIds,
-          inheritCharacterLorebooks: group.inheritCharacterLorebooks,
-          baselineRealismState: group.baselineRealismState,
-          defaultMemberRealismState: group.defaultMemberRealismState,
-          memberObjectives: memberObjectives,
-          extensions:
-              (group.baselineRealismState.isNotEmpty &&
-                  group.baselineRealismState != '{}')
-              ? {
-                  'realism_state': jsonDecode(group.baselineRealismState),
-                  // Also expose the richer default state under the legacy key for
-                  // any external readers that only looked at the old realism_state blob.
-                  if (group.defaultMemberRealismState.isNotEmpty &&
-                      group.defaultMemberRealismState != '{}')
-                    'default_member_realism_state': jsonDecode(
-                      group.defaultMemberRealismState,
-                    ),
-                }
-              : (group.defaultMemberRealismState.isNotEmpty &&
-                    group.defaultMemberRealismState != '{}')
-              ? {
-                  'default_member_realism_state': jsonDecode(
-                    group.defaultMemberRealismState,
-                  ),
-                }
-              : null,
-        );
-
-        final service = GroupCardService();
-        // No custom source image → auto-collage from member avatars (the magic path)
-        await service.saveGroupCardAsPng(portable, outputFile);
+        // Fidelity logic (member avatar embedding, objectives snapshot,
+        // stable-id remap, GroupCard assembly) lives in the shared
+        // GroupCardExporter so the desktop and web export paths can't diverge.
+        await GroupCardExporter(
+          groupRepo,
+          storage,
+          db,
+        ).exportToFile(group, outputFile);
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

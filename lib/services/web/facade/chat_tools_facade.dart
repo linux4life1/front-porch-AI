@@ -49,6 +49,10 @@ class ChatToolsFacade {
         focused != null && !focused.isHost && focused.realismEnabled;
     return {
       'realismEnabled': _chat.realismEnabled,
+      'needsEnabled': _chat.needsSimEnabled,
+      // Per-need baseline decay rates (per turn) for the Decay Rates panel —
+      // mirrors the desktop sidebar's NeedsDecayRatesSection.
+      'needs': {'decay': _decayBlock()},
       'focusedId': focused?.id,
       'memory': {
         'ragEnabled': _storage.ragEnabled,
@@ -151,12 +155,43 @@ class ChatToolsFacade {
       'scenario': g.scenario,
       'firstMessage': g.firstMessage,
       'members': _chat.cast
-          .map((p) => {
-                'id': p.id,
-                'name': p.name,
-                'prompt': g.characterSystemPrompts[p.id] ?? '',
-              })
+          .map(
+            (p) => {
+              'id': p.id,
+              'name': p.name,
+              'prompt': g.characterSystemPrompts[p.id] ?? '',
+            },
+          )
           .toList(),
+    };
+  }
+
+  /// Per-need baseline decay rates (per turn) for the Decay Rates sliders.
+  /// Mirrors the desktop sidebar exactly: a group reads the shared
+  /// [ChatService.groupDecayRates] map; a 1:1 chat reads the active card's
+  /// FrontPorchExtensions. Missing values default to 5 (the engine default).
+  Map<String, int> _decayBlock() {
+    if (_chat.activeGroup != null) {
+      final g = _chat.groupDecayRates;
+      return {
+        'hunger': g['hunger'] ?? 5,
+        'bladder': g['bladder'] ?? 5,
+        'energy': g['energy'] ?? 5,
+        'social': g['social'] ?? 5,
+        'fun': g['fun'] ?? 5,
+        'hygiene': g['hygiene'] ?? 5,
+        'comfort': g['comfort'] ?? 5,
+      };
+    }
+    final ext = _chat.activeCharacter?.frontPorchExtensions;
+    return {
+      'hunger': ext?.needsDecayHunger ?? 5,
+      'bladder': ext?.needsDecayBladder ?? 5,
+      'energy': ext?.needsDecayEnergy ?? 5,
+      'social': ext?.needsDecaySocial ?? 5,
+      'fun': ext?.needsDecayFun ?? 5,
+      'hygiene': ext?.needsDecayHygiene ?? 5,
+      'comfort': ext?.needsDecayComfort ?? 5,
     };
   }
 
@@ -175,6 +210,28 @@ class ChatToolsFacade {
   //    desktop sidebar calls, which persist + handle group parity) ──────────
   Future<void> setRealismEnabled(bool v) async {
     await _chat.setRealismEnabled(v);
+    _notify();
+  }
+
+  /// Live in-chat Needs Simulation toggle. Delegates to the same
+  /// [ChatService.setNeedsSimEnabled] the desktop sidebar calls, so decay /
+  /// scene-impact behavior and 1:1↔group parity are inherited.
+  Future<void> setNeedsEnabled(bool v) async {
+    await _chat.setNeedsSimEnabled(v);
+    _notify();
+  }
+
+  /// Set a per-need baseline decay rate (0–20/turn). Branches 1:1 vs group on
+  /// the same [ChatService] methods the desktop Decay Rates sliders call, so the
+  /// value persists to the card PNG/DB and (in a group) propagates to every
+  /// member — parity inherited, never reimplemented here.
+  Future<void> setDecayRate(String key, int value) async {
+    final v = value.clamp(0, 20);
+    if (_chat.activeGroup != null) {
+      await _chat.setGroupNeedsDecayRate(key, v);
+    } else {
+      await _chat.setNeedsDecayRate(key, v);
+    }
     _notify();
   }
 
@@ -269,7 +326,11 @@ class ChatToolsFacade {
   }
 
   /// Generate tasks for the objective with [id]. Returns false if unknown.
-  Future<bool> generateTasks(String id, {int taskCount = 5, bool nsfw = false}) {
+  Future<bool> generateTasks(
+    String id, {
+    int taskCount = 5,
+    bool nsfw = false,
+  }) {
     return _withObjective(id, (o) async {
       await _chat.generateObjectiveTasks(o, taskCount: taskCount, nsfw: nsfw);
     });
@@ -318,7 +379,8 @@ class ChatToolsFacade {
     final all = <Objective>[
       if (_chat.primaryObjective != null) _chat.primaryObjective!,
       ..._chat.secondaryObjectives,
-      for (final p in _chat.cast) ..._chat.getObjectivesForGroupCharacter(p.card),
+      for (final p in _chat.cast)
+        ..._chat.getObjectivesForGroupCharacter(p.card),
     ];
     Objective? match;
     for (final o in all) {

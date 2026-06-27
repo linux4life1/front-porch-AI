@@ -1,17 +1,30 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Edit an existing character — the web mirror of the Flutter character editor.
+// Round-trips the core text fields, tags, alternate greetings, the full
+// lorebook (enabled + sticky depth), linked worlds, and the Realism Engine +
+// Needs Simulation seeds (via /detail's `realism` block ↔ the shared
+// realism_extensions_json helper). Posts to /api/characters/<id>.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { AvatarManager } from '../components/AvatarManager';
+import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
+import { RealismFormSection } from '../components/realism/RealismFormSection';
+import { NeedsFormSection } from '../components/realism/NeedsFormSection';
+import { TokenBadge } from '../components/realism/controls';
+import { type RealismValues, realismFromDetail } from '../components/realism/realismTypes';
 
 interface RawLore {
   name?: string;
   key?: string;
   content?: string;
+  enabled?: boolean;
   constant?: boolean;
+  stickyDepth?: number;
 }
 interface CharDetail {
   id: string;
@@ -24,7 +37,10 @@ interface CharDetail {
   systemPrompt: string;
   postHistoryInstructions: string;
   tags: string[];
+  alternateGreetings: string[];
+  worldNames: string[];
   lorebook?: { entries: RawLore[] } | null;
+  realism?: Partial<RealismValues> | null;
 }
 
 const FIELDS: { key: keyof CharDetail; label: string; rows: number }[] = [
@@ -42,7 +58,11 @@ export function CharacterEditPage() {
   const navigate = useNavigate();
   const [c, setC] = useState<CharDetail | null>(null);
   const [tags, setTags] = useState('');
+  const [greetings, setGreetings] = useState<string[]>([]);
   const [lore, setLore] = useState<LoreEntry[]>([]);
+  const [rv, setRv] = useState<RealismValues | null>(null);
+  const [worldNames, setWorldNames] = useState<string[]>([]);
+  const [allWorlds, setAllWorlds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
@@ -54,22 +74,41 @@ export function CharacterEditPage() {
       .then((d) => {
         setC(d);
         setTags((d.tags ?? []).join(', '));
+        setGreetings(d.alternateGreetings ?? []);
+        setWorldNames(d.worldNames ?? []);
+        setRv(realismFromDetail(d.realism));
         setLore(
           (d.lorebook?.entries ?? []).map((e) => ({
             name: e.name ?? '',
             key: e.key ?? '',
             content: e.content ?? '',
+            enabled: e.enabled ?? true,
             constant: e.constant ?? false,
+            stickyDepth: e.stickyDepth ?? 1,
           })),
         );
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'));
+    api
+      .get<{ worlds: { name: string }[] }>('/api/worlds')
+      .then((r) => setAllWorlds((r.worlds ?? []).map((w) => w.name)))
+      .catch(() => setAllWorlds([]));
   }, [id]);
 
+  const tokenChars = useMemo(() => {
+    if (!c) return 0;
+    const fieldText = FIELDS.reduce((sum, f) => sum + ((c[f.key] as string) ?? '').length, 0);
+    const loreText = lore.reduce((sum, e) => sum + e.content.length + e.key.length, 0);
+    return fieldText + loreText;
+  }, [c, lore]);
+
   if (error && !c) return <div className="page"><p className="error">{error}</p></div>;
-  if (!c) return <div className="centered"><div className="spinner" /></div>;
+  if (!c || !rv) return <div className="centered"><div className="spinner" /></div>;
 
   const setField = (key: keyof CharDetail, value: string) => setC({ ...c, [key]: value });
+  const patch = (p: Partial<RealismValues>) => setRv({ ...rv, ...p });
+  const toggleWorld = (name: string) =>
+    setWorldNames(worldNames.includes(name) ? worldNames.filter((w) => w !== name) : [...worldNames, name]);
 
   const save = async () => {
     setSaving(true);
@@ -85,7 +124,10 @@ export function CharacterEditPage() {
         systemPrompt: c.systemPrompt,
         postHistoryInstructions: c.postHistoryInstructions,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+        alternateGreetings: greetings.filter((g) => g.trim()),
+        worldNames,
         lorebook: lore.filter((e) => e.key.trim() || e.content.trim()),
+        ...rv,
       });
       navigate(-1);
     } catch (e) {
@@ -111,7 +153,10 @@ export function CharacterEditPage() {
     <div className="page">
       <div className="page-head">
         <h2>Edit character</h2>
-        <button className="ghost" onClick={() => navigate(-1)}>Cancel</button>
+        <div className="row-actions">
+          <TokenBadge chars={tokenChars} />
+          <button className="ghost" onClick={() => navigate(-1)}>Cancel</button>
+        </div>
       </div>
       <label>
         Name
@@ -132,8 +177,31 @@ export function CharacterEditPage() {
         <input value={tags} onChange={(e) => setTags(e.target.value)} />
       </label>
 
+      <h3 className="section-label">Alternate greetings</h3>
+      <AltGreetingsEditor greetings={greetings} onChange={setGreetings} />
+
       <h3 className="section-label">Lorebook</h3>
       <LoreEntriesEditor entries={lore} onChange={setLore} />
+
+      <h3 className="section-label">Linked worlds</h3>
+      {allWorlds.length === 0 ? (
+        <p className="muted small">No worlds yet. Create one from the Worlds page to link it here.</p>
+      ) : (
+        <div className="world-picker">
+          {allWorlds.map((w) => (
+            <label className="tool-toggle" key={w}>
+              <span>{w}</span>
+              <input type="checkbox" checked={worldNames.includes(w)} onChange={() => toggleWorld(w)} />
+            </label>
+          ))}
+        </div>
+      )}
+
+      <h3 className="section-label">Realism Engine</h3>
+      <RealismFormSection v={rv} set={patch} />
+
+      <h3 className="section-label">Needs Simulation</h3>
+      <NeedsFormSection v={rv} set={patch} />
 
       <h3 className="section-label">Avatars &amp; expressions</h3>
       <AvatarManager characterId={c.id} />

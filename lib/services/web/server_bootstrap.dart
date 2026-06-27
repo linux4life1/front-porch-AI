@@ -65,6 +65,7 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
       deps.characterFacade!,
       router,
       authoring: deps.characterAuthoringFacade,
+      library: deps.characterLibraryFacade,
     );
   }
   if (deps.chargenFacade != null) WebChargenRoutes(deps.chargenFacade!, router);

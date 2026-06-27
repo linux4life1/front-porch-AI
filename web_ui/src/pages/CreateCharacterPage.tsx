@@ -4,16 +4,21 @@
 // Manual character creation wizard — the web mirror of the Flutter
 // create_character_page.dart (Identity → Personality → Dialogue → Lorebook →
 // Realism → Review). Posts to /api/characters/create, which reuses the desktop
-// save path (writes a V2 PNG embedding the Realism seeds). Full multi-step on
-// desktop/tablet; the same steps stack compactly on phone.
+// save path (writes a V2 PNG embedding the full Realism + Needs seeds via the
+// shared realism_extensions_json helper). Full multi-step on desktop/tablet;
+// the same steps stack compactly on phone.
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { StepIndicator } from '../components/StepIndicator';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
+import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
+import { RealismFormSection } from '../components/realism/RealismFormSection';
+import { NeedsFormSection } from '../components/realism/NeedsFormSection';
+import { type RealismValues, REALISM_DEFAULTS } from '../components/realism/realismTypes';
 
-interface Draft {
+interface Draft extends RealismValues {
   name: string;
   tags: string;
   description: string;
@@ -25,16 +30,6 @@ interface Draft {
   systemPrompt: string;
   postHistoryInstructions: string;
   lorebook: LoreEntry[];
-  realismEnabled: boolean;
-  shortTermBond: number;
-  longTermBond: number;
-  trustLevel: number;
-  characterEmotion: string;
-  emotionIntensity: string;
-  needsSimEnabled: boolean;
-  chaosModeEnabled: boolean;
-  nsfwCooldownEnabled: boolean;
-  currentTask: string;
 }
 
 const STEPS = ['Identity', 'Personality', 'Dialogue', 'Lorebook', 'Realism', 'Review'];
@@ -51,16 +46,7 @@ const EMPTY: Draft = {
   systemPrompt: '',
   postHistoryInstructions: '',
   lorebook: [],
-  realismEnabled: false,
-  shortTermBond: 0,
-  longTermBond: 0,
-  trustLevel: 0,
-  characterEmotion: '',
-  emotionIntensity: 'mild',
-  needsSimEnabled: false,
-  chaosModeEnabled: false,
-  nsfwCooldownEnabled: false,
-  currentTask: '',
+  ...REALISM_DEFAULTS,
 };
 
 export function CreateCharacterPage() {
@@ -71,6 +57,7 @@ export function CreateCharacterPage() {
   const [error, setError] = useState('');
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setD({ ...d, [key]: value });
+  const patch = (p: Partial<RealismValues>) => setD({ ...d, ...p });
   const canAdvance = step > 0 || d.name.trim().length > 0;
 
   const create = async () => {
@@ -140,26 +127,7 @@ export function CreateCharacterPage() {
               First message (greeting)
               <textarea rows={5} value={d.firstMessage} onChange={(e) => set('firstMessage', e.target.value)} />
             </label>
-            <div className="row-label">
-              <span>Alternate greetings</span>
-              <button className="ghost" onClick={() => set('alternateGreetings', [...d.alternateGreetings, ''])}>
-                + Add
-              </button>
-            </div>
-            {d.alternateGreetings.map((g, i) => (
-              <div className="tool-row" key={i}>
-                <textarea
-                  rows={3}
-                  value={g}
-                  onChange={(e) => {
-                    const next = [...d.alternateGreetings];
-                    next[i] = e.target.value;
-                    set('alternateGreetings', next);
-                  }}
-                />
-                <button className="icon-btn" title="Remove" onClick={() => set('alternateGreetings', d.alternateGreetings.filter((_, j) => j !== i))}>🗑</button>
-              </div>
-            ))}
+            <AltGreetingsEditor greetings={d.alternateGreetings} onChange={(g) => set('alternateGreetings', g)} />
             <label>
               Example dialogue
               <textarea rows={4} value={d.mesExample} onChange={(e) => set('mesExample', e.target.value)} />
@@ -181,42 +149,8 @@ export function CreateCharacterPage() {
 
         {step === 4 && (
           <>
-            <label className="tool-toggle">
-              <span>Enable Realism engine for this character</span>
-              <input type="checkbox" checked={d.realismEnabled} onChange={(e) => set('realismEnabled', e.target.checked)} />
-            </label>
-            <p className="muted small">Seeds the starting relationship & state. You can change all of this later in the chat sidebar.</p>
-            <RangeRow label="Starting bond" min={-300} max={300} value={d.shortTermBond} onChange={(v) => set('shortTermBond', v)} />
-            <RangeRow label="Long-term bond" min={-300} max={300} value={d.longTermBond} onChange={(v) => set('longTermBond', v)} />
-            <RangeRow label="Trust" min={-100} max={100} value={d.trustLevel} onChange={(v) => set('trustLevel', v)} />
-            <label>
-              Starting emotion (optional)
-              <input value={d.characterEmotion} placeholder="e.g. curious" onChange={(e) => set('characterEmotion', e.target.value)} />
-            </label>
-            <label>
-              Emotion intensity
-              <select value={d.emotionIntensity} onChange={(e) => set('emotionIntensity', e.target.value)}>
-                <option value="mild">Mild</option>
-                <option value="moderate">Moderate</option>
-                <option value="strong">Strong</option>
-              </select>
-            </label>
-            <label>
-              Initial task / quest (optional)
-              <input value={d.currentTask} onChange={(e) => set('currentTask', e.target.value)} />
-            </label>
-            <label className="tool-toggle">
-              <span>Needs simulation</span>
-              <input type="checkbox" checked={d.needsSimEnabled} onChange={(e) => set('needsSimEnabled', e.target.checked)} />
-            </label>
-            <label className="tool-toggle">
-              <span>Chaos mode</span>
-              <input type="checkbox" checked={d.chaosModeEnabled} onChange={(e) => set('chaosModeEnabled', e.target.checked)} />
-            </label>
-            <label className="tool-toggle">
-              <span>Post-climax NSFW cooldown</span>
-              <input type="checkbox" checked={d.nsfwCooldownEnabled} onChange={(e) => set('nsfwCooldownEnabled', e.target.checked)} />
-            </label>
+            <RealismFormSection v={d} set={patch} />
+            <NeedsFormSection v={d} set={patch} />
           </>
         )}
 
@@ -229,6 +163,7 @@ export function CreateCharacterPage() {
             <ReviewRow label="First message" value={d.firstMessage} />
             <ReviewRow label="Lorebook" value={d.lorebook.length ? `${d.lorebook.length} entr${d.lorebook.length === 1 ? 'y' : 'ies'}` : 'None'} />
             <ReviewRow label="Realism" value={d.realismEnabled ? `On · bond ${d.shortTermBond}, trust ${d.trustLevel}` : 'Off'} />
+            <ReviewRow label="Needs" value={d.needsSimEnabled ? `On · ${d.needsSimStrength}× strength` : 'Off'} />
             {error && <p className="error">{error}</p>}
           </div>
         )}
@@ -245,15 +180,6 @@ export function CreateCharacterPage() {
         )}
       </div>
     </div>
-  );
-}
-
-function RangeRow({ label, min, max, value, onChange }: { label: string; min: number; max: number; value: number; onChange: (v: number) => void }) {
-  return (
-    <label>
-      <span>{label}: {value}</span>
-      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(parseInt(e.target.value, 10))} />
-    </label>
   );
 }
 

@@ -45,7 +45,6 @@ import 'package:front_porch_ai/services/web/tunnels/tailscale_provider.dart';
 import 'package:front_porch_ai/services/web/tunnels/tunnel_manager.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
-
 /// Lifecycle owner for the web server (the ChangeNotifier that `main.dart` and
 /// the settings UI talk to). It only bootstraps + binds; all request behavior
 /// lives in [buildWebHandler] and the route groups. This is the sole web server
@@ -169,7 +168,8 @@ class WebServerHost extends ChangeNotifier {
     final tsRunning = settings.webServerAutoRemote
         ? (await tailscale.status()).running
         : false;
-    final exposeAll = settings.webServerAllowLan ||
+    final exposeAll =
+        settings.webServerAllowLan ||
         (settings.webServerAutoRemote && tsRunning);
     final bindAddress = exposeAll ? InternetAddress.anyIPv4 : '127.0.0.1';
 
@@ -232,6 +232,12 @@ class WebServerHost extends ChangeNotifier {
         ? CharacterAuthoringFacade(_characterRepository!, _storage)
         : null;
 
+    final folderService = _folderService;
+    final characterLibraryFacade =
+        (_characterRepository != null && folderService != null)
+        ? CharacterLibraryFacade(_characterRepository!, folderService)
+        : null;
+
     final chargenFacade = _llmProvider != null
         ? ChargenFacade(_llmProvider!, characterFacade, streamHub)
         : null;
@@ -241,18 +247,24 @@ class WebServerHost extends ChangeNotifier {
         : null;
 
     final groupFacade = _groupChatRepository != null
-        ? GroupFacade(_groupChatRepository!, _storage)
+        ? GroupFacade(_groupChatRepository!, _storage, _characterRepository, db)
         : null;
 
     final settingsFacade = _llmProvider != null
         ? SettingsFacade(_storage, _llmProvider!)
         : null;
 
-    final worldFacade =
-        _worldRepository != null ? WorldFacade(_worldRepository!) : null;
+    final worldFacade = _worldRepository != null
+        ? WorldFacade(_worldRepository!)
+        : null;
 
     final backendFacade = (_llmProvider != null && _modelManager != null)
-        ? BackendFacade(_llmProvider!, _storage, _modelManager!, _hardwareService)
+        ? BackendFacade(
+            _llmProvider!,
+            _storage,
+            _modelManager!,
+            _hardwareService,
+          )
         : null;
 
     final imageFacade = _imageGenService != null
@@ -265,11 +277,13 @@ class WebServerHost extends ChangeNotifier {
 
     final storyFacade =
         (_storyRepository != null && _storyPipelineService != null)
-            ? StoryFacade(_storyRepository!, _storyPipelineService!, streamHub)
-            : null;
+        ? StoryFacade(_storyRepository!, _storyPipelineService!, streamHub)
+        : null;
 
-    final tunnelManager =
-        _tunnelManager = TunnelManager(bindPort, tailscale: tailscale);
+    final tunnelManager = _tunnelManager = TunnelManager(
+      bindPort,
+      tailscale: tailscale,
+    );
 
     final deps = WebServerDeps(
       storage: _storage,
@@ -278,6 +292,7 @@ class WebServerHost extends ChangeNotifier {
       streamHub: streamHub,
       characterFacade: characterFacade,
       characterAuthoringFacade: characterAuthoringFacade,
+      characterLibraryFacade: characterLibraryFacade,
       chargenFacade: chargenFacade,
       chatFacade: chatFacade,
       chatToolsFacade: chatToolsFacade,
@@ -296,11 +311,8 @@ class WebServerHost extends ChangeNotifier {
     // self-signed cert, whose browser trust warning is worse UX than http.
     // Real HTTPS comes only from a trusted external terminator (Tailscale
     // serve / ngrok); over those our server stays plain http on loopback.
-    _server = await shelf_io.serve(
-      buildWebHandler(deps),
-      bindAddress,
-      bindPort,
-    )..autoCompress = true;
+    _server = await shelf_io.serve(buildWebHandler(deps), bindAddress, bindPort)
+      ..autoCompress = true;
 
     if (exposeAll) _lanIp = await _detectLanIp();
     debugPrint(

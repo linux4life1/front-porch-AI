@@ -1,215 +1,183 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Character library: folders, groups, and characters with full desktop parity
+// (create/rename/delete folders, per-card menu with edit/duplicate/export/
+// move/remove/delete, multi-select bulk move + delete, drag-and-drop into
+// folders, folder-scoped search, import cards/folder + online browsers, grid
+// size + import-date sort, and group export/extract). The page is a thin shell;
+// data + actions live in useLibrary and the library/* components.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { InstallHint } from '../components/InstallHint';
+import { useLayout } from '../hooks/useBreakpoint';
+import { useLibrary, type LibChar, type LibFolder, type LibGroup } from '../hooks/useLibrary';
+import { CardMenu, type CardMenuItem, type MenuState } from '../components/library/CardMenu';
+import { CharacterCard, FolderCard, GroupCard } from '../components/library/LibraryCards';
+import { LibraryToolbar, SelectionBar } from '../components/library/LibraryToolbar';
+import {
+  ConfirmDialog,
+  MoveToFolderDialog,
+  PromptDialog,
+} from '../components/library/LibraryDialogs';
 
-interface Character {
-  id: string;
-  name: string;
-  description: string;
-  tags: string[];
-  hasAvatar: boolean;
-  messageCount: number;
-}
-interface Folder {
-  id: string;
-  name: string;
-  parentId?: string;
-}
-interface GroupMember {
-  id: string;
-  name: string;
-  hasAvatar: boolean;
-}
-interface Group {
-  id: string;
-  name: string;
-  memberCount: number;
-  members: GroupMember[];
-}
+type Dialog =
+  | { kind: 'newFolder' }
+  | { kind: 'renameFolder'; folder: LibFolder }
+  | { kind: 'deleteFolder'; folder: LibFolder }
+  | { kind: 'deleteChar'; char: LibChar }
+  | { kind: 'deleteGroup'; group: LibGroup }
+  | { kind: 'deleteSelected'; ids: string[] }
+  | { kind: 'extractGroup'; group: LibGroup }
+  | { kind: 'move'; ids: string[] }
+  | null;
 
 export function CharactersPage() {
+  const lib = useLibrary();
   const navigate = useNavigate();
-  const [chars, setChars] = useState<Character[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  // Current folder lives in the URL (?folder=<id>) so tapping the app title /
-  // "Front Porch AI" (a link to "/") returns to the library root from anywhere,
-  // and browser back/forward walks the folder history.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const folderId = searchParams.get('folder');
-  const setFolderId = (id: string | null) =>
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (id) next.set('folder', id);
-      else next.delete('folder');
-      return next;
-    });
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState('name');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [importing, setImporting] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
+  const { wide } = useLayout();
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const searching = search.trim().length > 0;
-
-  const onImportFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setImporting(true);
-    setError('');
-    let ok = 0;
-    let failed = 0;
-    for (const file of Array.from(files)) {
-      try {
-        await api.upload('/api/characters/import', file);
-        ok++;
-      } catch {
-        failed++;
-      }
-    }
-    setImporting(false);
-    if (failed > 0) setError(`Imported ${ok}, failed ${failed}. PNG (V2) and .byaf are supported.`);
-    setReloadKey((k) => k + 1);
-  };
-
-  // Folders + groups load once (groups shown at the library root only).
+  // `webkitdirectory` (whole-folder import) isn't a typed JSX attribute, so set
+  // it on the element directly once it mounts.
   useEffect(() => {
-    api.get<{ folders: Folder[] }>('/api/folders').then((r) => setFolders(r.folders)).catch(() => {});
-    api.get<{ groups: Group[] }>('/api/groups').then((r) => setGroups(r.groups)).catch(() => {});
+    const el = folderInputRef.current;
+    if (el) {
+      el.setAttribute('webkitdirectory', '');
+      el.setAttribute('directory', '');
+    }
   }, []);
 
-  // Characters reload when the folder or search changes. A search is global
-  // (server-side, ignores folder); otherwise we show the current folder's
-  // characters (root = unfoldered, matching the desktop).
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    const term = search.trim();
-    if (term) params.set('search', term);
-    else if (folderId) params.set('folder', folderId);
-    if (sort !== 'name') params.set('sort', sort);
-    api
-      .get<Character[]>(`/api/characters?${params.toString()}`)
-      .then(setChars)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load characters'))
-      .finally(() => setLoading(false));
-  }, [folderId, search, sort, reloadKey]);
+  const openMenu = (e: MouseEvent, items: CardMenuItem[]) =>
+    setMenu({ x: e.clientX, y: e.clientY, items });
 
-  const subfolders = useMemo(
-    () => folders.filter((f) => (f.parentId ?? null) === folderId),
-    [folders, folderId],
-  );
+  // ── Menu item builders (one CardMenu serves every surface) ───────────────
+  const charMenu = (c: LibChar): CardMenuItem[] => [
+    { label: 'Edit', icon: '✏️', onClick: () => lib.editCharacter(c.id) },
+    { label: 'Duplicate', icon: '⧉', onClick: () => lib.duplicateCharacter(c.id) },
+    { label: 'Export PNG', icon: '🖼', onClick: () => lib.exportPng(c.id) },
+    { label: 'Export JSON', icon: '📄', onClick: () => lib.exportJson(c.id) },
+    { label: 'Move to folder…', icon: '📁', onClick: () => setDialog({ kind: 'move', ids: [c.id] }) },
+    ...(lib.folderId
+      ? [
+          {
+            label: 'Remove from folder',
+            icon: '📤',
+            onClick: () => lib.moveToFolder([c.id], null),
+          },
+        ]
+      : []),
+    { label: 'Delete', icon: '🗑', danger: true, onClick: () => setDialog({ kind: 'deleteChar', char: c }) },
+  ];
 
-  // Breadcrumb trail from root to the current folder.
-  const trail = useMemo(() => {
-    const byId = new Map(folders.map((f) => [f.id, f]));
-    const out: Folder[] = [];
-    let cur = folderId ? byId.get(folderId) : undefined;
-    while (cur) {
-      out.unshift(cur);
-      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
-    }
-    return out;
-  }, [folders, folderId]);
+  const folderMenu = (f: LibFolder): CardMenuItem[] => [
+    { label: 'Rename', icon: '✏️', onClick: () => setDialog({ kind: 'renameFolder', folder: f }) },
+    { label: 'Delete', icon: '🗑', danger: true, onClick: () => setDialog({ kind: 'deleteFolder', folder: f }) },
+  ];
 
-  const openCharacter = async (c: Character) => {
-    try {
-      await api.post('/api/chat/select', { characterId: c.id });
-      navigate('/chat');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not open chat');
-    }
+  const groupMenu = (g: LibGroup): CardMenuItem[] => [
+    { label: 'Export Group PNG', icon: '🖼', onClick: () => lib.exportGroupPng(g) },
+    { label: 'Extract characters', icon: '👥', onClick: () => setDialog({ kind: 'extractGroup', group: g }) },
+    { label: 'Delete', icon: '🗑', danger: true, onClick: () => setDialog({ kind: 'deleteGroup', group: g }) },
+  ];
+
+  const importMenu = (): CardMenuItem[] => [
+    { label: 'Import cards…', icon: '🖼', onClick: () => fileRef.current?.click() },
+    { label: 'Import a folder…', icon: '📁', onClick: () => folderInputRef.current?.click() },
+    {
+      label: 'Browse AI Character Cards ↗',
+      icon: '🌐',
+      onClick: () => window.open('https://aicharactercards.com/', '_blank', 'noopener'),
+    },
+    {
+      label: 'Browse Chub.ai ↗',
+      icon: '🌐',
+      onClick: () => window.open('https://chub.ai/', '_blank', 'noopener'),
+    },
+  ];
+
+  // ── Drag-and-drop (desktop/tablet only; phone uses the menu's Move action) ─
+  const dropOnFolder = (folderId: string | null) => {
+    if (draggedId) lib.moveToFolder([draggedId], folderId);
+    setDraggedId(null);
   };
 
-  const openGroup = async (g: Group) => {
-    try {
-      await api.post('/api/chat/select-group', { groupId: g.id });
-      navigate('/chat');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not open group');
-    }
-  };
-
-  const deleteGroup = async (g: Group) => {
-    if (!window.confirm(`Delete group "${g.name}"? This removes the group and its chats.`)) return;
-    try {
-      await api.post(`/api/groups/${g.id}/delete`);
-      setGroups((gs) => gs.filter((x) => x.id !== g.id));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete group');
-    }
-  };
+  const gridStyle = { ['--lib-card-min']: `${lib.gridMin}px` } as CSSProperties;
+  const showGroups = !lib.searching && lib.folderId === null && lib.groups.length > 0;
+  const showSubfolders = !lib.searching && lib.subfolders.length > 0;
 
   return (
     <div className="page library">
       <InstallHint />
-      <div className="search-row">
-        <input
-          className="search"
-          placeholder="Search characters…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          className="sort-select"
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          aria-label="Sort characters"
-        >
-          <option value="name">Name</option>
-          <option value="recent">Recent</option>
-          <option value="messages">Most messages</option>
-        </select>
-        <button
-          className="primary import-btn"
-          onClick={() => navigate('/create')}
-          title="Create a new character"
-        >
-          ＋ Create
-        </button>
-        <button
-          className="ghost import-btn"
-          onClick={() => navigate('/create-ai')}
-          title="Generate a character with AI"
-        >
-          ✨ AI Create
-        </button>
-        <button
-          className="ghost import-btn"
-          disabled={importing}
-          onClick={() => fileRef.current?.click()}
-          title="Import character card (PNG / .byaf)"
-        >
-          {importing ? 'Importing…' : '⬆ Import'}
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".png,.byaf,image/png,application/json"
-          multiple
-          hidden
-          onChange={(e) => {
-            void onImportFiles(e.target.files);
-            e.target.value = '';
-          }}
-        />
-      </div>
-      {error && <p className="error">{error}</p>}
+      <LibraryToolbar
+        search={lib.search}
+        setSearch={lib.setSearch}
+        sort={lib.sort}
+        setSort={lib.setSort}
+        scope={lib.scope}
+        setScope={lib.setScope}
+        searching={lib.searching}
+        gridMin={lib.gridMin}
+        setGridMin={lib.setGridMin}
+        importing={lib.importing}
+        onNewFolder={() => setDialog({ kind: 'newFolder' })}
+        onCreate={() => navigate('/create')}
+        onAiCreate={() => navigate('/create-ai')}
+        onImportMenu={(e) => openMenu(e, importMenu())}
+        onStartSelect={lib.startSelecting}
+      />
+      {/* Hidden import inputs (cards + whole folder). */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".png,.byaf,.json,image/png,application/json"
+        multiple
+        hidden
+        onChange={(e) => {
+          void lib.importFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        hidden
+        onChange={(e) => {
+          void lib.importFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
 
-      {!searching && folderId !== null && (
+      {lib.selecting && (
+        <SelectionBar
+          count={lib.selectedIds.size}
+          onMove={() => setDialog({ kind: 'move', ids: Array.from(lib.selectedIds) })}
+          onDelete={() => setDialog({ kind: 'deleteSelected', ids: Array.from(lib.selectedIds) })}
+          onCancel={lib.cancelSelecting}
+        />
+      )}
+
+      {lib.error && <p className="error">{lib.error}</p>}
+
+      {!lib.searching && lib.folderId !== null && (
         <div className="breadcrumb">
-          <button className="link-btn" onClick={() => setFolderId(null)}>
+          <button
+            className="link-btn crumb-drop"
+            onClick={() => lib.setFolderId(null)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => dropOnFolder(null)}
+          >
             Home
           </button>
-          {trail.map((f) => (
+          {lib.trail.map((f) => (
             <span key={f.id}>
               <span className="crumb-sep">/</span>
-              <button className="link-btn" onClick={() => setFolderId(f.id)}>
+              <button className="link-btn" onClick={() => lib.setFolderId(f.id)}>
                 {f.name}
               </button>
             </span>
@@ -217,102 +185,142 @@ export function CharactersPage() {
         </div>
       )}
 
-      {!searching && subfolders.length > 0 && (
-        <div className="lib-grid">
-          {subfolders.map((f) => (
-            <button key={f.id} className="lib-card folder-card" onClick={() => setFolderId(f.id)}>
-              <span className="folder-glyph" aria-hidden>📁</span>
-              <span className="lib-name">{f.name}</span>
-            </button>
+      {showSubfolders && (
+        <div className="lib-grid" style={gridStyle}>
+          {lib.subfolders.map((f) => (
+            <FolderCard
+              key={f.id}
+              folder={f}
+              onOpen={() => lib.setFolderId(f.id)}
+              onMenu={(e) => openMenu(e, folderMenu(f))}
+              onDropChars={() => dropOnFolder(f.id)}
+            />
           ))}
         </div>
       )}
 
-      {!searching && folderId === null && groups.length > 0 && (
+      {showGroups && (
         <>
           <h3 className="section-label">Group chats</h3>
-          <div className="lib-grid">
-            {groups.map((g) => (
-              <div key={g.id} className="lib-card group-card">
-                <button className="lib-open" onClick={() => openGroup(g)}>
-                  <div className="lib-art group-art" data-count={Math.min(g.members.length, 4)}>
-                    {g.members.slice(0, 4).map((m) =>
-                      m.hasAvatar ? (
-                        <img
-                          key={m.id}
-                          src={`/api/groups/${g.id}/members/${m.id}/avatar`}
-                          alt=""
-                          loading="lazy"
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                        />
-                      ) : (
-                        <span key={m.id} className="lib-art-fallback">
-                          {m.name.charAt(0).toUpperCase()}
-                        </span>
-                      ),
-                    )}
-                  </div>
-                  <div className="lib-info">
-                    <div className="lib-name-row"><span className="lib-name">👥 {g.name}</span></div>
-                    <span className="lib-sub">{g.memberCount} members</span>
-                  </div>
-                </button>
-                <button
-                  className="icon-btn card-delete"
-                  title="Delete group"
-                  onClick={() => deleteGroup(g)}
-                >
-                  🗑
-                </button>
-              </div>
+          <div className="lib-grid" style={gridStyle}>
+            {lib.groups.map((g) => (
+              <GroupCard
+                key={g.id}
+                group={g}
+                onOpen={() => lib.openGroup(g)}
+                onMenu={(e) => openMenu(e, groupMenu(g))}
+              />
             ))}
           </div>
         </>
       )}
 
-      {loading ? (
-        <div className="centered"><div className="spinner" /></div>
+      {lib.loading ? (
+        <div className="centered">
+          <div className="spinner" />
+        </div>
       ) : (
         <>
-          {!searching && (subfolders.length > 0 || (folderId === null && groups.length > 0)) && (
-            <h3 className="section-label">Characters</h3>
-          )}
-          {chars.length === 0 ? (
+          {(showSubfolders || showGroups) && <h3 className="section-label">Characters</h3>}
+          {lib.chars.length === 0 ? (
             <p className="muted">No characters here.</p>
           ) : (
-            <div className="lib-grid">
-              {chars.map((c) => (
-                <button key={c.id} className="lib-card" onClick={() => openCharacter(c)}>
-                  <div className="lib-art">
-                    {c.hasAvatar ? (
-                      <img
-                        src={`/api/characters/${c.id}/avatar`}
-                        alt=""
-                        loading="lazy"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                    ) : (
-                      <span className="lib-art-fallback">{c.name.charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <div className="lib-info">
-                    <div className="lib-name-row">
-                      <span className="lib-name">{c.name}</span>
-                      {c.messageCount > 0 && <span className="lib-msgs">💬 {c.messageCount}</span>}
-                    </div>
-                    {c.tags.length > 0 && (
-                      <div className="tag-pills">
-                        {c.tags.slice(0, 3).map((t) => (
-                          <span key={t} className="tag-pill">{t}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </button>
+            <div className="lib-grid" style={gridStyle}>
+              {lib.chars.map((c) => (
+                <CharacterCard
+                  key={c.id}
+                  char={c}
+                  selecting={lib.selecting}
+                  selected={lib.selectedIds.has(c.id)}
+                  onOpen={() => lib.openCharacter(c)}
+                  onToggleSelect={() => lib.toggleSelect(c.id)}
+                  onMenu={(e) => openMenu(e, charMenu(c))}
+                  dndEnabled={wide}
+                  onDragStart={() => setDraggedId(c.id)}
+                />
               ))}
             </div>
           )}
         </>
+      )}
+
+      {menu && <CardMenu menu={menu} onClose={() => setMenu(null)} />}
+
+      {dialog?.kind === 'newFolder' && (
+        <PromptDialog
+          title={lib.folderId ? 'New subfolder' : 'New folder'}
+          confirmLabel="Create"
+          onConfirm={(name) => lib.createFolder(name, lib.folderId)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'renameFolder' && (
+        <PromptDialog
+          title="Rename folder"
+          initial={dialog.folder.name}
+          confirmLabel="Rename"
+          onConfirm={(name) => lib.renameFolder(dialog.folder.id, name)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'deleteFolder' && (
+        <ConfirmDialog
+          title="Delete folder"
+          message={`Delete "${dialog.folder.name}"? Subfolders are also removed and the characters inside move back to the root (the characters themselves are kept).`}
+          confirmLabel="Delete folder"
+          danger
+          onConfirm={() => lib.deleteFolder(dialog.folder.id)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'deleteChar' && (
+        <ConfirmDialog
+          title="Delete character"
+          message={`Permanently delete "${dialog.char.name}" and its card, image and chat history? This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => lib.deleteCharacter(dialog.char.id)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'deleteSelected' && (
+        <ConfirmDialog
+          title="Delete selected"
+          message={`Permanently delete ${dialog.ids.length} selected character${dialog.ids.length === 1 ? '' : 's'} and their chat history? This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => lib.bulkDelete(dialog.ids)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'deleteGroup' && (
+        <ConfirmDialog
+          title="Delete group"
+          message={`Delete group "${dialog.group.name}"? This removes the group and its chats (the member characters are not deleted).`}
+          confirmLabel="Delete group"
+          danger
+          onConfirm={() => lib.deleteGroup(dialog.group)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'extractGroup' && (
+        <ConfirmDialog
+          title="Extract characters"
+          message={`Copy every member of "${dialog.group.name}" into your library as independent characters?`}
+          confirmLabel="Extract"
+          onConfirm={() => lib.extractGroup(dialog.group)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'move' && (
+        <MoveToFolderDialog
+          folders={lib.folders}
+          onPick={(folderId) => {
+            lib.moveToFolder(dialog.ids, folderId);
+            setDialog(null);
+          }}
+          onClose={() => setDialog(null)}
+        />
       )}
     </div>
   );

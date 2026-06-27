@@ -35,6 +35,7 @@ export 'storage_service.dart';
 export 'character_repository.dart';
 export 'group_chat_repository.dart';
 export 'group_card_service.dart';
+export 'group_card_exporter.dart';
 export 'world_repository.dart';
 export 'story_repository.dart';
 

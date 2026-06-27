@@ -30,6 +30,7 @@ class WebChatToolsRoutes {
     router.get('/api/chat/tools', _state);
     router.post('/api/chat/tools/settings', _settings);
     router.post('/api/chat/tools/toggle', _toggle);
+    router.post('/api/chat/tools/decay', _decay);
     router.post('/api/chat/tools/time', _time);
     router.post('/api/chat/tools/summary', _summary);
     router.post('/api/chat/tools/objective', _objective);
@@ -63,6 +64,8 @@ class WebChatToolsRoutes {
     switch (name) {
       case 'realism':
         await _facade.setRealismEnabled(value);
+      case 'needs':
+        await _facade.setNeedsEnabled(value);
       case 'chaos':
         await _facade.setChaosEnabled(value);
       case 'chaosNsfw':
@@ -81,11 +84,35 @@ class WebChatToolsRoutes {
     return JsonResponse.ok(_snapshot(request));
   }
 
+  /// Set one per-need baseline decay rate (0–20/turn). Body: { key, value:int }.
+  /// The key must be one of the seven needs; the facade branches 1:1 vs group.
+  Future<shelf.Response> _decay(shelf.Request request) async {
+    const keys = {
+      'hunger',
+      'bladder',
+      'energy',
+      'social',
+      'fun',
+      'hygiene',
+      'comfort',
+    };
+    final body = await _json(request);
+    final key = body['key']?.toString();
+    final value = body['value'];
+    if (key == null || !keys.contains(key) || value is! int) {
+      return JsonResponse.badRequest('valid need key and int value required');
+    }
+    await _facade.setDecayRate(key, value);
+    return JsonResponse.ok(_snapshot(request));
+  }
+
   /// Nudge the scene clock by `delta` periods (+1 / -1).
   Future<shelf.Response> _time(shelf.Request request) async {
     final body = await _json(request);
     final delta = body['delta'];
-    if (delta is! int) return JsonResponse.badRequest('delta (int) is required');
+    if (delta is! int) {
+      return JsonResponse.badRequest('delta (int) is required');
+    }
     await _facade.nudgeTime(delta);
     return JsonResponse.ok(_snapshot(request));
   }
@@ -118,7 +145,8 @@ class WebChatToolsRoutes {
         await _facade.setObjective(
           goal,
           isPrimary: body['isPrimary'] != false,
-          participantId: body['participant']?.toString() ??
+          participantId:
+              body['participant']?.toString() ??
               request.url.queryParameters['participant'],
         );
       case 'generate':

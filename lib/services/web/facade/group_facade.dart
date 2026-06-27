@@ -20,19 +20,32 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
+import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/group_card_exporter.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
-/// Read adapter over the group store for the web library — lists group chats
-/// and resolves member avatars. Activating a group lives in [ChatFacade]
+/// Read adapter over the group store for the web library — lists group chats,
+/// resolves member avatars, and handles library card actions (export Group Card
+/// PNG, extract members to the library). Activating a group lives in [ChatFacade]
 /// (`selectGroup`) alongside character selection, to keep "what is the active
-/// chat" in one place. Reuses GroupChatRepository directly; no duplicated logic.
+/// chat" in one place. Reuses GroupChatRepository / GroupCardExporter /
+/// CharacterRepository directly; no duplicated logic.
 class GroupFacade {
-  GroupFacade(this._groups, this._storage);
+  GroupFacade(this._groups, this._storage, [this.repo, this.db]);
 
   final GroupChatRepository _groups;
   final StorageService _storage;
+
+  /// Needed for "Extract Characters" (library copies via duplicateCharacter) —
+  /// null until the CharacterRepository is injected.
+  final CharacterRepository? repo;
+
+  /// Needed for the Group Card export (objectives snapshot via GroupCardExporter)
+  /// — null only in auth-only boots where no DB is wired.
+  final AppDatabase? db;
 
   /// All group chats with their members (id, name, avatar flag) so the library
   /// can render a tile with stacked member avatars.
@@ -45,12 +58,14 @@ class GroupFacade {
         'name': g.name,
         'memberCount': members.length,
         'members': members
-            .map((m) => {
-                  'id': m.id,
-                  'name': m.name,
-                  'hasAvatar':
-                      m.avatarFilename != null && m.avatarFilename!.isNotEmpty,
-                })
+            .map(
+              (m) => {
+                'id': m.id,
+                'name': m.name,
+                'hasAvatar':
+                    m.avatarFilename != null && m.avatarFilename!.isNotEmpty,
+              },
+            )
             .toList(),
       });
     }
@@ -73,25 +88,89 @@ class GroupFacade {
     final g = _groups.getById(groupId);
     if (g == null) return false;
     if (f['name'] is String) g.name = f['name'] as String;
-    if (f['systemPrompt'] is String) g.systemPrompt = f['systemPrompt'] as String;
+    if (f['systemPrompt'] is String) {
+      g.systemPrompt = f['systemPrompt'] as String;
+    }
     if (f['scenario'] is String) g.scenario = f['scenario'] as String;
     if (f['firstMessage'] is String) {
       g.firstMessage = f['firstMessage'] as String;
     }
     if (f['turnOrder'] is String) {
-      g.turnOrder =
-          f['turnOrder'] == 'random' ? TurnOrder.random : TurnOrder.roundRobin;
+      g.turnOrder = f['turnOrder'] == 'random'
+          ? TurnOrder.random
+          : TurnOrder.roundRobin;
     }
     final prompts = f['characterSystemPrompts'];
     if (prompts is Map) {
       g.characterSystemPrompts
         ..clear()
-        ..addAll(prompts.map(
-          (k, v) => MapEntry(k.toString(), v.toString()),
-        ));
+        ..addAll(prompts.map((k, v) => MapEntry(k.toString(), v.toString())));
     }
     await _groups.save(g);
     return true;
+  }
+
+  /// Export a group as a single self-contained Group Card PNG (the `fpa_group`
+  /// format) with full member fidelity. Reuses [GroupCardExporter] (the shared
+  /// snapshot logic the desktop also uses) via a temp file, then returns the
+  /// bytes. Returns null when the group is unknown/empty or no DB is wired.
+  Future<Map<String, dynamic>?> exportGroupCardBytes(String groupId) async {
+    final database = db;
+    if (database == null) return null;
+    final group = _groups.getById(groupId);
+    if (group == null) return null;
+    final tmp = File(
+      p.join(
+        Directory.systemTemp.path,
+        'fpa_group_export_${DateTime.now().microsecondsSinceEpoch}.png',
+      ),
+    );
+    try {
+      final ok = await GroupCardExporter(
+        _groups,
+        _storage,
+        database,
+      ).exportToFile(group, tmp.path);
+      if (!ok) return null;
+      return {'name': group.name, 'bytes': await tmp.readAsBytes()};
+    } finally {
+      try {
+        if (tmp.existsSync()) await tmp.delete();
+      } catch (_) {}
+    }
+  }
+
+  /// Extract every member with a usable private avatar into the library as an
+  /// independent character (the desktop "Separate to my library" action), via
+  /// [CharacterRepository.duplicateCharacter]. Returns the number extracted, or
+  /// null when the group is unknown or no repository is wired.
+  Future<int?> extractMembers(String groupId) async {
+    final repository = repo;
+    if (repository == null) return null;
+    if (_groups.getById(groupId) == null) return null;
+    final members = await _groups.getMembersForGroup(groupId);
+    var extracted = 0;
+    for (final m in members) {
+      try {
+        final resolvedPath = m.avatarFilename != null
+            ? p.join(
+                _storage.groupsDir.path,
+                groupId,
+                'avatars',
+                m.avatarFilename!,
+              )
+            : null;
+        if (resolvedPath == null || !await File(resolvedPath).exists()) {
+          continue;
+        }
+        final card = m.toCharacterCard(resolvedImagePath: resolvedPath);
+        await repository.duplicateCharacter(card);
+        extracted++;
+      } catch (_) {
+        // Best effort — skip a member that fails rather than aborting the batch.
+      }
+    }
+    return extracted;
   }
 
   /// Resolve a group member's avatar file (stored under
@@ -101,8 +180,9 @@ class GroupFacade {
     final m = members.where((x) => x.id == memberId).firstOrNull;
     final filename = m?.avatarFilename;
     if (filename == null || filename.isEmpty) return null;
-    final file =
-        File(p.join(_storage.groupsDir.path, groupId, 'avatars', filename));
+    final file = File(
+      p.join(_storage.groupsDir.path, groupId, 'avatars', filename),
+    );
     return file.existsSync() ? file : null;
   }
 }
