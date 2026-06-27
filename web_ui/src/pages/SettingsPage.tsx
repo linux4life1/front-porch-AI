@@ -6,16 +6,28 @@ import { api, ApiError } from '../api/client';
 import { PersonaManager } from '../components/PersonaManager';
 import { ModelPicker } from '../components/ModelPicker';
 
-// Provider presets auto-fill the API URL for the common OpenAI-compatible
-// backends. "Custom" leaves the URL free for anything else (vLLM, LM Studio…).
-const PROVIDER_PRESETS: { id: string; label: string; url: string }[] = [
-  { id: 'nanogpt', label: 'Nano-GPT', url: 'https://nano-gpt.com/api/v1' },
-  { id: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/api/v1' },
-  { id: 'omlx', label: 'oMLX (local)', url: 'http://localhost:8000/v1' },
-  { id: 'custom', label: 'Custom', url: '' },
+// A single backend picker (replacing the old Backend + Provider dropdowns,
+// which overlapped). Each entry maps to a real BackendType; the OpenAI-compatible
+// providers are first-class so the user chooses "where generation happens" once.
+// `url` (when present) is the fixed API base for that provider — selecting it
+// fills remoteApiUrl. `kind` drives which controls show:
+//   local — host subprocess (KoboldCpp / Pseudo-Remote): managed on the host.
+//   api   — connect to an OpenAI-compatible server (model picker + maybe key).
+interface BackendOption {
+  id: string;
+  label: string;
+  backend: string; // BackendType the server understands
+  url?: string;
+  kind: 'local' | 'api';
+}
+const BACKEND_OPTIONS: BackendOption[] = [
+  { id: 'kobold', label: 'KoboldCpp (local)', backend: 'kobold', kind: 'local' },
+  { id: 'pseudoRemote', label: 'Pseudo-Remote (local server)', backend: 'pseudoRemote', kind: 'local' },
+  { id: 'omlx', label: 'oMLX (local API)', backend: 'omlx', url: 'http://localhost:8000/v1', kind: 'api' },
+  { id: 'nanogpt', label: 'Nano-GPT', backend: 'openRouter', url: 'https://nano-gpt.com/api/v1', kind: 'api' },
+  { id: 'openrouter', label: 'OpenRouter', backend: 'openRouter', url: 'https://openrouter.ai/api/v1', kind: 'api' },
+  { id: 'custom', label: 'Custom API (OpenAI-compatible)', backend: 'openRouter', url: '', kind: 'api' },
 ];
-const presetForUrl = (url: string): string =>
-  PROVIDER_PRESETS.find((p) => p.url && p.url === url.trim())?.id ?? 'custom';
 
 interface Gen {
   temperature: number;
@@ -36,13 +48,6 @@ interface Settings {
   contextSize: number;
   generation: Gen;
 }
-
-const BACKEND_LABELS: Record<string, string> = {
-  kobold: 'KoboldCpp (local)',
-  pseudoRemote: 'Pseudo-Remote (local server)',
-  openRouter: 'OpenRouter / API',
-  omlx: 'oMLX (local)',
-};
 
 export function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
@@ -87,13 +92,27 @@ export function SettingsPage() {
     }
   };
 
-  // Selecting a provider preset just fills the API URL (Custom clears it for
-  // free entry). The model dropdown refetches off the new URL automatically.
-  const onPreset = (id: string) => {
-    const preset = PROVIDER_PRESETS.find((p) => p.id === id);
-    if (!preset) return;
-    if (id === 'custom') return; // keep the current URL editable
-    patch({ remoteApiUrl: preset.url });
+  // Which unified backend option is active: local backends map 1:1; the
+  // OpenAI-compatible "openRouter" backend is disambiguated by its saved URL
+  // (Nano-GPT / OpenRouter / else Custom).
+  const currentBackendId = (): string => {
+    if (s.backend !== 'openRouter') return s.backend;
+    const match = BACKEND_OPTIONS.find(
+      (o) => o.backend === 'openRouter' && o.url && o.url === s.remoteApiUrl.trim(),
+    );
+    return match ? match.id : 'custom';
+  };
+
+  // Switching backend sets the BackendType and, for fixed-URL providers, the API
+  // URL; Custom clears the URL so it doesn't masquerade as a named provider and
+  // the model dropdown refetches off the new endpoint.
+  const onBackendChange = (id: string) => {
+    const opt = BACKEND_OPTIONS.find((o) => o.id === id);
+    if (!opt) return;
+    const next: Partial<Settings> = { backend: opt.backend };
+    if (id === 'custom') next.remoteApiUrl = '';
+    else if (opt.url) next.remoteApiUrl = opt.url;
+    patch(next);
   };
 
   const testConnection = async () => {
@@ -111,11 +130,14 @@ export function SettingsPage() {
     }
   };
 
-  // Only KoboldCpp is "local" with no remote endpoint; openRouter / pseudoRemote
-  // / oMLX all use an OpenAI-compatible URL + model. Gate the remote controls on
-  // the *selected* backend (not the saved one) so they appear the moment you
-  // switch the dropdown, before saving.
-  const isRemoteSel = s.backend !== 'kobold';
+  // Control visibility keys off the *selected* backend so it updates the instant
+  // the dropdown changes (before saving). Local backends are host subprocesses;
+  // the API ones connect to an OpenAI-compatible server.
+  const selectedId = currentBackendId();
+  const isApi = s.backend === 'openRouter' || s.backend === 'omlx';
+  const isManagedLocal = s.backend === 'kobold' || s.backend === 'pseudoRemote';
+  const showUrlField = selectedId === 'custom'; // named providers + oMLX have fixed URLs
+  const showKeyField = s.backend === 'openRouter'; // oMLX is local — no key
 
   return (
     <div className="page">
@@ -127,36 +149,33 @@ export function SettingsPage() {
         <h3>Model &amp; backend</h3>
         <label>
           Backend
-          <select value={s.backend} onChange={(e) => patch({ backend: e.target.value })}>
-            {s.backends.map((b) => (
-              <option key={b} value={b}>{BACKEND_LABELS[b] ?? b}</option>
+          <select value={selectedId} onChange={(e) => onBackendChange(e.target.value)}>
+            {BACKEND_OPTIONS.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
             ))}
           </select>
         </label>
         <p className="muted small">Loaded model: <strong>{s.loadedModel}</strong> · context {s.contextSize}</p>
 
-        {isRemoteSel && (
+        {isManagedLocal && (
+          <p className="muted small">
+            This backend runs on the host machine. Pick or download its model on the Models tab;
+            GPU and launch options are configured in the desktop app.
+          </p>
+        )}
+
+        {isApi && (
           <>
-            <label>
-              Provider
-              <select
-                value={presetForUrl(s.remoteApiUrl)}
-                onChange={(e) => onPreset(e.target.value)}
-                aria-label="Provider preset"
-              >
-                {PROVIDER_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              API URL
-              <input
-                value={s.remoteApiUrl}
-                onChange={(e) => patch({ remoteApiUrl: e.target.value })}
-                placeholder="https://openrouter.ai/api/v1"
-              />
-            </label>
+            {showUrlField && (
+              <label>
+                API URL
+                <input
+                  value={s.remoteApiUrl}
+                  onChange={(e) => patch({ remoteApiUrl: e.target.value })}
+                  placeholder="https://your-server.example/v1"
+                />
+              </label>
+            )}
             <label>
               Model
               <ModelPicker
@@ -166,15 +185,17 @@ export function SettingsPage() {
                 onChange={(id) => patch({ remoteModelName: id })}
               />
             </label>
-            <label>
-              API key
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={s.hasApiKey ? '•••••• (leave blank to keep)' : 'paste your API key'}
-              />
-            </label>
+            {showKeyField && (
+              <label>
+                API key
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={s.hasApiKey ? '•••••• (leave blank to keep)' : 'paste your API key'}
+                />
+              </label>
+            )}
             <div className="test-conn-row">
               <button className="ghost" onClick={testConnection} disabled={testing}>
                 {testing ? 'Testing…' : 'Test connection'}
