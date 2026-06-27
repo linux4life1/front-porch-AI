@@ -197,8 +197,12 @@ void main(List<String> args) async {
               listen: false,
             ).modelsDir.path,
           ),
+          // Re-point the target dir on every storage notify (notably the one
+          // after async init sets rootPath) so downloads always land in the
+          // configured models folder, not a relative path captured at create.
           update: (context, storage, previous) =>
-              previous ?? DownloadManager(targetDir: storage.modelsDir.path),
+              (previous ?? DownloadManager(targetDir: storage.modelsDir.path))
+                ..targetDir = storage.modelsDir.path,
         ),
         ChangeNotifierProxyProvider<StorageService, KoboldService>(
           create: (context) => KoboldService(
@@ -552,6 +556,9 @@ void main(List<String> args) async {
             );
             host.setModelManager(
               Provider.of<ModelManager>(context, listen: false),
+            );
+            host.setHardwareService(
+              Provider.of<HardwareService>(context, listen: false),
             );
             host.setImageGenService(
               Provider.of<ImageGenService>(context, listen: false),

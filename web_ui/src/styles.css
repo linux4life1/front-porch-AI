@@ -725,6 +725,34 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .image-result img { max-width: 100%; border-radius: var(--radius); border: 1px solid var(--border); }
 .image-result-actions { display: flex; align-items: center; gap: 12px; }
 
+/* ── Models page: hardware panel + recommendations ─────────────────────── */
+.hw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 4px 0 8px; }
+.hw-cell { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hw-cell strong { overflow-wrap: anywhere; }
+.rec-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.rec-chip {
+  font-size: 0.72rem; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  background: rgba(59, 130, 246, 0.14); color: var(--accent); border: 1px solid var(--border);
+}
+.rec-chip:hover { filter: brightness(1.2); }
+.mono-path { font-family: var(--mono, ui-monospace, monospace); overflow-wrap: anywhere; }
+
+/* Installed models: Use + Delete affordances. */
+.model-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.danger-btn { color: var(--danger); border-color: var(--border); }
+.danger-btn:hover { background: rgba(255, 82, 82, 0.12); }
+
+/* Download queue: overall bar, bulk controls, per-task rows. */
+.dl-queue { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.dl-overall { display: flex; flex-direction: column; gap: 4px; }
+.dl-overall-head { display: flex; justify-content: space-between; }
+.dl-bulk { display: flex; flex-wrap: wrap; gap: 6px; }
+.small-btn { font-size: 0.72rem; padding: 3px 10px; }
+.dl-item { display: flex; flex-direction: column; gap: 4px; }
+.dl-controls { display: flex; gap: 2px; flex: none; }
+.dl-sub { display: flex; justify-content: space-between; gap: 8px; }
+.dl-err { color: var(--danger); }
+
 /* Inline images embedded in chat messages (![alt](url)). */
 .chat-image {
   display: block; max-width: 100%; margin-top: 8px;

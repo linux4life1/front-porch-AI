@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/folder_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/hardware_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
@@ -62,6 +63,7 @@ class WebServerHost extends ChangeNotifier {
   LLMProvider? _llmProvider;
   WorldRepository? _worldRepository;
   ModelManager? _modelManager;
+  HardwareService? _hardwareService;
   ImageGenService? _imageGenService;
   TtsService? _ttsService;
   SttService? _sttService;
@@ -122,6 +124,8 @@ class WebServerHost extends ChangeNotifier {
       _userPersonaService = service;
   void setWorldRepository(WorldRepository repo) => _worldRepository = repo;
   void setModelManager(ModelManager manager) => _modelManager = manager;
+  void setHardwareService(HardwareService service) =>
+      _hardwareService = service;
   void setImageGenService(ImageGenService service) =>
       _imageGenService = service;
   void setTtsService(TtsService service) => _ttsService = service;
@@ -211,7 +215,7 @@ class WebServerHost extends ChangeNotifier {
         _worldRepository != null ? WorldFacade(_worldRepository!) : null;
 
     final backendFacade = (_llmProvider != null && _modelManager != null)
-        ? BackendFacade(_llmProvider!, _storage, _modelManager!)
+        ? BackendFacade(_llmProvider!, _storage, _modelManager!, _hardwareService)
         : null;
 
     final imageFacade = _imageGenService != null

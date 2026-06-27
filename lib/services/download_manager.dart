@@ -34,8 +34,13 @@ class DownloadManager extends ChangeNotifier {
   /// Maximum number of concurrent downloads.
   final int maxConcurrent;
 
-  /// The directory where downloaded models are stored.
-  final String targetDir;
+  /// The directory where downloaded models are stored. NOT final: the provider
+  /// re-points it to the live `StorageService.modelsDir` once storage finishes
+  /// its async init. Without this it can be captured as a relative `models/`
+  /// (rootPath still null at create time), so downloads land beside the running
+  /// binary instead of the configured models folder and never appear as
+  /// installed. New tasks read this when queued; in-flight tasks keep their own.
+  String targetDir;
 
   /// Queue of download tasks.
   final List<DownloadTask> _queue = [];

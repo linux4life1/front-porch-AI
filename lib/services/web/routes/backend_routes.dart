@@ -37,11 +37,24 @@ class WebBackendRoutes {
       router.post('/api/backend/stop', _stop);
       router.get('/api/backend/models', _models);
       router.post('/api/backend/models/switch', _switchModel);
+      router.post('/api/backend/models/delete', _deleteModel);
+      router.get('/api/backend/models-folder', _modelsFolder);
       router.get('/api/backend/hf/search', _hfSearch);
       router.get('/api/backend/hf/files', _hfFiles);
       router.get('/api/backend/downloads', _downloads);
       router.post('/api/backend/downloads', _queueDownload);
+      // Bulk controls registered before the <taskId> route — single-segment
+      // paths won't collide with the two-segment per-task pattern, but keep them
+      // grouped for clarity.
+      router.post('/api/backend/downloads/pause-all', _pauseAll);
+      router.post('/api/backend/downloads/resume-all', _resumeAll);
+      router.post('/api/backend/downloads/clear-completed', _clearCompleted);
       router.post('/api/backend/downloads/<taskId>/cancel', _cancelDownload);
+      router.post('/api/backend/downloads/<taskId>/pause', _pauseDownload);
+      router.post('/api/backend/downloads/<taskId>/resume', _resumeDownload);
+      router.get('/api/backend/hardware', _hardware);
+      router.post('/api/backend/hardware/redetect', _redetectHardware);
+      router.get('/api/backend/recommendations', _recommendations);
       router.post('/api/backend/remote-models', _remoteModels);
       router.post('/api/backend/test-connection', _testConnection);
     }
@@ -94,8 +107,22 @@ class WebBackendRoutes {
     return JsonResponse.ok({'files': await _backend!.modelFiles(repoId)});
   }
 
+  Future<shelf.Response> _deleteModel(shelf.Request r) async {
+    final body = await _json(r);
+    final path = body['path']?.toString();
+    if (path == null || path.isEmpty) {
+      return JsonResponse.badRequest('path is required');
+    }
+    final ok = await _backend!.deleteModel(path);
+    if (!ok) return JsonResponse.error(404, 'Model not found');
+    return JsonResponse.ok({'models': await _backend.localModels()});
+  }
+
+  shelf.Response _modelsFolder(shelf.Request r) =>
+      JsonResponse.ok(_backend!.modelsFolder());
+
   shelf.Response _downloads(shelf.Request r) =>
-      JsonResponse.ok({'downloads': _backend!.downloads()});
+      JsonResponse.ok(_backend!.downloadsState());
 
   Future<shelf.Response> _queueDownload(shelf.Request r) async {
     final body = await _json(r);
@@ -106,14 +133,56 @@ class WebBackendRoutes {
     }
     final taskId = await _backend!.queueDownload(repoId, filename);
     if (taskId == null) return JsonResponse.error(404, 'File not found in repo');
-    return JsonResponse.ok({'taskId': taskId, 'downloads': _backend.downloads()});
+    return JsonResponse.ok({'taskId': taskId, ..._backend.downloadsState()});
   }
 
   shelf.Response _cancelDownload(shelf.Request r, String taskId) {
     final ok = _backend!.cancelDownload(taskId);
     if (!ok) return JsonResponse.error(404, 'Download not found');
-    return JsonResponse.ok({'downloads': _backend.downloads()});
+    return JsonResponse.ok(_backend.downloadsState());
   }
+
+  shelf.Response _pauseDownload(shelf.Request r, String taskId) {
+    final ok = _backend!.pauseDownload(taskId);
+    if (!ok) return JsonResponse.error(404, 'Download not found or not active');
+    return JsonResponse.ok(_backend.downloadsState());
+  }
+
+  shelf.Response _resumeDownload(shelf.Request r, String taskId) {
+    final ok = _backend!.resumeDownload(taskId);
+    if (!ok) return JsonResponse.error(404, 'Download not found or not paused');
+    return JsonResponse.ok(_backend.downloadsState());
+  }
+
+  shelf.Response _pauseAll(shelf.Request r) {
+    _backend!.pauseAllDownloads();
+    return JsonResponse.ok(_backend.downloadsState());
+  }
+
+  shelf.Response _resumeAll(shelf.Request r) {
+    _backend!.resumeAllDownloads();
+    return JsonResponse.ok(_backend.downloadsState());
+  }
+
+  shelf.Response _clearCompleted(shelf.Request r) {
+    _backend!.clearCompletedDownloads();
+    return JsonResponse.ok(_backend.downloadsState());
+  }
+
+  shelf.Response _hardware(shelf.Request r) {
+    final hw = _backend!.hardware();
+    if (hw == null) return JsonResponse.error(404, 'Hardware info unavailable');
+    return JsonResponse.ok(hw);
+  }
+
+  Future<shelf.Response> _redetectHardware(shelf.Request r) async {
+    final hw = await _backend!.redetectHardware();
+    if (hw == null) return JsonResponse.error(404, 'Hardware info unavailable');
+    return JsonResponse.ok(hw);
+  }
+
+  shelf.Response _recommendations(shelf.Request r) =>
+      JsonResponse.ok({'queries': _backend!.recommendations()});
 
   // ── Remote (OpenAI-compatible) model picker ──────────────────────────────
   // Optional apiUrl/apiKey in the body let the Settings page preview a provider
