@@ -46,6 +46,8 @@ class WebChatRoutes {
     router.post('/api/chat/edit', _edit);
     router.post('/api/chat/delete', _delete);
     router.post('/api/chat/insert-image', _insertImage);
+    router.post('/api/chat/reprocess-needs', _reprocessNeeds);
+    router.post('/api/chat/revert-needs-reprocess', _revertNeedsReprocess);
     router.post('/api/chat/author-note', _authorNote);
     router.post('/api/chat/session', _session);
   }
@@ -196,6 +198,26 @@ class WebChatRoutes {
     }
     final ok = _facade.insertImage(filename);
     if (!ok) return JsonResponse.error(409, 'No message to attach the image to');
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  Future<shelf.Response> _reprocessNeeds(shelf.Request request) async {
+    final body = await _json(request);
+    final index = body['index'];
+    final critique = body['critique']?.toString().trim() ?? '';
+    if (index is! int) return JsonResponse.badRequest('index is required');
+    if (critique.isEmpty) return JsonResponse.badRequest('critique is required');
+    final ok = await _facade.reprocessNeeds(index, critique);
+    if (!ok) return JsonResponse.error(409, 'Message cannot be reprocessed');
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  Future<shelf.Response> _revertNeedsReprocess(shelf.Request request) async {
+    final body = await _json(request);
+    final index = body['index'];
+    if (index is! int) return JsonResponse.badRequest('index is required');
+    final ok = await _facade.revertNeedsReprocess(index);
+    if (!ok) return JsonResponse.error(409, 'Nothing to revert');
     return JsonResponse.ok({'status': 'ok'});
   }
 

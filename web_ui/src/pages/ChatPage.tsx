@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { ChatSocket } from '../api/ws';
 import { ChatTools } from '../components/ChatTools';
 import { CastBar, type CastMember } from '../components/CastBar';
@@ -20,7 +20,11 @@ interface Chips {
   trustReason?: string;
   timeSkipTo?: string;
   chanceTimeEvent?: string;
-  needsDeltas?: Record<string, number>;
+  // Tolerate the legacy int shape and the new {delta, reason} shape so a
+  // frontend rebuild doesn't blank the Needs chips before the backend restarts.
+  needsDeltas?: Record<string, number | { delta: number; reason?: string }>;
+  needsReprocessable?: boolean;
+  needsRevertable?: boolean;
 }
 interface Message {
   index: number;
@@ -106,6 +110,11 @@ export function ChatPage() {
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  // Director-redo (reprocess Needs with a critique) dialog state.
+  const [reprocessIndex, setReprocessIndex] = useState<number | null>(null);
+  const [critiqueDraft, setCritiqueDraft] = useState('');
+  const [reprocessing, setReprocessing] = useState(false);
+  const [reprocessErr, setReprocessErr] = useState('');
   // Bumps whenever chat state refreshes (incl. WS chat_updated) so the tools
   // sidebar refetches its own snapshot in lock-step.
   const [toolsBump, setToolsBump] = useState(0);
@@ -214,6 +223,35 @@ export function ChatPage() {
   };
   const saveAuthorNote = async (note: string, strength: number) => {
     await api.post('/api/chat/author-note', { authorNote: note, strength });
+    await refresh();
+  };
+
+  // Director redo: reprocess a message's Needs deltas with a written critique,
+  // or revert to the pre-reprocess deltas. Mirrors the desktop bubble controls.
+  const openReprocess = (index: number) => {
+    setReprocessIndex(index);
+    setCritiqueDraft('');
+    setReprocessErr('');
+  };
+  const submitReprocess = async () => {
+    if (reprocessIndex === null) return;
+    const index = reprocessIndex;
+    const critique = critiqueDraft.trim();
+    if (!critique) return;
+    setReprocessing(true);
+    setReprocessErr('');
+    try {
+      await api.post('/api/chat/reprocess-needs', { index, critique });
+      await refresh();
+      setReprocessIndex(null);
+    } catch (e) {
+      setReprocessErr(e instanceof ApiError ? e.message : 'Reprocess failed');
+    } finally {
+      setReprocessing(false);
+    }
+  };
+  const revertNeeds = async (index: number) => {
+    await api.post('/api/chat/revert-needs-reprocess', { index });
     await refresh();
   };
 
@@ -404,7 +442,15 @@ export function ChatPage() {
               ) : (
                 <>
                   <div className={m.isUser ? 'bubble user' : 'bubble ai'}><MessageContent text={m.text} /></div>
-                  {!m.isUser && m.chips && <ChipsRow chips={m.chips} />}
+                  {!m.isUser && m.chips && (
+                    <ChipsRow
+                      chips={m.chips}
+                      isLast={m.index === lastIndex}
+                      busy={state.isGenerating}
+                      onReprocess={() => openReprocess(m.index)}
+                      onRevert={() => revertNeeds(m.index)}
+                    />
+                  )}
                   <MessageActions
                     m={m}
                     isLast={m.index === lastIndex}
@@ -513,6 +559,35 @@ export function ChatPage() {
         </div>
       )}
 
+      {reprocessIndex !== null && (
+        <div className="drawer-backdrop center" onClick={() => !reprocessing && setReprocessIndex(null)}>
+          <div className="modal reprocess-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-head">
+              <span>Reprocess Needs</span>
+              <button className="link-btn" onClick={() => setReprocessIndex(null)} disabled={reprocessing}>Close</button>
+            </div>
+            <p className="muted small">
+              Enter your critique to correct the Needs Simulation deltas. The Realism Director will
+              re-evaluate the scene based on your input.
+            </p>
+            <textarea
+              value={critiqueDraft}
+              onChange={(e) => setCritiqueDraft(e.target.value)}
+              rows={4}
+              placeholder="e.g. They just devoured a huge meal — hunger should jump up, not drop."
+              autoFocus
+            />
+            {reprocessErr && <p className="error">{reprocessErr}</p>}
+            <div className="modal-actions">
+              <button onClick={() => setReprocessIndex(null)} disabled={reprocessing}>Cancel</button>
+              <button className="primary" onClick={submitReprocess} disabled={reprocessing || !critiqueDraft.trim()}>
+                {reprocessing ? 'Reprocessing…' : 'Reprocess'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSessions && (
         <div className="drawer-backdrop" onClick={() => setShowSessions(false)}>
           <div className="sessions-drawer" onClick={(e) => e.stopPropagation()}>
@@ -608,25 +683,95 @@ const NEED_LABELS: Record<string, string> = {
   comfort: 'Comfort',
 };
 
-/** Per-message Realism chips shown under an AI reply. */
-function ChipsRow({ chips }: { chips: Chips }) {
-  const pills: { label: string; cls: string }[] = [];
+interface Pill {
+  key: string;
+  label: string;
+  cls: string;
+  reason?: string;
+}
+
+/** Per-message Realism + Needs chips shown under an AI reply. Realism deltas sit
+ *  on their own row, Needs deltas on a second row below (matching the desktop
+ *  bubble). A chip carrying a reason is tappable to reveal it inline (works on
+ *  touch where hover can't) and also exposes the reason as a title for desktop
+ *  hover. The last message additionally offers the Director redo (reprocess
+ *  Needs with a critique) + revert. */
+function ChipsRow({
+  chips,
+  isLast,
+  busy,
+  onReprocess,
+  onRevert,
+}: {
+  chips: Chips;
+  isLast: boolean;
+  busy: boolean;
+  onReprocess: () => void;
+  onRevert: () => void;
+}) {
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
-  if (chips.bondDelta) pills.push({ label: `Bond ${signed(chips.bondDelta)}`, cls: chips.bondDelta > 0 ? 'up' : 'down' });
-  if (chips.trustDelta) pills.push({ label: `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up' : 'down' });
-  if (chips.arousalDelta) pills.push({ label: `Arousal ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up' : 'down' });
-  if (chips.emotionLabel) pills.push({ label: chips.emotionLabel, cls: 'mood' });
-  if (chips.timeSkipTo) pills.push({ label: `⏱ ${chips.timeSkipTo}`, cls: 'time' });
-  if (chips.chanceTimeEvent) pills.push({ label: `🎲 ${chips.chanceTimeEvent}`, cls: 'time' });
+
+  const realism: Pill[] = [];
+  if (chips.bondDelta) realism.push({ key: 'bond', label: `Bond ${signed(chips.bondDelta)}`, cls: chips.bondDelta > 0 ? 'up' : 'down', reason: chips.bondReason });
+  if (chips.trustDelta) realism.push({ key: 'trust', label: `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up' : 'down', reason: chips.trustReason });
+  if (chips.arousalDelta) realism.push({ key: 'arousal', label: `Arousal ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up' : 'down' });
+  if (chips.emotionLabel) realism.push({ key: 'mood', label: chips.emotionLabel, cls: 'mood' });
+  if (chips.timeSkipTo) realism.push({ key: 'time', label: `⏱ ${chips.timeSkipTo}`, cls: 'time' });
+  if (chips.chanceTimeEvent) realism.push({ key: 'chance', label: '🎲 Chance Time', cls: 'time', reason: chips.chanceTimeEvent });
+
+  const needs: Pill[] = [];
   for (const [k, v] of Object.entries(chips.needsDeltas ?? {})) {
-    pills.push({ label: `${NEED_LABELS[k] ?? k} ${signed(v)}`, cls: v > 0 ? 'up' : 'down' });
+    const delta = typeof v === 'number' ? v : v?.delta;
+    const reason = typeof v === 'number' ? undefined : v?.reason;
+    if (!delta) continue;
+    needs.push({ key: `need-${k}`, label: `${NEED_LABELS[k] ?? k} ${signed(delta)}`, cls: delta > 0 ? 'up' : 'down', reason });
   }
-  if (pills.length === 0) return null;
+
+  const showReprocess = isLast && !busy && !!chips.needsReprocessable;
+  const showRevert = isLast && !busy && !!chips.needsRevertable;
+  if (realism.length === 0 && needs.length === 0 && !showReprocess && !showRevert) return null;
+
+  const toggle = (key: string) => setOpenKey((cur) => (cur === key ? null : key));
+  const renderPill = (p: Pill) => {
+    const hasReason = !!p.reason && p.reason.trim().length > 0;
+    return (
+      <span
+        key={p.key}
+        className={`chip ${p.cls}${hasReason ? ' has-reason' : ''}${openKey === p.key ? ' open' : ''}`}
+        title={hasReason ? p.reason : undefined}
+        role={hasReason ? 'button' : undefined}
+        tabIndex={hasReason ? 0 : undefined}
+        aria-expanded={hasReason ? openKey === p.key : undefined}
+        onClick={hasReason ? () => toggle(p.key) : undefined}
+        onKeyDown={hasReason ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(p.key); } } : undefined}
+      >
+        {p.label}{hasReason && <span className="chip-info" aria-hidden> ⓘ</span>}
+      </span>
+    );
+  };
+
+  const openReason = [...realism, ...needs].find((p) => p.key === openKey)?.reason ?? '';
+
   return (
-    <div className="chips-row">
-      {pills.map((p, i) => (
-        <span key={i} className={`chip ${p.cls}`}>{p.label}</span>
-      ))}
+    <div className="chips-block">
+      {realism.length > 0 && <div className="chips-row realism">{realism.map(renderPill)}</div>}
+      {needs.length > 0 && <div className="chips-row needs">{needs.map(renderPill)}</div>}
+      {openKey && openReason && <div className="chip-reason">{openReason}</div>}
+      {(showReprocess || showRevert) && (
+        <div className="needs-reprocess-row">
+          {showReprocess && (
+            <button type="button" className="btn-reprocess" onClick={onReprocess} title="Reprocess Needs with your critique">
+              ✍ Manual Reprocess
+            </button>
+          )}
+          {showRevert && (
+            <button type="button" className="btn-revert" onClick={onRevert} title="Restore the Needs deltas from before the last reprocess">
+              ↺ Revert reprocess
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

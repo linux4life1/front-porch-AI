@@ -294,16 +294,28 @@ class ChatFacade {
       final nz = <String, dynamic>{};
       needs.forEach((k, v) {
         // NeedsSimulation.computeNeedsDeltasWithReasons stores {delta, reason}
-        // per need; tolerate a plain int too. Extract the signed delta either
-        // way — the chip UI only needs the number. (This is why needs chips
-        // never rendered on the web: every value is a Map, not an int.)
+        // per need; tolerate a plain int too. Carry BOTH the signed delta and
+        // the reason so the web chip can show the same hover explanation the
+        // desktop bubble does. (Map-not-int is why needs chips never rendered
+        // on the web before — see the chip parser fix.)
         final delta = v is int
             ? v
             : (v is Map && v['delta'] is int ? v['delta'] as int : 0);
-        if (delta != 0) nz[k.toString()] = delta;
+        if (delta == 0) return;
+        final reason = (v is Map && v['reason'] is String)
+            ? (v['reason'] as String)
+            : '';
+        nz[k.toString()] = {'delta': delta, 'reason': reason};
       });
       if (nz.isNotEmpty) out['needsDeltas'] = nz;
     }
+    // Director-redo affordances (mirrors message_bubble.dart): the message can be
+    // reprocessed when it carries a needs snapshot, and reverted when a
+    // pre-reprocess stash exists. The client additionally gates "reprocess" on
+    // this being the last, non-generating message (it already knows both).
+    final rs = md['realism_state'];
+    if (rs is Map && rs['needs'] != null) out['needsReprocessable'] = true;
+    if (md['needs_deltas_pre_reprocess'] is Map) out['needsRevertable'] = true;
     return out.isEmpty ? null : out;
   }
 
@@ -348,6 +360,24 @@ class ChatFacade {
   void continueGeneration() {
     _chat.continueGeneration();
     _notify();
+  }
+
+  /// Director redo: re-evaluate a message's Needs deltas using the user's
+  /// written [critique]. Awaited (it runs LLM evals) so the route can report the
+  /// outcome; the new deltas + a pre-reprocess stash land in the message's
+  /// metadata, which the next state fetch surfaces as chips. Reuses the existing
+  /// ChatService flow — no parallel logic.
+  Future<bool> reprocessNeeds(int index, String critique) async {
+    final ok = await _chat.manualReprocessNeeds(index, critique);
+    _notify();
+    return ok;
+  }
+
+  /// Restore a message's Needs deltas + live state from the pre-reprocess stash.
+  Future<bool> revertNeedsReprocess(int index) async {
+    final ok = await _chat.revertNeedsReprocess(index);
+    _notify();
+    return ok;
   }
 
   void swipe(int messageIndex, int direction) {
