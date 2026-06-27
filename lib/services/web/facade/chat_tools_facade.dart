@@ -50,6 +50,10 @@ class ChatToolsFacade {
     return {
       'realismEnabled': _chat.realismEnabled,
       'needsEnabled': _chat.needsSimEnabled,
+      // Global One-Shot Eval flag (fuses the multi-call realism evals into one
+      // LLM call). A single StorageService flag — identical in 1:1 and group, so
+      // no per-character/group branch is needed (parity inherited).
+      'realismOneShotEval': _storage.realismOneShotEval,
       // Per-need baseline decay rates (per turn) for the Decay Rates panel —
       // mirrors the desktop sidebar's NeedsDecayRatesSection.
       'needs': {'decay': _decayBlock()},
@@ -218,6 +222,70 @@ class ChatToolsFacade {
   /// scene-impact behavior and 1:1↔group parity are inherited.
   Future<void> setNeedsEnabled(bool v) async {
     await _chat.setNeedsSimEnabled(v);
+    _notify();
+  }
+
+  /// Global One-Shot Eval toggle (experimental). Flips the same
+  /// [StorageService.realismOneShotEval] flag the desktop realism sidebar drives.
+  /// One-shot must produce 1:1-equivalent realism/needs deltas to the multi-call
+  /// path (engine contract), so the web only flips the flag — never branches.
+  Future<void> setOneShotEval(bool v) async {
+    await _storage.setRealismOneShotEval(v);
+    _notify();
+  }
+
+  /// Character-evolution review payload for the focused participant. Group-aware
+  /// via the same per-card accessors the desktop dialog uses
+  /// ([ChatService.getEvolvedPersonalityFor]/[getEvolvedScenarioFor]/
+  /// [getEvolutionCountFor]), so a member's review in a group is identical to a
+  /// 1:1 review — never the host-only [getEffectivePersonality] getter (null for
+  /// members). Originals come straight from the focused card.
+  Map<String, dynamic> evolution(String? participantId) {
+    final card =
+        _focusedParticipant(participantId)?.card ?? _chat.activeCharacter;
+    if (card == null) {
+      return {
+        'name': '',
+        'originalPersonality': '',
+        'originalScenario': '',
+        'evolvedPersonality': '',
+        'evolvedScenario': '',
+        'count': 0,
+      };
+    }
+    return {
+      'name': card.name,
+      'originalPersonality': card.personality,
+      'originalScenario': card.scenario,
+      'evolvedPersonality': _chat.getEvolvedPersonalityFor(card) ?? '',
+      'evolvedScenario': _chat.getEvolvedScenarioFor(card) ?? '',
+      'count': _chat.getEvolutionCountFor(card),
+    };
+  }
+
+  /// Save manually-edited evolved personality/scenario for the focused
+  /// participant. Always targets the resolved card so a group member is updated
+  /// per-character (1:1↔group parity).
+  Future<void> saveEvolution(
+    String? participantId,
+    String personality,
+    String scenario,
+  ) async {
+    final card =
+        _focusedParticipant(participantId)?.card ?? _chat.activeCharacter;
+    if (card == null) return;
+    await _chat.updateEvolvedPersonality(personality, target: card);
+    await _chat.updateEvolvedScenario(scenario, target: card);
+    _notify();
+  }
+
+  /// Reset the focused participant's evolution back to the original card values
+  /// (and zero the count). Targets the resolved card so a group member resets
+  /// per-character — mirrors the desktop reset confirm.
+  Future<void> resetEvolution(String? participantId) async {
+    final card =
+        _focusedParticipant(participantId)?.card ?? _chat.activeCharacter;
+    await _chat.resetCharacterEvolution(target: card);
     _notify();
   }
 

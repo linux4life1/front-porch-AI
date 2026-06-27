@@ -230,8 +230,14 @@ class ChatFacade {
           'tier': _chat.nsfwService.arousalTierNameForLevel(arousalLevel),
         },
         'fixation': _chat.getFixationForGroupCharacter(card) ?? '',
-        'needsEnabled': true,
-        'needs': _chat.getNeedsForGroupCharacter(card),
+        // Gate needs on the SAME flag the host path uses (see _realismSnapshot):
+        // getNeedsForGroupCharacter always returns a full vector while group
+        // realism is active, so without this a member would still show needs
+        // bars after Needs is toggled off — 1:1↔group display parity.
+        'needsEnabled': _chat.needsSimEnabled,
+        'needs': _chat.needsSimEnabled
+            ? _chat.getNeedsForGroupCharacter(card)
+            : const <String, int>{},
       };
     }
     return null;

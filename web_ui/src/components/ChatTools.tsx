@@ -11,6 +11,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { GroupSettings, type GroupBlock } from './GroupSettings';
+import { EvolutionReviewModal } from './EvolutionReviewModal';
 
 interface ObjectiveTask {
   description: string;
@@ -26,6 +28,7 @@ interface ObjectiveView {
 interface ToolsState {
   realismEnabled: boolean;
   needsEnabled: boolean;
+  realismOneShotEval: boolean;
   needs: { decay: Record<string, number> };
   memory: {
     ragEnabled: boolean;
@@ -52,15 +55,6 @@ interface ToolsState {
   objectives: { primary: ObjectiveView | null; secondary: ObjectiveView[]; isChecking: boolean };
   focusedId?: string | null;
   group?: GroupBlock | null;
-}
-interface GroupBlock {
-  name: string;
-  turnOrder: string;
-  directorMode: boolean;
-  systemPrompt: string;
-  scenario: string;
-  firstMessage: string;
-  members: { id: string; name: string; prompt: string }[];
 }
 
 /** Small labelled on/off switch. */
@@ -114,6 +108,17 @@ const DECAY_NEEDS: [string, string][] = [
   ['comfort', 'Comfort'],
 ];
 
+/** Scene-time periods + their single-letter dot labels (mirror the desktop
+ *  realism_section _timeDotLabel exactly: D / M / LM / A / E / N). */
+const TIME_DOTS: [string, string][] = [
+  ['dawn', 'D'],
+  ['morning', 'M'],
+  ['late_morning', 'LM'],
+  ['afternoon', 'A'],
+  ['evening', 'E'],
+  ['night', 'N'],
+];
+
 /** Range slider (0–20/turn) that tracks a local draft while dragging and only
  *  commits (POSTs) on release, so a group's per-member PNG writes don't fire on
  *  every drag tick. Mirrors the desktop Decay Rates sliders. */
@@ -163,6 +168,7 @@ export function ChatTools({
 }) {
   const [t, setT] = useState<ToolsState | null>(null);
   const [goal, setGoal] = useState('');
+  const [showEvo, setShowEvo] = useState(false);
 
   // Scope every tools call to the focused cast participant so objectives/arousal
   // (and the snapshot returned by mutations) follow the focus.
@@ -202,6 +208,21 @@ export function ChatTools({
       <Toggle label="Needs simulation" value={t.needsEnabled} onChange={(v) => toggle('needs', v)} />
 
       <details className="tool-section">
+        <summary>Realism performance</summary>
+        <div className="tool-body">
+          <Toggle
+            label="One-Shot Eval (Experimental)"
+            value={t.realismOneShotEval}
+            onChange={(v) => toggle('oneShotEval', v)}
+          />
+          <p className="muted small">
+            Fuses relationship + scene evals into a single LLM call to double the processing speed.
+            May be less accurate on &lt; 8B param models.
+          </p>
+        </div>
+      </details>
+
+      <details className="tool-section">
         <summary>Needs decay rates</summary>
         <div className="tool-body">
           <p className="muted small">Adjust the baseline per-turn decay rate for each need.</p>
@@ -234,7 +255,11 @@ export function ChatTools({
           {t.memory.evolutionEnabled && (
             <>
               <NumField label="Every (msgs)" value={t.memory.evolutionInterval} onCommit={(v) => settings({ evolutionInterval: v })} />
-              <div className="stat-line"><span>Evolutions</span><span className="muted">{t.memory.evolutionCount}</span></div>
+              <div className="stat-line">
+                <span>Evolutions</span>
+                <span className="muted">{t.memory.evolutionCount}</span>
+              </div>
+              <button className="small" onClick={() => setShowEvo(true)}>Review / reset evolution</button>
             </>
           )}
         </div>
@@ -344,6 +369,17 @@ export function ChatTools({
             <span>{t.time.weekday}, day {t.time.dayCount}</span>
             <span className="muted">{t.time.timeOfDay.replace(/_/g, ' ')}</span>
           </div>
+          <div className="time-dots">
+            {TIME_DOTS.map(([period, dot]) => (
+              <div
+                key={period}
+                className={`time-dot${t.time.timeOfDay === period ? ' active' : ''}`}
+              >
+                <span className="time-dot-mark" />
+                <span className="time-dot-label">{dot}</span>
+              </div>
+            ))}
+          </div>
           <div className="tool-row">
             <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: -1 }))}>◀ Earlier</button>
             <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: 1 }))}>Later ▶</button>
@@ -371,87 +407,14 @@ export function ChatTools({
           onToggleDirector={(v) => toggle('director', v)}
         />
       )}
+
+      {showEvo && (
+        <EvolutionReviewModal
+          focusedId={focusedId}
+          onClose={() => setShowEvo(false)}
+          onSaved={load}
+        />
+      )}
     </div>
-  );
-}
-
-/** Group-only settings — gated on the presence of the group block (i.e. a group
- *  chat). Turn order is applied live via the /turnorder command; the rest save
- *  to the group's settings (name / prompts / scenario / per-member overrides). */
-function GroupSettings({
-  group,
-  groupId,
-  onCommand,
-  onToggleDirector,
-}: {
-  group: GroupBlock;
-  groupId: string;
-  onCommand?: (cmd: string) => void;
-  onToggleDirector: (v: boolean) => void;
-}) {
-  const [systemPrompt, setSystemPrompt] = useState(group.systemPrompt);
-  const [scenario, setScenario] = useState(group.scenario);
-  const [firstMessage, setFirstMessage] = useState(group.firstMessage);
-  const [prompts, setPrompts] = useState<Record<string, string>>(
-    Object.fromEntries(group.members.map((m) => [m.id, m.prompt])),
-  );
-  useEffect(() => {
-    setSystemPrompt(group.systemPrompt);
-    setScenario(group.scenario);
-    setFirstMessage(group.firstMessage);
-    setPrompts(Object.fromEntries(group.members.map((m) => [m.id, m.prompt])));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupId]);
-
-  const save = (fields: Record<string, unknown>) =>
-    void api.post(`/api/groups/${groupId}/settings`, fields).catch(() => {});
-
-  return (
-    <details className="tool-section">
-      <summary>Group settings</summary>
-      <div className="tool-body">
-        <div className="tool-row">
-          <span className="muted small">Turn order:</span>
-          <button
-            className={group.turnOrder === 'roundRobin' ? 'primary small' : 'small'}
-            onClick={() => onCommand?.('/turnorder roundrobin')}
-          >
-            Round-robin
-          </button>
-          <button
-            className={group.turnOrder === 'random' ? 'primary small' : 'small'}
-            onClick={() => onCommand?.('/turnorder random')}
-          >
-            Random
-          </button>
-        </div>
-        <Toggle label="Director mode" value={group.directorMode} onChange={onToggleDirector} />
-        <label>
-          Group system prompt
-          <textarea rows={3} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} onBlur={() => save({ systemPrompt })} />
-        </label>
-        <label>
-          Group scenario
-          <textarea rows={2} value={scenario} onChange={(e) => setScenario(e.target.value)} onBlur={() => save({ scenario })} />
-        </label>
-        <label>
-          Group first message
-          <textarea rows={2} value={firstMessage} onChange={(e) => setFirstMessage(e.target.value)} onBlur={() => save({ firstMessage })} />
-        </label>
-        <h4 className="section-label">Per-member prompt overrides</h4>
-        {group.members.map((m) => (
-          <label key={m.id}>
-            {m.name}
-            <textarea
-              rows={2}
-              value={prompts[m.id] ?? ''}
-              onChange={(e) => setPrompts({ ...prompts, [m.id]: e.target.value })}
-              onBlur={() => save({ characterSystemPrompts: prompts })}
-              placeholder="Extra instructions just for this member…"
-            />
-          </label>
-        ))}
-      </div>
-    </details>
   );
 }

@@ -35,6 +35,8 @@ class WebChatToolsRoutes {
     router.post('/api/chat/tools/summary', _summary);
     router.post('/api/chat/tools/objective', _objective);
     router.post('/api/chat/tools/task', _task);
+    router.get('/api/chat/tools/evolution', _evolutionGet);
+    router.post('/api/chat/tools/evolution', _evolutionPost);
   }
 
   final ChatToolsFacade _facade;
@@ -52,8 +54,8 @@ class WebChatToolsRoutes {
     return JsonResponse.ok(_snapshot(request));
   }
 
-  /// Flip one chat-scoped boolean toggle: realism / chaos / chaosNsfw /
-  /// nsfwCooldown / passageOfTime / summaryPaused.
+  /// Flip one chat-scoped boolean toggle: realism / needs / oneShotEval /
+  /// chaos / chaosNsfw / nsfwCooldown / passageOfTime / summaryPaused / director.
   Future<shelf.Response> _toggle(shelf.Request request) async {
     final body = await _json(request);
     final name = body['name']?.toString();
@@ -66,6 +68,8 @@ class WebChatToolsRoutes {
         await _facade.setRealismEnabled(value);
       case 'needs':
         await _facade.setNeedsEnabled(value);
+      case 'oneShotEval':
+        await _facade.setOneShotEval(value);
       case 'chaos':
         await _facade.setChaosEnabled(value);
       case 'chaosNsfw':
@@ -215,6 +219,36 @@ class WebChatToolsRoutes {
     }
     if (!ok) return JsonResponse.error(404, 'Objective not found');
     return JsonResponse.ok(_snapshot(request));
+  }
+
+  /// Character-evolution review for the focused participant (`?participant=`).
+  /// Returns original + evolved personality/scenario + count (group-aware).
+  shelf.Response _evolutionGet(shelf.Request request) => JsonResponse.ok(
+    _facade.evolution(request.url.queryParameters['participant']),
+  );
+
+  /// Evolution mutation: `action: 'save'` (carries personality/scenario) or
+  /// `action: 'reset'`. Scoped to the focused participant. Returns the fresh
+  /// evolution block so the modal can reflect the new state.
+  Future<shelf.Response> _evolutionPost(shelf.Request request) async {
+    final body = await _json(request);
+    final action = body['action']?.toString();
+    final participant =
+        body['participant']?.toString() ??
+        request.url.queryParameters['participant'];
+    switch (action) {
+      case 'save':
+        await _facade.saveEvolution(
+          participant,
+          body['personality']?.toString() ?? '',
+          body['scenario']?.toString() ?? '',
+        );
+      case 'reset':
+        await _facade.resetEvolution(participant);
+      default:
+        return JsonResponse.badRequest('Unknown evolution action: $action');
+    }
+    return JsonResponse.ok(_facade.evolution(participant));
   }
 
   Future<Map<String, dynamic>> _json(shelf.Request request) async {

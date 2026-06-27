@@ -18,6 +18,8 @@
   --danger: #ff6b6b;
   --ok: #69f0ae;
   --logwarn: #f0c000;
+  /* Active scene-time dot (mirrors the desktop Colors.amber period strip). */
+  --accent-amber: #ffc107;
   --radius: 12px;
   --radius-card: 16px;
   --radius-badge: 4px;
@@ -578,6 +580,20 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 .tool-row { display: flex; gap: 6px; align-items: center; }
 .tool-row input { flex: 1; }
 .tool-row button { white-space: nowrap; }
+/* Scene-time period strip (dawn…night) — mirrors the desktop 6-dot indicator. */
+.time-dots { display: flex; justify-content: space-between; margin: 2px 0 4px; }
+.time-dot { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.time-dot-mark { width: 7px; height: 7px; border-radius: 999px; background: var(--border); }
+.time-dot.active .time-dot-mark { background: var(--accent-amber); }
+.time-dot-label { font-size: 8px; color: var(--faint); }
+.time-dot.active .time-dot-label { color: var(--accent-amber); }
+/* Evolution review modal: read-only original text block above each editable field. */
+.evolution-modal { width: min(560px, 94vw); }
+.evo-original {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 8px; font-size: 0.8rem; color: var(--muted); max-height: 90px; overflow-y: auto;
+  white-space: pre-wrap;
+}
 .task-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .task-item { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.85rem; color: var(--text); }
 .task-item input { width: auto; }
