@@ -17,10 +17,14 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 
 import 'package:front_porch_ai/services/character_gen_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/lore_extraction_service.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
@@ -54,6 +58,29 @@ class ChargenFacade {
     }
     unawaited(_run(name, fields, svc));
     return {'ok': true};
+  }
+
+  /// Scrape + clean one or more wiki/lore URLs into plain text (the web mirror of
+  /// the desktop lore input). Reuses the shared [LoreExtractionService] so the
+  /// scraping/cleaning behaves identically to the desktop creator.
+  Future<Map<String, dynamic>> extractLoreFromUrls(List<String> urls) async {
+    final text = await LoreExtractionService.extractAll(urls: urls, files: const []);
+    return {'lore': text, 'chars': text.length};
+  }
+
+  /// Extract plain text from an uploaded lore file (.pdf via the PDF extractor,
+  /// otherwise UTF-8 text — same handling as the desktop).
+  Future<Map<String, dynamic>> extractLoreFromFile(
+    List<int> bytes,
+    String filename,
+  ) async {
+    final file = PlatformFile(
+      name: filename,
+      size: bytes.length,
+      bytes: Uint8List.fromList(bytes),
+    );
+    final text = await LoreExtractionService.extractAll(urls: const [], files: [file]);
+    return {'lore': text, 'chars': text.length};
   }
 
   /// Coerce a JSON value to a `List<String>`, dropping blanks; falls back to
@@ -101,6 +128,9 @@ class ChargenFacade {
         scenario: fields['scenario']?.toString() ?? '',
         characterContext: fields['characterContext']?.toString() ?? '',
         generateDescription: mode != 'automated',
+        worldLore: (fields['worldLore']?.toString().trim().isNotEmpty ?? false)
+            ? fields['worldLore'].toString()
+            : null,
         nsfwEnabled: fields['nsfwEnabled'] == true,
         reasoningEnabled: fields['reasoningEnabled'] == true,
         onStatus: (s) => _hub?.broadcast({'event': 'chargen_status', 'data': s}),

@@ -949,6 +949,15 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .cg-mode-card.automated.on { border-color: var(--accent-amber); box-shadow: 0 0 0 1px var(--accent-amber); }
 .cg-review { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .cg-generate { align-self: flex-start; }
+.cg-lore { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+.cg-lore-url { display: flex; gap: 8px; align-items: stretch; }
+.cg-lore-url input { flex: 1; }
+.cg-lore-file { display: inline-flex; align-self: flex-start; cursor: pointer; }
+.cg-lore-file > span {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: var(--radius); padding: 8px 12px; font-size: 0.85rem;
+}
+.cg-lore-file:hover > span { border-color: var(--accent); }
 @media (max-width: 768px) {
   .cg-mode-cards, .cg-grid2, .cg-review { grid-template-columns: 1fr; }
 }

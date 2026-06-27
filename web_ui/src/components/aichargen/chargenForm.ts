@@ -16,6 +16,7 @@ export interface ChargenForm {
   nsfw: boolean;
   age: string;
   sex: string;
+  worldLore: string; // scraped/attached lore context fed to generation
   // Shared output settings
   greetingLength: string;
   altGreetingCount: number;
@@ -84,6 +85,7 @@ export const DEFAULT_FORM: ChargenForm = {
   nsfw: false,
   age: '',
   sex: '',
+  worldLore: '',
   greetingLength: 'Medium (2-4 paragraphs)',
   altGreetingCount: 2,
   greetingTones: ['Neutral'],
@@ -235,7 +237,13 @@ function outputSettings(f: ChargenForm): Record<string, unknown> {
 
 /** Build the POST /api/chargen/create body for the active mode. */
 export function buildPayload(f: ChargenForm): Record<string, unknown> {
-  const base = { name: f.name.trim(), mode: f.mode, nsfwEnabled: f.nsfw, ...outputSettings(f) };
+  const base = {
+    name: f.name.trim(),
+    mode: f.mode,
+    nsfwEnabled: f.nsfw,
+    worldLore: f.worldLore.trim(),
+    ...outputSettings(f),
+  };
 
   if (f.mode === 'quick') {
     const concept = f.quickConcept.trim() || 'Create an interesting, unique character for roleplay.';

@@ -30,6 +30,8 @@ class WebChargenRoutes {
   WebChargenRoutes(this._facade, Router router) {
     router.get('/api/chargen/status', _status);
     router.post('/api/chargen/create', _create);
+    router.post('/api/chargen/lore/urls', _loreUrls);
+    router.post('/api/chargen/lore/file', _loreFile);
   }
 
   final ChargenFacade _facade;
@@ -49,5 +51,34 @@ class WebChargenRoutes {
       return JsonResponse.error(400, result['error']?.toString() ?? 'Bad request');
     }
     return JsonResponse.ok({'status': 'started'});
+  }
+
+  /// Scrape lore from one or more URLs. Body: `{urls: [..]}` (or `{urls: "a,b"}`).
+  Future<shelf.Response> _loreUrls(shelf.Request r) async {
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(r);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON');
+    }
+    final raw = body['urls'];
+    final urls = raw is List
+        ? raw.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList()
+        : raw.toString().split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
+    if (urls.isEmpty) return JsonResponse.badRequest('No URLs provided');
+    return JsonResponse.ok(await _facade.extractLoreFromUrls(urls));
+  }
+
+  /// Extract lore text from an uploaded file (raw bytes; `?filename=` gives type).
+  Future<shelf.Response> _loreFile(shelf.Request r) async {
+    final filename = r.url.queryParameters['filename'] ?? 'lore.txt';
+    final List<int> bytes;
+    try {
+      bytes = await RequestBody.readBytes(r, maxBytes: RequestBody.uploadMaxBytes);
+    } catch (_) {
+      return JsonResponse.error(413, 'File too large');
+    }
+    if (bytes.isEmpty) return JsonResponse.badRequest('Empty upload');
+    return JsonResponse.ok(await _facade.extractLoreFromFile(bytes, filename));
   }
 }

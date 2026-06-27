@@ -18,6 +18,7 @@ import { QuickConfig } from '../components/aichargen/QuickConfig';
 import { GuidedConfig } from '../components/aichargen/GuidedConfig';
 import { AutomatedConfig } from '../components/aichargen/AutomatedConfig';
 import { OutputSettings } from '../components/aichargen/OutputSettings';
+import { LoreContext } from '../components/aichargen/LoreContext';
 
 const STEPS = ['Mode', 'Details', 'Output', 'Generate'];
 
@@ -117,6 +118,7 @@ export function CreateAiCharacterPage() {
         {step === 1 && form.mode === 'quick' && <QuickConfig form={form} set={set} />}
         {step === 1 && form.mode === 'guided' && <GuidedConfig form={form} set={set} />}
         {step === 1 && form.mode === 'automated' && <AutomatedConfig form={form} set={set} />}
+        {step === 1 && <LoreContext form={form} set={set} />}
 
         {step === 2 && <OutputSettings form={form} set={set} />}
 
