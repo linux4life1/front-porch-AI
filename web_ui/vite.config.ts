@@ -46,20 +46,34 @@ export default defineConfig({
     allowedHosts: ['localhost', '.ts.net', 'host.docker.internal'],
     port: 5173,
     proxy: {
+      // The multiplexed stream connects to /api/ws and needs a real WebSocket
+      // upgrade (ws:true). It MUST be listed before the generic /api rule (first
+      // match wins) and must NOT changeOrigin: the Dart server enforces a
+      // same-origin WebSocket allowlist, so the forwarded Host has to stay equal
+      // to the browser's Origin host (preserved here) or the upgrade is rejected
+      // 403. Without this, live token streaming silently never connects and the
+      // chat only updates after leaving and re-entering the conversation.
+      '/api/ws': { target: 'ws://localhost:8085', ws: true },
       '/api': { target: 'http://localhost:8085', changeOrigin: true },
-      '/ws': { target: 'ws://localhost:8085', ws: true },
     },
   },
   // `vite preview` serves the real production build (minified, no HMR) for a
   // fast, deterministic mobile preview over Tailscale — a refresh always shows
-  // the latest rebuild. Same proxy as dev so /api + /ws hit the desktop app.
+  // the latest rebuild. Same proxy as dev so /api + /api/ws hit the desktop app.
   preview: {
     host: true,
     allowedHosts: ['localhost', '.ts.net', 'host.docker.internal'],
     port: 5173,
     proxy: {
+      // The multiplexed stream connects to /api/ws and needs a real WebSocket
+      // upgrade (ws:true). It MUST be listed before the generic /api rule (first
+      // match wins) and must NOT changeOrigin: the Dart server enforces a
+      // same-origin WebSocket allowlist, so the forwarded Host has to stay equal
+      // to the browser's Origin host (preserved here) or the upgrade is rejected
+      // 403. Without this, live token streaming silently never connects and the
+      // chat only updates after leaving and re-entering the conversation.
+      '/api/ws': { target: 'ws://localhost:8085', ws: true },
       '/api': { target: 'http://localhost:8085', changeOrigin: true },
-      '/ws': { target: 'ws://localhost:8085', ws: true },
     },
   },
 });
