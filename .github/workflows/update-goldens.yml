@@ -10,13 +10,20 @@ name: Update Goldens
 # diff, and commit them yourself. That keeps a human (authored) commit on the
 # branch and re-triggers CI to validate the refreshed baselines.
 
+# workflow_dispatch works once this file is on the default branch (after this
+# PR merges). Until then, GitHub won't expose the dispatch trigger for a
+# feature branch, so a push whose head-commit message contains the sentinel
+# `[update-goldens]` runs the same job (push triggers use the branch's own copy
+# of the workflow). The sentinel keeps it from firing on every routine push.
 on:
   workflow_dispatch:
+  push:
 
 jobs:
   update-goldens:
     name: Regenerate widget goldens
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[update-goldens]')
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
