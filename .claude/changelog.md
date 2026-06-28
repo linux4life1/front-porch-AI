@@ -3069,3 +3069,9 @@ Brief reason: Addressed the confirmed correctness/cleanup findings from the revi
 - Reason: Groups were only formable in-chat (/promote, /join --full) — no upfront creation. Added it mirroring the desktop create_group_chat_page flow: a Members→Details wizard (pick ≥2 library characters in an avatar grid, name + turn order) → POST /api/groups. The facade reuses the exact desktop persist path (duplicateCharacter into the group's private avatars dir + a typed GroupMember row with provenance, then GroupChat save); realism/needs/per-member prompts default off (configured later via group settings).
 - Verified end-to-end (DOM, rebuilt app): New Group toolbar → selected Aerin+Akira from 52-char grid → name auto-suggested + turn order → Create & open → group "WebUI Test Squad" (2 members) created and the group chat opened with both in the cast (isGroup:true). tsc + flutter analyze clean. Screenshots: ~/Desktop/fpai-review/webui-group-members.png, webui-group-chat-open.png
 - Commit: (below)
+
+## 2026-06-27 — WebUI fix: Porch Stories reader unusable on iPhone
+- Files: web_ui/src/styles/ws-j.css (mobile @media for the reader), assets/web_app/** (rebuilt bundle)
+- Reason: On phone the .reader-bar (back-button-with-title + a duplicate <h2> title + audio/ambient/contents icons) overflowed the 390px width, so the <h2> (flex:1, no min-width:0) collapsed to one letter per line — a giant vertical title strip that pushed the paper page into a tiny unreadable sliver. Added a phone media query: hide the duplicate <h2> (the back button already carries the title), truncate the back button to one line, give .book-wrap 76vh, tighten .book-flow insets (36→20px) + bump type to 1.08rem.
+- Verified (DOM, Vite :5173 @ 390px): h2 hidden, bar one row (43px), book page 338×621 (was a strip), 17px serif, no horizontal overflow, page nav works. Screenshot: ~/Desktop/fpai-review/webui-story-reader-phone.png
+- Commit: (below)

@@ -245,3 +245,22 @@
 .toc-entry.current { color: var(--story-gold); background: rgba(90, 58, 37, 0.4); }
 .toc-entry .toc-num { margin-left: auto; opacity: 0.4; font-size: 0.72rem; }
 .toc-entry:hover { background: rgba(90, 58, 37, 0.3); }
+
+/* ── Phone reader: keep the bar one row + give the page real height ──────── */
+@media (max-width: 768px) {
+  /* The back button already carries the title; hide the duplicate <h2> so the
+     bar stays a single row instead of collapsing the title into a vertical
+     one-letter-per-line strip that eats the whole screen. */
+  .reader-bar h2 { display: none; }
+  .reader-bar .ghost {
+    flex: 1 1 auto; min-width: 0; text-align: left;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* With the bar compact again, the paper page reclaims the vertical space. */
+  .book-wrap { height: 76vh; padding: 10px; }
+  .book-page { max-width: 100%; }
+  /* Tighter page margins + slightly larger type for comfortable phone reading
+     (.book-flow is absolutely inset, not padded). */
+  .book-flow { font-size: 1.08rem; line-height: 1.75; top: 22px; bottom: 22px; left: 20px; right: 20px; }
+  .reader-foot .page-ind { min-width: 0; }
+}
