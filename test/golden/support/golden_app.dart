@@ -69,6 +69,27 @@ Future<void> pumpGolden(
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump(const Duration(milliseconds: 50));
   }
+  // Fully decode any mounted images before the golden is captured. `pumpAndSettle`
+  // does NOT await real async image-decode frames, so a golden that renders
+  // `Image.asset`/`Image.file` thumbnails (e.g. the background picker grid)
+  // would otherwise snapshot whatever decode stage it happened to reach — making
+  // that golden flaky (the symptom: a light/dark pair where one variant captures
+  // the decoded art and the other captures blanks). Precaching makes it stable.
+  await _precacheMountedImages(tester);
+  await tester.pump();
+}
+
+/// Synchronously force every [Image] currently in the tree to finish decoding so
+/// image-heavy goldens are deterministic. No-op when the tree has no images.
+/// Unresolved providers (e.g. `Image.network`, which fails under flutter_test)
+/// are swallowed so they never hang or throw the capture.
+Future<void> _precacheMountedImages(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    for (final element in find.byType(Image).evaluate()) {
+      final image = element.widget as Image;
+      await precacheImage(image.image, element, onError: (_, _) {});
+    }
+  });
 }
 
 /// Render [child] in both light and dark themes and assert each against its
