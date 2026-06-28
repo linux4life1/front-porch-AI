@@ -128,6 +128,7 @@ export function CharactersPage() {
         onNewFolder={() => setDialog({ kind: 'newFolder' })}
         onCreate={() => navigate('/create')}
         onAiCreate={() => navigate('/create-ai')}
+        onNewGroup={() => navigate('/create-group')}
         onImportMenu={(e) => openMenu(e, importMenu())}
         onStartSelect={lib.startSelecting}
       />

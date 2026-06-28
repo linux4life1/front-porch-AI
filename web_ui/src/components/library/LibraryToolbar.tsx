@@ -21,6 +21,7 @@ export function LibraryToolbar({
   onNewFolder,
   onCreate,
   onAiCreate,
+  onNewGroup,
   onImportMenu,
   onStartSelect,
 }: {
@@ -37,6 +38,7 @@ export function LibraryToolbar({
   onNewFolder: () => void;
   onCreate: () => void;
   onAiCreate: () => void;
+  onNewGroup: () => void;
   onImportMenu: (e: MouseEvent) => void;
   onStartSelect: () => void;
 }) {
@@ -95,6 +97,9 @@ export function LibraryToolbar({
       </button>
       <button className="ghost import-btn" onClick={onAiCreate} title="Generate a character with AI">
         ✨ AI Create
+      </button>
+      <button className="ghost import-btn" onClick={onNewGroup} title="Create a new group chat">
+        👥 New Group
       </button>
       <button
         className="ghost import-btn"

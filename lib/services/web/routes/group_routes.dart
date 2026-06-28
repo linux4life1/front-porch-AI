@@ -30,6 +30,7 @@ import 'package:front_porch_ai/services/web/util/request_body.dart';
 class WebGroupRoutes {
   WebGroupRoutes(this._facade, Router router) {
     router.get('/api/groups', _list);
+    router.post('/api/groups', _create);
     router.get('/api/groups/<id>/members/<memberId>/avatar', _avatar);
     router.get('/api/groups/<id>/export.png', _export);
     router.post('/api/groups/<id>/extract', _extract);
@@ -41,6 +42,21 @@ class WebGroupRoutes {
 
   Future<shelf.Response> _list(shelf.Request request) async =>
       JsonResponse.ok({'groups': await _facade.list()});
+
+  /// Create a group. Body: {name, memberIds:[dbId,…] (>=2), turnOrder?}.
+  Future<shelf.Response> _create(shelf.Request request) async {
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(request);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON');
+    }
+    final result = await _facade.createGroup(body);
+    if (result == null) {
+      return JsonResponse.badRequest('A group needs a name and at least 2 members');
+    }
+    return JsonResponse.ok(result);
+  }
 
   Future<shelf.Response> _delete(shelf.Request request, String id) async {
     final ok = await _facade.delete(id);

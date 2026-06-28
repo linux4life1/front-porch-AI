@@ -987,6 +987,29 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
   width: 100%; accent-color: var(--accent); cursor: pointer; padding: 0; background: none; border: none;
 }
 
+/* ── Group creation member picker ──────────────────────────────────────── */
+.grp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.grp-card {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px; border-radius: var(--radius-card); cursor: pointer;
+  background: var(--card); border: 2px solid var(--border); color: var(--text);
+}
+.grp-card:hover { border-color: var(--accent); }
+.grp-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.grp-card img, .grp-initial {
+  width: 64px; height: 64px; border-radius: 50%; object-fit: cover; object-position: top center;
+}
+.grp-initial { display: grid; place-items: center; background: var(--surface-2); font-size: 1.5rem; font-weight: 700; }
+.grp-name {
+  font-size: 0.78rem; text-align: center; line-height: 1.2;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grp-check {
+  position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 0.7rem;
+}
+@media (max-width: 768px) { .grp-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); } }
+
 /* Voice: the mic button pulses red while recording. */
 .icon-btn.mic.recording { color: var(--danger, #e5484d); animation: mic-pulse 1s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }

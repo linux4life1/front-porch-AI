@@ -13,6 +13,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { CharacterEditPage } from './pages/CharacterEditPage';
 import { CreateCharacterPage } from './pages/CreateCharacterPage';
 import { CreateAiCharacterPage } from './pages/CreateAiCharacterPage';
+import { CreateGroupChatPage } from './pages/CreateGroupChatPage';
 import { WorldsPage } from './pages/WorldsPage';
 import { StoriesPage } from './pages/StoriesPage';
 import { StorySetupPage } from './pages/StorySetupPage';
@@ -45,6 +46,7 @@ export function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/create" element={<CreateCharacterPage />} />
         <Route path="/create-ai" element={<CreateAiCharacterPage />} />
+        <Route path="/create-group" element={<CreateGroupChatPage />} />
         <Route path="/worlds" element={<WorldsPage />} />
         <Route path="/stories" element={<StoriesPage />} />
         <Route path="/stories/:id" element={<StoryDashboardPage />} />

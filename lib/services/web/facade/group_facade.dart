@@ -16,16 +16,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
+import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/group_card_exporter.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 
 /// Read adapter over the group store for the web library — lists group chats,
 /// resolves member avatars, and handles library card actions (export Group Card
@@ -70,6 +76,93 @@ class GroupFacade {
       });
     }
     return result;
+  }
+
+  /// Create a new group from library character ids (their dbIds) + a name + a
+  /// turn order. Mirrors the desktop create_group_chat_page persist path: each
+  /// source character is duplicated into the group's private avatars dir and a
+  /// typed GroupMember row (with provenance), then the GroupChat is saved.
+  /// Realism / needs / per-member prompts default off — those are configured
+  /// after creation via the existing group settings. Returns {id, name} or null.
+  Future<Map<String, dynamic>?> createGroup(Map<String, dynamic> body) async {
+    final r = repo;
+    final database = db;
+    if (r == null || database == null) return null;
+
+    final name = body['name']?.toString().trim() ?? '';
+    final ids = body['memberIds'] is List
+        ? (body['memberIds'] as List).map((e) => e.toString()).toList()
+        : const <String>[];
+    if (name.isEmpty || ids.length < 2) return null;
+
+    // Resolve ids → source library cards (preserve order, drop dupes/unknowns).
+    final sources = <CharacterCard>[];
+    for (final id in ids) {
+      for (final c in r.characters) {
+        if (c.dbId == id && !sources.any((s) => s.dbId == c.dbId)) {
+          sources.add(c);
+          break;
+        }
+      }
+    }
+    if (sources.length < 2) return null;
+
+    final turnOrder = body['turnOrder']?.toString() == 'random'
+        ? TurnOrder.random
+        : TurnOrder.roundRobin;
+
+    final groupId = 'group_${DateTime.now().millisecondsSinceEpoch}';
+    final avDir = Directory(p.join(_storage.groupsDir.path, groupId, 'avatars'));
+    await avDir.create(recursive: true);
+
+    for (final source in sources) {
+      final mid = const Uuid().v4();
+      await r.duplicateCharacter(
+        source,
+        targetDirOverride: avDir.path,
+        forcedBasename: mid,
+        skipLibraryInsert: true,
+      );
+      await database.insertGroupMember(
+        GroupMembersCompanion(
+          id: Value(mid),
+          groupId: Value(groupId),
+          name: Value(source.name),
+          description: Value(source.description),
+          personality: Value(source.personality),
+          scenario: Value(source.scenario),
+          firstMessage: Value(source.firstMessage),
+          mesExample: Value(source.mesExample),
+          systemPrompt: Value(source.systemPrompt),
+          postHistoryInstructions: Value(source.postHistoryInstructions),
+          alternateGreetings: Value(jsonEncode(source.alternateGreetings)),
+          tags: Value(jsonEncode(source.tags)),
+          avatarFilename: Value('$mid.png'),
+          ttsVoice: Value(source.ttsVoice),
+          lorebook: Value(
+            source.lorebook != null ? jsonEncode(source.lorebook!.toJson()) : null,
+          ),
+          worldNames: Value(jsonEncode(source.worldNames)),
+          frontPorchExtensions: Value(
+            source.frontPorchExtensions != null
+                ? jsonEncode(source.frontPorchExtensions!.toJson())
+                : null,
+          ),
+          rawExtensions: Value(
+            source.rawExtensions != null ? jsonEncode(source.rawExtensions!) : null,
+          ),
+          memberState: Value(
+            GroupMember.encodeProvenance(
+              originStableId: source.stableGroupId,
+              originLibraryDbId: source.dbId,
+            ),
+          ),
+        ),
+      );
+    }
+
+    await _groups.save(GroupChat(id: groupId, name: name, turnOrder: turnOrder));
+    return {'id': groupId, 'name': name};
   }
 
   /// Delete a group chat (and its members + sessions), reusing the desktop
