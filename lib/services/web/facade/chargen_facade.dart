@@ -22,6 +22,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:front_porch_ai/services/character_gen_service.dart';
+import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/lore_extraction_service.dart';
@@ -35,11 +36,12 @@ import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 /// WebSocket hub, and persist the result through the shared [CharacterFacade]
 /// save path. No desktop code is reimplemented.
 class ChargenFacade {
-  ChargenFacade(this._llm, this._characters, this._hub);
+  ChargenFacade(this._llm, this._characters, this._hub, [this._imageGen]);
 
   final LLMProvider _llm;
   final CharacterFacade _characters;
   final StreamHub? _hub;
+  final ImageGenService? _imageGen;
 
   /// Whether an LLM backend is ready to generate.
   bool get available => _llm.activeService.isReady;
@@ -93,6 +95,44 @@ class ChargenFacade {
     return fallback;
   }
 
+  /// Render a portrait via the configured image backend, or null if there is no
+  /// backend / prompt / on failure (generation never blocks on the image step).
+  /// Mirrors the desktop generateAvatar: strip the character name from the
+  /// LLM-authored prompt so the image model doesn't render it as text.
+  Future<List<int>?> _renderPortrait(String name, String? imagePrompt) async {
+    final svc = _imageGen;
+    final prompt = imagePrompt?.trim() ?? '';
+    if (svc == null || !svc.isConfigured || prompt.isEmpty) return null;
+    var clean = prompt;
+    for (final part in name.split(RegExp(r'\s+'))) {
+      if (part.length > 2) {
+        clean = clean.replaceAll(
+          RegExp('\\b${RegExp.escape(part)}\\b', caseSensitive: false),
+          '',
+        );
+      }
+    }
+    clean = clean
+        .replaceAll(RegExp(r',\s*,'), ',')
+        .replaceAll(RegExp(r'\s{2,}'), ' ')
+        .trim();
+    if (clean.startsWith(',')) clean = clean.substring(1).trim();
+    if (clean.isEmpty) clean = prompt;
+    _hub?.broadcast({'event': 'chargen_status', 'data': 'Generating portrait...'});
+    try {
+      return await svc.generateImage(
+        prompt: clean,
+        size: '512x512',
+        isPortrait: true,
+      );
+    } catch (_) {
+      _hub?.broadcast(
+        {'event': 'chargen_status', 'data': 'Portrait generation skipped'},
+      );
+      return null;
+    }
+  }
+
   Future<void> _run(
     String name,
     Map<String, dynamic> fields,
@@ -107,7 +147,8 @@ class ChargenFacade {
       // model's rewrite of a user-built description).
       final mode = fields['mode']?.toString() ?? 'quick';
       final concept = fields['concept']?.toString() ?? '';
-      final card = await CharacterGenService(svc).generateCharacter(
+      final gen = CharacterGenService(svc);
+      final card = await gen.generateCharacter(
         name: name,
         concept: concept,
         personalityKeywords: fields['personalityKeywords']?.toString() ?? '',
@@ -144,7 +185,12 @@ class ChargenFacade {
         );
         return;
       }
-      final saved = await _characters.persistNewCard(card);
+      // Auto-render a portrait when an image backend is configured — the web
+      // mirror of the desktop's end-of-generation generateAvatar (creator_state_
+      // engine.dart). The LLM authored the prompt during generation; strip the
+      // name (image models render names as text) and render a 512² portrait.
+      final portrait = await _renderPortrait(name, gen.generatedImagePrompt);
+      final saved = await _characters.persistNewCard(card, portraitBytes: portrait);
       if (saved == null) {
         _hub?.broadcast({
           'event': 'chargen_error',

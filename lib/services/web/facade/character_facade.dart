@@ -278,7 +278,10 @@ class CharacterFacade {
   /// insert it through [CharacterRepository], and return {id, name}. Shared by
   /// manual create and the AI chargen facade so there is a single save path.
   /// Returns null when there is no repository or on failure.
-  Future<Map<String, dynamic>?> persistNewCard(CharacterCard card) async {
+  Future<Map<String, dynamic>?> persistNewCard(
+    CharacterCard card, {
+    List<int>? portraitBytes,
+  }) async {
     final repo = _repo;
     if (repo == null) return null;
     try {
@@ -292,8 +295,18 @@ class CharacterFacade {
         charDir.path,
         '${safeName}_${DateTime.now().millisecondsSinceEpoch}.png',
       );
-      // sourceImagePath null → V2CardService synthesizes a placeholder avatar.
-      await V2CardService().saveCardAsPng(card, card.imagePath!, null);
+      // A rendered portrait (e.g. AI chargen) becomes the card's base image;
+      // otherwise sourceImagePath stays null → V2CardService synthesizes a
+      // placeholder avatar.
+      String? sourceImagePath;
+      if (portraitBytes != null && portraitBytes.isNotEmpty) {
+        sourceImagePath = p.join(
+          Directory.systemTemp.path,
+          'fpa_portrait_${DateTime.now().millisecondsSinceEpoch}.png',
+        );
+        await File(sourceImagePath).writeAsBytes(portraitBytes);
+      }
+      await V2CardService().saveCardAsPng(card, card.imagePath!, sourceImagePath);
       await repo.addCharacter(card);
       return {'id': card.dbId, 'name': card.name};
     } catch (_) {

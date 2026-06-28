@@ -268,7 +268,7 @@ class WebServerHost extends ChangeNotifier {
         : null;
 
     final chargenFacade = _llmProvider != null
-        ? ChargenFacade(_llmProvider!, characterFacade, streamHub)
+        ? ChargenFacade(_llmProvider!, characterFacade, streamHub, _imageGenService)
         : null;
 
     final chatToolsFacade = chatService != null
