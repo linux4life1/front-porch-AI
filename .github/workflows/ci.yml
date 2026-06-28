@@ -121,6 +121,33 @@ jobs:
         run: flutter test --concurrency=1 --reporter expanded --exclude-tags golden
         timeout-minutes: 20
 
+  web-tests:
+    name: WebUI tests (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: web_ui/package-lock.json
+
+      - name: Install WebUI dependencies
+        run: npm ci
+        working-directory: web_ui
+
+      # Typecheck (tsc) + pure unit tests (vitest). The tests use synthetic
+      # fixtures only — no characters/chats, no running app, no network — so they
+      # reproduce in any clean checkout, including contributor PRs to Rawhide.
+      - name: Typecheck + unit tests
+        run: |
+          npm run lint
+          npm test
+        working-directory: web_ui
+
   golden:
     name: Widget Golden Tests
     runs-on: ubuntu-latest

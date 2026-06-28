@@ -140,6 +140,19 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Setup Node (for the WebUI bundle)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: web_ui/package-lock.json
+
+      # Regenerate assets/web_app from web_ui/src so the Flutter build bundles a
+      # fresh WebUI (never a stale committed bundle). Must run before flutter build.
+      - name: Build WebUI bundle
+        run: npm ci && npm run build
+        working-directory: web_ui
+
       - name: Disable inappwebview Linux plugin (uses external browser fallback)
         if: matrix.platform == 'linux'
         run: |
