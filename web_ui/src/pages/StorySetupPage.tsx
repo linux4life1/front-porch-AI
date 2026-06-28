@@ -18,7 +18,7 @@ import {
 } from '../storyTypes';
 import '../styles/ws-j.css';
 
-const STEPS = ['Concept', 'Style', 'AI'];
+const STEPS = ['Concept', 'Style', 'Cast & AI'];
 
 export function StorySetupPage() {
   const { id = '' } = useParams();
@@ -173,25 +173,28 @@ export function StorySetupPage() {
 
       {step === 2 && (
         <section className="card">
-          <label>Model tier
-            <select value={p.prompt_tier} onChange={(e) => set({ prompt_tier: e.target.value })}>
-              {PROMPT_TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </label>
+          <h3 className="section-label">👥 Characters &amp; sources</h3>
+          <p className="muted small">
+            Feature characters from your library in the story — their chat history seeds each one's
+            personality, voice, and memories. You can also add your own persona as a character.
+          </p>
           <label className="row-label">
             <input type="checkbox" checked={p.use_chat_history}
               onChange={(e) => set({ use_chat_history: e.target.checked })} />
-            Seed from existing character chats
+            Feature characters from my library
           </label>
           {p.use_chat_history && (
-            <div className="char-pick">
-              {chars.length === 0 ? <p className="muted small">No characters found.</p> :
-                chars.map((c) => (
-                  <button key={c.id} type="button"
-                    className={`chip-toggle${p.chat_history_character_ids.includes(c.id) ? ' on' : ''}`}
-                    onClick={() => toggleChar(c.id)}>{c.name}</button>
-                ))}
-            </div>
+            <>
+              <p className="field-label">Pick characters</p>
+              <div className="char-pick">
+                {chars.length === 0 ? <p className="muted small">No characters found.</p> :
+                  chars.map((c) => (
+                    <button key={c.id} type="button"
+                      className={`chip-toggle${p.chat_history_character_ids.includes(c.id) ? ' on' : ''}`}
+                      onClick={() => toggleChar(c.id)}>{c.name}</button>
+                  ))}
+              </div>
+            </>
           )}
           {p.use_chat_history && p.chat_history_character_ids.length > 0 && (
             <div style={{ marginTop: 8 }}>
@@ -221,6 +224,12 @@ export function StorySetupPage() {
               </select>
             </div>
           )}
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '14px 0' }} />
+          <label>Model tier
+            <select value={p.prompt_tier} onChange={(e) => set({ prompt_tier: e.target.value })}>
+              {PROMPT_TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </label>
         </section>
       )}
 
