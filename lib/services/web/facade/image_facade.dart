@@ -44,6 +44,7 @@ class ImageFacade {
       'isGenerating': _image.isGenerating,
       'statusMessage': _image.statusMessage,
       'size': img.imageGenSize,
+      'style': img.imageGenStyle,
       'model': img.imageGenModel,
       'negativePrompt': img.imageGenNegativePrompt,
       'steps': img.imageGenSteps,
@@ -65,6 +66,7 @@ class ImageFacade {
     final b = _storage.backendSettings;
     if (f['backend'] is String) await img.setImageGenBackend(f['backend'] as String);
     if (f['size'] is String) await img.setImageGenSize(f['size'] as String);
+    if (f['style'] is String) await img.setImageGenStyle(f['style'] as String);
     if (f['model'] is String) await img.setImageGenModel(f['model'] as String);
     if (f['negativePrompt'] is String) {
       await img.setImageGenNegativePrompt(f['negativePrompt'] as String);

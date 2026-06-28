@@ -972,6 +972,10 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .color-preview { padding: 12px; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
 @media (max-width: 768px) { .color-rows { grid-template-columns: 1fr; } }
 
+/* ── Image-gen settings two-up rows ────────────────────────────────────── */
+.img-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+@media (max-width: 768px) { .img-row2 { grid-template-columns: 1fr; } }
+
 /* Voice: the mic button pulses red while recording. */
 .icon-btn.mic.recording { color: var(--danger, #e5484d); animation: mic-pulse 1s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
