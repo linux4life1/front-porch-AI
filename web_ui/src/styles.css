@@ -976,6 +976,17 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .img-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 @media (max-width: 768px) { .img-row2 { grid-template-columns: 1fr; } }
 
+/* ── Generation sampler sliders (desktop-style: label + value box, slider) ─ */
+.slider-field { margin: 14px 0; }
+.slider-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 6px; color: var(--text); font-size: 0.85rem;
+}
+.slider-val { width: 96px; text-align: right; padding: 4px 8px; font-size: 0.85rem; }
+.slider-field input[type='range'] {
+  width: 100%; accent-color: var(--accent); cursor: pointer; padding: 0; background: none; border: none;
+}
+
 /* Voice: the mic button pulses red while recording. */
 .icon-btn.mic.recording { color: var(--danger, #e5484d); animation: mic-pulse 1s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }

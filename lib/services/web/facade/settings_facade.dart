@@ -60,6 +60,9 @@ class SettingsFacade {
         'temperature': g.temperature,
         'minP': g.minP,
         'repeatPenalty': g.repeatPenalty,
+        'repeatPenaltyTokens': g.repeatPenaltyTokens,
+        'xtcThreshold': g.xtcThreshold,
+        'xtcProbability': g.xtcProbability,
         'maxLength': g.maxLength,
         'minLength': g.minLength,
         'dynamicTempEnabled': g.dynamicTempEnabled,
@@ -94,6 +97,9 @@ class SettingsFacade {
       remoteChanged = true;
     }
 
+    final ctx = body['contextSize'];
+    if (ctx is num) await b.setContextSize(ctx.toInt());
+
     final reasoning = body['reasoningEnabled'];
     if (reasoning is bool) await b.setReasoningEnabled(reasoning);
     final effort = body['reasoningEffort']?.toString();
@@ -114,6 +120,12 @@ class SettingsFacade {
       if (mp is num) await g.setMinP(mp.toDouble());
       final rp = gen['repeatPenalty'];
       if (rp is num) await g.setRepeatPenalty(rp.toDouble());
+      final rpt = gen['repeatPenaltyTokens'];
+      if (rpt is num) await g.setRepeatPenaltyTokens(rpt.toInt());
+      final xt = gen['xtcThreshold'];
+      if (xt is num) await g.setXtcThreshold(xt.toDouble());
+      final xp = gen['xtcProbability'];
+      if (xp is num) await g.setXtcProbability(xp.toDouble());
       final ml = gen['maxLength'];
       if (ml is num) await g.setMaxLength(ml.toInt());
       final mn = gen['minLength'];

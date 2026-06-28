@@ -34,6 +34,9 @@ interface Gen {
   temperature: number;
   minP: number;
   repeatPenalty: number;
+  repeatPenaltyTokens: number;
+  xtcThreshold: number;
+  xtcProbability: number;
   maxLength: number;
   minLength: number;
   dynamicTempEnabled: boolean;
@@ -80,6 +83,7 @@ export function SettingsPage() {
         backend: s.backend,
         remoteApiUrl: s.remoteApiUrl,
         remoteModelName: s.remoteModelName,
+        contextSize: s.contextSize,
         reasoningEnabled: s.reasoningEnabled,
         reasoningEffort: s.reasoningEffort,
         generation: s.generation,
@@ -219,16 +223,24 @@ export function SettingsPage() {
 
       <section className="card">
         <h3>Generation</h3>
-        <NumberField label="Temperature" value={s.generation.temperature} step={0.05} min={0} max={2}
+        <SliderField label="Temperature" value={s.generation.temperature} min={0} max={2} step={0.05}
           onChange={(v) => patchGen({ temperature: v })} />
-        <NumberField label="Min-P" value={s.generation.minP} step={0.01} min={0} max={1}
+        <SliderField label="Min-P" value={s.generation.minP} min={0} max={1} step={0.01}
           onChange={(v) => patchGen({ minP: v })} />
-        <NumberField label="Repeat penalty" value={s.generation.repeatPenalty} step={0.01} min={1} max={1.5}
+        <SliderField label="Repeat penalty" value={s.generation.repeatPenalty} min={1} max={3} step={0.01}
           onChange={(v) => patchGen({ repeatPenalty: v })} />
-        <NumberField label="Response length (max tokens)" value={s.generation.maxLength} step={8} min={16} max={2048}
+        <SliderField label="Rep pen tokens" value={s.generation.repeatPenaltyTokens} min={0} max={512} step={1}
+          onChange={(v) => patchGen({ repeatPenaltyTokens: Math.round(v) })} />
+        <SliderField label="XTC threshold" value={s.generation.xtcThreshold} min={0} max={0.5} step={0.01}
+          onChange={(v) => patchGen({ xtcThreshold: v })} />
+        <SliderField label="XTC probability" value={s.generation.xtcProbability} min={0} max={1} step={0.05}
+          onChange={(v) => patchGen({ xtcProbability: v })} />
+        <SliderField label="Max output tokens" value={s.generation.maxLength} min={16} max={16384} step={16}
           onChange={(v) => patchGen({ maxLength: Math.round(v) })} />
-        <NumberField label="Min length" value={s.generation.minLength} step={1} min={0} max={512}
+        <SliderField label="Min output tokens" value={s.generation.minLength} min={0} max={512} step={1}
           onChange={(v) => patchGen({ minLength: Math.round(v) })} />
+        <SliderField label="Context size" value={s.contextSize} min={512} max={500000} step={512}
+          onChange={(v) => patch({ contextSize: Math.round(v) })} />
         <label className="row-label">
           <span>Dynamic temperature</span>
           <input
@@ -269,7 +281,9 @@ export function SettingsPage() {
   );
 }
 
-function NumberField({
+// A labelled slider with an editable value box (mirrors the desktop sampler
+// sliders): label + value on top, range below; the box accepts exact typing.
+function SliderField({
   label,
   value,
   step,
@@ -285,19 +299,30 @@ function NumberField({
   onChange: (v: number) => void;
 }) {
   return (
-    <label>
-      {label}
+    <div className="slider-field">
+      <div className="slider-head">
+        <span>{label}</span>
+        <input
+          type="number"
+          className="slider-val"
+          value={value}
+          step={step}
+          min={min}
+          max={max}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) onChange(n);
+          }}
+        />
+      </div>
       <input
-        type="number"
+        type="range"
         value={value}
         step={step}
         min={min}
         max={max}
-        onChange={(e) => {
-          const n = Number(e.target.value);
-          if (Number.isFinite(n)) onChange(n);
-        }}
+        onChange={(e) => onChange(Number(e.target.value))}
       />
-    </label>
+    </div>
   );
 }
