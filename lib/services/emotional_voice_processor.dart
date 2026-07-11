@@ -4,10 +4,12 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-/// Persistent process wrapper around emotional_voice.py.
+/// Persistent process wrapper around the emotional voice DSP mode
+/// of kokoro_tts.py.
 ///
-/// Spawns a single Python worker that stays alive between requests
-/// and applies emotion-adaptive audio DSP to TTS output files.
+/// Spawns a single Python worker with `--emotional` that stays alive
+/// between requests and applies emotion-adaptive audio DSP to TTS
+/// output files.
 class EmotionalVoiceProcessor {
   Process? _process;
   int _requestId = 0;
@@ -17,8 +19,7 @@ class EmotionalVoiceProcessor {
   bool get isAvailable => _helperScriptPath != null;
 
   String? get _helperScriptPath {
-    // The script lives at the project root alongside kokoro_tts.py.
-    final script = p.join(p.current, 'emotional_voice.py');
+    final script = p.join(p.current, 'kokoro_tts.py');
     return File(script).existsSync() ? script : null;
   }
 
@@ -29,12 +30,12 @@ class EmotionalVoiceProcessor {
 
     final script = _helperScriptPath;
     if (script == null) {
-      throw Exception('emotional_voice.py not found');
+      throw Exception('kokoro_tts.py not found');
     }
 
     _process = await Process.start(
       Platform.isWindows ? 'python' : 'python3',
-      [script],
+      [script, '--emotional'],
       includeParentEnvironment: true,
     );
   }
@@ -101,7 +102,7 @@ class EmotionalVoiceProcessor {
       _process?.stdin.close();
     } catch (_) {}
     try {
-      await _process?.kill();
+      _process?.kill();
     } catch (_) {}
     _process = null;
   }
