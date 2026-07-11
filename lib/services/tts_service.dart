@@ -32,6 +32,7 @@ import 'package:front_porch_ai/services/kokoro_engine.dart';
 import 'package:front_porch_ai/services/openai_tts_engine.dart';
 import 'package:front_porch_ai/services/elevenlabs_tts_engine.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
+import 'package:front_porch_ai/services/emotional_voice_processor.dart';
 
 /// Text-to-speech service — multi-engine architecture.
 ///
@@ -47,6 +48,7 @@ class TtsService extends ChangeNotifier {
   OrderedAudioCollector? _audioCollector;
   final OpenAiTtsEngine _openaiEngine = OpenAiTtsEngine();
   final ElevenLabsTtsEngine _elevenlabsEngine = ElevenLabsTtsEngine();
+  final EmotionalVoiceProcessor _emotionalVoice = EmotionalVoiceProcessor();
 
   Process? _piperProcess;
   bool _isSpeaking = false;
@@ -174,6 +176,7 @@ class TtsService extends ChangeNotifier {
     stop();
     _clearCache();
     _audioPlayer.dispose();
+    _emotionalVoice.dispose();
     super.dispose();
   }
 
@@ -181,7 +184,7 @@ class TtsService extends ChangeNotifier {
   ///
   /// Generates audio for the entire message first (buffered), then plays
   /// it back seamlessly. Shows generation progress.
-  Future<void> speak(String text, {String? voiceKey, String? messageId}) async {
+  Future<void> speak(String text, {String? voiceKey, String? messageId, String? emotion}) async {
     if (!_storageService.ttsEnabled) {
       print('TTS: disabled, skipping');
       return;
@@ -399,13 +402,24 @@ class TtsService extends ChangeNotifier {
           }
 
           if (finalAudio != null) {
-            _cachedWav = finalAudio;
+            var audio = finalAudio;
+            _cachedWav = audio;
             _cachedMessageId = messageId;
             _cachedTextHash = sanitized.hashCode;
             _cachedVoice = voice;
             _cachedEngine = _storageService.ttsEngine;
 
-            await _playWavFile(finalAudio);
+            if (emotion != null &&
+                _storageService.emotionalVoice &&
+                _storageService.expressionEnabled) {
+              try {
+                audio = await _emotionalVoice.process(audio, emotion);
+              } catch (e) {
+                print('EmotionalVoice: $e');
+              }
+            }
+
+            await _playWavFile(audio);
           }
         } else {
           _generationProgress = 0.0;
@@ -523,12 +537,24 @@ class TtsService extends ChangeNotifier {
 
       if (audioFile != null && _isSpeaking) {
         // Cache the audio for instant replay
-        _cachedWav = audioFile;
+        var audio = audioFile;
+        _cachedWav = audio;
         _cachedMessageId = messageId;
         _cachedTextHash = sanitized.hashCode;
         _cachedVoice = voice;
         _cachedEngine = _storageService.ttsEngine;
-        await _playWavFile(audioFile);
+
+        if (emotion != null &&
+            _storageService.emotionalVoice &&
+            _storageService.expressionEnabled) {
+          try {
+            audio = await _emotionalVoice.process(audio, emotion);
+          } catch (e) {
+            print('EmotionalVoice: $e');
+          }
+        }
+
+        await _playWavFile(audio);
         // Don't delete — it's cached now
       }
     } on ElevenLabsApiException catch (e) {
@@ -559,6 +585,7 @@ class TtsService extends ChangeNotifier {
   Future<void> speakStreaming(
     Stream<String> sentenceStream, {
     String? voiceKey,
+    String? emotion,
   }) async {
     if (!_storageService.ttsEnabled) return;
 
@@ -703,9 +730,20 @@ class TtsService extends ChangeNotifier {
 
       while (_isSpeaking) {
         collectReady(); // gather any newly completed results
-        if (audioQueue.isNotEmpty) {
-          final toPlay = audioQueue.removeAt(0);
-          await _playWavFile(toPlay);
+          if (audioQueue.isNotEmpty) {
+            final toPlay = audioQueue.removeAt(0);
+
+            File? processed;
+            if (emotion != null &&
+                _storageService.emotionalVoice &&
+                _storageService.expressionEnabled) {
+              try {
+                processed = await _emotionalVoice.process(toPlay, emotion);
+              } catch (e) {
+                print('EmotionalVoice: $e');
+              }
+            }
+            await _playWavFile(processed ?? toPlay);
         } else if (producerDone && !completedFiles.containsKey(nextToQueue)) {
           break; // nothing left to play or generate
         } else {

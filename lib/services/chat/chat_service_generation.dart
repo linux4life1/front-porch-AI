@@ -1386,6 +1386,7 @@ extension ChatServiceGeneration on ChatService {
             lastMsg.displayText,
             voiceKey: voiceKey,
             messageId: msgId,
+            emotion: currentExpressionLabel,
           );
         }
 

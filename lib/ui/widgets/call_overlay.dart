@@ -103,7 +103,9 @@ class _CallOverlayState extends State<CallOverlay>
 
       // Start streaming TTS — plays each sentence as it arrives
       ttsService
-          .speakStreaming(sentenceController.stream, voiceKey: voiceKey)
+          .speakStreaming(sentenceController.stream,
+              voiceKey: voiceKey,
+              emotion: chatService.currentExpressionLabel)
           .then((_) {
             sub.cancel();
             if (!sentenceController.isClosed) sentenceController.close();
