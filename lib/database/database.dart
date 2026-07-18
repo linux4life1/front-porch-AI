@@ -141,6 +141,9 @@ class Sessions extends Table {
       integer().withDefault(const Constant(0))(); // 0 to 10 scale
   IntColumn get cooldownTurnsRemaining =>
       integer().withDefault(const Constant(0))(); // 0 = no cooldown
+  IntColumn get cooldownTurnsTotal => integer().withDefault(
+    const Constant(0),
+  )(); // refractory length at climax — persists the cooldown progress denominator
 
   // Realism Engine v3.0 Behavioral Mechanics
   IntColumn get trustLevel =>
@@ -185,6 +188,12 @@ class Sessions extends Table {
 
   // User persona linked to this session (v25)
   TextColumn get userPersonaId => text().nullable()();
+
+  /// The gallery "look" (avatar) selected for THIS chat, or null → show the
+  /// character's library face (`imagePath`). Per-chat selection over the global
+  /// look collection. Nullable + additive; the external card tool (Character
+  /// Card Forge) simply omits it (NULL).
+  TextColumn get selectedLookAvatarId => text().nullable()();
 
   /// Live per-character realism/needs state for group sessions.
   /// JSON map: { charId: { emotion, needs, affection, trust, fixation, relationships, ... } }
@@ -286,6 +295,16 @@ class Groups extends Table {
   TextColumn get characterSystemPrompts =>
       text().withDefault(const Constant('{}'))();
 
+  /// Portable, device-independent stable id for this group (schema v34).
+  ///
+  /// Distinct from [id] (a device-local `group_<timestamp>` handle): this id
+  /// travels in the exported Group Card and is preserved on import, so a shared
+  /// group can be UPDATED in place on The Stoop (no duplicate) and re-associated
+  /// after switching devices — the group analogue of a character's stable id.
+  /// Nullable + additive; groups is outside the Character Card Forge external-
+  /// writer set, so adding it cannot break CCF. Generated lazily in code.
+  TextColumn get stableId => text().nullable()();
+
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get deletedAt => dateTime().nullable()();
 
@@ -349,12 +368,13 @@ class MessageEmbeddings extends Table {
   IntColumn get dimensions => integer()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
-  /// 'message' for normal RAG windows (default), 'needs_event' for long-term
-  /// salient Needs simulation events (high-magnitude pleasure/embarrassment etc.).
+  /// 'message' for normal RAG windows (default). DORMANT: the 'needs_event'
+  /// type (and its writer/reader in MemoryService) was removed with the
+  /// Journal work — column kept for additive-migration safety.
   TextColumn get memoryType => text().withDefault(const Constant('message'))();
 
-  /// Optional JSON blob for event details (e.g. {"category":"pleasure","magnitude":8,"..."}).
-  /// Null for ordinary message embeddings.
+  /// Optional JSON blob for event details. DORMANT (see memoryType) —
+  /// null for ordinary message embeddings.
   TextColumn get metadata => text().nullable()();
 
   @override
@@ -385,6 +405,97 @@ class DataBankEntries extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// The Journal — per-chat, per-character memory cards
+/// (design: docs/design/journal-memory.md).
+/// Strictly session-scoped: cards never cross chats. Phase-2 columns (heat,
+/// accessCount, embedding) are present from day one so no second migration
+/// is needed when the emotional-physics layer lands.
+@TableIndex(
+  name: 'journal_memories_session_character',
+  columns: {#sessionId, #characterId},
+)
+@DataClassName('JournalMemoryData')
+class JournalMemories extends Table {
+  TextColumn get id => text()(); // UUID
+  TextColumn get sessionId => text()(); // scoping key — cards never cross chats
+  TextColumn get characterId => text()(); // diary owner (stableGroupId)
+
+  /// JSON array of int message POSITIONS (not DB ids — message UUIDs are
+  /// regenerated on every save, so positions are the stable receipt, same
+  /// trade-off MessageEmbeddings.positionStart/End already makes).
+  TextColumn get sourceMessageIds => text().nullable()();
+  TextColumn get content => text()(); // the memory, first person
+  TextColumn get category =>
+      text().withDefault(const Constant('moment'))(); // about_user/about_us/moment/promise
+  TextColumn get emotionLabel => text().nullable()(); // current feeling
+  TextColumn get emotionIntensity =>
+      text().nullable()(); // mild/moderate/strong
+  TextColumn get originalEmotionLabel =>
+      text().nullable()(); // set only when the feeling was later revised
+  RealColumn get heat => real().withDefault(const Constant(1.0))(); // phase 2
+  IntColumn get accessCount =>
+      integer().withDefault(const Constant(0))(); // phase 2
+  BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+  BlobColumn get embedding => blob().nullable()(); // phase 2
+  IntColumn get dimensions => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastAccessedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get metadata => text().nullable()(); // JSON pouch (additive future)
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Growth Rings — per-chat, per-character personality growth entries
+/// (design: docs/design/growth-rings.md). Replaces the monolithic evolved
+/// personality/scenario blobs. Strictly session-scoped: rings never cross
+/// chats and die with the chat (same invariant as JournalMemories).
+@TableIndex(
+  name: 'growth_rings_session_character',
+  columns: {#sessionId, #characterId},
+)
+@DataClassName('GrowthRingData')
+class GrowthRings extends Table {
+  TextColumn get id => text()(); // UUID
+  TextColumn get sessionId => text()(); // scoping key — rings never cross chats
+  TextColumn get characterId => text()(); // ring owner (stableGroupId)
+  TextColumn get content => text()(); // one sentence, {{char}}/{{user}} macros
+  TextColumn get category =>
+      text().withDefault(const Constant('trait'))(); // trait/stance/habit/skill/scar/archive
+  RealColumn get strength => real().withDefault(
+    const Constant(0.3),
+  )(); // 0..1; tiers derived in GrowthPhysics (emerging/developing/established)
+  BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+  BoolColumn get retired => boolean().withDefault(
+    const Constant(false),
+  )(); // past growth — visible in history, never injected
+
+  /// JSON array of int message POSITIONS (receipts; reinforcement appends).
+  /// Positions, not DB ids — same trade-off as JournalMemories.
+  TextColumn get sourceMessageIds => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastReinforcedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get metadata => text().nullable()(); // JSON pouch (additive future)
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Growth Rings — per-session pass cursor (its own row instead of a Sessions
+/// column so the Character-Card-Forge-written tables stay untouched).
+@DataClassName('GrowthStateData')
+class GrowthState extends Table {
+  TextColumn get sessionId => text()();
+  IntColumn get cursor => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {sessionId};
 }
 
 /// Objectives — quest/task system for guided roleplay.
@@ -497,6 +608,49 @@ class GroupMembers extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Web UI secure-login account credentials (the rewritten web server's auth).
+///
+/// Single-account model: exactly one row with id 'local'. Replaces the old
+/// plaintext 6-digit web-server PIN. This is a NEW table (v33) — it is NOT in
+/// the Character Card Forge external-direct-writer set (characters/sessions/
+/// messages/avatar_images/sync_meta) and must never be confused with the chat
+/// [Sessions] table.
+class WebAuthCredentials extends Table {
+  TextColumn get id => text()(); // always 'local' for the single host account
+  TextColumn get username => text()();
+  TextColumn get passwordHash => text()(); // Argon2id PHC string (hashlib)
+  TextColumn get totpSecret => text().nullable()(); // base32, only if 2FA set up
+  BoolColumn get totpEnabled => boolean().withDefault(const Constant(false))();
+  TextColumn get recoveryCodes =>
+      text().nullable()(); // JSON array of Argon2id-hashed single-use codes
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Persisted web-login sessions (one row per signed-in device).
+///
+/// The raw cookie token is never stored — only its SHA-256 ([tokenHash]) — so a
+/// DB leak cannot be replayed as a live session. Time fields are epoch
+/// milliseconds for precise sliding-expiry math. NEW table (v33); not an
+/// external-writer table.
+class WebAuthSessions extends Table {
+  TextColumn get id => text()(); // internal row uuid (NOT the cookie value)
+  TextColumn get tokenHash => text()(); // SHA-256 hex of the raw cookie token
+  TextColumn get userId => text()(); // -> web_auth_credentials.id
+  IntColumn get createdAt => integer().withDefault(const Constant(0))();
+  IntColumn get lastSeenAt => integer().withDefault(const Constant(0))();
+  IntColumn get expiresAt => integer().withDefault(const Constant(0))();
+  TextColumn get userAgent => text().nullable()();
+  TextColumn get ip => text().nullable()();
+  BoolColumn get revoked => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 // ── Database Definition ─────────────────────────────────────────────────
 
 @DriftDatabase(
@@ -510,11 +664,16 @@ class GroupMembers extends Table {
     Worlds,
     MessageEmbeddings,
     DataBankEntries,
+    JournalMemories, // v35 — The Journal: per-chat, per-character memory cards
+    GrowthRings, // v36 — Growth Rings: per-chat, per-character growth entries
+    GrowthState, // v36 — Growth Rings: per-session pass cursor
     Objectives,
     StoryProjects,
     SyncMeta,
     AvatarImages,
     GroupMembers, // group-owned characters (clean break from library; see class docs)
+    WebAuthCredentials, // v33 — web secure-login account
+    WebAuthSessions, // v33 — persisted web-login sessions
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -556,41 +715,53 @@ class AppDatabase extends _$AppDatabase {
     // The copy is gated by the import dialog — it only happens after the
     // user has seen the dialog and chosen Import (or skipped the dialog
     // entirely for non-pre-release builds).
+    // Best-effort: a failed copy (disk full, permissions, a second instance
+    // holding the file) must NOT abort startup with no window — fall through
+    // and open whatever DB exists; the import dialog can retry the copy later.
     if (isPreRelease && !file.existsSync()) {
-      final prefs = await SharedPreferences.getInstance();
-      final shown = prefs.getBool('beta_stable_import_shown') ?? false;
-      if (shown) {
-        // Dialog has been shown — respect the user's choice
-        final skipped = prefs.getBool('beta_stable_import_skipped') ?? false;
-        if (!skipped) {
-          final prodFile = File(p.join(dbDir, 'front_porch.db'));
-          if (prodFile.existsSync()) {
-            debugPrint(
-              '[DB] Pre-release build — copying production DB to beta DB',
-            );
-            await prodFile.copy(file.path);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final shown = prefs.getBool('beta_stable_import_shown') ?? false;
+        if (shown) {
+          // Dialog has been shown — respect the user's choice
+          final skipped = prefs.getBool('beta_stable_import_skipped') ?? false;
+          if (!skipped) {
+            final prodFile = File(p.join(dbDir, 'front_porch.db'));
+            if (prodFile.existsSync()) {
+              debugPrint(
+                '[DB] Pre-release build — copying production DB to beta DB',
+              );
+              await prodFile.copy(file.path);
+            }
           }
+        } else {
+          // Dialog not yet shown — defer to the import dialog which will
+          // show after the first frame and trigger the copy manually.
+          debugPrint(
+            '[DB] Pre-release build — import dialog pending, skipping copy',
+          );
         }
-      } else {
-        // Dialog not yet shown — defer to the import dialog which will
-        // show after the first frame and trigger the copy manually.
-        debugPrint(
-          '[DB] Pre-release build — import dialog pending, skipping copy',
-        );
+      } catch (e) {
+        debugPrint('[DB] Beta DB seed copy failed (non-fatal): $e');
       }
     }
 
     // For stable builds: reunify beta DB into production if both exist.
     // This is a one-time operation on the first 0.9.0 stable launch.
     // Steps 1-2 run here (backup + promote). Steps 3-5 (diff + import)
-    // run later in main.dart with a UI overlay.
-    if (!isPreRelease &&
-        await DbReunificationService.needsReunification(dbDir)) {
-      debugPrint(
-        '[DB] Reunification needed — backing up and promoting beta DB',
-      );
-      await DbReunificationService.createBackups(dbDir);
-      await DbReunificationService.promoteBetaDb(dbDir);
+    // run later in main.dart with a UI overlay. Guarded: a reunification I/O
+    // failure must not brick launch — retry next start on whatever DB opens.
+    try {
+      if (!isPreRelease &&
+          await DbReunificationService.needsReunification(dbDir)) {
+        debugPrint(
+          '[DB] Reunification needed — backing up and promoting beta DB',
+        );
+        await DbReunificationService.createBackups(dbDir);
+        await DbReunificationService.promoteBetaDb(dbDir);
+      }
+    } catch (e) {
+      debugPrint('[DB] Reunification failed (non-fatal, will retry): $e');
     }
 
     _dbPath = file.path;
@@ -623,12 +794,6 @@ class AppDatabase extends _$AppDatabase {
 
   /// The directory containing the database files.
   static String? get dbDirPath => _dbDir;
-
-  /// Flush WAL (Write-Ahead Log) to the main database file.
-  /// Call this before uploading the .db file to ensure it's self-contained.
-  Future<void> checkpoint() async {
-    await customStatement('PRAGMA wal_checkpoint(TRUNCATE)');
-  }
 
   /// Run a fast integrity check on the database.
   /// Returns `true` if the database is healthy, `false` if corruption is detected.
@@ -713,6 +878,11 @@ class AppDatabase extends _$AppDatabase {
         'passage_of_time_enabled INTEGER NOT NULL DEFAULT 1',
         'nsfw_cooldown_enabled INTEGER NOT NULL DEFAULT 0',
         'cooldown_turns_remaining INTEGER NOT NULL DEFAULT 0',
+        'cooldown_turns_total INTEGER NOT NULL DEFAULT 0',
+        // v37 — per-chat avatar-gallery look selection. The onUpgrade ALTER is
+        // silent-catch (duplicate-column on rollback/dual-run), so this list is
+        // what guarantees the column exists if that first ALTER ever failed.
+        'selected_look_avatar_id TEXT',
       ],
       'group_members': [
         // Per current GroupMembers Dart definition + created_at (to match the repair-path CREATE TABLE).
@@ -931,7 +1101,16 @@ class AppDatabase extends _$AppDatabase {
 
   /// For testing: create a temporary database backed by a real file.
   /// Uses a system temp directory so the background isolate can access it.
-  factory AppDatabase.forTesting() {
+  ///
+  /// [sameIsolate] runs SQLite on the calling isolate (in-memory) instead of
+  /// the background one. Required inside `testWidgets`: the fake-async test
+  /// zone never yields to the real event loop, so a cross-isolate database
+  /// response can never be delivered and the first awaited query deadlocks
+  /// the whole run at 0% CPU. Plain `test()` bodies keep the default.
+  factory AppDatabase.forTesting({bool sameIsolate = false}) {
+    if (sameIsolate) {
+      return AppDatabase._internal(NativeDatabase.memory());
+    }
     final tmpDir = Directory.systemTemp.createTempSync('fpai_test_');
     final file = File('${tmpDir.path}/test.db');
     return AppDatabase._internal(
@@ -953,7 +1132,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 32;
+  int get schemaVersion => 37;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1481,6 +1660,128 @@ class AppDatabase extends _$AppDatabase {
           );
         } catch (_) {}
       }
+      if (from < 33) {
+        // v32→v33: web secure-login tables for the rewritten web server.
+        // Replaces the old plaintext web-server PIN with username + Argon2id
+        // password + optional TOTP, and persists per-device sessions (so they
+        // survive app restart). Both are NEW tables — additive and outside the
+        // Character Card Forge external-writer set, so this cannot break it.
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS web_auth_credentials (
+            id TEXT NOT NULL PRIMARY KEY,
+            username TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            totp_secret TEXT,
+            totp_enabled INTEGER NOT NULL DEFAULT 0,
+            recovery_codes TEXT,
+            created_at INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS web_auth_sessions (
+            id TEXT NOT NULL PRIMARY KEY,
+            token_hash TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT 0,
+            last_seen_at INTEGER NOT NULL DEFAULT 0,
+            expires_at INTEGER NOT NULL DEFAULT 0,
+            user_agent TEXT,
+            ip TEXT,
+            revoked INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+      }
+      if (from < 34) {
+        // v33→v34: portable per-group stable id. Lets a shared group be UPDATED
+        // in place on The Stoop (and re-associated after switching devices)
+        // instead of creating a duplicate — the group analogue of a character's
+        // stable id. Nullable + additive, and the groups table is outside the
+        // Character Card Forge external-writer set, so this cannot break it.
+        // Backfilled lazily in code (null → generated on first export/share).
+        try {
+          await customStatement('ALTER TABLE groups ADD COLUMN stable_id TEXT');
+        } catch (_) {}
+      }
+      if (from < 35) {
+        // v34→v35: The Journal — per-chat, per-character memory cards
+        // (docs/design/journal-memory.md). NEW table + index, additive only,
+        // outside the Character Card Forge external-writer set, so this
+        // cannot break it. Strictly session-scoped: cards never cross chats.
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS journal_memories (
+            id TEXT NOT NULL PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            character_id TEXT NOT NULL,
+            source_message_ids TEXT,
+            content TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'moment',
+            emotion_label TEXT,
+            emotion_intensity TEXT,
+            original_emotion_label TEXT,
+            heat REAL NOT NULL DEFAULT 1.0,
+            access_count INTEGER NOT NULL DEFAULT 0,
+            pinned INTEGER NOT NULL DEFAULT 0,
+            embedding BLOB,
+            dimensions INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL DEFAULT 0,
+            last_accessed_at INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL DEFAULT 0,
+            metadata TEXT
+          )
+        ''');
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS journal_memories_session_character '
+          'ON journal_memories (session_id, character_id)',
+        );
+      }
+      if (from < 36) {
+        // v35→v36: Growth Rings — per-chat, per-character growth entries +
+        // per-session pass cursor (docs/design/growth-rings.md §5). NEW
+        // tables only, additive, outside the Character Card Forge
+        // external-writer set. The old Sessions evolved* columns go dormant
+        // (content is distilled into rings by the first growth pass).
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS growth_rings (
+            id TEXT NOT NULL PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            character_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'trait',
+            strength REAL NOT NULL DEFAULT 0.3,
+            pinned INTEGER NOT NULL DEFAULT 0,
+            retired INTEGER NOT NULL DEFAULT 0,
+            source_message_ids TEXT,
+            created_at INTEGER NOT NULL DEFAULT 0,
+            last_reinforced_at INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL DEFAULT 0,
+            metadata TEXT
+          )
+        ''');
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS growth_rings_session_character '
+          'ON growth_rings (session_id, character_id)',
+        );
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS growth_state (
+            session_id TEXT NOT NULL PRIMARY KEY,
+            cursor INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+      }
+      if (from < 37) {
+        // v36→v37: per-chat avatar-gallery look selection. Nullable, additive,
+        // no default — the external card tool (Character Card Forge) simply
+        // omits it (NULL). Guarded because drift rewrites user_version even
+        // when an OLDER binary opens a newer DB (rollback / dual-run), so this
+        // step can legally re-run against a DB that already has the column —
+        // unguarded, that throws "duplicate column" on every launch.
+        try {
+          await customStatement(
+            'ALTER TABLE sessions ADD COLUMN selected_look_avatar_id TEXT',
+          );
+        } catch (_) {}
+      }
     },
   );
 
@@ -1771,10 +2072,23 @@ class AppDatabase extends _$AppDatabase {
   Future<Character> getCharacterById(String id) =>
       (select(characters)..where((c) => c.id.equals(id))).getSingle();
 
-  Future<Character?> getCharacterByImagePath(String path) =>
-      (select(characters)
-            ..where((c) => c.imagePath.equals(path) & c.deletedAt.isNull()))
-          .getSingleOrNull();
+  Future<Character?> getCharacterByImagePath(String path) async {
+    // getSingleOrNull() THROWS when two rows share an imagePath — possible for
+    // legacy data, and it aborted the whole JSON migration and wedged the app
+    // on the migration overlay. Tolerate duplicates, but pick DETERMINISTICALLY
+    // (oldest createdAt, then id) rather than a plan-dependent "first" row, so
+    // a duplicate never links chat sessions to a random twin across runs.
+    final rows =
+        await (select(characters)
+              ..where((c) => c.imagePath.equals(path) & c.deletedAt.isNull())
+              ..orderBy([
+                (c) => OrderingTerm(expression: c.createdAt),
+                (c) => OrderingTerm(expression: c.id),
+              ])
+              ..limit(1))
+            .get();
+    return rows.isEmpty ? null : rows.first;
+  }
 
   Future<int> insertCharacter(CharactersCompanion character) async {
     // Ensure UUID is set
@@ -1944,10 +2258,16 @@ class AppDatabase extends _$AppDatabase {
     return map;
   }
 
-  /// Get the most recent session update time per character.
+  /// Get the most recent activity time per character (drives the home-screen
+  /// "Recent Activity" sort).
+  ///
+  /// Uses `updated_at`, which `_doSaveChat` bumps to now on every turn — not
+  /// `created_at`, which is fixed when the chat is first started. Reading
+  /// `created_at` meant "recent" ordered by when each chat was *opened*, so a
+  /// character you talked to today inside an older session sank to the bottom.
   Future<Map<String, DateTime>> getLastActivityPerCharacter() async {
     final result = await customSelect(
-      'SELECT character_id, MAX(created_at) AS last_at '
+      'SELECT character_id, MAX(updated_at) AS last_at '
       'FROM sessions '
       'WHERE character_id IS NOT NULL AND deleted_at IS NULL '
       'GROUP BY character_id',
@@ -2006,9 +2326,24 @@ class AppDatabase extends _$AppDatabase {
     return rows > 0;
   }
 
+  /// Set (or clear, with null) the per-chat avatar-gallery look for a session.
+  /// Partial write — touches only [Sessions.selectedLookAvatarId].
+  Future<void> setSelectedLookForSession(String sessionId, String? avatarId) =>
+      patchSession(
+        SessionsCompanion(
+          id: Value(sessionId),
+          selectedLookAvatarId: Value(avatarId),
+        ),
+      );
+
   Future<int> deleteSessionById(String id) async {
-    // Hard delete: also delete all messages in this session
+    // Hard delete: also delete all messages + journal cards + growth rings in
+    // this session. (Journal cards and growth rings are strictly
+    // session-scoped, so they die with the chat.)
     await (delete(messages)..where((m) => m.sessionId.equals(id))).go();
+    await (delete(journalMemories)..where((j) => j.sessionId.equals(id))).go();
+    await (delete(growthRings)..where((g) => g.sessionId.equals(id))).go();
+    await (delete(growthState)..where((g) => g.sessionId.equals(id))).go();
     final count = await (delete(sessions)..where((s) => s.id.equals(id))).go();
     await bumpSyncVersion();
     return count;
@@ -2153,6 +2488,16 @@ class AppDatabase extends _$AppDatabase {
     final count = await (delete(
       groupMembers,
     )..where((m) => m.groupId.equals(groupId))).go();
+    await bumpSyncVersion();
+    return count;
+  }
+
+  /// Delete a single group member row by its instance id (the UUID primary key).
+  /// Used when one character is removed from a group (not full-group teardown).
+  Future<int> deleteGroupMember(String memberId) async {
+    final count = await (delete(
+      groupMembers,
+    )..where((m) => m.id.equals(memberId))).go();
     await bumpSyncVersion();
     return count;
   }
@@ -2309,6 +2654,138 @@ class AppDatabase extends _$AppDatabase {
     return result.read<int>('cnt');
   }
 
+  // ── Journal Queries ────────────────────────────────────────────────
+  // The Journal: per-chat, per-character memory cards. No bumpSyncVersion,
+  // matching the MessageEmbeddings precedent (derived, session-local data).
+
+  /// All cards for one diary owner in one chat — pinned first, then oldest
+  /// first (stable reading order for prompt handles and the UI).
+  Future<List<JournalMemoryData>> getJournalCards(
+    String sessionId,
+    String characterId,
+  ) =>
+      (select(journalMemories)
+            ..where(
+              (j) =>
+                  j.sessionId.equals(sessionId) &
+                  j.characterId.equals(characterId),
+            )
+            ..orderBy([
+              (j) => OrderingTerm.desc(j.pinned),
+              (j) => OrderingTerm.asc(j.createdAt),
+            ]))
+          .get();
+
+  Future<void> insertJournalCard(JournalMemoriesCompanion card) async {
+    if (!card.id.present) {
+      card = card.copyWith(id: Value(_uuid.v4()));
+    }
+    await into(journalMemories).insert(card);
+  }
+
+  /// Write-by-id partial update (mirrors [updateMessage] style).
+  Future<void> updateJournalCard(String id, JournalMemoriesCompanion card) =>
+      (update(journalMemories)..where((j) => j.id.equals(id))).write(card);
+
+  Future<int> deleteJournalCard(String id) =>
+      (delete(journalMemories)..where((j) => j.id.equals(id))).go();
+
+  /// Cascading cleanup (also invoked inline by [deleteSessionById]).
+  Future<int> deleteJournalCardsForSession(String sessionId) => (delete(
+    journalMemories,
+  )..where((j) => j.sessionId.equals(sessionId))).go();
+
+  Future<int> countJournalCards(String sessionId, String characterId) async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM journal_memories '
+      'WHERE session_id = ? AND character_id = ?',
+      variables: [Variable.withString(sessionId), Variable.withString(characterId)],
+    ).getSingle();
+    return result.read<int>('cnt');
+  }
+
+  // ── Growth Ring Queries ────────────────────────────────────────────────
+  // Growth Rings: per-chat, per-character growth entries + per-session pass
+  // cursor (docs/design/growth-rings.md). No bumpSyncVersion, matching the
+  // JournalMemories precedent (derived, session-local data).
+
+  /// All rings (active AND retired) for one owner in one chat — active first
+  /// by strength descending, then retired by recency. This order is what the
+  /// growth prompt numbers its 1-based handles by (active rings only) and
+  /// what the timeline UI renders, so the surfaces always agree.
+  Future<List<GrowthRingData>> getGrowthRings(
+    String sessionId,
+    String characterId,
+  ) =>
+      (select(growthRings)
+            ..where(
+              (g) =>
+                  g.sessionId.equals(sessionId) &
+                  g.characterId.equals(characterId),
+            )
+            ..orderBy([
+              (g) => OrderingTerm.asc(g.retired),
+              (g) => OrderingTerm.desc(g.strength),
+              (g) => OrderingTerm.asc(g.createdAt),
+            ]))
+          .get();
+
+  Future<void> insertGrowthRing(GrowthRingsCompanion ring) async {
+    if (!ring.id.present) {
+      ring = ring.copyWith(id: Value(_uuid.v4()));
+    }
+    await into(growthRings).insert(ring);
+  }
+
+  /// Write-by-id partial update (mirrors [updateJournalCard] style).
+  Future<void> updateGrowthRing(String id, GrowthRingsCompanion ring) =>
+      (update(growthRings)..where((g) => g.id.equals(id))).write(ring);
+
+  Future<int> deleteGrowthRing(String id) =>
+      (delete(growthRings)..where((g) => g.id.equals(id))).go();
+
+  /// Every ring in one chat, all owners (fork carry-over).
+  Future<List<GrowthRingData>> getGrowthRingsForSession(String sessionId) =>
+      (select(
+        growthRings,
+      )..where((g) => g.sessionId.equals(sessionId))).get();
+
+  /// Re-key one owner's rings within a session (group⇄solo cast transitions —
+  /// mirrors [reassignObjectives]).
+  Future<int> reassignGrowthRings(
+    String fromCharacterId,
+    String toCharacterId, {
+    required String sessionId,
+  }) => (update(growthRings)..where(
+    (g) =>
+        g.sessionId.equals(sessionId) &
+        g.characterId.equals(fromCharacterId),
+  )).write(GrowthRingsCompanion(characterId: Value(toCharacterId)));
+
+  /// Delete one character's rings in one chat (hard cast-removal hygiene).
+  Future<int> deleteGrowthRingsForCharacter(
+    String sessionId,
+    String characterId,
+  ) => (delete(growthRings)..where(
+    (g) => g.sessionId.equals(sessionId) & g.characterId.equals(characterId),
+  )).go();
+
+  /// The growth pass cursor for a session (0 when no pass has run yet).
+  Future<int> getGrowthCursor(String sessionId) async {
+    final row = await (select(
+      growthState,
+    )..where((g) => g.sessionId.equals(sessionId))).getSingleOrNull();
+    return row?.cursor ?? 0;
+  }
+
+  Future<void> setGrowthCursor(String sessionId, int cursor) =>
+      into(growthState).insertOnConflictUpdate(
+        GrowthStateCompanion(
+          sessionId: Value(sessionId),
+          cursor: Value(cursor),
+        ),
+      );
+
   // ── Data Bank Queries ────────────────────────────────────────────────────────
 
   Future<void> insertDataBankEntry(DataBankEntriesCompanion entry) async {
@@ -2387,6 +2864,79 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> deleteObjective(String id) =>
       (delete(objectives)..where((o) => o.id.equals(id))).go();
+
+  /// Re-key objectives from one character id to another within a session (used
+  /// when a chat collapses group->1:1: the survivor's objectives move from its
+  /// group member instance id to the origin library id, preserving the rows).
+  Future<int> reassignObjectives(
+    String fromCharacterId,
+    String toCharacterId, {
+    required String chatId,
+  }) async {
+    final n = await (update(objectives)
+          ..where((o) => o.characterId.equals(fromCharacterId))
+          ..where((o) => o.chatId.equals(chatId)))
+        .write(ObjectivesCompanion(characterId: Value(toCharacterId)));
+    await bumpSyncVersion();
+    return n;
+  }
+
+  /// Re-key message embeddings from one character id to another within a session
+  /// (used on group->1:1 collapse so the group-era semantic memory, stored under
+  /// the `group_id` RAG key, moves to the origin library id and stays
+  /// retrievable in 1:1).
+  Future<int> reassignEmbeddings(
+    String fromCharacterId,
+    String toCharacterId, {
+    required String chatId,
+  }) async {
+    final n = await (update(messageEmbeddings)
+          ..where((e) => e.characterId.equals(fromCharacterId))
+          ..where((e) => e.sessionId.equals(chatId)))
+        .write(MessageEmbeddingsCompanion(characterId: Value(toCharacterId)));
+    await bumpSyncVersion();
+    return n;
+  }
+
+  /// COPY a character's embeddings for one session under a NEW character id +
+  /// session id, leaving the originals untouched (fresh row ids are assigned).
+  /// Used on 1:1->group fork (`/join`): the host's prior RAG memory is duplicated
+  /// into the group's shared `group_<id>` memory pool on the new group session, so
+  /// the converted cast can recall pre-conversion events that scrolled out of
+  /// context — while the preserved 1:1 keeps its own copy (the revert snapshot).
+  /// COPY, not move, exactly like the objectives carry-on-fork; the inverse
+  /// (group->1:1 collapse) re-keys in place via [reassignEmbeddings]. Returns the
+  /// number of rows copied.
+  Future<int> copyEmbeddingsForSession(
+    String fromCharacterId,
+    String fromSessionId, {
+    required String toCharacterId,
+    required String toSessionId,
+  }) async {
+    final rows = await (select(messageEmbeddings)
+          ..where((e) => e.characterId.equals(fromCharacterId))
+          ..where((e) => e.sessionId.equals(fromSessionId)))
+        .get();
+    if (rows.isEmpty) return 0;
+    final copies = rows
+        .map(
+          (r) => MessageEmbeddingsCompanion(
+            sessionId: Value(toSessionId),
+            characterId: Value(toCharacterId),
+            positionStart: Value(r.positionStart),
+            positionEnd: Value(r.positionEnd),
+            content: Value(r.content),
+            embedding: Value(r.embedding),
+            dimensions: Value(r.dimensions),
+            memoryType: Value(r.memoryType),
+            metadata: Value(r.metadata),
+          ),
+        )
+        .toList();
+    await insertEmbeddings(copies); // assigns fresh ids + batches
+    await bumpSyncVersion();
+    return copies.length;
+  }
 
   Future<int> deleteObjectivesForCharacter(String characterId) => (delete(
     objectives,

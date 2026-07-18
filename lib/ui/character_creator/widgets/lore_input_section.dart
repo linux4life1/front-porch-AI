@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 /// World-lore ingestion: a comma-separated URL field plus attach/remove of
 /// local lore files (.txt/.md/.pdf/.json/.csv). Restored from the god file's
@@ -21,7 +21,8 @@ class LoreInputSection extends StatelessWidget {
   });
 
   Future<void> _attach() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await PickerPrefs.pickFiles(
+      category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['txt', 'md', 'pdf', 'json', 'csv'],
       allowMultiple: true,

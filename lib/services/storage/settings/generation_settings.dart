@@ -30,16 +30,39 @@ class GenerationSettings with SettingsBase {
 
   String _systemPrompt = defaultSystemPrompt;
   double _minP = 0.1;
+  // 0.9 matches what the transport always hardcoded before Top-P became a
+  // real setting, so existing chats feel identical until the slider moves.
+  double _topP = 0.9;
+  int _topK = 0; // 0 = disabled (both KoboldCpp and remote APIs treat it so)
   double _temperature = 0.7;
   double _repeatPenalty = 1.1;
-  int _repeatPenaltyTokens = 64;
+  // Penalty look-back window. 1024 per community standard (360–2048);
+  // the old 64 (~50 words) let anything two paragraphs back repeat
+  // penalty-free (defaults audit, maintainer-approved 2026-07-15).
+  int _repeatPenaltyTokens = 1024;
+  // DRY anti-repetition (KoboldCpp only). 0 = off; ~0.8 is the usual dose.
+  double _dryMultiplier = 0.0;
   bool _dynamicTempEnabled = false;
   double _dynamicTempRange = 0.7;
+  bool _dynamicResponses = false;
+  int _dynamicResponseInterval = 60;
+  int _dynamicResponseMaxMessages = 3;
   double _xtcThreshold = 0.1;
-  double _xtcProbability = 0.5;
-  int _maxLength = 1024;
+  // 0 = XTC off. The old default was 0.5, but XTC never actually reached the
+  // model back then — now that samplers are delivered, defaulting it ON would
+  // surprise-activate it. Users who explicitly set a value keep theirs.
+  double _xtcProbability = 0.0;
+  // 2048 (was 1024): thinking models spend their reasoning stream against
+  // this same cap, so 1024 could leave a heavy thinker a truncated one-liner.
+  // The generation reserve subtracts this from the history budget, which the
+  // 16k default context (backend_settings.dart) absorbs comfortably.
+  int _maxLength = 2048;
   int _minLength = 0;
-  List<String> _stopSequences = [
+  /// Shipped default stop strings. Public + const so the prioritized stop
+  /// builder (lib/services/chat/stop_sequences.dart) can tell user-added
+  /// custom stops (higher priority) apart from these defaults (lowest
+  /// priority) — the stored list holds both mixed together.
+  static const List<String> kDefaultStopSequences = [
     "\nUser:",
     "\n###",
     "\nScenario:",
@@ -54,13 +77,21 @@ class GenerationSettings with SettingsBase {
     "\n{Note:",
   ];
 
+  List<String> _stopSequences = List.of(kDefaultStopSequences);
+
   String get systemPrompt => _systemPrompt;
   double get minP => _minP;
+  double get topP => _topP;
+  int get topK => _topK;
+  double get dryMultiplier => _dryMultiplier;
   double get temperature => _temperature;
   double get repeatPenalty => _repeatPenalty;
   int get repeatPenaltyTokens => _repeatPenaltyTokens;
   bool get dynamicTempEnabled => _dynamicTempEnabled;
   double get dynamicTempRange => _dynamicTempRange;
+  bool get dynamicResponses => _dynamicResponses;
+  int get dynamicResponseInterval => _dynamicResponseInterval;
+  int get dynamicResponseMaxMessages => _dynamicResponseMaxMessages;
   double get xtcThreshold => _xtcThreshold;
   double get xtcProbability => _xtcProbability;
   int get maxLength => _maxLength;
@@ -70,6 +101,9 @@ class GenerationSettings with SettingsBase {
   void load() {
     _systemPrompt = prefs?.getString(k('system_prompt')) ?? _systemPrompt;
     _minP = prefs?.getDouble(k('min_p')) ?? _minP;
+    _topP = prefs?.getDouble(k('top_p')) ?? _topP;
+    _topK = prefs?.getInt(k('top_k')) ?? _topK;
+    _dryMultiplier = prefs?.getDouble(k('dry_multiplier')) ?? _dryMultiplier;
     _temperature = prefs?.getDouble(k('temperature')) ?? _temperature;
     _repeatPenalty = prefs?.getDouble(k('repeat_penalty')) ?? _repeatPenalty;
     _repeatPenaltyTokens =
@@ -78,6 +112,13 @@ class GenerationSettings with SettingsBase {
         prefs?.getBool(k('dynamic_temp_enabled')) ?? _dynamicTempEnabled;
     _dynamicTempRange =
         prefs?.getDouble(k('dynamic_temp_range')) ?? _dynamicTempRange;
+    _dynamicResponses =
+        prefs?.getBool(k('dynamic_responses')) ?? _dynamicResponses;
+    _dynamicResponseInterval =
+        prefs?.getInt(k('dynamic_response_interval')) ?? _dynamicResponseInterval;
+    _dynamicResponseMaxMessages =
+        prefs?.getInt(k('dynamic_response_max_messages')) ??
+        _dynamicResponseMaxMessages;
     _xtcThreshold = prefs?.getDouble(k('xtc_threshold')) ?? _xtcThreshold;
     _xtcProbability = prefs?.getDouble(k('xtc_probability')) ?? _xtcProbability;
     _maxLength = prefs?.getInt(k('max_length')) ?? _maxLength;
@@ -110,6 +151,24 @@ class GenerationSettings with SettingsBase {
     notify();
   }
 
+  Future<void> setTopP(double value) async {
+    _topP = value;
+    await prefs?.setDouble(k('top_p'), value);
+    notify();
+  }
+
+  Future<void> setTopK(int value) async {
+    _topK = value;
+    await prefs?.setInt(k('top_k'), value);
+    notify();
+  }
+
+  Future<void> setDryMultiplier(double value) async {
+    _dryMultiplier = value;
+    await prefs?.setDouble(k('dry_multiplier'), value);
+    notify();
+  }
+
   Future<void> setTemperature(double value) async {
     _temperature = value;
     await prefs?.setDouble(k('temperature'), value);
@@ -137,6 +196,24 @@ class GenerationSettings with SettingsBase {
   Future<void> setDynamicTempRange(double value) async {
     _dynamicTempRange = value;
     await prefs?.setDouble(k('dynamic_temp_range'), value);
+    notify();
+  }
+
+  Future<void> setDynamicResponses(bool value) async {
+    _dynamicResponses = value;
+    await prefs?.setBool(k('dynamic_responses'), value);
+    notify();
+  }
+
+  Future<void> setDynamicResponseInterval(int value) async {
+    _dynamicResponseInterval = value;
+    await prefs?.setInt(k('dynamic_response_interval'), value);
+    notify();
+  }
+
+  Future<void> setDynamicResponseMaxMessages(int value) async {
+    _dynamicResponseMaxMessages = value;
+    await prefs?.setInt(k('dynamic_response_max_messages'), value);
     notify();
   }
 

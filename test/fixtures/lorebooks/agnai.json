@@ -1,0 +1,14 @@
+{
+  "kind": "memory",
+  "name": "Vale Memory Book",
+  "entries": [
+    {
+      "name": "The Old War",
+      "entry": "The Old War burned the eastern forests.",
+      "keywords": ["old war", "the burning"],
+      "priority": 0,
+      "weight": 55,
+      "enabled": true
+    }
+  ]
+}

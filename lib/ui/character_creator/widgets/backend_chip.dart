@@ -33,7 +33,7 @@ class BackendChip extends StatelessWidget {
         ? AppColors.textPrimary(context)
         : AppColors.textPrimary(context);
     final border = isSelected
-        ? AppColors.resolve(context, Colors.blueAccent, Colors.blue.shade700)
+        ? AppColors.porchAmberOf(context)
         : AppColors.borderOf(context);
 
     return InkWell(

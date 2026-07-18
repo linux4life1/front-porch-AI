@@ -221,7 +221,7 @@ class _ExternalImageWidgetState extends State<ExternalImageWidget> {
             mainAxisSize: MainAxisSize.min,
             children: [
               CircularProgressIndicator(
-                color: Colors.blueAccent,
+                color: AppColors.formMasterAccent,
                 strokeWidth: 2,
               ),
               SizedBox(height: 8),

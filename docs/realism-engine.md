@@ -1,512 +1,266 @@
-# Realism Engine
+# The Realism Engine
 
-The Realism Engine is Front Porch AI's system for tracking character relationships, emotions, and story progression across conversations.
+The Realism Engine is Front Porch AI's signature feature — the system that turns a character from a clever text generator into someone who *remembers how they feel about you*. This guide walks through every part of it in plain language: what it tracks, what you'll see on screen, and how to tune it.
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Enabling & Disabling](#enabling--disabling)
-3. [Bond Tracking](#bond-tracking)
-4. [Trust System](#trust-system)
-5. [Emotion States](#emotion-states)
-6. [Arousal System](#arousal-system)
-7. [Passage of Time](#passage-of-time)
-8. [Chaos Mode (Chance Time)](#chaos-mode-chance-time)
-9. [Character Evolution](#character-evolution)
-10. [Fixation Engine](#fixation-engine)
-11. [NSFW Cooldown](#nsfw-cooldown)
-12. [One-Shot Eval Mode](#one-shot-eval-mode)
-13. [Sims/Needs Simulation](#simsneeds-simulation)
-14. [Performance Considerations](#performance-considerations)
-15. [Troubleshooting](#troubleshooting)
+1. [What Is the Realism Engine?](#what-is-the-realism-engine)
+2. [Turning It On](#turning-it-on)
+3. [What You Will See](#what-you-will-see)
+4. [Bond: How They Feel About You](#bond-how-they-feel-about-you)
+5. [Trust: How Safe You Seem](#trust-how-safe-you-seem)
+6. [Emotions That Linger](#emotions-that-linger)
+7. [Desire and Intimacy Pacing](#desire-and-intimacy-pacing)
+8. [The Passage of Time](#the-passage-of-time)
+9. [Objectives: Goals of Their Own](#objectives-goals-of-their-own)
+10. [Fixations: Thoughts That Won't Let Go](#fixations-thoughts-that-wont-let-go)
+11. [Character Evolution](#character-evolution)
+12. [Chaos Mode (Chance Time)](#chaos-mode-chance-time)
+13. [The Needs Simulation](#the-needs-simulation)
+14. [Expressions: Seeing the Mood](#expressions-seeing-the-mood)
+15. [Group Chats](#group-chats)
+16. [The Director (Optional Quality Check)](#the-director-optional-quality-check)
+17. [Speed, Cost, and Tuning](#speed-cost-and-tuning)
+18. [When Things Look Weird](#when-things-look-weird)
 
 ---
 
-## Overview
+## What Is the Realism Engine?
 
-The Realism Engine is Front Porch AI's signature feature for making AI characters feel like living, evolving people rather than scripted responders. Without it, conversations are stateless: every message is evaluated in isolation, relationships never deepen or fracture, emotions reset instantly, and the passage of time is ignored. Characters can say "I love you" one turn and treat you like a stranger the next.
+Without the Realism Engine, every message you send is judged in isolation. A character can pour their heart out one turn and greet you like a stranger the next. Nothing deepens, nothing heals, no time passes.
 
-**How it works (technical overview):**
+With it on, the app quietly asks your AI model a few short follow-up questions after each exchange — things like *"Did that change how she feels about him?"* and *"Is she still upset about earlier?"* — and keeps a running score of the relationship. Those scores are then woven back into the next reply, so the character's warmth, guardedness, mood, and sense of time all carry forward naturally.
 
-After the AI generates a response (or immediately after a greeting), the Realism Engine runs a series of lightweight LLM "evaluation" calls (distinct from the main chat generation). These evals analyze the recent conversation history and update a rich internal state model stored per-chat session in the SQLite database (`sessions` table in `lib/database/database.dart`).
+What that feels like in practice:
 
-The core evaluation logic lives in `lib/services/chat_service.dart` (methods such as `_evaluateRelationshipCall`, `_evaluateEmotionalStateCall`, `_evaluatePhysicalStateCall`, `_evaluateNarrativeCall`, `_evaluateOneShotCall`, `_checkClimaxInResponse`, and `_applyMoodDecay`). A companion `lib/services/expression_classifier.dart` (via `LLMExpressionClassifier` and `ONNXExpressionClassifier`) helps map the nuanced emotions produced by the eval LLM into the 30 standard expression labels used for sprite/expression image matching.
+- **Kindness compounds.** A genuinely sweet gesture can warm a character for dozens of turns. A betrayal can sour things for a long while.
+- **Moods have weight.** Emotions drift and linger instead of snapping back to neutral after every message.
+- **The world keeps time.** Mornings turn to evenings, days accumulate, and characters remember where they are and what they were doing.
+- **Nothing overrides personality.** The Realism Engine colors *how* a character expresses themselves — a prickly character at maximum bond is still prickly, just softer around the edges with you.
 
-Key tracked dimensions (all persisted and injected back into future prompts):
-
-- **Bond** (short-term tension `-300`…`+300` and long-term bond `-300`…`+300`)
-- **Trust** (`-100`…`+100`)
-- **Emotion** (nuanced word + mild/moderate/strong intensity)
-- **Arousal** (`-100`…`+100`) + NSFW refractory cooldown
-- **Time of day** + day count (deterministic, advances every 6 turns unless the LLM vetoes)
-- **Fixations** (intrusive persistent thoughts, 3-turn lifespan)
-- **Spatial stance** (current physical posture/location)
-- **Chaos pressure** (for Chance Time events)
-- **Primary objectives** (quest-like goals)
-
-These values are turned into rich OOC prompt injections (`_getRelationshipInjection`, `_getEmotionInjection`, `_getBehavioralMechanicsInjection`, `_getTimeInjection`, `_getTrustBehaviorInjection`, `_getNsfwCooldownInjection`) so the *next* generation respects the character's current emotional reality. The main character personality always takes precedence — realism only colors how that personality expresses itself.
-
-**What you experience:**
-
-- Characters remember how they *feel* about you. A single act of kindness can warm them for dozens of turns; a betrayal can poison the relationship for a long time.
-- Emotions have **inertia** — they linger after intense moments instead of snapping back to neutral.
-- The world has a sense of time and place. Lighting, atmosphere, and the character's physical position evolve naturally.
-- Relationships feel earned. Short-term mood fluctuates quickly; long-term bond grows (or erodes) slowly from sustained patterns.
-- Mature scenes have realistic pacing thanks to the arousal + cooldown system.
-- Unpredictable drama via Chaos Mode ("Chance Time").
-
-**It's completely optional.** The master toggle defaults to **off**. You can enable it globally, per-character (as a default for new chats), or manage it on a per-chat basis. When disabled, none of the extra LLM eval calls happen and chats behave like a traditional character AI.
+The whole system is optional and **off by default**. When it's off, no extra evaluation calls run at all and chats behave like a traditional character AI.
 
 ---
 
-## Enabling & Disabling
+## Turning It On
 
-The Realism Engine can be controlled at three levels:
+You can control the Realism Engine at three levels:
 
-### 1. Global Default (Settings)
+**1. In Settings (your default for new chats).** Open Settings and find the Realism options. The master toggle turns the engine on for new conversations, along with sub-features like NSFW Cooldown and Automatic Passage of Time.
 
-Go to **Settings → Realism Mode** (or search for "Realism" in the settings page).
+**2. On the character card.** The character creator and character editor both have a Realism Engine panel where you can enable it for that specific character and set the opening state of a brand-new chat: starting bond, trust, emotion, time of day, and which sub-features begin switched on. These settings only seed *new* conversations — existing chats keep the state they've already built up.
 
-- **Enable Realism Mode** (teal switch) — master toggle. When on, new chats inherit the sub-toggles below.
-- **NSFW Cooldown** — tracks physical arousal and enforces a refractory period after intimate climaxes (highly recommended for mature RP).
-- **Automatic Passage of Time** — lets in-universe time advance (dawn → morning → afternoon → evening → night) as you chat. Also enables spatial awareness even if the master time clock is off.
+**3. In the chat itself.** The chat sidebar has a **Realism Mode** section where you can flip the engine (and its sub-toggles, like **Automatic Passage of Time** and **One-Shot Eval**) for the conversation you're in right now. Turning realism on mid-chat makes the engine read back through the recent conversation so it can catch up instead of starting cold.
 
-These defaults are stored in `StorageService` (`lib/services/storage_service.dart`) and applied to every new session unless overridden by a character card.
+![The settings page, where the Realism Engine defaults live](screenshots/new_settings.png)
 
-### 2. Per-Character Default (Character Editor / Creator)
-
-When creating or editing a character (Manual Creator, AI Creator, or Edit Character page):
-
-- Step 4 is the **Realism Engine** panel (powered by the shared `RealismFormSection` widget in `lib/ui/widgets/realism_form_section.dart`).
-- Toggle "Enable Realism Engine" for this character.
-- Set **initial state** for a new conversation:
-  - Time of day and day count
-  - Short-term bond and long-term bond (`-300` to `+300`)
-  - Trust level (`-100` to `+100`)
-  - Starting emotion + intensity
-  - Whether NSFW Cooldown and/or Chaos Mode start enabled
-  - An optional initial "Current Task" (Primary Objective)
-
-These values are saved inside the character's `extensions.front_porch.realism_engine` JSON (see `FrontPorchExtensions` in `lib/models/character_card.dart`). They only seed **brand-new** conversations — existing chats keep their own persisted session state.
-
-### 3. Per-Chat / In-Session Controls
-
-- Once a chat is running, the current realism state lives in the `sessions` row in the database and survives app restarts and swipes/regenerations.
-- The master realism flag for the active session can be flipped at runtime via `ChatService.setRealismEnabled()` (exposed in UI through the global setting or chat-specific menus).
-- **One-Shot Eval (Experimental)** toggle appears in the chat settings drawer (and is also available in Settings). It fuses multiple realism evals into a single LLM call for much faster processing at the cost of slightly lower accuracy on small models.
-- Chaos Mode and other sub-features can be toggled per-session via `setChaosModeEnabled`, `setNsfwCooldownEnabled`, and `setPassageOfTimeEnabled`.
-
-**Tip:** Turning realism *on* mid-chat triggers a retroactive baseline eval (`_runRetroactiveBaselineEval`) against visible history so the engine catches up instantly.
+> **Tip:** The engine even runs once on the character's greeting — before you've typed anything — so the opening mood matches the opening message. You'll see a brief *"Reading the room..."* overlay when that happens.
 
 ---
 
-## Bond Tracking
+## What You Will See
 
-Bond is the heart of the relationship system and comes in two layers that evolve on very different timescales.
+Three things change on screen when the Realism Engine is active:
 
-### Short-Term Bond (Tension)
+- **Chips under replies.** When something meaningful shifts — bond up, trust down, a mood change, a time skip — small chips appear under the character's message showing exactly what moved and by how much. Quiet turns produce few or no chips; that's by design.
+- **The sidebar.** The chat sidebar shows the character's current bond and trust levels, their mood, the in-story time and day, any active fixation or objective, and (if enabled) their needs bars.
+- **A brief processing overlay.** After a reply, you may see a short "thinking" overlay while the engine runs its check-ins. There's a cancel button if you'd rather skip it — interrupting is always safe.
 
-- **Range:** `-300` (vitriolic hatred) to `+300` (utter devotion)
-- **Tier names** (21 tiers, calculated in `_calculateTier`): Devoted / Enamored / Intimate / Close / Amiable / Friendly / Warm / Receptive / Neutral … all the way down to Vitriolic / Contempt / Disdain / Hostile / Adversarial / Broken Trust.
-- Changes rapidly from the relationship eval (`_evaluateRelationshipCall` or the fused one-shot). The LLM is instructed to give small deltas (`±1`–`±5`) for normal interaction and only large deltas (`±10`–`±50`) for truly meaningful moments.
-- **Inertia & decay:** Every 10 turns the short-term score drifts 1 point toward zero (`_applyMoodDecay`). This prevents relationships from being permanently stuck at extremes.
-- **Effect on generation:** The `_getRelationshipInjection()` block tells the model exactly how open, warm, sarcastic, cold, or hostile the character currently feels. The character's core personality is never overridden — a naturally tsundere character at +200 bond will still be tsundere, just warmer and more vulnerable than usual.
-
-### Long-Term Bond
-
-- Same numeric range (`-300`…`+300`) and tier names (Soulmate / Life Partner / Deeply Attached … Fractured / Deep Resentment … Vitriolic).
-- Grows (or shrinks) much more slowly via `_evalLongTermGrowth`, which is called periodically. Sustained high short-term tiers (≥7) cause +2 or +3 long-term points every few turns; sustained negative tiers erode it.
-- Once earned, long-term bond is extremely sticky. A character with high long-term bond will retain underlying affection even during a short-term fight.
-- Used in prompt guidance to describe "unbreakable commitment" or "deep-seated resentment that even positive short-term mood can't fully erase."
-
-Both scores are shown in the message metadata chips (pink heart for bond deltas) when they change, and the current tier names appear in the relationship OOC note injected into every prompt.
+![A chat with the Realism sidebar and message chips visible](screenshots/chat.png)
 
 ---
 
-## Trust System
+## Bond: How They Feel About You
 
-Trust (`-100`…`+100`) is deliberately distinct from bond:
+Bond is the heart of the system, and it comes in two layers that move at very different speeds.
 
-- **Bond** = "How does this character *feel* about me emotionally right now?"
-- **Trust** = "How safe and reliable does this character judge me to be?"
+**Short-term bond** is the character's current feeling toward you, on a scale from **−300 to +300** with named tiers along the way — from open hostility at the bottom to utter devotion at the top. Ordinary conversation nudges it a point or two at a time; only genuinely meaningful moments move it in big jumps. It also slowly drifts back toward neutral over time (about one point every ten turns), so relationships never get permanently stuck at an extreme — you have to keep showing up.
 
-Trust deltas come from the same relationship eval but are much more conservative (the LLM prompt heavily penalizes large swings except for extraordinary acts). Only the *user's* behavior moves trust — the character's own actions never do.
+**Long-term bond** uses the same −300 to +300 scale but grows much more slowly, from *sustained* patterns rather than single moments. Keep the short-term relationship warm for a long stretch and the long-term bond quietly climbs; keep hurting someone and it erodes. Once earned, it's sticky: a character with deep long-term attachment keeps an undercurrent of affection even during a short-term fight — which is exactly how real relationships weather bad days.
 
-**Tier names** (via `trustTierName`):
-- Positive: Blind Trust, Implicit Trust, Deeply Trusting, Confident Trust, Trusting, Leaning Positive, Cautious, Neutral…
-- Negative: Guarded, Skeptical, Wary, Suspicious, Distrustful, Paranoid, Broken Trust, etc.
-
-**Behavioral impact** (`_getTrustBehaviorInjection`):
-- ≤ `-50`: Deeply distrustful/paranoid — questions every motive, evasive, assumes the worst.
-- `-20` to `-5`: Skeptical/Guarded/Cautious — surface-level talk, tests intentions.
-- `0`: Truly neutral (personality wins).
-- `+30`–`+50`: Deep trust — mask is down, shares real feelings, vulnerability that is authentic to *this* character's personality.
-- `+60`+: Rare "you are the only person I would ever tell this to" level.
-
-**Trust Repair Window:** Any single-turn trust drop of `-20` or worse arms a special `_pendingTrustRepair` flag. On the *very next* user message the engine runs a dedicated trust-repair eval (`_runTrustRepairEval`) that scores how convincingly the user addressed the breach (0–60 recovery points). The character then reacts accordingly — a heartfelt, personality-appropriate apology can recover a lot; a glib "sorry" usually gets rejected.
-
-Trust state is saved per session and restored on swipes/regens.
+Both feed directly into how the character writes: how open they are, how much warmth or frost is in their voice, how far they'll let you in.
 
 ---
 
-## Emotion States
+## Trust: How Safe You Seem
 
-Every turn (when realism is active) the engine runs an emotion evaluation (`_evaluateEmotionalStateCall` or fused in one-shot) that produces:
+Trust is deliberately separate from bond. Bond asks *"How do I feel about you?"* Trust asks *"How safe are you?"* — and you can absolutely have one without the other.
 
-- A **nuanced emotion word** (never generic "happy" — the prompt demands "wistful", "flustered", "prickly", "smoldering", "guarded", "starstruck", etc., filtered through the character's personality)
-- An **intensity** (`mild` / `moderate` / `strong`)
+Trust runs from **−100 to +100** and moves conservatively. Only your behavior moves it; the character's own actions never do. At deeply negative trust a character questions every motive and keeps everything surface-level. Around zero, their natural personality does the talking. At high trust, the mask comes down: they share real feelings and real vulnerability — expressed the way *that* character would express it.
 
-**Emotion inertia** is explicitly encouraged in the prompt: minor exchanges cause only small drift; after fights, confessions, or intimate moments the emotion is allowed (and instructed) to linger for several turns.
-
-The current emotion is injected via `_getEmotionInjection()` so the model colors tone, body language, and word choice appropriately.
-
-**Expression images / sprites:** When the Expression feature is also enabled, the Realism Engine's nuanced emotion is mapped to one of the 30 standard go-emotions labels (`lib/utils/emotion_labels.dart`) using `EmotionLabels.nuancedToStandard`. If the word isn't in the map, `LLMExpressionClassifier` (in `expression_classifier.dart`) triggers a quick reclassification call to pick the closest standard label. This drives the correct animated portrait.
-
-Emotions are persisted in the session row (`characterEmotion`, `emotionIntensity`) and survive across messages, swipes, and app restarts.
+**Trust repair.** If you badly damage trust in a single turn, the engine watches your very next message closely. A sincere, personality-appropriate attempt to make it right can win back a meaningful chunk of what was lost. A glib "sorry" usually gets the reception it deserves.
 
 ---
 
-## Arousal System
+## Emotions That Linger
 
-When **NSFW Cooldown** is enabled (a Realism sub-toggle), the engine tracks a separate physical arousal dimension (`-100`…`+100`).
+Every active turn, the engine updates the character's emotional state — not a flat "happy" or "sad," but a nuanced feeling (*wistful*, *flustered*, *guarded*, *smoldering*...) with an intensity from mild to strong, filtered through who the character is.
 
-- Arousal deltas are requested in the relationship/emotion/one-shot evals (with bold guidance: intimate moments should produce `+10` to `+25`).
-- The value is **not** "progress toward orgasm" — it is current *desire and physical response*. The prompt explicitly tells the model: "High arousal = intensely turned on, NOT that they are about to climax."
+The key idea is **inertia**. Small moments cause small drift. Big moments — a fight, a confession, an intimate scene — leave a mark that takes several turns to fade. Characters stop emotionally teleporting, and the conversation gains a believable emotional throughline.
 
-**Arousal tier names** (via `arousalTierName`, 21 tiers from -10 to +10):
-Completely Unaroused, Physically Neutral, Mildly Flustered … Heavily Aroused, Overwhelmed with Desire, Peak of Physical Arousal.
-
-These descriptions (phrased for the specific tier) are injected into the prompt via `_getNsfwCooldownInjection()` so the model knows exactly how the character's body is reacting and how they would (or would not) escalate.
-
-**Refractory Cooldown (the "NSFW Cooldown" feature):**
-
-After the AI finishes a response, `_checkClimaxInResponse` runs a post-generation LLM call that scans the text for an organic climax. If one is detected:
-
-1. The LLM is asked how many turns of refractory period this particular character would realistically need (personality-aware, 1–8 turns).
-2. Arousal is slammed to `-3`.
-3. `_cooldownTurnsRemaining` and `_cooldownTurnsTotal` are set.
-4. Every subsequent turn the counter decrements (`_applyMoodDecay`).
-
-While the counter > 0, the prompt injection describes the current recovery *phase* in vivid, non-mechanical language (oversensitive, blissfully wrecked, needing non-sexual closeness, etc.). The character will naturally reject or deflect further sexual escalation until recovered.
-
-Climax state is stored in message metadata so swipes/regenerations can correctly restore or revert the cooldown.
-
-When NSFW Cooldown is disabled, arousal tracking is still available for flavor but no refractory is enforced.
+The current mood shapes tone, body language, and word choice in the next reply, and it survives app restarts, swipes, and regenerations.
 
 ---
 
-## Passage of Time
+## Desire and Intimacy Pacing
 
-When **Automatic Passage of Time** is enabled:
+For mature roleplay, the engine can track physical desire on a scale from **−100 to +100**, with descriptive tiers from completely unmoved up to overwhelming. This is about *current desire and physical response* — it shapes how the character's body reacts and whether they would (or wouldn't) escalate.
 
-- A simple deterministic clock runs: every AI turn increments `_turnsSinceLastTimeAdvance`.
-- After **6 turns** (configurable constant `_turnsPerTimePeriod = 6`), the engine considers advancing the time of day.
-- The LLM gets a "hold_time" + "new_day" + "posture" eval in `_evaluatePhysicalStateCall`. It can only **veto** the advance if the scene is visibly mid-action (fighting, actively doing something important). It cannot skip periods.
-- At night → dawn it increments the day counter.
-- Explicit "we slept / woke up / new day started" lines in the conversation can force a day rollover.
-- The current time + narrative weekday (computed from session start day-of-week + elapsed days) is injected via `_getTimeInjection()` so the model describes appropriate lighting, atmosphere, fatigue, etc.
+**NSFW Cooldown** is the sub-feature that makes intimate scenes end the way real ones do. When the engine notices a scene has naturally reached its peak, it starts a recovery window — usually a handful of turns, judged from the character's personality. During recovery the character is written as genuinely spent: oversensitive, wanting closeness rather than another round, gradually settling back to normal in phases. They'll deflect immediate re-escalation because, honestly, they need a minute.
 
-**When Passage of Time is disabled** but realism is still on, the physical-state eval still runs on a lighter cadence to keep **spatial awareness** (`_spatialStance`) updated — the character remembers "I'm sitting on the windowsill" or "we're standing in the rain" and the model is told to keep actions grounded.
-
-Time state (`timeOfDay`, `dayCount`, `passageOfTimeEnabled`) is persisted per session.
+None of the mechanics ever appear in the chat itself — no numbers, no "cooldown" talk. The character just behaves like a person. You can turn the **NSFW Cooldown System** on per character in the editor or in your realism settings.
 
 ---
 
-## Chaos Mode (Chance Time)
+## The Passage of Time
 
-Chaos Mode (also called "Chance Time") is an optional drama engine that injects unpredictable narrative events.
+With **Automatic Passage of Time** on, the story develops its own clock:
 
-**How it works:**
+- Time of day advances on a steady rhythm — after every **6 character replies**, the scene moves to the next period (morning → afternoon → evening → night...).
+- The model gets exactly one veto: if the scene is visibly mid-action (a fight, a kiss, a crisis), it can hold the clock until things settle. It can never skip ahead on its own.
+- Night rolling over into dawn advances the day counter, and the sidebar shows the story's weekday and day count (like *Wednesday · Day 3*). Sleeping and waking in the story can also trigger a new day.
 
-- Every user turn, `checkAndTickChaosPressure()` runs (now works in regular group chats; disabled in Director Mode).
-- Pressure starts at 0 and grows by **5** each turn (capped at 100).
-- Effective trigger chance = `5% + current pressure`.
-- When it fires, `sendMessage` pauses, a `Completer` is created, and the UI shows the Chance Time wheel overlay (`_chanceTimePendingTrigger`).
-- The wheel calls `spinWheelEvents()` which samples 8 events from two pools:
-  - `_chanceTimeEventPool` (~120 wholesome/fortune/mishap/drama events)
-  - `_chanceTimeNsfwPool` (only if the 🌶️ "Include NSFW events" toggle is on)
-- User spins, lands on one, and calls `applyChanceTimeResult(event, charName)`.
-- The chosen event is stored as `_pendingChaosInjection` and injected at the very end of the next prompt (`_getChanceTimeInjection`) with strong instructions: the character **must** react to it in their first paragraph.
-- The injection is cleared after use but the "delivered" flag ensures it survives one regen/swipe cycle.
+**You stay in control:**
 
-Pressure resets to 0 after an event fires. You can also manually trigger the wheel from the UI when the mode is active.
+- Type an out-of-character note like `(OOC: we drive for several hours)` and the clock jumps immediately, with a small time-skip chip on the next reply.
+- Use the **‹ ›** chevrons next to the date in the sidebar to nudge time backward or forward by hand.
 
-Events are written so they feel like natural story beats ("{{char}} just received an extremely personal delivery in front of other people", "A stranger just paid for {{char}}'s meal…", etc.). The model is forbidden from mentioning "Chance Time" or game mechanics.
+Even with the clock switched off, the engine keeps light track of *where* everyone is — sitting on the windowsill, standing in the rain — so characters stay physically grounded between turns instead of teleporting around the scene.
 
-Chaos state (`chaosModeEnabled`, `chaosNsfwEnabled`, `chaosPressure`) is saved per session.
+---
+
+## Objectives: Goals of Their Own
+
+Characters can have objectives — ongoing goals that give them a life beyond reacting to you.
+
+- **Autonomous objectives.** Every so often, when the story genuinely supports it, the character will adopt a personal goal on their own ("find out who sent that letter"). When that happens, the engine automatically breaks it into **three concrete, sequential tasks** the character can pursue, and quietly checks progress as the story unfolds.
+- **Your objectives.** You can also type in an objective for the character yourself from the sidebar. Objectives you create deliberately do *not* auto-generate tasks — you stay in control — but there's a button to generate tasks for one whenever you want them.
+
+Most turns produce no new objective at all. That's intentional: goals should feel like story beats, not spam.
+
+---
+
+## Fixations: Thoughts That Won't Let Go
+
+Sometimes something lands hard enough that a character can't stop thinking about it — a worry, a hope, a memory, something you said three scenes ago. The engine calls these **fixations**.
+
+When one takes hold, it subtly colors the character's responses for the next **3 turns**: a stray thought here, a loaded pause there, the topic resurfacing if the conversation drifts near it. It never hijacks the scene — it just gives the character a believable inner life that keeps running between moments. The active fixation is visible in the sidebar, and fixations fade naturally on their own.
 
 ---
 
 ## Character Evolution
 
-Character Evolution is a *periodic* companion system (not per-turn) that lets characters grow and change over long conversations. It is controlled separately in Settings ("Character Evolution") but is frequently used together with the Realism Engine.
+Over a long story, people change. Character Evolution lets your characters do the same.
 
-- Every N user messages (default 10, same interval as auto-persona fact extraction) the engine runs `_runPeriodicEvalsInSequence`.
-- Step 2: `_triggerCharacterEvolution` sends a background LLM call that proposes personality and/or scenario updates based on everything that has happened.
-- The evolved text is stored per-character (or per-character-in-group) in the session and merged into future system prompts.
-- Evolution count is tracked and shown in the character summary.
-- Changes are **permanent for that chat** (they live in the `evolvedPersonality` / `evolvedScenario` columns and the group maps).
+Periodically (roughly every ten of your messages), the engine looks back at everything that's happened and considers whether the character has grown — a new soft spot, a changed outlook, a scenario that has moved on. Approved changes are layered onto the character's personality *for that chat*: your original character card is never modified, and other chats with the same character are unaffected.
 
-You can enable/disable it independently of Realism. When both are on, the evolving personality interacts beautifully with the emotional state tracking.
+The evolution count shows in the character's summary, and the newest builds let you tune how often evolution runs, per character. It's a separate toggle from the main Realism switch, but the two together are where the "living character" feeling really comes from.
 
 ---
 
-## Fixation Engine
+## Chaos Mode (Chance Time)
 
-The Fixation Engine gives characters *lingering obsessions* — thoughts that won't leave them alone.
+Chaos Mode is the drama engine — for when you want the story to surprise *you*.
 
-- During the narrative / one-shot eval (`_evaluateNarrativeCall` or `_evaluateOneShotCall`), the LLM can propose a `"fixation_topic"` — something emotionally charged that the character keeps returning to (a hope, worry, memory, ambition, regret…).
-- If the topic is new and non-"none", it becomes `_activeFixation` and `_fixationLifespan` is set to **3**.
-- Every subsequent turn the lifespan decrements. When it hits 0 the fixation is cleared.
-- While active, `_getBehavioralMechanicsInjection` adds a gentle OOC note: the character has this intrusive thought; it may color their mood or surface if the conversation naturally touches the topic. It never overrides their current focus.
+While it's on, pressure builds behind the scenes: a **5% base chance** of an event each turn, growing by **5% every turn** nothing fires, up to a guaranteed maximum. When it triggers, a full spinning-wheel overlay takes over the screen, you spin, and fate hands the scene an event the character *must* react to — there's no dismissing it, only **Accept Your Fate**.
 
-Fixations make characters feel like they have an inner life that continues between scenes. They are especially powerful when combined with long-running story arcs or Chaos events.
+The pool holds **more than 175 events** across four flavors — 🟢 fortune, 🔴 misfortune, 💛 chaos, and 💜 wild cards — plus a healthy stack of pure slapstick. A 🌶️ toggle adds a spicier event pool for mature chats. Events are written as natural story beats (a stranger pays for the character's meal; a very personal delivery arrives at the worst moment), and the character reacts to them in-fiction without ever mentioning the game mechanics.
 
----
+A few practical notes:
 
-## NSFW Cooldown
-
-Covered in detail in the Arousal System section above. In short:
-
-- When enabled, arousal is tracked and a personality-aware refractory period (1–8 turns) is enforced after the LLM detects a natural climax in the AI's response.
-- During cooldown the prompt tells the model exactly how physically spent and oversensitive the character is, preventing unrealistic immediate re-escalation.
-- The system is deliberately "show, don't tell" — the model never sees the words "cooldown" or "turns" in dialogue.
-
-This is one of the most praised features for mature roleplay because it gives sex scenes realistic emotional and physical aftermath instead of endless escalation.
+- The sidebar shows the current pressure, and a **SPIN NOW** button lets you trigger the wheel on demand.
+- A triggered event survives regenerates and swipes — no rerolling your way out of it. It clears when you send your next message.
+- Pressure resets to zero after each event fires.
 
 ---
 
-## One-Shot Eval Mode
+## The Needs Simulation
 
-By default the Realism Engine performs up to four separate LLM evaluation calls after each turn (relationship, emotional state, physical/time, narrative). On slower local backends (especially KoboldCPP) this can add noticeable latency.
+The Needs Simulation is an optional layer on top of the Realism Engine that gives characters a body and a daily rhythm, in the spirit of classic life-sim games. Each character tracks **seven needs**, each on a 0–100 scale:
 
-**One-Shot Eval** (Settings → Realism or the toggle in the chat drawer) is an experimental optimization:
+| Need | When it runs low... |
+|---|---|
+| **Hunger** | Stomach growls; they'll want to eat, and eventually can't ignore it |
+| **Bladder** | Increasingly distracted; will excuse themselves if you don't |
+| **Energy** | Yawning, flagging, genuinely exhausted |
+| **Social** | Craves real connection and attention |
+| **Fun** | Restless and bored; wants stimulation, mischief, *anything* |
+| **Hygiene** | Feels grimy; wants to freshen up |
+| **Comfort** | Physically uncomfortable; wants to shift, stretch, or relocate |
 
-- When enabled, `ChatService` calls `_evaluateOneShotCall` instead.
-- A single, carefully crafted prompt asks the model to return *all* the fields at once: relationship_delta, trust_delta, emotion, intensity, arousal_delta, posture, proposed_objective, fixation_topic, and reason.
-- This cuts the number of pre-generation blocking inferences roughly in half.
+**How it plays out.** Needs drain gradually as story time passes. Below **35** a need becomes urgent and starts shading the character's behavior; below **20** it's critical and they will act on it. Let one hit rock bottom and you get a genuine story consequence — a character who hasn't eaten in far too long doesn't just mention it, they hit a wall. Needs also interact: a deeply bored character finds company less soothing, and nobody's comfortable with a desperately full bladder.
 
-**Trade-offs:**
-- Slightly lower accuracy on very small models (< 8B) that struggle with long combined instructions.
-- Still produces excellent results on 12B+ models.
-- GBNF grammars are intentionally disabled for all realism evals (including one-shot) because many KoboldCPP setups return empty strings when a grammar cannot be satisfied — the engine falls back to regex parsing of the raw text, which is robust.
+**The scene feeds the simulation.** What actually happens in the story is what moves the numbers. A meal restores hunger. A bath restores hygiene. A nap restores energy. Laughter, affection, and adventure top up fun and social. Intimate scenes ripple through several needs at once — and right after a peak, a character honestly has less in the tank for a while.
 
-Most users leave it off for maximum fidelity and only enable it when they need maximum speed.
+**What you'll see.** Chips under each reply show which needs moved and *why* ("Scene action," "Natural decay"...) — needs that didn't change stay out of the way. The sidebar shows live bars for every need, and in group chats each member's card shows their own.
 
----
+**Making it yours.**
 
-## Optional Realism Verification (Director/Verifier)
+- Each need's behavior can be tuned per character in the editor, including a **Needs delta strength** dial (1×–5×) if you want gentler or much more dramatic swings from the same scenes.
+- There's even an option for characters who canonically *enjoy* being a mess — low hygiene reads as contentment for them instead of distress.
+- The numbers never appear in the story itself. The character just gets hungry like a person, not like a video game.
 
-An optional per-character "director thread" that validates the JSON deltas and activities coming out of the Realism Engine and Needs simulation.
-
-- **Toggle + tuning:** Right-click character → Edit → Details tab (or in the full character creator / edit page under Optional Features). "Realism Verification (Director/Verifier)" toggle (off by default for zero cost). When on, two sliders appear in the Details Optional Features block:
-  - Max reprocess passes (1–5).
-  - Verifier strictness (1–5; higher = stricter rules + "reject unless explicitly supported" tone in any reprocess prompt; 3 = Balanced).
-- **What it receives:** The complete latent decision context the engine had at fire time — the exact prompt, every injected realism/needs/relationship/emotion/time/chaos/objective block, the pre-turn full scalars (bond/trust/arousal/emotion/fixation/spatial + complete needs vector), recent messages, the active speaker's CharacterCard (name + personality/scenario + current frontPorch values), group context if any, the specific eval kind + success criteria, and the raw model output.
-- **Behavior:** Rule-based checks first (range using the authoritative kMin*/kMax* clamps — corrections are allowed to swing the full per-eval limit, e.g. relationship ±15). Logical/narrative consistency using the latent (no large hunger without eating in scene, arousal sign consistent with cooldown/text, inertia respect, time plausibility, activity+delta contradictions, etc.). Strictness modulates thresholds and reprocess prompt tone.
-- **On pass:** Zero-overhead passthrough; generation continues.
-- **On fail:** Explicit human-readable reason + a corrected delta bundle (within full clamps). If passes remain, the latent + critique + suggested correction is re-fed to the eval LLM for self-correction (reprocess). Max attempts bounded by the slider.
-- **Visuals (non-negotiable):** While verifying/reprocessing, the existing Realism processing overlay (realism_processing_overlay + eval_pills + generation bar) shows header "🕵️ Verifying Realism output (pass X/Y)" with identical layout, colors, animation, and positioning — only the label changes. After the turn, the AI message bubble's realism indicator row (same area as needs chips / bond/trust/emotion pills) shows a small status chip: "✓ Director accepted" or "🕵️ Director corrected (N reprocesses)". Data comes from ChatMessage metadata['realism_verification'].
-- **Cost:** Off = zero extra calls. On with max=1 + lenient = at most the normal evals + one fast rule pass (reprocess only on clear fail). Higher max/strict on weak models = visible extra passes in overlay + chip.
-- **Parity:** 1:1 vs group, oneShot vs normal, Realism vs Needs all preserved exactly (dispatch via the same cbs + god impersonation dance; verifier always sees the correct speaker's card + pre-decay snapshot).
-- **Recommendation:** Enable on strong models when you want higher fidelity "living character" deltas and are willing to pay the occasional extra eval. Defaults safe for old cards (off, 1 pass, balanced).
-
-The implementation follows the same plain-leaf extraction pattern as the prior 14 realism/ chat domain services (realism_verification.dart <500 LOC, granular cbs, late final in god, thins at every call site, dedicated test with factory + 15+ bodies post dead deletion, aug tests only qualified passive notes, 0 new god void _ privates, keep-reset blocks expanded at all sites + both startNew with " + realism_verification (stateless or prompt-only; no reset calls needed)", AppColors for all UI, full gates + manual 1:1+group smoke).
+The Needs Simulation is newer than the rest of the engine and still being tuned — if you're trying it for the first time, start with a fresh chat and see how it feels before enabling it on a long-running story you treasure.
 
 ---
 
-## Diagnosis from the Director (real 1:1 log): Making Needs Simulation Usable and Correct — A Simpler Path
+## Expressions: Seeing the Mood
 
-**The problem the Director exposed (human-readable case study from actual terminal logs, 1:1 chat):**
-
-A complex physical scene with unambiguous acts: intense intercourse including internal creampie + the character actively urinating during the act. Pre-turn hints: low energy (~7), moderate bladder (~38). Needs Simulation + Realism + the new Director/Verifier were all enabled.
-
-- The post-gen consolidated needs impact (via the thin `_runPostGenNeedsChecks` → evaluator) produced JSON the verifier repeatedly rejected across the full configured max passes (5).
-- Repeated log: `[Realism:Verifier] Reprocess pass X/5 ... reason=model JSON claims sexual_climax but provides zero deltas (common weak output); applying expected post-climax effects`
-- Final applied after all corrections + `applySceneImpact` / `applyNeedsDeltas`: small contradictory deltas such as bladder +2 (while actively urinating), hygiene only -2 (despite creampie + fluids + urine described), energy -2, hunger -1, social/fun small positives, comfort 0; `startAfterglow: false` yet "Post-climax crash set".
-- User: "I disagree that these actions should give the delta's that were emmited however." and "I think the director/verifier is exposing a glaring issue with the needs sim. besides the fact the code is a tangled mess of if/then."
-
-**Why so many if/then gates accumulated (plain English):**
-
-The LLM is unreliable at the *structured* part even when the narrative it wrote is clear. Defenses layered on:
-
-1. Prompt already has many rules ("ONLY unambiguous *act*", "pure romantic/sexual without explicit eat... energy/hunger neutral or small negative", "Hygiene negative *only* on explicit mess or high-int + exposed stance").
-2. After model JSON: parse for flags (sexual_climax, ate, bathed...), look for `*_delta`, fall back to fixed "Proposal A" lookup table (if sexual_climax then fun +16 / social +9 / hygiene -18 / energy 0 / hunger -2 / start afterglow 4 / crash 3 scaled... and similar rows for non-climax sex / ate / slept / bathed).
-3. Then 6+ ordered modifier passes: force energy/hunger zero/neg for pure sex/romance (no "replenish from intimacy"), zero hygiene unless explicit mess words *or* high int + exposed (bed/floor not shower), halve hygiene gains for "enjoys low hygiene", scale most deltas by intensity (not hunger/energy), arousal buffer damp, time-of-day light effects.
-4. The result + explicit buffer flags handed to sim core (apply deltas, start afterglow/suppression/crash counters, fulfillments, later decay with afterglow halving / post-crash boosting / catas at 0 / enjoys inversion / cross-need boosts).
-5. Separate logic picks chip "reason" strings ("Afterglow buffer", "Post-orgasm exhaustion", "Scene action", "Natural decay").
-6. On top: the Director (full latent bundle + 5 reprocess + explicit correction suggestions) now also judges "is this impact reasonable for the text?" and supplies fixes or re-prompts.
-
-Even with all that defense-in-depth, the numbers reaching chips/sidebar/injections were not what a human reading the model's own narrative would call correct or usable. The gates were fighting the story after the fact.
-
-**Direct answer to "should we remove the gates and let the model 'take the wheel' or ...??"**
-
-Largely yes for the *quantitative deltas and buffer recommendations*, under Director supervision + a small number of hard invariants (0-100 clamps, the mechanical decay/buffer/catas state machine in the sim core, the per-char "enjoys low hygiene" user preference, and a few "physically/narratively impossible" rules that stay visible in the Director reason).
-
-The checks move primarily into one place (the Director with the rich bundle the user originally asked for) instead of being distributed across prompt + table + six Dart modifier fns + parse ifs + apply ifs + chip reason ifs whose interactions are hard to hold in your head on an unusual scene like the logged one. The reprocess loop is already the self-correction mechanism. The visible "🕵️ Director corrected (N)" chip (already wired for needs_impact via the shared metadata) now becomes a reliable signal that the numbers you see came from the Director's judgment of the actual scene text rather than an invisible chain of gates that partially cancelled.
-
-**Concrete non-coder-actionable path (the control surface):**
-
-- Same "Optional Features" block you already use for the three verifier controls (toggle + Max reprocess passes 1-5 + Strictness 1-5 / Strict-Balanced-Lenient).
-- New (or re-used via strictness) per-char toggle/setting: "Director authority on needs deltas" (off by default — current conservative gated behavior unchanged for everyone who doesn't opt in; safe default for weak local models).
-- When Director/Verifier is on *and* the new authority control is on for that speaker: the thin path in the evaluator trusts the (verified or reprocessed) model's `*_delta` keys + explicit `is_climax` / `recommend_afterglow` / `recommend_crash_turns` / `buffer_reason` / etc from the effective/corrected text, with higher precedence. The activityEffects table is demoted to advisory/fallback (only when verified output gives literally nothing usable after max passes). The 6 modifier methods become advisory or no-op under authority mode. Legacy full table + modifiers + intensity scaling path is kept *exactly* when the flag is off (or verifier off).
-- Prompt lightly strengthened (still "ONLY unambiguous act", pure-romance guidance, hygiene-only-on-explicit-mess) but now also asks for net signed effects after the scene + explicit buffer recommendations, with language "the Director will correct you if you violate scene support."
-- Needs sim lightly updated so chip reasons can prefer a Director/model supplied reason when present (better "why" text on the Fun +7 / Bladder 0 rows).
-- All god orchestration, pre/post snapshots, group impersonation dance for per-speaker (correct scalars + correct _activeCharacter for prompt name/personality), _saveScalarsIntoGroupRealism, chip attachment from preTurn, regen/swipe/history restore, onClimax cb, "enjoys low hygiene", 1:1 vs group observable deltas, oneShot vs normal parity — *unchanged*. The authority mode only changes *which numbers* come out of the evaluator before those mechanisms apply/persist/restore/display them.
-- When authority is off (or Director off): 100% identical behavior to before the change. No user is forced onto the thinner path.
-
-**What this feels like day-to-day (the human non-coder benefit):**
-
-- More "🕵️ Director corrected (N reprocesses)" chips with grounded reasons on complex scenes ("Director supplied post-climax hygiene and buffer corrections after model gave near-zero deltas despite clear creampie + fluids in scene").
-- Chips and sidebar numbers more often match what a human reading the model's own narrative would expect (big hygiene hit + bladder relief + afterglow + crash + energy cost on low pre for the logged-style scene, instead of bladder +2 while peeing and hygiene -2 for a fluids-heavy act).
-- Fewer surprising tiny or wrong-sign movements.
-- Conservative gated behavior remains the safe, zero-surprise default when you leave Director off or the new authority toggle off.
-- The same per-char Optional Features surface you already know; old cards default false (unchanged experience).
-
-**Parity & safety guarantees (stated plainly):**
-
-- 1:1 vs group per-speaker observable behavior (bond/trust/emotion/arousal/fixation deltas, needs deltas/buffers/fulfill/crash, chips, sidebar, injection) remains equivalent at all times. The god impersonation dance + load/save scalars + pre/post snapshots already handle this; authority just changes the proposed numbers upstream.
-- Regen/swipe/history/"preTurn restore then re-apply" continue to produce coherent deltas (the preTurnNeeds vector and realism_state['needs'] snapshot paths are untouched).
-- "Enjoys low hygiene" still affects final numbers and injection text exactly as today (when the legacy path is active; when authority is on the Director sees the pref via the card and can account for it in corrections).
-- The decay, catastrophe, afterglow tick-down, and injection step/damp logic in the sim core are mechanics, not interpretation gates — they stay (and can become cleaner once upstream numbers are more trustworthy).
-- All the existing "keep reset blocks in sync" + "incomplete zeroing of secondary config on group/0-session/new-chat now complete" sites (~15+ places + both startNew branches) were expanded to list the new flag as "card config like the 3 verifier fields; live frontPorch read under impersonation; no extra mutable god scalar or reset call needed".
-- 0 new god private void _ methods (only thins + late final + comment hygiene; live grep stayed exactly at baseline 15 after every edit + final).
-- Dedicated test (extended needs_impact_evaluator_test with factory using live cbs over group maps + authority + verifier) covers legacy unchanged, authority+verifier trusts corrected deltas/buffers and skips table/modifiers, group per-speaker, "none"/error/after-max-passes fallback, 1:1 vs group parity, chip reason preference, impersonation. 15-25+ test() bodies post mandatory dead/vestigial deletion as part of task. aug/integration tests received *only* the exact qualified passive note phrasing in headers (no leaf-specific logic edits).
-- Full mechanical gates (analyze 0 new warnings on changed surfaces, format, dart fix, live greps for flag/void_/test counts vs on-disk, re-reads of abs paths with "0 open", build smoke) + manual interactive 1:1 + group smoke with authority on for complex physical scenes (creampie+fluids+urination style or equivalent multi-effect) + Director overlay + correction chips + chips/sidebar reflecting Director-supplied numbers.
-- Barrel policy: no export (internal like most realism optionals; "unless used from 3+ locations").
-- Cross-platform: no path/fs changes; StorageService / providers patterns followed where relevant (none needed here).
-- File size: focused changes + virulent thinning of dead/vestigial/obsolete/duplicate (old god _check* comment attributions cleaned, obsolete "step N" phrasing, unused test helpers/comments, dupe logic comments) kept net growth small.
-
-The Director is now the recommended lever for improving Needs fidelity on strong models. The verification path was already wired for needs_impact (corrected status/reasons already flow to the bubble chip via the shared kMetaKey); this change gives that wiring real authority instead of having its corrections fought or diluted downstream.
-
-A companion 1x–5x "Needs delta strength" control (same Details → Optional Features block) lets the user tell both the first-pass needs eval prompt and the Director the desired magnitude up front. The model and any Director corrections emit at that scale (final deltas = raw × strength). Default 1x = identical to before. This is the "small lever" for users who want weak (-3) or dramatic (-15 at 5x) swings on the same scene without more invisible Dart gates.
-
-Users who want maximum "model + Director take the wheel" (with visible feedback) flip the control on; everyone else (and weak-model users) sees zero change.
+If you use Character Expressions (emotion-driven portraits), the Realism Engine feeds them directly: the nuanced mood it tracks is matched to your character's expression image set, so the portrait genuinely reflects how they feel — covering a wide range of emotions, and compatible with standard SillyTavern expression packs. See the [User Guide](user-guide.md) for setting up expression images.
 
 ---
 
-## Sims/Needs Simulation
+## Group Chats
 
-**(Experimental / Bleeding Edge)**
+Everything above works in group chats, per character. Each member keeps their **own** bond, trust, mood, desire, fixations, objectives, and needs — warm up to one character while another still doesn't trust you, and both will act like it. The character currently speaking is the one whose state shapes the reply and gets updated afterward, which keeps things fast no matter the group size.
 
-The Sims/Needs Simulation is an optional extension to the Realism Engine that introduces a parallel life-simulation layer. When enabled, the character tracks seven needs on a 0–100 scale. These decay each turn (with morning/night modifiers) and subtly (or urgently) influence dialogue and behavior through an OOC prompt injection when they drop low. An LLM post-response verification step detects actual in-scene fulfillment and restores the affected needs.
+![A group chat with per-character realism state](screenshots/group_chat_new.png)
 
-It runs alongside — but is independent of — the classic realism systems (bond, trust, emotion, arousal, time, fixations). The master Realism toggle must be on; the needs layer is an additional per-session opt-in.
+A few group-specific notes:
 
-### The Seven Needs
+- Chips and sidebar values always belong to the character who spoke.
+- Newer builds are starting to track how group members feel about *each other*, too — not just about you.
+- **Director Mode is the exception.** When you're directing scenes rather than living in them, realism and needs tracking pause (state is preserved and resumes when you switch back). Directing is storyboarding; regular group chat is the lived-in simulation.
 
-- **Hunger** — Character grows hungry; stomach may growl and they may suggest eating (drains faster in the morning window).
-- **Bladder** — Needs to use the restroom (produces a special tension note when NSFW cooldown is active and arousal is high).
-- **Energy** — Becomes tired or genuinely exhausted (drains faster at night).
-- **Social** — Craves genuine connection or companionship.
-- **Fun** — Grows restless and bored; wants stimulation or an activity.
-- **Hygiene** — Feels grimy or unkempt; wants to freshen up.
-- **Comfort** — Physically uncomfortable; may want to move, shift, or change position.
-
-Urgent threshold: ≤ 35. Critical: ≤ 20. Only the most pressing need(s) generate an injection; the LLM is told the character should voice or act on critical needs immediately.
-
-### Integration
-
-- **Per-session flag**: Stored as `needsSimEnabled` in the `sessions` table (plus a JSON `needsVector`). New chats inherit the value from the character card's `front_porch_extensions.realism_engine.needs_sim_enabled` (see `FrontPorchExtensions` in `character_card.dart`).
-- **Runtime control**: `ChatService.needsSimEnabled` / `setNeedsSimEnabled(bool)`. Enabling mid-chat initializes the default vector; disabling clears it cleanly.
-- **Decay & fulfillment**: `_tickNeedsDecay()` is called every turn before realism evals. After the AI responds, `_verifyNeedFulfillmentCall()` sends a tiny LLM eval against the recent exchange and restores values for any need the model confirms was *completed* in the scene (e.g. +70 bladder, +50 hunger, +40 energy). The verification runs post-response (fire-and-forget) so it never adds latency to the visible "Realism Engine processing" phase.
-- **Erotic buffers (v2 interplay)**: Three coordinated transient buffers make long erotic scenes feel realistic and sexy:
-  - **Afterglow** (4 turns): 55% reduced decay on hunger/energy/social after good sex.
-  - **Lust haze / arousal suppression** (6 turns): Other needs read much milder (or are omitted) in the OOC prompt while arousal is high; light dampening of internal state multipliers.
-  - **Delayed post-climax crash** (2–5 turns, intensity-scaled): Elevated energy/fun/social decay that only activates *after* both protective windows expire — the classic "we just fucked for hours and now I'm dead" feeling.
-- **Snapshots for history navigation**: The live vector is captured inside every message's `realism_state['needs']['vector']` (see `_captureRealismState`). Restore logic in `_restoreRealismStateFromMessage`, `_syncRealismStateForSwipe`, regen, and fork paths replays the correct historical values — but only while the session flag remains true (old snapshots cannot re-enable a toggled-off sim).
-- **Prompt injection**: `_getNeedsInjection()` adds a concise OOC directive when any need is urgent. The character never sees numeric values or the word "needs simulation."
-- **Group chat support**: Needs Simulation works in regular participatory group chats (each character maintains their own needs vector). It is deliberately disabled in Director/Observer Mode. The current speaker's needs are used for injection and updated after their turn.
-
-### UI
-
-When the simulation is active, need levels appear as visual bars in the chat header, making it easy to see at a glance which needs are dropping and how close they are to urgent/critical. The per-character default toggle lives in the Realism Engine panel of the character editor/creator (Step 4); per-chat control is available via the usual session realism settings.
-
-### Warnings
-
-- **Bleeding edge**: This is a recent clean-port addition on the 0.9.8 realism architecture. Decay rates, restore amounts, thresholds, and the fulfillment prompt are still being tuned. Test on throwaway chats first.
-- **Separate data directory strongly recommended**: Need state is persisted directly in your normal sessions. Use a dedicated data/profile folder (via Settings or command-line) while experimenting so you do not risk your primary long-running RPs or character libraries.
-- The feature is gated behind *both* the Realism Engine master toggle *and* the specific needs-sim toggle.
+The engine's behavior in a group is deliberately identical to a one-on-one chat — a character should feel like the same person whether you're alone with them or not.
 
 ---
 
-## Performance Considerations
+## The Director (Optional Quality Check)
 
-The Realism Engine is deliberately lightweight compared to the main chat generation, but it does add work:
+Smaller local models occasionally produce sloppy realism updates — numbers that don't match the scene you just read. **The Director** is an optional, per-character quality check that reviews each realism and needs update against the actual scene before it's applied, and sends obviously-wrong ones back for another pass.
 
-- **Extra LLM calls**: Normally 2–4 short eval inferences per user turn (plus an occasional post-generation climax check). Each eval prompt is kept short (last 3–6 messages only) and the model is told to output *only* a tiny JSON object.
-- **Token overhead**: The various OOC injection blocks (`relationship`, `emotion`, `time`, `trust`, `arousal`, `fixation`, `spatial`, and occasionally `needs`) typically add a few hundred tokens at most. They are included in the context budget calculation so they never push your history out of the window.
-- **Local backend impact**: KoboldCPP is single-threaded, so realism evals are run sequentially (with cancellation support). On a fast GPU this is usually < 1–2 seconds per eval. On CPU or very slow setups the "Reading the room…" overlay can stay up for several seconds.
-- **One-Shot Eval**: Halves the number of calls. Recommended when you value responsiveness over perfect granularity.
-- **Disabling for speed**: Turn the master Realism toggle off in Settings (or per-chat) when you just want fast, lightweight chatting. No evals run at all.
-- **Known KoboldCPP gotcha**: GBNF-constrained JSON output was tried extensively but frequently produced empty responses on many models. All realism evals now use unconstrained generation + robust regex extraction, which has proven far more reliable across the ecosystem.
-
-The engine is heavily optimized: evals only run when realism is enabled, only for 1:1 chats (group chats skip most of it), and cancellation is supported at every stage so you can interrupt a slow eval and regenerate.
+- Turn it on in the character editor under Optional Features (it's **off by default** and costs nothing while off). Two sliders control how many correction passes it may attempt (1–5) and how strict it is (1–5).
+- While it works you'll see *"🕵️ Verifying Realism output"* in the processing overlay, and afterwards a small chip on the reply: **"✓ Director accepted"** or **"🕵️ Director corrected"** — so you always know when the numbers you're seeing were double-checked.
+- It does add extra evaluation calls, so it's best on a fast backend or a strong model. If your realism numbers already look sensible, you don't need it.
 
 ---
 
-## Troubleshooting
+## Speed, Cost, and Tuning
 
-### "Realism evaluation interrupted" or empty responses
+The engine's check-ins are small and quick compared to the main reply, but they're real work — here's how to keep things snappy:
 
-- The most common cause on KoboldCPP is the (now-disabled) GBNF grammar. The current code intentionally omits the grammar parameter for all realism calls.
-- If you still see frequent empty evals, try a different model or slightly increase the eval max tokens (rarely needed).
-- Use the **Cancel** button that appears in the processing overlay — it cleanly aborts the current eval stream.
-
-### Bond / Trust / Emotion not changing
-
-- Make sure the master Realism toggle is actually on for that chat.
-- Very small or heavily quantized models sometimes ignore the eval instructions. Larger or better-instruction-tuned models produce more reliable deltas.
-- Normal conversation is *supposed* to produce mostly 0 or tiny deltas. Only meaningful moments should move the needle.
-
-### Time not advancing
-
-- Check that "Automatic Passage of Time" is enabled both globally and for the session.
-- The LLM can legitimately hold time if the scene is mid-action (the eval explicitly asks for `"hold_time": true` in that case).
-- After ~6 turns the advance attempt will be retried.
-
-### Fixation or arousal state feels stuck
-
-- Fixations naturally expire after 3 turns.
-- Arousal/cooldown state is restored correctly on swipes because it is stored in message metadata. If something looks wrong, regenerate or swipe the last message.
-
-### How to completely reset realism state for a chat
-
-1. Start a new chat with the same character (the initial state from the card will be used).
-2. Or manually edit the session row in the database (advanced users).
-3. Regenerating the greeting or using "New Chat from this point" will usually give you a clean slate while preserving history.
-
-### Performance is terrible / evals take forever
-
-- Enable **One-Shot Eval**.
-- Use a faster backend (OpenRouter / OpenAI / Groq / local with good GPU).
-- Disable realism entirely for that chat.
-- Make sure you are not running multiple heavy local processes at once (KoboldCPP + embed server + TTS, etc.).
-
-### Realism state disappeared after an app update or migration
-
-The engine has gone through several schema versions (REv2, REv3). The code contains explicit migration paths (`_migrateShortTermScore`, legacy session loading, etc.). If you see obviously wrong numbers, start a fresh chat with the character — the V2.5 card extensions will give you a clean modern baseline.
+- **One-Shot Eval** (toggle in the chat sidebar's Realism section) folds the separate check-ins into a single combined call. It tracks the same things with noticeably less waiting — the go-to choice on slower machines and pay-per-token remote APIs. Very small models occasionally handle the combined question less gracefully than the separate ones; if your results get flaky, switch it back off.
+- **Cancel anytime.** The processing overlay has a cancel button, and interrupting an evaluation never corrupts anything.
+- **Toggle per chat.** Want a quick, lightweight conversation? Flip Realism Mode off in that chat's sidebar and it costs nothing at all.
+- The engine's notes to the model add only a few hundred tokens and are always counted inside your context budget — they will never push your conversation history out of the window.
 
 ---
 
-### Group Chats (Regular Mode)
+## When Things Look Weird
 
-As of the 2026 group-chat overhaul, the full Realism Engine + Needs Simulation now works in **regular (participatory) group chats** — each character maintains independent emotion, bond/trust, fixation, arousal, needs vector, etc.
+A few quick answers to the most common head-scratchers:
 
-- **Director / Observer / Auto-play Mode is deliberately excluded.** When Director Mode is on, all realism and needs mutation + injection is paused for that session (the per-character state is preserved and resumes when you toggle Director off). This matches the conceptual difference: Director is narrative control / storyboarding; regular group mode is lived-in simulation.
-- Enable the master Realism toggle + the Needs Simulation sub-toggle on any group chat exactly like you would a 1:1 chat. The per-character state travels with the session via an invisible checkpoint message (no database schema changes).
-- The current speaker's state is what appears in the prompt and what the post-turn evals update. This keeps token and compute cost linear with group size.
-- Character evolution (personality/scenario growth) continues to work in *both* regular group chats and Director Mode (the last character who spoke is the one that gets the evolution check).
+- **Bond and trust barely move.** That's usually correct behavior — ordinary chatting is *supposed* to produce small or zero changes. If nothing ever moves, check that Realism Mode is actually on for that chat, and consider a stronger model: very small models sometimes ignore the check-in questions.
+- **Evaluations come back empty.** A known quirk of some local models. The app already uses the most tolerant format it can; if you see it often, a different model usually fixes it. More in [Troubleshooting](troubleshooting.md).
+- **Time won't advance.** The model may be legitimately holding the clock mid-action — it re-tries after the next few turns. Check that Automatic Passage of Time is on, or nudge the clock manually with the sidebar chevrons.
+- **You want a clean slate.** Start a new chat with the character — the starting state on their card applies fresh, and the old chat keeps its own history.
+- **Everything is slow.** Turn on One-Shot Eval, or disable realism for that particular chat. Running several heavy things at once (a big model, TTS, image generation) compounds on modest hardware.
 
-**Known limitations (current cut)**
-- No cross-character relationship modeling yet (Alice's trust in Bob is not tracked).
-- When you add or remove a character from a realism-enabled group, the new character starts with a fresh baseline.
-
----
-
-**The Realism Engine is what makes Front Porch AI special.** It turns "talking to an AI" into "living with a character who has a real relationship with you that grows, breaks, heals, and changes over time." Take the time to leave it on for a few long sessions — the difference is night and day.
+For deeper fixes, see [Troubleshooting](troubleshooting.md) or ask on [Discord](https://discord.gg/e4tET6rpdv) — I'm around, and so is a friendly community.
 
 ---
 
+**One last thing.** The Realism Engine is the reason this app exists. Leave it on for a few long sessions with a character you like — the difference between "talking at an AI" and "having a relationship that grows, breaks, heals, and changes" is honestly night and day.

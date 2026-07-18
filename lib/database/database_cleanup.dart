@@ -87,6 +87,7 @@ class DatabaseCleanup {
     orphanCounts['sessions'] = await _countOrphanSessions(db);
     orphanCounts['group_orphan_sessions'] = await _countOrphanGroupSessions(db);
     orphanCounts['messages'] = await _countOrphanMessages(db);
+    orphanCounts['journal_memories'] = await _countOrphanJournalMemories(db);
 
     brokenRefCounts['memory_sources'] = await _countBrokenMemorySources(db);
     brokenRefCounts['group_character_ids'] = await _countBrokenGroupCharIds(db);
@@ -125,6 +126,11 @@ class DatabaseCleanup {
     removedCounts['group_orphan_sessions'] =
         await _deleteOrphanGroupSessionsCascade(db);
     removedCounts['messages'] = await _deleteOrphanMessages(db);
+    // After the session cascades above so cards from just-removed sessions
+    // are swept in the same run. Journal cards are strictly session-scoped,
+    // so orphan = session gone (character_id is a stableGroupId, not a
+    // characters.id — do not check it against the characters table).
+    removedCounts['journal_memories'] = await _deleteOrphanJournalMemories(db);
 
     fixedRefCounts['memory_sources'] = await _fixBrokenMemorySources(db);
     fixedRefCounts['group_character_ids'] = await _fixBrokenGroupCharIds(db);
@@ -188,6 +194,14 @@ class DatabaseCleanup {
     final result = await db.customSelect('''
       SELECT COUNT(*) AS c FROM messages m
       WHERE NOT EXISTS (SELECT 1 FROM sessions s WHERE s.id = m.session_id)
+    ''').get();
+    return (result.first.data['c'] as int?) ?? 0;
+  }
+
+  static Future<int> _countOrphanJournalMemories(AppDatabase db) async {
+    final result = await db.customSelect('''
+      SELECT COUNT(*) AS c FROM journal_memories jm
+      WHERE NOT EXISTS (SELECT 1 FROM sessions s WHERE s.id = jm.session_id)
     ''').get();
     return (result.first.data['c'] as int?) ?? 0;
   }
@@ -333,6 +347,14 @@ class DatabaseCleanup {
   static Future<int> _deleteOrphanMessages(AppDatabase db) async {
     return db.customUpdate('''
       DELETE FROM messages WHERE session_id NOT IN (
+        SELECT id FROM sessions
+      )
+    ''', updates: {});
+  }
+
+  static Future<int> _deleteOrphanJournalMemories(AppDatabase db) async {
+    return db.customUpdate('''
+      DELETE FROM journal_memories WHERE session_id NOT IN (
         SELECT id FROM sessions
       )
     ''', updates: {});

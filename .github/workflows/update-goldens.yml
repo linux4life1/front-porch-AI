@@ -1,0 +1,71 @@
+name: Update Goldens
+
+# Manual-only helper. Pixel goldens must be regenerated on this exact runner
+# image (ubuntu-latest + Flutter 3.41.1) so the bytes match the `Widget Golden
+# Tests` job in ci.yml — regenerating on a Mac/dev box produces different
+# anti-aliasing and never matches CI.
+#
+# This job does NOT push. It regenerates the goldens, then uploads only the
+# changed PNGs as an artifact. Download it, drop the PNGs in place, review the
+# diff, and commit them yourself. That keeps a human (authored) commit on the
+# branch and re-triggers CI to validate the refreshed baselines.
+
+# workflow_dispatch works once this file is on the default branch (after this
+# PR merges). Until then, GitHub won't expose the dispatch trigger for a
+# feature branch, so a push whose head-commit message contains the sentinel
+# `[update-goldens]` runs the same job (push triggers use the branch's own copy
+# of the workflow). The sentinel keeps it from firing on every routine push.
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  update-goldens:
+    name: Regenerate widget goldens
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[update-goldens]')
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.1'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Regenerate goldens
+        run: flutter test --concurrency=1 --tags golden --update-goldens
+
+      - name: Collect changed goldens
+        id: collect
+        run: |
+          mkdir -p _changed_goldens
+          CHANGED=$(git status --porcelain -- 'test/golden/**/*.png' | awk '{print $2}')
+          if [ -z "$CHANGED" ]; then
+            echo "No golden PNGs changed — nothing to upload."
+            echo "changed=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Changed golden PNGs:"
+          echo "$CHANGED"
+          echo "$CHANGED" | while read -r f; do
+            dest="_changed_goldens/$f"
+            mkdir -p "$(dirname "$dest")"
+            cp "$f" "$dest"
+          done
+          echo "changed=1" >> "$GITHUB_OUTPUT"
+
+      - name: Upload changed goldens
+        if: steps.collect.outputs.changed == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-goldens
+          # Artifact root = contents of _changed_goldens, i.e. paths begin at
+          # `test/golden/...` so they drop straight back into the repo on download.
+          path: _changed_goldens
+          if-no-files-found: error

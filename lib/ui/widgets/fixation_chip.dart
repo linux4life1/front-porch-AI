@@ -51,15 +51,15 @@ class FixationChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.resolve(
             context,
-            Colors.purpleAccent.withValues(alpha: 0.12),
-            Colors.purple.shade50.withValues(alpha: 0.6),
+            AppColors.fixationAccent.withValues(alpha: 0.12),
+            AppColors.fixationAccentLight.withValues(alpha: 0.6),
           ),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: AppColors.resolve(
               context,
-              Colors.purpleAccent.withValues(alpha: 0.35),
-              Colors.purple.shade200.withValues(alpha: 0.5),
+              AppColors.fixationAccent.withValues(alpha: 0.35),
+              AppColors.fixationAccentLight.withValues(alpha: 0.5),
             ),
           ),
         ),
@@ -71,8 +71,8 @@ class FixationChip extends StatelessWidget {
               size: 11,
               color: AppColors.resolve(
                 context,
-                Colors.purpleAccent,
-                Colors.purple.shade700,
+                AppColors.fixationAccent,
+                AppColors.fixationAccentLight,
               ),
             ),
             const SizedBox(width: 3),
@@ -83,8 +83,8 @@ class FixationChip extends StatelessWidget {
                   fontSize: 9,
                   color: AppColors.resolve(
                     context,
-                    Colors.purpleAccent,
-                    Colors.purple.shade700,
+                    AppColors.fixationAccent,
+                    AppColors.fixationAccentLight,
                   ),
                   fontStyle: FontStyle.italic,
                 ),
@@ -102,15 +102,15 @@ class FixationChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.resolve(
           context,
-          Colors.purpleAccent.withValues(alpha: 0.12),
-          Colors.purple.shade50.withValues(alpha: 0.6),
+          AppColors.fixationAccent.withValues(alpha: 0.12),
+          AppColors.fixationAccentLight.withValues(alpha: 0.6),
         ),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: AppColors.resolve(
             context,
-            Colors.purpleAccent.withValues(alpha: 0.4),
-            Colors.purple.shade200.withValues(alpha: 0.5),
+            AppColors.fixationAccent.withValues(alpha: 0.4),
+            AppColors.fixationAccentLight.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -119,11 +119,7 @@ class FixationChip extends StatelessWidget {
           Icon(
             Icons.psychology,
             size: 16,
-            color: AppColors.resolve(
-              context,
-              Colors.purpleAccent,
-              Colors.purple.shade700,
-            ),
+            color: AppColors.fixationAccentOf(context),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -135,11 +131,7 @@ class FixationChip extends StatelessWidget {
                   'CURRENT FIXATION',
                   style: TextStyle(
                     fontSize: 9,
-                    color: AppColors.resolve(
-                      context,
-                      Colors.purpleAccent,
-                      Colors.purple.shade700,
-                    ),
+                    color: AppColors.fixationAccentOf(context),
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
                   ),

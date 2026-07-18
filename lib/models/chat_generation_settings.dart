@@ -27,6 +27,9 @@ import 'package:front_porch_ai/services/storage_service.dart';
 class ChatGenerationSettings {
   double? temperature;
   double? minP;
+  double? topP;
+  int? topK;
+  double? dryMultiplier;
   double? repeatPenalty;
   int? repeatPenaltyTokens;
   double? xtcThreshold;
@@ -40,11 +43,13 @@ class ChatGenerationSettings {
   List<String>? bannedPhrases;
   bool? reasoningEnabled;
   String? reasoningEffort;
-  String? remoteModelName;
 
   ChatGenerationSettings({
     this.temperature,
     this.minP,
+    this.topP,
+    this.topK,
+    this.dryMultiplier,
     this.repeatPenalty,
     this.repeatPenaltyTokens,
     this.xtcThreshold,
@@ -58,13 +63,15 @@ class ChatGenerationSettings {
     this.bannedPhrases,
     this.reasoningEnabled,
     this.reasoningEffort,
-    this.remoteModelName,
   });
 
   /// Whether any field has a non-null override.
   bool get hasOverrides =>
       temperature != null ||
       minP != null ||
+      topP != null ||
+      topK != null ||
+      dryMultiplier != null ||
       repeatPenalty != null ||
       repeatPenaltyTokens != null ||
       xtcThreshold != null ||
@@ -77,8 +84,7 @@ class ChatGenerationSettings {
       stopSequences != null ||
       bannedPhrases != null ||
       reasoningEnabled != null ||
-      reasoningEffort != null ||
-      remoteModelName != null;
+      reasoningEffort != null;
 
   // ── Resolved getters ────────────────────────────────────────────────────
   // Each returns the per-session override if set, otherwise the global value.
@@ -86,6 +92,10 @@ class ChatGenerationSettings {
   double resolveTemperature(StorageService s) =>
       temperature ?? s.generationSettings.temperature;
   double resolveMinP(StorageService s) => minP ?? s.generationSettings.minP;
+  double resolveTopP(StorageService s) => topP ?? s.generationSettings.topP;
+  int resolveTopK(StorageService s) => topK ?? s.generationSettings.topK;
+  double resolveDryMultiplier(StorageService s) =>
+      dryMultiplier ?? s.generationSettings.dryMultiplier;
   double resolveRepeatPenalty(StorageService s) =>
       repeatPenalty ?? s.generationSettings.repeatPenalty;
   int resolveRepeatPenaltyTokens(StorageService s) =>
@@ -112,8 +122,6 @@ class ChatGenerationSettings {
       reasoningEnabled ?? s.backendSettings.reasoningEnabled;
   String resolveReasoningEffort(StorageService s) =>
       reasoningEffort ?? s.backendSettings.reasoningEffort;
-  String resolveRemoteModelName(StorageService s) =>
-      remoteModelName ?? s.backendSettings.remoteModelName;
 
   // ── JSON serialisation ──────────────────────────────────────────────────
 
@@ -122,6 +130,9 @@ class ChatGenerationSettings {
     final map = <String, dynamic>{};
     if (temperature != null) map['temperature'] = temperature;
     if (minP != null) map['min_p'] = minP;
+    if (topP != null) map['top_p'] = topP;
+    if (topK != null) map['top_k'] = topK;
+    if (dryMultiplier != null) map['dry_multiplier'] = dryMultiplier;
     if (repeatPenalty != null) map['repeat_penalty'] = repeatPenalty;
     if (repeatPenaltyTokens != null) {
       map['rep_pen_tokens'] = repeatPenaltyTokens;
@@ -139,7 +150,6 @@ class ChatGenerationSettings {
     if (bannedPhrases != null) map['banned_phrases'] = bannedPhrases;
     if (reasoningEnabled != null) map['reasoning_enabled'] = reasoningEnabled;
     if (reasoningEffort != null) map['reasoning_effort'] = reasoningEffort;
-    if (remoteModelName != null) map['remote_model_name'] = remoteModelName;
     return map;
   }
 
@@ -154,6 +164,9 @@ class ChatGenerationSettings {
     return ChatGenerationSettings(
       temperature: (json['temperature'] as num?)?.toDouble(),
       minP: (json['min_p'] as num?)?.toDouble(),
+      topP: (json['top_p'] as num?)?.toDouble(),
+      topK: (json['top_k'] as num?)?.toInt(),
+      dryMultiplier: (json['dry_multiplier'] as num?)?.toDouble(),
       repeatPenalty: (json['repeat_penalty'] as num?)?.toDouble(),
       repeatPenaltyTokens: (json['rep_pen_tokens'] as num?)?.toInt(),
       xtcThreshold: (json['xtc_threshold'] as num?)?.toDouble(),
@@ -167,7 +180,6 @@ class ChatGenerationSettings {
       bannedPhrases: (json['banned_phrases'] as List?)?.cast<String>(),
       reasoningEnabled: json['reasoning_enabled'] as bool?,
       reasoningEffort: json['reasoning_effort'] as String?,
-      remoteModelName: json['remote_model_name'] as String?,
     );
   }
 

@@ -20,7 +20,7 @@
 /// Update this constant whenever a new release is made.
 /// This avoids reliance on platform-specific version resource extraction
 /// (e.g., PackageInfo.fromPlatform) which can be unreliable on Windows.
-const String appVersion = '0.9.8.0.1';
+const String appVersion = '1.0.0';
 
 /// Whether the current build is a pre-release (alpha, beta, rc, dev).
 /// Pre-release builds use a separate database file to protect the stable

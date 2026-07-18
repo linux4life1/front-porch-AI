@@ -23,6 +23,7 @@ import 'package:drift/drift.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/chat_generation_settings.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/database/database.dart';
 
@@ -35,6 +36,7 @@ class ByafImportPreview {
   final String? firstMessage;
   final String? narrative;
   final String? formattingInstructions;
+  final List<String> exampleMessages; // raw example-dialogue texts
   final List<ByafChatMessage> messages;
   final Map<String, double> modelSettings;
 
@@ -46,6 +48,7 @@ class ByafImportPreview {
     this.firstMessage,
     this.narrative,
     this.formattingInstructions,
+    this.exampleMessages = const [],
     this.messages = const [],
     this.modelSettings = const {},
   });
@@ -148,6 +151,7 @@ class ByafService {
     String? firstMessage;
     String? narrative;
     String? formattingInstructions;
+    final exampleMessages = <String>[];
     final messages = <ByafChatMessage>[];
     final modelSettings = <String, double>{};
 
@@ -173,6 +177,18 @@ class ByafService {
           }
         }
 
+        // Example dialogue: BYAF spec items are {characterID, text}. The
+        // speaker attribution (including any #{user}:/#{character}: turn
+        // markers Backyard authors used) lives inside the text itself.
+        if (scenarioJson['exampleMessages'] is List) {
+          for (final ex in scenarioJson['exampleMessages'] as List) {
+            if (ex is Map<String, dynamic>) {
+              final text = ex['text']?.toString() ?? '';
+              if (text.isNotEmpty) exampleMessages.add(text);
+            }
+          }
+        }
+
         // Model settings
         for (final key in [
           'temperature',
@@ -185,6 +201,11 @@ class ByafService {
           if (scenarioJson[key] is num) {
             modelSettings[key] = (scenarioJson[key] as num).toDouble();
           }
+        }
+        // Backyard disables min-p via a separate flag rather than zeroing the
+        // value; carry that semantics over (0 = disabled downstream).
+        if (scenarioJson['minPEnabled'] == false) {
+          modelSettings['minP'] = 0.0;
         }
 
         // Chat history
@@ -233,6 +254,7 @@ class ByafService {
       firstMessage: firstMessage,
       narrative: narrative,
       formattingInstructions: formattingInstructions,
+      exampleMessages: exampleMessages,
       messages: messages,
       modelSettings: modelSettings,
     );
@@ -247,6 +269,44 @@ class ByafService {
         .replaceAll('{user}', '{{user}}')
         .replaceAll('{User}', '{{user}}')
         .replaceAll('{USER}', '{{user}}');
+  }
+
+  /// Build a V2 `mes_example` block from BYAF example-dialogue texts.
+  ///
+  /// Backyard authors example dialogue as `#{character}:` / `#{user}:` turns;
+  /// after placeholder conversion those become `#{{char}}:` / `#{{user}}:`,
+  /// so the leading `#` turn marker is stripped to match V2 conventions. Texts
+  /// with no speaker marker at all are attributed to the character. The block
+  /// opens with `<START>` per the V2 spec (the prompt builder renders
+  /// mes_example verbatim).
+  String _buildMesExample(List<String> exampleMessages) {
+    if (exampleMessages.isEmpty) return '';
+    final lines = <String>['<START>'];
+    for (final raw in exampleMessages) {
+      var text = _convertPlaceholders(raw)
+          .replaceAll('#{{char}}:', '{{char}}:')
+          .replaceAll('#{{user}}:', '{{user}}:');
+      if (!text.contains('{{char}}:') && !text.contains('{{user}}:')) {
+        text = '{{char}}: $text';
+      }
+      lines.add(text.trim());
+    }
+    return lines.join('\n');
+  }
+
+  /// Map the scenario's Backyard sampler values onto per-session overrides.
+  /// Returns null when the archive carried no model settings.
+  ChatGenerationSettings? toGenerationSettings(ByafImportPreview preview) {
+    final s = preview.modelSettings;
+    if (s.isEmpty) return null;
+    return ChatGenerationSettings(
+      temperature: s['temperature'],
+      minP: s['minP'],
+      topP: s['topP'],
+      topK: s['topK']?.toInt(),
+      repeatPenalty: s['repeatPenalty'],
+      repeatPenaltyTokens: s['repeatLastN']?.toInt(),
+    );
   }
 
   /// Convert a ByafImportPreview into a CharacterCard for import.
@@ -274,7 +334,7 @@ class ByafService {
       personality: '',
       scenario: _convertPlaceholders(preview.narrative ?? ''),
       firstMessage: _convertPlaceholders(preview.firstMessage ?? ''),
-      mesExample: '',
+      mesExample: _buildMesExample(preview.exampleMessages),
       systemPrompt: _convertPlaceholders(preview.formattingInstructions ?? ''),
       postHistoryInstructions: '',
       alternateGreetings: [],
@@ -319,14 +379,23 @@ class ByafService {
     return outputPath;
   }
 
-  /// Import chat history from BYAF messages into the database.
-  /// Creates a new session linked to the character and inserts all messages.
-  Future<void> importChatHistory(
+  /// Create the imported chat session: BYAF message history (when
+  /// [includeMessages]) and/or Backyard sampler overrides ([genSettings],
+  /// stored on the session's generation_settings column so resuming the chat
+  /// — or forking it — samples like Backyard did). No-ops when there is
+  /// nothing to persist.
+  Future<void> importSession(
     AppDatabase db,
     ByafImportPreview preview,
-    CharacterCard importedCard,
-  ) async {
-    if (preview.messages.isEmpty || importedCard.dbId == null) return;
+    CharacterCard importedCard, {
+    bool includeMessages = true,
+    ChatGenerationSettings? genSettings,
+  }) async {
+    final withMessages = includeMessages && preview.messages.isNotEmpty;
+    final settingsJson = genSettings?.toJsonString();
+    if ((!withMessages && settingsJson == null) || importedCard.dbId == null) {
+      return;
+    }
 
     // Create a session ID (timestamp-based, matching the app's convention)
     final sessionId = DateTime.now().millisecondsSinceEpoch.toString();
@@ -337,8 +406,11 @@ class ByafService {
         id: sessionId,
         characterId: Value(importedCard.dbId!),
         name: Value('Imported from Backyard AI'),
+        generationSettings: Value(settingsJson),
       ),
     );
+
+    if (!withMessages) return;
 
     // Build message list
     final msgs = <MessagesCompanion>[];
@@ -364,9 +436,9 @@ class ByafService {
   }
 
   Future<void> _createPlaceholderPng(String outputPath) async {
-    // Minimal valid 1x1 white PNG
+    // Minimal blank placeholder written when a BYAF card carries no image.
     final pngBytes = base64Decode(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+      'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR42mP4/vU9VsQwtCQAafG2wXWW5mYAAAAASUVORK5CYII=',
     );
     await File(outputPath).writeAsBytes(pngBytes);
   }

@@ -18,16 +18,13 @@ import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 
 /// Test factory to reduce 13+ callback boilerplate across tests (and future extractions).
 /// Supplies realistic defaults; use overrides for targeted state (e.g. speaker, group flag, time).
-/// For values mutated by the test after construction (timeOfDay, arousal, speaker etc.),
+/// For values mutated by the test after construction (timeOfDay, speaker etc.),
 /// pass live getters via *Fn params so sim callbacks see updates (e.g. timeOfDayFn: () => timeOfDay).
 NeedsSimulation createTestSim({
   List<String>? notifies,
   List<String>? saves,
   String Function()? timeOfDayFn,
   bool Function()? realismFn,
-  int Function()? arousalFn,
-  bool Function()? nsfwCooldownFn,
-  int Function()? cooldownFn,
   bool Function()? observerFn,
   String Function()? speakerIdFn,
   bool Function()? isGroupNonObserverFn,
@@ -44,9 +41,6 @@ NeedsSimulation createTestSim({
     onSaveChat: () async => s.add('save'),
     getTimeOfDay: timeOfDayFn ?? () => 'morning',
     getRealismEnabled: realismFn ?? () => true,
-    getArousalLevel: arousalFn ?? () => 0,
-    getNsfwCooldownEnabled: nsfwCooldownFn ?? () => false,
-    getCooldownTurnsRemaining: cooldownFn ?? () => 0,
     getObserverMode: observerFn ?? () => false,
     getCurrentSpeakerIdForRealism: speakerIdFn ?? () => 'char-1',
     getIsGroupNonObserverMode: isGroupNonObserverFn ?? () => false,
@@ -55,7 +49,6 @@ NeedsSimulation createTestSim({
     setGroupNeeds: (id, nn) => gn[id] = Map.from(nn),
     getEnjoysLowHygiene: enjoysFn ?? () => false,
     getNeedsSimEnabled: simEnabledFn ?? () => true,
-    setArousalLevel: (_) {},
   );
 }
 
@@ -115,6 +108,36 @@ void main() {
       });
       expect(sim.vector['bladder'], 42);
     });
+
+    test(
+      'needs vector round-trips losslessly through the per-char store '
+      '(host-collapse safety net — completes the A2 lossless proof)',
+      () {
+        // A full, distinctive vector covering every official need.
+        final vec = {
+          'hunger': 12,
+          'bladder': 88,
+          'energy': 34,
+          'social': 71,
+          'fun': 5,
+          'hygiene': 49,
+          'comfort': 96,
+        };
+        sim.restoreFromSnapshot({'vector': vec});
+        for (final k in NeedsSimulation.needKeys) {
+          expect(sim.vector[k], vec[k], reason: 'direct restore: $k');
+        }
+
+        // Mirror the load/save "dance": persist into the per-char group map,
+        // wipe the working register, then restore from the map.
+        groupNeeds['host'] = Map<String, int>.from(sim.vector);
+        sim.initializeFresh(); // wipe to defaults
+        sim.restoreFromSnapshot({'vector': groupNeeds['host']!});
+        for (final k in NeedsSimulation.needKeys) {
+          expect(sim.vector[k], vec[k], reason: 'after store round-trip: $k');
+        }
+      },
+    );
 
     test('applySceneImpact applies deltas + reason', () {
       sim.initializeFresh();
@@ -205,6 +228,53 @@ void main() {
       sim.consumePendingCatastrophe();
       // current getNeedStep: 10 <=15 -> step 1 (thresholds [0,15,30,...])
       expect(sim.getNeedStep('hunger', 10), 1);
+    });
+
+    test('catastrophe fires at 0 for a hard-event need + lifts to floor', () {
+      sim.initializeFresh();
+      sim.restoreFromSnapshot({
+        'vector': {
+          'hunger': 60,
+          'bladder': 0, // bottomed out
+          'energy': 60,
+          'social': 60,
+          'fun': 60,
+          'hygiene': 60,
+          'comfort': 60,
+        },
+      });
+      sim.applyCatastropheIfNeeded();
+      expect(sim.pendingCatastrophe, isNotNull);
+      expect(sim.pendingCatastrophe, contains('control gives out')); // bladder
+      expect(sim.vector['bladder'],
+          NeedsSimulation.needPostCatastropheFloor['bladder']); // lifted
+    });
+
+    test('social/fun at 0 do NOT fire a catastrophe (moods, not events)', () {
+      sim.initializeFresh();
+      sim.restoreFromSnapshot({
+        'vector': {
+          'hunger': 60, 'bladder': 60, 'energy': 60,
+          'social': 0, 'fun': 0, // bottomed out, but excluded
+          'hygiene': 60, 'comfort': 60,
+        },
+      });
+      sim.applyCatastropheIfNeeded();
+      expect(sim.pendingCatastrophe, isNull);
+    });
+
+    test('hygiene catastrophe is suppressed for enjoys-low-hygiene characters',
+        () {
+      final sim2 = createTestSim(enjoysFn: () => true);
+      sim2.initializeFresh();
+      sim2.restoreFromSnapshot({
+        'vector': {
+          'hunger': 60, 'bladder': 60, 'energy': 60, 'social': 60,
+          'fun': 60, 'hygiene': 0, 'comfort': 60,
+        },
+      });
+      sim2.applyCatastropheIfNeeded();
+      expect(sim2.pendingCatastrophe, isNull); // 0 hygiene = comfort for them
     });
   });
 }

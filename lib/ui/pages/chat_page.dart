@@ -18,12 +18,10 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 
 // Barrel imports for high-frequency services, models, utils, and widgets
 import 'package:front_porch_ai/models/models.dart';
@@ -33,9 +31,10 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 
 // Specific dialogs and modules not covered by the barrels (or intentionally direct)
-import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/dialogs/character_avatars_dialog.dart';
+import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
+import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
+import 'package:front_porch_ai/ui/dialogs/image_prompt_review_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/edit_character_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/ui_settings_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/chat_settings_dialog.dart';
@@ -44,13 +43,19 @@ import 'package:front_porch_ai/ui/dialogs/tts_settings_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/user_persona_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/context_viewer_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings_dialog.dart';
-import 'package:front_porch_ai/ui/dialogs/group_objectives_dialog.dart';
+import 'package:front_porch_ai/ui/dialogs/scene_guest_detected_dialog.dart';
+import 'package:front_porch_ai/services/chat/chat_command_handler.dart';
+import 'package:front_porch_ai/services/avatar_gallery.dart';
+import 'package:front_porch_ai/services/capability/model_capabilities.dart';
+import 'package:front_porch_ai/services/capability/vision_support_resolver.dart';
+import 'package:front_porch_ai/services/caption/local_caption_service.dart';
+import 'package:front_porch_ai/ui/dialogs/scene_guest_picker_dialog.dart';
 // Old ImageGenDialog removed in Stage 3 (full from-scratch Image Studio).
 // Studio launched below; see lib/ui/image_studio/ and _showImageGenDialog.
 import 'package:front_porch_ai/ui/dialogs/kobold_log_dialog.dart';
-import 'package:front_porch_ai/ui/pages/fork_to_group_page.dart';
 // Stage 3 Image Studio (replaces old image_gen_dialog completely)
 import 'package:front_porch_ai/ui/image_studio/image_studio.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -60,14 +65,35 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final StyledTextController _controller = StyledTextController(preset: StyledTextPreset.chat);
+  /// Custom-background existence memo — see the io-lint gate. Cleared
+  /// implicitly on page remount; a deleted bg file shows stale until then,
+  /// same visual outcome as before (background simply doesn't render).
+  final Map<String, bool> _bgExistsCache = {};
+
+  final StyledTextController _controller = StyledTextController(
+    preset: StyledTextPreset.chat,
+  );
   final ScrollController _scrollController = ScrollController();
   late final FocusNode _chatFocusNode;
   bool _autoScroll = true;
+  // Journal receipts tap-to-jump: the just-landed-on bubble, briefly tinted.
+  ChatMessage? _jumpFlashMessage;
   double _sidebarWidth = 300;
   int _inputMinLines = 1;
   double _dragAccumulator = 0;
   bool _isCallActive = false;
+  // Guards the Scene Guest detection popup so it cannot stack while open.
+  bool _showingGuestDetection = false;
+  bool _showingGuestPicker = false;
+  bool _showingImageReview = false;
+  // Pending photo attachment for the next user message (bytes already
+  // downscaled + PNG re-encoded by pickChatImageAttachment). visionOk is
+  // null while the capability resolver is still checking the active model;
+  // blindReason carries the backend-specific "why" for the chip's
+  // last-resort explanation when the check fails.
+  Uint8List? _pendingImageBytes;
+  bool? _pendingImageVisionOk;
+  String? _pendingImageBlindReason;
   bool? _externalImagesAllowed;
   bool _imageConsentChecked = false;
   TtsService? _ttsService;
@@ -76,12 +102,91 @@ class _ChatPageState extends State<ChatPage> {
   // Slider drag tracking — store live value during drag, null on release
   double? _dragDirectorDelay;
 
+  /// The cast participant whose per-character sidebar sections are shown.
+  /// `null` = focus the host / first participant. Falls back automatically when
+  /// the id is no longer in the active cast (e.g. after switching chats).
+  String? _focusedParticipantId;
+
+  /// Resolve the currently-focused participant from the unified cast, defaulting
+  /// to the first participant (the host in a 1:1/NPC chat). Returns null only
+  /// when no chat is loaded.
+  ChatParticipant? _focusedParticipant(ChatService chat) {
+    final cast = chat.cast;
+    if (cast.isEmpty) return null;
+    if (_focusedParticipantId != null) {
+      for (final p in cast) {
+        if (p.id == _focusedParticipantId) return p;
+      }
+    }
+    return cast.first;
+  }
+
   /// Resolve a character [imagePath] (basename or full path) to a [File].
   /// Always use this instead of [File(imagePath)] directly.
   File _resolveCharImage(String imagePath) {
     final storage = Provider.of<StorageService>(context, listen: false);
     return storage.resolveCharacterImage(imagePath);
   }
+
+  /// Resolve the avatar + name color for a message's speaker from the unified
+  /// [ChatService.cast], replacing the old group-vs-1:1/guest branches with one
+  /// path. A non-host participant (group member or Scene Guest) gets its own
+  /// avatar and a palette color keyed by its order among non-host speakers
+  /// (preserving the previous per-mode coloring). The host gets its avatar and
+  /// no color; an unresolved sender (a departed guest) gets the placeholder.
+  (File?, Color?) _resolveSpeaker(ChatService chatService, ChatMessage msg) {
+    if (msg.isUser) return (null, null);
+    final cast = chatService.cast;
+    final nonHost = cast.where((p) => !p.isHost).toList();
+
+    ChatParticipant? speaker;
+    for (final p in cast) {
+      if ((msg.characterId != null && p.id == msg.characterId) ||
+          p.name == msg.sender) {
+        speaker = p;
+        break;
+      }
+    }
+
+    if (speaker != null && !speaker.isHost) {
+      final img = _coverFor(chatService, speaker.card);
+      final idx = nonHost.indexWhere((p) => p.id == speaker!.id);
+      return (img, _groupCharacterColor(idx >= 0 ? idx : 0));
+    }
+
+    // Host message (or an unresolved/departed sender). Use the host avatar only
+    // for an actual host message; an unknown non-host sender gets the
+    // placeholder rather than the host's face under someone else's name.
+    final host = cast.where((p) => p.isHost).firstOrNull;
+    final isHostMsg =
+        (speaker != null && speaker.isHost) ||
+        (host != null &&
+            (msg.sender == host.name ||
+                (msg.characterId != null && msg.characterId == host.id)));
+    final img = (isHostMsg && host != null)
+        ? _coverFor(chatService, host.card)
+        : null;
+    return (img, null);
+  }
+
+  /// Star-aware avatar for a character chip (header, bubbles, pickers): the
+  /// ★ gallery cover of the ORIGIN library card — the SAME face the home
+  /// grid, web library, and exports show ("one face per character",
+  /// maintainer 2026-07-16) — else the portrait. Null when imageless.
+  File? _coverFor(ChatService chat, CharacterCard card) {
+    final lib = chat.originLibraryCardFor(card) ?? card;
+    final cover = Provider.of<CharacterRepository>(
+      context,
+      listen: false,
+    ).coverImageFileFor(lib);
+    if (cover != null) return cover;
+    final path = lib.imagePath ?? card.imagePath;
+    return path == null ? null : _resolveCharImage(path);
+  }
+
+  /// Platform-appropriate label for the regenerate shortcut (#86), surfaced in
+  /// the Generate-reply button tooltip so keyboard users can discover it.
+  String get _regenShortcutLabel => Platform.isMacOS ? '⌘R' : 'Ctrl+R';
 
   @override
   void initState() {
@@ -94,15 +199,24 @@ class _ChatPageState extends State<ChatPage> {
           if (HardwareKeyboard.instance.isShiftPressed) {
             return KeyEventResult.ignored; // let the TextField insert a newline
           }
-          // Bare Enter → send message
+          // Bare Enter → send message (shared path with the send button,
+          // so a pending photo attachment rides along here too)
           final chatService = Provider.of<ChatService>(context, listen: false);
-          final text = _controller.text.trim();
-          if (text.isNotEmpty && !chatService.isGenerating) {
-            chatService.sendMessage(text);
-            _controller.clear();
-            WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _scrollToBottom(),
-            );
+          _sendCurrentMessage(chatService);
+          return KeyEventResult.handled;
+        }
+        // ⌘R (macOS) / Ctrl+R — (re)generate the last AI reply. If the previous
+        // reply was deleted, regenerateLastMessage() generates a fresh one from
+        // the trailing user prompt instead (it handles both). Mirrors the
+        // Generate-reply toolbar button / bubble regen for keyboard users.
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyR &&
+            (Platform.isMacOS
+                ? HardwareKeyboard.instance.isMetaPressed
+                : HardwareKeyboard.instance.isControlPressed)) {
+          final chatService = Provider.of<ChatService>(context, listen: false);
+          if (!chatService.isGenerating && !chatService.isGuestBusy) {
+            chatService.regenerateLastMessage();
           }
           return KeyEventResult.handled;
         }
@@ -119,7 +233,14 @@ class _ChatPageState extends State<ChatPage> {
     final chat = Provider.of<ChatService>(context, listen: false);
     _chatService = chat;
     chat.addListener(_onChatServiceChanged);
+
+    // Resume timer if this is a pre-existing chat with history
+    chat.resumeDynamicResponses();
   }
+
+  // Lifecycle pausing intentionally omitted — the idle timer should fire when
+  // the user walks away (minimized/backgrounded). Pausing on dispose (page
+  // navigation) is sufficient to prevent phantom generations.
 
   void _onChatServiceChanged() {
     if (!mounted) return;
@@ -131,6 +252,62 @@ class _ChatPageState extends State<ChatPage> {
         (_) => _showChanceTimeOverlay(context),
       );
     }
+    // Scene Guest cast detection — same Chance-Time-style pending-flag pattern.
+    if (chat.pendingGuestDetection != null && !_showingGuestDetection) {
+      _showingGuestDetection = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _showGuestDetectionDialog(chat),
+      );
+    }
+    // Scene Guest `/join` picker — same pending-flag pattern.
+    if (chat.pendingGuestPickerFilter != null && !_showingGuestPicker) {
+      _showingGuestPicker = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _showGuestPickerDialog(chat),
+      );
+    }
+    // /image prompt review — same pending-flag pattern (review setting on).
+    if (chat.pendingImagePromptReview != null && !_showingImageReview) {
+      _showingImageReview = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _showImagePromptReviewDialog(chat),
+      );
+    }
+    // A guest's background portrait finished — evict its stale cached image so
+    // the new art replaces the initials avatar.
+    final evictPath = chat.guestAvatarEvictPath;
+    if (evictPath != null) {
+      chat.consumeGuestAvatarEvict();
+      FileImage(_resolveCharImage(evictPath)).evict().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+    // A guest just /exit-ed — offer a brief UNDO (delete the departure message
+    // + restore the guest with full context). Consume the offer so it shows once.
+    final exitUndoName = chat.exitUndoOfferName;
+    if (exitUndoName != null) {
+      chat.consumeExitUndoOffer();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('$exitUndoName left the scene'),
+            duration: const Duration(seconds: 8),
+            // Flutter's SnackBar.persist defaults to `action != null`, so an
+            // action snackbar silently ignores its duration and stays forever
+            // (the auto-dismiss timer fires but early-returns on persist). We
+            // want it to disappear after 8s, so opt out explicitly.
+            persist: false,
+            action: SnackBarAction(
+              label: 'UNDO',
+              onPressed: () => _chatService?.undoLastExit(),
+            ),
+          ),
+        );
+      });
+    }
   }
 
   void _showChanceTimeOverlay(BuildContext context) {
@@ -139,6 +316,100 @@ class _ChatPageState extends State<ChatPage> {
       barrierDismissible: false,
       builder: (_) => const ChanceTimeOverlay(),
     );
+  }
+
+  /// Show the /image prompt-review dialog and resolve the pending review with
+  /// the edited prompt (or null on cancel). Mirrors the guest-picker flow.
+  Future<void> _showImagePromptReviewDialog(ChatService chat) async {
+    final prompt = chat.pendingImagePromptReview;
+    if (prompt == null || !mounted) {
+      _showingImageReview = false;
+      return;
+    }
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ImagePromptReviewDialog(prompt: prompt),
+    );
+    _showingImageReview = false;
+    chat.resolveImagePromptReview(result);
+  }
+
+  Future<void> _showGuestDetectionDialog(ChatService chat) async {
+    final detected = chat.pendingGuestDetection;
+    if (detected == null || !mounted) {
+      _showingGuestDetection = false;
+      return;
+    }
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => SceneGuestDetectedDialog(
+        detected: detected,
+        hostName: chat.activeCharacter?.name ?? 'your character',
+      ),
+    );
+    _showingGuestDetection = false;
+    if (accepted == true) {
+      await chat.acceptDetectedGuest();
+    } else {
+      chat.dismissDetectedGuest();
+    }
+  }
+
+  /// Show the `/join` character picker, then bring the chosen library character
+  /// into the scene as a Scene Guest. The pending flag is always cleared so the
+  /// picker never re-opens for the same request.
+  Future<void> _showGuestPickerDialog(ChatService chat) async {
+    final initial = chat.pendingGuestPickerFilter;
+    if (initial == null || !mounted) {
+      _showingGuestPicker = false;
+      chat.dismissGuestPicker();
+      return;
+    }
+    final full = chat.pendingGuestPickerFull;
+    // Full picker: in a group it adds a member; in a 1:1 it converts to a group.
+    // Lite picker: a Scene Guest inside a 1:1.
+    final characters = full
+        ? (chat.activeGroup != null
+              ? chat.joinableGroupCharacters
+              : chat.joinableGuestCharacters)
+        : chat.joinableGuestCharacters;
+    final selected = await showDialog<CharacterCard>(
+      context: context,
+      builder: (_) => SceneGuestPickerDialog(
+        characters: characters,
+        initialFilter: initial,
+        resolveImage: (card) => _coverFor(chat, card),
+      ),
+    );
+    _showingGuestPicker = false;
+    chat.dismissGuestPicker();
+    if (selected != null) {
+      if (full) {
+        await chat.joinFull(selected);
+      } else {
+        await chat.joinSceneGuest(selected);
+      }
+    }
+  }
+
+  /// Replacement for the removed Fork-to-Group wizard: pick a library character
+  /// and bring them in as a FULL participant via the unified `joinFull` path,
+  /// converting the current 1:1 into a group in place (with an organic entrance).
+  /// Same picker as `/join`; only the join tier differs.
+  Future<void> _showConvertToGroupPicker(ChatService chat) async {
+    final selected = await showDialog<CharacterCard>(
+      context: context,
+      builder: (_) => SceneGuestPickerDialog(
+        characters: chat.joinableGuestCharacters,
+        initialFilter: '',
+        resolveImage: (card) => _coverFor(chat, card),
+      ),
+    );
+    if (selected != null) {
+      await chat.joinFull(selected);
+    }
   }
 
   void _onTtsChanged() {
@@ -168,6 +439,9 @@ class _ChatPageState extends State<ChatPage> {
           backgroundColor: const Color(0xFFB91C1C),
           duration: const Duration(seconds: 6),
           behavior: SnackBarBehavior.floating,
+          // Opt out of Flutter's persist-when-action default so the 6s duration
+          // is honored (otherwise this error toast never leaves the screen).
+          persist: false,
           action: SnackBarAction(
             label: 'OK',
             textColor: Colors.white70,
@@ -206,6 +480,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    _chatService?.pauseDynamicResponses();
     _ttsService?.removeListener(_onTtsChanged);
     _chatService?.removeListener(_onChatServiceChanged);
     _chatFocusNode.dispose();
@@ -225,6 +500,27 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  /// Journal receipts tap-to-jump: seek the chat to the message at
+  /// [position] (the stored absolute index), then flash the bubble so the
+  /// eye finds it. The seek itself lives in message_jump.dart.
+  Future<void> _jumpToMessage(int position) async {
+    final messages = Provider.of<ChatService>(context, listen: false).messages;
+    if (position < 0 || position >= messages.length) return;
+    final target = messages[position];
+    await jumpToMessage(
+      controller: _scrollController,
+      messages: messages,
+      target: target,
+    );
+    if (!mounted) return;
+    setState(() => _jumpFlashMessage = target);
+    Future.delayed(const Duration(milliseconds: 1800), () {
+      if (mounted && identical(_jumpFlashMessage, target)) {
+        setState(() => _jumpFlashMessage = null);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ChatService>(
@@ -234,16 +530,25 @@ class _ChatPageState extends State<ChatPage> {
         final isGroup = chatService.isGroupMode;
 
         if (character == null && !isGroup) {
-          return const Center(child: Text('No character selected.'));
+          // Scaffold, not a bare Center: without a Material ancestor the Text
+          // renders in the red/yellow debug style on a black void — which is
+          // exactly what users saw when a bug landed them here.
+          return Scaffold(
+            backgroundColor: AppColors.backgroundOf(context),
+            body: Center(
+              child: Text(
+                'No character selected.',
+                style: TextStyle(color: AppColors.textSecondary(context)),
+              ),
+            ),
+          );
         }
 
         return Stack(
           children: [
             Scaffold(
               backgroundColor: AppColors.backgroundOf(context),
-              appBar: isGroup
-                  ? _buildGroupAppBar(context, chatService)
-                  : _buildAppBar(context, character!),
+              appBar: _buildAppBar(context, chatService),
               body: Row(
                 children: [
                   Expanded(
@@ -304,9 +609,17 @@ class _ChatPageState extends State<ChatPage> {
                                       .firstWhere((e) => e['id'] == bgKey);
                                 } catch (_) {}
                               }
+                              // Memoized: this builder reruns on every
+                              // streaming token batch; a per-rebuild
+                              // existsSync is the io-lint bug class.
                               final hasCustomBg =
                                   customEntry != null &&
-                                  File(customEntry['filePath']!).existsSync();
+                                  _bgExistsCache.putIfAbsent(
+                                    customEntry['filePath']!,
+                                    () => File(
+                                      customEntry!['filePath']!,
+                                    ).existsSync(), // io-ok: memoized, once per path
+                                  );
 
                               return Stack(
                                 children: [
@@ -339,8 +652,9 @@ class _ChatPageState extends State<ChatPage> {
                                       }
                                       final char = character;
                                       if (char == null ||
-                                          char.avatarImages == null ||
-                                          char.avatarImages!.isEmpty) {
+                                          expressionsFrom(
+                                            char.avatarImages,
+                                          ).isEmpty) {
                                         return const SizedBox.shrink();
                                       }
                                       final avatar = chat
@@ -429,44 +743,32 @@ class _ChatPageState extends State<ChatPage> {
                                     controller: _scrollController,
                                     reverse: true,
                                     padding: const EdgeInsets.all(20),
-                                    itemCount: messages.length,
+                                    // +1 while an /image run is live: reverse
+                                    // index 0 (visual bottom) shows the
+                                    // "image coming to life" bubble with live
+                                    // preview + progress.
+                                    itemCount:
+                                        messages.length +
+                                        (chatService.isGeneratingChatImage
+                                            ? 1
+                                            : 0),
                                     itemBuilder: (context, index) {
+                                      if (chatService.isGeneratingChatImage) {
+                                        if (index == 0) {
+                                          return const GeneratingImageBubble();
+                                        }
+                                        index -= 1;
+                                      }
                                       // Reverse index so newest messages are at the top of the reversed list (visual bottom)
                                       final reversedIndex =
                                           messages.length - 1 - index;
                                       final msg = messages[reversedIndex];
-                                      // In group mode, pass the character's image based on sender
-                                      File? senderImage;
-                                      Color? senderColor;
-                                      if (isGroup && !msg.isUser) {
-                                        final senderChar = chatService
-                                            .groupCharacters
-                                            .where((c) => c.name == msg.sender)
-                                            .firstOrNull;
-                                        senderImage =
-                                            senderChar?.imagePath != null
-                                            ? _resolveCharImage(
-                                                senderChar!.imagePath!,
-                                              )
-                                            : null;
-                                        final senderIdx = chatService
-                                            .groupCharacters
-                                            .indexWhere(
-                                              (c) => c.name == msg.sender,
-                                            );
-                                        senderColor = _groupCharacterColor(
-                                          senderIdx >= 0 ? senderIdx : 0,
-                                        );
-                                      } else {
-                                        senderImage =
-                                            character?.imagePath != null
-                                            ? _resolveCharImage(
-                                                character!.imagePath!,
-                                              )
-                                            : null;
-                                      }
-                                      return MessageBubble(
-                                        key: ObjectKey(msg),
+                                      // Resolve the speaker's avatar + name color
+                                      // from the unified cast (host, group member,
+                                      // or Scene Guest) — one path for all modes.
+                                      final (senderImage, senderColor) =
+                                          _resolveSpeaker(chatService, msg);
+                                      final bubble = MessageBubble(
                                         message: msg,
                                         characterImage: senderImage,
                                         index: reversedIndex,
@@ -643,6 +945,18 @@ class _ChatPageState extends State<ChatPage> {
                                             : character,
                                         chatService: chatService,
                                       );
+                                      // GlobalObjectKey (was ObjectKey): same
+                                      // identity for list diffing, but
+                                      // locatable — jumpToMessage pages the
+                                      // list until this key materializes.
+                                      return JumpFlash(
+                                        key: GlobalObjectKey(msg),
+                                        flashed: identical(
+                                          msg,
+                                          _jumpFlashMessage,
+                                        ),
+                                        child: bubble,
+                                      );
                                     },
                                   ),
                                 ],
@@ -656,13 +970,9 @@ class _ChatPageState extends State<ChatPage> {
                       ],
                     ),
                   ),
-                  if (isGroup)
+                  if (isGroup || character != null)
                     _buildResizableSidebar(
-                      child: _buildGroupSidebar(chatService),
-                    )
-                  else if (character != null)
-                    _buildResizableSidebar(
-                      child: _buildRightSidebar(character, chatService),
+                      child: _buildRightSidebar(chatService),
                     ),
                 ],
               ),
@@ -714,10 +1024,111 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// Single AppBar for every chat. Driven by the unified [ChatService.cast]:
+  /// a cast of one renders the classic single-character header (avatar + name +
+  /// description); a cast of two or more renders stacked avatars (with emotion
+  /// rings when group realism is active) + a "N characters" subtitle. This is
+  /// the same header whether the extra speakers are full group members or Scene
+  /// Guests, so a 1:1 that gains a guest visually becomes a multi-speaker chat.
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
-    CharacterCard character,
+    ChatService chatService,
   ) {
+    final cast = chatService.cast;
+    final group = chatService.activeGroup;
+    final isMulti = cast.length > 1;
+
+    final Widget avatars;
+    if (!isMulti) {
+      final card = cast.isNotEmpty ? cast.first.card : null;
+      final cover = card == null ? null : _coverFor(chatService, card);
+      avatars = CircleAvatar(
+        backgroundImage: cover != null ? FileImage(cover) : null,
+        onBackgroundImageError: cover != null ? (_, _) {} : null,
+        child: cover == null ? const Icon(Icons.person) : null,
+      );
+    } else {
+      final shown = cast.length.clamp(0, 4);
+      avatars = SizedBox(
+        width: 24.0 + (shown - 1) * 16,
+        height: 32,
+        child: Stack(
+          children: [
+            for (int i = 0; i < shown; i++)
+              Positioned(
+                left: i * 16.0,
+                child: Builder(
+                  builder: (_) {
+                    final card = cast[i].card;
+                    final emo = chatService.isGroupRealismActive
+                        ? chatService.getEmotionForGroupCharacter(card)
+                        : null;
+                    final fix = chatService.isGroupRealismActive
+                        ? chatService.getFixationForGroupCharacter(card)
+                        : null;
+                    final tooltip = emo == null
+                        ? card.name
+                        : (fix != null && fix.isNotEmpty
+                              ? '${card.name} • $emo\nFixated: $fix'
+                              : '${card.name} • $emo');
+                    return Tooltip(
+                      message: tooltip,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: chatService.isGroupRealismActive
+                              ? Border.all(
+                                  color: EmotionLabels.ringColor(emo),
+                                  width: 2.0,
+                                )
+                              : null,
+                        ),
+                        child: Builder(
+                          builder: (_) {
+                            final cover = _coverFor(chatService, card);
+                            return CircleAvatar(
+                              radius: 16,
+                              backgroundColor: _groupCharacterColor(i),
+                              backgroundImage: cover != null
+                                  ? FileImage(cover)
+                                  : null,
+                              child: cover == null
+                                  ? Text(
+                                      card.name.isNotEmpty
+                                          ? card.name[0]
+                                          : '?',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : null,
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final title = group?.name ?? (cast.isNotEmpty ? cast.first.name : '');
+    final String? subtitle;
+    if (isMulti) {
+      subtitle = group != null
+          ? '${cast.length} characters • ${group.turnOrder.name}'
+          : '${cast.length} characters';
+    } else {
+      final desc = cast.isNotEmpty ? cast.first.card.description : '';
+      subtitle = desc.isEmpty
+          ? null
+          : (desc.length > 30 ? '${desc.substring(0, 30)}...' : desc);
+    }
+
     return AppBar(
       backgroundColor: AppColors.surfaceOf(context),
       elevation: 0,
@@ -727,34 +1138,22 @@ class _ChatPageState extends State<ChatPage> {
       ),
       title: Row(
         children: [
-          CircleAvatar(
-            backgroundImage: character.imagePath != null
-                ? FileImage(_resolveCharImage(character.imagePath!))
-                : null,
-            onBackgroundImageError: character.imagePath != null
-                ? (_, _) {}
-                : null,
-            child: character.imagePath == null
-                ? const Icon(Icons.person)
-                : null,
-          ),
+          avatars,
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                character.name,
+                title,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary(context),
                 ),
               ),
-              if (character.description.isNotEmpty)
+              if (subtitle != null)
                 Text(
-                  character.description.length > 30
-                      ? '${character.description.substring(0, 30)}...'
-                      : character.description,
+                  subtitle,
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textTertiary(context),
@@ -779,137 +1178,9 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  PreferredSizeWidget _buildGroupAppBar(
-    BuildContext context,
-    ChatService chatService,
-  ) {
-    final group = chatService.activeGroup!;
-    final chars = chatService.groupCharacters;
-    return AppBar(
-      backgroundColor: AppColors.surfaceOf(context),
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      title: Row(
-        children: [
-          // Stacked avatars (with emotion rings when group realism is active)
-          SizedBox(
-            width: 24.0 + (chars.length.clamp(0, 4) - 1) * 16,
-            height: 32,
-            child: Stack(
-              children: [
-                for (int i = 0; i < chars.length.clamp(0, 4); i++)
-                  Positioned(
-                    left: i * 16.0,
-                    child: Tooltip(
-                      message: () {
-                        if (!chatService.isGroupRealismActive) {
-                          return chars[i].name;
-                        }
-                        final emo = chatService.getEmotionForGroupCharacter(
-                          chars[i],
-                        );
-                        final fix = chatService.getFixationForGroupCharacter(
-                          chars[i],
-                        );
-                        final base =
-                            '${chars[i].name}${emo != null ? ' • $emo' : ''}';
-                        return fix != null && fix.isNotEmpty
-                            ? '$base\nFixated: $fix'
-                            : base;
-                      }(),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: chatService.isGroupRealismActive
-                              ? Border.all(
-                                  color: EmotionLabels.ringColor(
-                                    chatService.getEmotionForGroupCharacter(
-                                      chars[i],
-                                    ),
-                                  ),
-                                  width: 2.0,
-                                )
-                              : null,
-                        ),
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: _groupCharacterColor(i),
-                          backgroundImage: chars[i].imagePath != null
-                              ? FileImage(
-                                  _resolveCharImage(chars[i].imagePath!),
-                                )
-                              : null,
-                          child: chars[i].imagePath == null
-                              ? Text(
-                                  chars[i].name[0],
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                group.name,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary(context),
-                ),
-              ),
-              Text(
-                '${chars.length} characters • ${group.turnOrder.name}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textTertiary(context),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      actions: [
-        IconButton(
-          icon: Icon(
-            _sidebarWidth > 0 ? Icons.last_page : Icons.first_page,
-            color: AppColors.iconSecondary(context),
-          ),
-          tooltip: 'Toggle Sidebar',
-          onPressed: () =>
-              setState(() => _sidebarWidth = _sidebarWidth > 0 ? 0 : 300),
-        ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
-
-  /// Per-character color palette for group chats.
-  static Color _groupCharacterColor(int index) {
-    const colors = [
-      Color(0xFF8B5CF6), // Purple
-      Color(0xFF10B981), // Emerald
-      Color(0xFFF59E0B), // Amber
-      Color(0xFFEF4444), // Red
-      Color(0xFF3B82F6), // Blue
-      Color(0xFFEC4899), // Pink
-      Color(0xFF14B8A6), // Teal
-      Color(0xFFF97316), // Orange
-    ];
-    return colors[index % colors.length];
-  }
+  /// Per-character color palette for group chats (single source lives in
+  /// sidebar_tokens.dart, shared with the sidebar widgets).
+  static Color _groupCharacterColor(int index) => groupCharacterColor(index);
 
   void _showGroupSettingsDialog(ChatService chatService) {
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
@@ -922,7 +1193,8 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _importChat() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await PickerPrefs.pickFiles(
+        category: PickerPrefs.catImport,
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
@@ -988,7 +1260,8 @@ class _ChatPageState extends State<ChatPage> {
           .first;
       final fileName = '${characterName}_$timestamp.json';
 
-      final path = await FilePicker.platform.saveFile(
+      final path = await PickerPrefs.saveFile(
+        category: PickerPrefs.catExport,
         dialogTitle: 'Export Chat',
         fileName: fileName,
         type: FileType.custom,
@@ -1026,547 +1299,6 @@ class _ChatPageState extends State<ChatPage> {
         ),
       );
     }
-  }
-
-  void _showEvolutionDialog(BuildContext context, ChatService chat) {
-    final character = chat.activeCharacter;
-    if (character == null) return;
-    final charName = character.name;
-    final evolvedPersonality =
-        chat.getEffectivePersonality ?? character.personality;
-    final evolvedScenario = chat.getEffectiveScenario ?? character.scenario;
-
-    final personalityController = TextEditingController(
-      text: evolvedPersonality,
-    );
-    final scenarioController = TextEditingController(text: evolvedScenario);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        title: Row(
-          children: [
-            const Icon(
-              Icons.psychology_alt,
-              size: 18,
-              color: Colors.tealAccent,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '$charName — Evolution',
-                style: const TextStyle(fontSize: 14),
-              ),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  chat.characterEvolutionCount > 0
-                      ? 'Evolved ${chat.characterEvolutionCount} time${chat.characterEvolutionCount > 1 ? "s" : ""}'
-                      : 'Not yet evolved — personality will evolve as you chat',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: chat.characterEvolutionCount > 0
-                        ? Colors.tealAccent
-                        : Colors.white38,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Original personality (read-only)
-                const Text(
-                  'Original Personality',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white38,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D1117),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  constraints: const BoxConstraints(maxHeight: 80),
-                  child: SingleChildScrollView(
-                    child: Text(
-                      character.personality,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Colors.white30,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Evolved personality (editable)
-                const Text(
-                  'Evolved Personality',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.tealAccent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                AppTextField(
-                  controller: personalityController,
-                  maxLines: 4,
-                  style: const TextStyle(fontSize: 11, color: Colors.white70),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFF111827),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Colors.tealAccent),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Colors.tealAccent),
-                    ),
-                    contentPadding: const EdgeInsets.all(8),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Original scenario (read-only)
-                const Text(
-                  'Original Scenario',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white38,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D1117),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  constraints: const BoxConstraints(maxHeight: 80),
-                  child: SingleChildScrollView(
-                    child: Text(
-                      character.scenario,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Colors.white30,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Evolved scenario (editable)
-                const Text(
-                  'Evolved Scenario',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.tealAccent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                AppTextField(
-                  controller: scenarioController,
-                  maxLines: 4,
-                  style: const TextStyle(fontSize: 11, color: Colors.white70),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFF111827),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Colors.tealAccent),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Colors.tealAccent),
-                    ),
-                    contentPadding: const EdgeInsets.all(8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          if (chat.characterEvolutionCount > 0)
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _showResetEvolutionConfirmSidebar(context, chat);
-              },
-              child: const Text(
-                'Reset',
-                style: TextStyle(color: Colors.redAccent),
-              ),
-            ),
-          TextButton(
-            onPressed: chat.isEvolvingCharacter
-                ? null
-                : () async {
-                    final ok = await chat.triggerEvolutionNow();
-                    Navigator.of(ctx).pop();
-                    if (ok && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Character evolved!'),
-                          backgroundColor: Colors.teal,
-                        ),
-                      );
-                    }
-                  },
-            child: Text(
-              chat.isEvolvingCharacter ? 'Evolving...' : 'Evolve Now',
-              style: const TextStyle(color: Colors.tealAccent),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              chat.updateEvolvedPersonality(personalityController.text);
-              chat.updateEvolvedScenario(scenarioController.text);
-              Navigator.of(ctx).pop();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.tealAccent.shade700,
-            ),
-            child: const Text('Save Changes'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showResetEvolutionConfirmSidebar(
-    BuildContext context,
-    ChatService chat,
-  ) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        title: const Text('Reset Character Evolution?'),
-        content: const Text(
-          'This will reset the character\'s personality and scenario back to the original card values. '
-          'The evolution count will also reset to 0. This cannot be undone.',
-          style: TextStyle(fontSize: 12, color: Colors.white54),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              chat.resetCharacterEvolution();
-              Navigator.of(ctx).pop();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEvolveNowButton(BuildContext context, ChatService chat) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () => _runEvolutionWithDialog(context, chat),
-        icon: const Icon(
-          Icons.auto_fix_high,
-          size: 14,
-          color: Colors.tealAccent,
-        ),
-        label: const Text(
-          'Evolve Now',
-          style: TextStyle(fontSize: 11, color: Colors.tealAccent),
-        ),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.tealAccent),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        ),
-      ),
-    );
-  }
-
-  void _runEvolutionWithDialog(BuildContext context, ChatService chat) {
-    // Track the count before evolution to detect success
-    final countBefore = chat.characterEvolutionCount;
-
-    // Show the progress dialog immediately
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Consumer<ChatService>(
-        builder: (context, chat, _) {
-          final isEvolving = chat.isEvolvingCharacter;
-          final status = chat.evolutionStatus;
-          final error = chat.evolutionError;
-          final count = chat.characterEvolutionCount;
-
-          // Evolution failed — show error
-          if (!isEvolving && error.isNotEmpty) {
-            return AlertDialog(
-              backgroundColor: AppColors.surfaceOf(context),
-              title: Row(
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 20,
-                    color: Colors.redAccent,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Evolution Failed',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 400,
-                child: Text(
-                  error,
-                  style: const TextStyle(fontSize: 12, color: Colors.white54),
-                ),
-              ),
-              actions: [
-                ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                  ),
-                  child: const Text('Close'),
-                ),
-              ],
-            );
-          }
-
-          // Evolution finished successfully — show results
-          if (!isEvolving && status.isEmpty && count > countBefore) {
-            final evolvedP = chat.getEffectivePersonality;
-            final evolvedS = chat.getEffectiveScenario;
-            return AlertDialog(
-              backgroundColor: AppColors.surfaceOf(context),
-              title: Row(
-                children: [
-                  Icon(
-                    Icons.check_circle,
-                    size: 20,
-                    color: AppColors.resolve(
-                      context,
-                      Colors.tealAccent,
-                      Colors.teal.shade700,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Evolution Complete!',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 450,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Evolved $count time${count > 1 ? "s" : ""}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.resolve(
-                            context,
-                            Colors.tealAccent,
-                            Colors.teal.shade700,
-                          ),
-                        ),
-                      ),
-                      if (evolvedP != null && evolvedP.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          'Evolved Personality',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.resolve(
-                              context,
-                              Colors.tealAccent,
-                              Colors.teal.shade700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerOf(context),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: AppColors.resolve(
-                                context,
-                                Colors.tealAccent.withValues(alpha: 0.3),
-                                Colors.teal.shade200.withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ),
-                          constraints: const BoxConstraints(maxHeight: 120),
-                          child: SingleChildScrollView(
-                            child: Text(
-                              evolvedP,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textPrimary(context),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (evolvedS != null && evolvedS.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          'Evolved Scenario',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.resolve(
-                              context,
-                              Colors.tealAccent,
-                              Colors.teal.shade700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerOf(context),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: AppColors.resolve(
-                                context,
-                                Colors.tealAccent.withValues(alpha: 0.3),
-                                Colors.teal.shade200.withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ),
-                          constraints: const BoxConstraints(maxHeight: 120),
-                          child: SingleChildScrollView(
-                            child: Text(
-                              evolvedS,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textPrimary(context),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.tealAccent.shade700,
-                  ),
-                  child: const Text('Done'),
-                ),
-              ],
-            );
-          }
-
-          // Evolution in progress — show spinner + status
-          return AlertDialog(
-            backgroundColor: AppColors.surfaceOf(context),
-            title: Row(
-              children: [
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.tealAccent,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Evolving Character...',
-                  style: TextStyle(fontSize: 14),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  status.isNotEmpty ? status : 'Starting...',
-                  style: const TextStyle(fontSize: 12, color: Colors.white54),
-                ),
-                const SizedBox(height: 16),
-                const LinearProgressIndicator(
-                  color: Colors.tealAccent,
-                  backgroundColor: Color(0xFF374151),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'The LLM is analyzing the conversation history and rewriting the character\'s personality and scenario.',
-                  style: TextStyle(fontSize: 10, color: Colors.white24),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.white38),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    // Trigger the evolution
-    chat.triggerEvolutionNow().then((ok) {
-      if (!ok && mounted) {
-        Navigator.of(context).pop(); // Close dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Cannot evolve: need an active LLM and some chat history',
-            ),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    });
   }
 
   void _showClearChatConfirmation(BuildContext context) {
@@ -1636,7 +1368,7 @@ class _ChatPageState extends State<ChatPage> {
                             ? const Icon(
                                 Icons.call_split,
                                 size: 18,
-                                color: Colors.blueAccent,
+                                color: AppColors.formMasterAccent,
                               )
                             : null,
                         title: Text(
@@ -1672,7 +1404,7 @@ class _ChatPageState extends State<ChatPage> {
                                 '↳ Branched at message #${(s['fork_index'] ?? 0) + 1}',
                                 style: const TextStyle(
                                   fontSize: 11,
-                                  color: Colors.blueAccent,
+                                  color: AppColors.formMasterAccent,
                                 ),
                               ),
                           ],
@@ -1858,8 +1590,14 @@ class _ChatPageState extends State<ChatPage> {
               Navigator.of(ctx).pop();
               onSaved();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.formMasterAccent,
+              foregroundColor: AppColors.onChaosAccent,
+            ),
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.onChaosAccent),
+            ),
           ),
         ],
       ),
@@ -1870,12 +1608,9 @@ class _ChatPageState extends State<ChatPage> {
     BuildContext context,
     ChatService chatService,
   ) async {
-    // Note: mode param removed (user spec: types are buttons inside Image Studio now; launcher is neutral).
-    // We launch with customPrompt as safe neutral starter; user taps a type button inside immediately.
-    // Special pre-dialog for "custom" removed (typing in the main prompt box + Craft covers it cleanly, no boiler).
-    // onAccept captured here is for legacy direct callers; studio _accept now uses _activeMode for side effects
-    // where possible (bg set, user avatar) via providers. Portrait set (needs full Character) kept for launch-time
-    // wiring if provided. Keep thin launcher + sync comments with studio show/ctor/_active, service, builder, ctx.
+    // Launch neutral (Freeform / customPrompt); the user picks a Subject inside
+    // the studio. Portrait/persona "Set as avatar" side effects happen inside
+    // the studio via providers; onAccept remains for any direct launcher.
 
     final personaService = Provider.of<UserPersonaService>(
       context,
@@ -1931,9 +1666,9 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     if (messages.isNotEmpty) {
-      // User spec: collect more (12) so the visualize slider (1-10) in studio has headroom. The N chosen
-      // is stripped of <think> in builder (simple, pre-generated msgs). Keep collection + studio slider + builder
-      // recent limit + service ctx + ImageGenContext in sync. (1:1/group via same public surface + speaker preference).
+      // Collect recent turns so the Freeform "Craft the current scene" path (and
+      // the /image scene command) has narrative to distill. Each is stripped of
+      // <think> here; the builder caps how many it actually uses.
       recentMessages = messages.reversed
           .take(12)
           .map((m) => m.displayText)
@@ -1944,13 +1679,9 @@ class _ChatPageState extends State<ChatPage> {
           .reversed
           .toList();
 
-      // For visualizeScene (N=1 is the spiritual successor to the removed "Message Illustration" / fromLastMessage
-      // mode), prefer the most recent *AI/non-user* turn's displayText as a strong narrative anchor.
-      // This ensures the visualization is based on the character's described action/scene/pose rather than
-      // the user's just-typed input (common when studio is opened immediately after user send).
-      // In normal 1:1 the absolute last is usually the AI response. Safe fallback to absolute last.
-      // Mirrors the currentSpeakerId preference (below) for group under non-observer. Keep in sync with
-      // ModeInfoCard, builder visualize handling, studio _ctx, service thin, and tests.
+      // Prefer the most recent *AI/non-user* turn as the narrative anchor so the
+      // scene reflects the character's described action rather than the user's
+      // just-typed input. Safe fallback to the absolute last message.
       final userName = personaService.persona.name;
       for (final m in messages.reversed) {
         final txt = _cleanImageSourceText(m.displayText);
@@ -1962,17 +1693,10 @@ class _ChatPageState extends State<ChatPage> {
       lastMessage ??= _cleanImageSourceText(messages.last.displayText);
     }
 
-    // Stage 4: collect richer context from public ChatService surface for ImageStudio (expression from Realism/ExpressionClassifier,
-    // timeOfDay from TimeService, group non-observer + speaker id for correct char targeting in fromLast/visualize under impersonation).
-    // Keep collection + ImageStudio.show call + studio ctor/_ctx + service thins/_build + builder use "in sync".
-    // currentSpeakerId prefers the *most recent AI (non-user) sender* for illustration modes (fromLast/visualize) when in group
-    // (so "Focus on X" targets the character whose narrative is being illustrated, not the user if last turn was user).
-    // Iterate reversed; fall back safely. Qualifies 1:1 vs group dispatch (flag + speaker only relevant under non-obs group).
-    // No private _ methods touched in chat god; only public getters (currentExpressionLabel, timeService, isGroupMode, observerMode).
-    // Keep blocks in sync with ImageGenContext ctor, service _buildPromptContext (all 3 sites), studio _ctx + _craft, builder
-    // consumption (static + _generateSmartWith), workspace pills, and builder_test roundtrips/edges. (incomplete zeroing of
-    // secondary config on group/0-session/new-chat now complete — N/A for per-invocation stateless snapshot; see both
-    // startNew paths + setActiveGroup + load in chat_service for precedent).
+    // Collect richer context for the Image Studio (expression, time of day, and
+    // the group speaker so scene distillation focuses the right character).
+    // currentSpeakerId prefers the most recent AI (non-user) sender in a group,
+    // so "Focus on X" targets the character whose narrative is illustrated.
     final currentExpression = chatService.currentExpressionLabel;
     final timeOfDay = chatService.timeService.timeOfDay;
     final bool isGroupNonObserver =
@@ -2005,28 +1729,230 @@ class _ChatPageState extends State<ChatPage> {
     // User spec: neutral open (custom as starter), types via internal buttons (popup removed), no pregen boilerplate,
     // visualize uses slider N + think strip on craft, user box text + persona + char visual (no pers) + style to LLM.
     // Re-uses collected raw context. No new private methods added to this surface (thin).
-    await ImageStudio.show(
+    // "Send to chat": save the studio result to disk and attach it to the
+    // conversation as an inline image message (same path the /image slash
+    // command uses — ChatServiceImages.addGeneratedImageMessage).
+    final imageGenService = Provider.of<ImageGenService>(
       context,
-      mode: ImageGenMode.customPrompt,
-      customPrompt: null,
-      lastMessage: lastMessage,
-      characterName: character?.name,
-      characterDescription: character?.description,
-      characterPersonality: character?.personality,
-      scenario: _cleanImageSourceText(character?.scenario ?? ''),
-      worldInfo: _cleanImageSourceText(worldInfo ?? ''),
-      personaName: personaService.persona.name,
-      personaText: personaService.persona.persona,
-      recentMessages: recentMessages,
-      llmService: llmService,
-      onAccept: onAccept,
-      // Stage 4: pass collected richer fields (keep launch site + studio show/ctor/_ctx + service thins + builder + workspace pills in sync).
-      currentExpression: currentExpression,
-      timeOfDay: timeOfDay,
-      lightingHint: null,
-      isGroupNonObserver: isGroupNonObserver,
-      currentSpeakerId: currentSpeakerId,
+      listen: false,
     );
+    // Captured pre-dialog for the Expression-pack import refresh below.
+    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
+    Future<void> onSendToChat(Uint8List bytes, String prompt) async {
+      final path = await imageGenService.saveImageToDisk(bytes);
+      if (path != null) {
+        await chatService.addGeneratedImageMessage(path, prompt);
+      }
+    }
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ImageStudio(
+        mode: ImageGenMode.customPrompt,
+        customPrompt: null,
+        lastMessage: lastMessage,
+        characterName: character?.name,
+        characterDescription: character?.description,
+        characterPersonality: character?.personality,
+        characterDbId: character?.dbId,
+        characterImagePath: character?.imagePath,
+        // Group cast for the Subject picker: per-member portrait + a caveated
+        // whole-cast "group shot". Empty for 1:1 chats. dbId resolves to the
+        // member's LIBRARY origin (same routing as the Expression Images menu)
+        // so Expression packs land on the shared home, not a throwaway copy.
+        groupCharacters: chatService.isGroupMode
+            ? [
+                for (final c in chatService.groupCharacters)
+                  (
+                    name: c.name,
+                    description: c.description,
+                    dbId: (chatService.originLibraryCardFor(c) ?? c).dbId,
+                  ),
+              ]
+            : const [],
+        scenario: _cleanImageSourceText(character?.scenario ?? ''),
+        worldInfo: _cleanImageSourceText(worldInfo ?? ''),
+        personaName: personaService.persona.name,
+        personaText: personaService.persona.persona,
+        recentMessages: recentMessages,
+        llmService: llmService,
+        onAccept: onAccept,
+        onSendToChat: onSendToChat,
+        // Richer context for better prompts (keep in sync with ImageStudio
+        // ctor + service thins + builder).
+        currentExpression: currentExpression,
+        timeOfDay: timeOfDay,
+        lightingHint: null,
+        isGroupNonObserver: isGroupNonObserver,
+        currentSpeakerId: currentSpeakerId,
+        // After an Expression-pack import, reload the library card's avatars
+        // and push them onto the live chat card(s) — the same refresh dance
+        // the Expression Images menu case does — so the new expressions show
+        // without reopening the chat.
+        onExpressionsImported: (dbId) async {
+          final fresh = await charRepo.getAvatarImages(dbId);
+          final targets = [
+            ...charRepo.characters,
+            ?character,
+            ...chatService.groupCharacters,
+          ];
+          for (final c in targets) {
+            if (c.dbId == dbId ||
+                chatService.originLibraryCardFor(c)?.dbId == dbId) {
+              c.avatarImages = List<AvatarImage>.from(fresh);
+            }
+          }
+          if (mounted) setState(() {});
+        },
+      ),
+    );
+  }
+
+  /// The "type /" command list shown above the input. Tapping a row fills the
+  /// input with that command (trailing space) and keeps focus so the user can
+  /// continue typing arguments.
+  Widget _buildCommandHelper(
+    BuildContext context,
+    List<SlashCommandInfo> matches,
+  ) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 6),
+      constraints: const BoxConstraints(maxHeight: 220),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerOf(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.borderOf(context)),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        itemCount: matches.length,
+        separatorBuilder: (_, _) => Divider(
+          height: 1,
+          thickness: 1,
+          color: AppColors.borderOf(context).withValues(alpha: 0.4),
+        ),
+        itemBuilder: (context, i) {
+          final c = matches[i];
+          return InkWell(
+            onTap: () {
+              final text = '/${c.command} ';
+              _controller.value = TextEditingValue(
+                text: text,
+                selection: TextSelection.collapsed(offset: text.length),
+              );
+              _chatFocusNode.requestFocus();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 200,
+                    child: Text(
+                      c.example,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                        color: AppColors.relationshipAccent,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      c.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Pick a photo for the next message and resolve (non-blocking) whether the
+  /// active model can actually see it — a blind verdict makes the preview
+  /// chip explain why and offer the last-resort Photo Understanding
+  /// workaround, but never prevents sending (capability detection can't
+  /// interrogate externally-started servers).
+  Future<void> _attachImage() async {
+    // Capture providers before the async gaps (native picker + isolate decode).
+    final llmProvider = Provider.of<LLMProvider>(context, listen: false);
+    final storage = Provider.of<StorageService>(context, listen: false);
+    final bytes = await pickChatImageAttachment();
+    if (bytes == null || !mounted) return;
+    setState(() {
+      _pendingImageBytes = bytes;
+      _pendingImageVisionOk = null;
+      _pendingImageBlindReason = null;
+    });
+    final isLocalBackend = llmProvider.activeBackend == BackendType.kobold;
+    final support = await VisionSupportResolver.instance.resolveForActiveLlm(
+      backend: llmProvider.activeBackend,
+      storage: storage,
+    );
+    // The user may have removed (or sent) the attachment while resolving.
+    if (!mounted || _pendingImageBytes == null) return;
+    setState(() {
+      _pendingImageVisionOk = support.supported;
+      _pendingImageBlindReason = support.supported
+          ? null
+          : (support.source == VisionSource.unknown
+                ? 'vision support couldn\'t be verified (the server didn\'t '
+                      'answer the check), so the photo is described offline '
+                      'instead'
+                : (isLocalBackend
+                      ? 'your local model has no vision projector (mmproj) '
+                            'loaded, so it processes text only'
+                      : 'the selected API model is text-only and doesn\'t '
+                            'accept images'));
+    });
+  }
+
+  /// Shared send path for the Enter key and the send button. Hands text +
+  /// photo BYTES to ChatService, which saves the photo only after its own
+  /// guards pass — so we never save a file for a turn ChatService will drop.
+  /// We mirror every one of sendMessage's silent early-returns here
+  /// (isGenerating / isGuestBusy / entrancesInFlight / no active chat) so the
+  /// pending photo and typed text are preserved for retry rather than
+  /// consumed into the void. In observer mode the photo is NOT consumed —
+  /// director notes are pure instructions and would drop it.
+  void _sendCurrentMessage(ChatService chatService) {
+    final pending = chatService.observerMode ? null : _pendingImageBytes;
+    final text = _controller.text;
+    if ((text.trim().isEmpty && pending == null) ||
+        chatService.isGenerating ||
+        chatService.isGuestBusy ||
+        chatService.isPhotoTurnInFlight ||
+        chatService.entrancesInFlight ||
+        (chatService.activeCharacter == null &&
+            chatService.activeGroup == null)) {
+      return;
+    }
+    chatService.sendMessage(text, imageBytes: pending);
+    if (pending != null) {
+      setState(() {
+        _pendingImageBytes = null;
+        _pendingImageVisionOk = null;
+        _pendingImageBlindReason = null;
+      });
+    }
+    _controller.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   Widget _buildInputArea(BuildContext context, ChatService chatService) {
@@ -2067,6 +1993,78 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
 
+        // ── Scene Guest activity banner ──────────────────────────────────
+        // One inline status line for the /create · /join · detection flow that
+        // updates in place (Creating → Entering → ✓ joined) and auto-clears.
+        // Replaces the old per-step 'System' chat messages so the scene stays
+        // clean and nothing is persisted into history.
+        if (chatService.guestActivityStatus != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: chatService.guestActivityIsError
+                ? AppColors.resolve(
+                    context,
+                    const Color(0xFF7C2D12),
+                    const Color(0xFFFEF3C7),
+                  )
+                : AppColors.surfaceContainerOf(context),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: chatService.isGuestBusy
+                      ? CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.relationshipAccent,
+                        )
+                      : Icon(
+                          chatService.guestActivityIsError
+                              ? Icons.warning_amber_rounded
+                              : Icons.info_outline,
+                          size: 14,
+                          color: chatService.guestActivityIsError
+                              ? Colors.orangeAccent
+                              : AppColors.relationshipAccent,
+                        ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    chatService.guestActivityStatus!,
+                    style: TextStyle(
+                      color: chatService.guestActivityIsError
+                          ? Colors.orangeAccent
+                          : AppColors.textSecondary(context),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // ── Slash-command helper ─────────────────────────────────────────
+        // When the input is a command-in-progress ("/", "/cr", …) show the
+        // matching commands above the bar; tap one to fill it in. Rendered in
+        // the input column (no overlay), and scoped to the controller via a
+        // ValueListenableBuilder so only this panel rebuilds per keystroke.
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _controller,
+          builder: (context, value, _) {
+            final m = RegExp(r'^/(\w*)$').firstMatch(value.text);
+            if (m == null) return const SizedBox.shrink();
+            final prefix = m.group(1)!.toLowerCase();
+            final matches = ChatCommandHandler.commands
+                .where((c) => c.command.startsWith(prefix))
+                .toList();
+            if (matches.isEmpty) return const SizedBox.shrink();
+            return _buildCommandHelper(context, matches);
+          },
+        ),
+
         // ── Input bar ────────────────────────────────────────────────────
         Column(
           mainAxisSize: MainAxisSize.min,
@@ -2100,6 +2098,71 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                 ),
               ),
+            ),
+            // Pending photo attachment preview (remove ✕ + blind-model note:
+            // offline-captioner fallback when installed, warning otherwise)
+            if (_pendingImageBytes != null)
+              Builder(
+                builder: (context) {
+                  LocalCaptionService.instance.configure(
+                    Provider.of<StorageService>(
+                      context,
+                      listen: false,
+                    ).rootPath,
+                  );
+                  return PendingImageChip(
+                    bytes: _pendingImageBytes!,
+                    visionOk: _pendingImageVisionOk,
+                    blindReason: _pendingImageBlindReason,
+                    onRemove: () => setState(() {
+                      _pendingImageBytes = null;
+                      _pendingImageVisionOk = null;
+                      _pendingImageBlindReason = null;
+                    }),
+                  );
+                },
+              ),
+            // Offline captioner at work — sending is quiet for a few seconds
+            // while the photo is described, so say what's happening.
+            AnimatedBuilder(
+              animation: LocalCaptionService.instance,
+              builder: (context, _) {
+                if (!LocalCaptionService.instance.isCaptioning) {
+                  return const SizedBox.shrink();
+                }
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  color: AppColors.surfaceContainerOf(context),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.tealAccent,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Reading the photo so the character knows what it '
+                          'shows…',
+                          style: TextStyle(
+                            color: AppColors.textSecondary(context),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
@@ -2166,8 +2229,6 @@ class _ChatPageState extends State<ChatPage> {
                         _importChat();
                       } else if (value == 'export') {
                         _exportChat();
-                      } else if (value == 'evolution') {
-                        _showEvolutionDialog(context, chatService);
                       } else if (value == 'context') {
                         showDialog(
                           context: context,
@@ -2175,11 +2236,7 @@ class _ChatPageState extends State<ChatPage> {
                               ContextViewerDialog(chatService: chatService),
                         );
                       } else if (value == 'fork_group') {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ForkToGroupPage(),
-                          ),
-                        );
+                        _showConvertToGroupPicker(chatService);
                       } else if (value == 'kobold_log') {
                         showDialog(
                           context: context,
@@ -2242,25 +2299,9 @@ class _ChatPageState extends State<ChatPage> {
                           ],
                         ),
                       ),
-                      if (chatService.activeCharacter != null &&
-                          Provider.of<StorageService>(
-                            context,
-                            listen: false,
-                          ).characterEvolutionEnabled)
-                        PopupMenuItem(
-                          value: 'evolution',
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.psychology_alt,
-                                size: 20,
-                                color: Colors.tealAccent,
-                              ),
-                              SizedBox(width: 12),
-                              Text('Character Evolution'),
-                            ],
-                          ),
-                        ),
+                      // (The old Character Evolution dialog was replaced by the
+                      // Growth panel in the sidebar — Journal & Memory group —
+                      // which hosts the toggle, timeline, and all actions.)
                       if (chatService.activeCharacter != null &&
                           chatService.activeGroup == null)
                         const PopupMenuItem(
@@ -2273,7 +2314,7 @@ class _ChatPageState extends State<ChatPage> {
                                 color: Colors.purpleAccent,
                               ),
                               SizedBox(width: 12),
-                              Text('Fork to Group Chat'),
+                              Text('Add Character (Group)…'),
                             ],
                           ),
                         ),
@@ -2295,12 +2336,9 @@ class _ChatPageState extends State<ChatPage> {
                     ],
                   ),
 
-                  // Image Generation (user spec): direct button (no PopupMenuButton<ImageGenMode>).
-                  // The 6 types are now buttons *inside* the Image Studio UI. Magic wand opens neutral studio
-                  // (starter mode custom; user picks type button immediately for clean UX). All assembly (incl.
-                  // visualize N slider + think strip + user box as instr + persona + char visual no pers + style)
-                  // handled inside on Craft. Keep launcher thin + "keep in sync" with studio show/ctor, service thins,
-                  // builder, ImageGenContext, ModeInfoCard, _show (now mode-less).
+                  // Image Generation: the magic-wand button opens the Image
+                  // Studio, where the user picks a Subject (Freeform / Character
+                  // / Persona) and crafts the prompt.
                   Consumer<StorageService>(
                     builder: (context, storage, _) {
                       if (!storage.imageGenEnabled) {
@@ -2322,6 +2360,20 @@ class _ChatPageState extends State<ChatPage> {
                       );
                     },
                   ),
+
+                  // Attach a photo to the next message (vision-capable models
+                  // see the pixels; others get the history marker). Hidden in
+                  // observer mode — director notes carry no images.
+                  if (!chatService.observerMode)
+                    IconButton(
+                      icon: Icon(
+                        Icons.add_photo_alternate_outlined,
+                        color: AppColors.iconSecondary(context),
+                      ),
+                      padding: EdgeInsets.zero,
+                      tooltip: 'Attach photo',
+                      onPressed: _attachImage,
+                    ),
 
                   const SizedBox(width: 4),
 
@@ -2388,7 +2440,7 @@ class _ChatPageState extends State<ChatPage> {
                   // Mic button (push-to-talk STT)
                   Consumer2<SttService, StorageService>(
                     builder: (context, sttService, storage, _) {
-                      if (!storage.sttEnabled || !sttService.isEngineUsable) {
+                      if (!storage.sttEnabled) {
                         return const SizedBox.shrink();
                       }
                       if (sttService.isTranscribing) {
@@ -2399,7 +2451,7 @@ class _ChatPageState extends State<ChatPage> {
                             height: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.blueAccent,
+                              color: AppColors.formMasterAccent,
                             ),
                           ),
                         );
@@ -2457,9 +2509,7 @@ class _ChatPageState extends State<ChatPage> {
                   // Call button (voice call mode)
                   Consumer2<SttService, StorageService>(
                     builder: (context, sttService, storage, _) {
-                      if (!storage.sttEnabled ||
-                          !sttService.isEngineUsable ||
-                          chatService.isGroupMode) {
+                      if (!storage.sttEnabled || chatService.isGroupMode) {
                         return const SizedBox.shrink();
                       }
                       return Tooltip(
@@ -2527,6 +2577,26 @@ class _ChatPageState extends State<ChatPage> {
                         onPressed: () => chatService.triggerNextCharacter(),
                       ),
                     ),
+                  // Generate reply button (1:1 only) — shown when the AI is
+                  // "up next", i.e. the last message is the user's (e.g. the
+                  // previous reply was deleted). Gives a visible way to
+                  // (re)generate without retyping. Group mode already covers
+                  // this via the Next Character button above.
+                  if (!chatService.isGroupMode &&
+                      !chatService.isGenerating &&
+                      !chatService.autoPlayActive &&
+                      chatService.messages.isNotEmpty &&
+                      chatService.messages.last.isUser)
+                    Tooltip(
+                      message: 'Generate reply ($_regenShortcutLabel)',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.refresh,
+                          color: Colors.orangeAccent,
+                        ),
+                        onPressed: () => chatService.regenerateLastMessage(),
+                      ),
+                    ),
                   chatService.isGenerating
                       ? IconButton(
                           icon: const Icon(
@@ -2550,20 +2620,13 @@ class _ChatPageState extends State<ChatPage> {
                               chatService.observerMode
                                   ? Icons.movie_creation
                                   : Icons.send,
-                              color: chatService.observerMode
-                                  ? Colors.amberAccent
-                                  : Colors.blueAccent,
+                              color: chatService.isGuestBusy
+                                  ? AppColors.iconSecondary(context)
+                                  : (chatService.observerMode
+                                        ? Colors.amberAccent
+                                        : AppColors.porchAmberOf(context)),
                             ),
-                            onPressed: () {
-                              if (_controller.text.isNotEmpty &&
-                                  !chatService.isGenerating) {
-                                chatService.sendMessage(_controller.text);
-                                _controller.clear();
-                                WidgetsBinding.instance.addPostFrameCallback(
-                                  (_) => _scrollToBottom(),
-                                );
-                              }
-                            },
+                            onPressed: () => _sendCurrentMessage(chatService),
                           ),
                         ),
                 ],
@@ -2646,17 +2709,12 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget _buildRightSidebar(CharacterCard character, ChatService chatService) {
-    final userName = Provider.of<UserPersonaService>(
-      context,
-      listen: false,
-    ).persona.name;
-    String replace(String text) {
-      return MacroResolver().resolve(
-        text,
-        MacroContext(userName: userName, characterName: character.name),
-      );
-    }
+  Widget _buildRightSidebar(ChatService chatService) {
+    final focused = _focusedParticipant(chatService);
+    if (focused == null) return const SizedBox.shrink();
+    final character = focused.card;
+    final isGroup = chatService.isGroupMode;
+    final cast = chatService.cast;
 
     return Container(
       decoration: BoxDecoration(
@@ -2677,9 +2735,11 @@ class _ChatPageState extends State<ChatPage> {
                 listen: false,
               );
               final isExpressionEnabled = storage.expressionEnabled;
-              final hasAvatars =
-                  character.avatarImages != null &&
-                  character.avatarImages!.isNotEmpty;
+              // Expression-only (looks filtered out) so a looks-only character
+              // never trips the expression path, and prime/neutral fallbacks
+              // never resolve to a gallery look.
+              final expressionAvatars = expressionsFrom(character.avatarImages);
+              final hasAvatars = expressionAvatars.isNotEmpty;
 
               File? expressionFile;
               String? expressionKey;
@@ -2706,10 +2766,28 @@ class _ChatPageState extends State<ChatPage> {
               File? displayFile;
               Widget? fallbackWidget;
 
+              // Gallery face ring (plain chat only) — populated in the
+              // expressions-OFF branch below, consumed by the chevron overlay.
+              // lookKey is the LIBRARY character id (the collection is global per
+              // library character): in a group the focused member card has a null
+              // dbId, so we resolve the origin library card — same routing the
+              // Expression Images editor uses — and never key by an empty string.
+              List<String> faceRing = const [];
+              int facePosition = 0;
+              int faceTotal = 0;
+              String? lookKey;
+              bool showLookChevrons = false;
+
               if (expressionFile != null) {
                 displayFile = expressionFile;
-              } else if (isExpressionEnabled) {
-                // Apply fallback behavior
+              } else if (isExpressionEnabled && hasAvatars) {
+                // Apply fallback behavior. Only when the character actually
+                // HAS expression images: with none, the old fallback ladder
+                // ended at the raw portrait — ignoring the gallery ring, so
+                // starring a look changed the library card but never this
+                // sidebar (field report). Expressionless characters now take
+                // the plain-chat ring branch below (star default + chevrons)
+                // even while the global expression toggle is on.
                 final fallback = storage.expressionFallback;
                 if (fallback == 'none') {
                   return const SizedBox.shrink();
@@ -2722,18 +2800,18 @@ class _ChatPageState extends State<ChatPage> {
                       style: TextStyle(fontSize: _sidebarWidth * 0.5),
                     ),
                   );
-                } else if (fallback == 'prime' && hasAvatars) {
-                  // Show prime avatar
+                } else if (fallback == 'prime') {
+                  // Show prime avatar (expression-only — never a gallery look).
                   final primeAvatar =
-                      character.avatarImages!
+                      expressionAvatars
                           .where(
                             (a) =>
                                 a.displayOrder + 1 ==
                                 character.primeAvatarIndex,
                           )
                           .isEmpty
-                      ? character.avatarImages!.first
-                      : character.avatarImages!.firstWhere(
+                      ? expressionAvatars.first
+                      : expressionAvatars.firstWhere(
                           (a) =>
                               a.displayOrder + 1 == character.primeAvatarIndex,
                         );
@@ -2744,28 +2822,70 @@ class _ChatPageState extends State<ChatPage> {
                   expressionKey = primeAvatar.id;
                 } else {
                   // 'neutral' or default: show neutral avatar if available, else character image
-                  if (hasAvatars) {
-                    final neutralAvatar = character.avatarImages!
-                        .where((a) => a.label?.toLowerCase() == 'neutral')
-                        .toList();
-                    if (neutralAvatar.isNotEmpty) {
-                      final avatarDir = storage.characterAvatarDir(
-                        character.name,
-                      );
-                      displayFile = File(
-                        '${avatarDir.path}/${neutralAvatar.first.filename}',
-                      );
-                      expressionKey = neutralAvatar.first.id;
-                      expressionEmoji = EmotionLabels.emoji['neutral'];
-                    }
+                  final neutralAvatar = expressionAvatars
+                      .where((a) => a.label?.toLowerCase() == 'neutral')
+                      .toList();
+                  if (neutralAvatar.isNotEmpty) {
+                    final avatarDir = storage.characterAvatarDir(
+                      character.name,
+                    );
+                    displayFile = File(
+                      '${avatarDir.path}/${neutralAvatar.first.filename}',
+                    );
+                    expressionKey = neutralAvatar.first.id;
+                    expressionEmoji = EmotionLabels.emoji['neutral'];
                   }
                   if (displayFile == null && character.imagePath != null) {
                     displayFile = _resolveCharImage(character.imagePath!);
                   }
                 }
               } else {
-                // Expressions disabled, show character image
-                if (character.imagePath != null) {
+                // Expressions disabled — the plain-chat face. The gallery face
+                // ring (portrait + looks + the ★-starred expression, if any)
+                // drives what shows here; the chevrons flip through it, and the
+                // ★ star is the default. Resolve the library card so group
+                // members (null dbId) still key by their origin and pull the
+                // global collection.
+                final libraryCard = isGroup
+                    ? (chat.originLibraryCardFor(character) ?? character)
+                    : character;
+                lookKey = libraryCard.dbId;
+                if (lookKey != null && lookKey.isNotEmpty) {
+                  final allImages =
+                      libraryCard.avatarImages ?? const <AvatarImage>[];
+                  final favId =
+                      libraryCard.frontPorchExtensions?.favoriteAvatarId;
+                  AvatarImage? favorite;
+                  if (favId != null) {
+                    for (final a in allImages) {
+                      if (a.id == favId) {
+                        favorite = a;
+                        break;
+                      }
+                    }
+                  }
+                  faceRing = buildFaceRing(
+                    looks: looksFrom(allImages),
+                    hasImagePath: character.imagePath != null,
+                    favorite: favorite,
+                  );
+                  final faceDisplay = resolveFaceDisplay(
+                    ring: faceRing,
+                    allImages: allImages,
+                    selectedFaceId: chat.selectedLookFor(lookKey),
+                  );
+                  showLookChevrons = faceDisplay.showChevrons;
+                  facePosition = faceDisplay.position;
+                  faceTotal = faceDisplay.total;
+                  if (faceDisplay.image != null) {
+                    displayFile = faceDisplay.image!.resolveFile(
+                      storage.characterBaseDir(libraryCard.name).path,
+                    );
+                    expressionKey = 'face_${faceDisplay.image!.id}';
+                  } else if (character.imagePath != null) {
+                    displayFile = _resolveCharImage(character.imagePath!);
+                  }
+                } else if (character.imagePath != null) {
                   displayFile = _resolveCharImage(character.imagePath!);
                 }
               }
@@ -2813,27 +2933,53 @@ class _ChatPageState extends State<ChatPage> {
                       Positioned(
                         bottom: 4,
                         right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.resolve(
-                              context,
-                              Colors.black.withValues(alpha: 0.7),
-                              Colors.black.withValues(alpha: 0.45),
+                        child: EmojiBurst(
+                          emoji: expressionEmoji,
+                          enabled: storage.expressionEmojiBurst,
+                          generating: chat.isGenerating,
+                          size: storage.expressionEmojiBurstSize,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
                             ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                expressionEmoji,
-                                style: const TextStyle(fontSize: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.resolve(
+                                context,
+                                Colors.black.withValues(alpha: 0.7),
+                                Colors.black.withValues(alpha: 0.45),
                               ),
-                            ],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  expressionEmoji,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    // Gallery face chevrons + counter (plain chat, >1 face).
+                    if (showLookChevrons && lookKey != null)
+                      Positioned.fill(
+                        child: LookChevronBar(
+                          position: facePosition,
+                          total: faceTotal,
+                          // Read the current selection LIVE at tap time (not a
+                          // captured value) so rapid taps advance step-by-step
+                          // instead of all computing from one stale selection.
+                          onFlip: (delta) => chat.setLookForCharacter(
+                            lookKey!,
+                            flipFace(
+                              faceRing,
+                              chat.selectedLookFor(lookKey) ??
+                                  (faceRing.isEmpty ? null : faceRing.first),
+                              delta,
+                            ),
                           ),
                         ),
                       ),
@@ -2896,15 +3042,37 @@ class _ChatPageState extends State<ChatPage> {
                         context,
                         listen: false,
                       );
-                      final result = await CharacterAvatarsDialog.show(
+                      // In a group, members are single-avatar copies — editing
+                      // one would write to a throwaway id and never inherit. Route
+                      // the editor at the real LIBRARY character (the shared home)
+                      // so expression edits persist and flow back to the group.
+                      // 1:1 already passes the library character itself.
+                      final exprTarget = isGroup
+                          ? (chatService.originLibraryCardFor(character) ??
+                                character)
+                          : character;
+                      await showAvatarGallery(
                         context: context,
-                        character: character,
+                        character: exprTarget,
                         repository: repo,
                         storage: storage,
+                        mode: WardrobeMode.inChat,
+                        chatService: chatService,
                       );
-                      if (result == true) {
-                        setState(() {});
+                      // Push the freshly edited library images onto the live
+                      // member card so the group reflects them immediately
+                      // (inheritance otherwise skips members already populated).
+                      // The gallery controller keeps exprTarget fresh; copy both
+                      // the image list AND the prime index so the member's
+                      // default-emotion resolution can't lag the library edit.
+                      if (!identical(exprTarget, character)) {
+                        character.avatarImages = exprTarget.avatarImages == null
+                            ? null
+                            : List<AvatarImage>.from(exprTarget.avatarImages!);
+                        character.primeAvatarIndex =
+                            exprTarget.primeAvatarIndex;
                       }
+                      if (mounted) setState(() {});
                       break;
                     case 'ui':
                       showDialog(
@@ -2944,8 +3112,8 @@ class _ChatPageState extends State<ChatPage> {
                   PopupMenuItem(
                     value: 'expressions',
                     child: SettingsMenuItem(
-                      icon: Icons.mood_outlined,
-                      label: 'Expression Images',
+                      icon: Icons.photo_library_outlined,
+                      label: 'Avatar Gallery',
                     ),
                   ),
                   PopupMenuItem(
@@ -2979,7 +3147,7 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                 ],
                 child: const Text(
-                  'Settings',
+                  'Main Settings',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70),
                 ),
@@ -2987,344 +3155,50 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
 
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // ── Author's Note ──
-                AuthorNoteSection(chatService: chatService),
-                const SizedBox(height: 16),
-
-                // ── RAG Memory ──
-                MemorySection(chatService: chatService),
-                const SizedBox(height: 16),
-
-                // ── Active Fixation (always visible when set) ──
-                Consumer<ChatService>(
-                  builder: (context, chat, _) {
-                    if (chat.activeFixation.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.resolve(
-                            context,
-                            Colors.purpleAccent.withValues(alpha: 0.12),
-                            Colors.purple.shade50.withValues(alpha: 0.6),
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.resolve(
-                              context,
-                              Colors.purpleAccent.withValues(alpha: 0.4),
-                              Colors.purple.shade200.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.psychology,
-                              size: 16,
-                              color: AppColors.resolve(
-                                context,
-                                Colors.purpleAccent,
-                                Colors.purple.shade700,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'CURRENT FIXATION',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      color: AppColors.resolve(
-                                        context,
-                                        Colors.purpleAccent,
-                                        Colors.purple.shade700,
-                                      ),
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    chat.activeFixation,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textPrimary(context),
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-                // ── Realism Mode ──
-                RealismSection(chatService: chatService),
-                const SizedBox(height: 8),
-
-                // ── Chaos Mode ──
-                Consumer<ChatService>(
-                  builder: (context, chat, _) => ChaosModeSection(
-                    chat: chat,
-                    onSpinRequested: () => _showChanceTimeOverlay(context),
+          // ── Group Settings (group only; sits directly under Main Settings,
+          //    above the cast roster, so the whole-group controls are found
+          //    before per-character ones) ──
+          if (isGroup)
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.35),
                   ),
                 ),
-                const SizedBox(height: 8),
-
-                // ── Objective ──
-                ObjectiveSection(chatService: chatService),
-                const SizedBox(height: 16),
-
-                // ── Character Evolution (collapsed by default) ──
-                Consumer<ChatService>(
-                  builder: (context, chat, _) {
-                    final storage = Provider.of<StorageService>(
-                      context,
-                      listen: false,
-                    );
-                    if (!storage.characterEvolutionEnabled) {
-                      return const SizedBox.shrink();
-                    }
-                    final evolvedP = chat.getEffectivePersonality;
-                    final evolvedS = chat.getEffectiveScenario;
-                    final count = chat.characterEvolutionCount;
-                    return CollapsibleSidebarSection(
-                      icon: Icons.psychology_alt,
-                      iconColor: AppColors.resolve(
-                        context,
-                        Colors.tealAccent,
-                        Colors.teal.shade700,
-                      ),
-                      title: 'Character Evolution',
-                      trailing: Text(
-                        count > 0 ? 'Evolved $count×' : 'Not evolved',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: count > 0
-                              ? AppColors.resolve(
-                                  context,
-                                  Colors.tealAccent,
-                                  Colors.teal.shade700,
-                                )
-                              : AppColors.textTertiary(context),
-                        ),
-                      ),
-                      initiallyExpanded: false,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (count > 0) ...[
-                            if (evolvedP != null && evolvedP.isNotEmpty) ...[
-                              Text(
-                                'Evolved Personality',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary(context),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainerOf(context),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: AppColors.resolve(
-                                      context,
-                                      Colors.tealAccent.withValues(alpha: 0.3),
-                                      Colors.teal.shade200.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                constraints: const BoxConstraints(
-                                  maxHeight: 100,
-                                ),
-                                child: SingleChildScrollView(
-                                  child: Text(
-                                    evolvedP,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textPrimary(context),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            if (evolvedS != null && evolvedS.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                'Evolved Scenario',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary(context),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainerOf(context),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: AppColors.resolve(
-                                      context,
-                                      Colors.tealAccent.withValues(alpha: 0.3),
-                                      Colors.teal.shade200.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                constraints: const BoxConstraints(
-                                  maxHeight: 100,
-                                ),
-                                child: SingleChildScrollView(
-                                  child: Text(
-                                    evolvedS,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textPrimary(context),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                OutlinedButton.icon(
-                                  onPressed: () =>
-                                      _showEvolutionDialog(context, chat),
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    size: 14,
-                                    color: Colors.tealAccent,
-                                  ),
-                                  label: const Text(
-                                    'Review & Edit',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.tealAccent,
-                                    ),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    side: BorderSide(
-                                      color: Colors.tealAccent.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                OutlinedButton.icon(
-                                  onPressed: () =>
-                                      _showResetEvolutionConfirmSidebar(
-                                        context,
-                                        chat,
-                                      ),
-                                  icon: const Icon(
-                                    Icons.restart_alt,
-                                    size: 14,
-                                    color: Colors.redAccent,
-                                  ),
-                                  label: const Text(
-                                    'Reset',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.redAccent,
-                                    ),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    side: BorderSide(
-                                      color: Colors.redAccent.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            _buildEvolveNowButton(context, chat),
-                          ] else ...[
-                            _buildEvolveNowButton(context, chat),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Personality & scenario will evolve as you chat, or tap above to evolve now.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.white24,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _showGroupSettingsDialog(chatService),
+                  icon: const Icon(Icons.settings, size: 16),
+                  label: const Text('Group Settings'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary(context),
+                    side: BorderSide(
+                      color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
+              ),
+            ),
 
-                // ── Chat Summary ──
-                SummarySection(chatService: chatService),
-                const SizedBox(height: 16),
+          // ── Participant roster (only when more than one speaker) ──
+          if (cast.length > 1)
+            _buildParticipantRoster(chatService, cast, focused),
 
-                // ── Scenario ──
-                Consumer<ChatService>(
-                  builder: (context, chat, _) {
-                    final storage = Provider.of<StorageService>(
-                      context,
-                      listen: false,
-                    );
-                    final evolvedS = chat.getEffectiveScenario;
-                    final hasEvolution =
-                        storage.characterEvolutionEnabled &&
-                        evolvedS != null &&
-                        evolvedS.isNotEmpty;
-                    if (hasEvolution) return const SizedBox.shrink();
-                    return SidebarSection(
-                      title: 'Scenario',
-                      content: replace(character.scenario),
-                    );
-                  },
-                ),
+          // ── Director controls (group turn-taking) ──
+          if (isGroup) _buildDirectorControls(chatService),
 
-                // ── Lorebook Triggers (bottom) ──
-                const SizedBox(height: 16),
-                LorebookSection(character: character),
-
-                // ── Description ──
-                SidebarSection(
-                  title: 'Description',
-                  content: replace(character.description),
-                ),
-              ],
+          Expanded(
+            child: SidebarBody(
+              chatService: chatService,
+              focused: focused,
+              onSpinRequested: () => _showChanceTimeOverlay(context),
+              onJumpToMessage: _jumpToMessage,
+              resolveCharImage: _resolveCharImage,
+              draft: _controller,
             ),
           ),
         ],
@@ -3332,479 +3206,187 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// Sidebar showing all characters in a group.
-  Widget _buildGroupSidebar(ChatService chatService) {
-    final chars = chatService.groupCharacters;
+  /// Horizontal roster of all cast participants. Tapping one focuses its
+  /// per-character sidebar sections. Shown only when more than one speaker is
+  /// present (1:1 + guests, or a group).
+  Widget _buildParticipantRoster(
+    ChatService chatService,
+    List<ChatParticipant> cast,
+    ChatParticipant focused,
+  ) {
     return Container(
+      height: 66,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.surfaceOf(context),
         border: Border(
-          left: BorderSide(
+          bottom: BorderSide(
+            color: AppColors.borderOf(context).withValues(alpha: 0.35),
+          ),
+        ),
+      ),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: cast.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final p = cast[i];
+          final isFocused = p.id == focused.id;
+          final color = _groupCharacterColor(i);
+          final img = p.card.imagePath != null
+              ? _resolveCharImage(p.card.imagePath!)
+              : null;
+          return InkWell(
+            onTap: () => setState(() => _focusedParticipantId = p.id),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isFocused ? color : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: color,
+                    backgroundImage: img != null ? FileImage(img) : null,
+                    child: img == null
+                        ? Text(
+                            p.name.isNotEmpty ? p.name[0] : '?',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    p.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: isFocused
+                          ? AppColors.textPrimary(context)
+                          : AppColors.textTertiary(context),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Group turn-taking controls (Group Settings + Director Mode + response
+  /// delay). Shown when the chat has scheduled speakers (a group).
+  Widget _buildDirectorControls(ChatService chatService) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
             color: AppColors.borderOf(context).withValues(alpha: 0.35),
           ),
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Settings buttons ──
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: AppColors.borderOf(context).withValues(alpha: 0.35),
+          Row(
+            children: [
+              Icon(
+                Icons.movie_creation,
+                size: 16,
+                color: AppColors.iconSecondary(context),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Director Mode',
+                style: TextStyle(
+                  color: AppColors.textSecondary(context),
+                  fontSize: 13,
+                ),
+              ),
+              const Spacer(),
+              Switch(
+                value: chatService.observerMode,
+                activeTrackColor: Colors.amberAccent,
+                onChanged: chatService.isGenerating
+                    ? null
+                    : (val) => chatService.setObserverMode(val),
+              ),
+            ],
+          ),
+          if (chatService.observerMode) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 4),
+              child: Text(
+                'Characters chat autonomously. Use the input box to direct the scene.',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.amberAccent.withValues(alpha: 0.7),
                 ),
               ),
             ),
-            child: Column(
-              children: [
-                Row(
+            Consumer<StorageService>(
+              builder: (context, storage, _) {
+                chatService.directorDelaySec = storage.directorDelay;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => const ChatSettingsDialog(),
-                          );
-                        },
-                        icon: const Icon(Icons.settings, size: 16),
-                        label: const Text(
-                          'Chat',
-                          style: TextStyle(fontSize: 12),
+                    Row(
+                      children: [
+                        const Text(
+                          'Response Delay',
+                          style: TextStyle(color: Colors.white54, fontSize: 11),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary(context),
-                          side: BorderSide(
-                            color: AppColors.borderOf(
-                              context,
-                            ).withValues(alpha: 0.4),
+                        const Spacer(),
+                        Text(
+                          '${(_dragDirectorDelay ?? storage.directorDelay).toStringAsFixed(1)}s',
+                          style: const TextStyle(
+                            color: Colors.amberAccent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                      ],
+                    ),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 3,
+                        thumbShape: const RoundSliderThumbShape(
+                          enabledThumbRadius: 6,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => const ModelSettingsDialog(),
-                          );
+                      child: Slider(
+                        value: _dragDirectorDelay ?? storage.directorDelay,
+                        min: 0.5,
+                        max: 60.0,
+                        divisions: 119,
+                        activeColor: Colors.amberAccent,
+                        inactiveColor: Colors.white12,
+                        onChanged: (val) =>
+                            setState(() => _dragDirectorDelay = val),
+                        onChangeEnd: (val) {
+                          _dragDirectorDelay = null;
+                          storage.setDirectorDelay(val);
                         },
-                        icon: const Icon(Icons.memory, size: 16),
-                        label: const Text(
-                          'Model',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary(context),
-                          side: BorderSide(
-                            color: AppColors.borderOf(
-                              context,
-                            ).withValues(alpha: 0.4),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => const TtsSettingsDialog(),
-                          );
-                        },
-                        icon: const Icon(Icons.volume_up, size: 16),
-                        label: const Text(
-                          'TTS',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary(context),
-                          side: BorderSide(
-                            color: AppColors.borderOf(
-                              context,
-                            ).withValues(alpha: 0.4),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showGroupSettingsDialog(chatService),
-                    icon: const Icon(Icons.settings, size: 16),
-                    label: const Text('Group Settings'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary(context),
-                      side: BorderSide(
-                        color: AppColors.borderOf(
-                          context,
-                        ).withValues(alpha: 0.4),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // ── Director Mode toggle ──
-                Row(
-                  children: [
-                    Icon(
-                      Icons.movie_creation,
-                      size: 16,
-                      color: AppColors.iconSecondary(context),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Director Mode',
-                      style: TextStyle(
-                        color: AppColors.textSecondary(context),
-                        fontSize: 13,
-                      ),
-                    ),
-                    const Spacer(),
-                    Switch(
-                      value: chatService.observerMode,
-                      activeTrackColor: Colors.amberAccent,
-                      onChanged: chatService.isGenerating
-                          ? null
-                          : (val) => chatService.setObserverMode(val),
-                    ),
-                  ],
-                ),
-                if (chatService.observerMode) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2, bottom: 4),
-                    child: Text(
-                      'Characters chat autonomously. Use the input box to direct the scene.',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.amberAccent.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ),
-                  // Delay slider
-                  Consumer<StorageService>(
-                    builder: (context, storage, _) {
-                      chatService.directorDelaySec = storage.directorDelay;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                'Response Delay',
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                '${(_dragDirectorDelay ?? storage.directorDelay).toStringAsFixed(1)}s',
-                                style: const TextStyle(
-                                  color: Colors.amberAccent,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              trackHeight: 3,
-                              thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 6,
-                              ),
-                            ),
-                            child: Slider(
-                              value:
-                                  _dragDirectorDelay ?? storage.directorDelay,
-                              min: 0.5,
-                              max: 60.0,
-                              divisions: 119,
-                              activeColor: Colors.amberAccent,
-                              inactiveColor: Colors.white12,
-                              onChanged: (val) =>
-                                  setState(() => _dragDirectorDelay = val),
-                              onChangeEnd: (val) {
-                                _dragDirectorDelay = null;
-                                storage.setDirectorDelay(val);
-                              },
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // ── Author's Note ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: AuthorNoteSection(chatService: chatService),
-          ),
-
-          // ── Chaos Mode (global for the group chat) ──
-          Consumer<ChatService>(
-            builder: (context, chat, _) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ChaosModeSection(
-                  chat: chat,
-                  onSpinRequested: () => _showChanceTimeOverlay(context),
-                ),
-                // Scene time tracker (day of week + time of day + nudges + dots)
-                // Placed here with Chaos as they are both global/scene-level state.
-                SceneTimeSection(chat: chat),
-              ],
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: Row(
-              children: [
-                const Text(
-                  'Characters',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const Spacer(),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              'Tap a character to focus their full state (emotion, bond, needs, fixation)',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textTertiary(context).withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: ListView.builder(
-              itemCount: chars.length,
-              itemBuilder: (context, index) {
-                final ch = chars[index];
-                final color = _groupCharacterColor(index);
-                final isNext = chatService.nextCharacter?.name == ch.name;
-                final evolutionCount = chatService.getEvolutionCountFor(ch);
-                final canRemove = chars.length > 2 && !chatService.isGenerating;
-
-                File? avatarFile;
-                if (ch.imagePath != null) {
-                  try {
-                    avatarFile = _resolveCharImage(ch.imagePath!);
-                  } catch (_) {}
-                }
-
-                return GroupMemberCard(
-                  character: ch,
-                  chatService: chatService,
-                  avatarColor: color,
-                  isNextSpeaker: isNext,
-                  isExpanded:
-                      isNext, // current/next speaker gets the full 1:1-parity rich view
-                  onTap: chatService.isGenerating
-                      ? () {}
-                      : () => chatService.setNextCharacter(ch),
-                  avatarFile: avatarFile,
-                  evolutionCount: evolutionCount,
-                  canRemove: canRemove,
-                  onRemove: canRemove
-                      ? () async {
-                          final groupRepo = Provider.of<GroupChatRepository>(
-                            context,
-                            listen: false,
-                          );
-                          await chatService.removeCharacterFromGroup(
-                            ch,
-                            groupRepo,
-                          );
-                        }
-                      : null,
-                  onOpenObjectives: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => GroupObjectivesDialog(
-                        chatService: chatService,
-                        groupCharacters: chatService.groupCharacters,
-                        initialCharacter: ch,
-                      ),
-                    );
-                  },
                 );
               },
             ),
-          ),
-          // ── Add Character Button ──
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: chatService.isGenerating
-                    ? null
-                    : () =>
-                          _showAddCharacterToGroupDialog(context, chatService),
-                icon: const Icon(
-                  Icons.person_add,
-                  size: 16,
-                  color: Colors.purpleAccent,
-                ),
-                label: const Text(
-                  'Add Character',
-                  style: TextStyle(color: Colors.purpleAccent, fontSize: 12),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: Colors.purpleAccent.withValues(alpha: 0.4),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                ),
-              ),
-            ),
-          ),
-
-          // ── Lorebook Triggers & Chat Summary moved below the character list
-          // (global sections that apply to the whole group scene).
-          const SizedBox(height: 8),
-          GroupLorebookSection(chatService: chatService),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: SummarySection(chatService: chatService),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Show dialog to add a character to the active group chat.
-  void _showAddCharacterToGroupDialog(
-    BuildContext context,
-    ChatService chatService,
-  ) {
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-    // characterIds removed from GroupChat (decoupled). Use chatService or group members for active set.
-    final currentIds =
-        <String>[]; // TODO: derive from active group members when needed
-
-    // Get characters not already in the group
-    final available = charRepo.characters.where((c) {
-      final id = c.imagePath != null
-          ? p.basenameWithoutExtension(c.imagePath!)
-          : c.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
-      return !currentIds.contains(id);
-    }).toList();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Colors.purpleAccent, width: 0.5),
-        ),
-        title: const Row(
-          children: [
-            Icon(Icons.person_add, color: Colors.purpleAccent),
-            SizedBox(width: 10),
-            Text(
-              'Add Character',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
           ],
-        ),
-        content: SizedBox(
-          width: 380,
-          height: 350,
-          child: available.isEmpty
-              ? const Center(
-                  child: Text(
-                    'All characters are already in this group.',
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: available.length,
-                  itemBuilder: (context, index) {
-                    final ch = available[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        radius: 20,
-                        backgroundImage: ch.imagePath != null
-                            ? FileImage(_resolveCharImage(ch.imagePath!))
-                            : null,
-                        child: ch.imagePath == null ? Text(ch.name[0]) : null,
-                      ),
-                      title: Text(
-                        ch.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.white,
-                        ),
-                      ),
-                      subtitle: Text(
-                        ch.description.length > 50
-                            ? '${ch.description.substring(0, 50)}...'
-                            : ch.description,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.white38,
-                        ),
-                      ),
-                      onTap: () async {
-                        Navigator.pop(ctx);
-                        final groupRepo = Provider.of<GroupChatRepository>(
-                          context,
-                          listen: false,
-                        );
-                        final success = await chatService.addCharacterToGroup(
-                          ch,
-                          groupRepo,
-                        );
-                        if (success && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${ch.name} added to group!'),
-                              backgroundColor: Colors.purpleAccent.shade700,
-                            ),
-                          );
-                        }
-                      },
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      hoverColor: Colors.white10,
-                      dense: true,
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
         ],
       ),
     );

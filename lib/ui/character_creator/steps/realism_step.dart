@@ -51,11 +51,8 @@ class RealismStep extends StatelessWidget {
               icon: const Icon(Icons.arrow_back),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.resolve(
-                  context,
-                  Colors.blueAccent,
-                  Colors.blue.shade700,
-                ),
+                backgroundColor: AppColors.formMasterAccent,
+                foregroundColor: AppColors.onChaosAccent,
               ),
             ),
           ],

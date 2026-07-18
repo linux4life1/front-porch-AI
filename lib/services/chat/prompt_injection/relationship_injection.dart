@@ -19,43 +19,21 @@
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
 
-/// Plain (non-ChangeNotifier) prompt injection builder owning the
-/// relationship context text (_getRelationshipInjection),
-/// inter-character private feelings (_getInterCharacterFeelingsInjection),
-/// and trust-calibrated behavioral frame (_getTrustBehaviorInjection).
+/// Relationship fragment builders for the words-only state block
+/// (docs/design/prompt-state-injection.md §3): the bond+tension sentence, the
+/// trust-calibration sentence, and the group-only private inter-character
+/// feelings. Fragments carry NO wrappers, NO scores/points/tier ints, and NO
+/// mechanic labels — the composer (realism_state_injection.dart) wraps and
+/// guards; raw values stay in the simulation and eval prompts.
 ///
-/// Extracted as step 8 of Stage 3 (prompt_injection/* leaf).
-/// Full bodies moved verbatim from god (with group 1:1 dispatch branches
-/// preserved exactly via granular cbs; no behavior change).
+/// Parity: ONE full bond + tension ladder serves 1:1 and group alike (the old
+/// group branch special-cased only the high positive tiers and rendered every
+/// other state — including open hostility — as "neutral to slightly distant",
+/// a long-standing 1:1↔group parity violation). Group reads per-speaker tiers
+/// from _groupRealism via [getGroupInt]; 1:1 reads the service scalars.
 ///
-/// Depends on RelationshipService (for scores/tiers/fixation/spatial/trust +
-/// group scalar load via its own cbs) + god cross-state cbs for active/group/
-/// observer/speaker (mirrors relationship/ nsfw/ lore precedent for group
-/// per-char + inter).
-///
-/// ChatService owns via late final _relationshipInjection + thin delegations
-/// at the 3 call sites in realism block assembly. 0 @Deprecated shims.
-/// 0 new god private _ methods (thins + late final + existing cbs passed).
-///
-/// 1:1 vs group parity preserved exactly (group uses speaker id + _groupRealism
-/// via rel service + god cbs for names/ids; 1:1 uses direct scalars + activeChar;
-/// inter-char only fires in group >=2 non-obs per original guard).
-///
-/// Boundaries kept in god (per plan):
-/// - _groupRealism map itself, capture/restore for snapshots, UI sidebar
-///   relationship bars, _get* calls in assembly stay thin.
-/// - Inter-char tracking flag + getInterCharacterRelationships (on rel service)
-///   used by builder via service.
-/// - Some mood/tier name getters delegated from god (cbs here for builder).
-///
-/// aug exercising only passive/qualified (no prompt-specific aug file edits;
-/// relationship injection in realism paths hit by pre-existing in key suites;
-/// full builder only in dedicated + manual per step7 precedent).
-/// oneShot vs normal relationship injection parity qualified (text identical
-/// via same assembly + service state; dispatch preserved).
-///
-/// Part of the 8 prompt_injection builders (relationship_injection combines the
-/// three related rel/inter/trust builders per plan grouping to 8 files).
+/// `{{user}}` macros are fine here — the composed block is macro-resolved at
+/// its assembly call site.
 class RelationshipInjection {
   final RelationshipService relationshipService;
 
@@ -64,9 +42,6 @@ class RelationshipInjection {
   final String Function() getCurrentSpeakerIdForRealism;
   final List<CharacterCard> Function() getGroupCharacters;
   final CharacterCard? Function() getActiveCharacter;
-  final String Function() getShortTermTierName;
-  final String Function() getLongTermTierName;
-  final String Function() getMoodLabel;
   final bool Function() getShouldTrackInterCharacterRelationships;
   final int Function(String charId, String key, {int defaultValue}) getGroupInt;
   final String Function(CharacterCard) getCharacterIdFromCard;
@@ -80,191 +55,187 @@ class RelationshipInjection {
     required this.getCurrentSpeakerIdForRealism,
     required this.getGroupCharacters,
     required this.getActiveCharacter,
-    required this.getShortTermTierName,
-    required this.getLongTermTierName,
-    required this.getMoodLabel,
     required this.getShouldTrackInterCharacterRelationships,
     required this.getGroupInt,
     required this.getCharacterIdFromCard,
     required this.getInterCharacterRelationships,
   });
 
-  // ── Public surface (thin delegations from god _get* call the matching build*) ──
+  /// Keeps tier warmth in-voice (LOAD-BEARING — do not trim): the ladder says
+  /// HOW MUCH the character has warmed, the persona says WHAT that looks
+  /// like. Without this line, high tiers read as an instruction to become
+  /// generically sweet, which erased tsundere/dominant/abrasive characters'
+  /// texture as bonds grew.
+  static const String voiceNote =
+      'Express this through the character\'s own personality and voice — '
+      'warmth from a harsh, guarded, or dominant character surfaces in THEIR '
+      'fashion (grudging, teasing, subtle acts of care), never as generic '
+      'sweetness that erases who they are.';
 
-  String buildRelationshipInjection() {
-    if (!getRealismEnabled()) return '';
-
-    // Group mode (non-director): use the current speaker's stored values
+  /// Resolve the current speaker: name + the three tiers, per-speaker in
+  /// group non-observer mode, service scalars in 1:1 / director mode.
+  ({String name, int longTier, int shortTier, int trustTier}) _speaker() {
     if (getIsGroupNonObserverMode()) {
       final id = getCurrentSpeakerIdForRealism();
       final chars = getGroupCharacters();
-      final name = chars
-          .firstWhere(
-            (c) => getCharacterIdFromCard(c) == id,
-            orElse: () => chars.first,
-          )
-          .name;
-
-      final longTier = getGroupInt(id, 'longTermTier');
-      final shortTier = getGroupInt(id, 'relationshipTier');
-
-      String bondGuidance;
-      if (longTier >= 7) {
-        bondGuidance =
-            'Their Long-Term Commitment is unbreakable: $name fully trusts {{user}} and views them as a soulmate/life partner.';
-      } else if (longTier >= 4) {
-        bondGuidance =
-            'Their Long-Term Trust is strong: $name feels a deepening, stable connection and sees a real future with {{user}}.';
-      } else if (longTier <= -4) {
-        bondGuidance =
-            'Their Long-Term Trust is broken: $name holds deep-seated resentment and fundamentally distrusts {{user}}. Even if short-term mood improves, the underlying hostility remains.';
-      } else {
-        bondGuidance = 'Their Long-Term Bond is developing normally.';
-      }
-
-      String tensionGuidance;
-      switch (shortTier) {
-        case 10:
-          tensionGuidance =
-              'Short-Term Tension is Devoted: $name is completely open, vulnerable, and emotionally intertwined with {{user}}.';
-          break;
-        case 9:
-        case 8:
-          tensionGuidance =
-              'Short-Term Tension is Enamored/Devoted: $name is deeply attached and prioritizes {{user}} above their own needs.';
-          break;
-        case 7:
-          tensionGuidance =
-              'Short-Term Tension is Warm/Affectionate: $name feels genuinely fond and connected to {{user}}.';
-          break;
-        // Group path uses coarser tiers (only high positive special-cased for brevity; negatives + mid default to neutral per original)
-        default:
-          tensionGuidance =
-              'Short-Term Tension is neutral to slightly distant.';
-      }
-
-      return '[Relationship Context for $name]\n$bondGuidance\n$tensionGuidance]\n';
+      final card = chars
+          .where((c) => getCharacterIdFromCard(c) == id)
+          .firstOrNull;
+      return (
+        // On an id miss NEVER fall back to getActiveCharacter() — in a group
+        // that pointer is the PREVIOUS speaker, and naming them over this
+        // speaker's data is worse than a generic label (review finding).
+        name: card?.name ?? 'the character',
+        longTier: getGroupInt(id, 'longTermTier'),
+        shortTier: getGroupInt(id, 'relationshipTier'),
+        // NB: the _groupRealism map keys trust as 'trust' (see the
+        // getGroupTrustLevel wiring in chat_service.dart), NOT 'trustLevel'.
+        trustTier: relationshipService.calculateTier(getGroupInt(id, 'trust')),
+      );
     }
-
-    // 1:1 / Director path (original scalar logic)
-    final charName = getActiveCharacter()?.name ?? 'the character';
-
-    String bondGuidance;
-    if (relationshipService.longTermTier >= 7) {
-      bondGuidance =
-          'Their Long-Term Commitment is unbreakable: $charName fully trusts {{user}} and views them as a soulmate/life partner.';
-    } else if (relationshipService.longTermTier >= 4) {
-      bondGuidance =
-          'Their Long-Term Trust is strong: $charName feels a deepening, stable connection and sees a real future with {{user}}.';
-    } else if (relationshipService.longTermTier <= -4) {
-      bondGuidance =
-          'Their Long-Term Trust is broken: $charName holds deep-seated resentment and fundamentally distrusts {{user}}. Even if short-term mood improves, the underlying hostility remains.';
-    } else {
-      bondGuidance = 'Their Long-Term Bond is developing normally.';
-    }
-
-    String tensionGuidance;
-    switch (relationshipService.relationshipTier) {
-      case 10:
-        tensionGuidance =
-            'Short-Term Tension is Devoted: $charName is completely open, vulnerable, and emotionally intertwined with {{user}}.';
-        break;
-      case 9:
-      case 8:
-        tensionGuidance =
-            'Short-Term Tension is Enamored/Devoted: $charName is deeply attached and prioritizes {{user}} above their own needs.';
-        break;
-      case 7:
-        tensionGuidance =
-            'Short-Term Tension is Intimate: $charName is exceptionally close, vulnerable, and completely open right now.';
-        break;
-      case 6:
-        tensionGuidance =
-            'Short-Term Tension is Close: $charName shares personal thoughts and feels emotionally connected.';
-        break;
-      case 5:
-        tensionGuidance =
-            'Short-Term Tension is Amiable: $charName is warm and friendly, engaging openly.';
-        break;
-      case 4:
-        tensionGuidance =
-            'Short-Term Tension is Friendly: $charName is warm, playful, and shares personal thoughts freely.';
-        break;
-      case 3:
-        tensionGuidance =
-            'Short-Term Tension is Warm: $charName is comfortable and approachable.';
-        break;
-      case 2:
-        tensionGuidance =
-            'Short-Term Tension is Receptive: $charName is open to conversation and mildly interested.';
-        break;
-      case 1:
-      case 0:
-        tensionGuidance =
-            'Short-Term Tension is Neutral: $charName engages naturally based on their established personality — neither particularly warm nor distant.';
-        break;
-      case -1:
-        tensionGuidance =
-            'Short-Term Tension is Reserved: $charName is cautious and holding back.';
-        break;
-      case -2:
-        tensionGuidance =
-            'Short-Term Tension is Cool: $charName is polite but maintains emotional distance.';
-        break;
-      case -3:
-        tensionGuidance =
-            'Short-Term Tension is Unimpressed: $charName is indifferent and unengaged.';
-        break;
-      case -4:
-        tensionGuidance =
-            'Short-Term Tension is Annoyed: $charName is mildly bothered and slightly sarcastic.';
-        break;
-      case -5:
-        tensionGuidance =
-            'Short-Term Tension is Disliked: $charName is cold and dismissive.';
-        break;
-      case -6:
-        tensionGuidance =
-            'Short-Term Tension is Hostile: $charName is openly antagonistic.';
-        break;
-      case -7:
-        tensionGuidance =
-            'Short-Term Tension is Adversarial: $charName is combative and argumentative.';
-        break;
-      case -8:
-        tensionGuidance =
-            'Short-Term Tension is Disdain: $charName holds contemptuous views of {{user}}.';
-        break;
-      case -9:
-        tensionGuidance =
-            'Short-Term Tension is Contempt: $charName is demeaning and disrespectful.';
-        break;
-      case -10:
-        tensionGuidance =
-            'Short-Term Tension is Vitriolic: $charName actively hates {{user}} with pure hostility.';
-        break;
-      default:
-        tensionGuidance = '';
-    }
-
-    return '[OOC Note regarding Relationship:\n'
-        ' Long-Term Status: ${getLongTermTierName()} (${relationshipService.longTermScore} points)\n'
-        ' Short-Term Tension: ${getShortTermTierName()}\n'
-        ' Current Mood: ${getMoodLabel()}\n'
-        '$bondGuidance\n'
-        '$tensionGuidance\n]';
+    return (
+      name: getActiveCharacter()?.name ?? 'the character',
+      longTier: relationshipService.longTermTier,
+      shortTier: relationshipService.relationshipTier,
+      trustTier: relationshipService.trustTier,
+    );
   }
 
-  /// Phase 2: Invisible inter-character relationship injection.
-  /// Returns private guidance for the *current speaker* describing how they
-  /// secretly feel about the other members of the group. This is NEVER shown
-  /// in the UI (the sidebar bars remain strictly user-focused). It exists only
-  /// to let the LLM make the speaker react realistically to their groupmates.
-  ///
-  /// Example output:
-  /// [Private feelings of Alice toward other group members]
-  /// - Bob: slightly wary of (-18)
-  /// - Charlie: fond of (+42)
+  String _bondSentence(String name, int longTier, int trustTier) {
+    String bond;
+    if (longTier >= 7) {
+      bond =
+          '$name fully trusts {{user}} and views them as a soulmate or life '
+          'partner — the long-term commitment is unbreakable.';
+    } else if (longTier >= 4) {
+      bond =
+          '$name feels a deepening, stable connection and sees a real future '
+          'with {{user}}.';
+    } else if (longTier <= -4) {
+      bond =
+          '$name holds deep-seated resentment toward {{user}} and '
+          'fundamentally distrusts them — even when the moment feels lighter, '
+          'the underlying hostility remains.';
+    } else if (longTier <= -1) {
+      // Mild long-term soreness must not read as "developing normally" —
+      // otherwise a hostile moment beside a bland bond line tells the model
+      // the grudge is fine to soft-reset (review finding).
+      bond =
+          '$name carries some lingering wariness toward {{user}} from past '
+          'hurts — nothing hardened yet, but the trust that was lost has not '
+          'fully grown back.';
+    } else {
+      bond = '$name\'s long-term bond with {{user}} is still developing '
+          'normally.';
+    }
+    // Trust tier 0 folds into the bond line (spec §3): truly neutral trust is
+    // load-bearing AGAINST inventing guardedness, so it must not vanish when
+    // the trust fragment gates itself off.
+    if (trustTier == 0) {
+      bond +=
+          ' So far there is no particular trust or distrust — $name engages '
+          'on the merits of the moment, assuming neither the best nor the '
+          'worst.';
+    }
+    return bond;
+  }
+
+  /// The FULL short-term tension ladder — shared verbatim by 1:1 and group.
+  String _tensionSentence(String name, int shortTier) {
+    return switch (shortTier) {
+      >= 10 =>
+        'Right now $name is completely open, vulnerable, and emotionally '
+            'intertwined with {{user}}.',
+      >= 8 =>
+        'Right now $name is deeply attached, prioritizing {{user}} above '
+            'everything else.',
+      7 =>
+        'Right now $name is exceptionally close, vulnerable, and completely '
+            'open.',
+      6 =>
+        'Right now $name shares personal thoughts freely and feels '
+            'emotionally connected.',
+      5 => 'Right now $name is warm and friendly, engaging openly.',
+      4 =>
+        'Right now $name is warm, playful, and shares personal thoughts '
+            'freely.',
+      3 => 'Right now $name is comfortable and approachable.',
+      2 => 'Right now $name is open to conversation and mildly interested.',
+      1 || 0 =>
+        'Right now $name engages naturally, guided by established '
+            'personality — neither notably warm nor distant.',
+      -1 => 'Right now $name is cautious and holding back.',
+      -2 => 'Right now $name is polite but keeps an emotional distance.',
+      -3 => 'Right now $name is indifferent and unengaged.',
+      -4 => 'Right now $name is mildly bothered and a touch sarcastic.',
+      -5 => 'Right now $name is cold and dismissive toward {{user}}.',
+      -6 => 'Right now $name is openly antagonistic.',
+      -7 => 'Right now $name is combative and argumentative.',
+      -8 => 'Right now $name holds contemptuous views of {{user}}.',
+      -9 =>
+        'Right now $name is demeaning and disrespectful toward {{user}}.',
+      _ => 'Right now $name actively hates {{user}}, with pure hostility.',
+    };
+  }
+
+  /// Bond + tension fragment (one to three sentences + the voice note).
+  /// The voice note only rides when the tiers carry real warmth or hostility
+  /// to mis-express — at neutral there is nothing for it to guard, and a
+  /// quiet turn should stay quiet (salience gating, spec §3).
+  String buildRelationshipInjection() {
+    if (!getRealismEnabled()) return '';
+    final s = _speaker();
+    final needsVoiceNote = s.shortTier.abs() >= 3 || s.longTier.abs() >= 4;
+    return '${_bondSentence(s.name, s.longTier, s.trustTier)} '
+        '${_tensionSentence(s.name, s.shortTier)}'
+        '${needsVoiceNote ? '\n$voiceNote' : ''}';
+  }
+
+  /// Trust-calibration fragment. Silent at tier 0 (folded into the bond line
+  /// above). The closing "depth, not temperament" sentence is LOAD-BEARING —
+  /// it is what stops guarded characters from going flat.
+  String buildTrustBehaviorInjection() {
+    if (!getRealismEnabled()) return '';
+    final s = _speaker();
+    if (s.trustTier == 0) return '';
+    final name = s.name;
+
+    String frame;
+    if (s.trustTier <= -5) {
+      frame =
+          '$name is deeply distrustful of {{user}} specifically — guarded, '
+          'evasive, questioning every motive, reading even kind gestures as '
+          'an angle being worked.';
+    } else if (s.trustTier <= -3) {
+      frame =
+          '$name is slow to open up with {{user}}: surface-level answers, '
+          'real vulnerability held back, quiet tests of {{user}}\'s '
+          'intentions.';
+    } else if (s.trustTier <= -1) {
+      frame =
+          '$name keeps {{user}} slightly at arm\'s length, holding deeper '
+          'feelings and secrets in reserve for now.';
+    } else if (s.trustTier <= 2) {
+      frame =
+          '$name is beginning to trust {{user}} — benefit of the doubt, and '
+          'a little further past the usual guard than a stranger would get.';
+    } else if (s.trustTier <= 4) {
+      frame =
+          '$name genuinely trusts {{user}} — the social mask is down, and '
+          'real feelings are spoken more candidly than with most people.';
+    } else {
+      frame =
+          '$name trusts {{user}} at a rarely-given level — fully authentic, '
+          'no performance, no guard; even never-told things may surface.';
+    }
+    return '$frame Trust governs only how much depth and vulnerability '
+        '$name risks with {{user}} — never the baseline temperament: a warm '
+        'character stays warm, a prickly one stays prickly, and guardedness '
+        'shows in what is held back, not in going flat.';
+  }
+
+  /// Group-only private inter-character feelings, words only (the numeric
+  /// deltas stay in the simulation). Never shown in the UI.
   String buildInterCharacterFeelingsInjection() {
     if (!getRealismEnabled()) return '';
     if (!getIsGroupNonObserverMode()) return '';
@@ -278,98 +249,32 @@ class RelationshipInjection {
     final relationships = getInterCharacterRelationships(speakerId);
     if (relationships.isEmpty) return '';
 
-    final speakerName = chars
-        .firstWhere(
-          (c) => getCharacterIdFromCard(c) == speakerId,
-          orElse: () => chars.first,
-        )
-        .name;
-
-    final buffer = StringBuffer();
-    buffer.writeln(
-      '[Private feelings of $speakerName toward other group members (internal, not visible to {{user}})]',
-    );
-
+    final parts = <String>[];
     for (final entry in relationships.entries) {
-      final otherId = entry.key;
+      final otherCard = chars
+          .where((c) => getCharacterIdFromCard(c) == entry.key)
+          .firstOrNull;
+      if (otherCard == null) continue;
       final delta = entry.value;
-
-      final otherChar = chars.firstWhere(
-        (c) => getCharacterIdFromCard(c) == otherId,
-        orElse: () => chars.first,
-      );
-      final otherName = otherChar.name;
-
-      String attitude;
+      final String attitude;
       if (delta >= 60) {
-        attitude = 'deeply fond of / protective toward';
+        attitude = 'deeply fond of and protective toward';
       } else if (delta >= 25) {
         attitude = 'warm and friendly toward';
       } else if (delta >= 5) {
         attitude = 'mildly positive toward';
       } else if (delta <= -60) {
-        attitude = 'strongly hostile toward / resents';
+        attitude = 'strongly hostile toward and resentful of';
       } else if (delta <= -25) {
         attitude = 'wary and negative toward';
       } else if (delta <= -5) {
-        attitude = 'cool or distrustful toward';
+        attitude = 'cool and distrustful toward';
       } else {
-        attitude = 'neutral toward';
+        continue; // neutral entries are silent (salience gating)
       }
-
-      buffer.writeln('- $otherName: $attitude ($delta)');
+      parts.add('$attitude ${otherCard.name}');
     }
-    buffer.writeln();
-    return buffer.toString();
-  }
-
-  /// Injects a trust-calibrated behavioral frame based on existing trust level (now via RelationshipService).
-  /// Tells the model how much of the character's inner self to surface — but
-  /// deliberately avoids prescribing specific behaviors, letting the character
-  /// persona define what "opening up" actually looks like for THIS character.
-  /// Trust tier 0 is now truly neutral — neither trusting nor distrustful.
-  String buildTrustBehaviorInjection() {
-    if (!getRealismEnabled() || getActiveCharacter() == null) return '';
-    final charName = getActiveCharacter()!.name;
-    final tier = relationshipService.trustTier; // now -7 to +7
-
-    String frame;
-    if (tier <= -5) {
-      frame =
-          'is deeply distrustful and paranoid. They question every motive, remain highly '
-          'evasive, and actively suspect harmful intentions. Even positive gestures are met with skepticism.';
-    } else if (tier <= -3) {
-      frame =
-          'is skeptical and guarded. They keep conversations surface-level, avoid vulnerability, '
-          'and actively test the user intentions before opening up.';
-    } else if (tier <= -1) {
-      frame =
-          'is cautious and reserved. They are neither trusting nor hostile — engaging based on the immediate '
-          'context while maintaining emotional distance.';
-    } else if (tier == 0) {
-      frame =
-          'is neutral — neither trusting nor distrustful. They engage based on the immediate context and their '
-          'personality, without assuming the best or worst of the user. A naturally warm character remains warm, '
-          'a naturally cold character remains cold.';
-    } else if (tier <= 2) {
-      frame =
-          'is leaning toward trust. They may show slightly more openness than usual, giving the user '
-          'the benefit of doubt in ambiguous situations. Do not force it — let it emerge naturally.';
-    } else if (tier <= 4) {
-      frame =
-          'genuinely trusts this person. Their social mask is down. They share real feelings and speak more '
-          'candidly than they would with most people. What this looks like depends entirely on $charName\'s '
-          'own character — an introverted character might simply hold eye contact longer or say one true thing; '
-          'an expressive one might open up more dramatically. Follow $charName\'s persona.';
-    } else {
-      frame =
-          'has reached a level of deep trust that is rare for them. They are fully themselves — '
-          'no performance, no guard. They may say things they have never said to anyone, '
-          'show vulnerability in whatever form is authentic to $charName\'s personality.';
-    }
-
-    return '[Trust Calibration — $charName $frame'
-        ' Do NOT apply generic warmth or humor. Let $charName\'s specific personality '
-        'define exactly how this trust level manifests in behavior.]\n';
+    if (parts.isEmpty) return '';
+    return 'Privately (invisible to everyone else): ${parts.join('; ')}.';
   }
 }

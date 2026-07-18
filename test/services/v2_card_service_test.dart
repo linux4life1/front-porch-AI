@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -295,6 +296,143 @@ void main() {
       expect(loaded.frontPorchExtensions!.realismEnabled, true);
       expect(loaded.rawExtensions, isNotNull);
       expect(loaded.rawExtensions!['third_party'], 'some_data');
+    });
+  });
+
+  group('V2CardService - JSON Export/Import', () {
+    test('saveCardAsJson writes a valid chara_card_v2 envelope', () async {
+      final card = CharacterCard(
+        name: 'JSON Character',
+        description: 'Exported to JSON',
+        personality: 'Curious',
+        firstMessage: 'Hi from JSON',
+      );
+
+      final outputPath = '$tempDir/envelope.json';
+      await service.saveCardAsJson(card, outputPath);
+
+      final raw = jsonDecode(await File(outputPath).readAsString())
+          as Map<String, dynamic>;
+      expect(raw['spec'], 'chara_card_v2');
+      expect(raw['spec_version'], '2.0');
+      expect(raw['data'], isA<Map<String, dynamic>>());
+      // Canonical V2 snake_case field names live under `data`.
+      final data = raw['data'] as Map<String, dynamic>;
+      expect(data['name'], 'JSON Character');
+      expect(data['first_mes'], 'Hi from JSON');
+    });
+
+    test('JSON round-trip preserves all fields (no avatar)', () async {
+      final card = CharacterCard(
+        name: 'Full JSON Character',
+        description: 'Everything populated',
+        personality: 'Brave and clever',
+        scenario: 'A grand festival',
+        firstMessage: 'Welcome!',
+        mesExample: '{{char}}: Hi\n{{user}}: Hello',
+        systemPrompt: 'Be a guide.',
+        postHistoryInstructions: 'Stay in character.',
+        alternateGreetings: ['Hey!', 'Greetings!'],
+        tags: ['fantasy', 'festival'],
+        lorebook: Lorebook(
+          entries: [
+            LorebookEntry(
+              name: 'Festival Lore',
+              key: 'festival',
+              content: 'Annual celebration',
+            ),
+          ],
+        ),
+        worldNames: ['Festival City'],
+        ttsVoice: 'en_us',
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          shortTermBond: 30,
+          dayCount: 3,
+          timeOfDay: 'evening',
+        ),
+        rawExtensions: {'third_party': 'some_data'},
+      );
+
+      final outputPath = '$tempDir/full.json';
+      await service.saveCardAsJson(card, outputPath);
+
+      final loaded = await service.readCardFromJsonFile(outputPath);
+      expect(loaded, isNotNull);
+      expect(loaded!.name, card.name);
+      expect(loaded.description, card.description);
+      expect(loaded.personality, card.personality);
+      expect(loaded.scenario, card.scenario);
+      expect(loaded.firstMessage, card.firstMessage);
+      expect(loaded.mesExample, card.mesExample);
+      expect(loaded.systemPrompt, card.systemPrompt);
+      expect(loaded.postHistoryInstructions, card.postHistoryInstructions);
+      expect(loaded.alternateGreetings, card.alternateGreetings);
+      expect(loaded.tags, card.tags);
+      expect(loaded.lorebook, isNotNull);
+      expect(loaded.lorebook!.entries.length, 1);
+      expect(loaded.lorebook!.entries[0].name, 'Festival Lore');
+      expect(loaded.worldNames, card.worldNames);
+      expect(loaded.ttsVoice, card.ttsVoice);
+      expect(loaded.frontPorchExtensions, isNotNull);
+      expect(loaded.frontPorchExtensions!.realismEnabled, true);
+      expect(loaded.frontPorchExtensions!.shortTermBond, 30);
+      expect(loaded.rawExtensions, isNotNull);
+      expect(loaded.rawExtensions!['third_party'], 'some_data');
+      // No avatar is associated when importing standalone JSON.
+      expect(loaded.imagePath, isNull);
+    });
+
+    test('parseCardJson accepts a flat (legacy V1) object', () {
+      final flat = jsonEncode({
+        'name': 'Flat Character',
+        'description': 'Top-level fields',
+        'first_mes': 'No data wrapper here',
+      });
+
+      final loaded = service.parseCardJson(flat);
+      expect(loaded, isNotNull);
+      expect(loaded!.name, 'Flat Character');
+      expect(loaded.description, 'Top-level fields');
+      expect(loaded.firstMessage, 'No data wrapper here');
+    });
+
+    test('parseCardJson returns null for malformed JSON', () {
+      expect(service.parseCardJson('not valid json {{{'), isNull);
+    });
+
+    test('PNG-embedded and JSON exports produce equivalent cards', () async {
+      final card = CharacterCard(
+        name: 'Parity Character',
+        description: 'Same data, two containers',
+        personality: 'Consistent',
+        firstMessage: 'Greetings',
+        tags: ['a', 'b'],
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          trustLevel: 25,
+        ),
+      );
+
+      final pngPath = '$tempDir/parity.png';
+      final jsonPath = '$tempDir/parity.json';
+      await service.saveCardAsPng(card, pngPath, null);
+      await service.saveCardAsJson(card, jsonPath);
+
+      final fromPng = await service.readCard(pngPath);
+      final fromJson = await service.readCardFromJsonFile(jsonPath);
+
+      expect(fromPng, isNotNull);
+      expect(fromJson, isNotNull);
+      expect(fromJson!.name, fromPng!.name);
+      expect(fromJson.description, fromPng.description);
+      expect(fromJson.personality, fromPng.personality);
+      expect(fromJson.firstMessage, fromPng.firstMessage);
+      expect(fromJson.tags, fromPng.tags);
+      expect(
+        fromJson.frontPorchExtensions!.trustLevel,
+        fromPng.frontPorchExtensions!.trustLevel,
+      );
     });
   });
 }

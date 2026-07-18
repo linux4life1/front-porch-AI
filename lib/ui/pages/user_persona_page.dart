@@ -17,15 +17,14 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/persona_colors.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/export_persona_dialog.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 class UserPersonaPage extends StatefulWidget {
   const UserPersonaPage({super.key});
@@ -44,7 +43,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   late TextEditingController _nameController;
   late TextEditingController _personaController;
   String? _avatarPath;
-  bool _factsExpanded = false;
 
   late AnimationController _headerAnimController;
   late Animation<double> _headerGlowAnimation;
@@ -97,7 +95,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   }
 
   Future<void> _pickAvatar() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await PickerPrefs.pickFiles(
+      category: PickerPrefs.catImage,
       type: FileType.image,
       allowMultiple: false,
     );
@@ -158,7 +157,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   }
 
   Future<void> _importPersona() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await PickerPrefs.pickFiles(
+      category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
@@ -224,7 +224,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   }
 
   Future<void> _exportPersona(UserPersona persona) async {
-    String? outputFile = await FilePicker.platform.saveFile(
+    String? outputFile = await PickerPrefs.saveFile(
+      category: PickerPrefs.catExport,
       dialogTitle: 'Export Persona',
       fileName:
           '${persona.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_')}_FPAIpersona.json',
@@ -350,16 +351,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
             SliverToBoxAdapter(
               child: _buildHeroHeader(activePersona, accentColor, service),
             ),
-
-            // Learned facts section
-            if (activePersona.learnedFacts.isNotEmpty)
-              SliverToBoxAdapter(
-                child: _buildLearnedFactsSection(
-                  context,
-                  activePersona,
-                  service,
-                ),
-              ),
 
             // Section label
             SliverToBoxAdapter(
@@ -542,12 +533,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
                           Icons.people_outline,
                           '${service.personas.length} persona${service.personas.length != 1 ? 's' : ''}',
                         ),
-                        if (activePersona.learnedFacts.isNotEmpty)
-                          _buildStatChip(
-                            context,
-                            Icons.auto_awesome,
-                            '${activePersona.learnedFacts.length} fact${activePersona.learnedFacts.length != 1 ? 's' : ''}',
-                          ),
                       ],
                     ),
                   ],
@@ -629,117 +614,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ── Learned Facts ─────────────────────────────────────────────────────
-
-  Widget _buildLearnedFactsSection(
-    BuildContext context,
-    UserPersona persona,
-    UserPersonaService service,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.resolve(
-                context,
-                const Color(0xFF1E293B).withValues(alpha: 0.6),
-                AppColors.lightCard.withValues(alpha: 0.8),
-              ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.borderOf(context)),
-            ),
-            child: Theme(
-              data: Theme.of(
-                context,
-              ).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                initiallyExpanded: _factsExpanded,
-                onExpansionChanged: (v) => setState(() => _factsExpanded = v),
-                tilePadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 2,
-                ),
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                leading: const Icon(
-                  Icons.auto_awesome,
-                  size: 18,
-                  color: Colors.tealAccent,
-                ),
-                title: Text(
-                  'Learned Facts (${persona.learnedFacts.length})',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary(context),
-                  ),
-                ),
-                subtitle: Text(
-                  'Auto-extracted from your conversations',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textTertiary(context),
-                  ),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (persona.learnedFacts.length > 5)
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_sweep,
-                          size: 16,
-                          color: Colors.redAccent,
-                        ),
-                        tooltip: 'Clear all facts',
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () =>
-                            _showClearFactsConfirmation(context, service),
-                      ),
-                    Icon(
-                      _factsExpanded ? Icons.expand_less : Icons.expand_more,
-                      color: AppColors.textTertiary(context),
-                    ),
-                  ],
-                ),
-                children: [
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: List.generate(persona.learnedFacts.length, (i) {
-                      return Chip(
-                        label: Text(
-                          persona.learnedFacts[i],
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary(context),
-                          ),
-                        ),
-                        backgroundColor: AppColors.surfaceContainerOf(context),
-                        side: BorderSide(color: AppColors.borderOf(context)),
-                        deleteIcon: Icon(
-                          Icons.close,
-                          size: 14,
-                          color: AppColors.textTertiary(context),
-                        ),
-                        onDeleted: () => service.removeLearnedFact(i),
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      );
-                    }),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -904,24 +778,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
             // Bottom row
             Row(
               children: [
-                if (persona.learnedFacts.isNotEmpty) ...[
-                  Icon(
-                    Icons.auto_awesome,
-                    size: 12,
-                    color: Colors.tealAccent.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${persona.learnedFacts.length} facts',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: AppColors.textTertiary(context),
-                    ),
-                  ),
-                  const Spacer(),
-                ],
                 if (!isActive) ...[
-                  if (persona.learnedFacts.isEmpty) const Spacer(),
+                  const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -944,7 +802,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
                     ),
                   ),
                 ] else ...[
-                  if (persona.learnedFacts.isEmpty) const Spacer(),
+                  const Spacer(),
                   _buildActiveBadge(cardColor),
                 ],
               ],
@@ -1496,51 +1354,6 @@ class _UserPersonaPageState extends State<UserPersonaPage>
     );
   }
 
-  void _showClearFactsConfirmation(
-    BuildContext context,
-    UserPersonaService service,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Clear All Facts',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary(context),
-          ),
-        ),
-        content: Text(
-          'Remove all ${service.persona.learnedFacts.length} learned facts? This cannot be undone.',
-          style: TextStyle(color: AppColors.textSecondary(context)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary(context)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              while (service.persona.learnedFacts.isNotEmpty) {
-                service.removeLearnedFact(0);
-              }
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Clear All'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

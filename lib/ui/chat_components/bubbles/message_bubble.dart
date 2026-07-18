@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+import '../widgets/inline_chat_image.dart';
 import 'styled_chat_message.dart';
 
 /// Message bubble widget (extracted from chat_page god file).
@@ -262,7 +263,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                                         duration: const Duration(seconds: 1),
                                         backgroundColor:
                                             widget.senderColor ??
-                                            Colors.blueAccent,
+                                            AppColors.porchAmberOf(context),
                                       ),
                                     );
                                   }
@@ -332,7 +333,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                                                       ? tts.generationProgress
                                                       : null,
                                                   strokeWidth: 2,
-                                                  color: Colors.blueAccent,
+                                                  color: AppColors.porchAmberOf(
+                                                    context,
+                                                  ),
                                                 ),
                                               ),
                                               if (tts.generationProgress > 0)
@@ -588,6 +591,14 @@ class _MessageBubbleState extends State<MessageBubble> {
                     character:
                         widget.character ?? widget.chatService?.activeCharacter,
                   ),
+                  // Locally generated image (from /image or the Image Studio's
+                  // "Send to chat") — click to zoom, right-click to save.
+                  if (message.activeMetadata?['image_path'] is String)
+                    InlineChatImage(
+                      path: message.activeMetadata!['image_path'] as String,
+                      prompt:
+                          message.activeMetadata!['image_prompt'] as String?,
+                    ),
                   if (message.activeMetadata != null)
                     _buildRealismIndicator(message.activeMetadata!),
                   // Swipe arrows for alternate greetings on first message
@@ -645,17 +656,34 @@ class _MessageBubbleState extends State<MessageBubble> {
                         );
                       },
                     ),
-                  // Action buttons: regen, continue, swipe arrows
-                  if (!message.isUser && message.sender != 'System')
+                  // Action buttons: regen, continue, swipe arrows.
+                  // Generated-image messages carry no regenerable text, so the
+                  // text-generation actions are hidden for them (regen would
+                  // stream prose into an image bubble).
+                  if (!message.isUser &&
+                      message.sender != 'System' &&
+                      message.activeMetadata?['is_generated_image'] != true)
                     Consumer<ChatService>(
                       builder: (context, chatService, _) {
                         final isLastBotMessage =
                             index == chatService.messages.length - 1 &&
                             !chatService.isGenerating;
                         final hasSwipes = message.swipes.length > 1;
+                        // This host (main character) message is buried under one
+                        // or more Scene Guest (Lite NPC) replies, so the normal
+                        // last-message regen can't reach it. Offer a regen that
+                        // first removes those stale guest replies. (By definition
+                        // this is never the last message.)
+                        final isRegenHostBelowGuests =
+                            index ==
+                                chatService.regenerableHostBelowGuestsIndex &&
+                            !chatService.isGenerating;
 
-                        // Nothing to show if not last message and no swipes
-                        if (!isLastBotMessage && !hasSwipes) {
+                        // Nothing to show if not last message, no swipes, and not
+                        // a host buried under guest replies.
+                        if (!isLastBotMessage &&
+                            !hasSwipes &&
+                            !isRegenHostBelowGuests) {
                           return const SizedBox.shrink();
                         }
 
@@ -664,6 +692,34 @@ class _MessageBubbleState extends State<MessageBubble> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
+                              // Regen the main character even though a Lite NPC
+                              // spoke after it — pops the NPC's now-stale reply,
+                              // regenerates this message, then lets the NPC chime
+                              // again only if still relevant.
+                              if (isRegenHostBelowGuests) ...[
+                                Tooltip(
+                                  message:
+                                      'Regenerate main character\n(removes the NPC’s reply)',
+                                  child: InkWell(
+                                    onTap: () =>
+                                        chatService.regenerateMainCharacter(),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.refresh,
+                                        size: 20,
+                                        color: AppColors.resolve(
+                                          context,
+                                          Colors.orangeAccent,
+                                          Colors.orange.shade800,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (hasSwipes) const SizedBox(width: 12),
+                              ],
                               // Regen button — last bot message only
                               if (isLastBotMessage) ...[
                                 Tooltip(
@@ -746,8 +802,11 @@ class _MessageBubbleState extends State<MessageBubble> {
                         );
                       },
                     ),
-                  // Suggest actions button + action pills (last bot message only)
-                  if (!message.isUser && message.sender != 'System')
+                  // Suggest actions button + action pills (last bot message only;
+                  // hidden for generated-image messages like the regen row above)
+                  if (!message.isUser &&
+                      message.sender != 'System' &&
+                      message.activeMetadata?['is_generated_image'] != true)
                     Consumer<ChatService>(
                       builder: (context, chatService, _) {
                         final isLast =
@@ -922,7 +981,7 @@ class _MessageBubbleState extends State<MessageBubble> {
         backgroundColor: AppColors.surfaceOf(context),
         title: Row(
           children: const [
-            Icon(Icons.call_split, color: Colors.blueAccent, size: 22),
+            Icon(Icons.call_split, color: AppColors.formMasterAccent, size: 22),
             SizedBox(width: 8),
             Text('Fork Conversation'),
           ],
@@ -954,7 +1013,10 @@ class _MessageBubbleState extends State<MessageBubble> {
             },
             icon: Icon(Icons.call_split, size: 18),
             label: const Text('Fork'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.formMasterAccent,
+              foregroundColor: AppColors.onChaosAccent,
+            ),
           ),
         ],
       ),
@@ -1745,8 +1807,14 @@ class _MessageBubbleState extends State<MessageBubble> {
               chatService.editMessage(index, controller.text);
               Navigator.of(context).pop();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.formMasterAccent,
+              foregroundColor: AppColors.onChaosAccent,
+            ),
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.onChaosAccent),
+            ),
           ),
         ],
       ),

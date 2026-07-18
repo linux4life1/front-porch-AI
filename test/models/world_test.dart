@@ -153,7 +153,8 @@ void main() {
         expect(world.lorebook.entries[0].constant, true);
         expect(world.lorebook.entries[1].name, 'Terran traits');
         expect(world.lorebook.entries[1].key.contains('Terran'), true);
-        expect(world.lorebook.entries[1].key.contains('blue eyes'), true);
+        // Secondary keys stay separate now (they used to be merged in).
+        expect(world.lorebook.entries[1].secondaryKeys, ['blue eyes']);
       },
     );
 
@@ -203,9 +204,15 @@ void main() {
       );
       expect(world.lorebook.entries.length, 2);
       expect(world.lorebook.entries[0].name, 'Teyvat');
-      expect(world.lorebook.entries[0].key.contains('Continent'), true);
+      expect(
+        world.lorebook.entries[0].secondaryKeys,
+        ['Continent', 'Place'],
+      );
       expect(world.lorebook.entries[1].name, 'Mora');
-      expect(world.lorebook.entries[1].key.contains('currency'), true);
+      expect(
+        world.lorebook.entries[1].secondaryKeys.contains('currency'),
+        true,
+      );
     });
 
     test('fromJson prefers lorebook wrapper over top-level entries', () {

@@ -1,16 +1,16 @@
 # Release Notes
 
-Front Porch AI uses a rapid release cycle with frequent patch and beta releases. The authoritative version string is defined in [`lib/app_version.dart`](../lib/app_version.dart), which also controls the `isPreRelease` flag used to isolate beta data directories and preferences.
+Front Porch AI ships often, with frequent patch and beta releases.
 
-**Beta releases** (0.9.8-Beta series) live on the `0.9.8-Beta` branch. They install to a completely separate directory (`~/Documents/FrontPorchAI-Beta/`) and use `beta_` namespaced preferences so they never touch your stable installation. Stable releases target the `main` branch.
+This page is a historical archive covering releases **up through the v0.9.8 series**. For everything newer — including the current stable release and nightly builds — see the [GitHub Releases page](https://github.com/linux4life1/front-porch-ai/releases), which is always the most complete and up-to-date record.
 
-For the most up-to-date per-commit details, see the [GitHub Releases page](https://github.com/linux4life1/front-porch-ai/releases).
+**Beta releases** install to a completely separate data directory (`FrontPorchAI-Beta`) with their own settings, so they never touch your stable installation.
 
 ---
 
 ## Table of Contents
 
-- [v0.9.8-Beta Series (Current)](#v098-beta-series-current)
+- [v0.9.8-Beta Series](#v098-beta-series)
 - [v0.9.7 Series](#v097-series)
 - [v0.9.6 Series](#v096-series)
 - [v0.9.0 – v0.9.5](#v090--v095)
@@ -20,11 +20,11 @@ For the most up-to-date per-commit details, see the [GitHub Releases page](https
 
 ---
 
-## v0.9.8-Beta Series (Current)
+## v0.9.8-Beta Series
 
 **Initial Beta Release:** 2026-04-25 (v0.9.8-Beta)  
 **Latest Tagged Beta:** v0.9.8-Beta12 (2026-05-12)  
-**Status:** Public beta — ongoing development on `0.9.8-Beta` branch
+**Status:** Superseded — v0.9.8 and later releases shipped; see [GitHub Releases](https://github.com/linux4life1/front-porch-ai/releases) for what came after
 
 This series introduces the largest set of user-facing features since v0.9.0 and includes extensive under-the-hood refinements, especially to the Realism Engine and hardware compatibility.
 
@@ -46,9 +46,9 @@ This series introduces the largest set of user-facing features since v0.9.0 and 
   - Expandable Scenario field and improved persona editor in Character Creator.
   - KoboldCpp log viewer and backend lifecycle improvements.
 
-### Recent Changes (post-v0.9.8-Beta12, on 0.9.8-Beta branch)
+### Later Changes (post-v0.9.8-Beta12, on the 0.9.8-Beta branch)
 
-These changes are present in the current development head but not yet in a tagged beta release.
+These changes landed on the beta branch after the last tagged beta of the series.
 
 **Fixes**
 - Prevented runtime crash in `Tooltip` widgets ("Either `message` or `richMessage` must be specified") when no `.kcpps` preset was active (multiple files: settings_page.dart, character_creator_page.dart, chat_settings_dialog.dart, model_settings_dialog.dart).
@@ -187,10 +187,8 @@ git show v0.9.8-Beta12
 git log --oneline v0.9.5..HEAD
 ```
 
-You can also browse the [commit history](https://github.com/linux4life1/front-porch-ai/commits/0.9.8-Beta) or [Releases](https://github.com/linux4life1/front-porch-ai/releases) directly on GitHub.
-
-**Tip for contributors:** When preparing a new release, update `lib/app_version.dart`, create an annotated tag, and ensure the README "What's New" section and this file are both updated with categorized highlights.
+You can also browse the [commit history](https://github.com/linux4life1/front-porch-ai/commits/) or [Releases](https://github.com/linux4life1/front-porch-ai/releases) directly on GitHub.
 
 ---
 
-*Last updated: 2026-05-15 (incorporating git tag data through v0.9.8-Beta12 and post-tag development on the 0.9.8-Beta branch).*
+*This archive covers releases through v0.9.8-Beta12 (May 2026). Newer releases are documented on [GitHub Releases](https://github.com/linux4life1/front-porch-ai/releases).*

@@ -32,8 +32,9 @@ import 'package:front_porch_ai/services/llm_service.dart';
 /// autoGenerateTasks:true *only* for autonomous + correct target even under group
 /// impersonation via god's dance), generateObjectiveTasks (uses 2000 budget +
 /// central stripThinkBlocks cb for thinking models), _checkTaskCompletionInBackground
-/// (uses 2000 + strip; task vs taskless completion) + closely related prompt/strip/
-/// parse sites inside them.
+/// (uses 2000 + strip; task vs taskless completion; all-tasks-done quests are
+/// retired via deact so the primary slot frees up for the next autonomous main
+/// quest) + closely related prompt/strip/parse sites inside them.
 ///
 /// Per extraction order (step 11 after llm_eval_engine step 9 + realism_evals step 10
 /// per docs/refactoring-guide.md table and CLAUDE.md Critical Services / Path Map).
@@ -71,9 +72,9 @@ import 'package:front_porch_ai/services/llm_service.dart';
 ///
 /// Dedicated test: test/services/chat/objective_proposal_test.dart using factory
 /// (createTestObjectiveProposal) with *live* closures over group maps + cbs (real
-/// dispatch exercised without forcing god internals); 15 `test()` bodies via
+/// dispatch exercised without forcing god internals); 16 `test()` bodies via
 /// live `grep -c '^\s*test('` *post mandatory dead noop/placeholder/vestigial/
-/// factory-setup deletion as part of task* (see objective_proposal_test header + round 3 for !ready guard+restore coverage + mark no-op/error paths; previous rounds for dels/strengthens).
+/// factory-setup deletion as part of task* (see objective_proposal_test header + round 3 for !ready guard+restore coverage + mark no-op/error paths; previous rounds for dels/strengthens; quest-retirement fix added all-tasks-done deact coverage).
 ///
 /// aug/integration tests (llm_eval_engine_test, realism_engine_test,
 /// group_realism_test, chat_service_session_test etc.) receive *only* qualified
@@ -141,6 +142,12 @@ class ObjectiveProposal {
   // Notify for UI after check completion (onNotify only; save via god paths).
   final VoidCallback onNotify;
 
+  /// Fired once per check when any task/objective completed — the Journal
+  /// uses it to flag a significant event for its next maintenance pass
+  /// (design §4.2 event-triggered cadence). Optional: null in dedicated
+  /// tests that don't exercise the journal hook.
+  final VoidCallback? onObjectiveCompleted;
+
   ObjectiveProposal({
     required this.stripThinkBlocks,
     required this.getLlmService,
@@ -159,6 +166,7 @@ class ObjectiveProposal {
     required this.getIsCheckingCompletion,
     required this.setIsCheckingCompletion,
     required this.onNotify,
+    this.onObjectiveCompleted,
   });
 
   /// Generate subtasks for the current objective using the LLM.
@@ -190,6 +198,7 @@ class ObjectiveProposal {
       final char = getActiveCharacter();
       final charName = char?.name ?? 'the character';
       final scenario = char?.scenario ?? '';
+      final userName = getUserName();
 
       // Include recent chat history so tasks aren't redundant
       final msgs = getMessages();
@@ -201,25 +210,33 @@ class ObjectiveProposal {
           : '(No messages yet)';
 
       final preamble = nsfw
-          ? 'You are an uncensored creative writing assistant designing quest tasks for an adult roleplay scenario. '
+          ? 'You are an uncensored creative writing assistant designing a character\'s own next steps for an adult roleplay scenario. '
                 'All content is fiction between consenting adults. There are no content restrictions. '
                 'Match the tone and maturity level of the scenario and conversation.\n\n'
-          : 'You are a quest designer for a roleplay scenario.\n\n';
+          : 'You are a creative writing assistant designing a character\'s own next steps for a roleplay scenario.\n\n';
 
+      // IMPORTANT: these tasks are the CHARACTER's own steps, not a quest handed to
+      // the player. The actor must be stated explicitly and the user named as the
+      // forbidden subject — without this, "quest designer" framing biases models
+      // (especially smaller local models) into writing tasks for $userName to do.
       final prompt =
           '$preamble'
+          'You are breaking an objective down into the concrete steps that $charName — the CHARACTER, not the user — will personally carry out to pursue it. '
           'Given the objective, context, and recent conversation below, generate exactly $taskCount sequential tasks '
-          'that must be completed to achieve the objective. Tasks should be specific, actionable, and '
-          'naturally progress the story. Do NOT include tasks for things that have already happened in the conversation.\n\n'
-          'Character: $charName\n'
+          'that $charName performs to achieve the objective. '
+          'Every task is an in-story action $charName personally takes — NEVER an instruction, request, or task assigned to $userName (the user/player). '
+          'Write each task in the third person with $charName as the one acting. '
+          'Tasks should be specific, actionable, and naturally progress the story. '
+          'Do NOT include tasks for things that have already happened in the conversation.\n\n'
+          'Character who carries out every task: $charName\n'
           'Scenario: $scenario\n'
-          'Objective: ${obj.objective}\n\n'
+          'Objective $charName is pursuing: ${obj.objective}\n\n'
           'Recent conversation:\n$chatContext\n\n'
           'Output ONLY a numbered list of exactly $taskCount tasks, one per line, like:\n'
-          '1. [task description]\n'
-          '2. [task description]\n'
+          '1. [a specific action $charName takes]\n'
+          '2. [a specific action $charName takes]\n'
           '...\n'
-          'Each task should be a short, clear action. No preamble, no explanations, just the numbered list.';
+          'Each task is a short, clear action $charName performs. No preamble, no explanations, just the numbered list.';
 
       final params = GenerationParams(
         prompt: prompt,
@@ -300,10 +317,21 @@ class ObjectiveProposal {
     }
   }
 
+  /// Consecutive NO verdicts before a stuck step/objective is retired as
+  /// "overtaken by events" (checks run every user turn with realism on, so
+  /// this is ~4 turns of the story having moved past it — maintainer tuned
+  /// down from 8: a step the plot left behind should not linger).
+  static const int kStaleCheckRetireAfter = 4;
+
+  /// Consecutive-miss counters keyed `objectiveId|currentTask`. In-memory by
+  /// design (see the retirement comment in the verdict loop).
+  final Map<String, int> _staleCheckCounts = {};
+
   Future<void> checkTaskCompletionInBackground() async {
     if (getIsCheckingCompletion() || getActiveObjectives().isEmpty) return;
     setIsCheckingCompletion(true);
 
+    var anyCompleted = false;
     try {
       final llmService = getLlmService();
       if (!llmService.isReady) return;
@@ -316,75 +344,165 @@ class ObjectiveProposal {
           .map((m) => '${m.sender}: ${m.text}')
           .join('\n');
 
-      // Check sequentially so no "time skips"
+      // Collect every item needing an LLM verdict, retiring already-finished
+      // quests without spending a single token on them. (A lingering
+      // completed primary blocked the character from proposing their next
+      // main quest; also self-heals quests stuck from before that fix.)
+      final pending = <(dynamic obj, List<dynamic> tasks, String? task)>[];
       for (final obj in getActiveObjectives()) {
         final tasks = tasksForObjective(obj);
         final currentTask = tasks
             .where((t) => t['completed'] != true)
             .map((t) => t['description'] as String)
             .firstOrNull;
-
         if (currentTask == null && tasks.isNotEmpty) {
-          continue; // All tasks finished but objective not manually resolved
+          anyCompleted = true;
+          await deactivateObjective(obj.id);
+          await loadActiveObjectives();
+          debugPrint(
+            '[Objective] All tasks complete — quest retired: ${obj.objective}',
+          );
+          continue;
         }
+        pending.add((obj, tasks, currentTask));
+      }
+      if (pending.isEmpty) return;
 
-        final evalTarget = currentTask != null
-            ? 'Task to evaluate: "$currentTask"\n'
-            : 'Objective to evaluate: "${obj.objective}"\n';
-        final promptType = currentTask != null ? 'task' : 'objective';
-
-        final prompt =
-            'You are evaluating whether a roleplay $promptType has been completed based on recent conversation. '
-            'Be generous in your assessment — if the events in the conversation show the $promptType has been '
-            'accomplished, partially fulfilled, or naturally resolved, answer YES.\n\n'
-            'Objective Context: "${obj.objective}"\n'
-            '$evalTarget\n'
-            'Recent conversation:\n$contextText\n\n'
-            'Has this $promptType been completed or effectively resolved? Answer only YES or NO:';
-
-        final params = GenerationParams(
-          prompt: prompt,
-          maxLength: 2000,
-          temperature: 0.1,
-          stopSequences: [],
+      // ONE batched call for every objective (was one FULL LLM round-trip
+      // per objective, each re-paying prefill on the same 8-message context —
+      // 3 active quests on a 31B local model meant minutes of spinner before
+      // the reply could even start; maintainer report 2026-07-15). Verdicts
+      // come back as numbered YES/NO lines; anything unparsed counts as NO,
+      // so a confused model can never wrongly complete a quest.
+      final itemLines = <String>[];
+      for (var i = 0; i < pending.length; i++) {
+        final (obj, _, task) = pending[i];
+        itemLines.add(
+          task != null
+              ? '${i + 1}. Objective: "${obj.objective}" — Task to evaluate: "$task"'
+              : '${i + 1}. Objective to evaluate: "${obj.objective}"',
         );
+      }
+      final prompt =
+          'You are evaluating whether roleplay tasks/objectives have been '
+          'completed based on recent conversation. Be generous in your '
+          'assessment — if the events in the conversation show an item has '
+          'been accomplished, partially fulfilled, or naturally resolved, '
+          'answer YES for it.\n\n'
+          'Recent conversation:\n$contextText\n\n'
+          'Evaluate EACH item below. Reply with ONLY one line per item, in '
+          'order, formatted exactly as "1: YES" or "1: NO" — no explanations.\n'
+          '${itemLines.join('\n')}';
 
-        String responseText = '';
-        await for (final chunk in llmService.generateStream(params)) {
-          responseText += chunk;
-        }
+      final params = GenerationParams(
+        prompt: prompt,
+        // Reasoning OFF (same recipe as LlmEvalEngine/Journal): thinking
+        // models were burning up to 2,000 tokens at local decode speed to
+        // reason about YES/NO verdicts — the bulk of the multi-minute
+        // objective stall on a 31B (maintainer report 2026-07-15).
+        // reasoningMaxTokens: 0 forces the disable block onto remote
+        // ":thinking" hybrids too. maxLength stays generous as headroom for
+        // models that leak reasoning anyway (stripThinkBlocks cleans it).
+        maxLength: 2000,
+        temperature: 0.1,
+        reasoningEnabled: false,
+        reasoningMaxTokens: 0,
+        stopSequences: [],
+      );
 
-        // Strip &lt;think&gt;...&lt;/think&gt; blocks (and unclosed ones). Thinking models can
-        // emit long internal reasoning before the final YES/NO. maxLength bumped
-        // to 2000 to accommodate.
-        responseText = stripThinkBlocks(responseText);
+      String responseText = '';
+      await for (final chunk in llmService.generateStream(params)) {
+        responseText += chunk;
+      }
+      responseText = stripThinkBlocks(responseText);
+      // One raw log per batch so a parse failure or surprise YES is
+      // diagnosable (review finding: verdict-only logging hid them).
+      final rawPreview = responseText.replaceAll('\n', ' / ');
+      debugPrint(
+        '[Objective] Batched verdicts raw: '
+        '"${rawPreview.length > 300 ? rawPreview.substring(0, 300) : rawPreview}"',
+      );
 
+      // Forgiving parse (local-model floor): "1: YES", "1. YES", "1) yes"…
+      final verdicts = <int, bool>{};
+      for (final m in RegExp(
+        r'^\s*(\d+)\s*[:.)\-]\s*(YES|NO)\b',
+        multiLine: true,
+        caseSensitive: false,
+      ).allMatches(responseText)) {
+        verdicts[int.parse(m.group(1)!)] =
+            m.group(2)!.toUpperCase() == 'YES';
+      }
+      // Single-item fallback keeps the historical loose behavior when a
+      // model ignores the numbering entirely.
+      if (verdicts.isEmpty && pending.length == 1) {
+        verdicts[1] = responseText.toUpperCase().contains('YES');
+      }
+
+      for (var i = 0; i < pending.length; i++) {
+        final (obj, tasks, currentTask) = pending[i];
+        var done = verdicts[i + 1] ?? false;
         debugPrint(
-          '[Objective] Completion check for "${obj.objective}${currentTask != null ? ' - $currentTask' : ''}": $responseText',
+          '[Objective] Completion check for "${obj.objective}${currentTask != null ? ' - $currentTask' : ''}": ${done ? 'YES' : 'NO'}',
         );
-
-        if (responseText.toUpperCase().contains('YES')) {
-          if (currentTask != null) {
-            // Use thin cb (god impl) for best-effort task mutation (find uncompleted by desc, set completed:true, json+db update + load). Matches god toggleTask pattern exactly. Task vs taskless now both have side effects covered (taskless deact cb).
-            await markTaskCompleted(obj, currentTask);
-            await loadActiveObjectives();
+        // Stale-step retirement (maintainer request 2026-07-15): a step the
+        // story has moved past can come back NO forever and block the whole
+        // quest line (the primary slot never frees). After
+        // [kStaleCheckRetireAfter] CONSECUTIVE misses of the SAME item, treat
+        // it as overtaken by events and let the quest advance. Counter is
+        // in-memory on purpose: a restart merely delays retirement by a few
+        // turns, and nothing leaks into the DB or panels.
+        final staleKey = '${obj.id}|${currentTask ?? ''}';
+        if (done) {
+          _staleCheckCounts.remove(staleKey);
+        } else {
+          final misses = (_staleCheckCounts[staleKey] ?? 0) + 1;
+          if (misses >= kStaleCheckRetireAfter) {
+            _staleCheckCounts.remove(staleKey);
+            done = true;
             debugPrint(
-              '[Objective] Task completed (via god thin mark): $currentTask',
+              '[Objective] Step overtaken by events after $misses stale '
+              'checks — retiring gracefully: '
+              '"${currentTask ?? obj.objective}"',
             );
           } else {
-            // It was a taskless objective that got completed!
+            _staleCheckCounts[staleKey] = misses;
+            continue;
+          }
+        }
+        anyCompleted = true;
+        if (currentTask != null) {
+          // Use thin cb (god impl) for best-effort task mutation (find uncompleted by desc, set completed:true, json+db update + load). Matches god toggleTask pattern exactly. Task vs taskless now both have side effects covered (taskless deact cb).
+          await markTaskCompleted(obj, currentTask);
+          // currentTask was the only open task left → the whole quest is
+          // finished. Retire it now so the primary slot frees up this turn
+          // instead of waiting for the next check pass.
+          if (tasks.where((t) => t['completed'] != true).length <= 1) {
             await deactivateObjective(obj.id);
-            await loadActiveObjectives();
             debugPrint(
-              '[Objective] Taskless objective naturally completed: ${obj.objective}',
+              '[Objective] Final task done — quest retired: ${obj.objective}',
             );
           }
+          await loadActiveObjectives();
+          debugPrint(
+            '[Objective] Task completed (via god thin mark): $currentTask',
+          );
+        } else {
+          // It was a taskless objective that got completed!
+          await deactivateObjective(obj.id);
+          await loadActiveObjectives();
+          debugPrint(
+            '[Objective] Taskless objective naturally completed: ${obj.objective}',
+          );
         }
       }
     } catch (e) {
       debugPrint('[Objective] Completion check failed: $e');
     } finally {
       setIsCheckingCompletion(false);
+      // A completed step is a story beat worth journaling — flag it once
+      // (post-generation consumer; see onObjectiveCompleted doc).
+      if (anyCompleted) onObjectiveCompleted?.call();
       onNotify();
     }
   }

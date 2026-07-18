@@ -21,11 +21,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as path;
+import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/services/cloud_sync_service.dart';
 
 /// Persists group chat definitions to the database.
 class GroupChatRepository extends ChangeNotifier {
@@ -82,6 +82,7 @@ class GroupChatRepository extends ChangeNotifier {
         _groups.add(
           GroupChat(
             id: g.id,
+            stableId: g.stableId,
             name: g.name,
             turnOrder: TurnOrder.values.firstWhere(
               (e) => e.name == g.turnOrder,
@@ -126,6 +127,7 @@ class GroupChatRepository extends ChangeNotifier {
     // characterIds is legacy dead weight (always '[]' — membership is in group_members).
     final companion = GroupsCompanion(
       id: Value(group.id),
+      stableId: Value(group.stableId),
       name: Value(group.name),
       characterIds: const Value('[]'),
       turnOrder: Value(group.turnOrder.name),
@@ -150,6 +152,7 @@ class GroupChatRepository extends ChangeNotifier {
       await _db.insertGroup(
         GroupsCompanion.insert(
           id: group.id,
+          stableId: Value(group.stableId),
           name: group.name,
           characterIds: const Value(
             '[]',
@@ -185,10 +188,21 @@ class GroupChatRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> delete(
-    String groupId, {
-    CloudSyncService? cloudSyncService,
-  }) async {
+  /// Guarantee this group has a portable, device-independent [GroupChat.stableId]
+  /// (used to update a shared group in place on The Stoop instead of duplicating
+  /// it, and to re-associate it after switching devices). Generates + persists
+  /// one on the first call for a group that lacks it; a no-op afterwards.
+  /// Returns the id. Mutates the passed [group] so callers see it immediately.
+  Future<String> ensureStableId(GroupChat group) async {
+    final existing = group.stableId?.trim();
+    if (existing != null && existing.isNotEmpty) return existing;
+    final id = const Uuid().v4();
+    group.stableId = id;
+    await save(group);
+    return id;
+  }
+
+  Future<void> delete(String groupId) async {
     // Delete from database
     await _db.deleteGroupById(groupId);
     _groups.removeWhere((g) => g.id == groupId);
@@ -198,11 +212,6 @@ class GroupChatRepository extends ChangeNotifier {
     for (final session in sessions) {
       await _db.deleteMessagesForSession(session.id);
       await _db.deleteSessionById(session.id);
-    }
-
-    // Delete from cloud storage
-    if (cloudSyncService != null) {
-      cloudSyncService.deleteRemoteGroupChat(groupId);
     }
 
     // Best-effort recursive delete of private group avatar tree (groups/<id>/).
@@ -242,5 +251,28 @@ class GroupChatRepository extends ChangeNotifier {
       debugPrint('Failed to load group members for $groupId: $e');
       return [];
     }
+  }
+
+  /// Resolves the on-disk avatar [File]s for a group's members, in member
+  /// order. Members without an avatar are skipped. Paths are absolute (under
+  /// the group's private avatars dir). Shared by the home grid's group card and
+  /// the Stoop share picker so both preview a group from the same source.
+  Future<List<File>> getMemberAvatarFiles(String groupId) async {
+    final rows = await getMembersForGroup(groupId);
+    final files = <File>[];
+    for (final m in rows) {
+      if (m.avatarFilename == null) continue;
+      files.add(
+        File(
+          path.join(
+            _storageService.groupsDir.path,
+            groupId,
+            'avatars',
+            m.avatarFilename!,
+          ),
+        ),
+      );
+    }
+    return files;
   }
 }

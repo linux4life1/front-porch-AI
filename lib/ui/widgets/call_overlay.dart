@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/stt_service.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Full-screen voice call overlay.
 ///
@@ -75,51 +76,57 @@ class _CallOverlayState extends State<CallOverlay>
     final chatService = Provider.of<ChatService>(context, listen: false);
     final ttsService = Provider.of<TtsService>(context, listen: false);
 
-    // Wire TTS service for auto-resume
-    sttService.setTtsService(ttsService);
+    // The session gates silence detection while TTS is audible/generating.
+    sttService.call.attachTtsBusyProbe(
+      () => ttsService.isSpeaking || ttsService.isGenerating,
+    );
 
-    // When transcription is ready, send it and start streaming TTS pipeline
-    sttService.onTranscription = (text) {
-      // Resolve the character's TTS voice
+    // The turn loop. CallSession hands over one committed transcription per
+    // user turn; everything after that — send, stream sentences into TTS,
+    // and the SINGLE resume back to listening — happens here, strictly in
+    // order. There is deliberately no isSpeaking polling anywhere.
+    sttService.call.onTranscription = (text) async {
       final voiceKey = chatService.activeCharacter?.ttsVoice;
 
-      // Create a buffered stream to capture sentences (avoids race with broadcast stream)
+      // Buffer sentences so none are lost between sendMessage starting to
+      // stream and speakStreaming subscribing (broadcast streams drop
+      // events with no listener).
       final sentenceController = StreamController<String>();
       final sub = chatService.sentenceStream.listen((sentence) {
-        sentenceController.add(sentence);
-        // First sentence arriving means LLM is generating — switch to speaking
-        if (sentence != '__DONE__' &&
-            sttService.callStatus == CallStatus.thinking) {
-          sttService.notifySpeaking();
-        }
         if (sentence == '__DONE__') {
-          sentenceController.close();
+          if (!sentenceController.isClosed) sentenceController.close();
+          return;
+        }
+        sentenceController.add(sentence);
+        // First sentence arriving = the reply is being spoken.
+        if (sttService.call.status == CallStatus.thinking) {
+          sttService.call.notifySpeaking();
         }
       });
 
-      // Send message AFTER subscribing to the sentence stream
-      sttService.notifyThinking();
       chatService.sendMessage(text);
 
-      // Start streaming TTS — plays each sentence as it arrives
-      ttsService
-          .speakStreaming(sentenceController.stream, voiceKey: voiceKey)
-          .then((_) {
-            sub.cancel();
-            if (!sentenceController.isClosed) sentenceController.close();
-            // TTS finished all sentences — resume listening
-            if (sttService.isInCall) {
-              sttService.notifyTtsDone();
-              sttService.onReadyToListen?.call();
-            }
-          });
+      try {
+        await ttsService.speakStreaming(
+          sentenceController.stream,
+          voiceKey: voiceKey,
+        );
+      } finally {
+        await sub.cancel();
+        if (!sentenceController.isClosed) {
+          await sentenceController.close();
+        }
+        // The one and only resume point: TTS is genuinely finished (or
+        // failed) — CallSession ignores this if the call ended meanwhile.
+        await sttService.call.resumeAfterTts();
+      }
     };
 
     // Enable call mode (disables reasoning for lower latency)
     chatService.callMode = true;
 
     // Start the call (begins listening)
-    sttService.startCall();
+    sttService.call.start();
   }
 
   @override
@@ -184,10 +191,10 @@ class _CallOverlayState extends State<CallOverlay>
   Widget build(BuildContext context) {
     return Consumer<SttService>(
       builder: (context, sttService, _) {
-        final status = sttService.callStatus;
+        final status = sttService.call.status;
         final amplitude = sttService.currentAmplitude;
-        final duration = sttService.callDuration;
-        final isMuted = sttService.isMuted;
+        final duration = sttService.call.duration;
+        final isMuted = sttService.call.isMuted;
         final lastText = sttService.lastTranscription;
 
         return Material(
@@ -462,22 +469,22 @@ class _CallOverlayState extends State<CallOverlay>
           backgroundColor: isMuted
               ? Colors.orangeAccent.withValues(alpha: 0.15)
               : Colors.white.withValues(alpha: 0.08),
-          onTap: () => sttService.toggleMute(),
+          onTap: () => sttService.call.toggleMute(),
         ),
         const SizedBox(width: 32),
 
         // ── Stop recording / send button (only when listening) ──
-        if (sttService.callStatus == CallStatus.listening &&
+        if (sttService.call.status == CallStatus.listening &&
             sttService.isRecording)
           _buildControlButton(
             icon: Icons.send,
             label: 'Send',
-            color: Colors.blueAccent,
-            backgroundColor: Colors.blueAccent.withValues(alpha: 0.15),
+            color: AppColors.formMasterAccent,
+            backgroundColor: AppColors.formMasterAccent.withValues(alpha: 0.15),
             size: 64,
-            onTap: () => sttService.stopAndSendCallTranscription(),
+            onTap: () => sttService.call.sendNow(),
           ),
-        if (sttService.callStatus == CallStatus.listening &&
+        if (sttService.call.status == CallStatus.listening &&
             sttService.isRecording)
           const SizedBox(width: 32),
 
@@ -494,7 +501,7 @@ class _CallOverlayState extends State<CallOverlay>
             );
             final ttsService = Provider.of<TtsService>(context, listen: false);
             await ttsService.stop(); // immediately stop any ongoing playback
-            await sttService.endCall();
+            await sttService.call.end();
             chatService.callMode = false;
             widget.onEndCall();
           },

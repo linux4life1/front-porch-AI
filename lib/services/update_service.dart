@@ -208,42 +208,7 @@ class UpdateService extends ChangeNotifier {
       final List<dynamic> allReleases = jsonDecode(response.body);
       if (allReleases.isEmpty) return false;
 
-      Map<String, dynamic>? targetRelease;
-
-      for (final release in allReleases) {
-        final tagName = (release['tag_name'] as String? ?? '').replaceFirst(
-          RegExp(r'^[vV]'),
-          '',
-        );
-        final isPrerelease = release['prerelease'] as bool? ?? false;
-        final tagLower = tagName.toLowerCase();
-
-        // Manual check for beta strings if the flag isn't set.
-        // Use contains('rawhide') (no leading -) so it catches both "nightly-rawhide..."
-        // tags and raw "rawhide.YYYY..." versions.
-        final hasBetaString =
-            tagLower.contains('beta') ||
-            tagLower.contains('alpha') ||
-            tagLower.contains('-rc') ||
-            tagLower.contains('-dev') ||
-            tagLower.contains('nightly') ||
-            tagLower.contains('rawhide');
-
-        final effectivelyBeta = isPrerelease || hasBetaString;
-
-        // Channel matching logic:
-        // We enforce strict isolation because Stable and Beta use different
-        // installation paths and database folders. Cross-updating would
-        // lead to data loss or duplicate "ghost" installations.
-        if (isPreRelease != effectivelyBeta) {
-          continue;
-        }
-
-        // We found our candidate (the list is sorted by date by default)
-        targetRelease = release;
-        break;
-      }
-
+      final targetRelease = selectTargetRelease(allReleases, isPreRelease);
       if (targetRelease == null) return false;
 
       final originalTag = (targetRelease['tag_name'] as String? ?? '');
@@ -420,8 +385,33 @@ class UpdateService extends ChangeNotifier {
     // Use /VERYSILENT (fully silent) for same-license upgrades
     final needsLicenseAcceptance = _currentVersion.startsWith('0.8');
     final silentFlag = needsLicenseAcceptance ? '/SILENT' : '/VERYSILENT';
+
+    // Install in place, on top of the build that is actually running, by telling
+    // the installer the current install directory via /DIR. This is the reliable
+    // way to find AND honor a custom install location: resolvedExecutable is
+    // "<installDir>\front_porch_ai.exe", so its parent is exactly the folder the
+    // user originally chose — default OR a custom drive/path — and the running app
+    // is the only component that authoritatively knows it. The installer can't
+    // safely rediscover a custom Nightly folder from the registry (the pre-split
+    // AppId was shared with Stable/Beta, so guessing risks installing over a
+    // Stable install), so we source the truth here instead.
+    //
+    // Without /DIR, a /VERYSILENT update falls back to the installer's default
+    // directory. After the channel AppId split that is how a Nightly update forked
+    // a second copy into {localappdata} and left the running build (in the user's
+    // chosen folder) untouched — the update loop. /DIR makes every channel update
+    // exactly where it already lives, ending that whole class of bug.
+    var installDir = File(Platform.resolvedExecutable).parent.path;
+    // Defensive: a trailing backslash would escape the closing quote in the
+    // generated command line. Install dirs never end in a separator in practice,
+    // but strip it so the quoted /DIR value can never be malformed.
+    while (installDir.endsWith('\\')) {
+      installDir = installDir.substring(0, installDir.length - 1);
+    }
+
     await Process.start(path, [
       silentFlag,
+      '/DIR=$installDir',
       '/SUPPRESSMSGBOXES',
       '/NORESTART',
       '/CLOSEAPPLICATIONS',
@@ -640,6 +630,67 @@ open -n '$escDest'
   Future<void> _relaunchMacApp() async {
     // Relaunch (for DMG path) or user/Installer action (for PKG path) is handled
     // by the update shell script. Nothing to do here.
+  }
+
+  /// Picks the release this build's channel should be offered, out of the
+  /// full GitHub `/releases` list.
+  ///
+  /// Two invariants, both learned from field bugs:
+  ///  * **Channel isolation.** Stable and Beta/Nightly install to different
+  ///    paths and data dirs, so a stable build must never be handed a
+  ///    pre-release and vice-versa (`wantPrerelease` is this build's channel).
+  ///  * **"Newest" cannot depend on GitHub's list order OR on the Rawhide
+  ///    version string.** GitHub's `/releases` ordering is not reliably
+  ///    newest-published-first, and `rawhide.YYYYMMDD.<sha>` has no orderable
+  ///    field below the day — the trailing short SHA is a commit hash, not a
+  ///    monotonic build counter. The old code took the FIRST channel match and
+  ///    stopped, so a newer same-day manual build that GitHub listed *below* an
+  ///    older release was invisible (you couldn't distinguish or rank them by
+  ///    the tag, and index 0 was never revisited). We instead scan every
+  ///    channel match and keep the one with the newest publish timestamp, which
+  ///    is a true monotonic recency signal the version string can't provide.
+  @visibleForTesting
+  static Map<String, dynamic>? selectTargetRelease(
+    List<dynamic> releases,
+    bool wantPrerelease,
+  ) {
+    Map<String, dynamic>? best;
+    DateTime? bestStamp;
+    for (final release in releases) {
+      if (release is! Map<String, dynamic>) continue;
+
+      final tagLower = (release['tag_name'] as String? ?? '')
+          .replaceFirst(RegExp(r'^[vV]'), '')
+          .toLowerCase();
+      final isPrerelease = release['prerelease'] as bool? ?? false;
+      // Manual string check catches pre-releases whose `prerelease` flag was
+      // never set. contains('rawhide') (no leading -) matches both
+      // "nightly-rawhide..." tags and raw "rawhide.YYYY..." versions.
+      final hasBetaString =
+          tagLower.contains('beta') ||
+          tagLower.contains('alpha') ||
+          tagLower.contains('-rc') ||
+          tagLower.contains('-dev') ||
+          tagLower.contains('nightly') ||
+          tagLower.contains('rawhide');
+      final effectivelyBeta = isPrerelease || hasBetaString;
+      if (wantPrerelease != effectivelyBeta) continue;
+
+      // published_at is the real publication time; created_at (the tag's
+      // commit date) is the fallback for the rare release with a null
+      // published_at. An unparseable/missing pair sinks to the epoch so a
+      // dated release always outranks it.
+      final stamp =
+          DateTime.tryParse(
+            (release['published_at'] ?? release['created_at'] ?? '') as String,
+          ) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      if (best == null || stamp.isAfter(bestStamp!)) {
+        best = release;
+        bestStamp = stamp;
+      }
+    }
+    return best;
   }
 
   /// Normalizes a version/tag string for comparison and display:

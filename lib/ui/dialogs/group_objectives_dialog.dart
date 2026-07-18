@@ -504,12 +504,10 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
               if (!isPrimary)
                 TextButton(
                   onPressed: () async {
-                    // Promote secondary to primary
-                    await widget.chatService.setObjective(
-                      obj.objective,
-                      isPrimary: true,
-                      targetCharacter: _focused,
-                    );
+                    // Promote IN PLACE (keeps id + task progress; the old
+                    // setObjective-with-same-text pattern inserted a duplicate
+                    // primary and left this side quest active).
+                    await widget.chatService.promoteObjective(obj);
                     await _loadForCurrent();
                   },
                   child: const Text(

@@ -23,6 +23,7 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/ui/pages/edit_group_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/tier_colors.dart';
 import 'package:front_porch_ai/ui/widgets/realism_progress_row.dart';
 import 'package:front_porch_ai/ui/widgets/needs_bar.dart';
 import 'package:front_porch_ai/ui/widgets/fixation_chip.dart';
@@ -48,7 +49,9 @@ class GroupMemberCard extends StatefulWidget {
   final bool isExpanded;
   final VoidCallback onTap; // promote to expanded / set next speaker
   final File? avatarFile; // pre-resolved for performance
-  final int evolutionCount;
+
+  /// Active Growth Rings count (🌱 badge; 0 hides it).
+  final int ringCount;
   final bool canRemove;
   final VoidCallback? onRemove;
   final VoidCallback? onOpenObjectives;
@@ -62,7 +65,7 @@ class GroupMemberCard extends StatefulWidget {
     required this.isExpanded,
     required this.onTap,
     this.avatarFile,
-    this.evolutionCount = 0,
+    this.ringCount = 0,
     this.canRemove = false,
     this.onRemove,
     this.onOpenObjectives,
@@ -107,17 +110,24 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
         ? chat.getTopUrgentNeedsForGroupCharacter(widget.character, count: 2)
         : const <(String, int)>[];
 
-    final bondTier = _calcTier(affection);
-    final bondName = _tierName(bondTier);
-    final bondColor = _tierColor(bondTier);
+    final bondTier = TierColors.calcTier(affection);
+    final bondName = TierColors.tierName(bondTier);
+    final bondColor = TierColors.tierColor(context, bondTier);
 
-    final trustTier = _calcTier(trust);
-    final trustName = _tierName(trustTier);
-    final trustColor = _tierColor(trustTier);
+    final trustTier = TierColors.calcTier(trust);
+    final trustName = TierColors.tierName(trustTier);
+    final trustColor = TierColors.tierColor(context, trustTier);
 
-    final arousalTier = _calcTier(arousal);
-    final arousalName = _tierName(arousalTier);
-    final arousalColor = _tierColor(arousalTier);
+    // Lust visibility follows the stable per-member group flag (the live
+    // nsfwService scalar is per-speaker-volatile in groups).
+    final lustOn = chat.isGroupNsfwEnabled;
+    final arousalTier = TierColors.calcTier(arousal);
+    final arousalName = chat.nsfwService.arousalTierName;
+    final arousalColor = arousalTier >= 6
+        ? AppColors.lustDeepOf(context)
+        : arousalTier <= -1
+        ? AppColors.frostAccentOf(context)
+        : AppColors.lustAccentOf(context);
 
     final isDirector = chat.observerMode;
     final opacity = isDirector ? 0.38 : 1.0;
@@ -265,29 +275,28 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                             ),
                           ),
                         ),
-                      if (widget.evolutionCount > 0) ...[
+                      if (widget.ringCount > 0) ...[
                         const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.resolve(
-                              context,
-                              Colors.tealAccent.withValues(alpha: 0.15),
-                              Colors.teal.shade100.withValues(alpha: 0.5),
+                        Tooltip(
+                          message:
+                              '${widget.ringCount} growth ring'
+                              '${widget.ringCount == 1 ? '' : 's'}',
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
                             ),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'E${widget.evolutionCount}',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: AppColors.resolve(
+                            decoration: BoxDecoration(
+                              color: AppColors.porchHoneyOf(
                                 context,
-                                Colors.tealAccent,
-                                Colors.teal.shade700,
+                              ).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '🌱${widget.ringCount}',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: AppColors.porchHoneyOf(context),
                               ),
                             ),
                           ),
@@ -376,17 +385,23 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Arousal
-                  RealismProgressRow(
-                    label: 'Arousal',
-                    value: arousal,
-                    tier: arousalTier,
-                    tierName: arousalName,
-                    color: arousalColor,
-                    icon: Icons.local_fire_department,
-                    maxValue: 100,
-                  ),
-                  const SizedBox(height: 8),
+                  // Lust (the merged arousal bar — same treatment as 1:1)
+                  if (lustOn) ...[
+                    RealismProgressRow(
+                      label: 'Lust',
+                      value: arousal,
+                      tier: arousalTier,
+                      tierName: arousalName,
+                      color: arousalColor,
+                      icon: arousalTier >= 6
+                          ? Icons.local_fire_department
+                          : arousalTier <= -1
+                          ? Icons.ac_unit
+                          : Icons.favorite_border,
+                      maxValue: 100,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
 
                   // Fixation (rich card)
                   if (fixation != null && fixation.isNotEmpty)
@@ -414,13 +429,13 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(Icons.flag, size: 13, color: Colors.amber),
+                        const Icon(Icons.flag, size: 13, color: AppColors.taskAccent),
                         const SizedBox(width: 4),
                         Text(
                           '${chat.getObjectivesForGroupCharacter(widget.character).where((o) => o.active).length} active objectives',
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Colors.amber,
+                            color: AppColors.taskAccent,
                           ),
                         ),
                         const Spacer(),
@@ -478,7 +493,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                       children: [
                         _miniTier('B', affection, bondColor),
                         _miniTier('T', trust, trustColor),
-                        _miniTier('A', arousal, arousalColor),
+                        if (lustOn) _miniTier('L', arousal, arousalColor),
                         if (topNeeds.isNotEmpty)
                           ...topNeeds.map((n) => _miniNeed(n.$1, n.$2)),
                       ],
@@ -513,14 +528,14 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                             const Icon(
                               Icons.flag,
                               size: 11,
-                              color: Colors.amber,
+                              color: AppColors.taskAccent,
                             ),
                             const SizedBox(width: 3),
                             Text(
                               '$count obj',
                               style: const TextStyle(
                                 fontSize: 9,
-                                color: Colors.amber,
+                                color: AppColors.taskAccent,
                               ),
                             ),
                             const Spacer(),
@@ -530,7 +545,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                                 'edit',
                                 style: TextStyle(
                                   fontSize: 9,
-                                  color: Colors.amber,
+                                  color: AppColors.taskAccent,
                                   decoration: TextDecoration.underline,
                                 ),
                               ),
@@ -555,14 +570,15 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
-        color: (isNeg ? Colors.redAccent : color).withValues(alpha: 0.15),
+        color: (isNeg ? AppColors.negativeAccentOf(context) : color)
+            .withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
         '$label${value.abs()}',
         style: TextStyle(
           fontSize: 9,
-          color: isNeg ? Colors.redAccent : color,
+          color: isNeg ? AppColors.negativeAccentOf(context) : color,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -574,171 +590,23 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
-        color: (isCrit ? Colors.redAccent : Colors.orangeAccent).withValues(
-          alpha: 0.12,
-        ),
+        color:
+            (isCrit
+                    ? AppColors.negativeAccentOf(context)
+                    : AppColors.porchAmberOf(context))
+                .withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
         '${name[0].toUpperCase()}$val',
         style: TextStyle(
           fontSize: 9,
-          color: isCrit ? Colors.redAccent : Colors.orangeAccent,
+          color: isCrit
+              ? AppColors.negativeAccentOf(context)
+              : AppColors.porchAmberOf(context),
         ),
       ),
     );
-  }
-
-  // Tier helpers (duplicated small logic so the widget is self-contained;
-  // Tier logic duplicated here for widget self-containment (old helpers in chat_page were deleted during the 2026 group UI overhaul).
-  int _calcTier(int score) {
-    final abs = score.abs();
-    if (abs < 5) return 0;
-    if (abs < 15) return score > 0 ? 1 : -1;
-    if (abs < 30) return score > 0 ? 2 : -2;
-    if (abs < 50) return score > 0 ? 3 : -3;
-    if (abs < 75) return score > 0 ? 4 : -4;
-    if (abs < 110) return score > 0 ? 5 : -5;
-    if (abs < 150) return score > 0 ? 6 : -6;
-    if (abs < 200) return score > 0 ? 7 : -7;
-    if (abs < 250) return score > 0 ? 8 : -8;
-    if (abs < 300) return score > 0 ? 9 : -9;
-    return score > 0 ? 10 : -10;
-  }
-
-  String _tierName(int tier) {
-    switch (tier) {
-      case 10:
-        return 'Devoted';
-      case 9:
-        return 'Enamored';
-      case 8:
-        return 'Smitten';
-      case 7:
-        return 'Affectionate';
-      case 6:
-        return 'Fond';
-      case 5:
-        return 'Warm';
-      case 4:
-        return 'Friendly';
-      case 3:
-        return 'Neutral+';
-      case 2:
-        return 'Neutral';
-      case 1:
-        return 'Cool';
-      case 0:
-        return 'Indifferent';
-      case -1:
-        return 'Distant';
-      case -2:
-        return 'Cold';
-      case -3:
-        return 'Hostile';
-      case -4:
-        return 'Resentful';
-      case -5:
-        return 'Bitter';
-      case -6:
-        return 'Hateful';
-      case -7:
-        return 'Despising';
-      case -8:
-        return 'Loathing';
-      case -9:
-        return 'Reviling';
-      case -10:
-        return 'Abhorrent';
-      default:
-        return 'Unknown';
-    }
-  }
-
-  Color _tierColor(int tier) {
-    if (tier >= 10) return Colors.deepPurpleAccent;
-    if (tier >= 9) return Colors.purpleAccent;
-    if (tier >= 8) return Colors.pinkAccent;
-    if (tier >= 7) return Colors.pink;
-    if (tier >= 6) return Colors.pink.shade200;
-    if (tier >= 5) return Colors.orangeAccent;
-    if (tier >= 4) return Colors.greenAccent;
-    if (tier >= 3) {
-      return AppColors.resolve(context, Colors.lightBlue, Colors.blue.shade700);
-    }
-    if (tier >= 2) {
-      return AppColors.resolve(
-        context,
-        Colors.blueGrey,
-        Colors.blueGrey.shade700,
-      );
-    }
-    if (tier >= 1) {
-      return AppColors.resolve(
-        context,
-        Colors.grey.shade400,
-        Colors.grey.shade700,
-      );
-    }
-    if (tier == 0) {
-      return AppColors.textTertiary(context);
-    }
-    if (tier >= -1) {
-      return AppColors.resolve(
-        context,
-        Colors.orangeAccent.shade100,
-        Colors.orange.shade700,
-      );
-    }
-    if (tier >= -2) {
-      return AppColors.resolve(
-        context,
-        Colors.redAccent.shade100,
-        Colors.red.shade600,
-      );
-    }
-    if (tier >= -3) {
-      return Colors.redAccent;
-    }
-    if (tier >= -4) {
-      return Colors.red;
-    }
-    if (tier >= -5) {
-      return AppColors.resolve(
-        context,
-        Colors.red.shade900,
-        Colors.red.shade800,
-      );
-    }
-    if (tier >= -6) {
-      return AppColors.resolve(
-        context,
-        Colors.brown.shade900,
-        Colors.brown.shade700,
-      );
-    }
-    if (tier >= -7) {
-      return AppColors.resolve(
-        context,
-        Colors.deepOrange.shade900,
-        Colors.deepOrange.shade700,
-      );
-    }
-    if (tier >= -8) {
-      return AppColors.resolve(
-        context,
-        Colors.amber.shade900,
-        Colors.amber.shade800,
-      );
-    }
-    if (tier >= -9) {
-      return AppColors.resolve(
-        context,
-        Colors.orange.shade900,
-        Colors.orange.shade800,
-      );
-    }
-    return AppColors.textPrimary(context);
   }
 
   Color _emotionRingColor(String emotion) {

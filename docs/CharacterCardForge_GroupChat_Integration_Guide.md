@@ -224,9 +224,10 @@ Groups are exported as ordinary PNG files with a custom text chunk:
 
 - `name`, `turn_order`, `auto_advance`, `director_mode`, `first_message`, `scenario`, `system_prompt`
 - `members`: minimal CharacterCard list (for display/collage)
-- `raw_member_data`: **High-fidelity array** (the important one). Each entry is a full V2 character JSON + two critical extra keys:
+- `raw_member_data`: **High-fidelity array** (the important one). Each entry is a full V2 character JSON + these extra keys:
   - `avatar_base64`: Complete PNG bytes of the member’s avatar **with the V2 `chara` chunk already embedded**. This is what enables 100% fidelity even for characters that had no avatar at export time.
-  - `_original_stable_id`: The key that was used for this member in `baseline_realism_state` / `default_member_realism_state` / `character_system_prompts` / `member_objectives` at export time. Usually the UUID or the basename of the avatar file.
+  - `_original_stable_id`: The key that was used for this member in `baseline_realism_state` / `default_member_realism_state` / `character_system_prompts` / `member_objectives` at export time. Usually the UUID or the basename of the avatar file. (This is the **export instance id**, used only for ID remapping — see "On import" below.)
+  - `_origin_library_stable_id` *(optional, additive in `spec_version` 1.0 — no version bump)*: The **source library character's** `stableGroupId` (avatar basename without extension, or sanitized name) that this member was originally copied from. **Distinct from `_original_stable_id`**: this identifies the *real* character behind the member so an importer can reconnect it to a local library character (Front Porch stamps it into the private `group_members.memberState` on import and resolves it via name/stableGroupId at reconnect time). Omit it for members with no resolvable origin — importers must treat it as optional and ignore it when absent. Do **not** emit `originLibraryDbId`: it is a machine-local DB id, meaningless on another device.
 - `baseline_realism_state` — Immutable seed captured at creation/import time.
 - `default_member_realism_state` — The richer, updatable per-member state (includes needs vectors, Group Dynamics `relationships` maps, etc.).
 - `character_system_prompts`

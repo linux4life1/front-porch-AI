@@ -22,57 +22,42 @@
 /// (-100..+100), and derived arousalTier / arousalTierName (tier -10..+10
 /// with names matching relationship system: Feverish..Deserted).
 ///
-/// ChatService owns the instance via a private late final (declared before
-/// NeedsSimulation for cb init safety) and delegates. Cross-state for group
-/// per-character persistence (arousal + nsfwCooldownEnabled + cooldown* in
-/// _groupRealism) is accessed exclusively via 3 group cbs supplied
-/// at construction (getGroupInt / getGroupValue + setGroupValue). This keeps
-/// the extracted service testable, avoids cycles with the god's _groupRealism
-/// map / pending / messages, and is friendly to future extractions.
+/// ## The human model
+/// Arousal is a *desire* meter. Positive = building want; **negative =
+/// genuine aversion** (soured mood, unwanted advances, violations) — it is
+/// NEVER used to represent post-climax satedness. A sated human is content
+/// and affectionate, not repelled, so:
+/// - Climax sets arousal to 0 (sated-neutral) and starts the refractory
+///   cooldown; the "not right now" semantics live in the cooldown, not in a
+///   negative arousal score.
+/// - While the refractory is active, eval-scored deltas are damped (halved)
+///   and cannot dig arousal below mild disinterest (-10): a body that just
+///   finished is hard to stir and impossible to disgust by mere closeness.
+///   See [applyEvalArousalDelta] — the ONE apply path both the multi-call and
+///   one-shot evals use, so parity holds by construction.
+/// - When the cooldown expires, the total resets and any lingering negative
+///   arousal is halved toward neutral (baseline receptivity returns) —
+///   previously the character exited cooldown at arousal ≤ -2 and the
+///   injection ladder read that as "physically repulsed" forever.
 ///
-/// NSFW state is *chat-scoped* for the enabled flag + cooldowns in 1:1, but
-/// supports per-speaker scalars for group (arousal/cooldowns/nsfwEnabled per
-/// char via impersonation load/save like relationship/needs). Group vs 1:1
-/// parity is preserved: owner uses _loadGroupRealismIntoScalars (which now
-/// thins to service) before per-char eval/checks (so checks see correct active
-/// charName/personality for climax/sexual prompts, but nsfw scalars are per
-/// speaker in group). No behavior change.
+/// ChatService owns the instance via a private late final and delegates.
+/// Cross-state for group per-character persistence (arousal +
+/// nsfwCooldownEnabled + cooldown* in _groupRealism) is accessed exclusively
+/// via 3 group cbs supplied at construction (getGroupInt / getGroupValue +
+/// setGroupValue), keeping the service testable and cycle-free.
 ///
-/// Boundaries kept in god (per plan for step 6 / step 8):
-/// - Climax/sexual/daily activity LLM checks (_checkClimaxInResponse etc) and
-///   _runPostGenNeedsChecks orchestration + guards stay in god (they perform
-///   LLM evals with charName/personality injection + apply needs deltas +
-///   postClimaxCrash; only the nsfw cooldown/arousal mutations and tier
-///   calc are extracted). Full prompt builders (nsfw injection) thin here,
-///   real in step 8.
-/// - OneShot vs normal path parity for nsfw (cooldown/arousal deltas,
-///   snapshot/restore in realism_state, post-gen apply) is strict: both paths
-///   use the same service state + restore + decrement + apply sites.
-/// - UI coordination, drift session columns (nsfwCooldownEnabled/arousalLevel/
-///   cooldownTurnsRemaining), _groupRealism map itself, and some prompt
-///   conditionals using the enabled flag stay in god or thin to shims.
-/// - Capture/restore sites, drift save sites, the ~10 "keep reset blocks in
-///   sync" sites, group impersonation load/save scalars, and regen revert call
-///   service helpers + tightened comments now list /nsfw alongside
-///   needs/chaos/relationship/expression/time.
+/// NSFW state is *chat-scoped* for the enabled flag + cooldowns in 1:1, with
+/// per-speaker scalars for group (arousal/cooldowns/nsfwEnabled per char via
+/// impersonation load/save like relationship/needs). Group vs 1:1 parity is
+/// strict: the cooldown decrements once per response turn in both modes (1:1
+/// in sendMessage; group per speaker in the realism dance after that
+/// speaker's scalars are loaded), and all mutations live in service methods
+/// shared by both paths. OneShot vs normal parity likewise: cooldown/arousal
+/// mutations + snapshot/restore + decrement + apply are identical sites.
 ///
 /// @Deprecated shims on ChatService (exactly 5): nsfwCooldownEnabled,
 /// cooldownTurnsRemaining, arousalLevel, arousalTier, arousalTierName.
 /// (setNsfwCooldownEnabled also forwarded via thin wrapper.)
-///
-/// 0 new private methods added to ChatService as part of this step (thins +
-/// delegations + call-site updates only; deletions of moved code are
-/// mandatory part of the task). Reset/seed/load/restore/group helpers on
-/// service support the documented keep-sync sites without god privates or
-/// duplication.
-///
-/// climax/sexual/daily LLM checks only thin or stayed in god for now; full
-/// prompt builders in step 8.
-/// aug exercising only passive/qualified (resets/loads hit by pre-existing
-/// startNew/setActive/_loadLast/group; full climax apply + checks only in
-/// dedicated + manual).
-/// oneShot vs normal nsfw parity: cooldown/arousal mutations + snapshot/restore
-/// + decrement + apply identical across paths (dispatch preserved).
 class NsfwService {
   // 3 group cbs (onNotify/onSaveChat removed as dead/unused per review; god owns save/notify for post-gen climax/sexual fidelity per plan boundaries).
   // Granular cbs for group per-char nsfw state (arousal + cooldowns +
@@ -115,8 +100,16 @@ class NsfwService {
   }
 
   /// Get arousal tier name matching the relationship system
-  String get arousalTierName {
-    final tier = arousalTier;
+  String get arousalTierName => arousalTierLabel(_arousalLevel);
+
+  /// Per-level read helper (web per-group-member stats panel).
+  String arousalTierNameForLevel(int level) => arousalTierLabel(level);
+
+  /// Pure arousal tier name for a level (-100..100). Shared by the live getter
+  /// and read-only per-member consumers (web group stats panel).
+  static String arousalTierLabel(int level) {
+    final raw = level ~/ 10;
+    final tier = raw > 10 ? 10 : (raw < -10 ? -10 : raw);
     // Use same tier names as relationship system but adapted for arousal
     if (tier >= 10) return 'Feverish';
     if (tier == 9) return 'Ecstatic';
@@ -159,16 +152,54 @@ class NsfwService {
   /// Centralize the 3 mutations performed on confirmed climax (called from
   /// god's _checkClimaxInResponse after meta pre-save; caller does needs
   /// deltas + postClimaxCrash + save/notify for fidelity).
+  ///
+  /// Arousal lands at 0, not negative: post-climax satedness is contentment,
+  /// not aversion — the refractory cooldown carries the "not right now"
+  /// semantics. (The old -3 put the character into the injection ladder's
+  /// negative branches the moment the cooldown expired, reading as repulsion
+  /// right after wanted sex.)
   void applyClimaxEffects({required int turns}) {
     _cooldownTurnsTotal = turns;
     _cooldownTurnsRemaining = turns;
-    _arousalLevel = -3;
+    _arousalLevel = 0;
   }
 
+  /// Ticks the refractory once per response turn. On expiry (this decrement
+  /// reaching 0) the body returns to baseline receptivity: the total resets
+  /// and any lingering negative arousal halves toward neutral, so a character
+  /// never exits the cooldown stuck reading as cold or repelled.
   void decrementCooldownIfActive() {
     if (_cooldownTurnsRemaining > 0) {
       _cooldownTurnsRemaining--;
+      if (_cooldownTurnsRemaining == 0) {
+        _cooldownTurnsTotal = 0;
+        if (_arousalLevel < 0) {
+          _arousalLevel = _arousalLevel ~/ 2;
+        }
+      }
     }
+  }
+
+  /// The single apply path for eval-scored arousal deltas (multi-call and
+  /// one-shot both route here — parity by construction). Returns the delta
+  /// that actually landed after clamping and refractory physiology, which is
+  /// what chips/metadata must record so regen revert stays exact.
+  ///
+  /// During the refractory, desire physiology applies: swings are halved (a
+  /// spent body is slow to stir either way) and the result never digs below
+  /// mild disinterest (-10) — satedness is not aversion, so recovering from a
+  /// wanted climax must not walk the character into the repelled tiers.
+  int applyEvalArousalDelta(int delta) {
+    var effective = delta;
+    var floor = -100;
+    if (_cooldownTurnsRemaining > 0) {
+      effective = (effective / 2).round();
+      floor = _arousalLevel < -10 ? _arousalLevel : -10;
+    }
+    final next = (_arousalLevel + effective).clamp(floor, 100);
+    effective = next - _arousalLevel;
+    _arousalLevel = next;
+    return effective;
   }
 
   /// Mirrors original setNsfwCooldownEnabled behavior for the thin god

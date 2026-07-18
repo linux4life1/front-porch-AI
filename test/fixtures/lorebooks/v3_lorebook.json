@@ -1,0 +1,18 @@
+{
+  "spec": "lorebook_v3",
+  "data": {
+    "name": "Vale Lore V3",
+    "entries": [
+      {
+        "keys": ["dragons?", "wyrm(s)?"],
+        "content": "@@depth 2\n@@role assistant\nDragons nest in the caldera.",
+        "enabled": true,
+        "insertion_order": 10,
+        "use_regex": true,
+        "constant": false,
+        "id": "v3-string-id",
+        "comment": "Dragons"
+      }
+    ]
+  }
+}

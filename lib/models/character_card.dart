@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/avatar_image.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
+import 'package:front_porch_ai/models/lorebook_export.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
 import 'package:flutter/material.dart';
@@ -112,6 +113,20 @@ class FrontPorchExtensions {
   /// Duplicates get fresh stableId. Never changes for an existing library character.
   String? stableId;
 
+  /// App-internal character tier. `'lite'` marks a Scene Guest (Lite NPC):
+  /// a real library character that can join a 1:1 scene as its own bubble but
+  /// carries NO Realism Engine / Needs state (parity-safe). `null` = a normal
+  /// full character. Stored inside the PNG extensions only; never affects
+  /// external direct-writer schema.
+  String? tier;
+
+  /// The character's starred "canonical avatar": the id of an `avatar_images`
+  /// row (a gallery look OR an expression image) to use as the card cover on
+  /// export and as the default face a new chat opens with. `null` = the portrait
+  /// (`imagePath`). Exactly one at a time. A pointer only — it never mutates
+  /// `imagePath`. Stored inside the PNG extensions (no external-writer schema).
+  String? favoriteAvatarId;
+
   FrontPorchExtensions({
     this.realismEnabled = false,
     this.shortTermBond = 0,
@@ -174,6 +189,8 @@ class FrontPorchExtensions {
 
     this.currentTask = '',
     this.stableId,
+    this.tier,
+    this.favoriteAvatarId,
   });
 
   Map<String, dynamic> toJson() {
@@ -231,6 +248,8 @@ class FrontPorchExtensions {
         'chat_font_family': chatFontFamily,
 
         'current_task': currentTask,
+        'tier': ?tier,
+        'favorite_avatar_id': ?favoriteAvatarId,
       },
     };
   }
@@ -301,6 +320,8 @@ class FrontPorchExtensions {
       chatFontFamily: realism['chat_font_family'] as String?,
 
       currentTask: realism['current_task'] as String? ?? '',
+      tier: realism['tier'] as String?,
+      favoriteAvatarId: realism['favorite_avatar_id'] as String?,
     );
   }
 
@@ -353,6 +374,8 @@ class FrontPorchExtensions {
 
     String? currentTask,
     String? stableId,
+    String? tier,
+    String? favoriteAvatarId,
   }) {
     return FrontPorchExtensions(
       realismEnabled: realismEnabled ?? this.realismEnabled,
@@ -407,6 +430,8 @@ class FrontPorchExtensions {
 
       currentTask: currentTask ?? this.currentTask,
       stableId: stableId ?? this.stableId,
+      tier: tier ?? this.tier,
+      favoriteAvatarId: favoriteAvatarId ?? this.favoriteAvatarId,
     );
   }
 
@@ -446,6 +471,7 @@ class CharacterCard {
   /// The UI now prevents (and warns about) cross-engine assignments.
   String? ttsVoice;
   String? dbId; // UUID primary key (runtime only, not serialized)
+  DateTime? createdAt; // library "date added" from DB (runtime only, not serialized)
   FrontPorchExtensions? frontPorchExtensions; // V2.5 Realism Engine defaults
   Map<String, dynamic>?
   rawExtensions; // Preserve unknown third-party extension keys
@@ -506,7 +532,7 @@ class CharacterCard {
       'post_history_instructions': postHistoryInstructions,
       'alternate_greetings': alternateGreetings,
       'tags': tags,
-      'character_book': lorebook?.toCharacterBook(),
+      'character_book': lorebook == null ? null : encodeCharacterBook(lorebook!),
       'world_names': worldNames,
       if (ttsVoice != null) 'tts_voice': ttsVoice,
       'extensions': ?extensions,
@@ -524,4 +550,9 @@ class CharacterCard {
 
   /// Whether this card has any Front Porch extensions configured.
   bool get hasFrontPorchExtensions => frontPorchExtensions != null;
+
+  /// Whether this card is a Scene Guest (Lite NPC): a real library character
+  /// that can join a 1:1 scene as its own bubble but carries no Realism/Needs
+  /// state. Determined by `frontPorchExtensions.tier == 'lite'`.
+  bool get isLite => frontPorchExtensions?.tier == 'lite';
 }

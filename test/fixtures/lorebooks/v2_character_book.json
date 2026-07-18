@@ -1,0 +1,48 @@
+{
+  "name": "",
+  "description": "",
+  "scan_depth": 5,
+  "token_budget": 700,
+  "recursive_scanning": true,
+  "extensions": {"chub": {"id": 42}},
+  "entries": [
+    {
+      "keys": ["maravelle", "the queen"],
+      "secondary_keys": ["court", "throne"],
+      "selective": true,
+      "content": "Queen Maravelle has not left the throne room in nine years.",
+      "enabled": true,
+      "insertion_order": 120,
+      "case_sensitive": false,
+      "name": "Queen Maravelle",
+      "comment": "Queen Maravelle",
+      "id": 3,
+      "constant": false,
+      "position": "after_char",
+      "priority": 9,
+      "extensions": {
+        "position": 4,
+        "exclude_recursion": false,
+        "display_index": 2,
+        "probability": 40,
+        "useProbability": true,
+        "depth": 3,
+        "selectiveLogic": 2,
+        "group": "royals",
+        "group_override": false,
+        "group_weight": 80,
+        "scan_depth": 6,
+        "match_whole_words": true,
+        "automation_id": "",
+        "role": 1,
+        "vectorized": true,
+        "sticky": 1,
+        "cooldown": 0,
+        "delay": 0,
+        "triggers": ["normal"],
+        "ignore_budget": false,
+        "chub_specific_thing": {"nested": true}
+      }
+    }
+  ]
+}

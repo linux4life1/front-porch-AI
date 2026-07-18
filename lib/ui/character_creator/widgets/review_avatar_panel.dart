@@ -35,8 +35,7 @@ class ReviewAvatarPanel extends StatelessWidget {
 
   const ReviewAvatarPanel({super.key, required this.state});
 
-  Color _accent(BuildContext context) =>
-      AppColors.resolve(context, Colors.blueAccent, Colors.blue.shade700);
+  Color _accent(BuildContext context) => AppColors.porchAmberOf(context);
 
   void _generateAvatar(BuildContext context) {
     final imageService = Provider.of<ImageGenService>(context, listen: false);

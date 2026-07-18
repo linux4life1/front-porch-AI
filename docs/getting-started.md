@@ -1,16 +1,18 @@
 # Getting Started
 
-Welcome to Front Porch AI — a private, offline-first AI chat application for desktop.
+Welcome to Front Porch AI — a private, offline-first app for chatting with AI characters, right on your own computer.
+
+This guide walks you from a fresh install to your first conversation. No technical background needed.
 
 ---
 
 ## Table of Contents
 
 1. [What Is Front Porch AI?](#what-is-front-porch-ai)
-2. [System Requirements](#system-requirements)
-3. [Installation](#installation)
-4. [First Launch](#first-launch)
-5. [Setting Up Your AI Backend](#setting-up-your-ai-backend)
+2. [What You Need to Run It](#what-you-need-to-run-it)
+3. [Installing the App](#installing-the-app)
+4. [Your First Launch](#your-first-launch)
+5. [Powering the AI: Local or Remote](#powering-the-ai-local-or-remote)
 6. [Your First Chat](#your-first-chat)
 7. [Importing Characters](#importing-characters)
 8. [Next Steps](#next-steps)
@@ -19,305 +21,219 @@ Welcome to Front Porch AI — a private, offline-first AI chat application for d
 
 ## What Is Front Porch AI?
 
-Front Porch AI is a warm, privacy-first desktop companion that lets you chat, roleplay, and tell stories with AI characters — all running completely on *your* computer.
+Front Porch AI is a desktop app for Windows, macOS, and Linux that lets you chat, roleplay, and tell stories with AI characters — with everything running on *your* machine.
 
-Built with Flutter for smooth native performance, it works beautifully on Windows, macOS (Apple Silicon recommended), and Linux. The app uses powerful local language models through KoboldCpp (automatically managed for you) or optional remote APIs like OpenRouter when you want access to the biggest frontier models. No subscriptions. No data sent to the cloud unless you explicitly choose to.
+Out of the box, the app runs AI models locally, so your conversations never leave your computer. If you'd rather use a big cloud model instead, you can connect services like OpenRouter — but that's always your choice, never the default.
 
-At its heart is immersive character chat with **persistent memory** and the groundbreaking **Realism Engine** — a system that tracks how characters feel, how much they trust you, their evolving relationships, the passage of time in the story, and even lets them develop new traits organically as your conversations unfold. Add voice (local Kokoro TTS + Whisper STT or premium cloud voices), group chats, local image generation, and **Porch Stories** (a full novel generator that turns your chats into beautiful illustrated books), and you have a complete private storytelling studio.
+What makes it special:
 
-Everything is free and open-source under the AGPL-3.0 license. Your characters, chats, and memories stay on your machine. Join the friendly community on Discord for help, sharing cards, and feedback.
+- **The Realism Engine** — characters have moods, build trust with you, remember the passage of time, develop obsessions and goals, and grow new personality traits as your story unfolds.
+- **Long-term memory** — characters recall details from conversations you had days ago.
+- **Voice** — characters can speak (local text-to-speech with 50+ voices) and you can talk back (push-to-talk voice input). Cloud voices from ElevenLabs and OpenAI are optional extras.
+- **Group chats** — put several characters in one scene and watch them interact.
+- **Porch Stories** — turn your chats into full illustrated novels.
+- **The Stoop** *(currently in nightly builds)* — a built-in community hub for sharing and downloading characters, without leaving the app.
 
-> **Privacy promise:** By default, nothing leaves your PC. Cloud sync (Google Drive / WebDAV) and remote APIs are strictly opt-in.
+It's free and open-source (AGPL-3.0). Your characters, chats, and memories stay on your machine.
 
----
-
-## System Requirements
-
-Front Porch AI runs well on a wide range of hardware thanks to excellent support for GPU acceleration backends.
-
-### Quick Reference
-
-| Component       | Minimum                          | Recommended                                      |
-|-----------------|----------------------------------|--------------------------------------------------|
-| **Operating System** | Windows 10, macOS 11+, Ubuntu 20.04+ / Fedora / Arch | Latest stable releases                          |
-| **RAM**         | 8 GB                             | 16 GB+ (32 GB ideal for 13B+ models)             |
-| **GPU / Acceleration** | Any Vulkan or Metal capable GPU, or CPU fallback | NVIDIA RTX 3060 / 4060 (8 GB+ VRAM), Apple M1/M2/M3/M4, AMD RX 6000+ with ROCm or Vulkan |
-| **Storage**     | 10 GB free                       | 50 GB+ (room for several GGUF models + voices)   |
-
-### GPU Acceleration Notes
-- **NVIDIA**: CUDA (CuBLAS) + Flash Attention — best performance on 20-series and newer.
-- **Apple Silicon**: Native Metal backend — excellent efficiency and full layer offloading on M-series chips.
-- **AMD**: ROCm (Linux, best) or Vulkan (widest compatibility).
-- **Intel / Others**: Vulkan or CPU mode with AVX2/AVX-512 optimizations.
-- **CPU-only**: Fully supported and usable for smaller or heavily quantized models.
-
-The app runs hardware detection automatically on first launch and in Settings, suggesting optimal GPU layers and context sizes based on your VRAM.
-
-For full details, driver setup tips (e.g., ROCm groups on Linux), and developer build instructions, see the complete [Installation Guide](install.md).
+> **Privacy promise:** By default, nothing leaves your PC. Remote AI services and The Stoop are strictly opt-in. If you do sign up for The Stoop, it stores your account info and the cards you choose to upload — the rest of the app stays fully local. Details in the [Privacy Policy](https://github.com/linux4life1/front-porch-AI/blob/main/PRIVACY.md).
 
 ---
 
-## Installation
+## What You Need to Run It
 
-Front Porch AI is available for Windows, macOS, and Linux.
+Front Porch AI runs on a wide range of hardware. A gaming PC is great; a modest laptop works too.
 
-### Fastest Way to Install
-1. Head to the [GitHub Releases page](https://github.com/linux4life1/front-porch-AI/releases).
-2. Download the latest **stable** build (`.exe` installer for Windows, `.dmg` for macOS, `.AppImage`/`.deb`/`.rpm` for Linux) or the **beta** standalone archives for early features.
+| | Minimum | Recommended |
+|---|---|---|
+| **Operating system** | Windows 10, macOS 11+, or a recent Linux distro | The latest stable release of your OS |
+| **Memory (RAM)** | 8 GB | 16 GB or more |
+| **Graphics card** | Optional — the app can run on your CPU alone | A GPU with 8 GB+ of VRAM (its own memory), or an Apple Silicon Mac |
+| **Disk space** | 10 GB free | 50 GB+ if you want room for several AI models and voices |
 
-### Linux Users — Package Managers (Recommended)
-- **Debian / Ubuntu / Mint / Pop!_OS**: One-line install script or APT repo (see install.md).
-- **Fedora / RHEL / openSUSE**: Official RPM repo via DNF.
-- **Arch Linux**: `front-porch-ai-bin` (stable) or `front-porch-ai-beta-bin` on the AUR.
+**About graphics cards:** a GPU makes the AI respond much faster, but it isn't required. The app detects your hardware automatically and picks the best setup for you:
 
-Full instructions, including developer setup (Flutter + Rust + Python sidecars), driver troubleshooting, and post-install steps for the embedding server, are in the **[Installation Guide](install.md)**.
+- **NVIDIA cards** — fastest option, fully supported.
+- **Apple Silicon Macs** (M1 and newer) — excellent performance, fully supported. *Intel Macs can't run local models — the app switches to remote mode for you (see below).*
+- **AMD and Intel cards** — supported.
+- **No GPU at all** — still works. Smaller models run fine on a CPU.
 
-> **Beta note**: Beta builds use a completely separate data folder (`FrontPorchAI-Beta`) so they never touch your stable characters or chats. Perfect for testing new features safely.
-
----
-
-## First Launch
-
-When you launch Front Porch AI for the very first time, a sleek dark overlay appears over the main window titled **"Starting Front Porch AI"** with a sparkling icon. This is the automatic setup process — no manual wizard to click through.
-
-### What Happens Automatically
-
-1. **Backend Check** — The app looks for the KoboldCpp inference engine (the program that actually runs your local AI models). If it's not present in the app's private `bin` folder, it begins downloading the correct build for your operating system and GPU.
-
-2. **Hardware Detection** — In the background, `HardwareService` probes your GPU vendor, VRAM amount, system RAM, and available acceleration APIs (CUDA, Metal, ROCm, Vulkan). This information is used later to pick smart defaults for GPU offloading and context size.
-
-3. **Backend Download** (if needed) — You'll see a progress bar and status messages ("Downloading Backend...", "Connecting to GitHub...", percentage). The download is typically 80–250 MB depending on the optimized binary (CUDA, ROCm, or generic Vulkan). Intel Macs are automatically skipped — local inference is not supported on them, so the app heads straight to remote API mode.
-
-4. **Autostart** — If you previously used local mode and have a model selected, the backend may start automatically so you're ready to chat immediately.
-
-5. **Main Interface Appears** — The overlay fades away and you're greeted by the beautiful character library (the "home" screen).
-
-If anything fails, the overlay shows a friendly error and offers **Retry Setup** or **Continue to App anyway** (you can configure everything manually in Settings later).
-
-On the first launch of a **beta** build, you may also see an option to import a copy of your stable database so you have your existing characters available for testing.
-
-### Your First View: The Character Library
-
-![Front Porch AI home screen — character grid with search, folders, and import tools](../screenshots/home_new.png)
-
-*This is what the main window looks like after setup completes. The grid shows all your characters, folders, and group chats. Use the top toolbar to create, import, search, or open the Model Hub and Settings.*
-
-Hardware detection results and recommended settings are also visible (and re-detectable) in **Settings → AI Settings**.
-
-You're now ready to set up your first AI model or jump straight into chatting if a model was already configured.
+**No capable hardware?** No problem — skip local models entirely and connect a remote service like OpenRouter. You get access to the biggest models available, and the rest of the app works exactly the same.
 
 ---
 
-## Setting Up Your AI Backend
+## Installing the App
 
-Front Porch AI gives you complete freedom in how you power the AI — fully local, fully remote, or a mix of both.
+The short version:
 
-### Option A: Local Inference (KoboldCpp) — Recommended
+1. Go to the [Releases page](https://github.com/linux4life1/front-porch-AI/releases).
+2. Download the latest **stable** build — `.exe` installer for Windows, `.pkg` installer for macOS (signed & Apple-notarized, so Gatekeeper opens it without a fuss), `.AppImage` / `.deb` / `.rpm` for Linux.
+3. Install and launch it.
 
-KoboldCpp is a popular, highly optimized inference server for GGUF-format models (the standard for local LLMs). Front Porch AI **completely manages KoboldCpp for you**:
+On Linux you can also install through your package manager (recommended — updates arrive automatically). Full instructions for every platform, including package-manager setup, are in the **[Installation Guide](install.md)**.
 
-- On first launch (or when missing), the correct executable is auto-downloaded to a private `bin/` folder inside your app data.
-- You never have to run command-line tools or edit launch scripts.
-- The app can start and stop the backend on demand from within the UI (including from the Character Creator).
+> **Curious about new features early?** Nightly builds come out most days with the newest work — including The Stoop community hub. They use a completely separate data folder, so they never touch your stable characters and chats. Rough edges possible.
 
-**The Model Hub (in-app Hugging Face browser)**
+---
 
-Open **Settings → AI Settings → Model Manager** (or the Model Hub button) to search and download models directly:
+## Your First Launch
 
-![Model Hub — search Hugging Face for GGUF models and download with one click](../screenshots/model_hub.png)
+The first time you open Front Porch AI, a dark overlay titled **"Starting Front Porch AI"** appears. That's the automatic setup — there's no wizard to click through.
 
-- Search by name, architecture, or tags (e.g., "llama-3.1", "qwen3", "mistral").
-- See file sizes, quantizations (Q4_K_M, Q5_K_S, IQ4_XS, etc.), and VRAM estimates.
-- One-click download with a beautiful progress overlay. Files land in your `models/` folder.
-- Local models you already have (just drop `.gguf` files into the models folder) are automatically discovered.
+Here's what it does on its own:
 
-**Hardware Acceleration — Smart Defaults**
+1. **Checks for the AI engine.** The app uses KoboldCpp (the program that actually runs AI models on your computer). If it's not there yet, the app downloads the right version for your hardware — you'll see a progress bar. The download is typically a few hundred MB.
+2. **Detects your hardware.** Your graphics card, its memory, and your system RAM are checked so the app can pick smart defaults.
+3. **Opens your library.** The overlay fades and you land on the home screen — your character library.
 
-The app detects your GPU on launch and in Settings and applies the best backend automatically:
+If anything goes wrong, you'll get a friendly error with **Retry Setup** and **Continue to App anyway** buttons. You can always finish setup later from Settings.
 
-- NVIDIA → CuBLAS (with Flash Attention)
-- Apple Silicon (M1–M4) → Metal (often allows full offload of 7B–13B models)
-- AMD on Linux → ROCm when available, otherwise Vulkan
-- Everything else → Vulkan or pure CPU
+*On an Intel Mac:* local models aren't supported, so the app skips the download and takes you straight to remote-API mode.
 
-You can fine-tune GPU layers, context size, Flash Attention, mlock, and more in the Advanced panel.
+*On a beta or nightly build:* you may be offered the option to import a copy of your stable library so your characters are available for testing.
 
-**Recommended Starting Models by Hardware**
+![Front Porch AI home screen — your character library](screenshots/home_new.png)
 
-| Your Hardware          | Suggested Models (GGUF)                  | Typical Quant | Context | Notes |
-|------------------------|------------------------------------------|---------------|---------|-------|
-| 6–8 GB VRAM (or Intel iGPU) | Llama-3.1-8B, Mistral-7B, Phi-3-mini, Gemma-2-9B | Q4_K_M or Q5_K_S | 4k–8k | Excellent quality/speed balance |
-| 12 GB VRAM             | Llama-3.1-8B/70B Q3, Qwen2.5-14B, Command-R | Q4_K_M       | 8k–16k | Great for longer stories |
-| 16–24 GB VRAM          | 70B Q3/Q4, 34B models, DeepSeek-R1 32B | Q3_K_M or Q4 | 8k–16k+ | Reasoning models shine here |
-| Apple M1/M2/M3 (16 GB+) | Most 7B–13B full offload possible       | Q4–Q6        | 8k+     | Very efficient |
-| CPU only / low VRAM    | 3B–7B heavily quantized (Q3/Q2)         | Q4_K_S       | 2k–4k   | Still very usable for roleplay |
+*The home screen after setup. Your characters, folders, and group chats live here. The toolbar at the top handles creating, importing, and searching.*
 
-The app's Optimization Service will suggest good GPU layer counts and context sizes automatically based on detected VRAM.
+---
 
-### Option B: External / Remote API
+## Powering the AI: Local or Remote
 
-Prefer the biggest models (70B–405B) or don't have a dedicated GPU? Switch to **remote mode** in Settings → AI Settings.
+You have complete freedom in how the AI itself runs — fully local, fully remote, or a mix.
 
-Supported providers:
-- **OpenRouter** (recommended — huge catalog, cheap, fast)
-- Any OpenAI-compatible endpoint (Nano-GPT, Together, Fireworks, Groq, etc.)
-- Official OpenAI (for GPT-4o, o1, etc.)
+### Option A: Local models (recommended)
 
-Just enter your API key once. The app handles the rest. Generation is usually faster than local on modest hardware, and you get access to the absolute latest models.
+The app manages everything for you. You never touch a command line.
 
-**When to use remote:**
-- You want maximum intelligence for character creation or complex plots
-- Traveling / on a laptop without strong GPU
-- You only chat occasionally and don't mind per-token costs
+To get your first model:
 
-### Option C: Hybrid Workflow (Best of Both Worlds)
+1. Open **Manage Models** from the left sidebar.
+2. Search for a model by name — the search runs against HuggingFace, the main library of free AI models.
+3. Pick one and click download. Each result shows the file size and an estimate of whether it fits your graphics card.
 
-Many users run **local** for day-to-day roleplay (unlimited, private, no cost) and switch to **remote** only when:
-- Using the AI Character Creator (the "Quick Create" button that writes full V2 cards from a short concept)
-- Generating stories with Porch Stories
-- Chatting with a character that benefits from a much smarter model
+![Manage Models — search and download AI models with one click](screenshots/model_hub.png)
 
-You can change the active backend at any time in Settings or even per-character in some flows. The last-used model and backend are remembered.
+A few terms you'll see while browsing:
 
-**Pro tip**: Start with the Model Hub + a good 7B or 8B Q4 model. Most people are amazed at how good modern small models are for immersive roleplay — and everything stays on your machine.
+- **GGUF** — the file format local AI models come in. It's the only format you need.
+- **Quantization** (names like `Q4_K_M`) — a compressed version of a model. Smaller numbers = smaller file and lower quality. **Q4** is the sweet spot for most people.
+- **7B, 12B, 70B…** — the model's size in billions of "parameters." Bigger is smarter but needs more powerful hardware.
 
-Full advanced configuration (including .kcpps presets, prefill batch size, and more) lives in the Settings page.
+**What should you download first?**
+
+| Your hardware | Start with |
+|---|---|
+| 6–8 GB graphics card, or Apple M1/M2 | A **7–9B** model at Q4 |
+| 12–16 GB graphics card, or M-series Mac with 16 GB+ | A **12–14B** model at Q4 |
+| 24 GB+ graphics card | A **20–70B** model (quantized) |
+| CPU only / older laptop | A **3–7B** model at Q4 — smaller, but still fun |
+
+Modern small models are genuinely good at roleplay. Most people are surprised. If you already have `.gguf` files from elsewhere, just drop them into the app's models folder and they'll show up automatically (you can change where that folder lives in Manage Models).
+
+### Option B: Remote services
+
+Prefer the biggest frontier models, or don't have the hardware? Connect a remote service in **Settings → Backend**:
+
+- **OpenRouter** — popular, with a huge catalog of models.
+- **Nano-GPT** and any other OpenAI-compatible service.
+- **OpenAI** itself.
+
+Enter your API key once and you're done. Remember: remote means your chat text is sent to that provider — that's the trade-off for the extra horsepower.
+
+### Option C: Mix and match
+
+Plenty of people run a local model for everyday chatting (free, private, unlimited) and switch to a remote model for heavy lifting — like generating a detailed new character or writing a Porch Stories novel. Switching backends takes a few seconds in Settings, and the app remembers your last setup.
 
 ---
 
 ## Your First Chat
 
-Ready to talk to your first character? It's delightfully simple.
+### 1. Get a character
 
-### 1. Create or Choose a Character
+From the home screen you can:
 
-From the home grid:
+- **Create one with AI** — click **AI Create**, type a short concept (*"a sarcastic Victorian inventor who loves tea"*), and the app generates a complete character: description, personality, greeting, sample dialogue, even a matching avatar and lore.
 
-- Click the big **+ Create** button in the toolbar. The AI Character Creator opens — type a short concept ("a sarcastic Victorian inventor who loves tea and steam-powered gadgets") and let the app generate a complete, high-quality V2 card including description, personality, first message, example dialogue, and even a matching avatar and lorebook entries.
+![The AI character creator](screenshots/ez_char_creator.png)
 
-![AI-assisted character creation wizard](../screenshots/ez_char_creator.png)
+- **Build one by hand** — click **Create New** for the manual editor.
+- **Import one** — see [Importing Characters](#importing-characters) below.
 
-- Or import a ready-made character (see the Importing section below).
+Once you have a character, click its card to start chatting.
 
-- Once you have at least one character, simply **click its card** in the grid.
+### 2. The chat screen
 
-The app will open a chat session (creating a new one if none exists) and take you straight to the chat screen.
+![The chat view — conversation, input bar, and sidebar](screenshots/chat.png)
 
-### 2. The Chat Screen
+- The **middle** is your conversation. Dialogue and actions are styled differently so scenes are easy to read.
+- The **right sidebar** shows the character's current emotion, your bond and trust levels, the story clock, and memory — all driven by the Realism Engine.
+- The **bottom input bar** is where you type. **Enter** sends; **Shift + Enter** makes a new line. Drag its top edge to make it taller.
 
-![Typical chat view with message history, input bar, and sidebar](../screenshots/chat.png)
+### 3. Send something
 
-- The **main area** shows the conversation. Your messages appear in one style, the character's replies in another (with rich formatting — dialogue in warm tones, actions in subtler text).
-- The **right sidebar** shows the active character, Realism Engine stats (current emotion, bond level, trust, time of day), memory snippets, and quick generation settings.
-- The **bottom input bar** is where the magic happens. It resizes as you type (drag the grip) and supports **Shift + Enter** for new lines.
+Type a greeting and press **Enter**. The reply streams in live, word by word. While it's generating, a red **Stop** button lets you cut it short at any time.
 
-### 3. Send Your First Message
+Two nice touches you might notice:
 
-1. Type something in the input box (e.g., *"Hello! It's a beautiful morning on the porch, isn't it?"*).
-2. Press **Enter** (or click the paper-plane Send button).
-3. Watch the response **stream in live** — tokens appear character-by-character as the model generates. No waiting for the whole reply.
+- If your model is a "thinking" model (one that reasons before answering), its private reasoning is tucked into a **Thought** chip above the reply — tap it if you're curious.
+- After each reply, the sidebar quietly updates — mood shifts, bond changes, time passing. That's the Realism Engine at work.
 
-**Special features you'll notice immediately:**
+### 4. Message controls
 
-- **Reasoning / Thinking models** (Qwen3, DeepSeek-R1, etc.): Any `<think>...</think>` blocks the model produces are captured into a clean, tappable "Thought" chip above the visible reply. Tap it to read the model's private chain-of-thought.
-- A **red Stop button** appears while generating — click it anytime to cut the response short.
-- The Realism Engine (if enabled) quietly evaluates the character's emotional state, bond, and trust after each turn and updates the sidebar.
+Every AI reply has controls:
 
-### 4. Message Controls (After the Reply Arrives)
+- **Regenerate** — roll a fresh version. Old versions aren't lost: use the left/right arrows to flip between takes.
+- **Continue** — "keep going" from where the reply stopped.
+- **Impersonate** — the AI drafts *your* next message for you.
+- **Edit** — click any message to change its text directly.
+- **Fork** — branch the whole conversation from any point to explore a "what if."
 
-Every AI message has handy controls:
+### 5. Tweak as you go
 
-- **Regenerate** (circular arrows): Generates a completely new version of that reply. All previous versions are saved as **swipes** — use the left/right arrows to swipe between them instantly without re-rolling the whole conversation.
-- **Continue**: Tells the model "keep going" from where it left off (great for long scenes).
-- **Impersonate** (magic wand): The AI writes what *you* might say next (optionally seeded with a few words you type first).
-- Click any message to **edit** it directly. Changes are saved and the conversation continues from the edited point.
-- **Fork** the chat from any point to explore "what if" branches (chat branching).
+**Settings → Generation** holds the dials: response length, creativity (temperature), repetition control, and more. The defaults are sensible — you don't need to touch anything to have a great time.
 
-### 5. Fine-Tuning on the Fly
-
-Click the gear icon in the chat or open **Settings → Generation** to adjust:
-
-- Temperature, Top-P, Min-P, repetition penalty
-- Max response length
-- System prompt / Author's Note (per-character or global)
-- Memory / RAG settings
-- And many advanced samplers (XTC, dynamic temperature, etc.)
-
-All settings are per-chat or can be saved as presets.
-
-Your chats are **automatically saved** the moment anything changes. Close the app and come back later — everything is right where you left it.
-
-That's it! You've just had your first private, local AI conversation. From here the experience only gets deeper with the Realism Engine, voice, expressions, and group chats.
-
-See the [User Guide](user-guide.md) for Director Mode, advanced editing, lorebooks, and more.
+Everything auto-saves. Close the app mid-scene and pick it up tomorrow exactly where you left off.
 
 ---
 
 ## Importing Characters
 
-One of Front Porch AI's greatest strengths is seamless compatibility with the massive ecosystem of existing characters.
+Front Porch AI speaks the same character-card language as the rest of the community, so thousands of ready-made characters just work.
 
-### Supported Formats
-- **PNG character cards** (the most common) — the image file itself contains the full V2 or V2.5 JSON data in a special chunk (Tavern / SillyTavern format).
-- **Standalone JSON** files.
-- Full **SillyTavern / Backyard AI** compatibility.
+**Supported formats**
 
-### How to Import Characters
+- **PNG character cards** — the standard format used by SillyTavern, Chub.ai, and friends. The character data is embedded inside the image itself.
+- **JSON files** — the same data without the picture.
+- **Backyard AI archives (`.byaf`)** — if you're coming from Backyard AI, your characters can escape here intact.
 
-1. On the home screen, click the **Import** button (folder-with-arrow icon) in the top toolbar.
-2. In the file picker, select one or more `.png` or `.json` files (multi-select is supported).
-3. For bulk imports, use the **folder import** option — point it at a whole directory of cards and the app will scan recursively for PNGs.
+**How to import**
 
-After import you can assign tags via a convenient dialog. The characters instantly appear in your library grid, ready to chat.
+- Click **Import Card** on the home screen and pick one or more files.
+- Use **Bulk Import** to point at a whole folder — it scans everything inside, subfolders included.
+- Use **Import BYAF** for Backyard archives.
+- Or browse **Chub.ai and aicharactercards.com in the built-in browser** — click download on any card there and it lands straight in your library, tags and all.
 
-**Chub.ai In-App Browser**
+After importing you can tag, edit, duplicate, and organize characters into folders. Everything on the card comes across: personality, greetings, sample dialogue, alternate openings, and attached lorebooks.
 
-Click the cloud-shaped **Chub** button in the toolbar to open an embedded browser directly to chub.ai. Browse, search, and click the download button on any card — it streams straight into your library with tags and metadata intact. No leaving the app, no manual saves.
-
-**Drag & Drop**
-
-On desktop platforms, you can drag PNG/JSON files from your file manager into the import dialog or use the system's native drag-to-select behavior in the picker.
-
-### What Gets Imported?
-
-Everything in the standard V2/V2.5 spec:
-- Name, Description, Personality, Scenario, First Message
-- Example Dialogue (few-shot)
-- System Prompt & Post-History Instructions
-- Alternate Greetings (multiple opening lines)
-- Tags, Lorebooks, World info
-- And Front Porch AI extensions (TTS voice assignments, expression image packs, Realism Engine notes, etc.)
-
-Once imported, you can edit any field, regenerate parts with the AI editor, attach more lore, duplicate the card for experiments, or organize it into folders.
-
-For the complete character card specification, advanced editing, lorebook creation, and the powerful AI Quick-Create workflow, read the dedicated **[Characters & Import Guide](characters.md)**.
+For the full story on cards, the AI editor, and lorebooks, see the **[Characters Guide](characters.md)**.
 
 ---
 
 ## Next Steps
 
-You've got the basics — now the real fun begins. Here's your personalized roadmap:
+**Make it feel alive** → the [Realism Engine guide](realism-engine.md). Bond and trust, moods with momentum, story time, character goals, obsessions, chaos events, and Sims-style needs.
 
-### For Immersive, Living Roleplay
-Head straight to the **[Realism Engine guide](realism-engine.md)**. Learn how bond & trust, emotion states, autonomous time progression, character objectives, the Fixation Engine, and organic character evolution turn ordinary chats into deeply believable stories that remember and grow.
+**Build your cast** → the [Characters Guide](characters.md). The card format, AI-assisted creation and editing, lorebooks, expression images, and organizing a big library.
 
-### For Building & Managing Your Roster
-The **[Characters & Import](characters.md)** guide covers everything: the full V2/V2.5 spec, the AI-powered Quick Create & editor passes, lorebook generation, folder organization, tags, bulk operations, and expression image packs.
+**Explore everything else** → the [User Guide](user-guide.md). Group chats and Director Mode, voice setup, image generation, Porch Stories, backups, and using the app from your phone.
 
-### Explore the Rest of the App
-- **[User Guide](user-guide.md)** — the complete reference for group chats & Director Mode, TTS/STT voice setup, local image generation (A1111/Forge), Porch Stories novel generator, cloud sync (Google Drive & WebDAV), the web server, and every setting.
-- **[Keyboard Shortcuts](keyboard-shortcuts.md)** — speed up your workflow with handy hotkeys.
+**Stuck or curious?**
 
-### Need Help?
-- **[FAQ](faq.md)** — answers to the most common questions ("Is it really private?", "Which model should I pick?", "Why is my character acting weird?").
-- **[Troubleshooting](troubleshooting.md)** — GPU/driver issues, slow generation, import problems, database recovery, and more.
-- **[Discord Community](https://discord.gg/e4tET6rpdv)** — the friendliest place to ask questions, share character cards, request features, and talk directly with the developer. Also on Matrix.
+- [FAQ](faq.md) — quick answers to common questions.
+- [Troubleshooting](troubleshooting.md) — when something's not working.
+- [Discord](https://discord.gg/e4tET6rpdv) — the friendliest place to ask. I read everything.
 
 ---
 
-**Welcome to the front porch.**
-
-Your characters are waiting. Your stories are yours alone. Everything runs locally, on your terms, with love for the craft of interactive fiction.
-
-If you create something wonderful, the community would love to see it on Discord. Enjoy every moment. 🪑✨
-
+**Welcome to the front porch.** Your characters are waiting, and your stories are yours alone. 🪑✨

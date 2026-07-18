@@ -35,14 +35,21 @@ import 'storage/settings/stt_settings.dart';
 import 'storage/settings/image_gen_settings.dart';
 import 'storage/settings/expression_settings.dart';
 import 'storage/settings/web_server_settings.dart';
-import 'storage/settings/cloud_sync_settings.dart';
 import 'storage/settings/realism_settings.dart';
 import 'storage/settings/memory_settings.dart';
+import 'storage/settings/lorebook_settings.dart';
 import 'storage/settings/preset_settings.dart';
 
 class StorageService extends ChangeNotifier {
   final Completer<void> _initCompleter = Completer<void>();
   Future<void> get initialized => _initCompleter.future;
+
+  /// True when the persisted data directory was unwritable at startup and we
+  /// fell back to the default root FOR THIS SESSION (the bad path is NOT
+  /// overwritten in prefs, so a re-plugged drive is retried next launch). The
+  /// UI reads this to warn "your data folder was unavailable" instead of the
+  /// user silently seeing an empty/relocated library.
+  bool rootUnavailableFellBack = false;
 
   SharedPreferences? _prefs;
   String? _rootPath;
@@ -58,10 +65,10 @@ class StorageService extends ChangeNotifier {
   late final ImageGenSettings _imageGenSettings = ImageGenSettings();
   late final ExpressionSettings _expressionSettings = ExpressionSettings();
   late final WebServerSettings _webServerSettings = WebServerSettings();
-  late final CloudSyncSettings _cloudSyncSettings = CloudSyncSettings();
   late final RealismSettings _realismSettings = RealismSettings();
   late final MemorySettings _memorySettings = MemorySettings();
   late final PresetSettings _presetSettings = PresetSettings();
+  late final LorebookSettings _lorebookSettings = LorebookSettings();
 
   // Directories lifted to directories.dart (Stage 7); thin god owns root state for setRootPath.
   // Getter ensures live values after setRootPath / setCustomModelsPath.
@@ -90,7 +97,15 @@ class StorageService extends ChangeNotifier {
   Directory characterAvatarDir(String characterName) =>
       directories.characterAvatarDir(characterName);
 
+  /// The character's private base folder (`avatars/` + `looks/` live under it).
+  /// Used to resolve gallery-look files via [AvatarImage.resolveFile].
+  Directory characterBaseDir(String characterName) =>
+      directories.characterBaseDir(characterName);
+
   Directory get customBackgroundDir => directories.customBackgroundDir;
+
+  /// Cache directory for downscaled web-UI avatar thumbnails (derived data).
+  Directory get webThumbnailCacheDir => directories.webThumbnailCacheDir;
 
   // Public accessors to extracted domain settings (post-Stage 7 final shim migration).
   // Callers now use direct e.g. storage.generationSettings.systemPrompt or .setTemperature(v)
@@ -105,10 +120,10 @@ class StorageService extends ChangeNotifier {
   ImageGenSettings get imageGenSettings => _imageGenSettings;
   ExpressionSettings get expressionSettings => _expressionSettings;
   WebServerSettings get webServerSettings => _webServerSettings;
-  CloudSyncSettings get cloudSyncSettings => _cloudSyncSettings;
   RealismSettings get realismSettings => _realismSettings;
   MemorySettings get memorySettings => _memorySettings;
   PresetSettings get presetSettings => _presetSettings;
+  LorebookSettings get lorebookSettings => _lorebookSettings;
 
   // --- COMPATIBILITY FLAT ACCESSORS (corrective bridge after incomplete "final shim migration" in 29bbf59d) ---
   // The excision of flat shims happened before all call sites across lib/ (settings tabs, dialogs, model_settings,
@@ -193,35 +208,12 @@ class StorageService extends ChangeNotifier {
   Color getActionColor([CharacterCard? c]) => uiSettings.getActionColor(c);
   Future<void> setIsDark(bool v) => uiSettings.setIsDark(v);
 
-  // Cloud sync
-  bool get cloudSyncEnabled => cloudSyncSettings.cloudSyncEnabled;
-  String get cloudSyncProvider => cloudSyncSettings.cloudSyncProvider;
-  String get cloudSyncUrl => cloudSyncSettings.cloudSyncUrl;
-  String get cloudSyncUsername => cloudSyncSettings.cloudSyncUsername;
-  String get cloudSyncPassword => cloudSyncSettings.cloudSyncPassword;
-  String get cloudSyncLastTime => cloudSyncSettings.cloudSyncLastTime;
-  Future<void> setCloudSyncEnabled(bool v) =>
-      cloudSyncSettings.setCloudSyncEnabled(v);
-  Future<void> setCloudSyncProvider(String v) =>
-      cloudSyncSettings.setCloudSyncProvider(v);
-  Future<void> setCloudSyncUrl(String v) =>
-      cloudSyncSettings.setCloudSyncUrl(v);
-  Future<void> setCloudSyncUsername(String v) =>
-      cloudSyncSettings.setCloudSyncUsername(v);
-  Future<void> setCloudSyncPassword(String v) =>
-      cloudSyncSettings.setCloudSyncPassword(v);
-  Future<void> setCloudSyncLastTime(String v) =>
-      cloudSyncSettings.setCloudSyncLastTime(v);
-
   // Web server
   bool get webServerEnabled => webServerSettings.webServerEnabled;
   int get webServerPort => webServerSettings.webServerPort;
-  String get webServerPin => webServerSettings.webServerPin;
   Future<void> setWebServerEnabled(bool v) =>
       webServerSettings.setWebServerEnabled(v);
   Future<void> setWebServerPort(int v) => webServerSettings.setWebServerPort(v);
-  Future<void> setWebServerPin(String v) =>
-      webServerSettings.setWebServerPin(v);
 
   // TTS / STT / voice (directorDelay on tts; kv authoritative in backend, callBuffer in stt; thins route to canonical to avoid dupe state)
   bool get ttsEnabled => ttsSettings.ttsEnabled;
@@ -309,6 +301,13 @@ class StorageService extends ChangeNotifier {
   String get expressionFallback => expressionSettings.expressionFallback;
   Future<void> setExpressionFallback(String v) =>
       expressionSettings.setExpressionFallback(v);
+  bool get expressionEmojiBurst => expressionSettings.expressionEmojiBurst;
+  Future<void> setExpressionEmojiBurst(bool v) =>
+      expressionSettings.setExpressionEmojiBurst(v);
+  double get expressionEmojiBurstSize =>
+      expressionSettings.expressionEmojiBurstSize;
+  Future<void> setExpressionEmojiBurstSize(double v) =>
+      expressionSettings.setExpressionEmojiBurstSize(v);
 
   // Image gen / draw things (types per imageGenSettings canonical: String size, int for draw* ints, bool for flags)
   bool get imageGenEnabled => imageGenSettings.imageGenEnabled;
@@ -323,6 +322,11 @@ class StorageService extends ChangeNotifier {
   String get localImageGenUrl => imageGenSettings.localImageGenUrl;
   Future<void> setLocalImageGenUrl(String v) =>
       imageGenSettings.setLocalImageGenUrl(v);
+  String get comfyUiUrl => imageGenSettings.comfyUiUrl;
+  Future<void> setComfyUiUrl(String v) => imageGenSettings.setComfyUiUrl(v);
+  bool get imageGenPromptReview => imageGenSettings.imageGenPromptReview;
+  Future<void> setImageGenPromptReview(bool v) =>
+      imageGenSettings.setImageGenPromptReview(v);
   String get imageGenSize => imageGenSettings.imageGenSize;
   Future<void> setImageGenSize(String v) => imageGenSettings.setImageGenSize(v);
   String get imageGenStyle => imageGenSettings.imageGenStyle;
@@ -339,6 +343,9 @@ class StorageService extends ChangeNotifier {
   double get imageGenLoraWeight => imageGenSettings.imageGenLoraWeight;
   Future<void> setImageGenLoraWeight(double v) =>
       imageGenSettings.setImageGenLoraWeight(v);
+  double get imageGenDenoise => imageGenSettings.imageGenDenoise;
+  Future<void> setImageGenDenoise(double v) =>
+      imageGenSettings.setImageGenDenoise(v);
   int get imageGenSteps => imageGenSettings.imageGenSteps;
   Future<void> setImageGenSteps(int v) => imageGenSettings.setImageGenSteps(v);
   double get imageGenCfgScale => imageGenSettings.imageGenCfgScale;
@@ -347,6 +354,9 @@ class StorageService extends ChangeNotifier {
   String get imageGenSampler => imageGenSettings.imageGenSampler;
   Future<void> setImageGenSampler(String v) =>
       imageGenSettings.setImageGenSampler(v);
+  String get imageGenScheduler => imageGenSettings.imageGenScheduler;
+  Future<void> setImageGenScheduler(String v) =>
+      imageGenSettings.setImageGenScheduler(v);
   int get imageGenSeed => imageGenSettings.imageGenSeed;
   Future<void> setImageGenSeed(int v) => imageGenSettings.setImageGenSeed(v);
   String get drawThingsGrpcHost => imageGenSettings.drawThingsGrpcHost;
@@ -361,9 +371,6 @@ class StorageService extends ChangeNotifier {
   double get drawThingsShift => imageGenSettings.drawThingsShift;
   Future<void> setDrawThingsShift(double v) =>
       imageGenSettings.setDrawThingsShift(v);
-  double get drawThingsStrength => imageGenSettings.drawThingsStrength;
-  Future<void> setDrawThingsStrength(double v) =>
-      imageGenSettings.setDrawThingsStrength(v);
   int get drawThingsSeedMode => imageGenSettings.drawThingsSeedMode;
   Future<void> setDrawThingsSeedMode(int v) =>
       imageGenSettings.setDrawThingsSeedMode(v);
@@ -373,6 +380,40 @@ class StorageService extends ChangeNotifier {
   bool get drawThingsCfgZeroStar => imageGenSettings.drawThingsCfgZeroStar;
   Future<void> setDrawThingsCfgZeroStar(bool v) =>
       imageGenSettings.setDrawThingsCfgZeroStar(v);
+
+  // Edit-scoped generation knobs (Image Studio → Edit tab). Separate from the
+  // txt2img knobs so an edit's sampler/CFG/steps never clobber Create's.
+  int get editSteps => imageGenSettings.editSteps;
+  Future<void> setEditSteps(int v) => imageGenSettings.setEditSteps(v);
+  double get editCfgScale => imageGenSettings.editCfgScale;
+  Future<void> setEditCfgScale(double v) =>
+      imageGenSettings.setEditCfgScale(v);
+  int get editSampler => imageGenSettings.editSampler;
+  Future<void> setEditSampler(int v) => imageGenSettings.setEditSampler(v);
+  double get editShift => imageGenSettings.editShift;
+  Future<void> setEditShift(double v) => imageGenSettings.setEditShift(v);
+  int get editSeedMode => imageGenSettings.editSeedMode;
+  Future<void> setEditSeedMode(int v) => imageGenSettings.setEditSeedMode(v);
+  Future<void> resetEditKnobsToRecommended() =>
+      imageGenSettings.resetEditKnobsToRecommended();
+
+  // ComfyUI edit workflow selection + model-slot choices + uploaded workflow.
+  String get comfyEditWorkflowId => imageGenSettings.comfyEditWorkflowId;
+  Future<void> setComfyEditWorkflowId(String v) =>
+      imageGenSettings.setComfyEditWorkflowId(v);
+  Map<String, String> get comfyEditModelChoices =>
+      imageGenSettings.comfyEditModelChoices;
+  String? comfyEditModelChoice(String presetId, String token) =>
+      imageGenSettings.comfyEditModelChoice(presetId, token);
+  Future<void> setComfyEditModelChoice(
+    String presetId,
+    String token,
+    String file,
+  ) => imageGenSettings.setComfyEditModelChoice(presetId, token, file);
+  String get comfyEditUploadedWorkflow =>
+      imageGenSettings.comfyEditUploadedWorkflow;
+  Future<void> setComfyEditUploadedWorkflow(String json) =>
+      imageGenSettings.setComfyEditUploadedWorkflow(json);
 
   // Backend / kobold / remote / launch flags / kcpps (kv + callBuffer here per lift/compat needs; some also on tts/stt)
   String get backendType => backendSettings.backendType;
@@ -400,6 +441,8 @@ class StorageService extends ChangeNotifier {
       backendSettings.setLastUsedModelPath(v);
   bool get kcppsHasModel => backendSettings.kcppsHasModel;
   bool get kcppsModelFileExists => backendSettings.kcppsModelFileExists;
+  String? get kcppsModelPath => backendSettings.kcppsModelPath;
+  String? get kcppsMmprojPath => backendSettings.kcppsMmprojPath;
   bool? get useCublas => backendSettings.useCublas;
   Future<void> setUseCublas(bool? v) => backendSettings.setUseCublas(v);
   bool? get useVulkan => backendSettings.useVulkan;
@@ -428,20 +471,29 @@ class StorageService extends ChangeNotifier {
   bool get autostartBackend => backendSettings.autostartBackend;
   Future<void> setAutostartBackend(bool v) =>
       backendSettings.setAutostartBackend(v);
-  bool get autostartPseudoRemote => backendSettings.autostartPseudoRemote;
-  Future<void> setAutostartPseudoRemote(bool v) =>
-      backendSettings.setAutostartPseudoRemote(v);
   bool get koboldThinkingModel => backendSettings.koboldThinkingModel;
   Future<void> setKoboldThinkingModel(bool v) =>
       backendSettings.setKoboldThinkingModel(v);
   Future<void> setModelPreset(String modelPath, String? kcppsPath) =>
       presetSettings.setModelPreset(modelPath, kcppsPath);
+  Map<String, String> get modelMmprojMap => presetSettings.modelMmprojMap;
+  String? mmprojForModel(String modelPath) =>
+      presetSettings.modelMmprojMap[modelPath];
+  Future<void> setModelMmproj(String modelPath, String? mmprojPath) =>
+      presetSettings.setModelMmproj(modelPath, mmprojPath);
 
   // Generation / sampling
   double get temperature => generationSettings.temperature;
   Future<void> setTemperature(double v) => generationSettings.setTemperature(v);
   double get minP => generationSettings.minP;
   Future<void> setMinP(double v) => generationSettings.setMinP(v);
+  double get topP => generationSettings.topP;
+  Future<void> setTopP(double v) => generationSettings.setTopP(v);
+  int get topK => generationSettings.topK;
+  Future<void> setTopK(int v) => generationSettings.setTopK(v);
+  double get dryMultiplier => generationSettings.dryMultiplier;
+  Future<void> setDryMultiplier(double v) =>
+      generationSettings.setDryMultiplier(v);
   double get repeatPenalty => generationSettings.repeatPenalty;
   Future<void> setRepeatPenalty(double v) =>
       generationSettings.setRepeatPenalty(v);
@@ -460,6 +512,16 @@ class StorageService extends ChangeNotifier {
   double get dynamicTempRange => generationSettings.dynamicTempRange;
   Future<void> setDynamicTempRange(double v) =>
       generationSettings.setDynamicTempRange(v);
+  bool get dynamicResponses => generationSettings.dynamicResponses;
+  Future<void> setDynamicResponses(bool v) =>
+      generationSettings.setDynamicResponses(v);
+  int get dynamicResponseInterval => generationSettings.dynamicResponseInterval;
+  Future<void> setDynamicResponseInterval(int v) =>
+      generationSettings.setDynamicResponseInterval(v);
+  int get dynamicResponseMaxMessages =>
+      generationSettings.dynamicResponseMaxMessages;
+  Future<void> setDynamicResponseMaxMessages(int v) =>
+      generationSettings.setDynamicResponseMaxMessages(v);
   int get maxLength => generationSettings.maxLength;
   Future<void> setMaxLength(int v) => generationSettings.setMaxLength(v);
   int get minLength => generationSettings.minLength;
@@ -489,30 +551,27 @@ class StorageService extends ChangeNotifier {
   String get ragEmbeddingModel => memorySettings.ragEmbeddingModel;
   Future<void> setRagEmbeddingModel(String v) =>
       memorySettings.setRagEmbeddingModel(v);
-  bool get autoPersonaEnabled => memorySettings.autoPersonaEnabled;
-  Future<void> setAutoPersonaEnabled(bool v) =>
-      memorySettings.setAutoPersonaEnabled(v);
-  int get autoPersonaInterval => memorySettings.autoPersonaInterval;
-  Future<void> setAutoPersonaInterval(int v) =>
-      memorySettings.setAutoPersonaInterval(v);
   bool get characterEvolutionEnabled =>
       memorySettings.characterEvolutionEnabled;
   Future<void> setCharacterEvolutionEnabled(bool v) =>
       memorySettings.setCharacterEvolutionEnabled(v);
-  int get evolutionInterval => memorySettings.evolutionInterval;
-  Future<void> setEvolutionInterval(int v) =>
-      memorySettings.setEvolutionInterval(v);
-  bool get summaryEnabled => memorySettings.summaryEnabled;
-  Future<void> setSummaryEnabled(bool v) => memorySettings.setSummaryEnabled(v);
-  int get summaryInterval => memorySettings.summaryInterval;
-  Future<void> setSummaryInterval(int v) =>
-      memorySettings.setSummaryInterval(v);
-  int get summaryMaxWords => memorySettings.summaryMaxWords;
-  Future<void> setSummaryMaxWords(int v) =>
-      memorySettings.setSummaryMaxWords(v);
-  String get summaryPrompt => memorySettings.summaryPrompt;
-  Future<void> setSummaryPrompt(String v) => memorySettings.setSummaryPrompt(v);
-  String get defaultSummaryPrompt => MemorySettings.defaultSummaryPrompt;
+  int get growthInterval => memorySettings.growthInterval;
+  Future<void> setGrowthInterval(int v) => memorySettings.setGrowthInterval(v);
+  bool get growthReviewFirst => memorySettings.growthReviewFirst;
+  Future<void> setGrowthReviewFirst(bool v) =>
+      memorySettings.setGrowthReviewFirst(v);
+  // The Journal (replaced the old summary + auto-persona settings)
+  bool get journalEnabled => memorySettings.journalEnabled;
+  Future<void> setJournalEnabled(bool v) => memorySettings.setJournalEnabled(v);
+  int get journalInterval => memorySettings.journalInterval;
+  Future<void> setJournalInterval(int v) =>
+      memorySettings.setJournalInterval(v);
+  int get journalMaxCards => memorySettings.journalMaxCards;
+  Future<void> setJournalMaxCards(int v) =>
+      memorySettings.setJournalMaxCards(v);
+  bool get journalReviewFirst => memorySettings.journalReviewFirst;
+  Future<void> setJournalReviewFirst(bool v) =>
+      memorySettings.setJournalReviewFirst(v);
 
   // Realism / banned (bannedPhrases, defaults lifted to realismSettings)
   bool get realismOneShotEval => realismSettings.realismOneShotEval;
@@ -625,13 +684,36 @@ class StorageService extends ChangeNotifier {
     }
     _binDir = Directory(path.join(_rootPath!, 'koboldcpp_bin'));
 
-    // Ensure directories exist
-    await chatsDir.create(recursive: true);
-    await modelsDir.create(recursive: true);
-    await worldsDir.create(recursive: true);
-    await charactersDir.create(recursive: true);
-    await groupsDir.create(recursive: true);
-    await customBackgroundDir.create(recursive: true);
+    // Ensure directories exist. A bad persisted root_path (unplugged external
+    // drive, revoked permission, a NAS that's offline) would throw here — and
+    // because _init is fire-and-forget, that left _initCompleter hanging
+    // FOREVER, so anything awaiting `initialized` (e.g. the web-server
+    // autostart) blocked and the app came up half-initialized. Fall back to the
+    // default root so a moved-away data dir can't wedge startup.
+    Future<void> makeDirs() async {
+      await chatsDir.create(recursive: true);
+      await modelsDir.create(recursive: true);
+      await worldsDir.create(recursive: true);
+      await charactersDir.create(recursive: true);
+      await groupsDir.create(recursive: true);
+      await customBackgroundDir.create(recursive: true);
+    }
+
+    try {
+      await makeDirs();
+    } catch (e) {
+      debugPrint('[Storage] ⚠ root "$_rootPath" is unwritable ($e) — falling '
+          'back to the default data directory for this session (the setting is '
+          'NOT overwritten; it retries next launch).');
+      rootUnavailableFellBack = true;
+      _rootPath = defaultRoot;
+      _binDir = Directory(path.join(_rootPath!, 'koboldcpp_bin'));
+      try {
+        await makeDirs();
+      } catch (e2) {
+        debugPrint('[Storage] default root also unwritable: $e2');
+      }
+    }
 
     // Stage 7: initialize domain settings (plain classes) + load (moved from god)
     // Single notify surface preserved (see plan "Why not multiple ChangeNotifiers").
@@ -643,10 +725,10 @@ class StorageService extends ChangeNotifier {
     _imageGenSettings.initializeBase(_prefs, notifyListeners);
     _expressionSettings.initializeBase(_prefs, notifyListeners);
     _webServerSettings.initializeBase(_prefs, notifyListeners);
-    _cloudSyncSettings.initializeBase(_prefs, notifyListeners);
     _realismSettings.initializeBase(_prefs, notifyListeners);
     _memorySettings.initializeBase(_prefs, notifyListeners);
     _presetSettings.initializeBase(_prefs, notifyListeners);
+    _lorebookSettings.initializeBase(_prefs, notifyListeners);
 
     _generationSettings.load();
     _backendSettings.load();
@@ -656,10 +738,10 @@ class StorageService extends ChangeNotifier {
     _imageGenSettings.load();
     _expressionSettings.load();
     _webServerSettings.load();
-    _cloudSyncSettings.load();
     _realismSettings.load();
     _memorySettings.load();
     _presetSettings.load();
+    _lorebookSettings.load();
 
     // Ensure default immersive prompt (was in god init; now on preset)
     if (!_presetSettings.savedPrompts.any(
@@ -674,7 +756,9 @@ class StorageService extends ChangeNotifier {
     // Load settings (DELETED in Stage 7 — bodies lifted to the *Settings.load(); see above + shims)
     // Original load code excised (deletion part of task).
     final loadedCustom = _prefs?.getString(_k('custom_models_path'));
-    _customModelsPath = (loadedCustom != null && loadedCustom.isNotEmpty) ? loadedCustom : null;
+    _customModelsPath = (loadedCustom != null && loadedCustom.isNotEmpty)
+        ? loadedCustom
+        : null;
 
     if (!_initCompleter.isCompleted) _initCompleter.complete();
     notifyListeners();

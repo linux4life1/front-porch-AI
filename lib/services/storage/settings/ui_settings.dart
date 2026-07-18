@@ -62,6 +62,17 @@ class UiSettings with SettingsBase {
   String _sortMode = 'name'; // 'name', 'recent', 'importDate'
   double _gridScale = 300.0; // maxCrossAxisExtent in pixels (150-450)
 
+  // Chat-sidebar accordion expansion (persisted per group id so the layout
+  // survives restarts). Ids: author_note / character_state / journal_memory /
+  // story_tools.
+  final Map<String, bool> _sidebarGroupExpanded = {};
+  static const List<String> _sidebarGroupIds = [
+    'author_note',
+    'character_state',
+    'journal_memory',
+    'story_tools',
+  ];
+
   double get bubbleOpacity => _bubbleOpacity;
   Color get globalUserBubbleColor =>
       _isDark ? _globalUserBubbleColor : _lightUserBubbleColor;
@@ -162,6 +173,22 @@ class UiSettings with SettingsBase {
 
     _sortMode = prefs?.getString(k('sort_mode')) ?? 'name';
     _gridScale = prefs?.getDouble(k('grid_scale')) ?? 300.0;
+
+    for (final id in _sidebarGroupIds) {
+      final v = prefs?.getBool(k('sidebar_group_expanded_$id'));
+      if (v != null) _sidebarGroupExpanded[id] = v;
+    }
+  }
+
+  /// Whether a sidebar accordion group is expanded (falls back to the
+  /// caller-provided default when the user never toggled it).
+  bool sidebarGroupExpanded(String id, {required bool fallback}) =>
+      _sidebarGroupExpanded[id] ?? fallback;
+
+  Future<void> setSidebarGroupExpanded(String id, bool value) async {
+    _sidebarGroupExpanded[id] = value;
+    await prefs?.setBool(k('sidebar_group_expanded_$id'), value);
+    notify();
   }
 
   Future<void> setBubbleOpacity(double value) async {

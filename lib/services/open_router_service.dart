@@ -20,39 +20,12 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/llm_tool_parsing.dart';
+import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
+import 'package:front_porch_ai/services/remote_model_info.dart';
 
-/// Metadata for a remote model, including pricing.
-class RemoteModelInfo {
-  final String id;
-  final String name;
-  final double? promptCostPerMillion; // USD per 1M input tokens
-  final double? completionCostPerMillion; // USD per 1M output tokens
-
-  const RemoteModelInfo({
-    required this.id,
-    this.name = '',
-    this.promptCostPerMillion,
-    this.completionCostPerMillion,
-  });
-
-  /// Human-readable pricing string, e.g. "$0.50 / $1.50"
-  String get pricingLabel {
-    if (promptCostPerMillion == null && completionCostPerMillion == null) {
-      return 'Pricing unavailable';
-    }
-    final input = promptCostPerMillion != null
-        ? '\$${promptCostPerMillion!.toStringAsFixed(2)}'
-        : '?';
-    final output = completionCostPerMillion != null
-        ? '\$${completionCostPerMillion!.toStringAsFixed(2)}'
-        : '?';
-    return '$input in / $output out per 1M tokens';
-  }
-
-  bool get isFree =>
-      (promptCostPerMillion == null || promptCostPerMillion == 0) &&
-      (completionCostPerMillion == null || completionCostPerMillion == 0);
-}
+// RemoteModelInfo lived here for years — re-export so importers keep working.
+export 'package:front_porch_ai/services/remote_model_info.dart';
 
 /// LLM backend that connects to OpenAI-compatible APIs
 /// (OpenRouter, Nano-GPT, vLLM, LM Studio, etc).
@@ -67,13 +40,14 @@ class OpenRouterService extends LLMService {
   String get apiKey => _apiKey;
   String get modelName => _modelName;
 
+  /// Local backends (LM Studio, vLLM, etc.) are usable without an API key.
+  bool get _isLocalUrl =>
+      _apiUrl.contains('localhost') || _apiUrl.contains('127.0.0.1');
+
   @override
   bool get isReady {
     if (!_isReady || _modelName.isEmpty) return false;
-    // Allow empty API key for local backends (LM Studio, vLLM, etc.)
-    final isLocal =
-        _apiUrl.contains('localhost') || _apiUrl.contains('127.0.0.1');
-    return _apiKey.isNotEmpty || isLocal;
+    return _apiKey.isNotEmpty || _isLocalUrl;
   }
 
   @override
@@ -86,9 +60,7 @@ class OpenRouterService extends LLMService {
   }) : _apiUrl = apiUrl,
        _apiKey = apiKey,
        _modelName = modelName {
-    final isLocal =
-        apiUrl.contains('localhost') || apiUrl.contains('127.0.0.1');
-    _isReady = (_apiKey.isNotEmpty || isLocal) && _modelName.isNotEmpty;
+    _isReady = (_apiKey.isNotEmpty || _isLocalUrl) && _modelName.isNotEmpty;
   }
 
   /// Update configuration at runtime (e.g. when user changes settings).
@@ -107,9 +79,8 @@ class OpenRouterService extends LLMService {
       changed = true;
     }
     // Allow local backends without API key
-    final isLocal =
-        _apiUrl.contains('localhost') || _apiUrl.contains('127.0.0.1');
-    final newReady = (_apiKey.isNotEmpty || isLocal) && _modelName.isNotEmpty;
+    final newReady =
+        (_apiKey.isNotEmpty || _isLocalUrl) && _modelName.isNotEmpty;
     if (newReady != _isReady) {
       _isReady = newReady;
       changed = true;
@@ -126,18 +97,23 @@ class OpenRouterService extends LLMService {
 
   /// Test whether the API connection is working.
   /// Returns a human-readable status message.
-  Future<String> testConnection() async {
-    if (_apiUrl.isEmpty) return 'API URL is empty.';
+  /// Tests connectivity against [apiUrl] (else this service's live URL).
+  /// Same override contract as [fetchAvailableModels]: pass the target
+  /// explicitly from UI so a connection test never re-routes the active
+  /// backend's live configuration.
+  Future<String> testConnection({String? apiUrl, String? apiKey}) async {
+    final url = apiUrl ?? _apiUrl;
+    final key = apiKey ?? _apiKey;
+    if (url.isEmpty) return 'API URL is empty.';
     // Allow empty API key for local backends (localhost / 127.0.0.1)
-    final isLocal =
-        _apiUrl.contains('localhost') || _apiUrl.contains('127.0.0.1');
-    if (_apiKey.isEmpty && !isLocal) return 'API key is empty.';
+    final isLocal = url.contains('localhost') || url.contains('127.0.0.1');
+    if (key.isEmpty && !isLocal) return 'API key is empty.';
 
     final client = http.Client();
     try {
-      final uri = Uri.parse('$_apiUrl/models');
+      final uri = Uri.parse('$url/models');
       final response = await client
-          .get(uri, headers: {'Authorization': 'Bearer $_apiKey'})
+          .get(uri, headers: {'Authorization': 'Bearer $key'})
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -158,21 +134,32 @@ class OpenRouterService extends LLMService {
   }
 
   /// Fetch the list of available models with pricing info from the API.
-  Future<List<RemoteModelInfo>> fetchAvailableModels() async {
-    if (_apiUrl.isEmpty) return [];
-    final isLocal =
-        _apiUrl.contains('localhost') || _apiUrl.contains('127.0.0.1');
-    if (_apiKey.isEmpty && !isLocal) return [];
+  /// Lists models from [apiUrl] (else this service's live URL). Pass the
+  /// target EXPLICITLY when fetching for a picker: this service is the ONE
+  /// shared client for Remote API and oMLX, and UI sites that called
+  /// `configure(...)` just to point a list-fetch somewhere were silently
+  /// re-routing the ACTIVE backend's chat traffic (opening Settings while on
+  /// oMLX sent every request to the Remote API provider until the next
+  /// storage sync). The overrides fetch without touching live state.
+  Future<List<RemoteModelInfo>> fetchAvailableModels({
+    String? apiUrl,
+    String? apiKey,
+  }) async {
+    final url = apiUrl ?? _apiUrl;
+    final key = apiKey ?? _apiKey;
+    if (url.isEmpty) return [];
+    final isLocal = url.contains('localhost') || url.contains('127.0.0.1');
+    if (key.isEmpty && !isLocal) return [];
 
     final client = http.Client();
     try {
-      final uri = Uri.parse('$_apiUrl/models');
+      final uri = Uri.parse('$url/models');
       debugPrint('[OpenRouter] Fetching models from: $uri');
       final response = await client
           .get(
             uri,
             headers: {
-              if (_apiKey.isNotEmpty) 'Authorization': 'Bearer $_apiKey',
+              if (key.isNotEmpty) 'Authorization': 'Bearer $key',
             },
           )
           .timeout(const Duration(seconds: 15));
@@ -256,33 +243,43 @@ class OpenRouterService extends LLMService {
     }
   }
 
-  @override
-  Stream<String> generateStream(GenerationParams params) async* {
-    if (!isReady) {
-      throw Exception(
-        'Remote API not configured. Please set API key and model.',
-      );
-    }
-
-    final uri = Uri.parse('$_apiUrl/chat/completions');
-
-    // Build messages array with proper role separation for chat APIs.
-    final messages = <Map<String, String>>[];
+  /// Chat-completions payload shared by [generateStream] and
+  /// [generateWithTools] (one builder, so the two paths can't drift).
+  Map<String, dynamic> _chatPayload(
+    GenerationParams params, {
+    required bool stream,
+  }) {
+    // Role-separated messages; user content is a plain string or, when
+    // images ride along, a multimodal array (see openAiUserContent).
+    final messages = <Map<String, Object>>[];
     if (params.systemPrompt != null && params.systemPrompt!.isNotEmpty) {
       messages.add({'role': 'system', 'content': params.systemPrompt!});
     }
-    messages.add({'role': 'user', 'content': params.prompt});
+    messages.add({'role': 'user', 'content': params.openAiUserContent});
 
+    // api.openai.com rejects unknown parameters outright, so it keeps the
+    // old conservative payload (frequency_penalty approximation, no
+    // extensions). Everyone else (OpenRouter, Nano-GPT, vLLM, LM Studio)
+    // supports or ignores the native sampler fields.
+    final strictOpenAi = _apiUrl.contains('openai.com');
     final payload = <String, dynamic>{
       'model': _modelName,
-      'stream': true,
+      'stream': stream,
       'max_tokens': params.maxLength,
       'temperature': params.temperature,
       'top_p': params.topP,
-      'frequency_penalty': params.repeatPenalty > 1.0
-          ? (params.repeatPenalty - 1.0).clamp(0.0, 2.0)
-          : 0.0,
       'messages': messages,
+      if (strictOpenAi)
+        'frequency_penalty': params.repeatPenalty > 1.0
+            ? (params.repeatPenalty - 1.0).clamp(0.0, 2.0)
+            : 0.0
+      else ...{
+        // The real thing — Rep Pen used to be mistranslated into
+        // frequency_penalty (1.15 → 0.15) and Min-P was dropped entirely.
+        'repetition_penalty': params.repeatPenalty,
+        'min_p': params.minP,
+        if (params.topK > 0) 'top_k': params.topK,
+      },
     };
 
     // Add reasoning params.
@@ -311,33 +308,107 @@ class OpenRouterService extends LLMService {
 
     // Add stop sequences if present
     if (params.stopSequences != null && params.stopSequences!.isNotEmpty) {
-      // OpenAI API supports max 4 stop sequences
+      // Remote providers commonly hard-cap `stop` at 4 (OpenAI spec). The
+      // list arrives priority-ordered (stop_sequences.dart) so these 4 are
+      // the most important — user stops first, then custom, then names. The
+      // client-side mid-stream trim enforces the rest of the list.
       payload['stop'] = params.stopSequences!.take(4).toList();
     }
+    return payload;
+  }
 
-    final request = http.Request('POST', uri);
-    request.headers['Content-Type'] = 'application/json';
-    request.headers['Authorization'] = 'Bearer $_apiKey';
+  /// Shared identification/auth headers for both request paths.
+  Map<String, String> get _chatHeaders => {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $_apiKey',
     // Identify the app for providers that support it
-    request.headers['HTTP-Referer'] =
-        'https://github.com/linux4life1/front-porch-AI';
-    request.headers['X-Title'] = 'Front Porch AI';
-    request.body = jsonEncode(payload);
+    'HTTP-Referer': 'https://github.com/linux4life1/front-porch-AI',
+    'X-Title': 'Front Porch AI',
+  };
+
+  /// OpenAI-style tool calling (non-streaming) — used by the Journal's
+  /// tool transport. Returns null on ANY failure (model/provider without
+  /// tool support, network error, malformed body): the caller treats null
+  /// as "use the text transport instead", so this never surfaces an error
+  /// for what is a best-effort upgrade.
+  @override
+  Future<LlmToolResponse?> generateWithTools(
+    GenerationParams params,
+    List<Map<String, dynamic>> tools,
+  ) async {
+    if (!isReady) return null;
+    final payload = _chatPayload(params, stream: false)
+      ..['tools'] = tools
+      ..['tool_choice'] = 'auto';
 
     final client = http.Client();
     _activeClient = client;
-    bool hasYieldedReasoningStart = false;
-    bool hasYieldedReasoningEnd = false;
+    try {
+      // No wall-clock timeout: a tool/eval call (incl. local oMLX via this same
+      // client) can legitimately run long on a slow model or reasoning pass. A
+      // dead connection throws (handled → null) and Cancel aborts, so a fixed
+      // cap only killed working calls.
+      final response = await client.post(
+        Uri.parse('$_apiUrl/chat/completions'),
+        headers: _chatHeaders,
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode != 200) {
+        debugPrint(
+          '[RemoteAPI] Tool call rejected (HTTP ${response.statusCode}) — '
+          'falling back to text transport',
+        );
+        return null;
+      }
+      return parseOpenAiToolResponse(response.body);
+    } catch (e) {
+      debugPrint('[RemoteAPI] Tool call failed: $e — falling back');
+      return null;
+    } finally {
+      if (identical(_activeClient, client)) _activeClient = null;
+      client.close();
+    }
+  }
+
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    if (!isReady) {
+      throw Exception(
+        'Remote API not configured. Please set API key and model.',
+      );
+    }
+
+    final request = http.Request(
+      'POST',
+      Uri.parse('$_apiUrl/chat/completions'),
+    );
+    request.headers.addAll(_chatHeaders);
+    request.body = jsonEncode(_chatPayload(params, stream: true));
+
+    final client = http.Client();
+    _activeClient = client;
     // Only wrap reasoning in <think> tags when the app explicitly requested it.
     // Some models (e.g. Qwen on LM Studio) send the entire response as
     // reasoning_content even when reasoning wasn't requested — wrapping those
-    // in <think> tags would hide the response entirely.
-    final wrapThinking = params.reasoningEnabled;
+    // in <think> tags would hide the response entirely. The shared wrapper is
+    // the same one the local KoboldCpp path uses (see streamOpenAiChat), so the
+    // two transports emit identical <think>…</think> framing.
+    //
+    // The arming condition here is bare `reasoningEnabled` (vs the local path's
+    // `reasoningEnabled && reasoningMaxTokens != 0`), and that is correct, not an
+    // oversight: this backend suppresses reasoning REQUEST-side via the
+    // `reasoning:{exclude:true}` object whenever `!reasoningEnabled` (see the
+    // payload builder), so the provider returns no reasoning to wrap. Every
+    // suppress path (Continue, evals) sets reasoningEnabled=false anyway, so the
+    // two predicates are equivalent in practice.
+    final wrapper = ReasoningTagWrapper(wrap: params.reasoningEnabled);
 
     try {
-      final response = await client
-          .send(request)
-          .timeout(const Duration(seconds: 120));
+      // No wall-clock timeout on the streamed reply (incl. local oMLX): a long
+      // reasoning/thinking generation streams for as long as it needs. A crashed
+      // connection ends the stream / throws (handled) and Cancel aborts, so the
+      // fixed cap only ever killed working generations.
+      final response = await client.send(request);
 
       if (response.statusCode != 200) {
         final body = await response.stream.bytesToString();
@@ -363,11 +434,8 @@ class OpenRouterService extends LLMService {
           if (line.isEmpty) continue;
           if (line == 'data: [DONE]' || line == 'data:[DONE]') {
             // Close reasoning block if still open
-            if (wrapThinking &&
-                hasYieldedReasoningStart &&
-                !hasYieldedReasoningEnd) {
-              yield '</think>\n';
-            }
+            final tail = wrapper.finish();
+            if (tail.isNotEmpty) yield tail;
             return;
           }
           if (!line.startsWith('data:')) continue;
@@ -388,31 +456,16 @@ class OpenRouterService extends LLMService {
             if (reasoning != null &&
                 reasoning is String &&
                 reasoning.isNotEmpty) {
-              if (wrapThinking) {
-                if (!hasYieldedReasoningStart) {
-                  yield '<think>';
-                  hasYieldedReasoningStart = true;
-                }
-                yield reasoning;
-              } else {
-                // Reasoning wasn't requested (e.g. forced off for Continue to match SillyTavern behavior).
-                // Discard it entirely instead of yielding as content. This prevents thinking text
-                // from leaking into the visible character response even if the model/provider
-                // still emits some reasoning deltas.
-              }
+              final out = wrapper.onReasoning(reasoning);
+              if (out.isNotEmpty) yield out;
               continue;
             }
 
-            // Handle regular content — close reasoning block first if needed
+            // Handle regular content — closes an open reasoning block first
             final content = delta['content'];
             if (content != null && content is String && content.isNotEmpty) {
-              if (wrapThinking &&
-                  hasYieldedReasoningStart &&
-                  !hasYieldedReasoningEnd) {
-                yield '</think>\n';
-                hasYieldedReasoningEnd = true;
-              }
-              yield content;
+              final out = wrapper.onContent(content);
+              if (out.isNotEmpty) yield out;
             }
           } catch (_) {
             // Skip malformed chunks
@@ -437,15 +490,13 @@ class OpenRouterService extends LLMService {
               if (reasoning != null &&
                   reasoning is String &&
                   reasoning.isNotEmpty) {
-                // Only yield if we actually requested/wrapped reasoning.
-                // Otherwise discard (SillyTavern-style strict handling for unrequested reasoning).
-                if (wrapThinking) {
-                  yield reasoning;
-                }
+                final out = wrapper.onReasoning(reasoning);
+                if (out.isNotEmpty) yield out;
               }
               final content = delta['content'];
               if (content != null && content is String && content.isNotEmpty) {
-                yield content;
+                final out = wrapper.onContent(content);
+                if (out.isNotEmpty) yield out;
               }
             }
           } catch (_) {}
@@ -453,9 +504,8 @@ class OpenRouterService extends LLMService {
       }
 
       // Close reasoning block if stream ended without [DONE]
-      if (wrapThinking && hasYieldedReasoningStart && !hasYieldedReasoningEnd) {
-        yield '</think>\n';
-      }
+      final tail = wrapper.finish();
+      if (tail.isNotEmpty) yield tail;
     } finally {
       _activeClient = null;
       client.close();

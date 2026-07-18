@@ -18,37 +18,40 @@
 
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
-import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 
-/// Plain needs injection builder (_getNeedsInjection).
-/// Per-char in group via cbs, 1:1 scalar, suppression, erotic special case, secondary note, post-crash.
-/// Step 8. Now uses NeedsSimulation.getLowNeedsForInjection (shared selection of up to 2 lowest
-/// at step <=4 / mild-or-worse) so early subtle hints are visible again and slow needs
-/// (Comfort, Hygiene) are not completely silenced by faster decayers. Progressive stepped
-/// text (mild → catastrophic) reaches the model earlier. Special bladder case preserved.
-/// Delegates step/urgency calc to sim helpers.
+/// Needs fragment builder for the words-only state block
+/// (docs/design/prompt-state-injection.md §3).
+///
+/// Emits 0–3 lines — ONLY the needs that are actually biting (effective step
+/// <= 4 after the enjoys-low-hygiene inversion, worst first, selection via
+/// [NeedsSimulation.getLowNeedsForInjection]) — as `Need: <stepped prose>`
+/// lines with NO numbers, NO urgency tags, NO wrapper, and NO collation
+/// paragraph. Sated needs are silent. The composer
+/// (realism_state_injection.dart) owns the block wrapper and the single
+/// guard sentence; raw values never reach the generation prompt (the
+/// simulation and eval prompts keep them).
+///
+/// Group parity: the speaker's OWN enjoys-low-hygiene flag rides both the
+/// selection (so a filthy-loving member can't corrupt which needs the others
+/// surface) and the wording (so the inverted text renders only for them).
 class NeedsInjection {
   final NeedsSimulation needsSimulation;
-  final NsfwService nsfwService;
   final bool Function() getNeedsSimEnabled;
   final bool Function() getRealismEnabled;
   final bool Function() getIsGroupNonObserverMode;
   final String Function() getCurrentSpeakerIdForRealism;
   final List<CharacterCard> Function() getGroupCharacters;
-  final CharacterCard? Function() getActiveCharacter;
   final bool Function() getEnjoysLowHygiene;
   final Map<String, int> Function(String charId) getGroupNeeds;
   final String Function(CharacterCard) getCharacterIdFromCard;
 
   NeedsInjection({
     required this.needsSimulation,
-    required this.nsfwService,
     required this.getNeedsSimEnabled,
     required this.getRealismEnabled,
     required this.getIsGroupNonObserverMode,
     required this.getCurrentSpeakerIdForRealism,
     required this.getGroupCharacters,
-    required this.getActiveCharacter,
     required this.getEnjoysLowHygiene,
     required this.getGroupNeeds,
     required this.getCharacterIdFromCard,
@@ -57,61 +60,48 @@ class NeedsInjection {
   String buildNeedsInjection() {
     if (!getNeedsSimEnabled() || !getRealismEnabled()) return '';
 
-    // Helper to build a compact status line for one need.
-    String _needLine(String key, int value) {
-      final eff = needsSimulation.getInjectionEffectiveStep(key, value);
-      final steppedList = NeedsSimulation.needSteppedText[key] ?? const <String>[];
-      final desc = (eff <= 4 && steppedList.isNotEmpty)
-          ? steppedList[eff.clamp(0, 4)]
-          : 'comfortable / no significant drive';
-      final tag = (eff >= 5)
-          ? 'sated'
-          : needsSimulation.getUrgencyPrefixForStep(eff).replaceAll(' — ', ' — ').replaceAll('this is ', '');
-      return '$key: $value/100 — $tag: $desc';
-    }
-
-    // Group mode (non-director) — per-character needs. Now emits a grouped, explicit block
-    // for *all* needs (with x/100) so the model can directly see the full vector and
-    // easily collate severity to behavior.
+    // Resolve the vector + the speaker's own hygiene flag (group per-speaker,
+    // 1:1 host). In group mode the shared active-character pointer is the
+    // PREVIOUS speaker after the realism dance, so the global flag would
+    // invert every member's hygiene when any one member enjoys being filthy.
+    final Map<String, int> vector;
+    final bool enjoysLowHygiene;
     if (getIsGroupNonObserverMode()) {
       final id = getCurrentSpeakerIdForRealism();
-      final needs = getGroupNeeds(id);
-      if (needs.isEmpty) return '';
-
-      final name = getGroupCharacters()
-          .firstWhere(
-            (c) => getCharacterIdFromCard(c) == id,
-            orElse: () => getGroupCharacters().isNotEmpty
-                ? getGroupCharacters().first
-                : CharacterCard(name: 'the character'),
-          )
-          .name;
-
-      final buf = StringBuffer();
-      buf.writeln('[Current Needs Status for $name — higher = more sated / less urgent (100=full, 0=critical)]');
-      for (final key in NeedsSimulation.needKeys) {
-        final v = needs[key] ?? NeedsSimulation.needDefaults[key] ?? 80;
-        buf.writeln(_needLine(key, v));
-      }
-      buf.writeln('[Collate these exact values: the character\'s physical presentation, energy level, hunger sensations, focus, willingness to exert, posture, small behaviors, and any natural internal references or dialogue this turn must be consistent with the current numbers. Lower values should be more prominent right now.]');
-      return buf.toString();
+      vector = getGroupNeeds(id);
+      final chars = getGroupCharacters();
+      final speakerCard = chars
+          .where((c) => getCharacterIdFromCard(c) == id)
+          .firstOrNull;
+      // On a lookup miss (or extensions unset) default to FALSE — never the
+      // shared getEnjoysLowHygiene() global, which points at the PREVIOUS
+      // speaker in a group and would leak their inversion into this
+      // speaker's selection and wording (review finding).
+      enjoysLowHygiene =
+          speakerCard?.frontPorchExtensions?.enjoysLowHygiene ?? false;
+    } else {
+      vector = needsSimulation.vector;
+      enjoysLowHygiene = getEnjoysLowHygiene();
     }
+    if (vector.isEmpty) return '';
 
-    // 1:1 path (same grouped explicit format for easy collation by the model)
-    if (needsSimulation.vector.isEmpty) return '';
+    final low = needsSimulation.getLowNeedsForInjection(
+      vector,
+      enjoysLowHygieneOverride: enjoysLowHygiene,
+    );
+    if (low.isEmpty) return '';
 
-    final charName = getActiveCharacter()?.name ?? 'the character';
-
-    // Special erotic bladder case is still supported but now inside the structured block
-    // for consistency (the old urgent override is rare; we keep the spirit by using the
-    // real value + strong tag).
-    final buf = StringBuffer();
-    buf.writeln('[Current Needs Status for $charName — higher = more sated / less urgent (100=full, 0=critical)]');
-    for (final key in NeedsSimulation.needKeys) {
-      final v = needsSimulation.vector[key] ?? NeedsSimulation.needDefaults[key] ?? 80;
-      buf.writeln(_needLine(key, v));
+    final lines = <String>[];
+    for (final need in low) {
+      final invertHygiene = need.key == 'hygiene' && enjoysLowHygiene;
+      final steppedList = invertHygiene
+          ? NeedsSimulation.hygieneSteppedTextWhenEnjoysLow
+          : NeedsSimulation.needSteppedText[need.key] ?? const <String>[];
+      if (steppedList.isEmpty) continue;
+      final label =
+          need.key[0].toUpperCase() + need.key.substring(1);
+      lines.add('$label: ${steppedList[need.effectiveStep.clamp(0, 4)]}');
     }
-    buf.writeln('[Collate these exact values: the character\'s physical presentation, energy level, hunger sensations, focus, willingness to exert, posture, small behaviors, and any natural internal references or dialogue this turn must be consistent with the current numbers. Lower values should be more prominent right now.]');
-    return buf.toString();
+    return lines.join('\n');
   }
 }

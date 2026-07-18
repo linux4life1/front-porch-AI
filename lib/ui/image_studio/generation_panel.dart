@@ -17,6 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Prominent deliberate "Generate Image" control + progress/status (per spec).
@@ -84,42 +87,67 @@ class GenerationPanel extends StatelessWidget {
     }
 
     if (isGenerating) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 42,
-                height: 42,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: AppColors.resolve(
-                    context,
-                    AppColors.formMasterAccent,
-                    AppColors.formMasterAccent,
+      // Live progress from ImageGenService: A1111/ComfyUI stream in-progress
+      // preview frames (the image forms in place), Draw Things reports step
+      // percent, remote APIs stay indeterminate.
+      return Consumer<ImageGenService>(
+        builder: (context, igs, _) {
+          final preview = igs.genPreview;
+          final progress = igs.genProgress;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (preview != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 260),
+                        child: Image.memory(
+                          preview,
+                          fit: BoxFit.contain,
+                          gaplessPlayback: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  SizedBox(
+                    width: 220,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 5,
+                        backgroundColor: AppColors.surfaceContainerOf(context),
+                        color: AppColors.formMasterAccent,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  Text(
+                    progress != null
+                        ? 'Painting… ${(progress * 100).round()}%'
+                        : 'Generating image...',
+                    style: TextStyle(
+                      color: AppColors.textSecondary(context),
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    'This may take 10-30 seconds',
+                    style: TextStyle(
+                      color: AppColors.textTertiary(context),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Generating image...',
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 13,
-                ),
-              ),
-              Text(
-                'This may take 10-30 seconds',
-                style: TextStyle(
-                  color: AppColors.textTertiary(context),
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
     }
 

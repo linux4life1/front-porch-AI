@@ -25,6 +25,8 @@ import 'package:front_porch_ai/services/update_service.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
 import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
+import 'package:front_porch_ai/ui/pages/repository_page.dart';
+import 'package:front_porch_ai/ui/pages/backups_page.dart';
 
 class Sidebar extends StatelessWidget {
   const Sidebar({super.key});
@@ -54,209 +56,307 @@ class Sidebar extends StatelessWidget {
               ),
             ),
           ),
-          _SidebarItem(
-            icon: Icons.home_outlined,
-            label: 'Home',
-            isSelected: appState.selectedIndex == 0,
-            onTap: () => appState.setIndex(0),
-          ),
-          InkWell(
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => CharacterCreatorPage())),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(
-                vertical: 12.0,
-                horizontal: 12.0,
-              ),
-              margin: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 4.0,
-              ),
-              child: Row(
+          // Nav list scrolls when the window is short, so the footer stays
+          // pinned and the column never overflows (the brand stays above it).
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.psychology,
-                    color: AppColors.resolve(
-                      context,
-                      Colors.amberAccent,
-                      Colors.amber.shade700,
-                    ),
-                    size: 22,
+                  _SidebarItem(
+                    icon: Icons.home_outlined,
+                    label: 'Home',
+                    isSelected: appState.selectedIndex == 0,
+                    onTap: () => appState.setIndex(0),
                   ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      'AI Character Creator',
-                      style: TextStyle(
+                  // The Stoop (community character hub) — a flagship destination, so it
+                  // sits right under Home.
+                  InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const RepositoryPage()),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      decoration: BoxDecoration(
                         color: AppColors.resolve(
                           context,
-                          Colors.amberAccent,
-                          Colors.amber.shade700,
+                          Colors.tealAccent.withValues(alpha: 0.08),
+                          Colors.teal.withValues(alpha: 0.10),
                         ),
-                        fontWeight: FontWeight.w600,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      overflow: TextOverflow.ellipsis,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12.0,
+                        horizontal: 12.0,
+                      ),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 4.0,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.travel_explore,
+                            color: AppColors.resolve(
+                              context,
+                              Colors.tealAccent,
+                              Colors.teal.shade700,
+                            ),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Text(
+                              'The Stoop',
+                              style: TextStyle(
+                                color: AppColors.resolve(
+                                  context,
+                                  Colors.tealAccent,
+                                  Colors.teal.shade700,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => CharacterCreatorPage()),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12.0,
+                        horizontal: 12.0,
+                      ),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 4.0,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.psychology,
+                            color: AppColors.resolve(
+                              context,
+                              Colors.amberAccent,
+                              Colors.amber.shade700,
+                            ),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Text(
+                              'AI Character Creator',
+                              style: TextStyle(
+                                color: AppColors.resolve(
+                                  context,
+                                  Colors.amberAccent,
+                                  Colors.amber.shade700,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.add_circle_outline,
+                    label: 'Create Character',
+                    isSelected: appState.selectedIndex == 1,
+                    onTap: () => appState.setIndex(1),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const CreateGroupChatPage(),
+                      ),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12.0,
+                        horizontal: 12.0,
+                      ),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 4.0,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.group_add,
+                            color: const Color(0xFF7C3AED),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Text(
+                              'Create Group Chat',
+                              style: TextStyle(
+                                color: const Color(0xFF7C3AED),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.dns_outlined,
+                    label: 'Manage Models',
+                    isSelected: appState.selectedIndex == 2,
+                    onTap: () => appState.setIndex(2),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.settings_outlined,
+                    label: 'Settings',
+                    isSelected: appState.selectedIndex == 3,
+                    onTap: () => appState.setIndex(3),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.person_outline,
+                    label: 'User Persona',
+                    isSelected: appState.selectedIndex == 4,
+                    onTap: () => appState.setIndex(4),
+                  ),
+                  _SidebarItem(
+                    icon: Icons.public_outlined,
+                    label: 'Worlds',
+                    isSelected: appState.selectedIndex == 5,
+                    onTap: () => appState.setIndex(5),
+                  ),
+                  // Local DB Backups & Restore — preserved from the removed Cloud Sync
+                  // page (it was never cloud-dependent). Opens as its own full page.
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0,
+                      vertical: 4.0,
+                    ),
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const BackupsPage()),
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12.0,
+                          horizontal: 12.0,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.settings_backup_restore,
+                              color: AppColors.iconSecondary(context),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                'Backups & Restore',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0,
+                      vertical: 4.0,
+                    ),
+                    child: InkWell(
+                      onTap: () =>
+                          launchUrl(Uri.parse('https://discord.gg/e4tET6rpdv')),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12.0,
+                          horizontal: 12.0,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.discord,
+                              color: Color(0xFF5865F2), // Discord brand blurple
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                'Join the Discord',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0,
+                      vertical: 4.0,
+                    ),
+                    child: InkWell(
+                      onTap: () => launchUrl(
+                        Uri.parse('https://ko-fi.com/sosukeaizen37411'),
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12.0,
+                          horizontal: 12.0,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.coffee_outlined,
+                              color: Color(0xFFFF5E5B), // Ko-fi brand coral
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                'Buy Me a Coffee ☕',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-          _SidebarItem(
-            icon: Icons.add_circle_outline,
-            label: 'Create Character',
-            isSelected: appState.selectedIndex == 1,
-            onTap: () => appState.setIndex(1),
-          ),
-          InkWell(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CreateGroupChatPage()),
-            ),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(
-                vertical: 12.0,
-                horizontal: 12.0,
-              ),
-              margin: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 4.0,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.group_add,
-                    color: const Color(0xFF7C3AED),
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      'Create Group Chat',
-                      style: TextStyle(
-                        color: const Color(0xFF7C3AED),
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          _SidebarItem(
-            icon: Icons.dns_outlined,
-            label: 'Manage Models',
-            isSelected: appState.selectedIndex == 2,
-            onTap: () => appState.setIndex(2),
-          ),
-          _SidebarItem(
-            icon: Icons.settings_outlined,
-            label: 'Settings',
-            isSelected: appState.selectedIndex == 3,
-            onTap: () => appState.setIndex(3),
-          ),
-          _SidebarItem(
-            icon: Icons.person_outline,
-            label: 'User Persona',
-            isSelected: appState.selectedIndex == 4,
-            onTap: () => appState.setIndex(4),
-          ),
-          _SidebarItem(
-            icon: Icons.public_outlined,
-            label: 'Worlds',
-            isSelected: appState.selectedIndex == 5,
-            onTap: () => appState.setIndex(5),
-          ),
-          _SidebarItem(
-            icon: Icons.cloud_sync_outlined,
-            label: 'Cloud Sync',
-            isSelected: appState.selectedIndex == 6,
-            onTap: () => appState.setIndex(6),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12.0,
-              vertical: 4.0,
-            ),
-            child: InkWell(
-              onTap: () =>
-                  launchUrl(Uri.parse('https://ko-fi.com/sosukeaizen37411')),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12.0,
-                  horizontal: 12.0,
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.coffee_outlined,
-                      color: Color(0xFFFF5E5B), // Ko-fi brand coral
-                      size: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        'Buy Me a Coffee ☕',
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Tooltip(
-                  message: 'Join our Discord Server',
-                  child: GestureDetector(
-                    onTap: () =>
-                        launchUrl(Uri.parse('https://discord.gg/e4tET6rpdv')),
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Icon(
-                        Icons.discord,
-                        size: 20,
-                        color: AppColors.textSecondary(context),
-                      ),
-                    ),
-                  ),
-                ),
-                Tooltip(
-                  message: 'Join our Matrix Server',
-                  child: GestureDetector(
-                    onTap: () =>
-                        launchUrl(Uri.parse('https://matrix.dreamersai.art')),
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Icon(
-                        Icons.grid_view_rounded,
-                        size: 20,
-                        color: AppColors.textSecondary(context),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
           Padding(

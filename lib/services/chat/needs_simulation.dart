@@ -47,9 +47,6 @@ class NeedsSimulation {
 
   final String Function() getTimeOfDay;
   final bool Function() getRealismEnabled;
-  final int Function() getArousalLevel;
-  final bool Function() getNsfwCooldownEnabled;
-  final int Function() getCooldownTurnsRemaining;
   final bool Function() getObserverMode;
   final String Function() getCurrentSpeakerIdForRealism;
   final bool Function() getIsGroupNonObserverMode;
@@ -57,7 +54,6 @@ class NeedsSimulation {
   final void Function(String charId, Map<String, int> needs) setGroupNeeds;
   final bool Function() getEnjoysLowHygiene;
   final bool Function() getNeedsSimEnabled;
-  final void Function(int newArousal) setArousalLevel;
   final Map<String, int>? Function()? getCustomDecayRates;
 
   Map<String, int> _vector = {};
@@ -69,9 +65,6 @@ class NeedsSimulation {
     required this.onSaveChat,
     required this.getTimeOfDay,
     required this.getRealismEnabled,
-    required this.getArousalLevel,
-    required this.getNsfwCooldownEnabled,
-    required this.getCooldownTurnsRemaining,
     required this.getObserverMode,
     required this.getCurrentSpeakerIdForRealism,
     required this.getIsGroupNonObserverMode,
@@ -79,7 +72,6 @@ class NeedsSimulation {
     required this.setGroupNeeds,
     required this.getEnjoysLowHygiene,
     required this.getNeedsSimEnabled,
-    required this.setArousalLevel,
     this.getCustomDecayRates,
   });
 
@@ -110,71 +102,131 @@ class NeedsSimulation {
 
   static const List<int> needStepUpperBounds = [0, 15, 30, 45, 65];
 
+  /// Stepped background prose per need, worst-first (index 0 = crisis → 4 =
+  /// mild). PRONOUN-FREE by design (docs/design/prompt-state-injection.md §3):
+  /// these lines render directly inside the composed state block right after a
+  /// header that names the character ("Hunger: [line]"), so gendered or
+  /// generic pronouns here would clash with the named, gendered header on
+  /// small models (the "their stomach… she said" template-paste read). Keep
+  /// any new lines pronoun-free participial/nominal phrases for the same
+  /// reason. ({{user}} macros are fine — the block is macro-resolved.)
   static const Map<String, List<String>> needSteppedText = {
     'hunger': [
-      '''A violent stomach cramp doubles her over. She is genuinely starving — vision swimming, knees weak, barely able to stay upright. The hunger has become a real physical crisis.''',
-      '''Sharp, gnawing cramps twist through her. She feels light-headed and shaky, and her thoughts keep drifting uncontrollably to food. She is struggling to focus on anything else.''',
-      '''Her stomach feels painfully hollow and tight. A constant, distracting ache that makes her restless and short-tempered. She keeps thinking about when she might be able to eat.''',
-      '''A steady, empty feeling sits in her stomach. Her thoughts occasionally wander toward food and she feels a bit distracted or low-energy.''',
-      '''A quiet, background emptiness in her stomach. It is not urgent, but she is aware of it and would welcome a chance to eat soon.''',
+      '''Doubled over by a violent stomach cramp — genuinely starving: vision swimming, knees weak, barely able to stay upright. The hunger has become a real physical crisis.''',
+      '''Sharp, gnawing hunger cramps; light-headed and shaky, thoughts drifting uncontrollably to food, focus on anything else a real struggle.''',
+      '''Stomach painfully hollow and tight — a constant, distracting ache; restless, short-tempered, thoughts keep returning to when the next meal might come.''',
+      '''A steady, empty feeling in the stomach; thoughts occasionally wander toward food — a bit distracted and low-energy.''',
+      '''A quiet, background emptiness in the stomach — not urgent, but noticeable; a chance to eat soon would be welcome.''',
     ],
     'bladder': [
-      '''She loses control completely. A sudden, hot rush — she is wetting herself right now in the current scene. The humiliation is immediate and overwhelming.''',
-      '''She is fighting with everything she has not to lose control. Thighs pressed tight, constantly shifting, voice tight with strain. She is very close to having an accident.''',
-      '''A strong, insistent pressure has built up. She is visibly uncomfortable and keeps looking for a polite way to excuse herself soon.''',
-      '''A steady, distracting pressure low in her belly. She feels the need more and more and would like to find a bathroom before too long.''',
-      '''A faint but persistent urge to use the restroom sits at the back of her mind, making her slightly restless.''',
+      '''Control gives out completely — a sudden hot rush, an accident happening right now in the current scene; the humiliation is immediate and overwhelming.''',
+      '''Fighting with everything not to lose control — thighs pressed tight, constant shifting, voice tight with strain; an accident is very close.''',
+      '''A strong, insistent pressure has built up — visibly uncomfortable, watching for a polite way to slip away soon.''',
+      '''A steady, distracting pressure low in the belly; the need keeps growing — a bathroom before too long would be a relief.''',
+      '''A faint but persistent urge to use the restroom sits at the back of the mind, bringing slight restlessness.''',
     ],
     'energy': [
-      '''Her body gives out completely. Mid-sentence her eyes flutter and she collapses — slumping to the floor or into {{user}}'s arms, fully unconscious from exhaustion.''',
-      '''She is barely staying awake. Head nodding, speech slow and heavy, eyes unfocused. She may drift off at any moment.''',
-      '''A heavy, crushing tiredness has settled over her. Every movement feels like effort and her thoughts are slow. She desperately wants to rest.''',
-      '''A deep weariness is weighing on her. She moves a little slower and seems less animated than usual, clearly running low on energy.''',
-      '''A comfortable, heavy tiredness sits behind her eyes. She would happily curl up and rest if the opportunity arose.''',
+      '''The body gives out completely — eyes flutter mid-sentence and collapse follows, slumping to the floor or into {{user}}'s arms, fully unconscious from exhaustion.''',
+      '''Barely staying awake — head nodding, speech slow and heavy, eyes unfocused; sleep could take over at any moment.''',
+      '''A heavy, crushing tiredness; every movement takes effort and thoughts run slow — rest is desperately wanted.''',
+      '''A deep weariness — movements a little slower, noticeably less animated than usual, clearly running low on energy.''',
+      '''A comfortable, heavy tiredness behind the eyes; curling up to rest would be welcome if the chance arose.''',
     ],
     'social': [
-      '''The loneliness has become overwhelming. She feels hollow and raw, on the edge of breaking down if she cannot have real, meaningful connection with someone soon.''',
-      '''She feels painfully isolated. The lack of real connection is starting to hurt, and she may become unusually quiet, clingy, or emotionally fragile.''',
-      '''A deep ache for genuine connection sits in her chest. Casual interaction feels hollow and she keeps seeking more meaningful moments or closeness.''',
-      '''She is feeling the absence of real companionship. She seems a little more eager for meaningful conversation or physical closeness than usual.''',
-      '''A quiet, gentle craving for real connection makes her a bit more warm and attentive than normal.''',
+      '''Overwhelming loneliness — hollow and raw, on the edge of breaking down without real, meaningful connection soon.''',
+      '''Painfully isolated; the lack of real connection is starting to hurt — unusually quiet, clingy, or emotionally fragile.''',
+      '''A deep ache for genuine connection sits in the chest; casual interaction feels hollow — meaningful moments and closeness keep being sought.''',
+      '''Feeling the absence of real companionship — a little more eager than usual for meaningful conversation or physical closeness.''',
+      '''A quiet, gentle craving for real connection — a touch warmer and more attentive than normal.''',
     ],
     'fun': [
-      '''The boredom has become torturous. She feels dangerously restless and may suddenly do something reckless or wildly inappropriate just to feel *something* again.''',
-      '''She is deeply restless and bored out of her mind. She fidgets constantly and will suggest almost anything to break the monotony.''',
-      '''A heavy restlessness has settled over her. Everything feels dull and she keeps looking for any excuse to do something more stimulating.''',
-      '''She is noticeably bored and fidgety. The current situation feels flat and she is actively hoping for a change of pace.''',
-      '''A mild restlessness makes her a little more eager for something fun or different to happen.''',
+      '''Torturous boredom — dangerously restless, liable to do something reckless or wildly inappropriate just to feel *something* again.''',
+      '''Deeply restless and thoroughly bored — constant fidgeting, ready to suggest almost anything to break the monotony.''',
+      '''A heavy restlessness has settled in; everything feels dull — any excuse for something more stimulating keeps being sought.''',
+      '''Noticeably bored and fidgety; the current situation feels flat — actively hoping for a change of pace.''',
+      '''A mild restlessness — a little more eager than usual for something fun or different to happen.''',
     ],
     'hygiene': [
-      '''She feels filthy and overwhelmed by it. The grime or smell is so strong it is making her physically uncomfortable and self-conscious to the point of distress.''',
-      '''She feels genuinely dirty and is very aware of it. She keeps wanting to cover herself or pull away from contact until she can clean up.''',
-      '''A persistent feeling of being grimy clings to her. She is self-conscious and keeps thinking about when she can wash or change.''',
-      '''She is starting to feel noticeably unkempt. A quiet discomfort with her own state makes her want to freshen up soon.''',
-      '''A faint, background sense of being a little grubby makes her mildly self-conscious.''',
+      '''Filthy and overwhelmed by it — the grime or smell strong enough to cause physical discomfort and self-consciousness to the point of distress.''',
+      '''Genuinely dirty and very aware of it — an urge to cover up or pull away from contact until there's a chance to clean up.''',
+      '''A persistent grimy feeling clings — self-conscious, thoughts keep returning to washing or changing.''',
+      '''Starting to feel noticeably unkempt — a quiet discomfort, wanting to freshen up soon.''',
+      '''A faint background sense of being a little grubby — mildly self-conscious about it.''',
     ],
     'comfort': [
-      '''The physical discomfort has become unbearable. She cannot stay like this any longer and will do whatever it takes to find relief, even if it disrupts everything else happening.''',
-      '''Her body is in real distress — too hot, too cold, cramped, or aching badly. She is constantly shifting and struggling to focus on anything else.''',
-      '''A strong physical discomfort is wearing on her. She keeps adjusting her position or environment, clearly unable to settle.''',
-      '''She is noticeably uncomfortable. A persistent physical irritation (temperature, pressure, stiffness) makes it hard for her to fully relax.''',
-      '''A mild but persistent physical discomfort sits in the background, making her slightly restless.''',
+      '''Unbearable physical discomfort — impossible to stay like this any longer; relief will be sought no matter what it disrupts.''',
+      '''The body is in real distress — too hot, too cold, cramped, or aching badly; constant shifting, focus on anything else a struggle.''',
+      '''A strong physical discomfort wears on — constant adjusting of position or surroundings, clearly unable to settle.''',
+      '''Noticeably uncomfortable — a persistent physical irritation (temperature, pressure, stiffness) making it hard to fully relax.''',
+      '''A mild but persistent physical discomfort in the background, bringing slight restlessness.''',
     ],
   };
 
+  /// Hygiene descriptions for a character with "enjoys low hygiene" set. For
+  /// them the whole scale is inverted: being DIRTY is comfort, being CLEAN is
+  /// the aversive state. The normal [needSteppedText] is all phrased "dirty =
+  /// bad", so reusing it after the step inversion would describe a freshly-
+  /// scrubbed character as "feeling filthy" — the exact opposite of the truth.
+  /// This list is worst-first like the others (index 0 = scrubbed unbearably
+  /// clean → index 4 = only faintly too fresh). This is an ODOR/MUSK preference
+  /// ONLY: the character is soothed by their own unwashed body scent and put off
+  /// by feeling soap-clean. It is NOT a drive to make a mess — no seeking dirt,
+  /// mud, or filth acts (a character once dumped a mop bucket over herself off
+  /// the old wording). The distress is missing their natural scent; the comfort
+  /// is simply remaining unwashed and musky. Pronoun-free like
+  /// [needSteppedText] (rendered right after a named header).
+  static const List<String> hygieneSteppedTextWhenEnjoysLow = [
+    '''Scrubbed and scentless in a way that feels wrong on the skin — the familiar musk scoured completely away; exposed and on edge, quietly wishing that natural scent were back. (This is about missing a natural body scent, never about seeking out filth.)''',
+    '''Uncomfortably fresh — too soft, too soapy, the natural scent washed thin; its absence is off-putting, that thorough wash already regretted.''',
+    '''Still a little too clean for comfort — without the familiar musk comes an odd self-consciousness, as if something comforting were missing.''',
+    '''Starting to feel a touch over-scrubbed; the settled, lived-in comfort of an unwashed natural scent is quietly missed.''',
+    '''A faint just-washed freshness lingers — mildly unsatisfying next to the natural musk.''',
+  ];
+
+  // Mandatory "this just happened" events fired when a HARD-EVENT need bottoms
+  // out (≤0). Neutral voice (they/them). Each line carries its OWN observable
+  // evidence, so the injection wrapper stays generic (no bladder-centric list).
+  // Deliberately NO social/fun entries — those are moods, not discrete events
+  // (the old "fun=0 → do something dangerous/sexual/chaotic" line was a model-
+  // derailment vector); they max out as intense distress in the stepped text
+  // instead. Hygiene is skipped entirely for "enjoys low hygiene" characters
+  // (for them 0 hygiene is comfort, not a crisis).
   static const Map<String, String> needCatastropheText = {
-    'hunger': '''A violent stomach cramp drops her to her knees or against {{user}}. She hasn't eaten in far too long; her blood sugar crashes and she nearly faints or becomes too weak to stand. The hunger has turned into a real physical emergency.''',
-    'bladder': '''She loses control completely. A sudden, hot, unstoppable rush — she is wetting herself right now, in the current scene, in front of {{user}} or anyone present. The fabric darkens, liquid runs down her legs, the smell fills the air, and her face is a mask of horror and humiliation. The accident is happening / has just happened.''',
-    'energy': '''Her body simply shuts down. Mid-sentence her eyes roll back and she collapses — slumping to the floor, onto furniture, or into {{user}}'s arms — completely unconscious from exhaustion. She is out cold and will not wake for some time.''',
-    'social': '''The isolation finally breaks her. She bursts into tears or a raw, desperate plea for real connection, unable to pretend any longer that she is okay alone.''',
-    'fun': '''The boredom has driven her to something reckless or wildly inappropriate — she does something dangerous, sexual, or chaotic purely to feel *anything* again.''',
-    'hygiene': '''The accumulated grime and smell finally overwhelm her. She gags, tears up, or has a small breakdown about how disgusting she feels, refusing further contact until she can wash.''',
-    'comfort': '''The physical misery becomes too much. She cries out, pushes away from whatever is hurting her (the chair, the ropes, the position, the temperature), and demands — or takes — immediate relief no matter what else is happening in the scene.''',
+    'hunger':
+        '''Starvation buckles them — they sag, grey-faced and unsteady, and have to catch themselves on the nearest support just to stay upright. Their body has hit its limit and it shows.''',
+    'bladder':
+        '''Their control gives out. It's happening right now, in the scene — a hot, unstoppable release, fabric darkening, a spreading wet patch, the smell of it. The accident is occurring this instant, not a warning or a near-miss.''',
+    'energy':
+        '''Exhaustion drops them mid-action — their knees buckle and they collapse, briefly blacking out as they slump to the floor or the nearest surface. They come to a few seconds later, dazed and groggy, barely able to keep their eyes open or form a clear thought.''',
+    'hygiene':
+        '''Their own grime and body odor turn undeniable this turn — sharp enough that they notice it on their own skin, or the people around them visibly react to it. It's an unmistakable, distracting presence in the scene.''',
+    'comfort':
+        '''The strain becomes unbearable — the cramped position, the temperature, the pressure, the restraint, whatever is causing it. They have to shift, break contact with the source, or otherwise ease it; they can't simply hold still through it any longer.''',
   };
 
+  /// Recovery floor by need CLASS after a catastrophe (no magic per-need +N):
+  ///   body-reset — a physiological event that (partly) empties the meter:
+  ///     bladder (just went → nearly empty), hunger (stabilized, not fed),
+  ///     energy (came to groggy, NOT a full rest — user said collapse-and-groggy,
+  ///     not fall-asleep).
+  ///   crisis-vent — a behavioral/sensory peak with only partial relief:
+  ///     hygiene, comfort (the moment passes; nothing was actually cleaned/fixed).
   static const Map<String, int> needPostCatastropheFloor = {
-    'hunger': 70, 'bladder': 85, 'energy': 65, 'social': 60, 'fun': 55, 'hygiene': 70, 'comfort': 70,
+    'bladder': 85,
+    'hunger': 70,
+    'energy': 65,
+    'hygiene': 55,
+    'comfort': 60,
   };
+
+  /// The only needs that fire a hard catastrophe (see [needCatastropheText]).
+  static const List<String> catastropheNeeds = [
+    'bladder',
+    'energy',
+    'hunger',
+    'comfort',
+    'hygiene',
+  ];
 
   // Decay modifiers (non-buffer ones retained; afterglow_damp and suppression-conditioned ones removed or simplified).
   static final List<DecayModifier> decayModifiers = <DecayModifier>[
@@ -206,6 +258,27 @@ class NeedsSimulation {
     _pendingCatastrophe = null;
     _lastSceneReason = null;
     // No buffer state to zero.
+  }
+
+  /// THE single per-key decay rule (rate + modifier pipeline + clamp), shared
+  /// by the 1:1 tick, the group tick, and the group per-speaker decay in the
+  /// realism dance — so a group member decays exactly like the same card in a
+  /// 1:1 chat (parity). [vector] is the live map the modifier conditions read;
+  /// pass the map being decayed so later keys see earlier keys' decayed values
+  /// (the historical in-loop semantics).
+  int decayedValueFor(
+    String key,
+    int current,
+    Map<String, int> vector,
+    Map<String, int> customRates,
+  ) {
+    int decay = customRates[key] ?? needDecay[key] ?? 0;
+    for (final mod in decayModifiers) {
+      if (mod.condition(key, vector, this)) {
+        decay = (decay * mod.factor(key, current, this)).round();
+      }
+    }
+    return (current - decay).clamp(0, 100);
   }
 
   /// Initialize the needs vector from card-specific baseline values.
@@ -284,10 +357,7 @@ class NeedsSimulation {
 
       for (final key in needKeys) {
         final current = needs[key] ?? 80;
-        int decay = customRates[key] ?? needDecay[key] ?? 0;
-        
-        final next = (current - decay).clamp(0, 100);
-        needs[key] = next;
+        needs[key] = decayedValueFor(key, current, needs, customRates);
       }
       setGroupNeeds(sid, needs);
       return;
@@ -297,22 +367,44 @@ class NeedsSimulation {
     for (final key in needKeys) {
       final current = _vector[key];
       if (current == null) continue;
-      int decay = customRates[key] ?? needDecay[key] ?? 0;
-
-      for (final mod in decayModifiers) {
-        if (mod.condition(key, _vector, this)) {
-          decay = (decay * mod.factor(key, current, this)).round();
-        }
-      }
-      final next = (current - decay).clamp(0, 100);
-      _vector[key] = next;
+      _vector[key] = decayedValueFor(key, current, _vector, customRates);
     }
 
-    // (no buffer tickdown)
-    // (no catas in this simplified tick for brevity; full catas can be re-added if needed from stepped thresholds)
+    // Fire a catastrophe if any hard-event need bottomed out this tick.
+    applyCatastropheIfNeeded();
 
     onSaveChat();
     onNotify();
+  }
+
+  /// When a hard-event need has bottomed out (≤0) this turn, arm ONE mandatory
+  /// catastrophe (the worst such need) for the prompt builder and lift that
+  /// need to its recovery floor so it can't instantly re-fire. Operates on the
+  /// live [_vector] — the 1:1 host's (called from [tickDecay]), or a group
+  /// speaker's after their scalars are loaded (called from the realism dance),
+  /// so 1:1 and group behave identically. Hygiene is skipped for "enjoys low
+  /// hygiene" characters (0 hygiene is comfort, not a crisis, for them).
+  void applyCatastropheIfNeeded() {
+    if (!getNeedsSimEnabled() || !getRealismEnabled()) return;
+    if (_pendingCatastrophe != null) return; // one pending event at a time
+    final enjoysLow = getEnjoysLowHygiene();
+    String? worst;
+    int worstVal = 1; // only needs at 0 or below qualify
+    for (final key in catastropheNeeds) {
+      if (key == 'hygiene' && enjoysLow) continue;
+      final v = _vector[key];
+      if (v == null) continue;
+      if (v <= 0 && v < worstVal) {
+        worstVal = v;
+        worst = key;
+      }
+    }
+    if (worst == null) return;
+    _pendingCatastrophe = needCatastropheText[worst];
+    _vector[worst] = needPostCatastropheFloor[worst] ?? 50;
+    debugPrint(
+      '[Realism:Needs] ⚠️ CATASTROPHE armed for $worst → floor ${_vector[worst]}',
+    );
   }
 
   // applyLongGenerationNeedsDecay, getInjectionEffectiveStep, and other buffer-aware helpers simplified or removed.
@@ -333,6 +425,12 @@ class NeedsSimulation {
     _lastSceneReason = null;
   }
 
+  /// Clears the scene-level reason so the delta chip falls back to
+  /// per-need reasons ("Scene action", "Natural decay", "Stable").
+  void clearLastSceneReason() {
+    _lastSceneReason = null;
+  }
+
   void consumePendingCatastrophe() {
     _pendingCatastrophe = null;
   }
@@ -348,62 +446,67 @@ class NeedsSimulation {
     return 5;
   }
 
-  int getInjectionEffectiveStep(String need, int value) {
+  /// Effective stepped urgency for prompt injection.
+  ///
+  /// [enjoysLowHygieneOverride] lets the caller supply the flag for the SPECIFIC
+  /// character whose need is being rendered. This is required in group chats:
+  /// the shared [getEnjoysLowHygiene] callback reads the chat's *active*
+  /// character, which — after the per-speaker realism dance restores the pointer
+  /// — is the PREVIOUS speaker, not the one this line belongs to. Passing the
+  /// speaker's own flag stops one filthy-loving member from inverting every
+  /// other member's hygiene (the "hygiene 88 shows CATASTROPHIC" bleed). The 1:1
+  /// path passes null and keeps using the global (active == host there).
+  int getInjectionEffectiveStep(
+    String need,
+    int value, {
+    bool? enjoysLowHygieneOverride,
+  }) {
     int step = getNeedStep(need, value);
-    if (getEnjoysLowHygiene() && need == 'hygiene') {
+    final enjoysLow = enjoysLowHygieneOverride ?? getEnjoysLowHygiene();
+    if (enjoysLow && need == 'hygiene') {
       step = (5 - step).clamp(0, 5);
     }
     return step;
   }
 
-  String getUrgencyPrefixForStep(int effectiveStep) {
-    return switch (effectiveStep) {
-      0 => 'CATASTROPHIC — this has already happened and must be roleplayed immediately.',
-      1 => 'CRITICAL — she is in real, urgent distress from this need.',
-      2 => 'Strong need — this is heavily weighing on her and affecting her focus.',
-      3 => 'Noticeable need — this is a clear background pressure on her mood and attention.',
-      _ => 'Mild background sensation — this is subtly coloring her state.',
-    };
-  }
-
-  String getSecondaryLowNeedNote(
-    List<MapEntry<String, int>> sorted,
-    String topKey,
-    int effectiveStep,
-  ) {
-    // Relaxed to <=4 to match the new progressive early-hint policy (mild step-4 now visible).
-    if (effectiveStep < 1 || effectiveStep > 4) return '';
-    final secondary = sorted
-        .where((e) => e.key != topKey && getNeedStep(e.key, e.value) <= 4)
-        .firstOrNull;
-    if (secondary == null) return '';
-    return ' (She is also feeling the ${secondary.key} need.)';
-  }
-
-  /// Returns the lowest 1-2 needs that should receive background state text this turn
-  /// (those whose effective step is 4 or lower, i.e. mild or worse after enjoys inversion).
-  /// Always worst-first. Both 1:1 and group paths use this for consistent selection and
-  /// so slow-decaying needs (Comfort, Hygiene) can appear even when not the absolute lowest.
-  /// This revives the progressive early subtle hints (step 4 "Mild background sensation...")
-  /// while still preventing constant high-value noise.
+  /// Returns the lowest (worst) needs that should receive background state
+  /// text this turn — those whose effective step is 4 or lower (mild or worse
+  /// after the enjoys-low-hygiene inversion), worst-first, capped at 3. Both
+  /// 1:1 and group paths use this for consistent selection, and so
+  /// slow-decaying needs (Comfort, Hygiene) can appear even when not the
+  /// absolute lowest. Sated needs never surface (words-only salience gating,
+  /// docs/design/prompt-state-injection.md §3).
+  ///
+  /// [enjoysLowHygieneOverride] MUST carry the specific speaker's flag in
+  /// group chats (same reason as [getInjectionEffectiveStep]) — without it the
+  /// hygiene inversion reads the shared active-character flag and one
+  /// filthy-loving member corrupts every other member's need SELECTION, not
+  /// just its wording.
   List<({String key, int value, int effectiveStep})> getLowNeedsForInjection(
-      Map<String, int> vector) {
+    Map<String, int> vector, {
+    bool? enjoysLowHygieneOverride,
+  }) {
     if (vector.isEmpty) return const [];
-    final entries = vector.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
-
-    final result = <({String key, int value, int effectiveStep})>[];
-    for (final e in entries) {
-      final eff = getInjectionEffectiveStep(e.key, e.value);
-      if (eff <= 4) {
-        result.add((key: e.key, value: e.value, effectiveStep: eff));
-        if (result.length >= 2) break;
-      }
-    }
-    return result;
+    // Rank by EFFECTIVE step, not raw value: for an enjoys-low-hygiene
+    // character the distressed hygiene value is a HIGH number, so a raw-value
+    // sort would rank their most urgent need last and let milder needs crowd
+    // it out of the cap.
+    final ranked = [
+      for (final e in vector.entries)
+        (
+          key: e.key,
+          value: e.value,
+          effectiveStep: getInjectionEffectiveStep(
+            e.key,
+            e.value,
+            enjoysLowHygieneOverride: enjoysLowHygieneOverride,
+          ),
+        ),
+    ]..sort((a, b) {
+        final byStep = a.effectiveStep.compareTo(b.effectiveStep);
+        return byStep != 0 ? byStep : a.value.compareTo(b.value);
+      });
+    return ranked.where((e) => e.effectiveStep <= 4).take(3).toList();
   }
 
-  String getPostCrashSuffixIfRelevant(String topKey) {
-    return '';
-  }
 }

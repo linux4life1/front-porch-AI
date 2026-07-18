@@ -40,6 +40,12 @@ class RealismProgressRow extends StatelessWidget {
   final String? tooltip;
   final bool compact;
 
+  /// When non-null, overrides the ±maxValue normalization with an explicit
+  /// 0..1 fill (used by the 1:1 sidebar's "progress toward next tier" bars —
+  /// relationshipService.*ProgressPercent). Group cards omit it and keep the
+  /// absolute ±max fill, pixel-identical to before.
+  final double? progress;
+
   const RealismProgressRow({
     super.key,
     required this.label,
@@ -51,15 +57,21 @@ class RealismProgressRow extends StatelessWidget {
     this.maxValue = 300,
     this.tooltip,
     this.compact = false,
+    this.progress,
   });
 
   @override
   Widget build(BuildContext context) {
     final isNegative = value < 0;
-    final displayColor = isNegative ? Colors.redAccent : color;
+    final displayColor = isNegative
+        ? AppColors.negativeAccentOf(context)
+        : color;
     final absVal = value.abs();
     final target = maxValue;
-    final norm = ((value + maxValue) / (maxValue * 2.0)).clamp(0.0, 1.0);
+    final norm = (progress ?? ((value + maxValue) / (maxValue * 2.0))).clamp(
+      0.0,
+      1.0,
+    );
 
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,11 +120,9 @@ class RealismProgressRow extends StatelessWidget {
           child: LinearProgressIndicator(
             value: norm,
             minHeight: compact ? 3 : 5,
-            backgroundColor: AppColors.resolve(
+            backgroundColor: AppColors.borderOf(
               context,
-              Colors.white10,
-              Colors.black.withValues(alpha: 0.08),
-            ),
+            ).withValues(alpha: 0.35),
             valueColor: AlwaysStoppedAnimation<Color>(displayColor),
           ),
         ),

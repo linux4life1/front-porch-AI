@@ -1,9 +1,9 @@
 #!/bin/bash
 # Front Porch AI - APT Repository Installer
-# Usage: curl -fsSL https://apt.dreamersai.art/install.sh | bash
+# Usage: curl -fsSL https://apt.frontporchai.app/install.sh | bash
 set -euo pipefail
 
-REPO_URL="https://apt.dreamersai.art"
+REPO_URL="https://apt.frontporchai.app"
 KEYRING_PATH="/etc/apt/keyrings/front-porch-ai.gpg"
 LIST_PATH="/etc/apt/sources.list.d/front-porch-ai.list"
 

@@ -16,187 +16,49 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-class LorebookEntry {
-  String name; // Display name for the entry
-  String key; // Keywords to trigger this entry (comma-separated)
-  String content; // The actual lore content
-  bool enabled;
-  bool isTriggered; // Runtime state for UI indication
-  bool constant; // Always active if true
-  int stickyDepth; // How many messages it stays active
-  int remainingDepth; // Runtime counter
+import 'package:front_porch_ai/models/lorebook_codec.dart';
+import 'package:front_porch_ai/models/lorebook_entry.dart';
 
-  LorebookEntry({
-    this.name = '',
-    required this.key,
-    required this.content,
-    this.enabled = true,
-    this.isTriggered = false,
-    this.constant = false,
-    this.stickyDepth = 1,
-    this.remainingDepth = 0,
-  });
+export 'package:front_porch_ai/models/lorebook_entry.dart';
 
-  /// Display label: name if available, otherwise key, otherwise 'Unnamed Entry'
-  String get displayName {
-    if (name.isNotEmpty) return name;
-    if (key.isNotEmpty) return key;
-    return 'Unnamed Entry';
-  }
+/// A collection of lorebook entries plus the V2 character_book book-level
+/// settings (stored for round-trip; the scan engine adopts them in the
+/// engine-parity phase).
+class Lorebook {
+  List<LorebookEntry> entries;
+  int? scanDepth;
+  int? tokenBudget;
+  bool? recursiveScanning;
 
+  /// Unknown book-level fields preserved for lossless round-trip.
+  Map<String, dynamic> extensions;
+
+  Lorebook({
+    required this.entries,
+    this.scanDepth,
+    this.tokenBudget,
+    this.recursiveScanning,
+    Map<String, dynamic>? extensions,
+  }) : extensions = extensions ?? <String, dynamic>{};
+
+  /// Internal FPAI blob shape (what the DB columns store).
   Map<String, dynamic> toJson() {
     return {
-      'name': name,
-      'key': key,
-      'keys': key
-          .split(',')
-          .map((k) => k.trim())
-          .where((k) => k.isNotEmpty)
-          .toList(),
-      'content': content,
-      'enabled': enabled,
-      'constant': constant,
-      'sticky_depth': stickyDepth,
+      'entries': entries.map((e) => e.toJson()).toList(),
+      if (scanDepth != null) 'scan_depth': scanDepth,
+      if (tokenBudget != null) 'token_budget': tokenBudget,
+      if (recursiveScanning != null) 'recursive_scanning': recursiveScanning,
+      if (extensions.isNotEmpty) 'extensions': extensions,
     };
   }
 
-  factory LorebookEntry.fromJson(Map<String, dynamic> json) {
-    // ── Extract keys ──────────────────────────────────────────────────────
-    // Priority: keys[] > key[] > key(string) > secondary_keys[] > keysecondary[]
-    // SillyTavern: key is array, keysecondary is array
-    // Chub: key is array, keys is duplicate array, secondary_keys/keysecondary
-    // Front Porch: key is comma-separated string
-    final List<String> allKeys = [];
+  /// Tolerant decode of any supported shape: FPAI blob, ST world info,
+  /// V2/V3 character_book, NovelAI, AgnAI, or RisuAI (see lorebook_codec).
+  factory Lorebook.fromJson(Map<String, dynamic> json) => decodeLorebook(json);
 
-    // Primary keys
-    if (json['keys'] != null) {
-      _addKeysToList(json['keys'], allKeys);
-    } else if (json['key'] != null) {
-      _addKeysToList(json['key'], allKeys);
-    }
-
-    // Secondary keys (append to primary)
-    if (json['secondary_keys'] != null) {
-      _addKeysToList(json['secondary_keys'], allKeys);
-    } else if (json['keysecondary'] != null) {
-      _addKeysToList(json['keysecondary'], allKeys);
-    }
-
-    final String keyStr = allKeys.join(', ');
-
-    // ── Extract name ──────────────────────────────────────────────────────
-    // Chub: 'name' field
-    // SillyTavern: 'comment' field
-    // Front Porch: 'name' field
-    final String name =
-        json['name']?.toString() ?? json['comment']?.toString() ?? '';
-
-    // ── Extract enabled state ─────────────────────────────────────────────
-    // Chub: 'enabled' (true = enabled)
-    // SillyTavern: 'disable' (true = disabled)
-    // Front Porch: 'enabled'
-    bool enabled = true;
-    if (json['enabled'] != null) {
-      enabled = json['enabled'] == true;
-    } else if (json['disable'] != null) {
-      enabled = json['disable'] != true;
-    }
-
-    // ── Extract constant ──────────────────────────────────────────────────
-    final bool constant = json['constant'] == true;
-
-    // ── Extract sticky depth ──────────────────────────────────────────────
-    // Various field names across formats
-    int stickyDepth = 1;
-    if (json['sticky_depth'] is int) {
-      stickyDepth = json['sticky_depth'] as int;
-    } else if (json['insertion_order'] is int) {
-      stickyDepth = json['insertion_order'] as int;
-    } else if (json['depth'] is int) {
-      stickyDepth = json['depth'] as int;
-    } else if (json['sticky'] is int) {
-      stickyDepth = json['sticky'] as int;
-    }
-
-    return LorebookEntry(
-      name: name,
-      key: keyStr,
-      content: json['content']?.toString() ?? '',
-      enabled: enabled,
-      constant: constant,
-      stickyDepth: stickyDepth > 0 ? stickyDepth : 1,
-    );
-  }
-
-  /// Helper to add keys from various formats into a list.
-  /// Handles: List of strings, single string, or comma-separated string.
-  static void _addKeysToList(dynamic value, List<String> target) {
-    if (value == null) return;
-
-    if (value is List) {
-      for (final item in value) {
-        if (item != null) {
-          final str = item.toString().trim();
-          if (str.isNotEmpty) {
-            target.add(str);
-          }
-        }
-      }
-    } else if (value is String) {
-      // Could be comma-separated or a single key
-      if (value.contains(',')) {
-        for (final part in value.split(',')) {
-          final trimmed = part.trim();
-          if (trimmed.isNotEmpty) {
-            target.add(trimmed);
-          }
-        }
-      } else {
-        final trimmed = value.trim();
-        if (trimmed.isNotEmpty) {
-          target.add(trimmed);
-        }
-      }
-    }
-  }
-}
-
-class Lorebook {
-  List<LorebookEntry> entries;
-
-  Lorebook({required this.entries});
-
-  Map<String, dynamic> toJson() {
-    return {'entries': entries.map((e) => e.toJson()).toList()};
-  }
-
-  factory Lorebook.fromJson(Map<String, dynamic> json) {
-    final dynamic entriesData = json['entries'];
-    List<Map<String, dynamic>> entriesList = [];
-
-    if (entriesData == null) {
-      // No entries at all
-      return Lorebook(entries: []);
-    } else if (entriesData is List) {
-      // Front Porch format: entries is a List
-      entriesList = entriesData.whereType<Map<String, dynamic>>().toList();
-    } else if (entriesData is Map) {
-      // SillyTavern / Chub format: entries is a Map with string keys
-      // e.g., {"0": {...}, "1": {...}} or {"1": {...}, "2": {...}}
-      entriesList = entriesData.values
-          .whereType<Map<String, dynamic>>()
-          .toList();
-    }
-
-    final List<LorebookEntry> entries = entriesList
-        .map((e) => LorebookEntry.fromJson(e))
-        .toList();
-
-    return Lorebook(entries: entries);
-  }
-
-  /// Parse a raw JSON object that may be in SillyTavern, Chub.ai, or Front Porch format.
-  /// Returns a Map with 'name', 'description', and 'lorebook' keys suitable for World creation.
+  /// Parse a raw JSON object that may be in SillyTavern, Chub.ai, or Front
+  /// Porch format. Returns a Map with 'name', 'description', and 'lorebook'
+  /// keys suitable for World creation.
   static Map<String, dynamic> parseRawLorebookJson(Map<String, dynamic> json) {
     final String name = json['name']?.toString() ?? 'Imported Lorebook';
     final String description = json['description']?.toString() ?? '';
@@ -205,48 +67,6 @@ class Lorebook {
       'name': name,
       'description': description,
       'lorebook': Lorebook.fromJson(json).toJson(),
-    };
-  }
-
-  /// Serialize as a full SillyTavern / V2 "character_book" object.
-  /// This is the format written into exported PNG/JSON character cards so that
-  /// baked-in lorebooks round-trip correctly to other frontends (ST, Risu, etc).
-  /// Includes all standard fields + our extensions for perfect fidelity.
-  Map<String, dynamic> toCharacterBook() {
-    return {
-      'entries': entries.asMap().entries.map((mapEntry) {
-        final int i = mapEntry.key;
-        final LorebookEntry e = mapEntry.value;
-        final List<String> keysList = e.key
-            .split(',')
-            .map((k) => k.trim())
-            .where((k) => k.isNotEmpty)
-            .toList();
-        return {
-          'keys': keysList,
-          'content': e.content,
-          'extensions': <String, dynamic>{},
-          'enabled': e.enabled,
-          'insertion_order': e.stickyDepth > 0 ? e.stickyDepth : i,
-          'name': e.name,
-          'priority': 10,
-          'id': i,
-          'comment': e.name,
-          'selective': false,
-          'secondary_keys': <String>[],
-          'constant': e.constant,
-          'position': 'before_char',
-          // Front Porch extras for round-trip
-          'sticky_depth': e.stickyDepth,
-          'key': e.key, // comma form for our editor
-        };
-      }).toList(),
-      'name': '',
-      'description': '',
-      'scan_depth': 4,
-      'token_budget': 500,
-      'recursive_scanning': false,
-      'extensions': <String, dynamic>{},
     };
   }
 }

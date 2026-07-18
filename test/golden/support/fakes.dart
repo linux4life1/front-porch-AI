@@ -30,6 +30,8 @@ import 'package:front_porch_ai/database/database.dart' show Objective;
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_generation_settings.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
+import 'package:front_porch_ai/models/chat_participant.dart';
+import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
@@ -43,6 +45,7 @@ import 'package:front_porch_ai/services/folder_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/world.dart' as world_model;
 import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/stt_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
 import 'package:front_porch_ai/services/update_service.dart';
@@ -62,9 +65,7 @@ class FakeLLMProvider extends ChangeNotifier implements LLMProvider {
   bool get isLocal => activeBackend == BackendType.kobold;
 
   @override
-  bool get hasManagedProcess =>
-      activeBackend == BackendType.kobold ||
-      activeBackend == BackendType.pseudoRemote;
+  bool get hasManagedProcess => activeBackend == BackendType.kobold;
 
   @override
   bool get hasAnyManagedProcessRunning => false;
@@ -91,7 +92,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     this.needsSimEnabled = true,
     this.characterEmotion = 'neutral',
     this.emotionIntensity = 'moderate',
-    this.characterEvolutionCount = 0,
+    this.isGrowthPassRunning = false,
     this.activeCharacter,
     List<ChatMessage> messages = const [],
     // Generation status bar surface.
@@ -151,9 +152,6 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       onSaveChat: () async {},
       getTimeOfDay: () => timeOfDay,
       getRealismEnabled: () => realismEnabled,
-      getArousalLevel: () => 0,
-      getNsfwCooldownEnabled: () => false,
-      getCooldownTurnsRemaining: () => 0,
       getObserverMode: () => false,
       getCurrentSpeakerIdForRealism: () => '',
       getIsGroupNonObserverMode: () => false,
@@ -161,7 +159,6 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       setGroupNeeds: (_, _) {},
       getEnjoysLowHygiene: () => false,
       getNeedsSimEnabled: () => needsSimEnabled,
-      setArousalLevel: (_) {},
     )..restoreFromSnapshot(needs);
     _relationship = RelationshipService(
       onNotify: () {},
@@ -232,7 +229,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   final String emotionIntensity;
   @override
-  final int characterEvolutionCount;
+  final bool isGrowthPassRunning;
   @override
   final CharacterCard? activeCharacter;
 
@@ -253,6 +250,11 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   final int prefillPromptTokens;
   @override
   final Map<String, dynamic>? lastPerfData;
+
+  /// No live backend source in goldens → the status bar renders its
+  /// estimate-based fallback labels (pixel-stable regardless of backend).
+  @override
+  LiveGenProgress? get activeLiveProgress => null;
 
   // Realism-processing overlay surface.
   @override
@@ -287,6 +289,17 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   bool get chaosNsfwEnabled => _chaos.chaosNsfwEnabled;
 
+  // Unified-cast surface (empty / 1:1 defaults for the simple test doubles).
+  @override
+  List<ChatParticipant> get cast => const [];
+  @override
+  bool get observerMode => false;
+  @override
+  List<Objective> getObjectivesForGroupCharacter(CharacterCard character) =>
+      const [];
+  // getArousalForGroupCharacter is an extension on ChatService (resolves on the
+  // static type), so it needs no fake override.
+
   // Objective surface — empty by default (renders the "propose an objective" UI).
   @override
   Objective? get primaryObjective => null;
@@ -317,6 +330,12 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   // Message bubble surface.
   @override
   List<ChatMessage> get messages => List.unmodifiable(_messages);
+  // Mutates the seeded message in place so facade edit paths (e.g. inserting a
+  // generated image into the last message) are observable in unit tests.
+  @override
+  void editMessage(int index, String newText) {
+    if (index >= 0 && index < _messages.length) _messages[index].text = newText;
+  }
   @override
   bool get isGroupMode => false;
   @override
@@ -327,6 +346,14 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   bool get isGeneratingActions => false;
   @override
   List<String> get suggestedActions => const [];
+
+  // Scene-guest "regenerate the buried host" affordance. These unit goldens never
+  // set up a host buried under Lite-NPC replies, so null = MessageBubble shows no
+  // buried-host regen button (matching the pre-scene-guest render). Without this
+  // stub the real getter call hits noSuchMethod and throws at build time, which
+  // is what was making the MessageBubble goldens fail on CI.
+  @override
+  int? get regenerableHostBelowGuestsIndex => null;
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -352,6 +379,25 @@ class FakeTtsService extends ChangeNotifier implements TtsService {
   bool get isDownloadingModel => false;
   @override
   String? get lastError => null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// [SttService] double that avoids the real constructor's platform-channel
+/// [AudioRecorder] (which throws MissingPluginException in headless tests).
+/// Defaults to unavailable; [transcribeAudioFile] returns a canned value so
+/// VoiceFacade's transcribe path is exercisable without Whisper.
+class FakeSttService extends ChangeNotifier implements SttService {
+  FakeSttService({this.available = false, this.transcript});
+
+  final bool available;
+  final String? transcript;
+
+  @override
+  bool get isAvailable => available;
+  @override
+  Future<String?> transcribeAudioFile(String audioPath) async => transcript;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

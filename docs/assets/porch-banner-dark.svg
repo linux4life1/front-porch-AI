@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 260" role="img" aria-label="Front Porch AI — a local-first AI companion for character chat and roleplay">
+  <title>Front Porch AI</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#241608"/>
+      <stop offset="1" stop-color="#170e04"/>
+    </linearGradient>
+    <linearGradient id="wordmark" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffc44d"/>
+      <stop offset="0.55" stop-color="#f4a259"/>
+      <stop offset="1" stop-color="#e8833a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#f5a623" stop-opacity="0.34"/>
+      <stop offset="0.5" stop-color="#f5a623" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#f5a623" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="260" rx="18" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="1197" height="257" rx="17" fill="none" stroke="#f4a259" stroke-opacity="0.22" stroke-width="1.5"/>
+
+  <!-- porch light -->
+  <circle cx="1042" cy="118" r="150" fill="url(#glow)"/>
+  <rect x="1040" y="34" width="4" height="34" rx="2" fill="#c97f16"/>
+  <rect x="1026" y="66" width="32" height="10" rx="4" fill="#c97f16"/>
+  <rect x="1022" y="76" width="40" height="56" rx="10" fill="#2e1c08" stroke="#c97f16" stroke-width="3"/>
+  <circle cx="1042" cy="104" r="11" fill="#ffc44d"/>
+  <rect x="1030" y="132" width="24" height="8" rx="4" fill="#c97f16"/>
+
+  <!-- wordmark -->
+  <text x="72" y="132" font-family="Georgia, 'Palatino Linotype', 'Book Antiqua', serif" font-size="82" font-weight="700" letter-spacing="1" fill="url(#wordmark)">Front Porch AI</text>
+  <rect x="76" y="156" width="420" height="3" rx="1.5" fill="#f4a259" fill-opacity="0.45"/>
+  <text x="74" y="200" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="25" letter-spacing="0.5" fill="#f3ecdd" fill-opacity="0.78">A local-first AI companion for character chat &amp; roleplay</text>
+</svg>

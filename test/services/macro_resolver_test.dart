@@ -34,19 +34,6 @@ void main() {
       );
     });
 
-    test('resolves {{words}}', () {
-      final wCtx = const MacroContext(
-        userName: 'A',
-        characterName: 'B',
-        summaryMaxWords: 50,
-      );
-      expect(resolver.resolve('Use {{words}} words', wCtx), 'Use 50 words');
-    });
-
-    test('{{words}} with no max returns empty', () {
-      expect(resolver.resolve('{{words}}', ctx), '');
-    });
-
     test('unknown macros pass through', () {
       expect(
         resolver.resolve('{{unknown}} here', ctx),
@@ -276,6 +263,199 @@ void main() {
 
     test('{{roll::bad}} passes through', () {
       expect(resolver.resolve('{{roll::bad}}', ctx), '{{roll::bad}}');
+    });
+
+    // ── ST separator parity: single-colon + comma lists + roll shorthands ──
+
+    test('{{random:a,b,c}} single-colon comma form picks an option', () {
+      for (var i = 0; i < 20; i++) {
+        final result = resolver.resolve('{{random:sunny,rainy,foggy}}', ctx);
+        expect(['sunny', 'rainy', 'foggy'], contains(result));
+      }
+    });
+
+    test(r'comma list supports \, escape', () {
+      final result = resolver.resolve(r'{{random:a\,b}}', ctx);
+      expect(result, 'a,b'); // single option containing a comma
+    });
+
+    test('{{pick:a,b,c}} single-colon form is deterministic', () {
+      const pCtx = MacroContext(
+        userName: 'Alex',
+        characterName: 'Luna',
+        chatId: 'chat-1',
+        characterId: 'char-1',
+      );
+      final r1 = resolver.resolve('{{pick:a,b,c}}', pCtx);
+      final r2 = resolver.resolve('{{pick:a,b,c}}', pCtx);
+      expect(r1, r2);
+      expect(['a', 'b', 'c'], contains(r1));
+    });
+
+    test('{{roll:d6}} shorthand rolls 1-6', () {
+      for (var i = 0; i < 30; i++) {
+        final result = int.parse(resolver.resolve('{{roll:d6}}', ctx));
+        expect(result, inInclusiveRange(1, 6));
+      }
+    });
+
+    test('{{roll:6}} bare-number shorthand rolls 1-6', () {
+      for (var i = 0; i < 30; i++) {
+        final result = int.parse(resolver.resolve('{{roll:6}}', ctx));
+        expect(result, inInclusiveRange(1, 6));
+      }
+    });
+
+    test('{{roll d20}} space form rolls 1-20', () {
+      for (var i = 0; i < 30; i++) {
+        final result = int.parse(resolver.resolve('{{roll d20}}', ctx));
+        expect(result, inInclusiveRange(1, 20));
+      }
+    });
+
+    test('var macros without a store pass through untouched', () {
+      expect(resolver.resolve('{{setvar:mood:happy}}', ctx),
+          '{{setvar:mood:happy}}');
+      expect(resolver.resolve('{{getvar::mood}}', ctx), '{{getvar::mood}}');
+    });
+
+    // ── Phase 3: chat variables ──
+
+    MacroContext varCtx(Map<String, String> local, Map<String, String> global) {
+      return MacroContext(
+        userName: 'Alex',
+        characterName: 'Luna',
+        getLocalVar: (n) => local[n],
+        setLocalVar: (n, v) => local[n] = v,
+        getGlobalVar: (n) => global[n],
+        setGlobalVar: (n, v) => global[n] = v,
+      );
+    }
+
+    test('setvar/getvar round-trip (:: and single-colon forms)', () {
+      final local = <String, String>{};
+      final c = varCtx(local, {});
+      expect(resolver.resolve('{{setvar::mood::happy}}', c), '');
+      expect(local['mood'], 'happy');
+      expect(resolver.resolve('{{getvar::mood}}', c), 'happy');
+      expect(resolver.resolve('{{setvar:mood:grim}}', c), '');
+      expect(resolver.resolve('{{getvar:mood}}', c), 'grim');
+      expect(resolver.resolve('{{getvar::missing}}', c), '');
+    });
+
+    test('setvar then getvar in ONE text resolves in order', () {
+      final c = varCtx({}, {});
+      expect(
+        resolver.resolve('{{setvar::x::7}}Value is {{getvar::x}}', c),
+        'Value is 7',
+      );
+    });
+
+    test('addvar adds numbers, concatenates strings', () {
+      final local = <String, String>{'gold': '10', 'title': 'Lady'};
+      final c = varCtx(local, {});
+      resolver.resolve('{{addvar::gold::5}}', c);
+      expect(local['gold'], '15');
+      resolver.resolve('{{addvar::title:: of the Vale}}', c);
+      expect(local['title'], 'Lady of the Vale');
+    });
+
+    test('incvar/decvar return the new value', () {
+      final local = <String, String>{'count': '2'};
+      final c = varCtx(local, {});
+      expect(resolver.resolve('{{incvar::count}}', c), '3');
+      expect(resolver.resolve('{{decvar::count}}', c), '2');
+      expect(local['count'], '2');
+    });
+
+    test('global twins hit the global store only', () {
+      final local = <String, String>{};
+      final global = <String, String>{};
+      final c = varCtx(local, global);
+      resolver.resolve('{{setglobalvar::theme::ash}}', c);
+      expect(global['theme'], 'ash');
+      expect(local, isEmpty);
+      expect(resolver.resolve('{{getglobalvar::theme}}', c), 'ash');
+    });
+
+    // ── Phase 3: chat-context macros ──
+
+    test('last-message family + idle duration + card fields', () {
+      const c = MacroContext(
+        userName: 'Alex',
+        characterName: 'Luna',
+        description: 'A keeper of lighthouses.',
+        personality: 'Stoic.',
+        scenario: 'A stormy night.',
+        userPersona: 'A wandering sailor.',
+        lastMessage: 'The lamp flickers.',
+        lastUserMessage: 'Is anyone there?',
+        lastCharMessage: 'The lamp flickers.',
+        idleDuration: Duration(minutes: 5),
+      );
+      expect(resolver.resolve('{{lastMessage}}', c), 'The lamp flickers.');
+      expect(resolver.resolve('{{lastUserMessage}}', c), 'Is anyone there?');
+      expect(resolver.resolve('{{lastCharMessage}}', c), 'The lamp flickers.');
+      expect(resolver.resolve('{{idle_duration}}', c), '5 minutes');
+      expect(resolver.resolve('{{idleDuration}}', c), '5 minutes');
+      expect(resolver.resolve('{{description}}', c), 'A keeper of lighthouses.');
+      expect(resolver.resolve('{{personality}}', c), 'Stoic.');
+      expect(resolver.resolve('{{scenario}}', c), 'A stormy night.');
+      expect(resolver.resolve('{{persona}}', c), 'A wandering sailor.');
+    });
+
+    test('context macros without data pass through', () {
+      expect(resolver.resolve('{{lastMessage}}', ctx), '{{lastMessage}}');
+      expect(resolver.resolve('{{idle_duration}}', ctx), '{{idle_duration}}');
+      expect(resolver.resolve('{{description}}', ctx), '{{description}}');
+    });
+
+    test('group roster macros', () {
+      const g = MacroContext(
+        userName: 'Alex',
+        characterName: 'Luna',
+        groupMemberNames: ['Luna', 'Kai', 'Mara'],
+      );
+      expect(resolver.resolve('{{group}}', g), 'Luna, Kai, Mara');
+      expect(resolver.resolve('{{groupNotMuted}}', g), 'Luna, Kai, Mara');
+      expect(resolver.resolve('{{notChar}}', g), 'Kai, Mara');
+      expect(resolver.resolve('{{charIfNotGroup}}', g), '');
+      // 1:1 fallbacks
+      expect(resolver.resolve('{{group}}', ctx), 'Luna');
+      expect(resolver.resolve('{{charIfNotGroup}}', ctx), 'Luna');
+    });
+
+    // ── Phase 3: time + utility ──
+
+    test('{{time::UTC+2}} and legacy {{time_UTC+2}} both format', () {
+      final a = resolver.resolve('{{time::UTC+2}}', ctx);
+      final b = resolver.resolve('{{time_UTC+2}}', ctx);
+      expect(a, matches(RegExp(r'^\d{2}:\d{2}$')));
+      expect(b, matches(RegExp(r'^\d{2}:\d{2}$')));
+    });
+
+    test('{{datetimeformat::DD.MM.YYYY}} maps moment tokens', () {
+      expect(
+        resolver.resolve('{{datetimeformat::DD.MM.YYYY}}', ctx),
+        matches(RegExp(r'^\d{2}\.\d{2}\.\d{4}$')),
+      );
+    });
+
+    test('{{timeDiff}} humanizes the difference between two datetimes', () {
+      expect(
+        resolver.resolve(
+          '{{timeDiff::2026-07-05T10:00:00::2026-07-05T07:00:00}}',
+          ctx,
+        ),
+        '3 hours',
+      );
+    });
+
+    test('{{trim}} eats surrounding newlines; {{reverse}}; {{banned}} strips',
+        () {
+      expect(resolver.resolve('above\n{{trim}}\nbelow', ctx), 'abovebelow');
+      expect(resolver.resolve('{{reverse::abc}}', ctx), 'cba');
+      expect(resolver.resolve('say {{banned::word}} it', ctx), 'say  it');
     });
 
     // ── Phase 2 P0: time/date ──

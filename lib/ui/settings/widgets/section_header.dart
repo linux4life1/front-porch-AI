@@ -20,9 +20,11 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Section header widget extracted from settings_page (Stage 5).
-/// Pure lift of _buildSectionHeader with AppColors exclusive (no hard-coded
-/// Color(0xFF...) or raw Colors.* accents).
+/// Section header for the Settings tabs.
+///
+/// Warm-porch makeover: titles use the warm amber accent
+/// ([AppColors.porchAmberOf]) — light-mode safe — instead of the old cool
+/// blue. Shared by every settings tab so the whole page stays consistent.
 class SectionHeader extends StatelessWidget {
   const SectionHeader(this.title, {super.key});
 
@@ -31,19 +33,15 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final accent = AppColors.porchAmberOf(context);
     return Text(
       title,
       style:
           theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: AppColors
-                .userBubble, // accent without new hardcode (was Colors.blueAccent)
+            color: accent,
           ) ??
-          const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.userBubble,
-          ),
+          TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: accent),
     );
   }
 }

@@ -674,4 +674,66 @@ void main() {
       ctrl.dispose();
     });
   });
+
+  // ── tokenizeChat — localized / typographic dialogue quotes (#95) ──
+
+  group('tokenizeChat localized dialogue quotes', () {
+    List<String> dialogues(String text) => tokenizeChat(text)
+        .where((t) => t.type == StyledTokenType.dialogue)
+        .map((t) => t.matchText)
+        .toList();
+
+    test('straight double quotes still work (regression)', () {
+      expect(dialogues('He said "hello" today'), ['"hello"']);
+    });
+
+    test('English typographic “…”', () {
+      expect(dialogues('He said “hello” today'), ['“hello”']);
+    });
+
+    test('German „…“', () {
+      expect(dialogues('Er sagte „Hallo“ heute'), ['„Hallo“']);
+    });
+
+    test('German/Polish „…” (curly-close variant)', () {
+      expect(dialogues('„Cześć”'), ['„Cześć”']);
+    });
+
+    test('French/Italian/Spanish guillemets «…»', () {
+      expect(dialogues('Il a dit «Bonjour» hier'), ['«Bonjour»']);
+    });
+
+    test('German-alt / Danish guillemets »…«', () {
+      expect(dialogues('Er sagte »Hallo« heute'), ['»Hallo«']);
+    });
+
+    test('Nordic ”…”', () {
+      expect(dialogues('Han sa ”Hej” idag'), ['”Hej”']);
+    });
+
+    test('Japanese / CJK 「…」', () {
+      expect(dialogues('彼は「こんにちは」と言った'), ['「こんにちは」']);
+    });
+
+    test('localized dialogue coexists with *action*', () {
+      final tokens = tokenizeChat('„Hallo“ *winkt*');
+      final dlg = tokens
+          .where((t) => t.type == StyledTokenType.dialogue)
+          .map((t) => t.matchText)
+          .toList();
+      final act = tokens
+          .where((t) => t.type == StyledTokenType.action)
+          .map((t) => t.matchText)
+          .toList();
+      expect(dlg, ['„Hallo“']);
+      expect(act, ['*winkt*']);
+    });
+
+    test('scanDialogue finds a guillemet range at the right offsets', () {
+      final ranges = scanDialogue('«Bonjour»', const []);
+      expect(ranges, hasLength(1));
+      expect(ranges.first.start, 0);
+      expect(ranges.first.end, '«Bonjour»'.length);
+    });
+  });
 }

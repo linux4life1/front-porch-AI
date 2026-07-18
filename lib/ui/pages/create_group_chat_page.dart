@@ -29,7 +29,11 @@ import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
+import 'package:front_porch_ai/ui/widgets/styled_text_controller.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
+import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import 'package:front_porch_ai/ui/widgets/relationship_scale.dart'
+    show relationshipTierName, relationshipScaleColor;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
 import 'package:uuid/uuid.dart';
@@ -73,14 +77,14 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
   bool _directorMode = false;
 
   // Opening
-  final _scenarioController = TextEditingController();
-  final _firstMessageController = TextEditingController();
+  final _scenarioController = StyledTextController(preset: StyledTextPreset.prose);
+  final _firstMessageController = StyledTextController(preset: StyledTextPreset.prose);
   bool _isGeneratingScenario = false;
   bool _isGeneratingFirst = false;
 
   // Prompts
-  final _groupSystemController = TextEditingController();
-  final Map<String, String> _characterSystemPrompts = {}; // charId -> prompt
+  final _groupSystemController = StyledTextController(preset: StyledTextPreset.prose);
+  final Map<String, TextEditingController> _characterSystemPrompts = {}; // charId -> prompt
 
   // Voices (charId -> voiceId or '')
   final Map<String, String> _characterVoices = {};
@@ -137,6 +141,10 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     _scenarioController.dispose();
     _firstMessageController.dispose();
     _groupSystemController.dispose();
+    // Dispose per-character controllers
+    for (final ctrl in _characterSystemPrompts.values) {
+      ctrl.dispose();
+    }
     _memberSearchController.dispose();
     super.dispose();
   }
@@ -147,8 +155,8 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     total += (_scenarioController.text.length / 4).ceil();
     total += (_firstMessageController.text.length / 4).ceil();
     total += (_groupSystemController.text.length / 4).ceil();
-    for (final p in _characterSystemPrompts.values) {
-      total += (p.length / 4).ceil();
+    for (final ctrl in _characterSystemPrompts.values) {
+      total += (ctrl.text.length / 4).ceil();
     }
     for (final e in _groupLoreEntries) {
       total += ((e.name.length + e.key.length + e.content.length) / 4).ceil();
@@ -294,51 +302,11 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     });
   }
 
-  Map<String, dynamic> _defaultRealismSeedFor(CharacterCard c) {
-    // Neutral but alive starting point.
-    // Short keys (e.g. 'needsDirectorAuthority', 'verificationEnabled') are the internal convention for _memberRealismSeeds map
-    // (consistent with prior verif/enjoys per-member); they feed full to defaultMemberRealismState perChar[id].
-    // Long snake keys live only in FrontPorchExtensions JSON (card ext for runtime cb + group_members row).
-    // No key normalization (would require auditing all defaultMember load sites); documented here per review nit.
-    return {
-      'affection': 35,
-      'trust': 40,
-      'emotion': 'neutral',
-      'emotionIntensity': 'mild',
-      'timeOfDay': 'morning',
-      'dayCount': 1,
-      'needs': <String, int>{
-        'hunger': 70,
-        'thirst': 75,
-        'rest': 65,
-        'social': 60,
-        'hygiene': 80,
-        'bladder': 85,
-      },
-      'enjoysLowHygiene': false,
-      'verificationEnabled': false,
-      'verificationMaxReprocesses': 1,
-      'verificationStrictness': 3,
-      'needsDirectorAuthority': false,
-      'needsSimStrength': 1,
-      'needsBaselineHunger': 80,
-      'needsBaselineBladder': 80,
-      'needsBaselineEnergy': 80,
-      'needsBaselineSocial': 80,
-      'needsBaselineFun': 80,
-      'needsBaselineHygiene': 80,
-      'needsBaselineComfort': 80,
-      'needsDecayHunger': 5,
-      'needsDecayBladder': 5,
-      'needsDecayEnergy': 5,
-      'needsDecaySocial': 5,
-      'needsDecayFun': 5,
-      'needsDecayHygiene': 5,
-      'needsDecayComfort': 5,
-      'relationships':
-          <String, int>{}, // seeded in Group Dynamics step for small groups
-    };
-  }
+  // Shared default seed (create + edit parity) lives in group_realism_blobs.dart
+  // as defaultGroupMemberRealismSeed(); the card arg is ignored (the seed is a
+  // neutral constant) but kept so existing call sites read naturally.
+  Map<String, dynamic> _defaultRealismSeedFor(CharacterCard c) =>
+      defaultGroupMemberRealismSeed();
 
   void _seedRealismFromCard(String charId) {
     final card = _members.firstWhere(
@@ -600,7 +568,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         if (target == source) continue;
 
         final value = entry.value;
-        final tier = _getRelationshipTierName(value);
+        final tier = relationshipTierName(value);
         buffer.writeln(
           '- ${source.name} feels ${tier.toLowerCase()} toward ${target.name} (score: $value on -300 to +300 scale)',
         );
@@ -663,56 +631,25 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
       listen: false,
     ); // voices already resolved earlier
 
-    // Build per-char system prompts & voices
+    // Per-char system prompts + realism/needs/dynamics seeds must be keyed by the
+    // RUNTIME member id (the fresh `mid` generated per member in the insert loop
+    // below), NOT the source library card's id. Every runtime read — the realism
+    // engine (`_groupRealism[id]`), baseline lookups, and per-member prompt reads
+    // — keys off the member's own UUID. So we collect the source-id → mid mapping
+    // while inserting members and build both blobs (and the prompt map) from that
+    // mapping AFTER the loop. Historically these were keyed by the source id and
+    // were therefore never found at runtime (bond/trust/emotion/relationships and
+    // per-member prompts silently fell back to defaults). See remapSeedsToMemberIds
+    // + test/utils/group_realism_blobs_test.dart for the reachability proof.
     final charPrompts = <String, String>{};
-    for (final c in _members) {
-      final id = _stableId(c);
-      final p = _characterSystemPrompts[id];
-      if (p != null && p.trim().isNotEmpty) charPrompts[id] = p.trim();
-    }
+    final memberIdMap = <String, String>{}; // source stableId → member mid
 
     // Serialize group lorebook
     final lb = Lorebook(entries: List.from(_groupLoreEntries));
     final groupLoreJson = jsonEncode(lb.toJson());
 
-    // Build realism blobs (create-only path now).
     String baselineJson = '{}';
     String defaultMemberJson = '{}';
-
-    if (_realismEnabled) {
-      final defaultMember = <String, dynamic>{'perChar': <String, dynamic>{}};
-
-      for (final c in _members) {
-        final id = _stableId(c);
-        var seed = _memberRealismSeeds[id] ?? _defaultRealismSeedFor(c);
-
-        if (!_needsSimEnabled) {
-          seed = Map<String, dynamic>.from(seed)..remove('needs');
-        }
-
-        (defaultMember['perChar'] as Map)[id] = seed;
-      }
-
-      defaultMemberJson = jsonEncode(defaultMember);
-
-      final baseline = <String, dynamic>{};
-      for (final c in _members) {
-        final id = _stableId(c);
-        var seed = _memberRealismSeeds[id] ?? _defaultRealismSeedFor(c);
-        if (!_needsSimEnabled) {
-          seed = Map<String, dynamic>.from(seed)..remove('needs');
-        }
-        baseline[id] = {
-          'affection': (seed['affection'] as num?)?.toInt() ?? 35,
-          'trust': (seed['trust'] as num?)?.toInt() ?? 40,
-          'emotion': (seed['emotion'] as String?) ?? 'neutral',
-          'emotionIntensity': (seed['emotionIntensity'] as String?) ?? 'mild',
-          'timeOfDay': _globalTimeOfDay,
-          'dayCount': _globalDayCount,
-        };
-      }
-      baselineJson = jsonEncode(baseline);
-    }
 
     final groupId = 'group_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -742,6 +679,13 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
       // Patch here (not mutate source library card) so group instance gets UI choice; duplicate only for avatar/PNG.
       // Consistent for all flags; other add-member paths use passed card's ext.
       final id = _stableId(source);
+      // Record source-id → mid so the realism/baseline blobs (built after this
+      // loop) and per-member prompts are keyed by the id the runtime reads.
+      memberIdMap[id] = mid;
+      final promptCtrl = _characterSystemPrompts[id];
+      if (promptCtrl != null && promptCtrl.text.trim().isNotEmpty) {
+        charPrompts[mid] = promptCtrl.text.trim();
+      }
       final seed = _memberRealismSeeds[id] ?? _defaultRealismSeedFor(source);
       FrontPorchExtensions? memberFp;
       if (source.frontPorchExtensions != null) {
@@ -764,6 +708,52 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
           needsSimStrength:
               (seed['needsSimStrength'] as int?) ??
               source.frontPorchExtensions!.needsSimStrength,
+          // Carry the group-creator's per-member needs baselines + decay
+          // choices (the seed). Without these two blocks, cards that already
+          // ship a FrontPorchExtensions (the common case) silently lost every
+          // baseline/decay adjustment made in the creator at save time.
+          needsBaselineHunger:
+              (seed['needsBaselineHunger'] as int?) ??
+              source.frontPorchExtensions!.needsBaselineHunger,
+          needsBaselineBladder:
+              (seed['needsBaselineBladder'] as int?) ??
+              source.frontPorchExtensions!.needsBaselineBladder,
+          needsBaselineEnergy:
+              (seed['needsBaselineEnergy'] as int?) ??
+              source.frontPorchExtensions!.needsBaselineEnergy,
+          needsBaselineSocial:
+              (seed['needsBaselineSocial'] as int?) ??
+              source.frontPorchExtensions!.needsBaselineSocial,
+          needsBaselineFun:
+              (seed['needsBaselineFun'] as int?) ??
+              source.frontPorchExtensions!.needsBaselineFun,
+          needsBaselineHygiene:
+              (seed['needsBaselineHygiene'] as int?) ??
+              source.frontPorchExtensions!.needsBaselineHygiene,
+          needsBaselineComfort:
+              (seed['needsBaselineComfort'] as int?) ??
+              source.frontPorchExtensions!.needsBaselineComfort,
+          needsDecayHunger:
+              (seed['needsDecayHunger'] as int?) ??
+              source.frontPorchExtensions!.needsDecayHunger,
+          needsDecayBladder:
+              (seed['needsDecayBladder'] as int?) ??
+              source.frontPorchExtensions!.needsDecayBladder,
+          needsDecayEnergy:
+              (seed['needsDecayEnergy'] as int?) ??
+              source.frontPorchExtensions!.needsDecayEnergy,
+          needsDecaySocial:
+              (seed['needsDecaySocial'] as int?) ??
+              source.frontPorchExtensions!.needsDecaySocial,
+          needsDecayFun:
+              (seed['needsDecayFun'] as int?) ??
+              source.frontPorchExtensions!.needsDecayFun,
+          needsDecayHygiene:
+              (seed['needsDecayHygiene'] as int?) ??
+              source.frontPorchExtensions!.needsDecayHygiene,
+          needsDecayComfort:
+              (seed['needsDecayComfort'] as int?) ??
+              source.frontPorchExtensions!.needsDecayComfort,
         );
       } else if (_realismEnabled) {
         memberFp = FrontPorchExtensions(
@@ -830,9 +820,36 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                 ? jsonEncode(source.rawExtensions!)
                 : null,
           ),
-          memberState: const Value('{}'),
+          // Provenance: stamp the source library character so this member can
+          // later be traced back / collapsed to a 1:1 with the original.
+          memberState: Value(
+            GroupMember.encodeProvenance(
+              originStableId: source.stableGroupId,
+              originLibraryDbId: source.dbId,
+            ),
+          ),
         ),
       );
+    }
+
+    // Build the realism/needs/dynamics blobs from seeds re-keyed to member mids
+    // (the ids the runtime reads). Done here — after the insert loop populated
+    // memberIdMap — so the creator's per-member bond/trust/emotion/needs and
+    // intragroup relationships actually take effect in chat.
+    if (_realismEnabled) {
+      final seeds = <String, Map<String, dynamic>>{
+        for (final c in _members)
+          _stableId(c):
+              _memberRealismSeeds[_stableId(c)] ?? _defaultRealismSeedFor(c),
+      };
+      final blobs = buildGroupRealismBlobs(
+        seeds: remapSeedsToMemberIds(seeds, memberIdMap),
+        needsEnabled: _needsSimEnabled,
+        timeOfDay: _globalTimeOfDay,
+        dayCount: _globalDayCount,
+      );
+      defaultMemberJson = blobs.defaultMemberJson;
+      baselineJson = blobs.baselineJson;
     }
 
     final group = GroupChat(
@@ -1307,11 +1324,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                   children: [
                     Icon(
                       Icons.chat_bubble_outline,
-                      color: AppColors.resolve(
-                        context,
-                        Colors.blueAccent,
-                        Colors.blue.shade700,
-                      ),
+                      color: AppColors.porchAmberOf(context),
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -1320,11 +1333,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.resolve(
-                          context,
-                          Colors.blueAccent,
-                          Colors.blue.shade700,
-                        ),
+                        color: AppColors.porchAmberOf(context),
                       ),
                     ),
                   ],
@@ -1614,11 +1623,12 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
           const SizedBox(height: 8),
           ..._members.map((c) {
             final id = _stableId(c);
-            final ctrl = TextEditingController(
-              text: _characterSystemPrompts[id] ?? '',
+            final ctrl = StyledTextController(
+              preset: StyledTextPreset.prose,
+              text: _characterSystemPrompts[id]?.text ?? '',
             );
             ctrl.addListener(() {
-              _characterSystemPrompts[id] = ctrl.text;
+              _characterSystemPrompts[id] = ctrl;
             });
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
@@ -1814,8 +1824,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                       Wrap(
                         spacing: 4,
                         runSpacing: 3,
-                        children: entry.key
-                            .split(',')
+                        children: entry.keys
                             .map(
                               (k) => Container(
                                 padding: const EdgeInsets.symmetric(
@@ -2420,6 +2429,64 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                                 'needsBaselineComfort': v,
                               });
                             },
+                            // Per-member decay ("tick rate") — each member
+                            // decays at its own rate, exactly like a solo card.
+                            decayHunger:
+                                _memberNeedsBaselines[id]?['decayHunger'] ?? 5,
+                            onDecayHungerChanged: (v) {
+                              setState(() {
+                                _memberNeedsBaselines[id]!['decayHunger'] = v;
+                              });
+                              _updateMemberRealism(id, {'needsDecayHunger': v});
+                            },
+                            decayBladder:
+                                _memberNeedsBaselines[id]?['decayBladder'] ?? 5,
+                            onDecayBladderChanged: (v) {
+                              setState(() {
+                                _memberNeedsBaselines[id]!['decayBladder'] = v;
+                              });
+                              _updateMemberRealism(id, {'needsDecayBladder': v});
+                            },
+                            decayEnergy:
+                                _memberNeedsBaselines[id]?['decayEnergy'] ?? 5,
+                            onDecayEnergyChanged: (v) {
+                              setState(() {
+                                _memberNeedsBaselines[id]!['decayEnergy'] = v;
+                              });
+                              _updateMemberRealism(id, {'needsDecayEnergy': v});
+                            },
+                            decaySocial:
+                                _memberNeedsBaselines[id]?['decaySocial'] ?? 5,
+                            onDecaySocialChanged: (v) {
+                              setState(() {
+                                _memberNeedsBaselines[id]!['decaySocial'] = v;
+                              });
+                              _updateMemberRealism(id, {'needsDecaySocial': v});
+                            },
+                            decayFun:
+                                _memberNeedsBaselines[id]?['decayFun'] ?? 5,
+                            onDecayFunChanged: (v) {
+                              setState(() {
+                                _memberNeedsBaselines[id]!['decayFun'] = v;
+                              });
+                              _updateMemberRealism(id, {'needsDecayFun': v});
+                            },
+                            decayHygiene:
+                                _memberNeedsBaselines[id]?['decayHygiene'] ?? 5,
+                            onDecayHygieneChanged: (v) {
+                              setState(() {
+                                _memberNeedsBaselines[id]!['decayHygiene'] = v;
+                              });
+                              _updateMemberRealism(id, {'needsDecayHygiene': v});
+                            },
+                            decayComfort:
+                                _memberNeedsBaselines[id]?['decayComfort'] ?? 5,
+                            onDecayComfortChanged: (v) {
+                              setState(() {
+                                _memberNeedsBaselines[id]!['decayComfort'] = v;
+                              });
+                              _updateMemberRealism(id, {'needsDecayComfort': v});
+                            },
                           ),
                           showVerificationToggle: true,
                         ),
@@ -2592,7 +2659,8 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                                         : currentValue.toString(),
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: _getRelationshipColor(
+                                      color: relationshipScaleColor(
+                                        context,
                                         currentValue,
                                       ),
                                     ),
@@ -2602,13 +2670,17 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                             ),
                             SliderTheme(
                               data: SliderThemeData(
-                                activeTrackColor: _getRelationshipColor(
+                                activeTrackColor: relationshipScaleColor(
+                                  context,
                                   currentValue,
                                 ),
                                 inactiveTrackColor: AppColors.borderOf(
                                   context,
                                 ).withValues(alpha: 0.3),
-                                thumbColor: _getRelationshipColor(currentValue),
+                                thumbColor: relationshipScaleColor(
+                                  context,
+                                  currentValue,
+                                ),
                                 trackHeight: 4,
                                 thumbShape: const RoundSliderThumbShape(
                                   enabledThumbRadius: 8,
@@ -2634,11 +2706,14 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                               message:
                                   'Starting hidden feeling of ${source.name} toward ${target.name}. Matches the Long-Term Bond tier system used in the 1:1 Realism creator and runtime evaluations. These scores only affect groups of 4 or fewer and drive realistic intra-group behavior when Realism is enabled.',
                               child: Text(
-                                _getRelationshipTierName(currentValue),
+                                relationshipTierName(currentValue),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: _getRelationshipColor(currentValue),
+                                  color: relationshipScaleColor(
+                                    context,
+                                    currentValue,
+                                  ),
                                 ),
                               ),
                             ),
@@ -2681,68 +2756,10 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     });
   }
 
-  // ── Group Dynamics Helpers ──────────────────────────────────────────
-
-  String _getRelationshipTierName(int value) {
-    // Aligned with Long-Term Bond tiers from RealismFormSection and chat_service longTermTierName semantics (raw -300..+300 scale).
-    if (value >= 80) return 'Soulbound';
-    if (value >= 50) return 'Deep Bond';
-    if (value >= 20) return 'Close';
-    if (value >= 5) return 'Familiar';
-    if (value >= -4) return 'Acquaintance';
-    if (value >= -19) return 'Uneasy';
-    if (value >= -49) return 'Estranged';
-    if (value >= -79) return 'Broken';
-    return 'Nemesis';
-  }
-
-  Color _getRelationshipColor(int value) {
-    // Granular valence coloring (green=positive, red=negative) for visual feedback.
-    // Thresholds kept close to tier boundaries for consistency with existing bond/trust color logic.
-    if (value >= 80) {
-      return AppColors.resolve(
-        context,
-        Colors.greenAccent.shade200,
-        Colors.green.shade200,
-      );
-    } else if (value >= 50) {
-      return AppColors.resolve(
-        context,
-        Colors.greenAccent.shade400,
-        Colors.green.shade400,
-      );
-    } else if (value >= 20) {
-      return AppColors.resolve(
-        context,
-        Colors.greenAccent.shade700,
-        Colors.green.shade700,
-      );
-    } else if (value >= 5) {
-      return AppColors.resolve(context, Colors.lightGreen, Colors.lightGreen);
-    } else if (value >= -4) {
-      return AppColors.textSecondary(context);
-    } else if (value >= -19) {
-      return AppColors.resolve(
-        context,
-        Colors.orangeAccent,
-        Colors.orange.shade700,
-      );
-    } else if (value >= -49) {
-      return AppColors.resolve(
-        context,
-        Colors.deepOrangeAccent,
-        Colors.deepOrange.shade700,
-      );
-    } else if (value >= -79) {
-      return AppColors.resolve(context, Colors.redAccent, Colors.red.shade700);
-    } else {
-      return AppColors.resolve(
-        context,
-        Colors.red.shade700,
-        Colors.red.shade900,
-      );
-    }
-  }
+  // Relationship tier-name + valence color are shared with the group editor
+  // (relationshipTierName / relationshipScaleColor in
+  // group_realism_dynamics_editor.dart) so both surfaces label + color a hidden
+  // feeling score identically — one UX standard, no duplicated logic.
 
   Widget _buildReviewStep() {
     return SingleChildScrollView(

@@ -60,20 +60,6 @@ extension GenLlm on CharacterGenService {
             minP: 0.05,
             topP: isJsonMode ? 0.90 : 0.95,
             reasoningEnabled: _reasoningEnabled,
-            // Two cases need the EOS token banned:
-            //   1. Reasoning models can hit a premature EOS during the <think>
-            //      prefill and return an empty (or think-only) stream.
-            //   2. Native KoboldCpp in JSON mode: its raw text-completion
-            //      endpoint applies no instruct template, so an instruct GGUF
-            //      treats the prompt as a finished document and emits EOS
-            //      immediately (the 0-token responses users hit). Banning EOS
-            //      forces it to produce the JSON. Safe ONLY in JSON mode — the
-            //      balanced-brace checker above ends the stream the instant the
-            //      object closes. Prose calls (greetings) are deliberately
-            //      excluded: with no brace stop, banning EOS would run them to
-            //      maxLength. Mirrors the eval/fact/expression local-EOS path.
-            banEosToken:
-                _reasoningEnabled || (_llmService is KoboldService && isJsonMode),
             stopSequences: stops,
           ),
         )) {

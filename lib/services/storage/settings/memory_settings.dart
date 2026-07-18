@@ -18,22 +18,10 @@
 
 import 'settings_base.dart';
 
-/// RAG / memory, summary, auto-persona, character evolution, fact extraction
-/// intervals and toggles (memory_settings per Stage 7 plan).
-///
-/// Lifted mechanical.
+/// RAG / memory, The Journal, and character evolution intervals and toggles.
+/// (The old summary_* / auto_persona_* keys were replaced by the Journal —
+/// docs/design/journal-memory.md; stale prefs entries are harmless.)
 class MemorySettings with SettingsBase {
-  // Summary
-  bool _summaryEnabled = false;
-  int _summaryInterval = 10;
-  int _summaryMaxWords = 200;
-  static const String defaultSummaryPrompt =
-      'Provide a concise summary of the conversation so far in {{words}} words or fewer. '
-      'Focus on: key plot points, character developments, important decisions, emotional shifts, '
-      'and any established facts. Preserve character names, locations, and relationships. '
-      'If a previous summary exists, update it with new events rather than starting fresh.';
-  String _summaryPrompt = defaultSummaryPrompt;
-
   // RAG
   bool _ragEnabled = false;
   int _ragRetrievalCount = 10;
@@ -41,16 +29,22 @@ class MemorySettings with SettingsBase {
   String _ragEmbeddingSource = 'auto';
   String _ragEmbeddingModel = 'text-embedding-3-small';
 
-  // Auto persona / fact / evolution (unified cadence in practice)
-  bool _autoPersonaEnabled = false;
-  int _autoPersonaInterval = 10;
-  bool _characterEvolutionEnabled = false;
-  int _evolutionInterval = 10;
+  // The Journal (docs/design/journal-memory.md §6) — per-chat, per-character
+  // memory cards + "Where we are" recap. Enabled by default (flagship;
+  // works out of the box with no embedding setup).
+  bool _journalEnabled = true;
+  int _journalInterval = 10;
+  int _journalMaxCards = 200;
+  bool _journalReviewFirst = false; // §4.3 review-first mode (phase 4)
 
-  bool get summaryEnabled => _summaryEnabled;
-  int get summaryInterval => _summaryInterval;
-  int get summaryMaxWords => _summaryMaxWords;
-  String get summaryPrompt => _summaryPrompt;
+  // Character Growth (Growth Rings — docs/design/growth-rings.md §6).
+  // The enable key is the old character_evolution_enabled pref so existing
+  // users keep their on/off choice; the interval is a NEW key because rings
+  // check far more often than the old whole-personality rewrites did (an
+  // inherited 10-50 value would be wrong for rings).
+  bool _characterEvolutionEnabled = false;
+  int _growthInterval = 5;
+  bool _growthReviewFirst = false; // default OFF — autonomous growth
 
   bool get ragEnabled => _ragEnabled;
   int get ragRetrievalCount => _ragRetrievalCount;
@@ -58,18 +52,16 @@ class MemorySettings with SettingsBase {
   String get ragEmbeddingSource => _ragEmbeddingSource;
   String get ragEmbeddingModel => _ragEmbeddingModel;
 
-  bool get autoPersonaEnabled => _autoPersonaEnabled;
-  int get autoPersonaInterval => _autoPersonaInterval;
+  bool get journalEnabled => _journalEnabled;
+  int get journalInterval => _journalInterval;
+  int get journalMaxCards => _journalMaxCards;
+  bool get journalReviewFirst => _journalReviewFirst;
+
   bool get characterEvolutionEnabled => _characterEvolutionEnabled;
-  int get evolutionInterval => _evolutionInterval;
+  int get growthInterval => _growthInterval;
+  bool get growthReviewFirst => _growthReviewFirst;
 
   void load() {
-    _summaryEnabled = prefs?.getBool(k('summary_enabled')) ?? false;
-    _summaryInterval = prefs?.getInt(k('summary_interval')) ?? 10;
-    _summaryMaxWords = prefs?.getInt(k('summary_max_words')) ?? 200;
-    _summaryPrompt =
-        prefs?.getString(k('summary_prompt')) ?? defaultSummaryPrompt;
-
     _ragEnabled = prefs?.getBool(k('rag_enabled')) ?? false;
     _ragRetrievalCount = prefs?.getInt(k('rag_retrieval_count')) ?? 5;
     _ragWindowSize = prefs?.getInt(k('rag_window_size')) ?? 5;
@@ -77,36 +69,15 @@ class MemorySettings with SettingsBase {
     _ragEmbeddingModel =
         prefs?.getString(k('rag_embedding_model')) ?? 'text-embedding-3-small';
 
-    _autoPersonaEnabled = prefs?.getBool(k('auto_persona_enabled')) ?? false;
-    _autoPersonaInterval = prefs?.getInt(k('auto_persona_interval')) ?? 10;
+    _journalEnabled = prefs?.getBool(k('journal_enabled')) ?? true;
+    _journalInterval = prefs?.getInt(k('journal_interval')) ?? 10;
+    _journalMaxCards = prefs?.getInt(k('journal_max_cards')) ?? 200;
+    _journalReviewFirst = prefs?.getBool(k('journal_review_first')) ?? false;
 
     _characterEvolutionEnabled =
         prefs?.getBool(k('character_evolution_enabled')) ?? false;
-    _evolutionInterval = prefs?.getInt(k('evolution_interval')) ?? 10;
-  }
-
-  Future<void> setSummaryEnabled(bool value) async {
-    _summaryEnabled = value;
-    await prefs?.setBool(k('summary_enabled'), value);
-    notify();
-  }
-
-  Future<void> setSummaryInterval(int value) async {
-    _summaryInterval = value.clamp(3, 50);
-    await prefs?.setInt(k('summary_interval'), _summaryInterval);
-    notify();
-  }
-
-  Future<void> setSummaryMaxWords(int value) async {
-    _summaryMaxWords = value.clamp(50, 1000);
-    await prefs?.setInt(k('summary_max_words'), _summaryMaxWords);
-    notify();
-  }
-
-  Future<void> setSummaryPrompt(String value) async {
-    _summaryPrompt = value;
-    await prefs?.setString(k('summary_prompt'), value);
-    notify();
+    _growthInterval = prefs?.getInt(k('growth_interval')) ?? 5;
+    _growthReviewFirst = prefs?.getBool(k('growth_review_first')) ?? false;
   }
 
   Future<void> setRagEnabled(bool value) async {
@@ -139,15 +110,27 @@ class MemorySettings with SettingsBase {
     notify();
   }
 
-  Future<void> setAutoPersonaEnabled(bool value) async {
-    _autoPersonaEnabled = value;
-    await prefs?.setBool(k('auto_persona_enabled'), value);
+  Future<void> setJournalEnabled(bool value) async {
+    _journalEnabled = value;
+    await prefs?.setBool(k('journal_enabled'), value);
     notify();
   }
 
-  Future<void> setAutoPersonaInterval(int value) async {
-    _autoPersonaInterval = value.clamp(5, 50);
-    await prefs?.setInt(k('auto_persona_interval'), _autoPersonaInterval);
+  Future<void> setJournalInterval(int value) async {
+    _journalInterval = value.clamp(3, 50);
+    await prefs?.setInt(k('journal_interval'), _journalInterval);
+    notify();
+  }
+
+  Future<void> setJournalMaxCards(int value) async {
+    _journalMaxCards = value.clamp(50, 1000);
+    await prefs?.setInt(k('journal_max_cards'), _journalMaxCards);
+    notify();
+  }
+
+  Future<void> setJournalReviewFirst(bool value) async {
+    _journalReviewFirst = value;
+    await prefs?.setBool(k('journal_review_first'), value);
     notify();
   }
 
@@ -157,9 +140,15 @@ class MemorySettings with SettingsBase {
     notify();
   }
 
-  Future<void> setEvolutionInterval(int value) async {
-    _evolutionInterval = value.clamp(10, 50);
-    await prefs?.setInt(k('evolution_interval'), _evolutionInterval);
+  Future<void> setGrowthInterval(int value) async {
+    _growthInterval = value.clamp(2, 20);
+    await prefs?.setInt(k('growth_interval'), _growthInterval);
+    notify();
+  }
+
+  Future<void> setGrowthReviewFirst(bool value) async {
+    _growthReviewFirst = value;
+    await prefs?.setBool(k('growth_review_first'), value);
     notify();
   }
 }

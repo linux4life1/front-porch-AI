@@ -50,9 +50,33 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}/issues
-; User-local install directory so no elevation is needed.
+; User-local install directory so no elevation is needed. A fresh install of any
+; channel still shows the "Select Destination Location" page (DisableDirPage is
+; left at its default 'auto'), so users can always pick a custom folder; only
+; in-place upgrades and /VERYSILENT auto-updates skip it.
+#ifdef NIGHTLY
+; Nightly. Pre-split Nightly builds shared the old AppId and lived in the
+; "...\Front Porch AI Beta" folder. After the AppId split, Windows has no record
+; of Nightly's new AppId, so a /VERYSILENT auto-update FORKED a brand-new copy
+; into "...\Front Porch AI Nightly" and left the running build untouched — the app
+; never actually updated, so the update prompt reappeared forever (and the new
+; copy landed in {localappdata} with no chance to choose a folder). The code
+; routine GetNightlyInstallDir adopts the pre-split folder (detected via Nightly's
+; own Start Menu group) on that first migration so the silent update overwrites
+; the running install in place. Fresh Nightly installs default to the dedicated
+; "...\Front Porch AI Nightly" folder and still show the directory page.
+;
+; UsePreviousAppDir=no is REQUIRED here: a looping user has already forked a copy
+; into the dedicated folder, so the new AppId already records that path. With the
+; default (yes) Inno would reuse that recorded path and ignore the code below,
+; reinstalling to the dedicated folder forever while the running build in the Beta
+; folder is never replaced. Taking charge of the directory in code (exactly like
+; stable) lets GetNightlyInstallDir redirect the update onto the running build.
+UsePreviousAppDir=no
+DefaultDirName={code:GetNightlyInstallDir}
+#else
 #ifdef PRE_RELEASE
-; Beta -> "...\Front Porch AI Beta", Nightly -> "...\Front Porch AI Nightly".
+; Beta -> "...\Front Porch AI Beta".
 DefaultDirName={localappdata}\{#MyAppName}{#ChannelSuffix}
 #else
 ; Stable channel. v0.9.9.0.1 shipped with the inline-conditional brace bug noted
@@ -66,6 +90,7 @@ DefaultDirName={localappdata}\{#MyAppName}{#ChannelSuffix}
 ; The stray Beta folder is cleaned up safely in [Code] (CurStepChanged).
 UsePreviousAppDir=no
 DefaultDirName={code:GetStableInstallDir}
+#endif
 #endif
 DefaultGroupName={#MyAppName}{#ChannelSuffix}
 LicenseFile={#MyAppLicenseFile}
@@ -134,8 +159,9 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 // AppIds (must match the channel AppIds in the [Setup] section above). Used to
 // read Inno's recorded install directories from the uninstall registry.
 const
-  APP_ID_STABLE = '{B7E2F8A1-4D3C-4E5B-9F1A-2C8D6E0F3B9A}';
-  APP_ID_BETA   = '{FAAC0B26-5672-4005-A81F-DE7CBA31D327}';
+  APP_ID_STABLE  = '{B7E2F8A1-4D3C-4E5B-9F1A-2C8D6E0F3B9A}';
+  APP_ID_BETA    = '{FAAC0B26-5672-4005-A81F-DE7CBA31D327}';
+  APP_ID_NIGHTLY = '{2BBF113C-2BC7-42C3-A654-2BC8478FCDE1}';
 
 function CorrectStableDir(): String;
 begin
@@ -196,6 +222,46 @@ function IsRawhideNightlyInstalled(): Boolean;
 begin
   Result := DirExists(ExpandConstant('{userprograms}\Front Porch AI Nightly')) or
             DirExists(ExpandConstant('{commonprograms}\Front Porch AI Nightly'));
+end;
+
+// DefaultDirName for NIGHTLY builds (UsePreviousAppDir=no, so this code fully
+// owns where Nightly installs — like the stable self-heal).
+//
+// THE LOOP HEAL: pre-split Nightly shared the old AppId and ran from the
+// "...\Front Porch AI Beta" folder. After the AppId split a /VERYSILENT update
+// forks a copy into the dedicated folder and leaves that running build in place,
+// so the app never updates and the prompt reappears forever. When a pre-split
+// Nightly is still sitting in the Beta folder, return that folder so the update
+// overwrites the RUNNING build in place — this works even after earlier updates
+// already forked a dedicated-folder copy (the reason UsePreviousAppDir must be
+// no: otherwise the recorded dedicated-folder path would win and bypass this).
+//
+// NO-CLOBBER GUARD: a REAL Beta install owns the Beta folder under the Beta AppId
+// ({FAAC0B26}). A pre-split Nightly never used that AppId, so when the Beta AppId
+// records the Beta folder we must NOT adopt it. Combined with Nightly's dedicated
+// Start Menu group, this distinguishes "Nightly squatting in the Beta folder"
+// from "a genuine Beta install" even when both exist.
+//
+// Otherwise: honor the new Nightly AppId's recorded path (preserves a custom
+// folder the user chose) and fall back to the dedicated folder for fresh
+// installs (which still show the directory page so the user can pick).
+function GetNightlyInstallDir(Param: String): String;
+var
+  Prev: String;
+begin
+  if IsRawhideNightlyInstalled() and
+     FileExists(BetaDir() + '\front_porch_ai.exe') and
+     (CompareText(RecordedInstallDirFor(APP_ID_BETA), BetaDir()) <> 0) then
+  begin
+    Result := BetaDir();
+    exit;
+  end;
+
+  Prev := RecordedInstallDirFor(APP_ID_NIGHTLY);
+  if Prev <> '' then
+    Result := Prev
+  else
+    Result := ExpandConstant('{localappdata}\Front Porch AI Nightly');
 end;
 
 // Safe to remove the "...\Front Porch AI Beta" folder ONLY when nothing

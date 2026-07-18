@@ -12,14 +12,12 @@ import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/optimization_service.dart';
-import 'package:front_porch_ai/services/pseudo_remote_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/backend_chip.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/kcpps_selector.dart';
-import 'package:front_porch_ai/ui/widgets/model_selector.dart';
 
 /// Step 0: Backend & Model setup (lifted pure from _buildSetupStep).
 class SetupStep extends StatelessWidget {
@@ -85,26 +83,8 @@ class SetupStep extends StatelessWidget {
                             listen: false,
                           );
                           state.scanLocalModels(storage);
-                          state.notify();
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: BackendChip(
-                      label: 'Pseudo-Remote',
-                      icon: Icons.laptop,
-                      isSelected: activeBackend == BackendType.pseudoRemote,
-                      onTap: () async {
-                        if (activeBackend != BackendType.pseudoRemote) {
-                          await llmProvider.setActiveBackend(
-                            BackendType.pseudoRemote,
-                          );
-                          final storage = Provider.of<StorageService>(
-                            context,
-                            listen: false,
-                          );
+                          // Presets are a launch option of the local backend,
+                          // so populate them here too for the optional picker.
                           state.scanLocalPresets(storage);
                           state.notify();
                         }
@@ -136,17 +116,13 @@ class SetupStep extends StatelessWidget {
                         isSelected: activeBackend == BackendType.omlx,
                         onTap: () async {
                           if (activeBackend != BackendType.omlx) {
+                            // setActiveBackend(omlx) configures the live
+                            // service onto localhost:8000 synchronously — the
+                            // old re-configure + 100ms "settle" delay here
+                            // were redundant.
                             await llmProvider.setActiveBackend(
                               BackendType.omlx,
                             );
-                            // Ensure oMLX URL is configured before loading models
-                            llmProvider.openRouterService.configure(
-                              apiUrl: 'http://localhost:8000/v1',
-                              apiKey: llmProvider.openRouterService.apiKey,
-                              modelName: llmProvider.openRouterService.modelName,
-                            );
-                            // Small delay to ensure configuration is applied
-                            await Future.delayed(const Duration(milliseconds: 100));
                             state.loadAvailableModels(llmProvider);
                           }
                         },
@@ -350,9 +326,18 @@ class SetupStep extends StatelessWidget {
                 const SizedBox(height: 16),
                 Builder(builder: (ctx) {
                   final k = Provider.of<KoboldService>(ctx);
-                  final p = Provider.of<PseudoRemoteService>(ctx);
-                  final isAnyRunning =
-                      k.isRunning || k.isStarting || p.isRunning || p.isStarting;
+                  final isAnyRunning = k.isRunning || k.isStarting;
+                  final storage = Provider.of<StorageService>(
+                    ctx,
+                    listen: false,
+                  );
+                  // A .kcpps preset that owns its own model can launch the
+                  // backend even without a picker-selected .gguf.
+                  final presetOwnsModel =
+                      storage.kcppsHasModel && storage.kcppsModelFileExists;
+                  final canStart =
+                      state.selectedLocalModelPath.isNotEmpty ||
+                      presetOwnsModel;
                   return SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -361,18 +346,11 @@ class SetupStep extends StatelessWidget {
                               if (k.isRunning || k.isStarting) {
                                 k.stopKobold();
                               }
-                              if (p.isRunning || p.isStarting) {
-                                p.stop();
-                              }
                             }
-                          : state.selectedLocalModelPath.isEmpty
+                          : !canStart
                               ? null
                               : () {
                                   final llm = Provider.of<LLMProvider>(
-                                    ctx,
-                                    listen: false,
-                                  );
-                                  final storage = Provider.of<StorageService>(
                                     ctx,
                                     listen: false,
                                   );
@@ -405,262 +383,102 @@ class SetupStep extends StatelessWidget {
                   );
                 }),
               ] else ...[
-                if (activeBackend == BackendType.pseudoRemote) ...[
-                  const SizedBox(height: 8),
-                  _inputLabel(
-                    context,
-                    'Configuration Preset (.kcpps)',
-                    required: false,
-                  ),
-                  const SizedBox(height: 8),
-                  KcppsSelector(
-                    storage: Provider.of<StorageService>(context, listen: false),
-                    localPresets: state.localPresets,
-                    nullLabel: 'None',
-                    required: true,
-                    hint: 'Required — select a .kcpps preset',
-                    onChanged: (val) {
-                      final s =
-                          Provider.of<StorageService>(context, listen: false);
-                      s.setActiveKcppsPath(val);
-                      if (val != null &&
-                          s.kcppsHasModel &&
-                          s.kcppsModelFileExists) {
-                        state.selectedLocalModelPath = '';
-                        state.notify();
-                      }
-                    },
-                    onExternalClear: () {
-                      Provider.of<StorageService>(context, listen: false)
-                          .setActiveKcppsPath(null);
-                    },
-                    onBrowsePicked: (_) {
-                      final s =
-                          Provider.of<StorageService>(context, listen: false);
-                      if (s.kcppsHasModel && s.kcppsModelFileExists) {
-                        state.selectedLocalModelPath = '';
-                        state.notify();
-                      }
-                    },
-                    onModelStatusChanged: (_) => state.notify(),
-                  ),
-                  const SizedBox(height: 16),
-                  _inputLabel(
-                    context,
-                    'Model Override (optional)',
-                    required: false,
-                  ),
-                  const SizedBox(height: 8),
-                  ModelSelector(
-                    models: Provider.of<ModelManager>(context, listen: false)
-                        .models,
-                    selectedModelPath: state.selectedLocalModelPath.isNotEmpty
-                        ? state.selectedLocalModelPath
-                        : null,
-                    showManagedByKcpps:
-                        Provider.of<StorageService>(context, listen: false)
-                                .kcppsHasModel &&
-                            Provider.of<StorageService>(context, listen: false)
-                                .kcppsModelFileExists,
-                    onChanged: (val) {
-                      if (val == null) {
-                        state.selectedLocalModelPath = '';
-                      } else {
-                        state.selectedLocalModelPath = val;
-                        Provider.of<StorageService>(context, listen: false)
-                            .setLastUsedModelPath(val);
-                      }
-                      state.notify();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Builder(builder: (ctx) {
-                    final p = Provider.of<PseudoRemoteService>(ctx);
-                    final isRunning = p.isRunning || p.isStarting;
-                    final dotColor = p.isReady
-                        ? Colors.green.shade300
-                        : isRunning
-                        ? Colors.orange.shade300
-                        : Colors.red.shade300;
-                    final label = p.isReady
-                        ? 'Ready'
-                        : p.isStarting
-                        ? 'Starting...'
-                        : p.isRunning
-                        ? 'Loading model...'
-                        : 'Stopped';
-
-                    return Row(
-                      children: [
-                        _BackendStatusDot(
-                          color: dotColor,
-                          isBlinking: isRunning && !p.isReady,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          label,
-                          style: TextStyle(color: dotColor, fontSize: 12),
-                        ),
-                      ],
+                // API (remote) and oMLX — searchable model picker.
+                _inputLabel(
+                  context,
+                  activeBackend == BackendType.omlx
+                      ? 'oMLX Model'
+                      : 'Remote Model',
+                  required: false,
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final llm = Provider.of<LLMProvider>(
+                      context,
+                      listen: false,
                     );
-                  }),
-                  const SizedBox(height: 8),
-                  Builder(builder: (ctx) {
-                    final p =
-                        Provider.of<PseudoRemoteService>(ctx);
-                    final k = Provider.of<KoboldService>(ctx);
-                    final isAnyRunning = k.isRunning || k.isStarting ||
-                        p.isRunning || p.isStarting;
-                    return SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: isAnyRunning
-                            ? () {
-                                if (k.isRunning || k.isStarting) {
-                                  k.stopKobold();
-                                }
-                                if (p.isRunning || p.isStarting) {
-                                  state.stopPseudoRemote(
-                                    Provider.of<LLMProvider>(
-                                        ctx, listen: false),
-                                  );
-                                }
-                              }
-                            : (Provider.of<StorageService>(ctx, listen: false)
-                                            .activeKcppsPath ==
-                                        null ||
-                                    Provider.of<StorageService>(ctx,
-                                                listen: false)
-                                            .activeKcppsPath!
-                                            .isEmpty ||
-                                    (!(Provider.of<StorageService>(ctx,
-                                                    listen: false)
-                                                .kcppsHasModel &&
-                                            Provider.of<StorageService>(ctx,
-                                                    listen: false)
-                                                .kcppsModelFileExists) &&
-                                        state.selectedLocalModelPath.isEmpty))
-                                ? null
-                                : () => state.startPseudoRemote(
-                                      Provider.of<LLMProvider>(ctx,
-                                          listen: false),
-                                      Provider.of<StorageService>(ctx,
-                                          listen: false),
-                                      Provider.of<BackendManager>(ctx,
-                                          listen: false),
-                                    ),
-                        icon: Icon(isAnyRunning ? Icons.stop : Icons.play_arrow),
-                        label: Text(
-                          isAnyRunning ? 'Stop Backend' : 'Start Pseudo-Remote',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isAnyRunning
-                              ? Colors.redAccent
-                              : Colors.green.shade700,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                      ),
+                    final storage = Provider.of<StorageService>(
+                      context,
+                      listen: false,
                     );
-                  }),
-                ] else ...[
-                  // API (remote) and oMLX — restored original searchable model picker.
-                  _inputLabel(
-                    context,
-                    activeBackend == BackendType.omlx
-                        ? 'oMLX Model'
-                        : 'Remote Model',
-                    required: false,
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      final llm = Provider.of<LLMProvider>(
-                        context,
-                        listen: false,
-                      );
-                      final storage = Provider.of<StorageService>(
-                        context,
-                        listen: false,
-                      );
 
-                      if (state.availableModels.isEmpty) {
-                        await state.loadAvailableModels(llm);
-                      }
+                    if (state.availableModels.isEmpty) {
+                      await state.loadAvailableModels(llm);
+                    }
 
-                      if (context.mounted &&
-                          state.availableModels.isNotEmpty) {
-                        showModelSearchDialog(
-                          context,
-                          storage,
-                          state.availableModels.cast<RemoteModelInfo>(),
-                        );
-                        Future.delayed(const Duration(milliseconds: 350), () {
-                          if (context.mounted) {
-                            final s = Provider.of<StorageService>(
-                              context,
-                              listen: false,
-                            );
-                            if (s.remoteModelName.isNotEmpty) {
-                              state.selectedModelId = s.remoteModelName;
-                              state.notify();
-                            }
+                    if (context.mounted &&
+                        state.availableModels.isNotEmpty) {
+                      showModelSearchDialog(
+                        context,
+                        storage,
+                        state.availableModels.cast<RemoteModelInfo>(),
+                      );
+                      Future.delayed(const Duration(milliseconds: 350), () {
+                        if (context.mounted) {
+                          final s = Provider.of<StorageService>(
+                            context,
+                            listen: false,
+                          );
+                          if (s.remoteModelName.isNotEmpty) {
+                            state.selectedModelId = s.remoteModelName;
+                            state.notify();
                           }
-                        });
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerOf(context),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.borderOf(context),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Model',
-                                  style: TextStyle(
-                                    color: AppColors.textTertiary(context),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  state.selectedModelId.isEmpty
-                                      ? 'Tap to select a model...'
-                                      : state.selectedModelId,
-                                  style: TextStyle(
-                                    color: state.selectedModelId.isEmpty
-                                        ? AppColors.textTertiary(context)
-                                        : AppColors.textPrimary(context),
-                                    fontSize: 14,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            Icons.arrow_drop_down,
-                            color: AppColors.iconSecondary(context),
-                          ),
-                        ],
+                        }
+                      });
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerOf(context),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.borderOf(context),
                       ),
                     ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Model',
+                                style: TextStyle(
+                                  color: AppColors.textTertiary(context),
+                                  fontSize: 11,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                state.selectedModelId.isEmpty
+                                    ? 'Tap to select a model...'
+                                    : state.selectedModelId,
+                                style: TextStyle(
+                                  color: state.selectedModelId.isEmpty
+                                      ? AppColors.textTertiary(context)
+                                      : AppColors.textPrimary(context),
+                                  fontSize: 14,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_drop_down,
+                          color: AppColors.iconSecondary(context),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ],
 
               const SizedBox(height: 24),

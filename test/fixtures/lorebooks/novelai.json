@@ -1,0 +1,19 @@
+{
+  "lorebookVersion": 5,
+  "entries": [
+    {
+      "text": "The Vale is ringed by ash-grey peaks.",
+      "contextConfig": {"budgetPriority": 400},
+      "displayName": "Geography",
+      "keys": ["vale", "peaks"],
+      "enabled": true
+    },
+    {
+      "text": "Disabled NAI entry.",
+      "contextConfig": {"budgetPriority": 100},
+      "displayName": "Off",
+      "keys": ["off"],
+      "enabled": false
+    }
+  ]
+}

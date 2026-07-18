@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -139,9 +138,15 @@ class MemoryService extends ChangeNotifier {
     try {
       final windowSize = _storageService.ragWindowSize;
 
-      // Get existing embeddings to avoid re-embedding
+      // Get existing embeddings to avoid re-embedding. Dedup is scoped to THIS
+      // character: a single session can hold windows for more than one speaker
+      // (e.g. a 1:1 host plus a Scene Guest), and each must store its own copy
+      // under its own id so memory round-trips per character. Without the
+      // characterId filter, the second speaker's identical position range would
+      // be wrongly skipped as "already embedded".
       final existing = await _db.getEmbeddingsForSession(sessionId);
       final existingRanges = existing
+          .where((e) => e.characterId == characterId)
           .map((e) => (e.positionStart, e.positionEnd))
           .toSet();
 
@@ -228,102 +233,22 @@ class MemoryService extends ChangeNotifier {
     }
   }
 
-  /// Stores a long-term salient Needs event (e.g. major pleasure spike or
-  /// embarrassing catastrophe) into the RAG vector store, tagged with
-  /// memoryType='needs_event' and JSON metadata.
-  ///
-  /// The [narrative] should be a rich, self-contained description in the style
-  /// of an internal memory (e.g. "I felt overwhelming pleasure when...").
-  /// Caller is responsible for calling this ONLY when needsSimEnabled.
-  /// Reuses the same embedding + storage path as message windows.
-  Future<void> storeNeedsEventMemory({
-    required String narrative,
-    required String characterId,
-    required String sessionId,
-    required int magnitude,
-    required String category,
-    String? extraMetadataJson,
-  }) async {
-    if (!_availabilityChecked) {
-      _availabilityChecked = true;
-      debugPrint('[RAG:Memory] Checking embedding availability...');
-      await _embeddingService.checkAvailability();
-    }
-    if (!isOperational) {
-      debugPrint(
-        '[RAG:Memory] storeNeedsEventMemory skipped — RAG not operational',
-      );
-      return;
-    }
-    if (narrative.trim().isEmpty) {
-      debugPrint(
-        '[RAG:Memory] storeNeedsEventMemory skipped — empty narrative',
-      );
-      return;
-    }
-
-    debugPrint(
-      '[RAG:Memory] ── Storing needs_event (char=$characterId, category=$category, mag=$magnitude, session=$sessionId) ──',
-    );
-
-    try {
-      final cleaned = _cleanForEmbedding(narrative);
-      final textForEmbed = cleaned.isNotEmpty ? cleaned : narrative;
-
-      final vector = await _embeddingService.embed(textForEmbed);
-      if (vector == null) {
-        debugPrint('[RAG:Memory] ✗ Failed to embed needs_event narrative');
-        return;
-      }
-
-      final bytes = Float32List.fromList(
-        vector.map((e) => e.toDouble()).toList(),
-      );
-      final embeddingBytes = Uint8List.view(bytes.buffer);
-
-      final Map<String, dynamic> meta = {
-        'category': category,
-        'magnitude': magnitude,
-        'createdAt': DateTime.now().toIso8601String(),
-      };
-      if (extraMetadataJson != null && extraMetadataJson.isNotEmpty) {
-        try {
-          final extra = jsonDecode(extraMetadataJson) as Map<String, dynamic>;
-          meta.addAll(extra);
-        } catch (_) {
-          meta['extra'] = extraMetadataJson;
-        }
-      }
-      final metadataJson = jsonEncode(meta);
-
-      await _db.insertEmbedding(
-        MessageEmbeddingsCompanion(
-          sessionId: drift.Value(sessionId),
-          characterId: drift.Value(characterId),
-          positionStart: const drift.Value(-1),
-          positionEnd: const drift.Value(-1),
-          content: drift.Value(narrative),
-          embedding: drift.Value(embeddingBytes),
-          dimensions: drift.Value(vector.length),
-          memoryType: const drift.Value('needs_event'),
-          metadata: drift.Value(metadataJson),
-        ),
-      );
-
-      debugPrint(
-        '[RAG:Memory] ✅ Stored needs_event (${vector.length}d, ${embeddingBytes.lengthInBytes} bytes, meta: $metadataJson)',
-      );
-    } catch (e) {
-      debugPrint('[RAG:Memory] ✗ storeNeedsEventMemory failed: $e');
-    }
-  }
-
   /// Retrieve relevant past memories for the current conversation context.
   ///
   /// Embeds the [queryText] (typically the last 2-3 messages), then searches
   /// the vector store for similar message windows. Only searches embeddings
   /// from the specified [sourceCharacterIds] and excludes any from the
   /// [currentSessionId] that fall within the [inContextPositions] range.
+  ///
+  /// **Session isolation** — characters listed in [sessionScopedCharacterIds]
+  /// (i.e. the current speaker/self) only ever contribute memories from the
+  /// current session. This is what stops a brand-new chat from surfacing stale
+  /// locations and storylines that belong to a *different* chat with the same
+  /// character — matching the Journal's strict per-chat guarantee. Characters
+  /// NOT in that set (explicit cross-character memory sources) are deliberately
+  /// left unscoped, so the opt-in "let X remember things about Y" feature still
+  /// reaches across sessions. Data Bank entries are a separate, intentional
+  /// cross-session knowledge source and are never scoped here.
   Future<List<RetrievedMemory>> retrieve({
     required String queryText,
     required List<String> sourceCharacterIds,
@@ -332,6 +257,7 @@ class MemoryService extends ChangeNotifier {
     int limit = 5,
     double minScore = 0.3,
     Map<String, double>? characterPriorities,
+    Set<String> sessionScopedCharacterIds = const {},
   }) async {
     // Lazy availability check — run once on first use
     if (!_availabilityChecked) {
@@ -408,9 +334,22 @@ class MemoryService extends ChangeNotifier {
       // Score each candidate against the query
       final scored = <RetrievedMemory>[];
       int skippedInContext = 0;
+      int skippedCrossSession = 0;
       int belowThreshold = 0;
 
       for (final candidate in candidates) {
+        // Session isolation: the speaker's OWN memories must never cross chats.
+        // For a session-scoped character (self/current speaker), only
+        // current-session embeddings are eligible — this is the fix for stale
+        // locations/storylines leaking in from a previous chat with the same
+        // character. Explicit cross-character sources are intentionally NOT in
+        // this set, so their opt-in cross-session recall still works.
+        if (sessionScopedCharacterIds.contains(candidate.characterId) &&
+            candidate.sessionId != currentSessionId) {
+          skippedCrossSession++;
+          continue;
+        }
+
         // Skip embeddings from the current session that are still in context
         if (candidate.sessionId == currentSessionId &&
             candidate.positionStart >= inContextStart) {
@@ -419,7 +358,7 @@ class MemoryService extends ChangeNotifier {
         }
 
         // Deserialize the stored embedding
-        final storedVector = _bytesToVector(
+        final storedVector = bytesToVector(
           candidate.embedding,
           candidate.dimensions,
         );
@@ -448,7 +387,7 @@ class MemoryService extends ChangeNotifier {
 
       // Score Data Bank entries
       for (final entry in dataBankCandidates) {
-        final storedVector = _bytesToVector(entry.embedding!, entry.dimensions);
+        final storedVector = bytesToVector(entry.embedding!, entry.dimensions);
         if (storedVector == null) continue;
 
         final rawScore = cosineSimilarity(queryVector, storedVector);
@@ -472,7 +411,7 @@ class MemoryService extends ChangeNotifier {
       }
 
       debugPrint(
-        '[RAG:Memory] Scoring: ${scored.length} above threshold, $belowThreshold below, $skippedInContext skipped (in-context)',
+        '[RAG:Memory] Scoring: ${scored.length} above threshold, $belowThreshold below, $skippedInContext skipped (in-context), $skippedCrossSession skipped (cross-session)',
       );
 
       // Sort by score descending and take top N
@@ -502,8 +441,23 @@ class MemoryService extends ChangeNotifier {
     }
   }
 
+  /// Embed one piece of text, or null when embeddings aren't operational
+  /// (RAG off / sidecar unavailable). Availability-guarded single-text door
+  /// for other services — the Journal uses it for card vectors and cold-card
+  /// query embedding.
+  Future<List<double>?> embedText(String text) async {
+    if (!_availabilityChecked) {
+      _availabilityChecked = true;
+      await _embeddingService.checkAvailability();
+    }
+    if (!isOperational) return null;
+    final cleaned = _cleanForEmbedding(text);
+    if (cleaned.isEmpty) return null;
+    return _embeddingService.embed(cleaned);
+  }
+
   /// Convert stored bytes back to a vector of doubles.
-  List<double>? _bytesToVector(Uint8List bytes, int dimensions) {
+  static List<double>? bytesToVector(Uint8List bytes, int dimensions) {
     try {
       final floats = Float32List.view(
         bytes.buffer,
@@ -536,135 +490,5 @@ class MemoryService extends ChangeNotifier {
     if (denominator == 0.0) return 0.0;
 
     return dotProduct / denominator;
-  }
-
-  /// Retrieve only long-term salient Needs events (memoryType == 'needs_event')
-  /// via semantic vector search over the character's stored events.
-  ///
-  /// Unlike [retrieve], this does NOT apply in-context exclusion — Needs events
-  /// are persistent character-state memories and should be recallable across
-  /// sessions and even within the current chat when contextually relevant.
-  /// Caller gates the call with needsSimEnabled.
-  ///
-  /// Reuses _cleanForEmbedding, embed, cosineSimilarity, _bytesToVector and
-  /// the same scoring/priority/boost logic.
-  Future<List<RetrievedMemory>> retrieveSalientNeedsEvents({
-    required String queryText,
-    required List<String> characterIds,
-    int limit = 5,
-    double minScore = 0.2,
-    Map<String, double>? characterPriorities,
-  }) async {
-    if (!_availabilityChecked) {
-      _availabilityChecked = true;
-      debugPrint('[RAG:Memory] Checking embedding availability...');
-      await _embeddingService.checkAvailability();
-    }
-    if (!isOperational || queryText.trim().isEmpty || characterIds.isEmpty) {
-      debugPrint(
-        '[RAG:Memory] retrieveSalientNeedsEvents skipped — not operational / empty query / no characters',
-      );
-      return [];
-    }
-
-    final cleanedQuery = _cleanForEmbedding(queryText);
-    final queryPreview = cleanedQuery.length > 80
-        ? '${cleanedQuery.substring(0, 80)}...'
-        : cleanedQuery;
-    debugPrint(
-      '[RAG:Memory] ── [NeedsEvents] Retrieving (limit: $limit, minScore: $minScore) ──',
-    );
-    debugPrint('[RAG:Memory] [NeedsEvents] Query: "$queryPreview"');
-    debugPrint('[RAG:Memory] [NeedsEvents] Characters: $characterIds');
-
-    try {
-      final queryVector = await _embeddingService.embed(cleanedQuery);
-      if (queryVector == null) {
-        debugPrint('[RAG:Memory] [NeedsEvents] ✗ Query embedding failed');
-        return [];
-      }
-      debugPrint(
-        '[RAG:Memory] [NeedsEvents] Query vector: ${queryVector.length}d',
-      );
-
-      // Fetch all for the characters, then filter to only needs_event rows
-      final allCandidates = await _db.getEmbeddingsForCharacters(characterIds);
-      final needsCandidates = allCandidates
-          .where((e) => e.memoryType == 'needs_event')
-          .toList();
-
-      debugPrint(
-        '[RAG:Memory] [NeedsEvents] Total candidates: ${allCandidates.length}, needs_events: ${needsCandidates.length}',
-      );
-
-      if (needsCandidates.isEmpty) {
-        debugPrint(
-          '[RAG:Memory] [NeedsEvents] No stored needs_event embeddings found',
-        );
-        return [];
-      }
-
-      final scored = <RetrievedMemory>[];
-      int belowThreshold = 0;
-
-      for (final candidate in needsCandidates) {
-        final storedVector = _bytesToVector(
-          candidate.embedding,
-          candidate.dimensions,
-        );
-        if (storedVector == null) continue;
-
-        final rawScore = cosineSimilarity(queryVector, storedVector);
-        final priority = characterPriorities?[candidate.characterId] ?? 1.0;
-        final score = rawScore * priority;
-
-        if (score >= minScore) {
-          scored.add(
-            RetrievedMemory(
-              content: candidate.content,
-              characterId: candidate.characterId,
-              sessionId: candidate.sessionId,
-              positionStart: candidate.positionStart,
-              positionEnd: candidate.positionEnd,
-              score: score,
-            ),
-          );
-        } else {
-          belowThreshold++;
-        }
-      }
-
-      debugPrint(
-        '[RAG:Memory] [NeedsEvents] Scoring: ${scored.length} above threshold, $belowThreshold below',
-      );
-
-      scored.sort((a, b) => b.score.compareTo(a.score));
-      final results = scored.take(limit).toList();
-
-      if (results.isNotEmpty) {
-        debugPrint(
-          '[RAG:Memory] [NeedsEvents] ── Top ${results.length} event(s): ──',
-        );
-        for (int i = 0; i < results.length; i++) {
-          final m = results[i];
-          final preview = m.content.length > 70
-              ? '${m.content.substring(0, 70)}...'
-              : m.content;
-          debugPrint(
-            '[RAG:Memory] [NeedsEvents]   #${i + 1} score=${m.score.toStringAsFixed(3)} char=${m.characterId ?? "n/a"}',
-          );
-          debugPrint('[RAG:Memory] [NeedsEvents]       "$preview"');
-        }
-      } else {
-        debugPrint(
-          '[RAG:Memory] [NeedsEvents] No events above threshold $minScore',
-        );
-      }
-
-      return results;
-    } catch (e) {
-      debugPrint('[RAG:Memory] [NeedsEvents] ✗ Retrieval failed: $e');
-      return [];
-    }
   }
 }

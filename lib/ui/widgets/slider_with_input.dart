@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 class SliderWithInput extends StatefulWidget {
   const SliderWithInput({
@@ -162,7 +163,7 @@ class _SliderWithInputState extends State<SliderWithInput> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide(
-                      color: Colors.blueAccent,
+                      color: AppColors.formMasterAccent,
                       width: 1.5,
                     ),
                   ),

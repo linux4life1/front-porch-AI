@@ -17,6 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+// Hide `Size`: dart:ffi exports a `Size` type that collides with Flutter's
+// `Size`. `hide` (not `show`) keeps the `lookupFunction` extension in scope.
+import 'dart:ffi' hide Size;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -27,7 +30,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 import 'package:window_manager/window_manager.dart';
+// screen_retriever is a transitive dep of window_manager (used here to validate
+// that restored window bounds are actually visible on a connected display).
+// ignore: depend_on_referenced_packages
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
+import 'package:front_porch_ai/providers/auth_state.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart'; // Keep original import for MainLayout
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/database.dart';
@@ -45,16 +55,10 @@ import 'package:front_porch_ai/services/download_manager.dart';
 import 'package:front_porch_ai/services/setup_service.dart';
 import 'package:front_porch_ai/services/db_reunification_service.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
-import 'package:front_porch_ai/services/embedding_sidecar.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/audiobook_generator_service.dart';
 import 'package:front_porch_ai/services/file_consolidation_service.dart';
-import 'package:front_porch_ai/services/web_server_service.dart';
-import 'package:front_porch_ai/services/web_chat_bridge.dart';
-
-// Cloud provider implementations (not re-exported from the services barrel)
-import 'package:front_porch_ai/services/cloud_providers/webdav_provider.dart';
-import 'package:front_porch_ai/services/cloud_providers/google_drive_provider.dart';
+import 'package:front_porch_ai/services/web/web_server_host.dart';
 
 // Dialogs and specific widgets used only in main.dart (direct imports are appropriate)
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
@@ -63,6 +67,131 @@ import 'package:front_porch_ai/ui/dialogs/stable_db_import_dialog.dart';
 /// Prefix SharedPreferences keys for beta builds so window state is
 /// isolated from the stable installation.  Unchanged for stable builds.
 String _k(String key) => isPreRelease ? 'beta_$key' : key;
+
+/// True when a meaningful chunk of the given window rect overlaps at least one
+/// connected display's visible area — i.e. the window would actually be
+/// reachable on screen if we restored it there.
+///
+/// This is the guard for GitHub issue #78: on Windows, closing the app while
+/// the window is *minimized* makes `getPosition()` return the Win32 minimized
+/// sentinel (~ -32000, -32000). Without this check that poisoned coordinate was
+/// written to `window_x`/`window_y` and, on the next launch, `setBounds` placed
+/// the window far off-screen — it appeared only as an unreachable taskbar icon
+/// that WIN+arrow / ALT+Enter could not recover. Because SharedPreferences on
+/// Windows lives outside the app's data folders, uninstalling did not clear it,
+/// so the break survived a full reinstall. Rejecting off-screen bounds here
+/// self-heals those already-affected installs (we fall back to the centered
+/// default) as well as any window stranded by a since-disconnected monitor.
+Future<bool> _windowBoundsVisible(Rect bounds) async {
+  // Cheap, dependency-free rejection of the Win32 minimized sentinel first —
+  // this is also the fallback if display enumeration throws below.
+  const double kOffscreenSentinel = -30000;
+  if (bounds.left <= kOffscreenSentinel || bounds.top <= kOffscreenSentinel) {
+    return false;
+  }
+  try {
+    final displays = await screenRetriever.getAllDisplays();
+    for (final d in displays) {
+      final origin = d.visiblePosition ?? Offset.zero;
+      final size = d.visibleSize ?? d.size;
+      final screen = Rect.fromLTWH(
+        origin.dx,
+        origin.dy,
+        size.width,
+        size.height,
+      );
+      final overlap = bounds.intersect(screen);
+      // Require a grabbable chunk (roughly the title bar + a corner) to be
+      // visible, so a 1px sliver peeking onto a screen still counts as lost.
+      if (overlap.width > 120 && overlap.height > 60) return true;
+    }
+    return false;
+  } catch (e) {
+    // Display enumeration failed (rare, pre-runApp). We already ruled out the
+    // sentinel above, so trust the saved bounds rather than fighting the OS.
+    debugPrint('Failed to enumerate displays for window restore: $e');
+    return true;
+  }
+}
+
+/// Sets SIGPIPE to SIG_IGN via libc so a write to a closed socket/pipe fails
+/// with a normal, catchable `SocketException` instead of silently killing the
+/// whole process (SIGPIPE's default disposition). No-op on Windows (no SIGPIPE)
+/// and best-effort everywhere else — a lookup failure just leaves the default.
+void _ignoreSigpipe() {
+  if (Platform.isWindows) return;
+  try {
+    // int signal(int signum, sighandler_t handler); SIG_IGN == (void*)1,
+    // SIGPIPE == 13 on both macOS (Darwin) and Linux.
+    final signal = DynamicLibrary.process().lookupFunction<
+        Pointer<Void> Function(Int32, Pointer<Void>),
+        Pointer<Void> Function(int, Pointer<Void>)>('signal');
+    signal(13, Pointer<Void>.fromAddress(1));
+  } catch (e) {
+    debugPrint('Could not set SIG_IGN for SIGPIPE: $e');
+  }
+}
+
+/// Last-resort screen shown when the database can't be opened at startup (disk
+/// full, no write permission, or another copy of the app holding the file).
+/// Deliberately self-contained — it runs before the theme/AppColors exist, so
+/// it hardcodes a dark bootstrap palette rather than depend on any provider.
+class _DbInitErrorApp extends StatelessWidget {
+  const _DbInitErrorApp({required this.details});
+
+  final String details;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF0F172A),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.storage_rounded,
+                  color: Colors.orangeAccent,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "Front Porch AI couldn't open its database",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'This is usually a full disk, missing write permission, or '
+                  'another copy of Front Porch AI already running. Free up '
+                  'space, close any other copies, then reopen the app.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  details,
+                  textAlign: TextAlign.center,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -82,6 +211,16 @@ void main(List<String> args) async {
       exit(0);
     });
   }
+  // Ignore SIGPIPE at the C level. A write to a socket/pipe whose peer has
+  // already closed (a dropped web-server connection, the mDNSResponder/Tailscale
+  // sockets used when serving over the LAN or a tailnet, a subprocess stdio pipe)
+  // raises SIGPIPE, whose default disposition SILENTLY terminates the whole
+  // process with no crash report — the "app just vanishes from the dock when I
+  // toggle the web server on" bug in the signed/notarized build. The standalone
+  // Dart VM sets SIG_IGN for us (so `flutter run` never showed it), but the
+  // Flutter embedder leaves the default in place. dart:io deliberately REFUSES
+  // to watch SIGPIPE, so we set the disposition directly via libc.
+  _ignoreSigpipe();
 
   // Consolidate files BEFORE loading database or any configs.
   try {
@@ -90,12 +229,25 @@ void main(List<String> args) async {
     debugPrint('Fatal error during file consolidation: $e');
   }
 
-  // Initialize database
-  final db = await AppDatabase.instance();
-  final needsMigration = !await DataMigrationService.isMigrated();
-
-  // Run integrity check before anything else touches the DB
-  final dbHealthy = await db.integrityCheck();
+  // Initialize database. This is the last thing that can die BEFORE any window
+  // exists — a disk-full/permissions failure, or a second copy of the app
+  // holding the file (the documented dual-run case), would otherwise exit the
+  // process silently ("app won't launch, no message"). Guard it and, on a
+  // hard failure, show a minimal error window instead of nothing.
+  // (NativeDatabase.createInBackground opens lazily, so a bad/locked file
+  // surfaces at the first query — integrityCheck — not at instance().)
+  final AppDatabase db;
+  final bool needsMigration;
+  final bool dbHealthy;
+  try {
+    db = await AppDatabase.instance();
+    needsMigration = !await DataMigrationService.isMigrated();
+    dbHealthy = await db.integrityCheck();
+  } catch (e, st) {
+    debugPrint('[DB] FATAL: could not open the database: $e\n$st');
+    runApp(_DbInitErrorApp(details: e.toString()));
+    return;
+  }
   _MyAppState._dbHealthy = dbHealthy;
 
   // Purge rows that were soft-deleted more than 30 days ago
@@ -146,32 +298,41 @@ void main(List<String> args) async {
       // reproduce ghosting, but setBounds to the already-maximized size
       // is a no-op and the bug doesn't trigger. Even without this defense,
       // the stale values self-heal on the first non-maximized close (which
-      // saves correct bounds). This upgrade concern is only actionable if
-      // the _normal* seeding gap (see the NOTE in onWindowClose's max save
-      // branch) is ever fixed — that fix would need a migration guard here
-      // to ignore dimension values at or above screen resolution.
+      // saves correct bounds).
+      //
+      // Validate the saved rect is actually visible on a connected display
+      // before applying it (issue #78 — see _windowBoundsVisible). If it
+      // isn't (Win32 minimized sentinel, or a monitor that has since been
+      // unplugged), we skip setBounds and fall through to the centered
+      // default from WindowOptions instead of stranding the window off-screen.
+      Rect? savedBounds;
+      if (windowX != null &&
+          windowY != null &&
+          windowWidth != null &&
+          windowHeight != null) {
+        final candidate = Rect.fromLTWH(
+          windowX,
+          windowY,
+          windowWidth,
+          windowHeight,
+        );
+        if (await _windowBoundsVisible(candidate)) {
+          savedBounds = candidate;
+        }
+      }
+
       if (windowMaximized) {
         // Restore the non-maximized bounds first (so the OS remembers
         // the correct "restore down" size), then maximize. This never
         // puts the window at full-screen size in non-maximized state,
         // which was the root cause of the Windows ghost frame issue.
-        if (windowX != null &&
-            windowY != null &&
-            windowWidth != null &&
-            windowHeight != null) {
-          await windowManager.setBounds(
-            Rect.fromLTWH(windowX, windowY, windowWidth, windowHeight),
-          );
+        if (savedBounds != null) {
+          await windowManager.setBounds(savedBounds);
         }
         await windowManager.maximize();
-      } else if (windowX != null &&
-          windowY != null &&
-          windowWidth != null &&
-          windowHeight != null) {
+      } else if (savedBounds != null) {
         // Restore saved position + size
-        await windowManager.setBounds(
-          Rect.fromLTWH(windowX, windowY, windowWidth, windowHeight),
-        );
+        await windowManager.setBounds(savedBounds);
       }
     } catch (e) {
       debugPrint('Failed to restore window state: $e');
@@ -191,6 +352,10 @@ void main(List<String> args) async {
         // Theme / dark mode is now driven exclusively by StorageService (single source of truth,
         // persisted, notifies after async prefs load). This eliminates the prior race + glue bugs.
         ChangeNotifierProvider(create: (_) => AppState()),
+        // Repository (Backporch) account session. Lazy — constructed + restored
+        // only when the Repository page is first opened, so users who never
+        // touch the online hub pay nothing and make no network calls.
+        ChangeNotifierProvider(create: (_) => AuthState()..init()),
         ChangeNotifierProxyProvider<StorageService, DownloadManager>(
           create: (context) => DownloadManager(
             targetDir: Provider.of<StorageService>(
@@ -198,8 +363,12 @@ void main(List<String> args) async {
               listen: false,
             ).modelsDir.path,
           ),
+          // Re-point the target dir on every storage notify (notably the one
+          // after async init sets rootPath) so downloads always land in the
+          // configured models folder, not a relative path captured at create.
           update: (context, storage, previous) =>
-              previous ?? DownloadManager(targetDir: storage.modelsDir.path),
+              (previous ?? DownloadManager(targetDir: storage.modelsDir.path))
+                ..targetDir = storage.modelsDir.path,
         ),
         ChangeNotifierProxyProvider<StorageService, KoboldService>(
           create: (context) => KoboldService(
@@ -209,6 +378,17 @@ void main(List<String> args) async {
               previous ?? KoboldService(storage),
         ),
         ChangeNotifierProvider(create: (_) => HardwareService()),
+        // Anonymous, opt-out app analytics. Lazy like AuthState — only built
+        // when the Stoop is first opened (RepositoryPage reads it), so users who
+        // never touch the hub make no network calls. It listens to AuthState and
+        // pings once per launch when signed in and analytics is enabled.
+        Provider<StoopAnalytics>(
+          create: (ctx) => StoopAnalytics(
+            ctx.read<AuthState>(),
+            ctx.read<HardwareService>(),
+          ),
+          dispose: (_, s) => s.dispose(),
+        ),
         ChangeNotifierProxyProvider<StorageService, CharacterRepository>(
           create: (context) => CharacterRepository(
             db,
@@ -253,10 +433,9 @@ void main(List<String> args) async {
             return newRepo;
           },
         ),
-        ChangeNotifierProvider(create: (_) => EmbeddingSidecar()),
         ChangeNotifierProvider<EmbeddingService>(
           create: (context) => EmbeddingService(
-            Provider.of<EmbeddingSidecar>(context, listen: false),
+            Provider.of<StorageService>(context, listen: false),
           ),
         ),
         ChangeNotifierProxyProvider<StorageService, BackendManager>(
@@ -279,11 +458,9 @@ void main(List<String> args) async {
               previous ?? ModelManager(storage, downloadManager),
         ),
         ChangeNotifierProvider(create: (_) => OpenRouterService()),
-        ChangeNotifierProvider(create: (_) => PseudoRemoteService()),
-        ChangeNotifierProxyProvider5<
+        ChangeNotifierProxyProvider4<
           KoboldService,
           OpenRouterService,
-          PseudoRemoteService,
           StorageService,
           BackendManager,
           LLMProvider
@@ -291,28 +468,11 @@ void main(List<String> args) async {
           create: (context) => LLMProvider(
             Provider.of<KoboldService>(context, listen: false),
             Provider.of<OpenRouterService>(context, listen: false),
-            Provider.of<PseudoRemoteService>(context, listen: false),
             Provider.of<StorageService>(context, listen: false),
             Provider.of<BackendManager>(context, listen: false),
           ),
-          update:
-              (
-                context,
-                kobold,
-                openRouter,
-                pseudoRemote,
-                storage,
-                backend,
-                previous,
-              ) =>
-                  previous ??
-                  LLMProvider(
-                    kobold,
-                    openRouter,
-                    pseudoRemote,
-                    storage,
-                    backend,
-                  ),
+          update: (context, kobold, openRouter, storage, backend, previous) =>
+              previous ?? LLMProvider(kobold, openRouter, storage, backend),
         ),
         ChangeNotifierProxyProvider4<
           KoboldService,
@@ -330,9 +490,15 @@ void main(List<String> args) async {
             );
             // Wire LLMProvider and CharacterRepository immediately at creation time
             chatService.setDatabase(db);
-            chatService.setLLMProvider(
-              Provider.of<LLMProvider>(context, listen: false),
+            final llmProviderForChat = Provider.of<LLMProvider>(
+              context,
+              listen: false,
             );
+            chatService.setLLMProvider(llmProviderForChat);
+            // Lets the live-status sources (oMLX poller) gate their polling
+            // on an actual generation being in flight.
+            llmProviderForChat.isGenerationActive = () =>
+                chatService.isGenerating;
             chatService.setCharacterRepository(
               Provider.of<CharacterRepository>(context, listen: false),
             );
@@ -342,14 +508,13 @@ void main(List<String> args) async {
             );
             // Wire MemoryService for RAG
             try {
-              final sidecar = Provider.of<EmbeddingSidecar>(
+              final storage = Provider.of<StorageService>(
                 context,
                 listen: false,
               );
-              final embeddingService = EmbeddingService(sidecar);
               final memoryService = MemoryService(
-                embeddingService,
-                Provider.of<StorageService>(context, listen: false),
+                EmbeddingService(storage),
+                storage,
                 db,
               );
               chatService.setMemoryService(memoryService);
@@ -358,9 +523,13 @@ void main(List<String> args) async {
           },
           update: (context, kobold, persona, storage, worldRepo, previous) {
             if (previous != null) {
-              previous.setLLMProvider(
-                Provider.of<LLMProvider>(context, listen: false),
+              final llmProviderForChat = Provider.of<LLMProvider>(
+                context,
+                listen: false,
               );
+              previous.setLLMProvider(llmProviderForChat);
+              llmProviderForChat.isGenerationActive = () =>
+                  previous.isGenerating;
               previous.setCharacterRepository(
                 Provider.of<CharacterRepository>(context, listen: false),
               );
@@ -381,9 +550,13 @@ void main(List<String> args) async {
               worldRepo,
             );
             chatService.setDatabase(db);
-            chatService.setLLMProvider(
-              Provider.of<LLMProvider>(context, listen: false),
+            final llmProviderLate = Provider.of<LLMProvider>(
+              context,
+              listen: false,
             );
+            chatService.setLLMProvider(llmProviderLate);
+            llmProviderLate.isGenerationActive = () =>
+                chatService.isGenerating;
             chatService.setCharacterRepository(
               Provider.of<CharacterRepository>(context, listen: false),
             );
@@ -403,21 +576,19 @@ void main(List<String> args) async {
           update: (context, storage, previous) =>
               previous ?? ExpressionClassifierService(storage),
         ),
-        ChangeNotifierProxyProvider4<
+        ChangeNotifierProxyProvider3<
           StorageService,
           BackendManager,
           KoboldService,
-          PseudoRemoteService,
           SetupService
         >(
           create: (context) => SetupService(
             Provider.of<StorageService>(context, listen: false),
             Provider.of<BackendManager>(context, listen: false),
             Provider.of<KoboldService>(context, listen: false),
-            Provider.of<PseudoRemoteService>(context, listen: false),
           ),
-          update: (context, storage, backend, kobold, pseudoRemote, previous) =>
-              previous ?? SetupService(storage, backend, kobold, pseudoRemote),
+          update: (context, storage, backend, kobold, previous) =>
+              previous ?? SetupService(storage, backend, kobold),
         ),
         ChangeNotifierProvider(create: (_) => UpdateService()),
         ChangeNotifierProxyProvider<StorageService, VoiceManager>(
@@ -450,17 +621,11 @@ void main(List<String> args) async {
           create: (context) =>
               SttService(Provider.of<StorageService>(context, listen: false)),
           update: (context, storage, previous) {
-            if (previous != null) {
-              try {
-                previous.setTtsService(
-                  Provider.of<TtsService>(context, listen: false),
-                );
-              } catch (_) {}
-            }
+            // Call-mode TTS awareness is wired by the call overlay itself
+            // (CallSession.attachTtsBusyProbe) — no TTS ref needed here.
             return previous ?? SttService(storage);
           },
         ),
-        ChangeNotifierProvider(create: (_) => CloudSyncService()),
         ChangeNotifierProxyProvider<StorageService, ImageGenService>(
           create: (context) {
             return ImageGenService(
@@ -471,7 +636,7 @@ void main(List<String> args) async {
             return previous ?? ImageGenService(storage);
           },
         ),
-        // Porch Stories: repository + pipeline must be above WebServerService
+        // Porch Stories: repository + pipeline must be above WebServerHost
         ChangeNotifierProvider(
           create: (context) {
             final repo = StoryRepository(db);
@@ -489,13 +654,12 @@ void main(List<String> args) async {
               context,
               listen: false,
             );
-            final sidecar = Provider.of<EmbeddingSidecar>(
-              context,
-              listen: false,
-            );
             final storage = Provider.of<StorageService>(context, listen: false);
-            final embeddingService = EmbeddingService(sidecar);
-            final memoryService = MemoryService(embeddingService, storage, db);
+            final memoryService = MemoryService(
+              EmbeddingService(storage),
+              storage,
+              db,
+            );
             final repo = Provider.of<StoryRepository>(context, listen: false);
             return StoryPipelineService(
               repo,
@@ -505,12 +669,11 @@ void main(List<String> args) async {
             );
           },
           update: (context, llmProvider, storage, previous) {
-            final sidecar = Provider.of<EmbeddingSidecar>(
-              context,
-              listen: false,
+            final memoryService = MemoryService(
+              EmbeddingService(storage),
+              storage,
+              db,
             );
-            final embeddingService = EmbeddingService(sidecar);
-            final memoryService = MemoryService(embeddingService, storage, db);
             final repo = Provider.of<StoryRepository>(context, listen: false);
             return StoryPipelineService(
               repo,
@@ -520,129 +683,62 @@ void main(List<String> args) async {
             );
           },
         ),
-        ChangeNotifierProxyProvider<StorageService, WebServerService>(
+        // Web server: the React PWA + Dart shelf rewrite (lib/services/web).
+        // Started on launch (_autoStartWebServer) or via the Settings toggle.
+        // Collaborators are wired via setX. ChatService's own ImageGenService
+        // (Scene Guest portraits) is wired in the post-frame block below.
+        ChangeNotifierProvider<WebServerHost>(
           create: (context) {
-            final chatService = Provider.of<ChatService>(
-              context,
-              listen: false,
-            );
-            final ws = WebServerService(
+            final host = WebServerHost(
               Provider.of<StorageService>(context, listen: false),
             );
-            ws.setDatabase(db);
-            ws.setCharacterRepository(
+            host.setDatabase(db);
+            host.setChatService(
+              Provider.of<ChatService>(context, listen: false),
+            );
+            host.setKoboldService(
+              Provider.of<KoboldService>(context, listen: false),
+            );
+            host.setCharacterRepository(
               Provider.of<CharacterRepository>(context, listen: false),
             );
-            ws.setChatService(chatService);
-            ws.setChatBridge(WebChatBridge(chatService));
-            ws.setLLMProvider(Provider.of<LLMProvider>(context, listen: false));
-            ws.setFolderService(
-              Provider.of<FolderService>(context, listen: false),
-            );
-            ws.setTtsService(Provider.of<TtsService>(context, listen: false));
-            ws.setUserPersonaService(
-              Provider.of<UserPersonaService>(context, listen: false),
-            );
-            ws.setGroupChatRepository(
+            host.setGroupChatRepository(
               Provider.of<GroupChatRepository>(context, listen: false),
             );
-            ws.setCloudSyncService(
-              Provider.of<CloudSyncService>(context, listen: false),
+            host.setLlmProvider(
+              Provider.of<LLMProvider>(context, listen: false),
             );
-            ws.setImageGenService(
-              Provider.of<ImageGenService>(context, listen: false),
-            );
-            ws.setEmbeddingSidecar(
-              Provider.of<EmbeddingSidecar>(context, listen: false),
-            );
-            ws.setStoryRepository(
-              Provider.of<StoryRepository>(context, listen: false),
-            );
-            ws.setStoryPipelineService(
-              Provider.of<StoryPipelineService>(context, listen: false),
-            );
-            return ws;
-          },
-          update: (context, storage, previous) {
-            if (previous != null) {
-              final chatService = Provider.of<ChatService>(
-                context,
-                listen: false,
-              );
-              previous.setChatService(chatService);
-              previous.setCharacterRepository(
-                Provider.of<CharacterRepository>(context, listen: false),
-              );
-              previous.setLLMProvider(
-                Provider.of<LLMProvider>(context, listen: false),
-              );
-              previous.setFolderService(
-                Provider.of<FolderService>(context, listen: false),
-              );
-              previous.setTtsService(
-                Provider.of<TtsService>(context, listen: false),
-              );
-              previous.setUserPersonaService(
-                Provider.of<UserPersonaService>(context, listen: false),
-              );
-              previous.setGroupChatRepository(
-                Provider.of<GroupChatRepository>(context, listen: false),
-              );
-              previous.setCloudSyncService(
-                Provider.of<CloudSyncService>(context, listen: false),
-              );
-              previous.setImageGenService(
-                Provider.of<ImageGenService>(context, listen: false),
-              );
-              previous.setEmbeddingSidecar(
-                Provider.of<EmbeddingSidecar>(context, listen: false),
-              );
-              previous.setStoryRepository(
-                Provider.of<StoryRepository>(context, listen: false),
-              );
-              previous.setStoryPipelineService(
-                Provider.of<StoryPipelineService>(context, listen: false),
-              );
-              return previous;
-            }
-            final chatService = Provider.of<ChatService>(
-              context,
-              listen: false,
-            );
-            final ws = WebServerService(storage);
-            ws.setDatabase(db);
-            ws.setCharacterRepository(
-              Provider.of<CharacterRepository>(context, listen: false),
-            );
-            ws.setChatService(chatService);
-            ws.setChatBridge(WebChatBridge(chatService));
-            ws.setLLMProvider(Provider.of<LLMProvider>(context, listen: false));
-            ws.setFolderService(
+            host.setFolderService(
               Provider.of<FolderService>(context, listen: false),
             );
-            ws.setTtsService(Provider.of<TtsService>(context, listen: false));
-            ws.setUserPersonaService(
+            host.setUserPersonaService(
               Provider.of<UserPersonaService>(context, listen: false),
             );
-            ws.setGroupChatRepository(
-              Provider.of<GroupChatRepository>(context, listen: false),
+            host.setWorldRepository(
+              Provider.of<WorldRepository>(context, listen: false),
             );
-            ws.setCloudSyncService(
-              Provider.of<CloudSyncService>(context, listen: false),
+            host.setModelManager(
+              Provider.of<ModelManager>(context, listen: false),
             );
-            ws.setImageGenService(
+            host.setHardwareService(
+              Provider.of<HardwareService>(context, listen: false),
+            );
+            host.setImageGenService(
               Provider.of<ImageGenService>(context, listen: false),
             );
-            ws.setEmbeddingSidecar(
-              Provider.of<EmbeddingSidecar>(context, listen: false),
+            host.setTtsService(
+              Provider.of<TtsService>(context, listen: false),
             );
-            ws.setStoryRepository(
+            host.setSttService(
+              Provider.of<SttService>(context, listen: false),
+            );
+            host.setStoryRepository(
               Provider.of<StoryRepository>(context, listen: false),
             );
-            ws.setStoryPipelineService(
+            host.setStoryPipelineService(
               Provider.of<StoryPipelineService>(context, listen: false),
             );
-            return ws;
+            return host;
           },
         ),
       ],
@@ -749,8 +845,12 @@ class _MyAppState extends State<MyApp> with WindowListener {
     await _reinitializeAfterImport();
   }
 
-  Future<void> _reinitializeAfterImport() async {
-    if (!mounted) return;
+  /// Rebinds every DB-holding service to a fresh AppDatabase instance and
+  /// reloads them. Returns false when the rebind could not run/complete —
+  /// callers that just closed the old instance (import, restore) must treat
+  /// false as "the app needs a restart", not as success.
+  Future<bool> _reinitializeAfterImport() async {
+    if (!mounted) return false;
 
     try {
       final oldDb = Provider.of<AppDatabase>(context, listen: false);
@@ -777,6 +877,14 @@ class _MyAppState extends State<MyApp> with WindowListener {
       groupRepo.updateDatabase(newDb);
       worldRepo.updateDatabase(newDb);
       Provider.of<ChatService>(context, listen: false).updateDatabase(newDb);
+      // Rebind the web server + Porch Stories too (same gap the storage-path
+      // move had) — otherwise after an import/restore they keep the closed DB
+      // and web logins / story queries fail until an app restart.
+      Provider.of<StoryRepository>(
+        context,
+        listen: false,
+      ).updateDatabase(newDb);
+      Provider.of<WebServerHost>(context, listen: false).setDatabase(newDb);
 
       await charRepo.loadCharacters();
       await charRepo.cleanOrphanedPngs();
@@ -784,8 +892,10 @@ class _MyAppState extends State<MyApp> with WindowListener {
       await personaService.reload();
       await groupRepo.reload();
       await worldRepo.loadWorlds();
+      return true;
     } catch (e) {
       debugPrint('[DB] Reinitialize after import failed: $e');
+      return false;
     }
   }
 
@@ -841,12 +951,20 @@ class _MyAppState extends State<MyApp> with WindowListener {
     // Must happen early while the window is still alive and queryable.
     try {
       final isMax = await windowManager.isMaximized();
+      // A window closed while MINIMIZED reports the Win32 minimized sentinel
+      // (~ -32000, -32000) from getPosition(). Saving that poisons the restore
+      // and strands the window off-screen next launch (issue #78). Treat
+      // minimized exactly like maximized: persist the tracked non-minimized
+      // _normal* bounds instead of the live (bogus) rect.
+      final isMin = await windowManager.isMinimized();
       final prefs = await SharedPreferences.getInstance();
 
-      if (isMax) {
-        // Save tracked NON-maximized bounds so the restore code never
-        // sets the window to full-screen size in non-maximized state.
-        // This eliminates the ghost frame root cause on Windows.
+      if (isMax || isMin) {
+        // Save tracked normal (non-maximized, non-minimized) bounds so the
+        // restore code never sets the window to full-screen size in the
+        // non-maximized state and never writes the minimized sentinel.
+        // This eliminates the ghost frame root cause on Windows and the
+        // off-screen-taskbar-icon bug from issue #78.
         //
         // NOTE: _normal* fields are populated ONLY from live windowManager
         // queries during this session (post-frame capture, resize/move
@@ -883,8 +1001,25 @@ class _MyAppState extends State<MyApp> with WindowListener {
       debugPrint('Failed to save window state: $e');
     }
 
-    // Stop managed backends (KoboldCPP + PseudoRemote) BEFORE destroying
-    // the window. This prevents orphaned processes when the app closes.
+    // Flush any pending chat save BEFORE tearing anything down. The last turn's
+    // post-generation Needs vector + Realism scalars are applied in memory and
+    // reach the DB only through _saveChat(); some of those saves are
+    // fire-and-forget, so one can still be queued or mid-commit at close time.
+    // Awaiting the flush drains the save chain and writes the live state once
+    // more, so exit(0)/destroy() below can't kill an in-flight write. This is
+    // the fix for "the needs deltas from the last character message didn't
+    // stick after closing and reopening the app."
+    try {
+      await Provider.of<ChatService>(
+        context,
+        listen: false,
+      ).flushPendingSaves();
+    } catch (e) {
+      debugPrint('AG_DEBUG: Error flushing chat save on window close: $e');
+    }
+
+    // Stop the managed KoboldCPP backend BEFORE destroying the window. This
+    // prevents an orphaned process when the app closes.
     try {
       final koboldService = Provider.of<KoboldService>(context, listen: false);
       if (koboldService.isRunning) {
@@ -892,17 +1027,6 @@ class _MyAppState extends State<MyApp> with WindowListener {
       }
     } catch (e) {
       debugPrint('AG_DEBUG: Error stopping Kobold on window close: $e');
-    }
-    try {
-      final pseudoRemote = Provider.of<PseudoRemoteService>(
-        context,
-        listen: false,
-      );
-      if (pseudoRemote.isRunning) {
-        await pseudoRemote.stop();
-      }
-    } catch (e) {
-      debugPrint('AG_DEBUG: Error stopping PseudoRemote on window close: $e');
     }
 
     // Run pending installer if user deferred the update
@@ -915,7 +1039,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
     // Stop web server
     try {
-      final webServer = Provider.of<WebServerService>(context, listen: false);
+      final webServer = Provider.of<WebServerHost>(context, listen: false);
       if (webServer.isRunning) {
         await webServer.stop();
       }
@@ -923,15 +1047,6 @@ class _MyAppState extends State<MyApp> with WindowListener {
       debugPrint('AG_DEBUG: Error stopping web server on close: $e');
     }
 
-    // Stop embedding sidecar
-    try {
-      final sidecar = Provider.of<EmbeddingSidecar>(context, listen: false);
-      if (sidecar.isRunning) {
-        await sidecar.stopServer();
-      }
-    } catch (e) {
-      debugPrint('AG_DEBUG: Error stopping embedding sidecar on close: $e');
-    }
 
     // On Linux and Windows, windowManager.destroy() can trigger a Flutter engine bug:
     //   "FlutterEngineRemoveView returned kInvalidArguments"
@@ -957,11 +1072,28 @@ class _MyAppState extends State<MyApp> with WindowListener {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             brightness: isDark ? Brightness.dark : Brightness.light,
-            primarySwatch: Colors.blue,
+            // Warm-porch app-wide accent: seed the Material 3 color scheme from
+            // porch amber (was primarySwatch: Colors.blue) so every default
+            // control — switches, sliders, buttons, progress bars, the text
+            // cursor, tab indicators — warms up to match the chat sidebar and
+            // the web UI (whose --accent is already porch amber). The scheme's
+            // surfaces are pinned back to the app's existing slate/warm-paper
+            // grounds so only the ACCENT roles change, not the backgrounds.
+            colorScheme:
+                ColorScheme.fromSeed(
+                  seedColor: AppColors.porchAmber,
+                  brightness: isDark ? Brightness.dark : Brightness.light,
+                ).copyWith(
+                  primary: isDark
+                      ? AppColors.porchAmber
+                      : AppColors.porchAmberLight,
+                  onPrimary: isDark ? AppColors.onChaosAccent : Colors.white,
+                  surface: isDark ? AppColors.surface : AppColors.lightSurface,
+                ),
             scaffoldBackgroundColor: isDark
-                ? const Color(0xFF0F172A)
-                : const Color(0xFFF8F4ED), // warmer paper
-            cardColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                ? AppColors.background
+                : AppColors.lightBackground, // warmer paper
+            cardColor: isDark ? AppColors.card : AppColors.lightCard,
             textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
                 .apply(
                   bodyColor: isDark ? Colors.white : Colors.black87,
@@ -976,7 +1108,6 @@ class _MyAppState extends State<MyApp> with WindowListener {
                 _updateChecked = true;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _checkForUpdates(context);
-                  _runCloudSync(context);
                   _autoStartWebServer(context);
                   // Start auto-backup (always on, every 10 minutes)
                   BackupService.startAutoBackup();
@@ -1002,6 +1133,18 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     );
                     chatService.setExpressionClassifierService(classifier);
                   } catch (_) {}
+                  // Wire ImageGenService into ChatService for Scene Guest
+                  // background portraits (previously done in the legacy web
+                  // server provider's create, removed at cutover).
+                  try {
+                    final chatService = Provider.of<ChatService>(
+                      context,
+                      listen: false,
+                    );
+                    chatService.setImageGenService(
+                      Provider.of<ImageGenService>(context, listen: false),
+                    );
+                  } catch (_) {}
                   // Wire UpdateService shutdown callback so child processes
                   // (KoboldCPP, web server, embedding sidecar) are stopped
                   // before exit(0) in installNow(), which bypasses onWindowClose.
@@ -1019,25 +1162,11 @@ class _MyAppState extends State<MyApp> with WindowListener {
                         if (kobold.isRunning) await kobold.stopKobold();
                       } catch (_) {}
                       try {
-                        final pseudo = Provider.of<PseudoRemoteService>(
-                          context,
-                          listen: false,
-                        );
-                        if (pseudo.isRunning) await pseudo.stop();
-                      } catch (_) {}
-                      try {
-                        final webServer = Provider.of<WebServerService>(
+                        final webServer = Provider.of<WebServerHost>(
                           context,
                           listen: false,
                         );
                         if (webServer.isRunning) await webServer.stop();
-                      } catch (_) {}
-                      try {
-                        final sidecar = Provider.of<EmbeddingSidecar>(
-                          context,
-                          listen: false,
-                        );
-                        if (sidecar.isRunning) await sidecar.stopServer();
                       } catch (_) {}
                     });
                   } catch (_) {}
@@ -1213,7 +1342,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                                       Icon(
                                         Icons.restore,
                                         size: 18,
-                                        color: Colors.blueAccent.shade100,
+                                        color: AppColors.porchAmber,
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
@@ -1320,18 +1449,37 @@ class _MyAppState extends State<MyApp> with WindowListener {
         });
       }
 
-      // Re-open the database
-      await AppDatabase.instance();
+      // Re-open AND rebind: restoreBackup closed the old AppDatabase, but every
+      // repository/service captured that instance at startup. Without the same
+      // rebind+reload the import flow uses, the app dismisses this overlay and
+      // then throws "database was closed" on every action until a restart.
+      final rebound = await _reinitializeAfterImport();
 
       if (mounted) {
-        setState(() => _isMigrating = false);
+        if (rebound) {
+          setState(() => _isMigrating = false);
+        } else {
+          // The backup IS safely on disk — only the live rewiring failed.
+          // Never dismiss as success: every DB action would fail confusingly.
+          setState(() {
+            _migrationStep =
+                'Backup restored. Please close and reopen Front Porch AI '
+                'to finish.';
+          });
+        }
       }
 
       debugPrint('[DB] Backup restored successfully from: ${backup.path}');
     } catch (e) {
       debugPrint('[DB] Backup restore failed: $e');
+      // The old DB may already be closed — dismissing the overlay would leave
+      // a half-dead app that looks fine. Keep it up with an honest message.
       if (mounted) {
-        setState(() => _isMigrating = false);
+        setState(() {
+          _migrationStep =
+              'Restore failed. Please close and reopen Front Porch AI, '
+              'then try another backup.';
+        });
       }
     }
   }
@@ -1346,18 +1494,28 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
     final db = Provider.of<AppDatabase>(context, listen: false);
     final migration = DataMigrationService(db);
-    await migration.migrate(
-      onProgress: (step, current, total) {
-        if (mounted) {
-          setState(() {
-            _migrationStep = step;
-            _migrationCurrent = current;
-            _migrationTotal = total;
-          });
-        }
-        debugPrint('DB Migration [$current/$total]: $step');
-      },
-    );
+    try {
+      await migration.migrate(
+        onProgress: (step, current, total) {
+          if (mounted) {
+            setState(() {
+              _migrationStep = step;
+              _migrationCurrent = current;
+              _migrationTotal = total;
+            });
+          }
+          debugPrint('DB Migration [$current/$total]: $step');
+        },
+      );
+    } catch (e) {
+      // A migration throw must NOT leave _isMigrating true forever (a
+      // full-screen overlay = unusable app) and must NOT re-run every launch
+      // (each retry re-imports characters, worsening the very duplicate-path
+      // condition that can cause the throw). Log, drop the overlay, and let
+      // the app open on whatever migrated so far — the legacy JSON is left in
+      // place, so a fixed future build can retry.
+      debugPrint('[DB Migration] Failed — continuing without it: $e');
+    }
 
     if (mounted) {
       setState(() => _isMigrating = false);
@@ -1380,14 +1538,14 @@ class _MyAppState extends State<MyApp> with WindowListener {
                   height: 80,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.blueAccent.shade700, Colors.purpleAccent],
+                      colors: [AppColors.porchAmberLight, AppColors.porchAmber],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blueAccent.withValues(alpha: 0.3),
+                        color: AppColors.formMasterAccent.withValues(alpha: 0.3),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),
@@ -1424,7 +1582,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                 Text(
                   _migrationStep,
                   style: TextStyle(
-                    color: Colors.blueAccent.shade100,
+                    color: AppColors.porchAmber,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1440,7 +1598,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     minHeight: 8,
                     backgroundColor: Colors.white.withValues(alpha: 0.1),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.blueAccent.shade200,
+                      AppColors.formMasterAccent,
                     ),
                   ),
                 ),
@@ -1666,8 +1824,8 @@ class _MyAppState extends State<MyApp> with WindowListener {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.blueAccent.shade700,
-                        Colors.cyanAccent.shade400,
+                        AppColors.porchAmberLight,
+                        AppColors.porchAmber,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -1675,7 +1833,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blueAccent.withValues(alpha: 0.3),
+                        color: AppColors.formMasterAccent.withValues(alpha: 0.3),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),
@@ -1717,7 +1875,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                       color: const Color(0xFF1E293B),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.blueAccent.withValues(alpha: 0.3),
+                        color: AppColors.formMasterAccent.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Column(
@@ -1751,7 +1909,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                                 const Text(
                                   '• ',
                                   style: TextStyle(
-                                    color: Colors.blueAccent,
+                                    color: AppColors.formMasterAccent,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -1798,8 +1956,8 @@ class _MyAppState extends State<MyApp> with WindowListener {
                               ),
                               label: const Text('Import'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blueAccent,
-                                foregroundColor: Colors.white,
+                                backgroundColor: AppColors.formMasterAccent,
+                                foregroundColor: AppColors.onChaosAccent,
                               ),
                             ),
                           ],
@@ -1812,7 +1970,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                   Text(
                     _reunifyStep,
                     style: TextStyle(
-                      color: Colors.blueAccent.shade100,
+                      color: AppColors.porchAmber,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1828,7 +1986,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                       minHeight: 8,
                       backgroundColor: Colors.white.withValues(alpha: 0.1),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.blueAccent.shade200,
+                        AppColors.formMasterAccent,
                       ),
                     ),
                   ),
@@ -1864,291 +2022,17 @@ class _MyAppState extends State<MyApp> with WindowListener {
     }
   }
 
-  Future<void> _runCloudSync(BuildContext context) async {
-    // Wait for reunification to finish before syncing — they share the DB
-    while (_isReunifying) {
-      await Future.delayed(const Duration(milliseconds: 500));
-    }
-
-    // Pre-release builds must not sync to prevent schema version conflicts
-    if (isPreRelease) {
-      debugPrint(
-        '[CloudSync] Skipped — pre-release build uses separate beta DB',
-      );
-      return;
-    }
-
-    final storage = Provider.of<StorageService>(context, listen: false);
-    await storage.initialized;
-    if (!storage.cloudSyncSettings.cloudSyncEnabled ||
-        storage.cloudSyncSettings.cloudSyncProvider == 'none') {
-      return;
-    }
-
-    final syncService = Provider.of<CloudSyncService>(context, listen: false);
-
-    // Create and connect the appropriate provider
-    CloudStorageProvider provider;
-    switch (storage.cloudSyncSettings.cloudSyncProvider) {
-      case 'webdav':
-        provider = WebDavProvider();
-        break;
-      case 'gdrive':
-        provider = GoogleDriveProvider();
-        break;
-      default:
-        return;
-    }
-
-    try {
-      await provider.connect({
-        'url': storage.cloudSyncSettings.cloudSyncUrl,
-        'username': storage.cloudSyncSettings.cloudSyncUsername,
-        'password': storage.cloudSyncSettings.cloudSyncPassword,
-      });
-      syncService.setProvider(provider);
-
-      // Get paths
-      final chatsPath = storage.chatsDir.path;
-      final rootPath = storage.rootPath ?? chatsPath;
-      final charactersPath =
-          '$rootPath${Platform.pathSeparator}KoboldManager${Platform.pathSeparator}Characters';
-
-      // Safety net: backup DB before every cloud sync
-      await BackupService.createBackup();
-      await BackupService.pruneBackups();
-
-      // Purge any accumulated soft-deleted rows before sync.
-      // We skip characters + groups to protect recent soft-deletes (used by the
-      // new deletion + reconciliation system) so the deletion signal can propagate
-      // via the DB before being hard-purged. This is especially important within
-      // the same cloud namespace (e.g. Rawhide talking only to other Rawhide instances).
-      final db = await AppDatabase.instance();
-      await db.purgeDeletedRows(skipTables: {'characters', 'groups'});
-
-      await syncService.fullSync(chatsPath, charactersPath);
-
-      // Check for schema version mismatch (e.g. newer UUID schema on another device)
-      if (syncService.schemaMismatch) {
-        // Disable cloud sync so it doesn't keep failing
-        await storage.cloudSyncSettings.setCloudSyncEnabled(false);
-
-        if (context.mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(0xFF1E293B),
-              title: const Row(
-                children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    color: Colors.amberAccent,
-                    size: 28,
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Database Version Mismatch',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ],
-              ),
-              content: Text(
-                'The cloud database was created by a newer version of Front Porch AI '
-                '(schema v${syncService.remoteSchemaVersion}) and is incompatible with '
-                'this version (schema v${syncService.localSchemaVersion}).\n\n'
-                'Cloud sync has been disabled to prevent data corruption.\n\n'
-                'Please update this app to the latest version, then re-enable cloud sync in Settings.',
-                style: const TextStyle(color: Colors.white70, height: 1.5),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text(
-                    'OK',
-                    style: TextStyle(color: Colors.blueAccent),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return;
-      }
-
-      // Check for pending schema upgrade (old cloud DB downloaded and migrated locally)
-      if (syncService.pendingSchemaUpgrade) {
-        // The DB was downloaded and migrated — reload all repositories
-        if (syncService.dbWasDownloaded) {
-          debugPrint(
-            '[CloudSync] Schema upgrade: reloading all repositories after migration',
-          );
-          final newDb = await AppDatabase.instance();
-          final charRepo = Provider.of<CharacterRepository>(
-            context,
-            listen: false,
-          );
-          final folderService = Provider.of<FolderService>(
-            context,
-            listen: false,
-          );
-          final personaService = Provider.of<UserPersonaService>(
-            context,
-            listen: false,
-          );
-          final groupRepo = Provider.of<GroupChatRepository>(
-            context,
-            listen: false,
-          );
-          final worldRepo = Provider.of<WorldRepository>(
-            context,
-            listen: false,
-          );
-          charRepo.updateDatabase(newDb);
-          folderService.updateDatabase(newDb);
-          personaService.updateDatabase(newDb);
-          groupRepo.updateDatabase(newDb);
-          worldRepo.updateDatabase(newDb);
-          final chatService = Provider.of<ChatService>(context, listen: false);
-          chatService.updateDatabase(newDb);
-          await charRepo.loadCharacters();
-          await charRepo.cleanOrphanedPngs();
-          await folderService.reload();
-          await personaService.reload();
-          await groupRepo.reload();
-          await worldRepo.loadWorlds();
-          await chatService.reloadCurrentSession();
-        }
-
-        // Show confirmation dialog before uploading v3 DB to cloud
-        if (context.mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(0xFF1E293B),
-              title: const Row(
-                children: [
-                  Icon(
-                    Icons.upgrade_rounded,
-                    color: Colors.amberAccent,
-                    size: 28,
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Database Upgrade',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              content: Text(
-                'Your cloud database has been migrated from schema v${syncService.remoteSchemaVersion} '
-                'to v${syncService.localSchemaVersion} on this device.\n\n'
-                'If you upload the upgraded database to the cloud, any other devices running '
-                'an older version of this app will no longer be able to sync until they are updated.\n\n'
-                'Would you like to upload now?',
-                style: const TextStyle(color: Colors.white70, height: 1.5),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text(
-                    'Later',
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.of(ctx).pop();
-                    try {
-                      await syncService.forceUploadDatabase();
-                      await storage.cloudSyncSettings.setCloudSyncLastTime(
-                        DateTime.now().toIso8601String(),
-                      );
-                    } catch (e) {
-                      debugPrint('Schema upgrade upload failed: $e');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amberAccent,
-                    foregroundColor: Colors.black87,
-                  ),
-                  child: const Text('Upload Now'),
-                ),
-              ],
-            ),
-          );
-        }
-        return;
-      }
-
-      if (syncService.status == SyncStatus.success) {
-        await storage.cloudSyncSettings.setCloudSyncLastTime(
-          DateTime.now().toIso8601String(),
-        );
-        // Reload characters so newly downloaded PNGs appear in the UI
-        final charRepo = Provider.of<CharacterRepository>(
-          context,
-          listen: false,
-        );
-        await charRepo.loadCharacters();
-        await charRepo.cleanOrphanedPngs();
-
-        // If a new database was downloaded, update all repo DB references and reload
-        if (syncService.dbWasDownloaded) {
-          debugPrint(
-            '[CloudSync] DB was downloaded — updating all repositories',
-          );
-          final newDb = await AppDatabase.instance();
-
-          // Push the new DB connection to every repo
-          charRepo.updateDatabase(newDb);
-          final folderService = Provider.of<FolderService>(
-            context,
-            listen: false,
-          );
-          final personaService = Provider.of<UserPersonaService>(
-            context,
-            listen: false,
-          );
-          final groupRepo = Provider.of<GroupChatRepository>(
-            context,
-            listen: false,
-          );
-          final worldRepo = Provider.of<WorldRepository>(
-            context,
-            listen: false,
-          );
-          folderService.updateDatabase(newDb);
-          personaService.updateDatabase(newDb);
-          groupRepo.updateDatabase(newDb);
-          worldRepo.updateDatabase(newDb);
-          final chatService = Provider.of<ChatService>(context, listen: false);
-          chatService.updateDatabase(newDb);
-
-          // Now reload all data from the new DB
-          await charRepo.loadCharacters();
-          await charRepo.cleanOrphanedPngs();
-          await folderService.reload();
-          await personaService.reload();
-          await groupRepo.reload();
-          await worldRepo.loadWorlds();
-          await chatService.reloadCurrentSession();
-        }
-      }
-    } catch (e) {
-      debugPrint('Cloud sync startup error: \$e');
-    }
-  }
-
   Future<void> _autoStartWebServer(BuildContext context) async {
     final storage = Provider.of<StorageService>(context, listen: false);
     await storage.initialized;
     if (!storage.webServerSettings.webServerEnabled) return;
 
-    final webServer = Provider.of<WebServerService>(context, listen: false);
-    await webServer.start(storage.webServerSettings.webServerPort);
+    final webServer = Provider.of<WebServerHost>(context, listen: false);
+    // Crash-loop-safe: a hung or crashing start disables the server instead of
+    // re-crashing on every launch and locking the user out (see startSafely).
+    await webServer.startSafely(
+      storage.webServerSettings.webServerPort,
+      isAutoStart: true,
+    );
   }
 }

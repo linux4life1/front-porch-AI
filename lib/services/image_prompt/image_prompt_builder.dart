@@ -36,23 +36,16 @@ import 'package:front_porch_ai/services/llm_service.dart';
 /// - **characterPortrait**: Purely visual appearance + current expression/pose/clothing. Never
 ///   personality, backstory, or scenario text. "Detailed close-up, expressive face, high quality
 ///   rendering" + style. Current expression (if supplied) is injected as a strong visual cue.
-/// - **chatBackground**: Environment / setting / atmosphere / lighting ONLY. Explicit and repeated
-///   "NO PEOPLE, NO CHARACTERS, NO FIGURES, NO HUMANS" language in both prompt and negative (Stage 4 complete:
-///   auto-seeded in ImageStudio.initState for chatBackground per this contract; user per-gen editor wins;
-///   positive enforcement remains here in builder; see image_studio.dart:175 and chatBackground static/LLM paths).
-///   Wide panoramic or establishing landscape composition. Scenario and worldInfo are used as
-///   environmental seeds, never character seeds.
-/// - **visualizeScene**: Current visual composition of the ongoing scene — who is present, what
-///   they are doing/holding/wearing, spatial relationships, mood, lighting (timeOfDay + hints).
-///   Recent messages (controlled by studio slider N, default 5, max ~10) are treated as *narrative source to distill*,
-///   not raw text to dump. The N messages (pre-generated) are stripped of all `<think>` (simple _stripThinkBlocks via _clean).
-///   (The prior "Message Illustration" / fromLastMessage mode was removed entirely — see user request + CLAUDE.md
-///   overlapping-feature rule — because Visualize Scene's N slider now provides equivalent or better functionality
-///   with full controls, no popup, and consistent UX. N=1 on Visualize covers the "last message" distillation case.)
-///   On Craft: user box text (if any) + persona + char visual info (no personality) + the stripped N + style sent to LLM
-///   to produce the final visual prompt put back into the editable box. No boilerplate/pregenerated ever in initial box.
-/// - **customPrompt** / **userAvatar**: Straight-through with style enforcement. userAvatar
-///   receives personaText as the appearance source (no personality leakage).
+/// - **customPrompt**: Two behaviors keyed off the typed prompt text ([lastMessage]):
+///   - *Text present* → straight-through with style enforcement (the user's exact words).
+///   - *Text empty but recent narrative supplied* → distill the CURRENT SCENE from the recent
+///     messages: who is present, what they are doing/holding/wearing, spatial relationships,
+///     mood, lighting (timeOfDay + hints). Messages are stripped of all `<think>` and quoted
+///     dialogue. This is the bare `/image` / `/image scene` behavior (the former standalone
+///     "Visualize Scene" mode was folded in here; the older "Message Illustration" mode before
+///     that was likewise retired as redundant).
+/// - **userAvatar**: Straight-through portrait using personaText as the appearance source
+///   (no personality leakage) + style enforcement.
 ///
 /// ## Style Enforcement
 /// The builder always produces a final prompt that contains the canonical style suffix for the
@@ -107,20 +100,28 @@ class ImagePromptBuilder {
 
   static const int _maxPromptLength = 1000;
 
+  /// How many of the most recent messages feed customPrompt's scene distillation.
+  static const int _sceneRecentCap = 6;
+
   ImagePromptBuilder({LLMService? llmService}) : _llmService = llmService;
 
   /// Main entry. Builds (and style-enforces) a prompt for the given mode using the supplied context.
   /// The context already carries the chosen style and paradigm.
   Future<String> buildPrompt(ImageGenContext ctx) async {
-    if (ctx.mode == ImageGenMode.customPrompt) {
+    // customPrompt with real user text → use it verbatim + style (no LLM). When
+    // the text is empty we fall through to the smart/static path below, which
+    // distills the *current scene* from the supplied recent narrative — this is
+    // what the bare `/image` / `/image scene` command relies on (the old
+    // standalone "Visualize Scene" mode was folded into customPrompt here).
+    if (ctx.mode == ImageGenMode.customPrompt &&
+        (ctx.lastMessage ?? '').trim().isNotEmpty) {
       final suffix = _getStyleSuffix(ctx.style, ctx.paradigm);
       final glue = ctx.paradigm == 'tags' ? ', ' : '. ';
-      final raw =
-          '${ctx.lastMessage ?? ''}$glue$suffix'; // lastMessage field reused for custom text
+      final raw = '${ctx.lastMessage!.trim()}$glue$suffix';
       return ImageGenContext.truncate(raw, _maxPromptLength);
     }
 
-    // LLM path (if available and not custom)
+    // LLM path (if available)
     final llm = _llmService;
     if (llm != null && llm.isReady) {
       try {
@@ -169,12 +170,11 @@ class ImagePromptBuilder {
     return map[style] ?? '';
   }
 
-  /// Canonical dialogue strip (used by static fallbacks for visualizeScene
+  /// Canonical dialogue strip (used by the customPrompt scene distillation
   /// *and* the LLM post-process in _generateSmartWith). Deduped to avoid fragility drift.
   /// Removes quoted spoken content so it never appears as literal text in the image prompt.
   /// Static path is intentionally best-effort (keeps some narrative for robustness without LLM);
-  /// LLM path (via generateSmartPrompt) provides stronger visual-only distillation. (fromLastMessage
-  /// "Message Illustration" mode was removed as redundant with the Visualize N slider.)
+  /// LLM path (via generateSmartPrompt) provides stronger visual-only distillation.
   String _stripQuotedDialogue(String text) {
     return text
         .replaceAll(RegExp(r'["\u201c][^"\u201d]+["\u201d]'), '')
@@ -274,36 +274,27 @@ class ImagePromptBuilder {
             'and current expression/pose. Emphasize face, eyes, hair, clothing details, expression, and '
             'a pleasing close-up composition. Do not invent a full-body scene or environment unless it is '
             'minimal and clearly implied by the appearance text.';
-      case ImageGenMode.chatBackground:
-        modeInstruction =
-            'TASK: Describe a wide panoramic environment / setting ONLY. '
-            'CRITICAL: NO PEOPLE, NO CHARACTERS, NO FIGURES, NO HUMANS, NO SILHOUETTES. '
-            'Focus on architecture, landscape, weather, lighting, atmosphere, and mood. '
-            'The result must be usable as a chat background (empty of figures).';
-      case ImageGenMode.visualizeScene:
-        modeInstruction =
-            'TASK: Describe the CURRENT VISUAL SCENE as a cinematic illustration. '
-            'The "Recent messages (last N, <think> stripped for visual distillation)" block below contains the *most recent turns* the user selected with the slider. '
-            'These describe what the characters are *actually doing right now* (poses, actions this moment, clothing, spatial relations, mood, lighting). '
-            'Base the visual prompt primarily on that recent action and the supplied character appearance; older scenario text is only background if mentioned. '
-            'Who is present, what they are physically doing, wearing, holding, their spatial relationship '
-            'to each other and the environment, the lighting (time of day + weather), and overall mood. '
-            'Distill from the recent narrative; do not copy dialogue.';
       case ImageGenMode.userAvatar:
         modeInstruction =
             'TASK: Portrait of the user character. Use the supplied persona appearance text and any '
             'expression/pose hints. Close-up, expressive, high-quality rendering.';
-      default:
-        modeInstruction = 'Describe the scene as a vivid, visual image prompt.';
+      case ImageGenMode.customPrompt:
+        // Reached only when the typed prompt is empty → distill the current scene.
+        modeInstruction =
+            'TASK: Describe the CURRENT VISUAL SCENE as a cinematic illustration. '
+            'The "Recent messages" block below contains the most recent turns. '
+            'These describe what the characters are *actually doing right now* (poses, actions this moment, clothing, spatial relations, mood, lighting). '
+            'Base the visual prompt primarily on that recent action and the supplied character appearance. '
+            'Who is present, what they are physically doing, wearing, holding, their spatial relationship '
+            'to each other and the environment, the lighting (time of day + weather), and overall mood. '
+            'Distill from the recent narrative; do not copy dialogue.';
     }
 
     // Build a compact, visual-only context block (the builder's responsibility to filter).
-    // For pure portrait modes we deliberately omit narrative/chat/scene context (lastMessage,
-    // recentMessages, scenario, worldInfo) so the LLM sees mostly the supplied appearance text.
-    // This matches the static path behavior for portraits and the strict "use ONLY the supplied
-    // appearance description" + "do not invent full-body scene" instructions. Narrative context
-    // remains available for visualizeScene (the fromLastMessage / Message Illustration mode was removed
-    // as redundant once Visualize gained the N-slider for recent messages).
+    // For pure portrait modes we deliberately omit narrative/chat context (recentMessages) so
+    // the LLM sees mostly the supplied appearance text. This matches the static path for
+    // portraits and the strict "use ONLY the supplied appearance description" instruction.
+    // Recent narrative remains available for customPrompt's empty-text scene distillation.
     // Time/lighting hints are still provided for portraits as they help with face lighting.
     final parts = <String>[];
     if (ctx.characterName != null && ctx.characterName!.isNotEmpty) {
@@ -329,26 +320,6 @@ class ImagePromptBuilder {
     }
     // (character appearance block already added unconditionally above via 'Appearance:')
 
-    if (!isPurePortrait &&
-        ctx.scenario != null &&
-        ctx.scenario!.isNotEmpty &&
-        ctx.mode != ImageGenMode.visualizeScene) {
-      final cleaned = _cleanNarrativeForVisual(ctx.resolveMacros(ctx.scenario));
-      if (cleaned.isNotEmpty) {
-        parts.add('Environment/setting cues: $cleaned');
-      }
-    }
-    if (!isPurePortrait &&
-        ctx.worldInfo != null &&
-        ctx.worldInfo!.isNotEmpty &&
-        ctx.mode != ImageGenMode.visualizeScene) {
-      final cleaned = _cleanNarrativeForVisual(
-        ctx.resolveMacros(ctx.worldInfo),
-      );
-      if (cleaned.isNotEmpty) {
-        parts.add('World/atmosphere: $cleaned');
-      }
-    }
     if (ctx.timeOfDay != null && ctx.timeOfDay!.isNotEmpty) {
       parts.add('Time / lighting: ${ctx.timeOfDay}');
     }
@@ -358,45 +329,27 @@ class ImagePromptBuilder {
     if (ctx.isGroupNonObserver &&
         ctx.currentSpeakerId != null &&
         ctx.currentSpeakerId!.isNotEmpty &&
-        ctx.mode == ImageGenMode.visualizeScene) {
+        ctx.mode == ImageGenMode.customPrompt) {
       parts.add('Group scene focus / active speaker: ${ctx.currentSpeakerId}');
     }
-    if (!isPurePortrait &&
-        ctx.lastMessage != null &&
-        ctx.lastMessage!.isNotEmpty &&
-        ctx.mode != ImageGenMode.visualizeScene) {
-      final cleaned = _cleanNarrativeForVisual(
-        ctx.resolveMacros(ctx.lastMessage!),
-      );
-      if (cleaned.isNotEmpty) {
-        parts.add('Narrative to illustrate (last message): $cleaned');
-      }
-    }
+    // Recent narrative (customPrompt scene distillation only). Messages are
+    // pre-generated, so a simple <think>/quote/meta strip is sufficient. Cap to
+    // the most recent handful so the context stays tight.
     if (!isPurePortrait &&
         ctx.recentMessages != null &&
         ctx.recentMessages!.isNotEmpty) {
-      // User spec for Visualize: slider controls exactly how many messages (from the launch-provided recent list)
-      // are sent in the prompt to the LLM. Messages are pre-generated, so stripping <think> is simple (use _clean which
-      // does _stripThinkBlocks + quote/meta). Take last N (most recent in the list). For other modes use full provided.
-      // 1:1 vs group: the list passed already reflects correct recent for the session; dispatch via cbs/impersonation in launcher.
-      List<String> vizSource = ctx.recentMessages!;
-      if (ctx.mode == ImageGenMode.visualizeScene &&
-          ctx.visualizeNumMessages != null &&
-          ctx.visualizeNumMessages! > 0) {
-        final n = ctx.visualizeNumMessages!;
-        if (vizSource.length > n) {
-          vizSource = vizSource.sublist(vizSource.length - n);
-        }
+      List<String> src = ctx.recentMessages!;
+      if (src.length > _sceneRecentCap) {
+        src = src.sublist(src.length - _sceneRecentCap);
       }
-      final joined = vizSource
+      final joined = src
           .map((m) => _cleanNarrativeForVisual(ctx.resolveMacros(m)))
           .where((m) => m.isNotEmpty)
           .join('\n');
       if (joined.isNotEmpty) {
-        final prefix = (ctx.mode == ImageGenMode.visualizeScene)
-            ? 'Recent messages (last ${vizSource.length}, <think> stripped for visual distillation):\n'
-            : 'Recent narrative context (distill visuals only):\n';
-        parts.add('$prefix$joined');
+        parts.add(
+          'Recent messages (most recent turns, <think> stripped for visual distillation):\n$joined',
+        );
       }
     }
     // User instruction (typed before Craft) always included when present — LLM instructed to incorporate/parse it.
@@ -476,9 +429,8 @@ class ImagePromptBuilder {
       );
     }
 
-    // Best-effort removal of literal spoken dialogue (the spirit of the removed fromLastMessage / Message Illustration mode,
-    // now handled via visualizeScene + N slider for recent turns).
-    // Uses the canonical deduped helper (also used by static fallbacks).
+    // Best-effort removal of literal spoken dialogue from the model's output.
+    // Uses the canonical deduped helper (also used by the static path).
     prompt = _stripQuotedDialogue(prompt);
 
     return prompt;
@@ -489,10 +441,6 @@ class ImagePromptBuilder {
     final parts = <String>[];
 
     switch (ctx.mode) {
-      // fromLastMessage / Message Illustration case fully removed (user request: redundant with Visualize Scene N slider).
-      // The distillation + "no raw dialogue" + appearance grounding for "last/recent message" visual is now
-      // handled by visualizeScene (N slider + recent block as primary narrative source) in both static and LLM paths.
-
       case ImageGenMode.characterPortrait:
         if (ctx.characterName != null && ctx.characterName!.isNotEmpty) {
           parts.add('Character portrait of ${ctx.characterName}.');
@@ -505,36 +453,31 @@ class ImagePromptBuilder {
           'Detailed close-up portrait, expressive face, high quality rendering, sharp focus on features and clothing.',
         );
 
-      case ImageGenMode.chatBackground:
-        if (ctx.scenario != null && ctx.scenario!.isNotEmpty) {
-          parts.add(
-            'Environment: ${ImageGenContext.truncate(resolved(ctx.scenario), 280)}',
-          );
+      case ImageGenMode.userAvatar:
+        if (ctx.personaName != null && ctx.personaName!.isNotEmpty) {
+          parts.add('Portrait of ${ctx.personaName}.');
         }
-        if (ctx.worldInfo != null && ctx.worldInfo!.isNotEmpty) {
-          parts.add(
-            'Setting and atmosphere: ${ImageGenContext.truncate(resolved(ctx.worldInfo), 280)}',
-          );
+        if (ctx.personaText != null && ctx.personaText!.isNotEmpty) {
+          parts.add(ImageGenContext.truncate(resolved(ctx.personaText), 380));
         }
-        if (ctx.timeOfDay != null && ctx.timeOfDay!.isNotEmpty) {
-          parts.add('Lighting: ${ctx.timeOfDay}');
-        }
-        if (ctx.lightingHint != null && ctx.lightingHint!.isNotEmpty) {
-          parts.add('Lighting detail: ${ctx.lightingHint}');
+        if (ctx.currentExpression != null &&
+            ctx.currentExpression!.isNotEmpty) {
+          parts.add(resolved(ctx.currentExpression));
         }
         parts.add(
-          'Wide panoramic landscape or establishing environmental view, atmospheric lighting, '
-          'highly detailed background, NO PEOPLE, NO CHARACTERS, NO FIGURES, NO HUMANS, NO SILHOUETTES, '
-          'empty of any living subjects, suitable as a chat background or scene wallpaper.',
+          'Detailed close-up portrait, expressive face, high quality rendering.',
         );
 
-      case ImageGenMode.visualizeScene:
-        // User spec: no boilerplate/pregen ever in the editable box on open (studio now starts empty/minimal hint).
-        // Craft (LLM or static fallback) assembles using slider N + user box text (as instr) + persona + char visual (no pers)
-        // + style. For static viz path (no LLM), respect visualizeNumMessages to limit recent (parity with LLM path).
-        // The recent N messages (the *latest* turns describing what is actually going on right now) are the primary
-        // "current scene narrative". Scenario/world are omitted in static viz (they were the source of old "first message"
-        // / setup text leading the prompt). "Key character appearance" is grounding after the recent action.
+      case ImageGenMode.customPrompt:
+        // Text present → verbatim (buildPrompt already short-circuits this before
+        // reaching here; kept for direct buildStaticPrompt callers).
+        final raw = (ctx.lastMessage ?? '').trim();
+        if (raw.isNotEmpty) return raw;
+
+        // Empty text → distill the CURRENT SCENE from the recent narrative.
+        // The recent turns (what is actually happening right now) are the primary
+        // content; character appearance grounds it. Scenario/world are omitted
+        // (they led to the disliked "Scene setting: <dump>" framing).
         if (ctx.characterDescription != null &&
             ctx.characterDescription!.isNotEmpty) {
           parts.add(
@@ -561,17 +504,12 @@ class ImagePromptBuilder {
             'User guidance: ${ImageGenContext.truncate(resolved(ctx.userInstruction), 120)}',
           );
         }
-        // Recent N (tail = most recent turns the slider selected) is the primary current scene content.
         if (ctx.recentMessages != null && ctx.recentMessages!.isNotEmpty) {
-          List<String> vizSrc = ctx.recentMessages!;
-          if (ctx.visualizeNumMessages != null &&
-              ctx.visualizeNumMessages! > 0) {
-            final n = ctx.visualizeNumMessages!;
-            if (vizSrc.length > n) {
-              vizSrc = vizSrc.sublist(vizSrc.length - n);
-            }
+          List<String> src = ctx.recentMessages!;
+          if (src.length > _sceneRecentCap) {
+            src = src.sublist(src.length - _sceneRecentCap);
           }
-          final recent = vizSrc
+          final recent = src
               .map(
                 (m) => ImageGenContext.truncate(
                   _cleanNarrativeForVisual(resolved(m)),
@@ -582,16 +520,7 @@ class ImagePromptBuilder {
               .join(' ');
           if (recent.isNotEmpty) {
             parts.add(
-              'Recent visual events (N=${vizSrc.length}, stripped): ${ImageGenContext.truncate(recent, 220)}',
-            );
-          }
-        }
-        if (ctx.lastMessage != null && ctx.lastMessage!.isNotEmpty) {
-          final vis = _cleanNarrativeForVisual(resolved(ctx.lastMessage!));
-          if (vis.isNotEmpty) {
-            parts.add(
-              'Current visual composition (distilled): ${ImageGenContext.truncate(vis, 220)}, '
-              'showing characters\' poses, expressions, clothing, and spatial relationships.',
+              'Recent visual events (stripped): ${ImageGenContext.truncate(recent, 220)}',
             );
           }
         }
@@ -606,42 +535,22 @@ class ImagePromptBuilder {
             ctx.currentSpeakerId!.isNotEmpty) {
           parts.add('Focus on ${resolved(ctx.currentSpeakerId)}.');
         }
+        // Nothing to distill (no narrative supplied) → safe generic scene.
+        if (parts.isEmpty) {
+          return 'detailed visual scene with strong composition and lighting';
+        }
         parts.add(
           'Cinematic wide or medium establishing shot of the scene, clear composition showing characters '
           'present and what they are physically doing, atmospheric lighting.',
         );
-
-      case ImageGenMode.userAvatar:
-        if (ctx.personaName != null && ctx.personaName!.isNotEmpty) {
-          parts.add('Portrait of ${ctx.personaName}.');
-        }
-        if (ctx.personaText != null && ctx.personaText!.isNotEmpty) {
-          parts.add(ImageGenContext.truncate(resolved(ctx.personaText), 380));
-        }
-        if (ctx.currentExpression != null &&
-            ctx.currentExpression!.isNotEmpty) {
-          parts.add(resolved(ctx.currentExpression));
-        }
-        parts.add(
-          'Detailed close-up portrait, expressive face, high quality rendering.',
-        );
-
-      case ImageGenMode.customPrompt:
-        // Already handled at the top of buildPrompt.
-        final raw = ctx.lastMessage ?? '';
-        if (raw.trim().isEmpty) {
-          return 'detailed visual scene with strong composition and lighting';
-        }
-        return raw;
     }
 
     String prompt = parts.where((p) => p.isNotEmpty).join(' ');
 
-    // Name stripping for the main character in visualizeScene (the replacement for the removed
-    // fromLastMessage / Message Illustration mode) so the static prompt respects the "NEVER include
-    // character names" rule that the LLM craft path is given. Replaces the known characterName with
-    // "the character". Other names in the scene are best-effort.
-    if (ctx.mode == ImageGenMode.visualizeScene &&
+    // Strip the known character name from the customPrompt scene distillation so the
+    // static prompt respects the "NEVER include character names" rule the LLM path is
+    // given. Replaces it with "the character"; other names are best-effort.
+    if (ctx.mode == ImageGenMode.customPrompt &&
         ctx.characterName != null &&
         ctx.characterName!.isNotEmpty) {
       final name = RegExp.escape(ctx.characterName!);

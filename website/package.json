@@ -1,0 +1,13 @@
+{
+  "name": "frontporchai-site",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "marked": "^12.0.2"
+  },
+  "private": true
+}

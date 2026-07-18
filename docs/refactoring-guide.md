@@ -255,8 +255,8 @@ lib/services/chat/
 ├── needs_impact_evaluator.dart ← consolidated needs impact (LLM + Proposal A table + modifiers); sibling to needs_simulation
 ├── realism_evals.dart         ← 5 evaluation calls (rel, emotion, phys, narr, one-shot)
 ├── objective_service.dart     ← objectives CRUD, tasks, completion checking
-├── summary_service.dart       ← auto-summary generation
-├── fact_extraction.dart       ← fact extraction + consolidation
+├── summary_service.dart       ← auto-summary generation (deleted in Journal phase 1)
+├── fact_extraction.dart       ← fact extraction + consolidation (deleted in Journal phase 1)
 └── evolution_service.dart     ← trigger, extract, reset character evolution
 ```
 
@@ -278,8 +278,8 @@ Extract **leaf dependencies first** (services with the fewest internal dependenc
 | 9b | `needs_impact_evaluator.dart` | needs_simulation (apply + context), llm_eval_engine (via fire/strip/extract cbs in god wiring); grouped under needs domain (sibling to needs_simulation) |
 | 10 | `realism_evals.dart` | llm_eval_engine |
 | 11 | `objective_service.dart` | llm_eval_engine |
-| 12 | `summary_service.dart` | llm_eval_engine |
-| 13 | `fact_extraction.dart` | llm_eval_engine |
+| 12 | `summary_service.dart` | llm_eval_engine | (later deleted — replaced by the Journal, docs/design/journal-memory.md) |
+| 13 | `fact_extraction.dart` | llm_eval_engine | (later deleted — replaced by the Journal) |
 | 14 | `evolution_service.dart` | llm_eval_engine |
 | 15 | Refactor remaining `ChatService` | all of the above | (completed: audit + pure cleanup of god orchestration/_groupRealism/core flows (no new leaf/extraction to preserve exactly 15 void _ thins+coord surface per plan/CLAUDE); dead/obsolete comment removal; thin consistency; full Step 15 record + gates in docs/refactor-god-file-modularization.md) |
 

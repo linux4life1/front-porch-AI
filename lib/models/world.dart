@@ -69,17 +69,14 @@ class World {
 
     // Determine lorebook
     // Front Porch format: { "lorebook": { "entries": [...] } }
-    // SillyTavern/Chub format: { "entries": {...} } (entries at top level)
+    // Everything else (ST/Chub top-level entries, NovelAI, AgnAI, RisuAI,
+    // V3 lorebooks) goes through the codec-backed Lorebook.fromJson, which
+    // detects the format and returns empty entries for unrecognized JSON.
     Lorebook lorebook;
     if (json['lorebook'] != null) {
-      // Front Porch format with explicit lorebook wrapper
       lorebook = Lorebook.fromJson(json['lorebook'] as Map<String, dynamic>);
-    } else if (json['entries'] != null) {
-      // SillyTavern/Chub format: entries at top level
-      // Wrap in a map to pass to Lorebook.fromJson
-      lorebook = Lorebook.fromJson({'entries': json['entries']});
     } else {
-      lorebook = Lorebook(entries: []);
+      lorebook = Lorebook.fromJson(json);
     }
 
     return World(

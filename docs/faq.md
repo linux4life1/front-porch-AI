@@ -1,5 +1,7 @@
 # Frequently Asked Questions
 
+Straight answers to the questions I get most often. If yours isn't here, the [Discord community](https://discord.gg/e4tET6rpdv) is friendly and fast.
+
 ---
 
 ## Table of Contents
@@ -9,34 +11,41 @@
 - [Is my data private?](#is-my-data-private)
 - [What platforms are supported?](#what-platforms-are-supported)
 - [Do I need an internet connection?](#do-i-need-an-internet-connection)
+- [What's the difference between Stable and Nightly builds?](#whats-the-difference-between-stable-and-nightly-builds)
 
 ### AI & Models
 - [What AI models can I use?](#what-ai-models-can-i-use)
 - [How do I choose a model?](#how-do-i-choose-a-model)
 - [Can I use OpenAI / Claude / Google models?](#can-i-use-openai--claude--google-models)
 - [Why is the AI slow?](#why-is-the-ai-slow)
-- [Why does the AI give repetitive answers?](#why-does-the-ai-give-repetitive-answers)
+- [Why does the AI repeat itself?](#why-does-the-ai-repeat-itself)
 
 ### Characters
 - [Where can I find characters?](#where-can-i-find-characters)
-- [How do I import characters from SillyTavern?](#how-do-i-import-characters-from-sillytavern)
+- [Can I use my SillyTavern or Backyard AI characters?](#can-i-use-my-sillytavern-or-backyard-ai-characters)
 - [Why isn't my character acting right?](#why-isnt-my-character-acting-right)
 
+### The Stoop
+- [What is The Stoop?](#what-is-the-stoop)
+- [What data does The Stoop collect?](#what-data-does-the-stoop-collect)
+
 ### Voice
-- [Why isn't TTS working?](#why-isnt-tts-working)
-- [How do I improve voice quality?](#how-do-i-improve-voice-quality)
-- [Why does voice call mode keep triggering?](#why-does-voice-call-mode-keep-triggering)
+- [Why isn't the voice (TTS) working?](#why-isnt-the-voice-tts-working)
+- [How do I get better-sounding voices?](#how-do-i-get-better-sounding-voices)
+- [Why does voice call mode send my message too early?](#why-does-voice-call-mode-send-my-message-too-early)
 
 ### Realism Engine
 - [What is the Realism Engine?](#what-is-the-realism-engine)
-- [Does the Realism Engine slow down chat?](#does-the-realism-engine-slow-down-chat)
-- [How do I reset a character's bond/trust?](#how-do-i-reset-a-characters-bondtrust)
+- [Does the Realism Engine slow down my chats?](#does-the-realism-engine-slow-down-my-chats)
+- [How do I reset a character's bond and trust?](#how-do-i-reset-a-characters-bond-and-trust)
 
-### Technical
-- [How do I back up my data?](#how-do-i-back-up-my-data)
+### Your Data & Devices
+- [How do backups work?](#how-do-backups-work)
 - [Where is my data stored?](#where-is-my-data-stored)
-- [How do I fix a corrupted database?](#how-do-i-fix-a-corrupted-database)
-- [Can I run Front Porch AI on a server?](#can-i-run-front-porch-ai-on-a-server)
+- [Can I chat from my phone or another computer?](#can-i-chat-from-my-phone-or-another-computer)
+- [Can I sync between two computers?](#can-i-sync-between-two-computers)
+- [How do updates work?](#how-do-updates-work)
+- [How do I report a bug?](#how-do-i-report-a-bug)
 
 ---
 
@@ -44,40 +53,42 @@
 
 ### Is Front Porch AI free?
 
-Front Porch AI is completely free and open-source under the **AGPL-3.0-or-later** license (v0.9.0 and later; see `lib/app_version.dart` and the LICENSE file). You can download, use, modify, and redistribute it at no cost. Optional third-party services such as OpenRouter (for remote models) and ElevenLabs (for premium TTS) have their own paid plans if you choose to use them.
+Yes — completely free and open-source (AGPL-3.0 license). Download it, use it, modify it, share it. There's no paid tier, no subscription, and no account required for the app itself.
+
+A few *optional* third-party services have their own costs if you choose to use them — for example OpenRouter (remote AI models, pay per use) or ElevenLabs (premium cloud voices). Everything built into the app is free.
 
 ### Is my data private?
 
-**Yes for local use.** When running local models via KoboldCpp:
+**Yes.** Front Porch AI is local-first: your characters, chats, memories, and settings live in a folder on your computer, and using the app offline sends nothing anywhere. There are no ads, no trackers, and no crash reporting.
 
-- All chat processing, embeddings, and TTS happen on your machine.
-- No prompts, chats, or character data are ever sent to Front Porch AI servers (there are none).
+Three optional features involve the internet, and only if you turn them on:
 
-When you enable **remote APIs** (OpenRouter, etc.) or cloud TTS (ElevenLabs, OpenAI), your prompts are sent to those providers — review their privacy policies.
+- **Remote AI APIs** (OpenRouter and similar) — your prompts go to that provider. Check their privacy policy.
+- **Cloud voices** (ElevenLabs, OpenAI) — the text being spoken goes to that provider.
+- **The Stoop** — the community character hub. It's the only part of the app with an account or any data collection at all — see [What data does The Stoop collect?](#what-data-does-the-stoop-collect)
 
-**Cloud Sync** (optional) uploads your files only to **your own** Google Drive or WebDAV/Nextcloud account. Credentials stay local; developers have zero access. Data is not end-to-end encrypted by the app before upload (use a provider with encryption-at-rest if desired).
-
-Front Porch AI includes **no telemetry, analytics, or crash reporting**.
+The full details are in the [Privacy Policy](https://github.com/linux4life1/front-porch-AI/blob/main/PRIVACY.md).
 
 ### What platforms are supported?
 
-- **Windows** 10/11 
-- **macOS** 12+ (Intel and Apple Silicon native .dmg)
-- **Linux** (Debian/Ubuntu .deb, Arch AUR, AppImage, or manual build)
+- **Windows** 10 and 11
+- **macOS** — Apple Silicon (M-series) natively; Intel Macs can run the app but only with remote AI APIs (local models need Apple Silicon)
+- **Linux** — install from the APT/RPM repos, the AUR, or grab an AppImage
 
-All platforms include the Rust embedding server and Python sidecar support.
+See the [Installation Guide](install.md) for step-by-step instructions.
 
 ### Do I need an internet connection?
 
-- **Fully offline capable**: After the initial download of KoboldCpp + a GGUF model, local chats, RAG memory, local TTS (Kokoro/Piper), and everything else work without internet.
-- **Requires internet**:
-  - Remote LLM APIs (OpenRouter, etc.)
-  - Cloud sync (Google Drive / WebDAV)
-  - Cloud TTS engines (ElevenLabs, OpenAI TTS)
-  - Chub.ai browser import (embedded webview)
-  - Model Hub downloads
+Only for the initial setup: downloading the app, the AI engine, and a model. After that, everything core works fully offline — chatting, memory, local voices, image generation with a local backend, all of it.
 
-You can freely switch between offline and online modes at any time.
+You need to be online for: remote AI APIs, cloud voices, The Stoop, downloading new models, and the built-in character site browsers.
+
+### What's the difference between Stable and Nightly builds?
+
+- **Stable** is the recommended download — tested, polished releases (currently v0.9.9.1.3).
+- **Nightly** builds come fresh from active development every night. You get new features first — right now that includes **The Stoop** community hub and the ability to change a chat's cast on the fly — but you may also hit rough edges.
+
+Beta and nightly builds keep their data in a completely separate folder (`FrontPorchAI-Beta`), so trying one never touches your stable characters and chats.
 
 ---
 
@@ -85,64 +96,52 @@ You can freely switch between offline and online modes at any time.
 
 ### What AI models can I use?
 
-**Local (recommended for privacy):**
-- Any **GGUF** format model that runs in KoboldCpp (powered by llama.cpp).
-- Supported architectures: Llama 2/3/3.1/3.2/3.3, Mistral, Mixtral, Qwen2/Qwen2.5/Qwen3, Phi-3/4, Gemma, Command-R, Yi, DeepSeek, etc.
-- All quantization levels (Q2_K, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0, etc.).
-- The built-in **Model Hub** lets you browse and download popular models directly.
+**Local models (recommended for privacy):** any model in **GGUF format** — the standard file format for AI models that run on your own computer. That covers essentially every popular open model family: Llama, Mistral, Qwen, Gemma, Phi, DeepSeek, and many more. The built-in **Model Hub** lets you search and download them without leaving the app.
 
-**Remote (via OpenRouter or custom OpenAI-compatible endpoint):**
-- GPT-4o, Claude 3.5/4, Gemini 1.5/2.0, DeepSeek, Grok, Llama-3.1-405B, and hundreds more.
-- Configure in **Settings → AI Settings → Remote API**.
-
-**Hardware guidance** (approximate VRAM for Q4_K_M + 8k context):
-- 6–8 GB VRAM → 7B–9B models (excellent for most characters)
-- 12–16 GB VRAM → 13B–34B models
-- 24+ GB VRAM → 70B+ or MoE models
-
+**Remote models:** with an API key you can use OpenRouter (which offers hundreds of models including the biggest frontier ones), or any other OpenAI-compatible service.
 
 ### How do I choose a model?
 
-1. Run the **Hardware Detection** tool in Settings → AI Settings (it auto-detects CUDA/ROCm/Metal/Vulkan and suggests safe GPU layer counts).
-2. Start with a **7B–13B Q4_K_M or Q5_K_M** model — they offer the best speed/quality balance on consumer GPUs.
-3. Larger models (34B–70B) give better reasoning and character consistency but need more VRAM or offloading.
-4. Reasoning/thinking models (Qwen3, DeepSeek-R1, etc.) work great but are slower — enable "Thinking Mode" handling in Advanced settings.
-5. Test a few models; personality and writing style vary dramatically between families.
+The app detects your hardware automatically and suggests sensible settings, but here's the plain-English version:
 
-Use the VRAM estimator in the Model Hub to see if a model will fit your GPU before downloading.
+| Your computer | Good starting point |
+|---|---|
+| 6–8 GB of GPU memory | A 7–9B model at Q4 quality — great balance of speed and personality |
+| 12–16 GB of GPU memory | A 12–24B model — noticeably better writing and consistency |
+| 24 GB or more | 32B and up — excellent reasoning and character depth |
+| Apple Silicon Mac (16 GB+) | Most 7–13B models run beautifully |
+| No dedicated GPU | A small 3–7B model, or use a remote API |
+
+Two terms you'll see everywhere:
+
+- **"7B", "13B" etc.** — the model's size in billions of parameters. Bigger is smarter but needs more memory and runs slower.
+- **"Q4", "Q5" etc.** — quantization, i.e. how compressed the model file is. Q4 or Q5 is the sweet spot; quality loss is tiny and the memory savings are huge.
+
+The Model Hub shows an estimate of whether a model fits your GPU before you download it. When in doubt, start small — modern 8B models are shockingly good at roleplay.
 
 ### Can I use OpenAI / Claude / Google models?
 
-**Yes.** Front Porch AI has first-class **OpenRouter** integration (Settings → AI Settings → Remote API). 
-
-- One API key gives you access to virtually every major model (Claude 3.5 Sonnet, GPT-4o, Gemini 1.5 Pro, Llama-405B, etc.).
-- You can also point directly at any OpenAI-compatible endpoint (Nano-GPT, Together.ai, Fireworks, local vLLM/Ollama with OpenAI shim, etc.).
-- Remote models work seamlessly with the Realism Engine, RAG memory, TTS, and all other features.
+Yes. Add an **OpenRouter** key in Settings → AI Settings and you get access to virtually every major model through one account. You can also point the app at any OpenAI-compatible service. Remote models work with everything — the Realism Engine, memory, voices, all of it.
 
 ### Why is the AI slow?
 
-Common causes and fixes:
+Almost always one of these:
 
-- **Model too large** for your VRAM → the app is forced to offload layers to RAM or CPU. Solution: smaller model, higher quantization (Q3/Q4), or lower context size.
-- **Too many GPU layers** requested → lower the "GPU Layers" slider.
-- **CPU-only mode** → run Hardware Detection again or manually select a Vulkan/ROCm/Metal backend.
-- Very high context (16k–32k) or large batch size.
-- Background downloads, cloud sync, or Python TTS processes competing for resources.
+- **The model is too big for your GPU**, so part of it spills over to regular RAM, which is much slower. Fix: use a smaller model or a more compressed version (Q4 instead of Q6/Q8), or lower the context size.
+- **Too many GPU layers** — lower the GPU Layers setting so the model actually fits.
+- **The app is running on CPU** without you realizing. Re-run hardware detection in Settings → AI Settings.
+- **Very large context sizes** (16k+) cost speed and memory even before the model starts writing.
 
-The app shows real-time VRAM usage and token/speed stats in the status bar.
+See [Troubleshooting → Generation is slow](troubleshooting.md#generation-is-extremely-slow) for the full checklist.
 
-### Why does the AI give repetitive answers?
+### Why does the AI repeat itself?
 
-Try these adjustments (in **Chat Settings** or **Generation Settings**):
+Usually fixable with settings:
 
-- Increase **Temperature** (0.8–1.1 is usually good for roleplay).
-- Raise **Repetition Penalty** (1.05–1.15) or **Frequency Penalty**.
-- Lower **Top-P** or **Min-P** slightly to increase variety.
-- Check the character card — weak or missing **Message Examples** often cause repetition.
-- Some models are inherently repetitive at low quantizations.
-- Enable **XTC Sampling** (in Advanced) for more creative output.
-
-A good system prompt and a few high-quality example dialogues in the card usually eliminate repetition entirely.
+- Raise **Temperature** a little (0.8–1.1 works well for roleplay).
+- Raise **Repetition Penalty** slightly (1.05–1.15).
+- Check the character card — missing or weak **example dialogue** is the number-one cause of repetitive characters. A few good example exchanges work wonders.
+- Some models are simply repetitive, especially at heavy compression. Try a different one — personality varies a lot between model families.
 
 ---
 
@@ -150,79 +149,82 @@ A good system prompt and a few high-quality example dialogues in the card usuall
 
 ### Where can I find characters?
 
-- **Chub.ai** — Largest public library (use the in-app browser or download PNG cards).
-- **Community Discord** — Share and request characters (link in-app).
-- **RisuAI, Backyard AI, SillyTavern** users — Export their V2 cards (PNG or JSON) and import directly.
-- **Built-in AI Character Creator** — Generate high-quality cards from a short concept (multiple modes: Automated, Quick, Guided).
-- **Manual creation** — Full 6-step wizard with avatar upload, lorebook editor, and Realism Engine defaults.
-- Your own creations — everything you make or edit is saved as standard V2.5 PNG cards (fully portable).
+- **The Stoop** — the community hub built right into the app (currently in nightly builds): browse, follow creators, and download with one tap.
+- **The built-in browsers** — the app has embedded browsers for chub.ai and aicharactercards.com; download a card and it lands straight in your library.
+- **Anywhere character cards are shared** — Front Porch AI reads standard V2/V2.5 character card files (PNG or JSON), the same format the whole community uses.
+- **Make your own** — the AI Character Creator builds a complete character from a one-line concept, or use the step-by-step manual creator.
+- **The Discord** — people share cards and ideas in the [community Discord](https://discord.gg/e4tET6rpdv).
 
-### How do I import characters from SillyTavern?
+### Can I use my SillyTavern or Backyard AI characters?
 
-**Directly supported.** SillyTavern V2/V2.5 cards (both PNG with embedded `chara` chunk and standalone JSON) import perfectly:
+Yes, directly:
 
-1. Drag & drop the `.png` or `.json` file onto the character grid, or
-2. Click **Import** → choose PNG/JSON (multi-select supported), or
-3. Use the Chub.ai browser inside the app (downloads and imports in one step).
+- **SillyTavern cards** (PNG or JSON) import perfectly — drag them onto the app or use the Import button. Multi-select and whole-folder import are supported.
+- **Backyard AI archives** (`.byaf` files) have a dedicated importer, so your characters aren't stranded in that format.
 
-BYAF (Backyard AI) archives are also supported via a dedicated importer. After import you can assign tags and folders. Front Porch AI also reads and preserves any third-party extensions + its own `front_porch` Realism Engine section.
+Everything you create or edit is saved as standard, portable character cards too — no lock-in in either direction.
 
 ### Why isn't my character acting right?
 
-Typical causes and solutions:
+In rough order of likelihood:
 
-- **Weak character card** — Missing or low-quality **Message Examples** (few-shot dialogues) is the #1 culprit. Add 4–8 good exchanges.
-- **Model too small / low quality** — 7B models can struggle with complex or subtle personalities. Try a 13B+ or a better 7B (e.g., Llama-3.1-8B or Qwen2.5-14B).
-- **Temperature / sampling wrong** — Too low = robotic; too high = random. Start at 0.85–1.0 + 1.1 repetition penalty.
-- **System prompt conflict** — The global system prompt in Settings can override card instructions. Try the per-character System Prompt field.
-- **No lorebook / world context** — Attach relevant lore or a World for consistent world-building.
-- **Realism Engine off** — Turn it on (per-character or globally) for much richer emotional memory and relationship progression.
+1. **The card is thin.** A character with no example dialogue and a two-line description gives the AI almost nothing to work with. Add example exchanges and specifics.
+2. **The model is too small** for a subtle personality. Try a larger or newer model.
+3. **Sampler settings are off.** Extremely low temperature makes characters robotic; extremely high makes them incoherent. Start at 0.85–1.0.
+4. **A global system prompt is fighting the card.** If you've customized the system prompt in Settings, it can override character instructions.
+5. **The Realism Engine is off.** Without it, characters have no persistent emotional state between turns. Turning it on adds bond, trust, mood, and memory of how your story has been going — see the [Realism Engine guide](realism-engine.md).
 
-Test the card in a new chat. Use the **Director Mode** (auto-play) to quickly evaluate behavior.
+---
+
+## The Stoop
+
+### What is The Stoop?
+
+The Stoop is a community character hub built into the app (currently in nightly builds, coming to stable): browse featured and moderator-picked cards, follow creators you like, vote, and download characters — including entire group casts with their Realism state intact — straight into your library.
+
+It's opt-in, needs a free account, and is strictly 18+. Adult content is hidden unless you explicitly turn it on. The rest of the app stays 100% local whether or not you ever open The Stoop.
+
+### What data does The Stoop collect?
+
+Only if you sign in and use it:
+
+- **Your account info** — email, display name, your 18+ confirmation, and a securely hashed password.
+- **What you upload** — the cards you choose to share, obviously.
+- **An anti-abuse signal** — a salted, one-way *hash* of your IP address (never the raw IP), used only to enforce bans and stop ban-evasion, deleted after 90 days.
+- **An anonymous stats ping** — coarse facts like OS, app version, and GPU tier (e.g. "NVIDIA · 8–12 GB") so I know what hardware to prioritize. It's on by default but there's an off switch right on the sign-up screen and in Account settings. It never includes chats, characters, or your IP.
+
+Never collected: your conversations, your characters (unless you upload them), or anything from offline use. Full details: [Privacy Policy](https://github.com/linux4life1/front-porch-AI/blob/main/PRIVACY.md).
 
 ---
 
 ## Voice
 
-### Why isn't TTS working?
+### Why isn't the voice (TTS) working?
 
-Most common reasons:
+- **First use downloads voice files.** The default local engine (Kokoro) fetches its voice models (~300 MB) the first time you use it. Give it a minute and watch for the progress indicator.
+- **Wrong engine selected** — check Settings → Voice. Kokoro is the local default; ElevenLabs and OpenAI need an API key and internet.
+- **A character has a voice from a different engine.** If you switched engines, a character's assigned voice may no longer match — the voice picker warns you about incompatible ones. Re-assign or choose the default.
+- **Running from source code?** Only developers building from source need Python packages (`pip install kokoro-onnx soundfile faster-whisper`). The normal downloads bundle everything.
 
-- **Python not installed** or not in PATH (required for local engines).
-- Missing Python packages: run `pip install kokoro-onnx soundfile faster-whisper`.
-- Wrong engine selected in **Settings → Voice → TTS Engine** (Kokoro is the default local engine; Piper is also available).
-- For cloud engines (ElevenLabs, OpenAI): API key not entered or invalid.
-- On Linux: missing system audio libraries for microphone recording (install `portaudio19-dev` or the equivalent dev package for the `record` Flutter plugin used by `SttService`). This primarily affects Voice Call / STT, not pure TTS playback.
-- For Piper TTS on Linux you may also need espeak-ng or the specific Piper voice files.
+More fixes in [Troubleshooting → Voice](troubleshooting.md#tts-not-producing-sound).
 
-The app will show clear error messages in the Voice settings panel and console (plus Python stderr from the sidecar scripts). Kokoro works out-of-the-box on Windows/macOS/Linux once `pip install kokoro-onnx soundfile` (and the ONNX model files) are present. The TTS engines are in `lib/services/tts_service.dart`, `kokoro_engine.dart`, `openai_tts_engine.dart`, `elevenlabs_tts_engine.dart`, and the Python helpers in the repo root.
+### How do I get better-sounding voices?
 
-### How do I improve voice quality?
+- **Best free local:** Kokoro (the default) — over 50 voices, surprisingly natural, fully offline.
+- **Best overall (paid):** ElevenLabs — extremely natural and expressive, needs an API key.
+- **Lots of distinct voices:** Piper — lightweight and fast, handy for giving every group member their own voice.
+- **Per-character voices:** assign a specific voice on each character's card; it overrides the global default, including in group chats.
 
-- **Best quality (paid)**: ElevenLabs — select any of their voices; extremely natural prosody and emotion.
-- **Best free local**: **Kokoro-ONNX** (default) — surprisingly good for its size. Adjust speed, pitch, and emotion in the per-character or global TTS settings.
-- **Piper**: Fast, lightweight, many voices. Good when you want many different character voices.
-- **Per-character voices**: Assign a specific TTS voice (or ElevenLabs voice ID) directly on the character card (stored in the V2 card's `tts_voice` field and `front_porch` extensions) — it overrides the global default. See `CharacterCard.ttsVoice` and `v2_card_service.dart` parsing.
-- **No automatic emotion-aware TTS** is currently implemented. The Realism Engine's emotion/arousal/bond state is **not** fed into TTS engines (Kokoro, Piper, ElevenLabs, or OpenAI) to modulate prosody, pitch, or style. Some engines (especially ElevenLabs) expose manual style/emotion parameters you can set globally or per-character, but there is no automatic coupling to Realism state. (This is a missing integration, not a documented feature.)
+### Why does voice call mode send my message too early?
 
-Many users run Kokoro for everyday use and switch to ElevenLabs only for important scenes. The Kokoro engine lives in `lib/services/kokoro_engine.dart` + `kokoro_tts.py` (requires `kokoro-onnx` + `soundfile`). Piper uses `piper_entry.py`.
+Voice call mode listens for a pause: once you've spoken, about two seconds of silence tells it you're done, and it sends the transcription. It also samples the room's background noise for a moment when the call starts, to learn what "quiet" sounds like on your setup.
 
-### Why does voice call mode keep triggering?
+If it keeps cutting you off or triggering on background noise:
 
-Voice Call mode uses **silence detection** on the microphone input:
-
-- It samples ambient noise for ~1.5 seconds on start to set a noise floor.
-- Once it hears speech (amplitude > 1.8× noise floor), it waits for **2 seconds of continuous silence** before automatically sending the transcription and triggering the AI reply.
-
-If it keeps triggering too early or too late:
-
-- The silence detection parameters are **hardcoded** in the STT service: noise floor is the 75th percentile of ~1.5 seconds of ambient samples taken on call start; speech is anything >1.8× that floor; auto-send triggers after exactly **2 seconds** of continuous silence below threshold. There are currently **no sliders** for threshold multiplier or silence duration in Settings → Voice → STT Settings.
-- To re-calibrate the noise floor, end the call and start a fresh Voice Call (it always re-samples on entry). There is **no "Re-sample" button** in the call overlay.
-- Use a better microphone or headset (built-in laptop mics pick up fan/keyboard noise easily).
-- Lower the microphone input gain in your OS.
-- In the call overlay there is always a manual **Send** button (visible when listening/recording) that bypasses silence detection entirely. You can also disable `autoSendTranscription` behavior for non-call STT.
-
-The implementation lives in `lib/services/stt_service.dart` (`_calibrateNoiseFloor`, `_startAmplitudeMonitor`, `_silenceThresholdMultiplier = 1.8`, `_silenceDuration = 2s`, and the Timer logic in amplitude polling).
+- Use a headset — laptop microphones pick up fans and keyboards easily.
+- Lower your microphone gain in your OS settings.
+- End and restart the call — it re-measures the background noise fresh each time.
+- You can always press the **Send** button in the call screen to send manually instead of waiting for the pause detection.
 
 ---
 
@@ -230,120 +232,81 @@ The implementation lives in `lib/services/stt_service.dart` (`_calibrateNoiseFlo
 
 ### What is the Realism Engine?
 
-See the dedicated [Realism Engine](realism-engine.md) guide — it is the authoritative deep dive (361+ lines, method-by-method breakdown). 
+The optional system that makes characters feel *alive* over time instead of resetting every message. With it on, a character:
 
-**Brutally short version:** Optional per-character / per-chat system (default **off**) that makes characters remember and evolve their relationship with you across sessions. Without it, every chat is stateless and characters have goldfish memory. With it:
+- carries a **mood** that shifts naturally and lingers between turns
+- builds (or loses) **bond** (−300 to +300) and **trust** (−100 to +100) with you, which changes how open they are
+- experiences the **passage of time** — the story clock moves forward as you chat
+- can develop **fixations**, pursue their own **objectives**, and **evolve new personality traits** over long stories
+- can live with Sims-style **needs** — hunger, energy, social, fun, hygiene, comfort, and more
 
-- Tracks short-term + long-term bond (-300…+300), trust (-100…+100), nuanced emotions + intensity, arousal + NSFW refractory cooldown, time-of-day / day count, fixations (3-turn intrusive thoughts), spatial stance, chaos pressure, primary objectives, and more.
-- All state lives in the `sessions` table of the SQLite DB (persisted with the chat history).
-- After every user message (and on greeting/retroactive catch-up) it runs dedicated LLM evaluation calls (see the slowdown FAQ above) whose outputs are injected back into future system prompts via many `_get*Injection` helpers in `chat_service.dart`.
-- Companion `expression_classifier.dart` (LLM + optional ONNX classifier) maps emotions to the 30 sprite/expression labels.
-- Also powers Director Mode pacing, Chance Time (Chaos Mode) random events, character evolution fields in the card, etc.
+It's off by default and configurable per character. The [Realism Engine guide](realism-engine.md) covers all of it.
 
-It is **not** free. It costs 1–4 extra LLM inferences per turn depending on backend and One-Shot setting. It is the single most complex piece of the entire app. Read the real doc before complaining that "my character doesn't remember me."
+### Does the Realism Engine slow down my chats?
 
-### Does the Realism Engine slow down chat?
+Honestly: yes, somewhat — it's not free. After each turn, the engine asks the AI a few short background questions ("how did that land emotionally?", "did time pass?"). On a local model those run one after another and typically add a few seconds per turn; on remote APIs they run in parallel and the cost is smaller.
 
-**Yes, significantly on local KoboldCpp backends — more than the marketing gloss suggests.**
+Ways to reduce it:
 
-**How it actually works (see `lib/services/chat_service.dart` for the gory details):**
-- Before the main AI response is generated for a user message (and on post-greeting / retroactive baseline), the engine issues **multiple separate LLM "evaluation" inference calls**.
-- In normal mode (One-Shot disabled) for **local KoboldCpp** (the most common setup): **four sequential calls** because Kobold is single-threaded:
-  1. `_evaluateRelationshipCall` (bond/trust tiers, fixation, objectives)
-  2. `_evaluateEmotionalStateCall` (emotion label + intensity)
-  3. `_evaluatePhysicalStateCall` (arousal, NSFW cooldown, spatial stance, time-of-day)
-  4. `_evaluateNarrativeCall` (scene summary, time passage)
-- Each eval feeds the last 3–6 messages + character personality snippet into the LLM with a specialized system prompt and parses the JSON response to mutate internal state (persisted in the `sessions` table).
-- For **remote OpenAI-compatible / OpenRouter** backends: the four calls are fired with `Future.wait` (parallel) so wall-clock cost is closer to one generation.
-- When **One-Shot Eval Mode** is enabled (`_storageService.realismOneShotEval`): everything is fused into a **single** `_evaluateOneShotCall` that asks the model for all fields at once (shorter prompt, one prefill). This is the main mitigation, but some models handle the longer combined prompt poorly.
-- There is **no support for a separate "eval model" or dedicated fast model** for these calls — they always use whatever LLM/backend is currently selected for chat. (The "fast dedicated eval model" suggestion in older docs is not implemented.)
-- Additional Realism features (Chaos Mode / Chance Time, Fixation, NSFW cooldown decay, mood inertia, autonomous objectives, expression classification via `expression_classifier.dart`) add more prompt injection and occasional extra logic but not always extra full LLM calls.
+- Turn on **One-Shot Eval** mode, which combines the background questions into a single call.
+- Use a fast model — the evaluations are short, so speed matters more than size.
+- Turn the Realism Engine off for characters or scenes where you don't need it.
 
-**Realistic impact:**
-- Fast 7B–13B Q4/Q5 local Kobold on good GPU: +3–8+ seconds per turn (4 evals × small context).
-- Larger models or CPU offload: much worse.
-- Remote API or one-shot + small/fast model: +1–3s is more realistic.
-- The evaluations are "lightweight" only relative to a full 1k+ token creative reply; they are still full forward passes.
+### How do I reset a character's bond and trust?
 
-**Mitigations that actually exist today:**
-- Turn on **One-Shot Eval Mode** (global in Settings or per-chat).
-- Use a fast, small, high-throughput model for everything (including evals).
-- Disable Realism entirely for that character/chat if the cost isn't worth it for a given scene.
-- For remote users: the parallelization helps a lot.
-- The engine only runs when `_realismEnabled` is true for the active character/session.
+Start a **new chat** — Realism state (bond, trust, mood, time, needs) belongs to the conversation, and a fresh chat starts from the character's saved starting values. There's currently no reset button inside an ongoing chat.
 
-See the full `docs/realism-engine.md` (especially Performance Considerations and the method list in chat_service.dart) for exact prompt templates, state ranges, injection functions (`_getRelationshipInjection`, etc.), and expression classifier details (ONNX + LLM fallback). The FAQ version here is deliberately blunt because the previous one was misleading.
-
-### How do I reset a character's bond/trust?
-
-- **Easiest and only reliable way today**: Start a **new chat** with the character. On the first message (or post-greeting), the engine seeds fresh state from the character's saved initial Realism values (or global defaults if none). See `chat_service.dart` `_runPostGreetingEval` and character seeding logic.
-- There is **no "Reset Realism State" button** in Chat Settings (the gear icon dialog — `chat_settings_dialog.dart` — has zero Realism controls or reset UI).
-- You **can** edit the character's **initial** Realism values (short-term/long-term bond, trust, starting emotion, time of day, day count, etc.) in the full character editor (`edit_character_page.dart`) under the Realism tab / `realism_form_section.dart`. These only affect *new* chats started after the edit; existing chat sessions keep their historical state forever (stored per-session in the DB).
-- Old chat history / messages are never mutated by resets. Realism state lives in the `sessions` table alongside the message list.
-
-If you really need to "reset" an ongoing chat's Realism state without starting over, your only current options are manual DB surgery or exporting/importing the character (which doesn't carry per-chat session state). This is a known UX gap.
+You can also edit a character's *starting* Realism values in the character editor — but those only apply to chats started after the change; existing conversations keep their history.
 
 ---
 
-## Technical
+## Your Data & Devices
 
-### How do I back up my data?
+### How do backups work?
 
-Front Porch AI has robust automatic backup built in:
+Automatically, and always on. The app snapshots your database every **30 minutes** and keeps two tiers:
 
-- **Auto-backup** runs every **10 minutes** (always enabled) and keeps the most recent **10** timestamped copies (pruning happens automatically). Backups live in `KoboldManager/backups/` next to the `front_porch.db`.
-- The WAL (write-ahead log) is checkpointed before every backup so the .db file is self-contained.
-- You can manually trigger a backup at any time via the button in **Settings → Cloud Sync & Backup** (or the web server API).
-- Cloud sync (Google Drive / WebDAV) does **not** automatically create an extra backup before each operation in the current implementation — create one manually beforehand if you want a safety snapshot.
-- Restoring is as simple as selecting a backup in the corruption recovery overlay (on launch after integrity failure) or via the in-app restore dialog. The app closes the live DB, copies the backup over, removes stale WAL/SHM files, and reopens.
+- the **10 most recent** snapshots (fine-grained undo for the last few hours), plus
+- **one snapshot per day for the last 7 days** (a rolling week of restore points)
 
-**Cloud Sync** (Google Drive or WebDAV/Nextcloud) gives you an off-device copy. You can also simply copy the entire `FrontPorchAI` (or `FrontPorchAI-Beta`) folder.
+Old ones are pruned automatically so it never grows unbounded. If the database is ever damaged, a restore screen appears on launch and recovery is one click. You can also make a manual backup any time from Settings.
 
-Restoring is as simple as replacing the `.db` file or using the in-app restore dialog.
+For an extra off-machine copy, just copy your whole `FrontPorchAI` folder somewhere safe — that's everything.
 
 ### Where is my data stored?
 
-All data lives in a single user-controlled root folder:
+Everything lives in one folder you control:
 
-- **Windows**: `Documents\FrontPorchAI\` (or `FrontPorchAI-Beta\` for beta builds)
-- **macOS**: `~/Documents/FrontPorchAI/` (or `FrontPorchAI-Beta/`)
-- **Linux**: `~/Documents/FrontPorchAI/` (or `FrontPorchAI-Beta/`)
+- **Windows:** `Documents\FrontPorchAI\`
+- **macOS / Linux:** `~/Documents/FrontPorchAI/`
 
-Inside you will find:
-- `KoboldManager/` — the SQLite database (`front_porch.db` or `front_porch_beta.db` for pre-releases) + `backups/` subfolder (timestamped DB copies) + `Characters/` subfolder (all PNG character cards and per-character `avatars/` folders)
-- `models/` — your GGUF model files (and `koboldcpp_bin/` for the KoboldCpp binaries)
-- `chats/` — per-character and group chat history
-- `worlds/`, `lorebooks/`, `custom_backgrounds/`, etc.
-- Beta builds (`FrontPorchAI-Beta`) deliberately use a completely isolated directory tree.
+(Beta and nightly builds use `FrontPorchAI-Beta` instead, so they never touch stable data.)
 
-You can change the root location at any time in **Settings → Storage**. Beta builds deliberately use a completely separate directory so they never touch your stable data.
+Inside you'll find your database, character cards, and backups (in `KoboldManager/`), your downloaded AI models (`models/`), plus folders for chats, worlds, and the AI engine itself. Copy the whole folder and you've backed up everything.
 
-### How do I fix a corrupted database?
+### Can I chat from my phone or another computer?
 
-The app is very resilient:
+Yes. The app has a built-in **web server**: turn it on in Settings, then open `http://<your-computer's-address>:8085` in any browser on the same network — phone, tablet, laptop. You get a full web interface for chatting.
 
-1. On launch, it automatically detects SQLite corruption or schema issues.
-2. A **Backup Restore overlay** appears listing all available timestamped backups (newest first).
-3. Simply click any backup to restore it instantly.
-4. If you need to go further back, the `backups/` folder contains every copy (up to 10 + manual ones).
+Two things to know:
 
-**Prevention tips**:
-- Always let the app shut down cleanly (avoid force-quitting during a write).
-- Cloud Sync + periodic manual copies give additional safety.
-- The WAL (write-ahead log) is checkpointed before every backup.
+- Your desktop computer does all the actual work (it's running the AI), so it needs to stay on.
+- It's designed for your home network. For access away from home, a personal VPN like Tailscale is the safe way to reach it.
 
-Manual repair with `sqlite3` tools is rarely needed.
+### Can I sync between two computers?
 
-### Can I run Front Porch AI on a server?
+Not really, and I'd steer you away from trying. The old Cloud Sync feature (Google Drive / WebDAV) is **deprecated** — it could occasionally resurrect deleted data across devices, which is why newer builds show a retirement notice. Automatic local backups replaced it as the safety net.
 
-**Yes.** The app includes a built-in **Web Server** mode (shelf-based HTTP server):
+To move to another machine: copy your `FrontPorchAI` folder over, or export/import individual character cards. Both are reliable.
 
-- Enable it in **Settings → Advanced tab → Web Server** section (port default 8085, optional PIN).
-- It exposes a browser-accessible interface (chat, character management, some API endpoints) over HTTP at `http://localhost:PORT` (or LAN IP).
-- Useful for home server / NAS / headless machine access from phones/tablets/laptops on your LAN (or via reverse proxy + HTTPS / auth).
-- Full REST-ish API surface for characters, chats, backups, etc. (see `web_server_service.dart` and the JS in `assets/web/`).
+### How do updates work?
 
-**Important limitations**: The heavy lifting (KoboldCpp inference, Python TTS sidecars `kokoro_tts.py`/`whisper_stt.py`, Rust embedding server, all LLM calls) still runs on the **host machine** where the Flutter desktop app is running. This is remote-*UI* access only, not a true headless server daemon. You still need the desktop app (or a running instance) on the machine with the GPU/models. The web UI is a convenience layer on top of the same `ChatService`, `CharacterRepository`, etc.
+- **Windows / macOS:** the app checks for updates and shows a "What's New" dialog when one is available; download and install from there (or grab it from [GitHub Releases](https://github.com/linux4life1/front-porch-AI/releases)).
+- **Linux (APT/RPM/AUR):** updates arrive through your normal system updates — `apt upgrade`, `dnf upgrade`, or `yay -Syu`.
 
-Implemented in `lib/services/web_server_service.dart` + `lib/services/storage_service.dart` (webServerEnabled, port, pin). Start/stop is driven from the settings toggle.
+### How do I report a bug?
 
+- [GitHub Issues](https://github.com/linux4life1/front-porch-AI/issues) — best for anything reproducible.
+- [Discord](https://discord.gg/e4tET6rpdv) — best for "is it just me?" questions and quick help.
+
+If the app misbehaves, launching it from a terminal shows error messages that make bug reports ten times more useful. See [Troubleshooting](troubleshooting.md) first — your issue may already have a fix.

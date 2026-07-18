@@ -23,9 +23,8 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/log_view.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
-import 'package:front_porch_ai/services/pseudo_remote_service.dart';
 
-/// Dialog that displays live KoboldCPP or Pseudo-Remote process logs in real-time.
+/// Dialog that displays live KoboldCPP process logs in real-time.
 /// Matches the visual style of [ContextViewerDialog].
 class KoboldLogDialog extends StatefulWidget {
   const KoboldLogDialog({super.key});
@@ -39,14 +38,9 @@ class _KoboldLogDialogState extends State<KoboldLogDialog> {
   Widget build(BuildContext context) {
     return Consumer2<LLMProvider, KoboldService>(
       builder: (context, llmProvider, kobold, _) {
-        final pseudoRemote = Provider.of<PseudoRemoteService>(
-          context,
-          listen: false,
-        );
-        final isPseudo = llmProvider.activeBackend == BackendType.pseudoRemote;
-        final logs = isPseudo ? pseudoRemote.logs : kobold.logs;
-        final isRunning = isPseudo ? pseudoRemote.isRunning : kobold.isRunning;
-        final isReady = isPseudo ? pseudoRemote.isReady : kobold.isReady;
+        final logs = kobold.logs;
+        final isRunning = kobold.isRunning;
+        final isReady = kobold.isReady;
 
         final statusColor = isRunning ? Colors.greenAccent : Colors.white38;
         final statusLabel = isRunning
@@ -83,9 +77,9 @@ class _KoboldLogDialogState extends State<KoboldLogDialog> {
                         size: 22,
                       ),
                       const SizedBox(width: 10),
-                      Text(
-                        isPseudo ? 'Pseudo-Remote Log' : 'KoboldCpp Log',
-                        style: const TextStyle(
+                      const Text(
+                        'KoboldCpp Log',
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -208,12 +202,10 @@ class _KoboldLogDialogState extends State<KoboldLogDialog> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                isPseudo
-                                    ? 'Start the Pseudo-Remote backend from Settings → Backend.'
-                                    : 'Start the backend from Settings → Backend, or from the Model Settings dialog.',
+                              const Text(
+                                'Start the backend from Settings → Backend, or from the Model Settings dialog.',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white24,
                                   fontSize: 12,
                                 ),

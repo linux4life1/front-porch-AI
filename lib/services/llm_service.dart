@@ -40,6 +40,13 @@ class GenerationParams {
   final int? reasoningMaxTokens;
   final List<String>? bannedPhrases;
 
+  /// Top-K cutoff; 0 disables it (KoboldCpp and remote APIs both treat 0 as
+  /// off, so it's only serialized when > 0).
+  final int topK;
+
+  /// DRY anti-repetition strength (KoboldCpp only; 0 = off).
+  final double dryMultiplier;
+
   /// Optional system prompt for chat APIs. When provided, OpenRouter/LM Studio
   /// will send this as a proper 'system' role message instead of lumping
   /// everything into a single 'user' message. KoboldCPP ignores this field.
@@ -59,6 +66,13 @@ class GenerationParams {
   /// so template stop tokens (`<|im_end|>` etc.) don't silently eat the output.
   final bool trimStop;
 
+  /// Optional base64-encoded PNG images attached to the user chat message
+  /// (Vision QC, portrait describe). When non-empty, the OpenAI-compatible
+  /// chat transports render the user content as a multimodal array via
+  /// [openAiUserContent]; when null/empty the payload keeps the plain string
+  /// content, byte-identical to the pre-vision text-only path.
+  final List<String>? images;
+
   const GenerationParams({
     required this.prompt,
     this.maxLength = 200,
@@ -67,10 +81,12 @@ class GenerationParams {
     this.repeatPenalty = 1.1,
     this.topP = 0.9,
     this.minP = 0.0,
+    this.topK = 0,
+    this.dryMultiplier = 0.0,
     this.repPenTokens = 64,
     this.dynatempRange,
     this.xtcThreshold = 0.1,
-    this.xtcProbability = 0.5,
+    this.xtcProbability = 0.0, // 0 = off (samplers are delivered now)
     this.stopSequences,
     this.reasoningEnabled = false,
     this.reasoningEffort = 'medium',
@@ -80,13 +96,61 @@ class GenerationParams {
     this.grammar,
     this.banEosToken = false,
     this.trimStop = true,
+    this.images,
   });
+
+  /// The `content` value for the OpenAI chat user message: the plain [prompt]
+  /// string when no [images] ride along, or a multimodal content array of one
+  /// text part followed by one `image_url` part per image. Both chat-payload
+  /// builders (openai_chat_stream.dart and OpenRouterService) call this so
+  /// the two wire shapes can't drift.
+  Object get openAiUserContent {
+    final imgs = images;
+    if (imgs == null || imgs.isEmpty) return prompt;
+    return [
+      {'type': 'text', 'text': prompt},
+      for (final img in imgs)
+        {
+          'type': 'image_url',
+          'image_url': {'url': 'data:image/png;base64,$img'},
+        },
+    ];
+  }
+}
+
+/// One tool invocation from a tool-calling response (OpenAI `tool_calls`
+/// entry, arguments already JSON-decoded; malformed arguments decode to {}).
+class LlmToolCall {
+  final String name;
+  final Map<String, dynamic> arguments;
+
+  const LlmToolCall({required this.name, required this.arguments});
+}
+
+/// Result of a tool-enabled, non-streaming generation: the tool calls the
+/// model made (possibly none) plus any plain assistant text it also wrote.
+class LlmToolResponse {
+  final List<LlmToolCall> calls;
+  final String text;
+
+  const LlmToolResponse({required this.calls, required this.text});
 }
 
 /// Abstract interface for all LLM backends (local KoboldCPP, OpenRouter, etc).
 abstract class LLMService extends ChangeNotifier {
   /// Stream tokens one at a time for real-time display.
   Stream<String> generateStream(GenerationParams params);
+
+  /// Non-streaming generation with OpenAI-style tool calling. Returns null
+  /// when this backend can't speak the tools protocol — callers fall back to
+  /// their text transport (the Journal falls back to its XML tags). Every
+  /// real backend implements it (remote APIs and local KoboldCpp alike —
+  /// Qwen3-class local models call tools well); a model that can't simply
+  /// produces no calls and the caller's negotiation handles the rest.
+  Future<LlmToolResponse?> generateWithTools(
+    GenerationParams params,
+    List<Map<String, dynamic>> tools,
+  ) async => null;
 
   /// Abort the current in-flight generation request (closes the HTTP client).
   void abortGeneration() {}
@@ -96,4 +160,33 @@ abstract class LLMService extends ChangeNotifier {
 
   /// Human-readable name for this backend (e.g. "KoboldCPP", "OpenRouter").
   String get backendName;
+}
+
+/// True when [error] reads like a failure to reach the backend at all —
+/// nothing listening on the port, host down, or the HTTP client torn down
+/// mid-request. The OS words the same failure differently per platform:
+/// Windows says "The remote computer refused the network connection"
+/// (errno 1225), macOS "Connection refused" (errno 61), Linux errno 111 —
+/// so match the broad shapes rather than one platform's phrasing.
+bool looksLikeBackendUnreachable(Object error) {
+  final s = error.toString();
+  return s.contains('SocketException') ||
+      s.contains('Connection refused') ||
+      s.contains('refused the network connection') ||
+      s.contains('errno = 61') ||
+      s.contains('Connection closed before full header') ||
+      (s.contains('ClientException') && s.contains('closed'));
+}
+
+/// Thrown when a feature needs the AI backend but it isn't ready or can't be
+/// reached. [message] is user-facing — surfaces like the story pages and the
+/// web client show pipeline errors verbatim, so [toString] returns the plain
+/// message with no "Exception:" prefix.
+class LlmUnavailableException implements Exception {
+  final String message;
+
+  LlmUnavailableException(this.message);
+
+  @override
+  String toString() => message;
 }

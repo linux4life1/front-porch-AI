@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
@@ -25,14 +27,31 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/grpc/draw_things_grpc_service.dart';
 import 'package:front_porch_ai/services/image_prompt/image_gen_context.dart';
+import 'package:front_porch_ai/services/comfy_ui_service.dart';
+import 'package:front_porch_ai/services/image/model_family.dart';
+import 'package:front_porch_ai/services/image/edit_profile.dart';
+import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
+import 'package:front_porch_ai/services/capability/image_reference_role.dart';
+import 'package:front_porch_ai/services/capability/image_reference_resolver.dart';
 import 'package:front_porch_ai/services/image_prompt/image_prompt_builder.dart';
 
-/// Available image generation modes.
+/// Available image generation subjects.
+///
+/// The Image Studio and the `/image` slash command share these:
+/// - **customPrompt**: a freeform prompt. When the prompt text is empty but
+///   recent chat narrative is supplied, the builder distills the *current
+///   scene* from it (this is what the bare `/image` / `/image scene` command
+///   uses — the former standalone "Visualize Scene" mode was folded in here).
+/// - **characterPortrait**: a portrait built from a character's appearance.
+/// - **userAvatar**: a portrait built from the user persona's appearance.
+///
+/// (The old `visualizeScene` and `chatBackground` modes were removed — the
+/// former is now `customPrompt` with scene context, the latter was retired
+/// because generating a figure-free chat background confused users. Backgrounds
+/// are still chosen from the Background settings dialog.)
 enum ImageGenMode {
   customPrompt,
-  visualizeScene,
   characterPortrait,
-  chatBackground,
   userAvatar,
 }
 
@@ -40,7 +59,8 @@ enum ImageGenMode {
 enum ImageGenBackend {
   remote,
   a1111,
-  drawThings;
+  drawThings,
+  comfyUi;
 
   static ImageGenBackend fromKey(String key) {
     switch (key) {
@@ -48,6 +68,8 @@ enum ImageGenBackend {
         return ImageGenBackend.a1111;
       case 'drawthings':
         return ImageGenBackend.drawThings;
+      case 'comfyui':
+        return ImageGenBackend.comfyUi;
       default:
         return ImageGenBackend.remote;
     }
@@ -59,6 +81,8 @@ enum ImageGenBackend {
         return 'a1111';
       case ImageGenBackend.drawThings:
         return 'drawthings';
+      case ImageGenBackend.comfyUi:
+        return 'comfyui';
       case ImageGenBackend.remote:
         return 'remote';
     }
@@ -70,6 +94,8 @@ enum ImageGenBackend {
         return 'AUTOMATIC1111';
       case ImageGenBackend.drawThings:
         return 'Draw Things';
+      case ImageGenBackend.comfyUi:
+        return 'ComfyUI';
       case ImageGenBackend.remote:
         return 'Remote API';
     }
@@ -119,6 +145,24 @@ class ImageGenService extends ChangeNotifier {
   Uint8List? _lastGeneratedImage;
   String? _lastSavedPath;
 
+  /// Live generation progress (0..1) and the latest in-progress preview
+  /// frame, so the UI can show the image "coming to life" instead of a
+  /// spinner. Fed per backend: A1111 polls /sdapi/v1/progress (percent +
+  /// preview), ComfyUI streams its WebSocket (percent + preview when the
+  /// server has previews enabled), Draw Things reports sampling steps
+  /// (percent only). Remote APIs return in one shot — both stay null there
+  /// (indeterminate). Cleared at the start and end of every generation.
+  double? _genProgress;
+  Uint8List? _genPreview;
+  double? get genProgress => _genProgress;
+  Uint8List? get genPreview => _genPreview;
+
+  void _updateGenProgress(double? progress, [Uint8List? preview]) {
+    _genProgress = progress;
+    if (preview != null) _genPreview = preview;
+    notifyListeners();
+  }
+
   /// The checkpoint name that is currently loaded on the local A1111 server.
   /// Used to skip redundant unload→reload cycles that can leave tensors
   /// split across CPU and CUDA on Windows/nVidia setups.
@@ -143,18 +187,29 @@ class ImageGenService extends ChangeNotifier {
         return _storage.imageGenSettings.localImageGenUrl.isNotEmpty;
       case ImageGenBackend.drawThings:
         return _storage.imageGenSettings.drawThingsGrpcHost.isNotEmpty;
+      case ImageGenBackend.comfyUi:
+        return _storage.imageGenSettings.comfyUiUrl.isNotEmpty;
     }
   }
 
   DrawThingsGrpcService? _drawThingsGrpc;
+  ComfyUiService? _comfyUi;
+
+  ComfyUiService get _ensureComfyUi {
+    final url = _storage.imageGenSettings.comfyUiUrl;
+    if (_comfyUi == null || _comfyUi!.baseUrl != url) {
+      _comfyUi = ComfyUiService(baseUrl: url);
+    }
+    return _comfyUi!;
+  }
 
   // Thin delegation hook for prompt construction.
-  // Full ownership of ImageGenContext mapping semantics, mode contracts (visualizeScene N-slider
-  // now covers the former fromLastMessage "Message Illustration" distillation; no-personality portraits,
-  // no-people backgrounds, etc.), style enforcement, LLM smart path, and static fallbacks lives in
-  // ImagePromptBuilder.
+  // Full ownership of ImageGenContext mapping semantics, mode contracts
+  // (no-personality portraits, and customPrompt's scene-distillation fallback
+  // when the prompt is empty but recent chat narrative is present), style
+  // enforcement, LLM smart path, and static fallbacks lives in ImagePromptBuilder.
   // Keep prompt blocks in sync: changes to ctx construction here must be mirrored in
-  // builder tests (roundtrips), any direct ImageGenContext sites, and the builder's own
+  // any direct ImageGenContext sites and the builder's own
   // _buildStatic / buildPrompt / _generateSmartWith. The builder is stateless/prompt-only
   // (no reset calls needed). ImageGenService owns no prompt scalars that require zeroing
   // on chat startNew / setActive / load (per-call snapshot from _storage is authoritative).
@@ -186,18 +241,65 @@ class ImageGenService extends ChangeNotifier {
   /// Returns the image bytes on success, or null on failure.
   Future<Uint8List?> generateImage({
     required String prompt,
-    String negativePrompt = '',
+    String? negativePrompt,
     String? size,
     Uint8List?
-    referenceImage, // for img2img / reference conditioning (wired for Draw Things; ignored by others for now)
+    referenceImage, // img2img reference: honored by all three local backends
+    // (Draw Things, A1111, ComfyUI) at imageGenDenoise strength; remote APIs
+    // have no img2img endpoint here, so they ignore it.
     String? model,
     bool isPortrait = false,
+    // Per-call overrides for the stored seed/denoise settings; used by batch
+    // flows (expression packs) that need a shared fixed seed and fixed denoise
+    // across every image without touching the user's persisted settings.
+    // Remote APIs ignore them (no seed/denoise support on those endpoints).
+    int? seed,
+    double? denoise,
+    // Which Studio surface asked. Create (default) keeps every existing path
+    // byte-identical; Edit routes an edit-capable model to edit-conditioning.
+    // No caller passes Edit until the Create/Edit tabs land (Phase 3), so this
+    // is dormant and non-breaking today.
+    StudioIntent intent = StudioIntent.create,
+    // Edit-only: how strongly the instruction changes the reference (higher =
+    // more change). Overrides the edit profile's default strength when set, so
+    // the Edit tab can offer a "how much should change" control. Ignored outside
+    // the edit path.
+    double? editStrength,
   }) async {
+    // Reentrancy guard: this service holds a SINGLE shared _isGenerating /
+    // _statusMessage / _genPreview / _genProgress. Two overlapping calls (the
+    // classic case: the WebUI image panel + the desktop Studio, or /image while
+    // a Studio gen runs) would clobber each other's status and progress, the
+    // first to finish would flip _isGenerating false and unlock the other
+    // mid-flight, and on Draw Things both would spawn CLI jobs against one GPU.
+    // Refuse the second start rather than corrupt the first.
+    if (_isGenerating) {
+      debugPrint('[ImageGen] generateImage refused — a generation is running.');
+      return null;
+    }
     _isGenerating = true;
     _statusMessage = 'Generating image...';
     _lastGeneratedImage = null;
     _lastSavedPath = null;
+    _genProgress = null;
+    _genPreview = null;
     notifyListeners();
+
+    // Callers that don't specify a negative prompt (guest portraits, the
+    // character creators, web chargen) get the user's configured default —
+    // previously those paths silently generated with none. An explicit ''
+    // still means "no negative". Remote APIs ignore negatives (see the
+    // remote generators below).
+    negativePrompt ??= _storage.imageGenSettings.imageGenNegativePrompt;
+
+    // Portrait requests (character/persona portraits, guest card art) orient
+    // the configured size vertically when the caller didn't pass an explicit
+    // size. Previously this flag was accepted but ignored, so portraits came
+    // out landscape whenever the default size was landscape.
+    if (size == null && isPortrait) {
+      final (w, h) = _parseSize(_storage.imageGenSettings.imageGenSize);
+      if (w > h) size = '${h}x$w';
+    }
 
     try {
       Uint8List imageBytes;
@@ -205,6 +307,31 @@ class ImageGenService extends ChangeNotifier {
       final backend = ImageGenBackend.fromKey(
         _storage.imageGenSettings.imageGenBackend,
       );
+
+      // Resolve what the reference image MEANS for this backend + model (the
+      // single seam). Create keeps today's behavior; Edit routes an edit model
+      // to editConditioning, and refuses honestly when the backend can't edit.
+      final refModelName = model ?? _storage.imageGenSettings.imageGenModel;
+      final refCapability = ImageReferenceResolver.resolveForBackend(
+        backend: backend,
+        modelName: refModelName,
+      );
+      final refCount = (referenceImage != null && referenceImage.isNotEmpty)
+          ? 1
+          : 0;
+      final refRole = routeReference(
+        intent: intent,
+        attachedRefCount: refCount,
+        cap: refCapability,
+      );
+      if (refRole == ImageReferenceRole.unsupported) {
+        _statusMessage =
+            refCapability.degradeReason ??
+            'This backend can’t edit from a photo. Try Create instead.';
+        _isGenerating = false;
+        notifyListeners();
+        return null;
+      }
 
       if (backend == ImageGenBackend.a1111 ||
           backend == ImageGenBackend.drawThings) {
@@ -231,15 +358,59 @@ class ImageGenService extends ChangeNotifier {
             final (width, height) = _parseSize(imageSize);
             final steps = _storage.imageGenSettings.imageGenSteps;
             final cfgScale = _storage.imageGenSettings.imageGenCfgScale;
-            final seed = _storage.imageGenSettings.imageGenSeed;
+            final effectiveSeed =
+                seed ?? _storage.imageGenSettings.imageGenSeed;
 
             // DT-native advanced knobs (shared sliders still used for steps/cfg/seed/size)
             final sampler = _storage.imageGenSettings.drawThingsSampler;
             final shift = _storage.imageGenSettings.drawThingsShift;
-            final strength = _storage.imageGenSettings.drawThingsStrength;
+            // Unified img2img denoise. Draw Things only consults this when a
+            // reference image is present (pure txt2img ignores it), so it is
+            // always safe to pass. Replaces the retired drawThingsStrength knob.
+            final strength =
+                denoise ?? _storage.imageGenSettings.imageGenDenoise;
             final seedMode = _storage.drawThingsSeedMode;
             final teaCache = _storage.drawThingsTeaCache;
             final cfgZeroStar = _storage.drawThingsCfgZeroStar;
+            // Same shared LoRA setting the A1111 path uses; DT applies it
+            // natively via the generation config instead of a prompt tag.
+            final loraName = _storage.imageGenSettings.imageGenLora;
+            final loraWeight = _storage.imageGenSettings.imageGenLoraWeight;
+
+            // Edit models (Qwen-Image-Edit / Flux Kontext) read the reference as
+            // conditioning. The Edit tab keeps its OWN edit-scoped copy of these
+            // knobs (steps/CFG/sampler/shift/seed-mode) so tuning an edit never
+            // clobbers Create's txt2img settings — see edit_profile.dart. This
+            // service is a DUMB PIPE for them: whatever the user set on the Edit
+            // tab is sent verbatim, no silent override.
+            var dtStrength = strength;
+            var dtSteps = steps;
+            var dtCfg = cfgScale;
+            var dtShift = shift;
+            var dtSampler = sampler;
+            var dtSeedMode = seedMode;
+            var dtLoras = loraName.isEmpty
+                ? const <Map<String, dynamic>>[]
+                : [
+                    {'file': loraName, 'weight': loraWeight},
+                  ];
+            if (refRole == ImageReferenceRole.editConditioning) {
+              // Every knob the user sees on the Edit tab, honored as-is (the
+              // edit-scoped store is seeded with the field-tested recipe so the
+              // FIRST edit already works — UniPC + moderate CFG — without
+              // clobbering Create). The "how much should change" slider provides
+              // the denoise strength; the user's LoRA rides along unchanged.
+              dtSteps = _storage.editSteps;
+              dtCfg = _storage.editCfgScale;
+              dtSampler = _storage.editSampler;
+              dtShift = _storage.editShift;
+              dtSeedMode = _storage.editSeedMode;
+              dtStrength = editStrength ?? kEditRecommendedStrength;
+              _statusMessage = refCapability.editKind == EditModelKind.kontext
+                  ? 'Editing with Flux Kontext...'
+                  : 'Editing with Qwen-Image-Edit...';
+              notifyListeners();
+            }
 
             imageBytes = await _generateViaDrawThingsGrpc(
               grpcService: grpcService,
@@ -248,25 +419,52 @@ class ImageGenService extends ChangeNotifier {
               model: modelCheckpoint,
               width: width,
               height: height,
-              steps: steps,
-              cfgScale: cfgScale,
-              seed: seed,
-              strength: strength,
-              shift: shift,
-              sampler: sampler,
-              seedMode: seedMode,
+              steps: dtSteps,
+              cfgScale: dtCfg,
+              seed: effectiveSeed,
+              strength: dtStrength,
+              shift: dtShift,
+              sampler: dtSampler,
+              seedMode: dtSeedMode,
               teaCache: teaCache,
               cfgZeroStar: cfgZeroStar,
+              loras: dtLoras,
               referenceImage: referenceImage,
+              onProgress: (step, total) => _updateGenProgress(
+                total > 0 ? (step / total).clamp(0.0, 1.0) : null,
+              ),
             );
           } catch (e) {
-            // Sanitize for user display (no full tracebacks, absolute paths, or raw CLI internals)
+            // A "Generation error from CLI: …" means the gRPC server WAS reached
+            // and the generation itself failed (bad LoRA, incompatible model,
+            // etc.) — the old code hid that behind a misleading "check the gRPC
+            // server" message, which made LoRA/edit failures undiagnosable.
+            // Surface the real Draw Things reason (first line, path/length
+            // trimmed); keep the connection hint only for actual connect errors.
             final msg = e.toString();
-            final safe = msg.contains('CLI') || msg.contains('Generation error')
-                ? 'Draw Things generation failed. Check that the gRPC server is enabled in Draw Things and the host/port are correct.'
-                : 'Draw Things connection or generation failed.';
+            const genMarker = 'Generation error from CLI: ';
+            final idx = msg.indexOf(genMarker);
+            String safe;
+            if (idx >= 0) {
+              var detail = msg.substring(idx + genMarker.length).trim();
+              detail = detail.split('\n').first.trim();
+              if (detail.isEmpty || detail == 'null') {
+                detail = 'the backend rejected the request '
+                    '(often an incompatible LoRA or model for editing).';
+              }
+              if (detail.length > 240) detail = '${detail.substring(0, 240)}…';
+              safe = 'Draw Things couldn’t generate: $detail';
+            } else if (msg.contains('CLI returned no parseable') ||
+                msg.contains('connect') ||
+                msg.contains('gRPC') ||
+                msg.contains('timed out')) {
+              safe =
+                  'Draw Things generation failed. Check that the gRPC server is enabled in Draw Things and the host/port are correct.';
+            } else {
+              safe = 'Draw Things connection or generation failed.';
+            }
             _statusMessage = safe;
-            debugPrint('ImageGen: Draw Things error (sanitized for user): $e');
+            debugPrint('ImageGen: Draw Things error: $e');
             _isGenerating = false;
             notifyListeners();
             return null;
@@ -295,8 +493,100 @@ class ImageGenService extends ChangeNotifier {
             steps: _storage.imageGenSettings.imageGenSteps,
             cfgScale: _storage.imageGenSettings.imageGenCfgScale,
             samplerName: _storage.imageGenSettings.imageGenSampler,
-            seed: _storage.imageGenSettings.imageGenSeed,
+            scheduler: _storage.imageGenSettings.imageGenScheduler,
+            seed: seed ?? _storage.imageGenSettings.imageGenSeed,
+            referenceImage: referenceImage,
+            denoise: denoise ?? _storage.imageGenSettings.imageGenDenoise,
           );
+        }
+      } else if (backend == ImageGenBackend.comfyUi) {
+        // ── ComfyUI (HTTP + bundled txt2img workflow) ──────────────────
+        _statusMessage = 'Connecting to ComfyUI...';
+        notifyListeners();
+        try {
+          final comfy = _ensureComfyUi;
+          final (width, height) = _parseSize(
+            size ?? _storage.imageGenSettings.imageGenSize,
+          );
+          // The stored sampler is shared across backends and may be an
+          // A1111-style name; normalize it against what this server offers.
+          final available = await comfy.fetchSamplers();
+          final storedSampler = _storage.imageGenSettings.imageGenSampler;
+          // An explicit user scheduler wins; 'Automatic' derives it from the
+          // sampler (Karras-flavored names → karras, else normal) exactly as
+          // before, so the default path is unchanged.
+          final storedScheduler = _storage.imageGenSettings.imageGenScheduler;
+          final scheduler = (storedScheduler.isNotEmpty &&
+                  storedScheduler != 'Automatic')
+              ? storedScheduler
+              : ComfyUiService.schedulerFor(storedSampler);
+          if (refRole == ImageReferenceRole.editConditioning &&
+              referenceImage != null) {
+            // ComfyUI instruction-edit: run the SELECTED workflow (a bundled
+            // preset or the user's uploaded graph) via the token engine. The
+            // edit-scoped knobs supply steps/CFG/strength(→denoise)/shift; the
+            // sampler/scheduler use ComfyUI-friendly defaults (the DT sampler
+            // int doesn't map cleanly). Model slots come from the user's picks.
+            _statusMessage = 'Editing with ComfyUI...';
+            notifyListeners();
+            final storedSeed = seed ?? _storage.imageGenSettings.imageGenSeed;
+            final req = resolveComfyEditRequest(
+              workflowId: _storage.comfyEditWorkflowId,
+              uploadedWorkflowJson: _storage.comfyEditUploadedWorkflow,
+              modelChoices: _storage.comfyEditModelChoices,
+              prompt: prompt,
+              negative: negativePrompt,
+              seed: storedSeed == -1 ? Random().nextInt(1 << 31) : storedSeed,
+              steps: _storage.editSteps,
+              cfg: _storage.editCfgScale,
+              denoise: editStrength ?? kEditRecommendedStrength,
+              shift: _storage.editShift,
+            );
+            if (req == null) {
+              throw Exception(
+                'No ComfyUI edit workflow is set up. Pick a preset (and its '
+                'models) or upload a workflow in the Edit tab.',
+              );
+            }
+            imageBytes = await comfy.generateImageEdit(
+              referenceImageBytes: referenceImage,
+              workflowTemplate: req.template,
+              tokenValues: req.values,
+              onProgress: _updateGenProgress,
+            );
+          } else {
+            imageBytes = await comfy.generateImage(
+              prompt: prompt,
+              negativePrompt: negativePrompt,
+              model: model ?? _storage.imageGenSettings.imageGenModel,
+              width: width,
+              height: height,
+              steps: _storage.imageGenSettings.imageGenSteps,
+              cfgScale: _storage.imageGenSettings.imageGenCfgScale,
+              seed: seed ?? _storage.imageGenSettings.imageGenSeed,
+              samplerName: ComfyUiService.normalizeSampler(
+                storedSampler,
+                available,
+              ),
+              scheduler: scheduler,
+              loraName: _storage.imageGenSettings.imageGenLora,
+              loraWeight: _storage.imageGenSettings.imageGenLoraWeight,
+              referenceImageBytes: referenceImage,
+              denoise: denoise ?? _storage.imageGenSettings.imageGenDenoise,
+              onProgress: _updateGenProgress,
+            );
+          }
+        } catch (e) {
+          // Sanitize for user display (mirrors the Draw Things branch).
+          final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+          _statusMessage = msg.startsWith('ComfyUI') || msg.contains('model')
+              ? msg
+              : 'ComfyUI generation failed. Check that ComfyUI is running and '
+                    'the URL is correct.';
+          debugPrint('ImageGen: ComfyUI error: $e');
+          _isGenerating = false;
+          notifyListeners();
+          return null;
         }
       } else {
         // ── Remote API ─────────────────────────────────────────────────
@@ -319,6 +609,17 @@ class ImageGenService extends ChangeNotifier {
         final apiUrl = _storage.backendSettings.remoteApiUrl;
         final apiKey = _storage.backendSettings.remoteApiKey;
 
+        // Remote EDIT when an edit model + a reference are in play: the
+        // instruction (`prompt`) + the reference image go to the provider's edit
+        // shape (OpenAI-compatible /images/edits, or OpenRouter's multimodal
+        // chat). Otherwise the existing txt2img path, untouched.
+        final remoteEdit =
+            refRole == ImageReferenceRole.editConditioning &&
+            referenceImage != null;
+        if (remoteEdit) {
+          _statusMessage = 'Editing with $imageModel...';
+          notifyListeners();
+        }
         if (_isOpenRouterStyle(apiUrl)) {
           imageBytes = await _generateViaOpenRouter(
             apiUrl: apiUrl,
@@ -326,6 +627,7 @@ class ImageGenService extends ChangeNotifier {
             model: imageModel,
             prompt: prompt,
             size: imageSize,
+            editImage: remoteEdit ? referenceImage : null,
           );
         } else {
           imageBytes = await _generateViaOpenAICompat(
@@ -335,6 +637,7 @@ class ImageGenService extends ChangeNotifier {
             prompt: prompt,
             negativePrompt: negativePrompt,
             size: imageSize,
+            editImage: remoteEdit ? referenceImage : null,
           );
         }
       }
@@ -350,6 +653,8 @@ class ImageGenService extends ChangeNotifier {
       return null;
     } finally {
       _isGenerating = false;
+      _genProgress = null;
+      _genPreview = null;
       notifyListeners();
     }
   }
@@ -621,28 +926,18 @@ class ImageGenService extends ChangeNotifier {
   /// Use the active LLM to craft a concise, effective image prompt from raw context.
   ///
   /// Thin delegation to ImagePromptBuilder — see there for mode semantics and style rules
-  /// (visualizeScene N-slider now covers former fromLastMessage/Message Illustration; portrait = appearance+expression only, background
-  /// = environment only with strong NO PEOPLE, visualize = current scene distillation, style
-  /// enforcement for both paradigms, etc.).
-  /// Old inline implementation (switch cases, raw dumps, personality injection, "Depict the
-  /// following scene", fragile substring style) removed in Stage 2.
+  /// (portrait = appearance + expression only; customPrompt = the user's text verbatim, or,
+  /// when that text is empty, a distilled visualization of the current scene from the
+  /// supplied recent chat narrative; style enforcement for both paradigms, etc.).
   /// Keep prompt blocks in sync with ImagePromptBuilder (and ctx construction in call sites
-  /// like chat_page._showImageGenDialog and web chargen paths). Builder is stateless/prompt-only.
+  /// like chat_page._showImageGenDialog and the /image slash command). Builder is stateless/prompt-only.
   ///
-  /// NOTE on duplication fix (Stage 2 review): the ternary + 15+ field bag construction that
-  /// used to be repeated in happy path, ultimate fallback, and buildPrompt is now in the
-  /// tiny pure helper _buildPromptContext below. This is *thin coordination only* (data bag
-  /// assembly + the custom vs lastMessage rule from the original thins). It contains ZERO
-  /// prompt logic, distillation, style, or LLM — all of that stays in ImagePromptBuilder.
-  /// This does not violate the "0 new god private _ methods for prompt logic" rule.
-  /// MUST KEEP IN SYNC with roundtrips (especially the new customPrompt ternary test) and
-  /// future call-site enrichment (currentExpression etc.).
+  /// The flat params are assembled into a typed [ImageGenContext] by the tiny pure helper
+  /// [_buildPromptContext] (data-bag assembly + the custom-vs-lastMessage rule only — zero
+  /// prompt/distillation/style/LLM logic, which all lives in ImagePromptBuilder).
   ///
-  /// Stage 4 user spec continuation (no boilerplate pregen in box; visualize slider N + simple `<think>` strip on pre-generated msgs;
-  /// user box text + User persona + char visual info (no personality) + style sent to LLM on Craft to produce the visual prompt;
-  /// 6 types now buttons inside studio, launch neutral): added userInstruction (box text before craft), visualizeNumMessages (slider).
-  /// Forwarded to thin _build + ctx + builder. Keep all thins + ctx ctor + studio craft + launcher collection + builder assembly in sync.
-  /// (0 new private _ methods — only extended existing _buildPromptContext thin; void _ count stable at baseline.)
+  /// [userInstruction] is free text the user typed in the studio box before Craft; it is
+  /// forwarded to the LLM as extra guidance so it "parses into the image prompt".
   Future<String> generateSmartPrompt({
     required ImageGenMode mode,
     required String style,
@@ -665,16 +960,15 @@ class ImageGenService extends ChangeNotifier {
     String? lightingHint,
     bool isGroupNonObserver = false,
     String? currentSpeakerId,
-    // User spec: text user typed in studio box pre-Craft (passed to LLM as instr to "parse into" image prompt).
-    // visualize N: slider value (only meaningful for visualizeScene); messages stripped simply since already generated.
+    // Text the user typed in the studio box pre-Craft (passed to the LLM as an
+    // instruction to "parse into" the image prompt).
     String? userInstruction,
-    int? visualizeNumMessages,
   }) async {
     final paradigm = _storage.imageGenSettings.imageGenPromptParadigm;
 
     // Build the rich typed context (builder owns all distillation + style rules).
     // Uses the thin coordination helper (see _buildPromptContext) to keep the customPrompt
-    // ternary + future-hint mapping in one place. Expanded for future visual hints...
+    // ternary + hint mapping in one place.
     final ctx = _buildPromptContext(
       mode: mode,
       style: style,
@@ -694,10 +988,7 @@ class ImageGenService extends ChangeNotifier {
       lightingHint: lightingHint,
       isGroupNonObserver: isGroupNonObserver,
       currentSpeakerId: currentSpeakerId,
-      // User spec continuation (no pregen boiler; N slider for visualize + user box text + persona+char visual no pers + style on craft/LLM).
-      // Keep thin + ctx + studio craft call + builder _generateSmartWith parts + chat launcher in sync (both startNew equiv N/A for snapshot).
       userInstruction: userInstruction,
-      visualizeNumMessages: visualizeNumMessages,
     );
 
     // Pass an LLM only if the caller supplied a ready one (builder will use it for smart path).
@@ -732,9 +1023,7 @@ class ImageGenService extends ChangeNotifier {
         lightingHint: lightingHint,
         isGroupNonObserver: isGroupNonObserver,
         currentSpeakerId: currentSpeakerId,
-        // User spec (userInstruction for craft box text, visualizeNum for slider N stripped msgs). Sync with happy path above + builder.
         userInstruction: userInstruction,
-        visualizeNumMessages: visualizeNumMessages,
       );
       return effectiveBuilder.buildStaticPrompt(fbCtx);
     }
@@ -748,9 +1037,6 @@ class ImageGenService extends ChangeNotifier {
   /// Keep prompt blocks in sync: this thin + generateSmartPrompt's ctx mapping must stay
   /// aligned with builder._buildStatic + _ensureStyleAndCap. No new _private methods were
   /// added for prompt logic (only the pre-existing _promptBuilder late final hook).
-  ///
-  /// User spec (visualize slider, user box as instr to LLM craft, buttons inside studio instead of popup, no boilerplate pregen):
-  /// forward userInstruction + visualizeNumMessages (edit to existing thin only; 0 new _privs).
   String buildPrompt({
     required ImageGenMode mode,
     String? customPrompt,
@@ -771,7 +1057,6 @@ class ImageGenService extends ChangeNotifier {
     bool isGroupNonObserver = false,
     String? currentSpeakerId,
     String? userInstruction,
-    int? visualizeNumMessages,
   }) {
     final paradigm = _storage.imageGenSettings.imageGenPromptParadigm;
     final style = _storage.imageGenSettings.imageGenStyle;
@@ -796,9 +1081,7 @@ class ImageGenService extends ChangeNotifier {
       lightingHint: lightingHint,
       isGroupNonObserver: isGroupNonObserver,
       currentSpeakerId: currentSpeakerId,
-      // User spec: forward box text + viz N (for static fallback parity on visualize limit + instr if used in static; main is LLM craft path).
       userInstruction: userInstruction,
-      visualizeNumMessages: visualizeNumMessages,
     );
 
     // buildPrompt remains the synchronous "static quality" path (used by fallbacks and any direct callers).
@@ -829,20 +1112,12 @@ class ImageGenService extends ChangeNotifier {
   /// This is *thin coordination/wiring only* — no distillation, no style rules, no LLM,
   /// no mode semantics. All of that is in ImagePromptBuilder (the single source of truth).
   /// The only "logic" here is the original customPrompt ? customPrompt : lastMessage
-  /// ternary (plus the paradigm read that was already here).
-  /// MUST KEEP IN SYNC with: builder_test roundtrips (including the customPrompt ternary
-  /// test + new field roundtrips for expression/time/group), any direct ImageGenContext
-  /// construction (chat_page launch, studio init, studio _craft path), studio ctx build,
-  /// and call sites. Keep blocks in sync with ImageGenContext ctor, studio _ctx=,
-  /// chat_page _showImageGenDialog collection, and builder consumption sites.
-  /// (incomplete zeroing of secondary config on resets not applicable here; ctx is per-invocation snapshot).
-  /// Stage 4 complete for richer fields wiring.
-  ///
-  /// User spec (Stage 4 continuation): extended for userInstruction (typed box text pre-Craft, sent to LLM "to parse into the image gen prompt")
-  /// + visualizeNumMessages (slider for N recent msgs to include for visualize; stripped of all `<think>` simply — messages pre-generated).
-  /// No new private _ methods (this is edit to the sole existing thin _buildPromptContext; live grep count of _ methods stable post-edit).
-  /// 1:1/group parity qualified via existing speaker/flag paths (visualize N applies to provided recent snapshot regardless of 1:1 vs group).
-  /// Keep launcher collection (now take(12) for slider headroom), studio (internal mode + slider + craft pass of current box + active), builder assembly in sync.
+  /// ternary (plus the paradigm read that was already here). For customPrompt the ctx's
+  /// lastMessage carries the user's typed text; when that is null/empty the builder
+  /// distills the current scene from [recentMessages] instead.
+  /// Keep in sync with ImageGenContext ctor, studio _ctx, the chat_page launch collection,
+  /// the /image slash-command craft, and builder consumption sites. (ctx is a per-invocation
+  /// snapshot — no reset semantics apply.)
   ImageGenContext _buildPromptContext({
     required ImageGenMode mode,
     required String style,
@@ -862,7 +1137,6 @@ class ImageGenService extends ChangeNotifier {
     bool isGroupNonObserver = false,
     String? currentSpeakerId,
     String? userInstruction,
-    int? visualizeNumMessages,
   }) {
     return ImageGenContext(
       mode: mode,
@@ -884,18 +1158,17 @@ class ImageGenService extends ChangeNotifier {
       isGroupNonObserver: isGroupNonObserver,
       currentSpeakerId: currentSpeakerId,
       userInstruction: userInstruction,
-      visualizeNumMessages: visualizeNumMessages,
     );
   }
 
   /// Test whether a local image-gen server is reachable.
   ///
-  /// For Draw Things, uses gRPC. For A1111, uses HTTP.
+  /// For Draw Things, uses gRPC. For ComfyUI, GET /system_stats. For A1111,
+  /// GET /sdapi/v1/sd-models.
   Future<bool> testLocalConnection(String baseUrl) async {
-    final isDrawThings =
-        _storage.imageGenSettings.imageGenBackend == 'drawthings';
+    final backendKey = _storage.imageGenSettings.imageGenBackend;
 
-    if (isDrawThings) {
+    if (backendKey == 'drawthings') {
       try {
         final grpcService = _ensureDrawThingsGrpc;
         return await grpcService.testConnection();
@@ -903,10 +1176,14 @@ class ImageGenService extends ChangeNotifier {
         debugPrint('ImageGen: Draw Things connection test failed: $e');
         return false;
       }
+    } else if (backendKey == 'comfyui') {
+      return _ensureComfyUi.testConnection();
     } else {
       final client = http.Client();
       try {
-        final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/sd-models');
+        final uri = Uri.parse(
+          '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/sd-models',
+        );
         final response = await client
             .get(uri)
             .timeout(const Duration(seconds: 5));
@@ -937,7 +1214,9 @@ class ImageGenService extends ChangeNotifier {
     } else {
       final client = http.Client();
       try {
-        final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/sd-models');
+        final uri = Uri.parse(
+          '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/sd-models',
+        );
         final response = await client
             .get(uri)
             .timeout(const Duration(seconds: 15));
@@ -957,7 +1236,8 @@ class ImageGenService extends ChangeNotifier {
 
   /// Fetch models from a Draw Things server.
   ///
-  /// Uses the Draw Things gRPC CLI to fetch available .ckpt models (via the special Echo('models') response). LoRAs not surfaced here.
+  /// Uses the Draw Things gRPC CLI to fetch available .ckpt models (via the
+  /// special Echo('models') response). LoRAs come from [fetchDrawThingsLoras].
   Future<List<String>> fetchDrawThingsModels(String baseUrl) async {
     try {
       final grpcService = _ensureDrawThingsGrpc;
@@ -968,31 +1248,98 @@ class ImageGenService extends ChangeNotifier {
     }
   }
 
-  /// Fetch LoRAs from an A1111 / Forge / SD.Next server.
+  /// Fetch LoRA files from a Draw Things server (gRPC CLI op 'loras' — the
+  /// same Echo('models') listing as [fetchDrawThingsModels], filtered to
+  /// LoRAs). The selected name is applied natively via the generation config.
   ///
-  /// Endpoint: GET /sdapi/v1/loras
-  /// Returns a list of LoRA names (the `name` field from each entry).
-  /// Draw Things does not support this endpoint — returns empty list.
-  Future<List<String>> fetchA1111Loras(String baseUrl) async {
+  /// Draw Things does not expose per-model compatibility over its gRPC surface,
+  /// so family is detected from the (canonical) file name only —
+  /// [LoraOption.familyFromMetadata] is false, which makes the UI warn on a
+  /// mismatch rather than hide it.
+  Future<List<LoraOption>> fetchDrawThingsLoras(String baseUrl) async {
+    try {
+      final grpcService = _ensureDrawThingsGrpc;
+      final names = await grpcService.fetchLoras();
+      return names.map((n) => ImageModelFamily.classifyLora(n)).toList();
+    } catch (e) {
+      debugPrint('ImageGen: fetchDrawThingsLoras failed: $e');
+      return [];
+    }
+  }
+
+  /// ComfyUI discovery — checkpoints / LoRAs / samplers all come from one
+  /// GET /object_info payload (see [ComfyUiService]); URL from settings.
+  Future<List<String>> fetchComfyModels(String baseUrl) =>
+      _ensureComfyUi.fetchModels();
+
+  /// ComfyUI LoRAs, enriched with base-model family. Names come from
+  /// /object_info; the family is read per-LoRA from the embedded safetensors
+  /// metadata via /view_metadata (authoritative), falling back to the file name
+  /// when a model exposes none. Metadata reads run in small concurrent batches
+  /// so a large library doesn't stall the picker, and any failure degrades
+  /// silently to name detection.
+  Future<List<LoraOption>> fetchComfyLoras(String baseUrl) async {
+    final comfy = _ensureComfyUi;
+    final names = await comfy.fetchLoras();
+    final out = <LoraOption>[];
+    const batch = 8;
+    for (var i = 0; i < names.length; i += batch) {
+      final slice = names.skip(i).take(batch);
+      final metas = await Future.wait(slice.map(comfy.fetchLoraMetadata));
+      var j = 0;
+      for (final n in slice) {
+        final meta = metas[j++];
+        out.add(
+          ImageModelFamily.classifyLora(n, metadata: meta.isEmpty ? null : meta),
+        );
+      }
+    }
+    return out;
+  }
+
+  Future<List<String>> fetchComfySamplers(String baseUrl) =>
+      _ensureComfyUi.fetchSamplers();
+
+  Future<List<String>> fetchComfySchedulers(String baseUrl) =>
+      _ensureComfyUi.fetchSchedulers();
+
+  /// Fetch LoRAs from an A1111 / Forge / SD.Next server, enriched with
+  /// base-model family.
+  ///
+  /// Endpoint: GET /sdapi/v1/loras — each entry carries a `metadata` block that
+  /// usually includes `ss_base_model_version` / `modelspec.architecture`, which
+  /// gives an authoritative family (this is the same field A1111's own UI uses).
+  /// When a LoRA exposes no metadata we fall back to file-name detection.
+  /// Draw Things uses [fetchDrawThingsLoras] instead (no HTTP endpoint).
+  Future<List<LoraOption>> fetchA1111Loras(String baseUrl) async {
     final client = http.Client();
     try {
-      final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/loras');
+      final uri = Uri.parse(
+        '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/loras',
+      );
       debugPrint('ImageGen: Fetching LoRAs from $uri');
       final response = await client
           .get(uri)
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) return [];
       final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
-      return data
-          .map((e) {
-            final m = e as Map<String, dynamic>;
-            // Prefer alias if present and non-empty, else use name
-            final alias = m['alias']?.toString() ?? '';
-            final name = m['name']?.toString() ?? '';
-            return alias.isNotEmpty ? alias : name;
-          })
-          .where((s) => s.isNotEmpty)
-          .toList();
+      final out = <LoraOption>[];
+      for (final e in data) {
+        final m = e as Map<String, dynamic>;
+        // Prefer alias if present and non-empty, else use name
+        final alias = m['alias']?.toString() ?? '';
+        final name = m['name']?.toString() ?? '';
+        final display = alias.isNotEmpty ? alias : name;
+        if (display.isEmpty) continue;
+        final meta = m['metadata'];
+        out.add(
+          ImageModelFamily.classifyLora(
+            display,
+            metadata: meta is Map<String, dynamic> ? meta : null,
+          ),
+        );
+      }
+      return out;
     } catch (e) {
       debugPrint('ImageGen: fetchA1111Loras failed: $e');
       return [];
@@ -1013,7 +1360,7 @@ class ImageGenService extends ChangeNotifier {
     final client = http.Client();
     try {
       final uri = Uri.parse(
-        '${baseUrl.trimRight()}/sdapi/v1/unload-checkpoint',
+        '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/unload-checkpoint',
       );
       debugPrint('ImageGen: Requesting model unload at $uri');
       final response = await client
@@ -1044,16 +1391,15 @@ class ImageGenService extends ChangeNotifier {
   /// Returns true if the model was successfully switched and confirmed ready.
   Future<bool> switchLocalModel(String baseUrl, String modelName) async {
     if (modelName.isEmpty) return false;
-    final isDrawThings =
-        _storage.imageGenSettings.imageGenBackend == 'drawthings';
-    if (isDrawThings) {
-      // Draw Things has no separate switch endpoint exposed via our gRPC CLI.
-      // The requested 'model' is passed per-generation inside the config dict
-      // (see _generateViaDrawThingsGrpc + DrawThingsGrpcService). Treat as
-      // immediate success so web API / legacy callers and the lastLoaded
-      // tracking continue to work without error.
+    final backendKey = _storage.imageGenSettings.imageGenBackend;
+    if (backendKey == 'drawthings' || backendKey == 'comfyui') {
+      // Draw Things and ComfyUI have no separate switch endpoint — the model
+      // is named per-generation (DT config dict / ComfyUI workflow graph).
+      // Treat as immediate success so web API / legacy callers and the
+      // lastLoaded tracking continue to work without error.
       debugPrint(
-        'ImageGen: switchLocalModel: DT backend — recording $modelName (sent at generate time; no pre-load RPC)',
+        'ImageGen: switchLocalModel: $backendKey backend — recording '
+        '$modelName (sent at generate time; no pre-load call)',
       );
       _lastLoadedCheckpoint = modelName;
       return true;
@@ -1063,7 +1409,9 @@ class ImageGenService extends ChangeNotifier {
     // Step 2: request the new checkpoint
     final client = http.Client();
     try {
-      final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/options');
+      final uri = Uri.parse(
+        '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/options',
+      );
       debugPrint('ImageGen: Switching checkpoint → $modelName');
       final response = await client
           .post(
@@ -1111,7 +1459,9 @@ class ImageGenService extends ChangeNotifier {
     String expected,
     http.Client client,
   ) async {
-    final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/options');
+    final uri = Uri.parse(
+      '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/options',
+    );
     const maxAttempts = 30;
     const pollInterval = Duration(seconds: 2);
 
@@ -1145,7 +1495,9 @@ class ImageGenService extends ChangeNotifier {
   Future<List<String>> fetchA1111Samplers(String baseUrl) async {
     final client = http.Client();
     try {
-      final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/samplers');
+      final uri = Uri.parse(
+        '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/samplers',
+      );
       final response = await client
           .get(uri)
           .timeout(const Duration(seconds: 15));
@@ -1163,9 +1515,87 @@ class ImageGenService extends ChangeNotifier {
     }
   }
 
+  /// Fetch available schedulers from an A1111 / Forge / SD.Next server.
+  ///
+  /// Endpoint: GET /sdapi/v1/schedulers
+  /// Returns scheduler names (the `name` field from each entry). Older forks
+  /// (and Draw Things' A1111 shim) predate this endpoint and answer 404 — that
+  /// degrades silently to an empty list, so the UI simply offers only
+  /// 'Automatic' there.
+  Future<List<String>> fetchA1111Schedulers(String baseUrl) async {
+    final client = http.Client();
+    try {
+      final uri = Uri.parse(
+        '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/schedulers',
+      );
+      final response = await client
+          .get(uri)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) return [];
+      final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map((e) => (e as Map<String, dynamic>)['name']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('ImageGen: fetchA1111Schedulers failed: $e');
+      return [];
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Build the AUTOMATIC1111 generation payload shared by the txt2img and
+  /// img2img endpoints. Pure — unit-tested. When [referenceImageB64] is
+  /// non-null/non-empty the caller must POST to `/sdapi/v1/img2img`, and this
+  /// adds `init_images` + `denoising_strength` ([denoise]); otherwise it is a
+  /// plain txt2img payload for `/sdapi/v1/txt2img`.
+  static Map<String, dynamic> buildA1111Payload({
+    required String prompt,
+    required String negativePrompt,
+    required int width,
+    required int height,
+    required int steps,
+    required double cfgScale,
+    required String samplerName,
+    required String scheduler,
+    required int seed,
+    String? referenceImageB64,
+    double denoise = 0.5,
+  }) {
+    final isImg2Img =
+        referenceImageB64 != null && referenceImageB64.isNotEmpty;
+    return <String, dynamic>{
+      'prompt': prompt,
+      'negative_prompt': negativePrompt,
+      'width': width,
+      'height': height,
+      'steps': steps,
+      'cfg_scale': cfgScale,
+      'sampler_name': samplerName,
+      // Only pin the scheduler when the user picked an explicit one. 'Automatic'
+      // omits the field so A1111 uses its own default (and older forks that
+      // don't know the field never see it). Newer A1111/Forge builds accept
+      // `scheduler` alongside `sampler_name`.
+      if (scheduler.isNotEmpty && scheduler != 'Automatic')
+        'scheduler': scheduler,
+      'seed': seed,
+      'batch_size': 1,
+      if (isImg2Img) 'init_images': [referenceImageB64],
+      if (isImg2Img) 'denoising_strength': denoise,
+      // NOTE: override_settings is intentionally omitted here.
+      // Passing sd_model_checkpoint inside override_settings causes A1111 to
+      // attempt a model reload mid-request, which splits tensors across
+      // cpu and cuda and throws:
+      //   "Expected all tensors to be on the same device"
+      // The model switch is already handled by switchLocalModel() above.
+    };
+  }
+
   /// Generate via AUTOMATIC1111 / Draw Things local server.
   ///
-  /// Endpoint: POST {baseUrl}/sdapi/v1/txt2img
+  /// Endpoint: POST {baseUrl}/sdapi/v1/txt2img — or /sdapi/v1/img2img when a
+  /// [referenceImage] is supplied (init image at [denoise] denoising strength).
   /// Response: { "images": ["<base64>", ...] }
   ///
   /// When [modelCheckpoint] is non-empty and the backend is Draw Things,
@@ -1183,7 +1613,10 @@ class ImageGenService extends ChangeNotifier {
     int steps = 20,
     double cfgScale = 7.0,
     String samplerName = 'Euler a',
+    String scheduler = 'Automatic',
     int seed = -1,
+    Uint8List? referenceImage,
+    double denoise = 0.5,
   }) async {
     // Switch model only if a different checkpoint was requested.
     // Skipping redundant switches prevents the unload→reload cycle that
@@ -1197,7 +1630,12 @@ class ImageGenService extends ChangeNotifier {
     }
 
     final (width, height) = _parseSize(size);
-    final uri = Uri.parse('${baseUrl.trimRight()}/sdapi/v1/txt2img');
+    // img2img when a reference image is supplied; else txt2img (unchanged path).
+    final isImg2Img = referenceImage != null && referenceImage.isNotEmpty;
+    final endpoint = isImg2Img ? 'img2img' : 'txt2img';
+    final uri = Uri.parse(
+      '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/$endpoint',
+    );
 
     // Inject LoRA into the prompt: <lora:name:weight>
     final effectivePrompt = (loraName.isNotEmpty)
@@ -1208,25 +1646,44 @@ class ImageGenService extends ChangeNotifier {
       'ImageGen: POST $uri (model=${modelCheckpoint.isNotEmpty ? modelCheckpoint : "current"}, lora=${loraName.isNotEmpty ? loraName : "none"})',
     );
 
-    final payload = <String, dynamic>{
-      'prompt': effectivePrompt,
-      'negative_prompt': negativePrompt,
-      'width': width,
-      'height': height,
-      'steps': steps,
-      'cfg_scale': cfgScale,
-      'sampler_name': samplerName,
-      'seed': seed,
-      'batch_size': 1,
-      // NOTE: override_settings is intentionally omitted here.
-      // Passing sd_model_checkpoint inside override_settings causes A1111 to
-      // attempt a model reload mid-request, which splits tensors across
-      // cpu and cuda and throws:
-      //   "Expected all tensors to be on the same device"
-      // The model switch is already handled by switchLocalModel() above.
-    };
+    final payload = buildA1111Payload(
+      prompt: effectivePrompt,
+      negativePrompt: negativePrompt,
+      width: width,
+      height: height,
+      steps: steps,
+      cfgScale: cfgScale,
+      samplerName: samplerName,
+      scheduler: scheduler,
+      seed: seed,
+      referenceImageB64: isImg2Img ? base64Encode(referenceImage) : null,
+      denoise: denoise,
+    );
 
     final client = http.Client();
+    // Live progress while the txt2img request is in flight: A1111 exposes
+    // GET /sdapi/v1/progress with a percent AND an in-progress preview frame,
+    // so the chat/studio can show the image forming instead of a spinner.
+    final progressUri = Uri.parse(
+      '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/progress',
+    );
+    final progressTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      try {
+        final r = await http
+            .get(progressUri)
+            .timeout(const Duration(seconds: 2));
+        if (r.statusCode != 200) return;
+        final p = jsonDecode(r.body) as Map<String, dynamic>;
+        final pct = (p['progress'] as num?)?.toDouble();
+        final b64 = p['current_image'] as String?;
+        _updateGenProgress(
+          (pct != null && pct > 0) ? pct.clamp(0.0, 1.0) : null,
+          (b64 != null && b64.isNotEmpty) ? base64Decode(b64) : null,
+        );
+      } catch (_) {
+        // transient — the next tick retries; the request itself is the truth
+      }
+    });
     try {
       final response = await client
           .post(
@@ -1255,12 +1712,13 @@ class ImageGenService extends ChangeNotifier {
       final b64 = images[0] as String;
       return base64Decode(b64);
     } finally {
+      progressTimer.cancel();
       client.close();
     }
   }
 
   /// Generate via Draw Things gRPC service (Python client bridge).
-  /// Extended with DT-native params + optional reference image (passed through to CLI).
+  /// Extended with DT-native params, LoRAs, + optional reference image (passed through to CLI).
   Future<Uint8List> _generateViaDrawThingsGrpc({
     required DrawThingsGrpcService grpcService,
     required String prompt,
@@ -1278,7 +1736,9 @@ class ImageGenService extends ChangeNotifier {
     bool teaCache = false,
     double teaCacheThreshold = 0.15,
     bool cfgZeroStar = false,
+    List<Map<String, dynamic>> loras = const [],
     Uint8List? referenceImage,
+    void Function(int step, int totalSteps)? onProgress,
   }) async {
     return await grpcService.generateImage(
       prompt: prompt,
@@ -1296,7 +1756,9 @@ class ImageGenService extends ChangeNotifier {
       teaCache: teaCache,
       teaCacheThreshold: teaCacheThreshold,
       cfgZeroStar: cfgZeroStar,
+      loras: loras,
       referenceImageBytes: referenceImage,
+      onProgress: onProgress,
     );
   }
 
@@ -1307,6 +1769,12 @@ class ImageGenService extends ChangeNotifier {
 
   /// Generate via OpenAI-compatible /images/generations endpoint.
   /// Works with Nano-GPT, direct OpenAI, and local A1111/SD servers.
+  ///
+  /// NOTE: [negativePrompt] is accepted for signature symmetry but is NOT
+  /// sent — the OpenAI images API has no negative_prompt parameter and
+  /// rejects unknown fields, so it is deliberately dropped here (and by
+  /// [_generateViaOpenRouter]). Negatives only take effect on the A1111 and
+  /// Draw Things backends.
   Future<Uint8List> _generateViaOpenAICompat({
     required String apiUrl,
     required String apiKey,
@@ -1314,17 +1782,31 @@ class ImageGenService extends ChangeNotifier {
     required String prompt,
     String negativePrompt = '',
     String size = '1024x1024',
+    // When set, this is an EDIT: POST the reference (as a base64 data URI) +
+    // instruction to the OpenAI-compatible /images/edits endpoint instead of
+    // /images/generations. Verified against Nano-GPT (JSON imageDataUrl variant).
+    Uint8List? editImage,
   }) async {
-    final imageEndpoint = '$apiUrl/images/generations';
-    debugPrint('ImageGen: POST $imageEndpoint (model=$model)');
+    final isEdit = editImage != null;
+    final imageEndpoint = isEdit
+        ? '$apiUrl/images/edits'
+        : '$apiUrl/images/generations';
+    debugPrint('ImageGen: POST $imageEndpoint (model=$model, edit=$isEdit)');
     final uri = Uri.parse(imageEndpoint);
-    final payload = <String, dynamic>{
-      'model': model,
-      'prompt': prompt,
-      'n': 1,
-      'size': size,
-      'response_format': 'b64_json',
-    };
+    final payload = isEdit
+        ? <String, dynamic>{
+            'model': model,
+            'prompt': prompt,
+            'imageDataUrl':
+                'data:image/png;base64,${base64Encode(editImage)}',
+          }
+        : <String, dynamic>{
+            'model': model,
+            'prompt': prompt,
+            'n': 1,
+            'size': size,
+            'response_format': 'b64_json',
+          };
 
     final client = http.Client();
     try {
@@ -1346,12 +1828,15 @@ class ImageGenService extends ChangeNotifier {
         try {
           final errBody = jsonDecode(response.body);
           final error = errBody['error'];
-          // Handle both OpenAI format {"error":{"message":"..."}} and
-          // Nano-GPT format {"error":"...","code":"..."}
+          // Handle both OpenAI format {"error":{"message":"..."}} and Nano-GPT
+          // format {"error":"Insufficient balance","message":"Available X,
+          // required Y","code":"insufficient_balance"} — prefer the detailed
+          // top-level message so e.g. a low-balance edit says exactly how much.
           if (error is Map<String, dynamic>) {
             errorMsg = error['message'] as String? ?? errorMsg;
           } else if (error is String) {
-            errorMsg = error;
+            final detail = errBody['message'];
+            errorMsg = (detail is String && detail.isNotEmpty) ? detail : error;
           }
         } catch (_) {}
         throw Exception(errorMsg);
@@ -1383,18 +1868,36 @@ class ImageGenService extends ChangeNotifier {
   }
 
   /// Generate via OpenRouter's chat/completions endpoint with image modality.
+  ///
+  /// When [editImage] is set this is an EDIT: the reference rides as an
+  /// `image_url` content part (base64 data URI) alongside the instruction — the
+  /// only image-edit shape OpenRouter exposes (it has no /images/edits). Wired
+  /// from OpenRouter's documented multimodal image support but NOT verified
+  /// in-house (only Nano-GPT's /images/edits was); community-verified.
   Future<Uint8List> _generateViaOpenRouter({
     required String apiUrl,
     required String apiKey,
     required String model,
     required String prompt,
     String size = '1024x1024',
+    Uint8List? editImage,
   }) async {
     final uri = Uri.parse('$apiUrl/chat/completions');
+    final content = editImage == null
+        ? prompt
+        : [
+            {'type': 'text', 'text': prompt},
+            {
+              'type': 'image_url',
+              'image_url': {
+                'url': 'data:image/png;base64,${base64Encode(editImage)}',
+              },
+            },
+          ];
     final payload = <String, dynamic>{
       'model': model,
       'messages': [
-        {'role': 'user', 'content': prompt},
+        {'role': 'user', 'content': content},
       ],
       'modalities': ['image'],
       'max_tokens': 4096,
@@ -1434,35 +1937,36 @@ class ImageGenService extends ChangeNotifier {
       if (choices.isEmpty) throw Exception('No response choices');
 
       final message = choices[0]['message'] as Map<String, dynamic>;
-      final content = message['content'];
 
-      // OpenRouter may return content as a list with image parts
-      if (content is List) {
-        for (final part in content) {
-          if (part is Map<String, dynamic>) {
-            if (part['type'] == 'image_url') {
-              final imageUrl = part['image_url']?['url'] as String?;
-              if (imageUrl != null) {
-                if (imageUrl.startsWith('data:')) {
-                  // Base64 data URI
-                  final b64 = imageUrl.split(',').last;
-                  return base64Decode(b64);
-                } else {
-                  // Regular URL — download it
-                  final imgResp = await client
-                      .get(Uri.parse(imageUrl))
-                      .timeout(const Duration(seconds: 30));
-                  return imgResp.bodyBytes;
-                }
-              }
-            }
-          }
+      // OpenRouter returns the generated/edited image in message.images:
+      // [{type:'image_url', image_url:{url:'data:...'|'https://...'}}] — VERIFIED
+      // live against a real edit (2026-07). This is where the image actually is;
+      // the `content` shapes below are legacy/other-provider fallbacks.
+      final images = message['images'];
+      if (images is List) {
+        for (final im in images) {
+          if (im is! Map<String, dynamic>) continue;
+          final iu = im['image_url'];
+          final url = iu is Map<String, dynamic> ? iu['url'] as String? : null;
+          if (url != null) return _imageBytesFromUrl(client, url);
         }
       }
 
-      // Fallback: try to extract base64 from string content
+      final content = message['content'];
+      // Fallback: content as a list with image_url parts.
+      if (content is List) {
+        for (final part in content) {
+          if (part is! Map<String, dynamic> || part['type'] != 'image_url') {
+            continue;
+          }
+          final iu = part['image_url'];
+          final url = iu is Map<String, dynamic> ? iu['url'] as String? : null;
+          if (url != null) return _imageBytesFromUrl(client, url);
+        }
+      }
+
+      // Fallback: a bare base64 string in content.
       if (content is String && content.isNotEmpty) {
-        // Check if it's a base64 string
         try {
           return base64Decode(content);
         } catch (_) {
@@ -1474,5 +1978,15 @@ class ImageGenService extends ChangeNotifier {
     } finally {
       client.close();
     }
+  }
+
+  /// Decode an image reference from a chat image part — a `data:` base64 URI, or
+  /// an https URL to download. Shared by the OpenRouter images/content parsing.
+  Future<Uint8List> _imageBytesFromUrl(http.Client client, String url) async {
+    if (url.startsWith('data:')) return base64Decode(url.split(',').last);
+    final r = await client
+        .get(Uri.parse(url))
+        .timeout(const Duration(seconds: 30));
+    return r.bodyBytes;
   }
 }

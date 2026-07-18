@@ -39,11 +39,7 @@ class GuidedOutputSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final blue = AppColors.resolve(
-      context,
-      Colors.blueAccent,
-      const Color(0xFF1E40AF),
-    );
+    final accent = AppColors.porchAmberOf(context);
     final guidedAccent = AppColors.resolve(
       context,
       Colors.tealAccent,
@@ -83,7 +79,7 @@ class GuidedOutputSettings extends StatelessWidget {
           selectedTones: state.selectedTones.toList(),
           greetingCount: state.altGreetingCount,
           nsfwEnabled: state.nsfwEnabled,
-          accentColor: blue,
+          accentColor: accent,
           onChanged: (tones) {
             state.selectedTones = tones.toSet();
             _save();
@@ -122,7 +118,7 @@ class GuidedOutputSettings extends StatelessWidget {
                   const SizedBox(height: 8),
                   AlternateGreetingsSlider(
                     value: state.altGreetingCount,
-                    accentColor: blue,
+                    accentColor: accent,
                     onChanged: (val) {
                       state.altGreetingCount = val;
                       final maxTones = state.altGreetingCount + 1;
@@ -144,7 +140,7 @@ class GuidedOutputSettings extends StatelessWidget {
         const SizedBox(height: 8),
         AvatarArtStyleSelector(
           selectedStyle: state.artStyle,
-          accentColor: blue,
+          accentColor: accent,
           onChanged: (style) {
             state.artStyle = style;
             _save();
@@ -158,7 +154,7 @@ class GuidedOutputSettings extends StatelessWidget {
         DescriptionDetailChipRow(
           options: CreatorState.generationDetailOptions.keys.toList(),
           selectedDetail: state.generationDetail,
-          accentColor: blue,
+          accentColor: accent,
           onChanged: (label) {
             state.generationDetail = label;
             _save();
@@ -169,7 +165,7 @@ class GuidedOutputSettings extends StatelessWidget {
         // Lorebook toggle
         Row(
           children: [
-            Icon(Icons.menu_book, color: blue, size: 18),
+            Icon(Icons.menu_book, color: accent, size: 18),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -183,7 +179,7 @@ class GuidedOutputSettings extends StatelessWidget {
             ),
             Switch(
               value: state.generateLorebook,
-              activeTrackColor: blue,
+              activeTrackColor: accent,
               onChanged: (val) {
                 state.generateLorebook = val;
                 _save();
@@ -193,13 +189,13 @@ class GuidedOutputSettings extends StatelessWidget {
         ),
         if (state.generateLorebook) ...[
           const SizedBox(height: 8),
-          _depthChips(context, blue),
+          _depthChips(context, accent),
         ],
       ],
     );
   }
 
-  Widget _depthChips(BuildContext context, Color blue) {
+  Widget _depthChips(BuildContext context, Color accent) {
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 8,
@@ -241,8 +237,8 @@ class GuidedOutputSettings extends StatelessWidget {
             },
             selectedColor: AppColors.resolve(
               context,
-              Colors.blueAccent.withValues(alpha: 0.25),
-              Colors.blueAccent.withValues(alpha: 0.12),
+              AppColors.formMasterAccent.withValues(alpha: 0.25),
+              AppColors.formMasterAccent.withValues(alpha: 0.12),
             ),
             backgroundColor: AppColors.surfaceContainerOf(context),
             labelStyle: TextStyle(
@@ -251,7 +247,7 @@ class GuidedOutputSettings extends StatelessWidget {
                   : AppColors.textSecondary(context),
             ),
             side: BorderSide(
-              color: isSelected ? blue : AppColors.borderOf(context),
+              color: isSelected ? accent : AppColors.borderOf(context),
             ),
             visualDensity: VisualDensity.compact,
           );

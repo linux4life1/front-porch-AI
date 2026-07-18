@@ -19,14 +19,13 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Result view: large generated image + Variations / Edit+regen / Save / Accept.
-/// Context-sensitive Accept (triggers crop for avatar modes, identical to legacy).
+/// Result view: large generated image + Variations / Edit+regen / Save / Accept
+/// (+ Send to chat when launched from a conversation).
+/// Context-sensitive Accept (triggers crop for avatar subjects, identical to legacy).
 class ResultView extends StatelessWidget {
   final Uint8List imageBytes;
-  final ImageGenMode mode;
   final bool hasAccept;
   final String acceptLabel;
   final bool isSaving;
@@ -34,11 +33,15 @@ class ResultView extends StatelessWidget {
   final VoidCallback onAccept;
   final VoidCallback onVariations;
   final VoidCallback onEditRegen;
+  final VoidCallback? onSendToChat;
+
+  /// Save the result to the character's Avatar Gallery (a gallery look). Null
+  /// when there's no character context (persona / group-shot).
+  final VoidCallback? onSaveToGallery;
 
   const ResultView({
     super.key,
     required this.imageBytes,
-    required this.mode,
     required this.hasAccept,
     required this.acceptLabel,
     required this.isSaving,
@@ -46,6 +49,8 @@ class ResultView extends StatelessWidget {
     required this.onAccept,
     required this.onVariations,
     required this.onEditRegen,
+    this.onSendToChat,
+    this.onSaveToGallery,
   });
 
   @override
@@ -110,6 +115,34 @@ class ResultView extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onSendToChat != null)
+                ElevatedButton.icon(
+                  onPressed: isSaving ? null : onSendToChat,
+                  icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                  label: const Text('Send to chat'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.surfaceContainerOf(context),
+                    foregroundColor: AppColors.textPrimary(context),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+              if (onSaveToGallery != null)
+                ElevatedButton.icon(
+                  onPressed: isSaving ? null : onSaveToGallery,
+                  icon: const Icon(Icons.photo_library_outlined, size: 16),
+                  label: const Text('Save to gallery'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.surfaceContainerOf(context),
+                    foregroundColor: AppColors.textPrimary(context),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
               ElevatedButton.icon(
                 onPressed: isSaving ? null : onSave,
                 icon: isSaving
@@ -139,12 +172,7 @@ class ResultView extends StatelessWidget {
               if (hasAccept)
                 ElevatedButton.icon(
                   onPressed: isSaving ? null : onAccept,
-                  icon: Icon(
-                    mode == ImageGenMode.chatBackground
-                        ? Icons.wallpaper
-                        : Icons.person,
-                    size: 16,
-                  ),
+                  icon: const Icon(Icons.person, size: 16),
                   label: Text(acceptLabel),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.resolve(

@@ -39,6 +39,8 @@ class NeedsImpactEvaluator {
     int strength,
     String? userCritique,
     Map<String, int>? previousDeltas,
+    Map<String, int>? currentNeeds,
+    int? decayTurns,
   })
   evaluateNeedsImpactCall;
   final Future<VerificationResult> Function({
@@ -111,7 +113,139 @@ class NeedsImpactEvaluator {
 
   static int _defaultStrength() => 1;
 
-  Future<void> evaluateAndApply(String responseText) async {
+  /// Simple keyword-based fallback for scenes where the model returns
+  /// all-zero or empty deltas. Scans for activity keywords and assigns
+  /// reasonable positive deltas so the character doesn't stagnate.
+  static Map<String, int> afkKeywordFallback(String sceneText) {
+    final text = sceneText.toLowerCase();
+    final result = <String, int>{};
+
+    bool matchesWordBoundary(Iterable<String> keywords, String text) {
+      return keywords.any((k) {
+        return RegExp('\\b${RegExp.escape(k)}\\b').hasMatch(text);
+      });
+    }
+
+    void check(Iterable<String> keywords, Map<String, int> deltas) {
+      if (matchesWordBoundary(keywords, text)) {
+        for (final entry in deltas.entries) {
+          final existing = result[entry.key] ?? 0;
+          if (entry.value > existing) {
+            result[entry.key] = entry.value;
+          }
+        }
+      }
+    }
+
+    // Bladder
+    check([
+      'toilet', 'bathroom', 'urinate', 'peed', 'peeing',
+      'used the bathroom', 'went to the bathroom', 'en suite',
+    ], {'bladder': 50});
+
+    // Hygiene — specific phrases first
+    check([
+      'shower', 'showering', 'showered', 'showers',
+      'bath', 'bathed', 'bathing',
+    ], {'hygiene': 40, 'comfort': 10});
+    check([
+      'washed her face', 'washed up', 'washed herself', 'dish',
+      'brushed her teeth', 'brushing her teeth',
+    ], {'hygiene': 20});
+    check([
+      'splashed water on her face', 'splashed some water',
+      'freshened up', 'freshening up',
+    ], {'hygiene': 15});
+    check(['washed', 'washing'], {'hygiene': 25});
+    check([
+      'changed clothes', 'changed into', 'got dressed',
+      'pajamas', 'clean clothes', 'comfy clothes',
+    ], {'hygiene': 10});
+
+    // Hunger
+    check([
+      'ate', 'eating', 'had breakfast', 'had lunch', 'had dinner', 'dinner',
+      'made breakfast', 'made lunch', 'made dinner',
+    ], {'hunger': 35});
+    check([
+      'food', 'foods', 'meal', 'pizza', 'leftovers', 'leftover', 'pasta',
+      'sandwich', 'snack', 'popcorn', 'cereal', 'apple', 'cheese', 'toast',
+      'cooking', 'browsing recipes', 'recipe', 'groceries', 'takeout',
+    ], {'hunger': 25});
+    check([
+      'fridge', 'refrigerator', 'microwave', 'kitchen',
+      'making food', 'preparing food',
+    ], {'hunger': 10});
+
+    // Beverages → energy (not hunger)
+    check([
+      'coffee', 'tea', 'orange juice', 'juice', 'water', 'soda',
+      'beverage', 'mug', 'cup of', 'fresh pot', 'brew',
+    ], {'energy': 7});
+
+    // Energy
+    check([
+      'slept', 'sleeping', 'asleep', 'fell asleep', 'went to sleep', 'sleep',
+    ], {'energy': 50});
+    check([
+      'nap', 'napping', 'dozed', 'dozing', 'dozed off', 'drifted off',
+    ], {'energy': 25});
+    check([
+      'rested', 'resting', 'lay down', 'lying down',
+      'stretched out', 'curled up', 'lounging',
+    ], {'energy': 15});
+    check([
+      'stretch', 'stretching', 'yawned', 'yawning',
+    ], {'energy': 5});
+
+    // Comfort
+    check([
+      'book', 'books', 'reading', 'reads', 'read a', 'novel', 'magazine',
+      'page', 'chapter', 'story',
+    ], {'comfort': 20});
+    check([
+      'tv', 'television', 'movie', 'show', 'shows', 'watching',
+      'video', 'netflix', 'streaming',
+    ], {'comfort': 10});
+    check([
+      'photo', 'album', 'memento', 'photograph',
+      'pictures', 'memories', 'scrapbook',
+    ], {'comfort': 15});
+    check([
+      'couch', 'sofa', 'bed', 'comfortable', 'cozy', 'warm',
+      'peaceful', 'relaxed', 'content', 'serene',
+    ], {'comfort': 10});
+    check([
+      'sunlight', 'morning sun', 'golden light', 'dappled',
+      'nice view', 'backyard', 'birds singing', 'garden',
+    ], {'comfort': 8});
+    check([
+      'candle', 'music', 'quiet', 'rain', 'fireplace',
+      'calm', 'tranquil',
+    ], {'comfort': 10});
+
+    // Fun
+    check([
+      'phone', 'computer', 'laptop', 'social media',
+      'scrolling', 'instagram', 'facebook', 'browsing',
+      'online', 'website', 'surfing',
+    ], {'fun': 8});
+    check([
+      'game', 'gaming', 'played', 'hobby', 'craft',
+      'drawing', 'music', 'instrument',
+    ], {'fun': 15});
+
+    // Social
+    check([
+      'friend', 'friends', 'neighbor', 'neighbors',
+      'talked to', 'chatting with', 'texted', 'called',
+      'phone call', 'messaged',
+    ], {'social': 15});
+
+    return result;
+  }
+
+  Future<void> evaluateAndApply(String responseText, {bool isAfk = false}) async {
     if (!getNeedsSimEnabled() ||
         !getRealismEnabled() ||
         responseText.trim().isEmpty) {
@@ -122,9 +256,21 @@ class NeedsImpactEvaluator {
 
     final strength = getNeedsSimStrength();
     try {
+      // Check metadata for AFK needs context (set by _runPostGenNeedsChecks)
+      final meta = getPendingRealismMetadata?.call();
+      final afkNeeds = meta?['_afk_needs_vector'] as Map<String, int>?;
+      final afkDecayTurns = meta?['_afk_decay_turns'] as int?;
+      // Clean up immediately so it doesn't leak into message metadata
+      if (meta != null) {
+        meta.remove('_afk_needs_vector');
+        meta.remove('_afk_decay_turns');
+      }
+
       final text = await evaluateNeedsImpactCall(
         responseText,
         strength: strength,
+        currentNeeds: afkNeeds,
+        decayTurns: afkDecayTurns,
       );
       if (text == null) return;
 
@@ -179,6 +325,10 @@ class NeedsImpactEvaluator {
 
       // Parse deltas directly from effective (model or Director corrected).
       // Robust JSON attempt first, then regex fallback.
+      debugPrint(
+        '[Realism:Needs] Raw evaluator response: '
+        '${effectiveText.substring(0, effectiveText.length > 300 ? 300 : effectiveText.length)}',
+      );
       final deltas = <String, int>{};
       Map<String, dynamic> parsed = {};
       try {
@@ -217,6 +367,36 @@ class NeedsImpactEvaluator {
       // Negative side kept at -30 to avoid any single scene catastrophically tanking a need.
       for (final k in deltas.keys.toList()) {
         deltas[k] = deltas[k]!.clamp(-30, 100);
+      }
+
+      // AFK zero-floor: model sometimes ignores "Only report positive gains"
+      // and emits small negative deltas. Zero them to match the instruction.
+      if (isAfk) {
+        for (final k in deltas.keys.toList()) {
+          if (deltas[k]! < 0) deltas[k] = 0;
+        }
+      }
+
+      // ── AFK keyword merge: fills any need that the model left at zero
+      // or didn't include, without overwriting the model's non-zero deltas.
+      // This handles both the all-zero case and the partial-miss case where
+      // the model got some needs right but ignored obvious activities.
+      if (isAfk) {
+        final fallback = afkKeywordFallback(responseText);
+        if (fallback.isNotEmpty) {
+          bool filled = false;
+          for (final k in NeedsSimulation.needKeys) {
+            if ((deltas[k] == null || deltas[k] == 0) && (fallback[k] != null && fallback[k]! > 0)) {
+              deltas[k] = fallback[k]!;
+              filled = true;
+            }
+          }
+          if (filled) {
+            debugPrint(
+              '[Realism:Needs] AFK keyword merge filled gaps: $fallback',
+            );
+          }
+        }
       }
 
       // Strength (1-5x) is communicated to the model on the first needs-impact call and (when
@@ -268,6 +448,10 @@ class NeedsImpactEvaluator {
       );
 
       needsSimulation.applySceneImpact(impact);
+      debugPrint(
+        '[Realism:Needs] Applied deltas: $deltas (reason: $reason) '
+        'strength=$strength textLen=${responseText.length}',
+      );
     } catch (e) {
       debugPrint('[Realism:Needs] evaluateAndApply error: $e');
     }
@@ -289,9 +473,9 @@ class NeedsImpactEvaluator {
     final strength = getNeedsSimStrength();
 
     try {
-      debugPrint(
-        '[Realism:Needs] Running manual reprocess impact eval (via engine)...',
-      );
+      // No debugPrint here — the engine logs the same "Running manual
+      // reprocess impact eval" line itself; printing in both places made one
+      // eval read as a double-fire in the console.
       String? text = await evaluateNeedsImpactCall(
         responseText,
         strength: strength,

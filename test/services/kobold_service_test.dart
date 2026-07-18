@@ -29,7 +29,6 @@ Future<StorageService> createStorageService() async {
     // Disable periodic persona/evolution in kobold tests to avoid any cross-talk
     // with chat service periodic thins when chat is exercised indirectly.
     'character_evolution_enabled': false,
-    'auto_persona_enabled': false,
   });
   final svc = StorageService();
   await svc.initialized;

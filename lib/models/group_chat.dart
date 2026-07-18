@@ -34,6 +34,17 @@ enum TurnOrder {
 /// or manages the member ID list.
 class GroupChat {
   final String id;
+
+  /// Portable, device-independent stable id for this group (schema v34).
+  ///
+  /// Distinct from [id] (which is a device-local `group_<timestamp>` handle):
+  /// this id travels inside the exported Group Card and is preserved on import,
+  /// so a shared group can be UPDATED in place on The Stoop (no duplicate) and
+  /// re-associated after switching devices — the group-level analogue of a
+  /// character's stable id. Null until first generated (lazily on export via
+  /// [GroupChatRepository.ensureStableId]) or carried in from an imported card.
+  String? stableId;
+
   String name;
   TurnOrder turnOrder;
   bool autoAdvance; // auto-trigger next character after one responds
@@ -97,6 +108,7 @@ class GroupChat {
   GroupChat({
     required this.id,
     required this.name,
+    this.stableId,
     this.turnOrder = TurnOrder.roundRobin,
     this.autoAdvance = false,
     this.directorMode = false,
@@ -116,6 +128,7 @@ class GroupChat {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      if (stableId != null) 'stable_id': stableId,
       'name': name,
       // NOTE: character_ids intentionally removed (clean break 2026-05).
       // Membership now lives exclusively in the group_members table (UUID keys).
@@ -153,6 +166,9 @@ class GroupChat {
 
     return GroupChat(
       id: json['id'] ?? '',
+      stableId: (json['stable_id'] is String && (json['stable_id'] as String).trim().isNotEmpty)
+          ? (json['stable_id'] as String).trim()
+          : null,
       name: json['name'] ?? 'Group Chat',
       // character_ids from legacy JSON ignored (clean break — no adoption).
       // Real members come from group_members table after load.

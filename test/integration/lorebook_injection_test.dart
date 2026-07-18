@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/world.dart';
+import 'package:front_porch_ai/services/chat/lorebook_collection.dart';
 import 'package:front_porch_ai/services/chat/lorebook_scanner.dart';
 
 // Historical simulator + conflicting substring logic deleted (obsolete post-extraction;
@@ -27,8 +28,10 @@ LorebookScanner createTestLorebookScannerForIntegration({
   final worlds = worldsByName ?? <String, World>{};
   return LorebookScanner(
     onNotify: () {},
-    getLoreCharacters: () => chars,
-    resolveWorld: (name) => worlds[name],
+    getEntryRefs: () => collectLoreEntryRefs(
+      characters: chars,
+      resolveWorld: (name) => worlds[name],
+    ),
   );
 }
 

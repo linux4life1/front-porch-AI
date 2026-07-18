@@ -23,21 +23,23 @@ export 'bubbles/message_bubble.dart';
 export 'bubbles/styled_chat_message.dart';
 export 'bubbles/external_image_widget.dart';
 
-export 'sidebar/sidebar_section.dart';
-export 'sidebar/lorebook_section.dart';
-export 'sidebar/scene_time_section.dart';
-export 'sidebar/author_note_section.dart';
-export 'sidebar/summary_section.dart';
-export 'sidebar/memory_section.dart';
-export 'sidebar/realism_section.dart';
-export 'sidebar/nsfw_section.dart';
-export 'sidebar/chaos_mode_section.dart';
-export 'sidebar/objective_section.dart';
+// Warm-porch sidebar (grouped accordions; panels are direct-import per policy)
+export 'sidebar/porch_accordion.dart';
+export 'sidebar/sidebar_body.dart';
+export 'sidebar/sidebar_tokens.dart';
+export 'sidebar/emoji_burst.dart';
+export 'sidebar/journal_memory/summary_section.dart';
+export 'sidebar/story_tools/author_note_section.dart';
+export 'sidebar/story_tools/lorebook_panel.dart';
 
 export 'overlays/rag_setup_dialog.dart';
 export 'overlays/realism_processing_overlay.dart';
 export 'overlays/objective_check_overlay.dart';
 export 'overlays/generation_status_bar.dart';
 
+export 'widgets/chat_image_attachment.dart';
 export 'widgets/eval_pill.dart';
+export 'widgets/generating_image_bubble.dart';
+export 'widgets/look_chevrons.dart';
+export 'widgets/message_jump.dart';
 export 'widgets/settings_menu_item.dart';

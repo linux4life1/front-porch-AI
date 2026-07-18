@@ -17,41 +17,51 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/character_card.dart';
-import 'package:front_porch_ai/services/chat/needs_simulation.dart';
-import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/behavioral_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/emotion_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/needs_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/nsfw_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/relationship_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/time_injection.dart';
-import 'package:front_porch_ai/services/chat/relationship_service.dart';
-import 'package:front_porch_ai/services/chat/time_service.dart';
 
-/// Central composer for the entire "speaker internal state" realism bundle
-/// (relationship + emotion + time + trust/behavioral + nsfw cooldown/arousal + needs + inter-char).
+/// The words-only state block composer (docs/design/prompt-state-injection.md
+/// §3): the ONE place the model receives the speaker's live internal state.
 ///
-/// This is the single place that decides the *format and grouping* of all the
-/// live scalar state the model receives for the current speaker. The goal is
-/// maximum legibility for the LLM: explicit numbers (x/100, scores, tiers, day count, etc.)
-/// first, followed by the richer guidance text from the sub-builders, all under
-/// one clear parent block with a strong collation instruction.
+/// Thin by contract — this class only GATES, ORDERS, and WRAPS the fragments
+/// the leaf builders produce; all ladder/stepped prose lives in the leaves
+/// (file-size rule + single source per fact). No simulation scalar ever
+/// appears here: every number was translated to banded language upstream, so
+/// stat-bleed ("my hunger at 41…") is structurally impossible rather than
+/// merely discouraged. Salience-gated fragments return '' and vanish. (In
+/// practice the bond+tension line renders whenever realism is on — a
+/// deliberate anti-drift anchor — so the block only fully disappears when
+/// realism is off or every builder is inactive; "quiet" means ~130 tokens,
+/// not zero.)
 ///
-/// This replaces the previous ad-hoc string concatenation of 8 separate builders
-/// in ChatService. It follows the step-8 extraction pattern but adds a "presentation
-/// layer" on top so the model can more easily see and collate the full snapshot
-/// (exactly the problem reported with needs/energy not being "seen" or acted on).
+/// Output shape (macro-resolved by the assembly call site — fragments may
+/// carry {{user}}):
 ///
-/// 1:1 vs group parity is preserved via the sub-builders' existing cbs + speaker
-/// impersonation in the god.
+/// ```
+/// [How NAME is right now:
+/// time line
+/// bond+tension (+voice note)
+/// trust calibration
+/// mood line
+/// 0-3 need lines
+/// body/arousal line
+/// fixation / position lines
+/// private group feelings
+/// Express all of this only through NAME's behavior, body language, and
+/// voice — never quote meters, scores, percentages, turn counts, or system
+/// terms.]
+/// ```
 ///
-/// The sub-builders are still used for their content (so their individual logic
-/// and tests remain authoritative); this class only controls ordering, grouping,
-/// and the addition of explicit numeric "data" sections where they exist.
-///
-/// No god private methods were added for this (the thin _getRealismStateInjection
-/// + late final wiring is the public surface, matching all other prompt_injection
-/// leaves).
+/// Replaces the old "Current Metrics" sheet + 8 restating sub-blocks + three
+/// collation paragraphs (~700-1200 tokens, every fact 2-3×, and a literal
+/// "use these numbers directly" instruction that CAUSED the reported
+/// stat-bleed). 1:1↔group parity rides the leaves' per-speaker dispatch,
+/// exactly as before; one-shot parity holds because both eval paths share
+/// this single assembly-time block.
 class RealismStateInjection {
   final RelationshipInjection relationshipInjection;
   final EmotionInjection emotionInjection;
@@ -59,13 +69,6 @@ class RealismStateInjection {
   final BehavioralInjection behavioralInjection;
   final NsfwInjection nsfwInjection;
   final NeedsInjection needsInjection;
-
-  // Raw data providers so we can emit explicit "Current Values" numbers
-  // alongside the prose guidance (this is the key improvement for collation).
-  final NeedsSimulation needsSimulation;
-  final RelationshipService relationshipService;
-  final TimeService timeService;
-  final NsfwService nsfwService; // for arousal/cooldown numbers in the metrics header
 
   final bool Function() getRealismEnabled;
   final bool Function() getIsGroupNonObserverMode;
@@ -81,10 +84,6 @@ class RealismStateInjection {
     required this.behavioralInjection,
     required this.nsfwInjection,
     required this.needsInjection,
-    required this.needsSimulation,
-    required this.relationshipService,
-    required this.timeService,
-    required this.nsfwService,
     required this.getRealismEnabled,
     required this.getIsGroupNonObserverMode,
     required this.getCurrentSpeakerIdForRealism,
@@ -93,121 +92,42 @@ class RealismStateInjection {
     required this.getCharacterIdFromCard,
   });
 
+  String _speakerName() {
+    if (getIsGroupNonObserverMode()) {
+      final id = getCurrentSpeakerIdForRealism();
+      final card = getGroupCharacters()
+          .where((c) => getCharacterIdFromCard(c) == id)
+          .firstOrNull;
+      // Never fall back to getActiveCharacter() in group mode — it points at
+      // the PREVIOUS speaker after the realism dance, and heading the block
+      // with their name over this speaker's data is worse than a generic
+      // label (review finding).
+      return card?.name ?? 'the character';
+    }
+    return getActiveCharacter()?.name ?? 'the character';
+  }
+
   String buildRealismStateInjection() {
     if (!getRealismEnabled()) return '';
 
-    final buf = StringBuffer();
+    final fragments = <String>[
+      timeInjection.buildTimeInjection(),
+      relationshipInjection.buildRelationshipInjection(),
+      relationshipInjection.buildTrustBehaviorInjection(),
+      emotionInjection.buildEmotionInjection(),
+      needsInjection.buildNeedsInjection(),
+      nsfwInjection.buildNsfwCooldownInjection(),
+      behavioralInjection.buildBehavioralMechanicsInjection(),
+      relationshipInjection.buildInterCharacterFeelingsInjection(),
+    ].where((f) => f.trim().isNotEmpty).map((f) => f.trim()).toList();
 
-    // Strong top-level header so the model knows this entire block is the
-    // authoritative current snapshot for the speaker. All numbers and guidance
-    // below must be collated together.
-    buf.writeln('[Speaker Internal State — authoritative current snapshot for the speaking character]');
-    buf.writeln('Higher need values = more satisfied. Use the explicit numbers + guidance below to keep physicality, energy, emotion, relationships, focus, and small behaviors consistent.');
-    buf.writeln();
+    if (fragments.isEmpty) return '';
 
-    // --- Explicit numeric snapshot (the part that was previously hard to "see") ---
-    buf.writeln('--- Current Metrics (use these numbers directly) ---');
-
-    // Needs (full vector, as requested — grouped with x/100 and status)
-    if (needsSimulation.vector.isNotEmpty || getIsGroupNonObserverMode()) {
-      final needsMap = getIsGroupNonObserverMode()
-          ? _getGroupNeedsForSpeaker()
-          : needsSimulation.vector;
-      if (needsMap.isNotEmpty) {
-        buf.writeln('Needs (higher = more sated):');
-        for (final key in NeedsSimulation.needKeys) {
-          final v = needsMap[key] ?? NeedsSimulation.needDefaults[key] ?? 80;
-          final eff = needsSimulation.getInjectionEffectiveStep(key, v);
-          final status = eff >= 5 ? 'sated' : 'needs attention';
-          buf.writeln('  $key: $v/100 ($status)');
-        }
-      }
-    }
-
-    // Relationship scalars (bond/trust/fixation/spatial + tiers)
-    buf.writeln('Relationship with {{user}}:');
-    buf.writeln('  Bond (long-term): ${relationshipService.longTermScore}');
-    buf.writeln('  Tension (short-term): ${relationshipService.relationshipTier} (${relationshipService.shortTermTierName})');
-    if (relationshipService.activeFixation.isNotEmpty) {
-      buf.writeln('  Current Fixation: ${relationshipService.activeFixation}');
-    }
-    if (relationshipService.spatialStance.isNotEmpty) {
-      buf.writeln('  Spatial Stance: ${relationshipService.spatialStance}');
-    }
-
-    // Emotion
-    final emo = _currentEmotion;
-    if (emo.isNotEmpty) {
-      final intensity = _currentEmotionIntensity;
-      buf.writeln('Emotion: $emo ($intensity)');
-    }
-
-    // Time
-    if (timeService.timeOfDay.isNotEmpty) {
-      final day = timeService.dayCount;
-      buf.writeln('Time: ${timeService.timeOfDay.replaceAll('_', ' ')}, Day $day');
-    }
-
-    // Arousal / cooldown (from nsfw)
-    buf.writeln('Arousal level: ${nsfwService.arousalLevel} (cooldown active: ${nsfwService.nsfwCooldownEnabled}, turns left: ${nsfwService.cooldownTurnsRemaining})');
-
-    buf.writeln('--- End Metrics ---');
-    buf.writeln();
-
-    // --- Narrative / guidance sections (composed from the specialized builders) ---
-    // These provide the immersive + directive flavor. The model should treat the
-    // metrics above as the ground truth numbers and the sections below as style/interpretation guidance.
-
-    final rel = relationshipInjection.buildRelationshipInjection();
-    if (rel.isNotEmpty) buf.writeln(rel);
-
-    final emoText = emotionInjection.buildEmotionInjection();
-    if (emoText.isNotEmpty) buf.writeln(emoText);
-
-    final timeText = timeInjection.buildTimeInjection();
-    if (timeText.isNotEmpty) buf.writeln(timeText);
-
-    final trust = relationshipInjection.buildTrustBehaviorInjection();
-    if (trust.isNotEmpty) buf.writeln(trust);
-
-    final behavioral = behavioralInjection.buildBehavioralMechanicsInjection();
-    if (behavioral.isNotEmpty) buf.writeln(behavioral);
-
-    final nsfw = nsfwInjection.buildNsfwCooldownInjection();
-    if (nsfw.isNotEmpty) buf.writeln(nsfw);
-
-    final needsText = needsInjection.buildNeedsInjection();
-    if (needsText.isNotEmpty) buf.writeln(needsText);
-
-    final inter = relationshipInjection.buildInterCharacterFeelingsInjection();
-    if (inter.isNotEmpty) buf.writeln(inter);
-
-    // Final collation reminder
-    buf.writeln('[Collate everything above: the numeric metrics are the current truth. The character\'s body, energy, hunger, emotions, trust level, spatial position, and any internal references must feel consistent with those numbers and the guidance in the sections. Do not ignore low needs or high trust just because the scene is dramatic.]');
-
-    return buf.toString();
-  }
-
-  // --- Helpers for raw data in group vs 1:1 (mirrors patterns in the sub-builders) ---
-
-  Map<String, int> _getGroupNeedsForSpeaker() {
-    // In group the scalars are loaded per-speaker (via _loadGroupRealismIntoScalars)
-    // before prompt assembly. Fall back to the scalar vector (defensive for 1:1 parity in tests).
-    return needsSimulation.vector;
-  }
-
-  String get _currentEmotion {
-    // The emotion injection already handles the scalar vs group load.
-    // We call the builder and parse lightly, or we could expose a getter.
-    // For simplicity in this first version we use a best-effort from the emotion builder output.
-    final e = emotionInjection.buildEmotionInjection();
-    final match = RegExp(r'Current Emotional State: (\w+)').firstMatch(e);
-    return match?.group(1) ?? '';
-  }
-
-  String get _currentEmotionIntensity {
-    final e = emotionInjection.buildEmotionInjection();
-    final match = RegExp(r'\((\w+)\)').firstMatch(e);
-    return match?.group(1) ?? 'moderate';
+    final name = _speakerName();
+    return '[How $name is right now:\n'
+        '${fragments.join('\n')}\n'
+        'Express all of this only through $name\'s behavior, body language, '
+        'and voice — never quote meters, scores, percentages, turn counts, '
+        'or system terms.]\n';
   }
 }

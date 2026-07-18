@@ -9,7 +9,7 @@
 // (at your option) any later version.
 //
 // Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// but WITHOUT ANY WARRANTY, without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 //
@@ -23,6 +23,8 @@ import 'package:front_porch_ai/services/story_pipeline_service.dart';
 import 'package:front_porch_ai/models/story_project.dart';
 import 'package:front_porch_ai/ui/pages/story_writer_page.dart';
 import 'package:front_porch_ai/ui/pages/story_reader_page.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/ai_engine_status_card.dart';
 
 /// Structure page — act/scene tree with valence indicators and generation controls.
 class StoryStructurePage extends StatefulWidget {
@@ -46,11 +48,11 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
         }
 
         return Scaffold(
-          backgroundColor: const Color(0xFF0F172A),
+          backgroundColor: AppColors.backgroundOf(context),
           appBar: AppBar(
             title: Text('Structure — ${project.title}'),
-            backgroundColor: const Color(0xFF1E293B),
-            foregroundColor: Colors.white,
+            backgroundColor: AppColors.cardOf(context),
+            foregroundColor: AppColors.textPrimary(context),
             elevation: 0,
             actions: [
               // Show Read button when any act has prose
@@ -62,14 +64,14 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                           StoryReaderPage(projectId: widget.projectId),
                     ),
                   ),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.auto_stories,
                     size: 18,
-                    color: Colors.amber,
+                    color: AppColors.porchHoneyOf(context),
                   ),
-                  label: const Text(
+                  label: Text(
                     'Read Story',
-                    style: TextStyle(color: Colors.amber),
+                    style: TextStyle(color: AppColors.porchHoneyOf(context)),
                   ),
                 ),
             ],
@@ -89,19 +91,19 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(
+            SizedBox(
               width: 56,
               height: 56,
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                color: Colors.indigo,
+                color: AppColors.porchHoneyOf(context),
               ),
             ),
             const SizedBox(height: 32),
             Text(
               pipeline.currentStep,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.textPrimary(context),
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
@@ -111,7 +113,7 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
             Text(
               pipeline.statusMessage,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
+                color: AppColors.textSecondary(context),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -121,7 +123,7 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
               Text(
                 '${pipeline.tokenCount} tokens generated',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.25),
+                  color: AppColors.textTertiary(context),
                   fontSize: 12,
                 ),
               ),
@@ -136,6 +138,7 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
     StoryProject project,
     StoryPipelineService pipeline,
   ) {
+    final accent = AppColors.porchTerracottaOf(context);
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: project.acts.length,
@@ -154,10 +157,12 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: AppColors.cardOf(context),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isExpanded ? Colors.indigo.shade400 : Colors.white10,
+                    color: isExpanded
+                        ? accent
+                        : AppColors.borderOf(context).withValues(alpha: 0.4),
                     width: isExpanded ? 2 : 1,
                   ),
                 ),
@@ -167,14 +172,14 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.indigo.shade900.withValues(alpha: 0.5),
+                        color: accent.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(
                         child: Text(
                           '${act.number}',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: accent,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -188,8 +193,8 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                         children: [
                           Text(
                             act.title,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppColors.textPrimary(context),
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
                             ),
@@ -200,7 +205,7 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                                 ? 'No scenes yet'
                                 : '${scenes.length} scenes',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4),
+                              color: AppColors.textTertiary(context),
                               fontSize: 12,
                             ),
                           ),
@@ -215,6 +220,12 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                         child: CustomPaint(
                           painter: _ValenceSparklinePainter(
                             scenes.map((s) => s.valence).toList(),
+                            lineColor: AppColors.frostAccentOf(
+                              context,
+                            ).withValues(alpha: 0.6),
+                            zeroLineColor: AppColors.borderOf(
+                              context,
+                            ).withValues(alpha: 0.4),
                           ),
                         ),
                       ),
@@ -230,8 +241,8 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                           style: TextStyle(fontSize: 12),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber.shade800,
-                          foregroundColor: Colors.white,
+                          backgroundColor: AppColors.porchHoneyOf(context),
+                          foregroundColor: AppColors.resolve(context, AppColors.onChaosAccent, AppColors.userText),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
@@ -245,7 +256,7 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                     ],
                     Icon(
                       isExpanded ? Icons.expand_less : Icons.expand_more,
-                      color: Colors.white38,
+                      color: AppColors.iconSecondary(context),
                     ),
                   ],
                 ),
@@ -268,7 +279,7 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                     }).length;
 
                     return Card(
-                      color: const Color(0xFF162032),
+                      color: AppColors.sunkenSurfaceOf(context),
                       margin: const EdgeInsets.only(bottom: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -278,8 +289,8 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                         leading: _valenceIndicator(scene.valence),
                         title: Text(
                           scene.title,
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          style: TextStyle(
+                            color: AppColors.textSecondary(context),
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -287,7 +298,7 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                         subtitle: Text(
                           '${scene.location} • ${scene.castNames.join(", ")}',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.3),
+                            color: AppColors.textTertiary(context),
                             fontSize: 11,
                           ),
                           maxLines: 1,
@@ -301,8 +312,8 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                                 '$proseCount/${beats.length}',
                                 style: TextStyle(
                                   color: proseCount == beats.length
-                                      ? Colors.greenAccent
-                                      : Colors.white38,
+                                      ? AppColors.bondHighOf(context)
+                                      : AppColors.textTertiary(context),
                                   fontSize: 12,
                                 ),
                               ),
@@ -311,7 +322,9 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                                 icon: Icon(
                                   Icons.refresh,
                                   size: 16,
-                                  color: Colors.orange.withValues(alpha: 0.7),
+                                  color: AppColors.taskAccentOf(
+                                    context,
+                                  ).withValues(alpha: 0.8),
                                 ),
                                 tooltip: 'Rewrite scene prose',
                                 padding: EdgeInsets.zero,
@@ -332,7 +345,7 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                             Icon(
                               Icons.chevron_right,
                               size: 18,
-                              color: Colors.white.withValues(alpha: 0.3),
+                              color: AppColors.iconSecondary(context),
                             ),
                           ],
                         ),
@@ -357,16 +370,18 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF162032),
+                    color: AppColors.sunkenSurfaceOf(context),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.05),
+                      color: AppColors.borderOf(context).withValues(alpha: 0.2),
                     ),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Text(
                       'Generate scenes to fill this act',
-                      style: TextStyle(color: Colors.white24),
+                      style: TextStyle(
+                        color: AppColors.textTertiary(context),
+                      ),
                     ),
                   ),
                 ),
@@ -380,15 +395,13 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
   }
 
   Widget _valenceIndicator(int valence) {
-    final color = valence > 3
-        ? Colors.greenAccent
-        : valence > 0
-        ? Colors.lightGreenAccent
+    final color = valence > 0
+        ? AppColors.bondHighOf(context)
         : valence == 0
-        ? Colors.blueGrey
+        ? AppColors.textTertiary(context)
         : valence > -3
-        ? Colors.orangeAccent
-        : Colors.redAccent;
+        ? AppColors.taskAccentOf(context)
+        : AppColors.negativeAccentOf(context);
     return Container(
       width: 28,
       height: 28,
@@ -423,19 +436,12 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
             content: Text(
               '✅ Act ${actIdx + 1} complete! Review the scenes below.',
             ),
-            backgroundColor: const Color(0xFF2A2A2A),
+            backgroundColor: AppColors.surfaceContainerOf(context),
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red.shade800,
-          ),
-        );
-      }
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
@@ -452,14 +458,14 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
+        backgroundColor: AppColors.surfaceOf(context),
+        title: Text(
           'Rewrite Scene?',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AppColors.textPrimary(context)),
         ),
         content: Text(
           'This will regenerate all prose for "${scene.title}" using the new per-beat system. The old text will be replaced.',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppColors.textSecondary(context)),
         ),
         actions: [
           TextButton(
@@ -468,9 +474,9 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
+            child: Text(
               'Rewrite',
-              style: TextStyle(color: Colors.orange),
+              style: TextStyle(color: AppColors.taskAccentOf(context)),
             ),
           ),
         ],
@@ -498,19 +504,12 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('✅ "${scene.title}" rewritten!'),
-            backgroundColor: const Color(0xFF2A2A2A),
+            backgroundColor: AppColors.surfaceContainerOf(context),
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red.shade800,
-          ),
-        );
-      }
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
@@ -531,71 +530,21 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
     }
 
     final isComplete = scenesWithProse == scenes.length && scenes.isNotEmpty;
+    final color = isComplete
+        ? AppColors.bondHighOf(context)
+        : AppColors.porchHoneyOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: isComplete
-            ? Colors.greenAccent.withValues(alpha: 0.12)
-            : Colors.amber.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         isComplete ? '✓ Complete' : '$scenesWithProse/${scenes.length}',
         style: TextStyle(
-          color: isComplete ? Colors.greenAccent : Colors.amber,
+          color: color,
           fontSize: 11,
           fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-/// Auto-scrolling live text view for streaming generation output.
-class _LiveTextView extends StatefulWidget {
-  final String text;
-  const _LiveTextView({required this.text});
-
-  @override
-  State<_LiveTextView> createState() => _LiveTextViewState();
-}
-
-class _LiveTextViewState extends State<_LiveTextView> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void didUpdateWidget(covariant _LiveTextView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.text != oldWidget.text) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 100),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: _scrollController,
-      child: SelectableText(
-        widget.text,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.7),
-          fontSize: 12,
-          fontFamily: 'monospace',
-          height: 1.5,
         ),
       ),
     );
@@ -605,7 +554,14 @@ class _LiveTextViewState extends State<_LiveTextView> {
 /// Draws a tiny sparkline of scene valence values.
 class _ValenceSparklinePainter extends CustomPainter {
   final List<int> values;
-  _ValenceSparklinePainter(this.values);
+  final Color lineColor;
+  final Color zeroLineColor;
+
+  _ValenceSparklinePainter(
+    this.values, {
+    required this.lineColor,
+    required this.zeroLineColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -613,10 +569,11 @@ class _ValenceSparklinePainter extends CustomPainter {
 
     final paint = Paint()
       ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke
+      ..color = lineColor;
 
     final zeroPaint = Paint()
-      ..color = Colors.white10
+      ..color = zeroLineColor
       ..strokeWidth = 0.5;
 
     final yCenter = size.height / 2;
@@ -632,12 +589,10 @@ class _ValenceSparklinePainter extends CustomPainter {
         path.lineTo(x, y);
       }
     }
-
-    // Gradient effect: positive = green, negative = red
-    paint.color = Colors.blueAccent.withValues(alpha: 0.6);
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _ValenceSparklinePainter oldDelegate) =>
+      values != oldDelegate.values || lineColor != oldDelegate.lineColor;
 }

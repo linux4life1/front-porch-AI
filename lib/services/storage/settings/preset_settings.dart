@@ -30,10 +30,16 @@ class PresetSettings with SettingsBase {
 
   List<Map<String, String>> _savedPrompts = [];
   Map<String, String> _modelPresetMap = {};
+  Map<String, String> _modelMmprojMap = {};
 
   List<Map<String, String>> get savedPrompts =>
       List.unmodifiable(_savedPrompts);
   Map<String, String> get modelPresetMap => Map.unmodifiable(_modelPresetMap);
+
+  /// Per-local-model mmproj (vision projector) file overrides. Keyed by the
+  /// model's GGUF path → the mmproj file to pass to KoboldCpp so a
+  /// multimodal-but-no-embedded-projector model can actually see images.
+  Map<String, String> get modelMmprojMap => Map.unmodifiable(_modelMmprojMap);
 
   void load() {
     // Load saved prompts
@@ -55,6 +61,17 @@ class PresetSettings with SettingsBase {
         );
       } catch (_) {
         _modelPresetMap = {};
+      }
+    }
+
+    final mmprojMapJson = prefs?.getString(k('model_mmproj_map'));
+    if (mmprojMapJson != null) {
+      try {
+        _modelMmprojMap = Map<String, String>.from(
+          jsonDecode(mmprojMapJson) as Map,
+        );
+      } catch (_) {
+        _modelMmprojMap = {};
       }
     }
   }
@@ -93,6 +110,16 @@ class PresetSettings with SettingsBase {
       _modelPresetMap.remove(modelPath);
     }
     await prefs?.setString(k('model_preset_map'), jsonEncode(_modelPresetMap));
+    notify();
+  }
+
+  Future<void> setModelMmproj(String modelPath, String? mmprojPath) async {
+    if (mmprojPath != null && mmprojPath.isNotEmpty) {
+      _modelMmprojMap[modelPath] = mmprojPath;
+    } else {
+      _modelMmprojMap.remove(modelPath);
+    }
+    await prefs?.setString(k('model_mmproj_map'), jsonEncode(_modelMmprojMap));
     notify();
   }
 

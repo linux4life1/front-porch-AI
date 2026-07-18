@@ -21,7 +21,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
+import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold_binary_version.dart';
+import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/openai_chat_stream.dart';
@@ -45,11 +47,29 @@ class KoboldService extends ChangeNotifier
   String? _executablePath;
   Timer? _readinessProbe;
 
+  /// Ground-truth per-request progress parsed from the managed process's own
+  /// console output (see live_gen_progress.dart) — what the status bar
+  /// shows instead of a black box. Covers WHATEVER request Kobold is working
+  /// on, including queued background passes.
+  final LiveGenProgress liveProgress = LiveGenProgress();
+  DateTime _lastLiveNotify = DateTime.fromMillisecondsSinceEpoch(0);
+
   bool get isRunning => _isRunning;
   bool get isStarting => _isStarting;
   List<String> get logs => List.unmodifiable(_logs);
   String get modelLoadingStatus => _modelLoadingStatus;
   bool get modelReady => _modelReady;
+
+  /// Feed a console chunk to [liveProgress]; notify at most every 150ms
+  /// (Generating lines arrive once per token).
+  void _ingestLiveProgress(String data) {
+    if (!liveProgress.ingest(data)) return;
+    final now = DateTime.now();
+    if (now.difference(_lastLiveNotify).inMilliseconds >= 150) {
+      _lastLiveNotify = now;
+      notifyListeners();
+    }
+  }
 
   /// Consume the one-shot "model just loaded" notification flag.
   /// Returns true exactly once after each model load, for UI notifications
@@ -140,6 +160,8 @@ class KoboldService extends ChangeNotifier
         // Kill all koboldcpp.exe processes — there should only be zombies.
         await Process.run('taskkill', ['/F', '/IM', 'koboldcpp.exe']);
         await Process.run('taskkill', ['/F', '/IM', 'koboldcpp_nocuda.exe']);
+        // Non-AVX2 machines run the oldpc build (distinct image name).
+        await Process.run('taskkill', ['/F', '/IM', 'koboldcpp-oldpc.exe']);
         _addLog('Killed orphaned KoboldCPP processes.');
       } else {
         // macOS/Linux: kill by process name
@@ -205,6 +227,7 @@ class KoboldService extends ChangeNotifier
     String executablePath,
     String modelPath, {
     String? kcppsPath,
+    String? mmprojPath,
     int port = 5001,
     int gpuLayers = 0,
     int contextSize = 4096,
@@ -278,7 +301,9 @@ class KoboldService extends ChangeNotifier
       }
 
       if (useRocm) {
-        args.add('--usehipblas');
+        // Explicit device index — same iGPU-defaulting hazard as CUDA on
+        // APU + dGPU systems.
+        args.addAll(['--usehipblas', _storageService.gpuId.toString()]);
         // Flash attention kernel crashes on many AMD GPUs — always disable for ROCm.
         args.add('--noflashattention');
       }
@@ -321,13 +346,61 @@ class KoboldService extends ChangeNotifier
       // evaluation). Higher = faster context loading, more VRAM. Default 512.
       // Large-VRAM users (24 GB+) benefit from 1024\u20132048.
       if (_storageService.blasBatchSize != 512) {
-        // Only pass the flag when non-default so KoboldCPP\u2019s built-in default
-        // applies for users who haven\u2019t changed this setting.
-        args.addAll([
-          '--blasbatchsize',
-          _storageService.blasBatchSize.toString(),
-        ]);
+        final batch = _storageService.blasBatchSize;
+        if (batch > 4096) {
+          // KoboldCpp's CLI rejects anything above 4096 \u2014 but that cap is
+          // launcher-only (an argparse `choices` list); the engine itself has
+          // no upper clamp for GGUF models and sets n_ubatch = n_batch from
+          // whatever arrives. Values loaded from a --config file are applied
+          // with setattr AFTER argument parsing \u2014 no choices validation \u2014 and
+          // Kobold's loader is explicitly designed so CLI flags override
+          // config keys, so this one-key config carries ONLY the batch size
+          // while every other flag stays authoritative on the CLI. If a
+          // future build hardens config validation, the worst case is the
+          // key failing to apply (Kobold runs at its default batch instead
+          // of refusing to start, which is what the raw CLI flag did).
+          final overrides = File(
+            path.join(
+              path.dirname(executablePath),
+              'fpai_batch_override.kcpps',
+            ),
+          );
+          await overrides.writeAsString(jsonEncode({'batchsize': batch}));
+          args.addAll(['--config', overrides.path]);
+        } else {
+          // Only pass the flag when non-default so KoboldCPP's built-in
+          // default applies for users who haven't changed this setting.
+          args.addAll(['--blasbatchsize', batch.toString()]);
+        }
       }
+    }
+
+    // ── Jinja chat templates ─────────────────────────────────────────────────
+    // Run each model's OWN embedded chat template server-side instead of
+    // KoboldCpp's built-in AutoGuess string adapter. This is what lets a model's
+    // `chat_template_kwargs` (notably enable_thinking) actually take effect —
+    // without --jinja, Kobold discards that field, so reasoning/thinking models
+    // whose template defaults to suppressed (Gemma-4-class channel reasoners)
+    // never think, and the "Request Reasoning" toggle is a no-op locally.
+    // Applied to BOTH launch paths (preset .kcpps and standard) since both drive
+    // the shared /v1/chat/completions transport. Safe as a global default: if a
+    // model's embedded template is missing or malformed, KoboldCpp automatically
+    // falls back to its heuristic adapter (verified — the server still starts and
+    // answers), so this never blocks a model from loading. Plain --jinja keeps
+    // tool calls on the non-jinja path (unchanged); --jinja_tools is intentionally
+    // NOT used.
+    args.add('--jinja');
+
+    // ── Vision projector (mmproj) ────────────────────────────────────────────
+    // A multimodal model whose projector is NOT baked into the GGUF (it ships in
+    // a separate mmproj file) can actually see images only when KoboldCpp is
+    // handed that file. Added for BOTH preset and standard modes, and only when
+    // a non-empty path is configured AND the file exists on disk — a stale or
+    // missing mmproj must never abort the launch.
+    if (mmprojPath != null &&
+        mmprojPath.isNotEmpty &&
+        File(mmprojPath).existsSync()) {
+      args.addAll(['--mmproj', mmprojPath]);
     }
 
     try {
@@ -338,10 +411,18 @@ class KoboldService extends ChangeNotifier
       print('AG_DEBUG: File exists: ${File(executablePath).existsSync()}');
       print('AG_DEBUG: Model exists: ${File(modelPath).existsSync()}');
 
+      // ROCm: consumer RDNA cards need HSA_OVERRIDE_GFX_VERSION or the
+      // hipblas kernels abort at load — resolver detects the gfx arch and
+      // supplies it (no-op when unnecessary or already exported).
+      final extraEnv = useRocm
+          ? await GpuBackendResolver.rocmEnvironment()
+          : const <String, String>{};
       _process = await Process.start(
         executablePath,
         args,
         workingDirectory: path.dirname(executablePath),
+        environment: extraEnv.isEmpty ? null : extraEnv,
+        includeParentEnvironment: true,
       );
       print('AG_DEBUG: Process started successfully! PID: ${_process!.pid}');
       _isRunning = true;
@@ -359,6 +440,7 @@ class KoboldService extends ChangeNotifier
           .listen((data) {
             _addLog(data);
             _parseLoadingStatus(data);
+            _ingestLiveProgress(data);
           });
 
       _process!.stderr
@@ -374,6 +456,7 @@ class KoboldService extends ChangeNotifier
               if (cleanData != '.' && cleanData != '..' && cleanData != '...') {
                 _addLog(cleanData);
                 _parseLoadingStatus(cleanData);
+                _ingestLiveProgress(cleanData);
               }
             }
           });
@@ -408,6 +491,25 @@ class KoboldService extends ChangeNotifier
   /// This is the same transport the `.kcpps` pseudo-remote backend has always
   /// used against the same server. KoboldCpp ignores the model name.
   ///
+  // Local tool calling: recent KoboldCpp supports OpenAI tools with
+  // template-aware models (Qwen3 family etc.). Models/servers that can't
+  // simply yield no tool calls and the caller's negotiation falls back to
+  // its text transport (the Journal's XML floor).
+  @override
+  Future<LlmToolResponse?> generateWithTools(
+    GenerationParams params,
+    List<Map<String, dynamic>> tools,
+  ) async {
+    if (!isReady) return null;
+    return postOpenAiChatWithTools(
+      _baseUrl,
+      params,
+      tools,
+      registerClient: (client) => _activeClient = client,
+      onDone: () => _activeClient = null,
+    );
+  }
+
   /// `_activeClient` is registered for [abortGeneration]; `_pendingRequest`
   /// (a completer future) is tracked so [waitForIdle] still unblocks on close.
   @override
@@ -475,131 +577,6 @@ class KoboldService extends ChangeNotifier
   /// Fire-and-forget server-side abort (used by abortGeneration).
   void _postAbort() {
     ensureServerIdle().catchError((_) {});
-  }
-
-  Future<String> generate(
-    String prompt, {
-    int maxLength = 80,
-    int minLength = 0,
-    double temp = 0.7,
-    double repPenalty = 1.1,
-    double topP = 0.9,
-    double minP = 0.0,
-    int repPenTokens = 64,
-    double? dynatempRange,
-    double xtcThreshold = 0.1,
-    double xtcProbability = 0.5,
-    List<String>? stopSequences,
-    List<String>? bannedPhrases,
-  }) async {
-    if (!_isRunning && !Platform.environment.containsKey('FLUTTER_TEST')) {
-      _addLog(
-        'Warning: internal backend not running, trying to connect anyway...',
-      );
-    }
-
-    int retryCount = 0;
-    while (retryCount < 5) {
-      final client = http.Client();
-      try {
-        final uri = Uri.parse('$_baseUrl/api/v1/generate');
-
-        final Map<String, dynamic> payload = {
-          'prompt': prompt,
-          'max_length': maxLength,
-          'min_length': minLength,
-          'temperature': temp,
-          'rep_pen': repPenalty,
-          'top_p': topP,
-          'min_p': minP,
-          'rep_pen_range': repPenTokens,
-          'singleline': false,
-          'trim_stop': true,
-        };
-
-        if (dynatempRange != null && dynatempRange > 0) {
-          payload['dynatemp_range'] = dynatempRange;
-        }
-
-        if (xtcThreshold > 0 && xtcProbability > 0) {
-          payload['xtc_threshold'] = xtcThreshold;
-          payload['xtc_probability'] = xtcProbability;
-        }
-
-        if (stopSequences != null && stopSequences.isNotEmpty) {
-          payload['stop_sequence'] = stopSequences;
-        }
-
-        // Anti-slop phrase banning (KoboldCpp-specific)
-        if (bannedPhrases != null && bannedPhrases.isNotEmpty) {
-          payload['banned_tokens'] = bannedPhrases;
-        }
-
-        final body = jsonEncode(payload);
-
-        final response = await client
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json'},
-              body: body,
-            )
-            .timeout(const Duration(seconds: 60));
-
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final text = data['results'][0]['text'] as String;
-          return text;
-        } else {
-          if (response.statusCode == 503) {
-            _addLog('Server returned 503 (Busy/Loading), retrying...');
-            await Future.delayed(const Duration(seconds: 2));
-            throw const SocketException('Service Unavailable');
-          }
-          if (response.statusCode == 405) {
-            // 405 won't succeed on retry — break immediately
-            throw Exception(
-              'The server returned HTTP 405 (Method Not Allowed). Check that your API URL is correct and the backend supports this endpoint.',
-            );
-          }
-          if (response.statusCode == 408) {
-            throw Exception(
-              'Request timed out (HTTP 408). The model may be too slow for the configured timeout.',
-            );
-          }
-          if (response.statusCode == 422) {
-            throw Exception(
-              'Invalid request (HTTP 422). The prompt may be too long for the model\'s context window.',
-            );
-          }
-          if (response.statusCode >= 500) {
-            _addLog('Server error ${response.statusCode}, retrying...');
-            await Future.delayed(const Duration(seconds: 2));
-            throw Exception('Server error (HTTP ${response.statusCode})');
-          }
-          throw Exception('API error: HTTP ${response.statusCode}');
-        }
-      } catch (e) {
-        if (!isProcessAlive && _isRunning) {
-          _addLog('Backend process crashed during generation! (Likely OOM)');
-          throw Exception(
-            'Backend process crashed. This usually happens when the GPU runs out of VRAM.',
-          );
-        }
-
-        retryCount++;
-
-        if (retryCount >= 5) {
-          _addLog('Generation error after 5 attempts: $e');
-          rethrow;
-        }
-
-        _addLog('Connection failed ($e), retrying in 2s...');
-        await Future.delayed(const Duration(seconds: 2));
-      } finally {
-        client.close();
-      }
-    }
-    throw Exception('Failed to generate after retries');
   }
 
   // ── Readiness probe ───────────────────────────────────────────────────

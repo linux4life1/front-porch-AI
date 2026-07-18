@@ -16,18 +16,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:drift/drift.dart' as drift;
-import 'package:file_picker/file_picker.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 /// Dialog for managing Data Bank entries (per-character knowledge base).
 /// Supports manual text entry and file import (txt, md, json, csv, pdf).
@@ -207,7 +207,8 @@ class _DataBankDialogState extends State<DataBankDialog> {
 
   /// Pick a file and import its contents as Data Bank entries.
   Future<void> _importFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await PickerPrefs.pickFiles(
+      category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: [..._textExtensions, ..._pdfExtensions],
       allowMultiple: false,
@@ -283,27 +284,26 @@ class _DataBankDialogState extends State<DataBankDialog> {
     }
   }
 
-  /// Extract text from a PDF via the local ONNX embedding server's /v1/extract-text endpoint.
+  /// Extract text from a PDF in-process (Syncfusion, an existing dep).
+  ///
+  /// Replaced an HTTP call to the embedding server's `/v1/extract-text` —
+  /// an endpoint only the ORIGINAL Python embed server implemented. The
+  /// Rust rewrite never had it, so PDF import has been silently broken
+  /// (30s timeout → "Import failed") for months; the sidecar retirement
+  /// sweep found it. Runs in an isolate — extraction of a big PDF is
+  /// CPU-heavy and would freeze the dialog.
   Future<String> _extractPdfText(String filePath) async {
-    const serverUrl = 'http://localhost:5055/v1/extract-text';
-    final request = http.MultipartRequest('POST', Uri.parse(serverUrl));
-    request.files.add(await http.MultipartFile.fromPath('file', filePath));
-
-    final streamedResponse = await request.send().timeout(
-      const Duration(seconds: 30),
-    );
-    final response = await http.Response.fromStream(streamedResponse);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      debugPrint(
-        '[DataBank] PDF extracted: ${data['pages']} pages, ${data['characters']} chars',
-      );
-      return data['text'] as String;
-    } else {
-      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
-      throw Exception('PDF extraction failed: $error');
-    }
+    final bytes = await File(filePath).readAsBytes();
+    final text = await Isolate.run(() {
+      final doc = PdfDocument(inputBytes: bytes);
+      try {
+        return PdfTextExtractor(doc).extractText();
+      } finally {
+        doc.dispose();
+      }
+    });
+    debugPrint('[DataBank] PDF extracted: ${text.length} chars');
+    return text;
   }
 
   /// Split text into chunks of approximately [maxWords] words each.

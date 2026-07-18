@@ -1,646 +1,321 @@
 # Troubleshooting
 
-Diagnosis and fixes for common issues.
+When something goes wrong, this page is the fastest route back to chatting. Find your symptom, follow the fix.
+
+> **Golden rule:** if the app is acting strange and you're about to try something drastic — don't delete anything. Your chats, characters, and a week of automatic backups all live in your data folder ([where is it?](#where-is-my-data-folder)). The [Backups](#restoring-from-a-backup) system can undo most disasters.
 
 ---
 
 ## Table of Contents
 
-### Startup Issues
+### First Aid
+- [Three things to try first](#three-things-to-try-first)
+
+### Startup Problems
 - [App won't launch](#app-wont-launch)
 - [App crashes on startup](#app-crashes-on-startup)
-- [Blank / white screen](#blank--white-screen)
-- [Setup wizard doesn't appear](#setup-wizard-doesnt-appear)
+- [Blank or white screen](#blank-or-white-screen)
 
-### AI / Generation Issues
-- [KoboldCpp won't start](#koboldcpp-wont-start)
+### AI & Generation Problems
+- [The AI engine won't start](#the-ai-engine-wont-start)
 - [Generation is extremely slow](#generation-is-extremely-slow)
-- [Empty responses](#empty-responses)
-- [Model won't load (OOM error)](#model-wont-load-oom-error)
+- [Empty or instantly-finished replies](#empty-or-instantly-finished-replies)
+- [Model won't load — out of memory](#model-wont-load--out-of-memory)
 - [GPU not detected](#gpu-not-detected)
+- [Realism evaluations come back empty](#realism-evaluations-come-back-empty)
 
-### Chat Issues
-- [Messages not saving](#messages-not-saving)
-- [Character responses are cut off](#character-responses-are-cut-off)
-- [Realism Engine eval fails](#realism-engine-eval-fails)
-- [Memory / RAG not working](#memory--rag-not-working)
+### Chat Problems
+- [Replies get cut off mid-sentence](#replies-get-cut-off-mid-sentence)
+- [Memory / RAG isn't working](#memory--rag-isnt-working)
 
-### Voice Issues
+### Voice Problems
 - [TTS not producing sound](#tts-not-producing-sound)
-- [STT / microphone not working](#stt--microphone-not-working)
-- [Voice call mode unstable](#voice-call-mode-unstable)
+- [Microphone / speech-to-text not working](#microphone--speech-to-text-not-working)
+- [Voice call mode is unstable](#voice-call-mode-is-unstable)
 
-### Data Issues
+### Your Data
+- [Where is my data folder?](#where-is-my-data-folder)
+- [Restoring from a backup](#restoring-from-a-backup)
 - [Database corruption](#database-corruption)
+- [Beta vs stable — two apps, two data folders](#beta-vs-stable--two-apps-two-data-folders)
 - [Missing character images](#missing-character-images)
-- [Cloud sync failing](#cloud-sync-failing)
-- [Beta vs stable data confusion](#beta-vs-stable-data-confusion)
 
-### Platform-Specific
-- [Linux: wpewebkit missing](#linux-wpewebkit-missing)
-- [Linux: Wayland flickering](#linux-wayland-flickering)
-- [macOS: Apple Silicon performance](#macos-apple-silicon-performance)
-- [Windows: Antivirus false positive](#windows-antivirus-false-positive)
+### Platform Notes
+- [Linux: character site browser won't open](#linux-character-site-browser-wont-open)
+- [Linux: flickering or visual glitches](#linux-flickering-or-visual-glitches)
+- [Linux: AMD GPU not being used](#linux-amd-gpu-not-being-used)
+- [macOS: "damaged" warning, and Intel Macs](#macos-damaged-warning-and-intel-macs)
+- [Windows: antivirus false positive](#windows-antivirus-false-positive)
+
+### Still Stuck?
+- [Getting more help](#getting-more-help)
 
 ---
 
-## Startup Issues
+## First Aid
+
+### Three things to try first
+
+1. **Quit and relaunch — properly.** Close the app with its own close button (not force-quit), wait a few seconds, and start it again. This cleanly restarts the AI engine and helper processes, which cures a surprising amount.
+2. **Update.** Check you're on the latest version — many "known issues" are already fixed.
+3. **Launch from a terminal** so you can see error messages:
+   - **Windows:** open the install folder, then run `front_porch_ai.exe` from a Command Prompt opened there.
+   - **macOS:** in Terminal: `/Applications/FrontPorchAI.app/Contents/MacOS/FrontPorchAI` (adjust if your install is named differently)
+   - **Linux:** run the binary or AppImage from a terminal.
+
+   Whatever it prints when things go wrong is gold — include it if you ask for help.
+
+---
+
+## Startup Problems
 
 ### App won't launch
 
-**Common causes and diagnostic steps (based on `main.dart`, `BackendManager`, `WebServerService`):**
+**Nothing happens, or it dies instantly.**
 
-1. **Missing system dependencies (especially Linux)**:
-   - The app uses `flutter_inappwebview` for Chub.ai browsing and `window_manager`. On Linux you need:
-     ```
-     sudo apt install libgtk-3-dev libwebkit2gtk-4.1-0 wpewebkit-1.1 libgstreamer1.0-0
-     ```
-     (See `install.md` and the bundled AppImage which includes them.)
-   - Run the binary from a terminal to see the exact missing `.so` error.
+- **Leftover processes from a previous run.** If the app was force-quit, the AI engine can be left running and block the next launch. Clean up:
+  - Windows: Task Manager → end any `koboldcpp` or `front_porch` processes.
+  - macOS/Linux: `pkill -f koboldcpp` and `pkill -f embed_server`
+- **Linux — missing system libraries.** Run it from a terminal; if it complains about a missing `.so` file, install the library it names (the in-app browser needs WPE WebKit — see [the Linux note](#linux-character-site-browser-wont-open)). The **AppImage** bundles everything and is the easy way out.
+- **macOS — blocked by Gatekeeper.** See the [macOS note](#macos-damaged-warning-and-intel-macs).
+- **Broken download/install.** Re-download the release and reinstall. Your data is safe — it lives in your Documents folder, not the install folder.
 
-2. **Corrupted or incomplete installation**:
-   - Re-download the latest release and replace the entire folder.
-   - On macOS, if the binary is quarantined: `xattr -cr /Applications/Front\ Porch\ AI.app`
-
-3. **Port conflicts**:
-   - KoboldCPP listens on `127.0.0.1:5001` (configurable in Settings).
-   - Embedding sidecar uses `localhost:5055`.
-   - The internal shelf web server (used for Chub import) uses an ephemeral port.
-   - Kill any leftover processes:
-     - Windows: `taskkill /F /IM koboldcpp.exe`
-     - macOS/Linux: `pkill -f koboldcpp` or `pkill -f embed_server`
-
-4. **How to view logs**:
-   - Launch from terminal: `./Front_Porch_AI` (or the .exe / .app bundle) and watch the console output.
-   - KoboldCPP session logs are written to `<data>/characters/session_log.txt`.
-   - Open **Settings → KoboldCPP → View Kobold Logs** (opens `kobold_log_dialog.dart`).
-
-If the app still fails to start, delete the entire data directory (`~/Documents/FrontPorchAI` or `FrontPorchAI-Beta`) and relaunch — a fresh database will be created.
+If it still won't start, **don't delete your data folder** — grab the terminal output and ask on [Discord](https://discord.gg/e4tET6rpdv).
 
 ### App crashes on startup
 
-**Step-by-step diagnosis (see `main.dart:111`, `AppDatabase.integrityCheck`, `KoboldService`):**
+The most common cause is a **damaged database** — usually from a power cut or a force-quit mid-write. The good news: the app checks its database on every launch, and if it finds damage it shows a recovery screen listing your automatic backups. Click one to restore — see [Database corruption](#database-corruption).
 
-1. **Launch from terminal** and capture the full stack trace. Common crash signatures:
-   - `FlutterEngineRemoveView returned kInvalidArguments` or segfault → unclean shutdown of KoboldCPP (the `SIGINT`/`SIGTERM` handlers in `main.dart:89` and `exit(0)` exist precisely to avoid this).
-   - `Drift` / SQLite errors → database corruption.
+If there's no recovery screen and it just dies:
 
-2. **Database corruption** (most frequent cause):
-   - On launch the app runs `db.integrityCheck()` (`PRAGMA quick_check`).
-   - If it fails, a red "Database Corruption" overlay appears with a list of timestamped `.db` backups.
-   - Click any backup row to restore. Backups are created automatically before cloud sync and on clean shutdown (`DbReunificationService.createBackups`).
-   - Manual location: `<data>/characters/` (and sometimes root) — look for `*.db.bak*` files.
+1. Launch from a terminal and read the error.
+2. If the error mentions the AI engine or your GPU, switch to **Remote API mode** in Settings once you're in, or see [GPU not detected](#gpu-not-detected).
+3. Kill leftover processes (see above) and try again.
 
-3. **GPU driver / KoboldCPP startup crash**:
-   - Intel Mac users: local inference is explicitly blocked (`BackendManager.isIntelMac`).
-   - Try switching to **Remote API** mode in Settings → AI Backend before the model loads.
-   - On Linux: run `nvidia-smi` or `rocminfo` manually. If they fail, the app falls back to the `-nocuda` binary.
-   - Force CPU-only: delete the current `koboldcpp*` binary from `koboldcpp_bin/` and let the app re-download the nocuda variant.
+### Blank or white screen
 
-4. **Recovery command**:
-   ```bash
-   # macOS/Linux
-   pkill -9 -f koboldcpp
-   pkill -9 -f embed_server
-   rm -f ~/Documents/FrontPorchAI/characters/*.db-wal
-   ```
+The window opens but shows nothing, or flickers badly:
 
-After fixing, the app should pass the integrity check on next launch.
-
-### Blank / white screen
-
-**UI rendering troubleshooting (Flutter desktop + window_manager):**
-
-1. **GPU / driver incompatibility**:
-   - Linux: Force X11 instead of Wayland:
-     ```bash
-     GDK_BACKEND=x11 ./Front_Porch_AI
-     ```
-   - Try disabling hardware acceleration in your GPU control panel (rare).
-
-2. **Display scaling / HiDPI**:
-   - On high-DPI monitors (especially macOS Retina or 4K Linux), try launching with:
-     ```bash
-     export GDK_SCALE=1
-     ./Front_Porch_AI
-     ```
-   - Or change the app's window scale in Settings → UI → Interface Scale.
-
-3. **Clear Flutter / window cache**:
-   - Delete the app's data folder (or just the `custom_backgrounds/` and prefs) and restart.
-   - On macOS, also clear `~/Library/Containers/` if sandboxed (unlikely for this app).
-
-4. **Diagnostic**:
-   - Launch from terminal; a white screen with console errors about `WPE` or `ANGLE` points to the inappwebview / OpenGL layer.
-
-If the sidebar and title bar appear but the main content is white, the issue is usually inside the currently selected page (try clicking Home in the sidebar).
-
-### Setup wizard doesn't appear
-
-The first-run overlay (`SetupOverlay` in `lib/ui/widgets/setup_overlay.dart` and `SetupService`) is shown when `StorageService.rootPath` is still the default and no model or API key has been configured.
-
-**Fixes:**
-- Go to **Settings → AI Backend** and ensure either a local KoboldCPP model is selected or a Remote API endpoint + key is saved.
-- Manually trigger the wizard: in Settings → Advanced → "Re-run First-Time Setup".
-- If the data directory was manually set on a previous run, the wizard is suppressed. You can reset by clearing the `root_path` (or `root_path_beta`) key in SharedPreferences (use a SQLite browser on the prefs file or delete the entire FrontPorchAI folder).
-
-The wizard also downloads the embedding sidecar binary and KoboldCPP if you choose local mode.
+- **Linux on Wayland:** force the X11 mode, which fixes most rendering glitches:
+  ```bash
+  GDK_BACKEND=x11 ./front_porch_ai
+  ```
+  (Add that to a launcher/desktop entry if it helps.)
+- **Unusual display scaling:** try changing your monitor scaling, or adjust the app's interface scale in Settings once you can get in.
+- If the window frame and sidebar draw but the middle is blank, click **Home** in the sidebar — the problem is usually one specific page, and knowing which one makes it easy for me to fix. Please report it!
 
 ---
 
-## AI / Generation Issues
+## AI & Generation Problems
 
-### KoboldCpp won't start
+### The AI engine won't start
 
-**Diagnosis and recovery (core logic in `lib/services/kobold_service.dart` + `BackendManager`):**
+Front Porch AI manages a local AI engine (a program called **KoboldCpp**) for you. When it won't start:
 
-1. **Port already in use (5001)**:
-   - The app auto-kills orphaned KoboldCPP processes on startup (`reconnectIfAlive` + `killOrphanedBackend` using `taskkill` / `pkill`).
-   - If it still fails:
-     - Windows: `netstat -ano | findstr :5001` then `taskkill /PID <pid> /F`
-     - macOS/Linux: `lsof -i :5001` or `sudo kill -9 $(lsof -t -i:5001)`
-
-2. **Missing executable**:
-   - `BackendManager.checkBackendAvailability()` looks in `<data>/koboldcpp_bin/`.
-   - Click **"Download KoboldCPP"** in Settings → KoboldCPP Backend.
-   - Verify the correct binary name was downloaded (`koboldcpp.exe`, `koboldcpp-linux-x64`, `koboldcpp-mac-arm64`, `koboldcpp-linux-x64-rocm`, etc.).
-
-3. **Insufficient permissions**:
-   - macOS/Linux: the app runs `chmod +x` and `xattr -cr` (to clear quarantine) automatically.
-   - Manually: `chmod +x koboldcpp*` inside the bin folder.
-   - On some Linux distros you may need `sudo setcap cap_sys_admin+ep koboldcpp-linux-x64` for `--usemlock`.
-
-4. **GPU driver issues**:
-   - NVIDIA: install latest CUDA + reboot.
-   - AMD: ROCm (Linux only) — set the ROCm toggle in Settings; the app will pick `koboldcpp-linux-x64-rocm`.
-   - Intel Macs: local mode is disabled by design.
-   - Force CPU fallback by choosing the `nocuda` binary.
-
-Check the **Kobold Logs** dialog (real-time stdout/stderr from the Process) for the exact KoboldCPP error message (e.g., "failed to load model", "CUDA out of memory", "port bind failed").
-
-After fixing, click **Start Backend** or enable "Autostart Backend".
+- **Check the logs first.** Settings → the KoboldCpp section → **View Kobold Logs** shows the engine's own words about what went wrong ("failed to load model", "out of memory", etc.).
+- **Engine not downloaded / half-downloaded:** use the download button in Settings to fetch it again.
+- **Something is already using its port** (5001). Usually a leftover engine from a crashed session:
+  - Windows: `taskkill /F /IM koboldcpp.exe`
+  - macOS/Linux: `pkill -f koboldcpp`
+- **GPU driver trouble:** see [GPU not detected](#gpu-not-detected).
+- **Intel Mac:** local models aren't supported on Intel Macs — use Remote API mode instead.
 
 ### Generation is extremely slow
 
-**Performance tuning (arguments passed by `KoboldService.startKobold`):**
+Slow almost always means **the model doesn't fit in your GPU's memory**, so it's partly running on the much slower CPU:
 
-1. **Model larger than VRAM**:
-   - Lower **GPU Layers** (Settings → Model Settings) until speed jumps from <1 t/s to 15–30 t/s.
-   - Use a more quantized model (Q4_K_M or Q5_K_M instead of Q8_0 or FP16). The VRAM estimator in the model picker helps.
+1. **Lower GPU Layers** until it fits — speed often jumps from a crawl to fast in one step.
+2. **Use a smaller or more compressed model.** A Q4 version of a model needs roughly half the memory of a Q8 with barely any quality loss. The Model Hub shows size estimates before you download.
+3. **Lower the context size.** Big context windows (16k+) eat GPU memory even before the model writes a word.
+4. **Check the right GPU is being used** — on laptops and multi-GPU machines the app can be pointed at the wrong one; check the hardware section in Settings.
+5. **Close other heavy apps** — games and browsers with lots of tabs compete for the same GPU memory.
 
-2. **Wrong GPU backend**:
-   - NVIDIA: ensure `--usecublas <gpuId>` is passed (the app now forces the correct GPU ID to avoid iGPU on multi-GPU systems).
-   - AMD: enable ROCm toggle + `--usehipblas`.
-   - macOS Apple Silicon: Metal is automatic (`koboldcpp-mac-arm64`).
-   - Intel/AMD iGPU: fall back to the `nocuda` binary and accept CPU speeds.
+Extras worth turning on if your hardware supports them (Settings → Advanced): **Flash Attention** and **KV cache quantization** both save memory, and **mlock** stops the system from swapping the model out to disk.
 
-3. **Swap thrashing / RAM pressure**:
-   - Enable **mlock** (Settings → Advanced → "Prevent model paging") — prevents the OS from swapping model weights to disk.
-   - Close browsers, IDEs, and other large apps.
-   - Reduce **Context Size** or enable KV cache quantization (`--quantkv`).
+### Empty or instantly-finished replies
 
-4. **Recommended settings for speed**:
-   - Flash Attention: ON (CUDA/Metal only)
-   - KV Quantization: 4-bit or 8-bit
-   - BLAS batch size: 1024–2048 for large VRAM cards
-   - Use `.kcpps` presets that were tuned for your hardware
+The character says nothing, or the reply ends after a word or two:
 
-Watch the real-time token/s counter in the chat input area. If it stays below ~5 t/s on a modern GPU, the model is too big or running on the wrong device.
+- **A stop sequence is firing immediately.** Stop sequences tell the model where to stop writing; an overly aggressive one (like a bare newline or the character's own name) can stop it instantly. Review them in the chat's generation settings and remove suspicious entries.
+- **The context is completely full.** If the conversation plus character info exceeds the model's context window, there's no room left to reply. Lower what's injected or raise context size.
+- **The model file is broken or badly converted.** Test with a well-known model — if that one works, the other file is the problem.
+- **Test with a remote API** — if remote works and local doesn't, the issue is the local model or engine, not your character or settings.
 
-### Empty responses
+### Model won't load — out of memory
 
-**Root causes and fixes (generation path in `ChatService` + Kobold `/api/extra/generate/stream`):**
+- **Lower the context size first** — context can cost gigabytes before the model even loads.
+- **Lower GPU Layers** — the rest of the model runs on CPU (slower, but it loads).
+- **Pick a more compressed version** (Q4 instead of Q6/Q8) or a smaller model.
+- After an out-of-memory crash, stop the engine, wait a few seconds, then start it again so it comes up clean.
 
-1. **Stop sequence triggered immediately**:
-   - Common when the model sees its own name or a newline as a stop string.
-   - Go to **Chat Settings → Generation → Stop Sequences** and remove overly aggressive entries (e.g., just `\n` or the character's name).
-   - The app also sends a dynamic stop list derived from the character card.
-
-2. **System / character prompt conflict**:
-   - An extremely long or contradictory system prompt can cause the model to emit an EOS token right away.
-   - Temporarily set System Prompt to the built-in default in Settings.
-
-3. **Context window full / truncation**:
-   - When the prompt + history exceeds the model's context, KoboldCPP may truncate in a way that leaves only the stop tokens.
-   - Reduce **Context Size** or enable **"Smart Context"** (the app's `SessionGenSettings.resolveContextSize`).
-
-4. **Model incompatibility**:
-   - Some GGUF quants or fine-tunes have broken EOS handling.
-   - Test with a known-good model (e.g., a Q4_K_M Llama-3 or Qwen2.5).
-   - Switch temporarily to a Remote OpenAI-compatible endpoint to isolate whether the problem is local KoboldCPP or the model file.
-
-If the log shows "Generation finished with 0 tokens", the model refused to continue — usually a stop-sequence or grammar issue.
-
-### Model won't load (OOM error)
-
-**Out-of-memory handling (KoboldCPP startup + VRAM estimator):**
-
-1. **Immediate workaround**:
-   - In the model picker / Settings, lower **Context Size** first (4096 → 2048 or 1024). Context uses a lot of VRAM even before the model weights.
-   - Reduce **GPU Layers** to a value that fits (the app will still run the rest on CPU).
-
-2. **Quantization**:
-   - Prefer **Q4_K_M** or **Q5_K_M** over Q8_0 or FP16. The difference in quality is small; the VRAM saving is massive (~50%).
-   - The built-in VRAM estimator (`lib/utils/vram_estimator.dart`) shows estimated usage before you load.
-
-3. **System RAM / swap**:
-   - On Linux, increase swap or run with `--mlock` disabled if you are on the edge.
-   - Close all other applications. On Apple Silicon the unified memory is shared; watch Activity Monitor.
-
-4. **Recovery after OOM crash**:
-   - KoboldCPP often leaves a partially loaded state. Use the **Stop Backend** button, wait 5 seconds, then **Start Backend** again.
-   - If the binary itself crashed, delete it and re-download.
-
-The app never auto-downgrades quantization for you — you must choose a smaller quant or reduce context/layers manually.
+The app estimates memory needs before you download a model — trust the estimate; if it says "tight", it will be.
 
 ### GPU not detected
 
-**GPU backend detection logic (`BackendManager._init` and `KoboldService.startKobold`):**
+- **NVIDIA:** run `nvidia-smi` in a terminal. If that fails, your driver needs installing/updating — reboot afterwards and re-run hardware detection in Settings.
+- **AMD on Linux:** see [the AMD note](#linux-amd-gpu-not-being-used) — it's almost always group permissions.
+- **AMD on Windows / Intel GPUs:** the app uses Vulkan, which works out of the box with current drivers.
+- **Apple Silicon:** Metal acceleration is automatic — nothing to configure.
+- **Intel Macs:** local models are not supported (no Metal GPU support for this workload) — the app will tell you and you can use Remote API mode.
 
-1. **NVIDIA (CUDA)**:
-   - The app runs `nvidia-smi` at startup. If it succeeds, it downloads `koboldcpp-linux-x64` and passes `--usecublas <gpuId>`.
-   - Verify with `nvidia-smi` in terminal. Reboot after driver install.
-   - Multi-GPU systems: the app now explicitly passes the GPU ID from Settings → Hardware to avoid silently using the integrated GPU.
+If the wrong option was picked, delete the engine's downloaded files via Settings and re-download — the app will re-detect your hardware.
 
-2. **AMD (ROCm / HIP)**:
-   - On Linux only. The app checks `rocminfo`. You can override the auto-detection with the "Use ROCm" toggle in Settings.
-   - Requires ROCm installed and the `koboldcpp-linux-x64-rocm` binary.
-   - Flash Attention is disabled for ROCm (`--noflashattention`).
+### Realism evaluations come back empty
 
-3. **Intel ARC**:
-   - Use the Vulkan path if available, or fall back to the `nocuda` CPU binary.
-   - OneAPI / Level-Zero drivers must be installed.
+Some local models struggle with the Realism Engine's short background questions and return nothing (bond/trust/mood chips stop updating). Fixes, in order of effectiveness:
 
-4. **macOS**:
-   - Apple Silicon (`arm64`): `koboldcpp-mac-arm64` + Metal (automatic, no flag needed).
-   - Intel Macs: explicitly unsupported for local inference (`isIntelMac` check). Use Remote API only.
+1. Turn on **One-Shot Eval** in the Realism settings — one combined question instead of several works better on many models.
+2. Try a different model — evaluation reliability varies a lot between models and compression levels.
+3. Remote APIs essentially never have this problem, if you have one configured.
 
-**Diagnostic**:
-- Open **Settings → KoboldCPP Backend → Hardware Detection** (or look at the status line under the backend card).
-- The status shows "CUDA", "ROCm", or "CPU-only (nocuda)" based on the executable that was downloaded.
-
-If the wrong binary was chosen, delete the files in `koboldcpp_bin/` and toggle the ROCm switch, then re-download.
+The conversation itself keeps working even when evaluations fail — you just lose that turn's state updates.
 
 ---
 
-## Chat Issues
+## Chat Problems
 
-### Messages not saving
+### Replies get cut off mid-sentence
 
-**Persistence layer (`ChatService`, `AppDatabase` via Drift, `CharacterRepository`):**
+- **Raise Max Response Length** in the chat's generation settings — for long roleplay scenes, 400–600 tokens is common.
+- **Press Continue** on the truncated message — the model picks up where it stopped.
+- **A stop sequence fired mid-reply** — e.g. the character's name with a colon appearing inside the text. Trim aggressive stop sequences.
+- If it happens constantly in very long chats, the context is overflowing — the oldest messages get trimmed to make room, and some models handle that gracelessly. A summary or higher context size helps.
 
-1. **Disk full**:
-   - The app writes to `<data>/characters/` (DB + images) and `<data>/chats/`.
-   - Check free space; the DB can grow quickly with long histories and RAG embeddings.
+### Memory / RAG isn't working
 
-2. **Database locked / concurrent access**:
-   - Multiple app instances or cloud sync running at the same time can lock the SQLite file.
-   - Close all other instances, wait 10 seconds, then relaunch.
-   - Cloud sync performs `checkpoint()` + `PRAGMA wal_checkpoint(TRUNCATE)` before upload.
+Long-term memory ("the character remembered something from last week!") runs on a small local helper program that converts text to searchable meaning. No internet, no Python, nothing to install — but a few things can trip it:
 
-3. **Permission / path issues**:
-   - On macOS/Linux, ensure the Documents folder is not read-only.
-   - If you moved the data directory manually, re-select it in Settings → Data Directory and restart.
-
-4. **Recovery**:
-   - Messages are saved after every AI turn (`_saveMessage` and `_saveRealismState`).
-   - If the last few messages are missing, the most recent backup (shown in the corruption overlay) usually contains them.
-
-Check the console for "INSERT failed" or Drift errors. The session log (`session_log.txt`) also records high-level chat events.
-
-### Character responses are cut off
-
-**Truncation diagnosis (`SessionGenSettings`, `maxLength` passed to Kobold, stop sequences):**
-
-1. **Max Response Length too low**:
-   - In **Chat Settings** (or the per-chat gear icon) raise **Max Length** (default 180–300 tokens). For long RP, 400–600 is common.
-
-2. **Context window exhausted**:
-   - When history + system + RAG + realism state > context, the app trims from the oldest messages (`_trimContextIfNeeded`).
-   - The trim may remove important earlier context, causing the model to stop early.
-   - Solution: increase Context Size (if VRAM allows) or enable "Smart Context" trimming.
-
-3. **Stop sequence appearing inside the response**:
-   - The model sometimes generates the stop string mid-sentence (e.g. the character's name followed by `:`).
-   - Remove or make the stop sequences less aggressive in Chat Settings → Generation.
-
-4. **Model-specific**:
-   - Some instruct-tuned models treat the end of the prompt as a hard stop.
-   - Try a different model or add a "continue" instruction in the character card's "Post History Instructions".
-
-You can also click the **"Continue"** button (if shown) on a truncated message — it appends another generation pass.
-
-### Realism Engine eval fails
-
-**Realism Engine internals (`lib/services/chat_service.dart` — GBNF grammars, dual-call vs one-shot):**
-
-The Realism Engine issues constrained JSON generation calls before the main response. KoboldCPP's GBNF support is sometimes brittle.
-
-**Immediate workarounds (in Settings → Realism Engine):**
-
-1. **Enable "One-Shot Eval (Experimental)"**:
-   - Fuses relationship + emotion + narrative + trust into a single LLM call (`_evaluateOneShotCall`).
-   - Dramatically reduces the chance of grammar failure and halves the pre-generation latency.
-   - Some weaker models may struggle with the longer prompt — test per model.
-
-2. **Switch to Remote API**:
-   - Remote OpenAI-compatible endpoints (OpenRouter, Groq, Together, etc.) almost never have grammar problems and are faster for evals.
-   - The app automatically falls back to plain JSON prompting when using remote backends.
-
-3. **Other mitigations**:
-   - Lower the "Realism Eval Temperature" (0.3–0.5 recommended).
-   - Disable individual eval types you don't need (e.g., turn off Trust Repair or Climax Detection).
-   - Increase the realism eval timeout in Advanced settings.
-
-4. **Diagnostic**:
-   - Enable "Verbose Realism Logging" in Settings → Developer.
-   - Look in the console for `[Realism:Emotion] Failed: ...` or GBNF parse errors.
-   - The app is resilient: even if an eval fails, the conversation continues and the state is advanced heuristically (`_advanceRealismStateOnFailure`).
-
-The GBNF grammars (`_kGbnfJsonObject`, `_kGbnfJsonStringArray`) are deliberately permissive to accept any valid flat JSON object.
-
-### Memory / RAG not working
-
-**RAG pipeline (`EmbeddingSidecar`, `EmbeddingService`, `chat_service.dart` RAG retrieval):**
-
-The local memory system uses a Rust sidecar (port 5055) running `nomic-embed-text-v1.5` via ONNX Runtime.
-
-**Step-by-step checks:**
-
-1. **Embedding sidecar not running**:
-   - On first launch the app starts `EmbeddingSidecar.start()` automatically.
-   - Check status in **Settings → Memory / RAG**.
-   - If it says "Error" or "Crashed":
-     - The binary is at `<app>/embed_server/embed_server(.exe)`.
-     - Manually run it from terminal to see the error: `./embed_server/embed_server`.
-     - Common: missing `libonnxruntime.so` (bundled in release).
-
-2. **ONNX model not downloaded**:
-   - The sidecar downloads `nomic-embed-text-v1.5` on first use (progress shown in the RAG card).
-   - It is stored inside the embed_server working directory or the user's data folder.
-   - Delete the `embed_server` folder and restart to force re-download.
-
-3. **Python confusion**:
-   - The embedding sidecar is **Rust**, not Python (unlike Kokoro TTS / Whisper STT).
-   - No pip packages are required for RAG.
-
-4. **RAG not retrieving anything**:
-   - Messages must be long enough and have semantic content.
-   - Try the "Re-index All Chats" button in Settings → Memory.
-   - Check the console for `[RAG:Chat] ✗ RAG retrieval failed`.
-
-5. **Recovery**:
-   - Stop the sidecar via the UI toggle, kill any leftover process (`pkill -f embed_server`), then restart it from Settings.
-   - If the sidecar binary is missing after an update, re-run the first-time setup or copy it from a fresh release.
-
-When working, you will see "RAG: X chunks retrieved" in the debug logs for relevant user messages.
+- **Check its status** in Settings → Memory. It should say running/ready.
+- **First use downloads a small model** — give it a moment to finish.
+- **Helper stuck?** Toggle it off in Settings, run `pkill -f embed_server` (macOS/Linux) or end the process in Task Manager (Windows), then toggle it back on.
+- **Memories exist but aren't recalled:** memory retrieval needs *meaningful* content to match on — one-word messages don't give it much. Look for the re-index option in the memory settings to rebuild the index if it seems out of date.
 
 ---
 
-## Voice Issues
+## Voice Problems
 
 ### TTS not producing sound
 
-**TTS architecture (`TtsService`, `KokoroEngine`, `audioplayers` + macOS `afplay` fallback):**
+- **First use = model download.** The default voice engine (Kokoro) downloads about 300 MB of voice files the first time. Watch for the progress indicator and give it a minute.
+- **Check the engine and voice** in Settings → Voice. Cloud engines (ElevenLabs, OpenAI) need a valid API key and internet.
+- **Character voice mismatch:** if you switched engines (say Kokoro → Piper), a voice assigned to a character under the old engine won't play — the voice picker flags incompatible ones. Re-assign or use the global default.
+- **Linux audio:** if nothing in the app plays sound, your system may be missing GStreamer plugins — install your distro's `gstreamer` "good/base" plugin packages.
+- **Building from source?** Dev-mode voice features need Python packages: `pip install kokoro-onnx soundfile faster-whisper`. Normal downloads bundle everything — no Python required.
 
-1. **Python / dependencies (development mode)**:
-   - In dev builds the app runs `python3 kokoro_tts.py` (or `python` on Windows).
-   - Install the required packages:
-     ```bash
-     pip3 install kokoro-onnx soundfile numpy
-     ```
-   - Ensure `python3` (or `python`) is in your `PATH`.
+### Microphone / speech-to-text not working
 
-2. **Release / bundled mode**:
-   - The app ships a PyInstaller one-dir bundle (`piper/kokoro_tts/kokoro_tts(.exe)`).
-   - No Python install needed. If the wrapper is missing, the TTS engine will silently fall back and log an error.
+1. **OS permission first:**
+   - macOS: System Settings → Privacy & Security → Microphone → allow Front Porch AI.
+   - Windows: Settings → Privacy → Microphone.
+   - Linux: make sure PipeWire/PulseAudio is running and the mic works in other apps.
+2. **Right device selected?** Pick your actual microphone in Settings → Voice.
+3. **First use downloads the speech-recognition model** (Whisper) — one-time, be patient.
+4. Test with the push-to-talk mic button in the chat input; if the transcription never appears, launch from a terminal and look for the error.
 
-3. **Model files missing**:
-   - Kokoro downloads ~300 MB models on first use to `<data>/system/kokoro_models/`.
-   - If download fails, delete the partial `.onnx` / `.bin` files and toggle TTS off/on.
+### Voice call mode is unstable
 
-4. **Per-character voices not working (especially with Piper or custom voices)**:
-   - Voice assignments on individual characters (or group members) must match the **currently selected TTS engine**.
-   - If you switch from Kokoro → Piper (or vice versa), previously assigned character voices may become incompatible.
-   - The character voice picker now shows "(incompatible with ...)" warnings.
-   - Fix: Open the character voice picker and re-assign a voice that matches your current engine (or choose "Use global default").
+Voice calls listen, wait for you to pause (~2 seconds of silence), transcribe, and send. The background-noise level is measured fresh at the start of every call.
 
-4. **No audio output device / muted**:
-   - The app uses `audioplayers` package. On some Linux systems you must install `libgstreamer-plugins-base` or `pulseaudio-utils`.
-   - On macOS it falls back to the `afplay` system command for the generated WAV.
-   - Test by clicking the speaker icon on any message.
-
-5. **Engine-specific**:
-   - **Kokoro** (default): best quality.
-   - **OpenAI / ElevenLabs**: require valid API key + internet.
-   - **Piper**: legacy, requires `.onnx` voice models in the piper folder.
-
-Check the console for "Kokoro stderr:" or "TTS: no voice configured". Also verify the correct voice is selected in Settings → Voice.
-
-### STT / microphone not working
-
-**STT pipeline (`SttService`, `record` package, Python Whisper helper `whisper_stt.py`):**
-
-1. **OS microphone permission**:
-   - **macOS**: System Settings → Privacy & Security → Microphone → grant access to "Front Porch AI".
-   - **Windows**: Settings → Privacy → Microphone.
-   - **Linux**: some distros require `pipewire` or `pulseaudio` and the app to be launched from a desktop entry (not pure terminal).
-
-2. **Wrong input device**:
-   - In **Settings → Voice → STT**, open the device dropdown and select the correct microphone.
-   - The `AudioRecorder` from the `record` package enumerates `InputDevice`s.
-
-3. **Whisper model not downloaded**:
-   - First use downloads a Whisper model via the Python helper (similar to Kokoro).
-   - The model is cached in the user's data directory under a `whisper` subfolder.
-   - Delete it and re-trigger a recording to force re-download.
-
-4. **Python helper not found (dev mode)**:
-   - The helper script lives in the `piper/` directory alongside the TTS files.
-   - Same PYTHONPATH logic as Kokoro TTS is used.
-
-5. **Continuous call mode unstable**:
-   - Adjust the **Silence Threshold** (higher = less sensitive) and **Buffer Sentence Count** in STT settings.
-   - Background noise can cause false triggers; use a headset or lower the mic gain in the OS.
-
-Test by using the mic icon in the chat input (push-to-talk). If transcription never appears, look for "STT transcription failed" in the console.
-
-### Voice call mode unstable
-
-**Continuous voice call loop (`SttService` + `ChatService` auto-send transcription):**
-
-- The call mode records in a loop, transcribes when silence is detected, sends the text, waits for the AI reply (TTS), then listens again.
-- **Background noise**: raise the Silence Threshold slider in Settings → Voice → STT.
-- **Cloud STT latency**: if you are using a remote STT provider (not local Whisper), add a longer "Thinking" grace period in the call settings.
-- **Buffer settings**: increase "Sentences before AI responds" so the character hears a full thought instead of fragmented sentences.
-- **TTS playback interrupting** the mic: the app should mute the mic while speaking, but on some systems you may need to manually lower the mic volume during AI speech.
-
-If the call gets stuck in "thinking" or "speaking", click the big red "End Call" button in the voice overlay. The underlying `CallStatus` enum prevents most deadlocks.
+- **Noisy room / fan / keyboard:** use a headset; lower mic gain in your OS.
+- **It keeps mishearing the room as speech:** end the call and start a new one — that re-measures the background noise.
+- **It cuts you off while you think:** pause less than two seconds mid-thought, or just press **Send** in the call screen to control it manually.
+- **It's stuck "thinking" or "speaking":** press End Call and start over — no harm done.
 
 ---
 
-## Data Issues
+## Your Data
+
+### Where is my data folder?
+
+Everything — characters, chats, memories, backups, models — lives in one folder:
+
+- **Windows:** `Documents\FrontPorchAI\`
+- **macOS / Linux:** `~/Documents/FrontPorchAI/`
+- Beta/nightly builds use **`FrontPorchAI-Beta`** instead.
+
+The database and character cards are in the `KoboldManager` subfolder (with `backups` right next to the database); your downloaded AI models are in `models`. **Copying the whole folder = a complete backup of everything.**
+
+### Restoring from a backup
+
+The app automatically snapshots your database **every 30 minutes** and keeps the 10 most recent snapshots *plus* one per day for the last 7 days — so you can undo this afternoon's accident or roll back to last Tuesday.
+
+- **If the database is damaged**, a recovery screen appears at launch — click a backup to restore it. Done.
+- **To restore manually or make an extra backup**, use the backup options in Settings.
+- Backups live in `KoboldManager/backups/` inside your data folder, named by date and time, if you ever want to copy them elsewhere.
 
 ### Database corruption
 
-**Full recovery workflow (`main.dart:897`, `AppDatabase.integrityCheck`, `BackupService`, `DbReunificationService`):**
+Usually caused by a power cut, disk-full, or force-quitting during a write.
 
-1. **Auto-detection**:
-   - On every launch `PRAGMA quick_check` is run. Failure sets `_isDbCorrupt` and shows a full-screen red overlay listing available backups.
+1. On the next launch the app detects the damage and shows the **backup restore screen** — newest first. Click to restore; characters, chats, and Realism state all come back.
+2. If even that screen won't appear, your backups are still sitting safely in `KoboldManager/backups/` — ask on [Discord](https://discord.gg/e4tET6rpdv) and I'll walk you through it.
 
-2. **Restore from overlay**:
-   - Click any row (newest first). The app closes the current DB, replaces the file with the chosen backup, runs migrations, and restarts the UI.
-   - All characters, chats, lorebooks, worlds, and realism state are restored.
+**Prevention:** close the app with its own close button (it shuts the database down cleanly), and don't force-kill it mid-generation.
 
-3. **Manual backup location**:
-   - Automatic backups are written to the same directory as the main `frontporch.db` (usually `<data>/` or `<data>/characters/`).
-   - Filenames contain timestamps (e.g., `frontporch.db.bak.2026-05-15_14-03-22`).
-   - You can also manually copy the `.db` file before risky operations.
+### Beta vs stable — two apps, two data folders
 
-4. **Prevention**:
-   - Always use the in-app **Quit** / window close button (the app intercepts `preventClose` and performs a clean `checkpoint()` + `stopKobold()` + `EmbeddingSidecar` shutdown).
-   - Avoid killing the process with Task Manager / `kill -9` while a generation or cloud sync is in progress.
-   - Cloud sync also creates a backup immediately before downloading a remote DB.
+Beta and nightly builds are **fully isolated** from stable on purpose: separate `FrontPorchAI-Beta` folder, separate settings, separate models. A beta can never damage your stable library — but it also means:
 
-After a successful restore you may still need to re-index RAG (`Settings → Memory → Rebuild Embeddings`).
+- Characters don't automatically appear in both. (On first launch, a beta build may offer to import a copy of your stable data.)
+- Models must be downloaded in each, or copied between the two `models` folders by hand.
+- To move data manually: close both apps, copy the folder contents across, relaunch.
 
 ### Missing character images
 
-**Image handling (`CharacterRepository`, `StorageService.resolveCharacterImage`, `FileConsolidationService`):**
-
-- Character images (PNG/JPG) are stored inside `<data>/characters/<uuid>/` or referenced by absolute path in the DB.
-- **Path changed** (moved data folder, renamed drive, cloud sync between machines):
-  - The app attempts best-effort resolution. If the file is gone, the character card shows a placeholder silhouette.
-- **Fix**:
-  1. Open the character in the editor.
-  2. Re-upload the image (it will be copied into the correct per-character folder).
-- **Orphaned files**:
-  - The `FileConsolidationService` (run at every startup) cleans up stray images that no longer have a DB row.
-  - You can safely delete any `.png` files inside `characters/` that do not belong to a card you care about.
-
-Images are never deleted automatically when you delete a character (soft-delete first for 30 days), giving you a safety window.
-
-### Cloud sync failing
-
-**CloudSyncService + provider-specific logic (`GoogleDriveProvider`, `DatabaseMergeService`):**
-
-1. **Connection / auth failures**:
-   - Google Drive: re-authenticate (the OAuth token can expire). The app opens the browser consent screen.
-   - WebDAV: verify host, username, password, and that the target folder is writable. Use `https://` not `http://` unless you have a self-signed cert configured.
-
-2. **Schema version mismatch**:
-   - The app stores a `sync_version` in the DB. On major schema changes the merge service may refuse to import an older backup.
-   - Solution: update both machines to the exact same app version (including beta vs stable).
-
-3. **Conflict resolution**:
-   - When the same character/chat was edited on two devices, the `DatabaseMergeService` performs a last-writer-wins merge based on `updated_at` timestamps + UUIDs.
-   - If a conflict is detected you will see a "Reunification" overlay after sync (`DbReunificationService`).
-   - Choose which version to keep per item or let the newest win.
-
-4. **Diagnostic steps**:
-   - Open **Settings → Cloud Sync → View Sync Log**.
-   - Common errors are printed with `[CloudSync]` tags.
-   - Before uploading, the app always runs `checkpoint()` to flush the WAL so the `.db` file on the server is self-contained.
-
-5. **Recovery**:
-   - Disconnect the provider, delete the remote `frontporch.db` (or rename it), then force a fresh upload from the "good" machine.
-
-Always keep at least one local backup before enabling sync on a new device.
-
-### Beta vs stable data confusion
-
-**Complete isolation logic (`StorageService`, `app_version.dart` `isPreRelease`):**
-
-- **Beta builds** (`0.9.8-Beta`, any version containing "-Beta"): use `~/Documents/FrontPorchAI-Beta` and all SharedPreferences keys are prefixed with `beta_`.
-- **Stable builds** (e.g. `0.9.8`): use `~/Documents/FrontPorchAI` with normal keys.
-
-This guarantees a beta tester never accidentally corrupts a stable user's characters, chats, or settings.
-
-**Rawhide / dev cloud sync isolation**:
-- Rawhide builds sync to their own remote namespace (`/FrontPorchAI-Rawhide`) instead of sharing `/FrontPorchAI` with Stable.
-- This prevents Rawhide changes (including deletions) from affecting Stable cloud data and vice versa.
-
-**Migration between them**:
-1. Close both apps.
-2. Copy the entire `FrontPorchAI-Beta` folder to `FrontPorchAI` (or vice-versa).
-3. Launch the target build.
-4. In Settings → Data Directory, point it at the copied folder if needed.
-
-**Note**: The two installs have completely separate KoboldCPP binaries, Kokoro models, embedding sidecars, and RAG indexes. You must re-download models in each.
-
-This design is deliberate and documented in `StorageService._init` and `Claude.md` / `AGENTS.md`. Never try to point a stable build at a beta folder without copying — the prefs keys will clash.
+If a character's portrait shows a placeholder silhouette, the image file moved or the data folder path changed. Open the character in the editor and re-add the image — it gets copied into the right place permanently.
 
 ---
 
-## Platform-Specific
+## Platform Notes
 
-### Linux: wpewebkit missing
+### Linux: character site browser won't open
 
-**In-app browser (Chub.ai import) requirement (`flutter_inappwebview` + `main_layout` / `home_page.dart`):**
+The in-app browser (for chub.ai and aicharactercards.com imports) needs **WPE WebKit**. If the browser fails to open, install your distro's `wpewebkit` package — or use the **AppImage**, which bundles it. You can always download cards in a normal browser and import the files instead.
 
-- The Chub.ai "Browse & Import" feature (`_openChubBrowser`) uses an embedded WebView.
-- On Linux this requires the WPE WebKit backend:
-  ```bash
-  sudo apt install wpewebkit-1.1 libwpewebkit-1.1-0
-  # or the older
-  sudo apt install libwpewebkit-1.0-0
-  ```
-- The official **AppImage** release bundles WPE and all other Linux deps — strongly recommended for users who don't want to manage native packages.
+### Linux: flickering or visual glitches
 
-If the browser button is grayed out or the import fails with a WebView initialization error, install the package and restart. You can still manually download character cards from Chub and drag them into the app.
+Almost always Wayland. Force X11 mode:
 
-### Linux: Wayland flickering
-
-**Display server workaround:**
-
-Flutter on Linux + GTK window manager sometimes exhibits flickering, black bars, or incorrect scaling under native Wayland.
-
-**Fix** (already documented in the placeholder and confirmed in practice):
 ```bash
-GDK_BACKEND=x11 ./Front_Porch_AI
+GDK_BACKEND=x11 ./front_porch_ai
 ```
 
-You can create a desktop entry or wrapper script that always sets this variable.
+If that cures it, bake the variable into your launcher or desktop entry.
 
-Many users report that the AppImage or a native `.deb` built against X11 works more reliably on hybrid Wayland/X11 distros (Ubuntu 22.04/24.04, Fedora, etc.). The `GDK_BACKEND=x11` trick forces the X11 backend and eliminates most visual glitches.
+### Linux: AMD GPU not being used
 
-### macOS: Apple Silicon performance
+For ROCm acceleration your user must be in the `render` and `video` groups:
 
-**M-series optimization (BackendManager + KoboldCPP mac arm64):**
+```bash
+sudo usermod -aG render,video $USER
+```
 
-- The release `.app` for Apple Silicon ships the `koboldcpp-mac-arm64` binary.
-- Metal GPU acceleration is **automatic** — no `--metal` flag is required or passed.
-- The app detects `uname -m` == `arm64` at startup and chooses the correct download URL.
+Log out and back in, then re-run hardware detection in Settings. If ROCm won't cooperate, the Vulkan fallback still gives good GPU acceleration on most AMD cards.
 
-**Tips for best performance**:
-- Use the native arm64 build (not the Intel Rosetta one).
-- Enable **Flash Attention** and **KV Quantization** in Settings → Advanced (both are supported on Metal).
-- Keep **mlock** enabled (default on macOS) to prevent the unified memory from paging model weights.
-- For very large models (70B+), reduce context size or GPU layers; the unified memory architecture is powerful but not unlimited.
+### macOS: "damaged" warning, and Intel Macs
 
-If you see "Intel Mac" warnings, you are running the x64 build under Rosetta — download the arm64 DMG or build from source on an M-chip machine.
+- **"App is damaged and can't be opened":** you shouldn't see this on current releases — Front Porch AI is code-signed and **notarized by Apple**, so Gatekeeper opens it cleanly. If it appears you're probably on an old build: grab the current `.pkg` installer from the [Releases page](https://github.com/linux4life1/front-porch-AI/releases). As a last resort you can clear the quarantine flag:
+  ```bash
+  xattr -cr "/Applications/FrontPorchAI.app"
+  ```
+  (Adjust the app name/path to match yours.)
+- **Intel Macs:** local AI models aren't supported (Apple Silicon's Metal acceleration is required) — the app runs fine in **Remote API mode** with OpenRouter or similar.
+- **Apple Silicon tips:** Metal acceleration is automatic. Memory is shared between CPU and GPU, so close heavy apps when running larger models, and prefer Q4/Q5 versions.
 
-### Windows: Antivirus false positive
+### Windows: antivirus false positive
 
-**Why it happens**:
+Unsigned open-source AI executables get flagged sometimes — the app and its AI engine aren't signed with an expensive corporate certificate, and antivirus vendors are jumpy about anything that runs models.
 
-- The Windows release ships `koboldcpp.exe` (downloaded from the official KoboldCPP GitHub) plus the app's own `Front_Porch_AI.exe`.
-- Neither binary is code-signed with an EV certificate (expensive for an open-source AGPL project).
-- Windows Defender, Malwarebytes, Avast, etc. frequently flag unsigned AI/LLM executables.
-
-**Fix**:
-1. When Windows Defender blocks the download or the first launch, click "More info" → "Run anyway".
-2. Add an exclusion for the entire install folder:
-   - Windows Security → Virus & threat protection → Manage settings → Add or remove exclusions → Add the `Front Porch AI` folder and the `koboldcpp_bin` subfolder.
-3. For corporate / strict environments, build from source yourself (`flutter build windows`) and sign the binary with your own certificate.
-
-The source code is fully public on GitHub; the binaries contain only what is described in the build scripts. No telemetry or hidden miners are present.
+1. If SmartScreen blocks the first launch: **More info → Run anyway**.
+2. If your antivirus quarantines the AI engine: add an exclusion for the `FrontPorchAI` data folder (that's where the engine lives).
+3. Skeptical? Good instinct — the entire source code is [public on GitHub](https://github.com/linux4life1/front-porch-AI), and you can build it yourself.
 
 ---
 
 ## Getting More Help
 
-- [Discord Community](https://discord.gg/e4tET6rpdv) — live help from users and developers
-- [GitHub Issues](https://github.com/linux4life1/front-porch-AI/issues) — report bugs
-- [FAQ](faq.md) — answers to common questions
+- **[Discord](https://discord.gg/e4tET6rpdv)** — the fastest help, from me and from the community.
+- **[GitHub Issues](https://github.com/linux4life1/front-porch-AI/issues)** — for reproducible bugs.
+- **[FAQ](faq.md)** — for the "how does this work?" questions.
 
+When you ask, include: your OS, app version, what you did, what happened, and (ideally) the terminal output. That usually turns a week of guessing into a five-minute fix.

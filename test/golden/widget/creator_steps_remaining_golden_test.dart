@@ -26,8 +26,8 @@ library;
 //
 // Screens covered:
 //   SetupStep            — openRouter backend. LLMProvider is read at build
-//                          time (line 32 of setup_step.dart); kobold and
-//                          pseudoRemote branches are skipped when
+//                          time (line 32 of setup_step.dart); the kobold
+//                          branch is skipped when
 //                          activeBackend == BackendType.openRouter, so only
 //                          FakeLLMProvider is needed.
 //   GuidedConfigStep     — seeded CreatorState (guided mode). The sub-widget

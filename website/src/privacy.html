@@ -1,0 +1,60 @@
+<h1>Privacy Policy</h1>
+<p><em>Last updated: June 30, 2026</em></p>
+
+<h2>The short version</h2>
+<p>Front Porch AI is a free, open-source desktop app (AGPL-3.0). <strong>The app itself is local-first: your characters, chats, lorebooks, settings, and models live on your device. Using the app offline collects nothing and sends us nothing.</strong></p>
+<p>There is <strong>one optional online feature — "The Stoop"</strong> (a community hub for sharing AI character cards). The Stoop is the <em>only</em> part of Front Porch AI that uses an account or involves any data collection, and <strong>only if you choose to sign in and use it.</strong> Everything below about data collection applies to <strong>The Stoop only</strong>. If you never open The Stoop, none of it happens.</p>
+
+<h2>What stays entirely on your device (always)</h2>
+<p>Stored locally, in a folder you choose, and never collected or transmitted to us:</p>
+<ul>
+  <li>Character cards, chat logs, lorebooks, worlds, story projects</li>
+  <li>App settings, RAG memory / embeddings, and model (GGUF) files</li>
+</ul>
+<p><strong>Local AI models</strong> (KoboldCpp) run entirely on your hardware — no chat data leaves your machine. <strong>Text-to-speech / speech-to-text</strong> runs locally (Kokoro, Piper, Whisper); no audio is collected by us. <strong>Remote AI / TTS APIs</strong> (OpenRouter, Nano-GPT, OpenAI, etc.) are opt-in — if you configure one, your prompts/audio go to <em>that provider</em>, not to us; review their own privacy policy.</p>
+
+<h2>The Stoop (optional community hub) — what we collect, and why</h2>
+<p>The Stoop is a strictly-18+ community where people share AI character cards. Using it requires an account. When — and only when — you use The Stoop, we collect:</p>
+<p><strong>Account information</strong></p>
+<ul>
+  <li>Your email, a display name, your confirmation that you are 18 or older, and a securely <strong>hashed</strong> password (your password is never stored in readable form).</li>
+  <li>Your acceptance of the Acceptable Use Policy.</li>
+</ul>
+<p><strong>Content you choose to share</strong></p>
+<ul>
+  <li>Character / group cards and avatar images you upload — stored on our servers and S3-compatible object storage so others can browse and download them.</li>
+  <li>Your votes, your download history, reports you file, and messages between you and moderators.</li>
+</ul>
+<p><strong>An anti-abuse signal (a hashed IP — never the raw IP)</strong></p>
+<ul>
+  <li>On sign-up and sign-in we record a <strong>salted, one-way hash of your IP address</strong> (we do <strong>not</strong> store the raw IP) alongside a random per-install identifier. This is used <strong>only</strong> to enforce bans and to detect ban-evasion and coordinated vote-brigading. These signals are automatically deleted after a limited retention window (currently 90 days).</li>
+</ul>
+<p><strong>Anonymous app analytics — opt-out, on by default</strong></p>
+<ul>
+  <li>So we can see what platforms, app versions, and hardware the community runs (and prioritize development accordingly), the app sends a once-per-launch, <strong>anonymous</strong> ping containing only coarse device facts: operating system + version, app version, language/locale, and a coarse GPU tier (e.g. "NVIDIA · 8–12 GB").</li>
+  <li>It contains <strong>no chats, no characters, and no IP address.</strong></li>
+  <li>It is <strong>opt-out</strong>: on by default, but you can turn it off right on the sign-up screen, or any time later in <strong>Account → "Share anonymous analytics."</strong> When it's off, no ping is ever sent.</li>
+</ul>
+
+<h2>NSFW content</h2>
+<p>Adult content is <strong>hidden by default.</strong> You only see it if you explicitly opt in via <strong>Account → "Show NSFW content."</strong></p>
+
+<h2>Your controls</h2>
+<ul>
+  <li><strong>Delete your account</strong> at any time (<strong>Account → "Delete my account"</strong>). This permanently erases your account, your uploaded characters, your votes, and your messages.</li>
+  <li>Toggle analytics off, toggle NSFW off, enable optional two-factor authentication, or change your display name — all from the account menu.</li>
+  <li>Simply not using The Stoop keeps the entire app local and silent.</li>
+</ul>
+
+<h2>What we do <em>not</em> do</h2>
+<ul>
+  <li>We do not sell your data.</li>
+  <li>We do not use third-party advertising/tracking SDKs, behavioral profiling, or crash-reporting services.</li>
+  <li>We do not store raw IP addresses, and the analytics ping never includes your IP, your chats, or your characters.</li>
+</ul>
+
+<h2>Changes to this policy</h2>
+<p>The "Last updated" date reflects the current version. Material changes to how The Stoop handles data are also surfaced in-app through the Acceptable Use Policy, which you re-accept whenever it changes.</p>
+
+<h2>Contact</h2>
+<p>If you have questions about this privacy policy, please open an issue on the <a href="https://github.com/linux4life1/front-porch-AI" target="_blank" rel="noopener">GitHub repository</a>.</p>

@@ -40,12 +40,16 @@ void main() {
       );
       final json = entry.toJson();
       expect(json['name'], 'Test Entry');
-      expect(json['key'], 'hello,hi');
       expect(json['keys'], ['hello', 'hi']);
+      expect(json['secondary_keys'], isEmpty);
       expect(json['content'], 'A greeting rule');
       expect(json['enabled'], true);
       expect(json['constant'], true);
       expect(json['sticky_depth'], 3);
+      // ST-parity fields ride the blob with their defaults.
+      expect(json['order'], 100);
+      expect(json['probability'], 100);
+      expect(json['selective_logic'], SelectiveLogic.andAny);
     });
 
     test('toJson trims and filters empty keys', () {
@@ -99,10 +103,13 @@ void main() {
       expect(entry.stickyDepth, 1);
     });
 
-    test('fromJson handles insertion_order fallback for stickyDepth', () {
+    test('fromJson reads insertion_order as order, never stickyDepth', () {
+      // The old importer coerced insertion_order into stickyDepth, making
+      // imported entries linger for dozens of turns. It is ordering data.
       final json = {'key': 'test', 'content': 'content', 'insertion_order': 5};
       final entry = LorebookEntry.fromJson(json);
-      expect(entry.stickyDepth, 5);
+      expect(entry.order, 5);
+      expect(entry.stickyDepth, 1);
     });
 
     test('round-trip preserves data', () {
@@ -278,12 +285,12 @@ void main() {
       expect(lorebook.entries[0].constant, true);
       expect(lorebook.entries[0].enabled, true);
 
-      // Entry 1: keys from key[] + keysecondary[]
+      // Entry 1: key[] stays primary; keysecondary[] stays secondary —
+      // merging them (the old behavior) turned AND conditions into OR.
       expect(lorebook.entries[1].name, 'Terran traits');
-      expect(lorebook.entries[1].key.contains('Terran'), true);
-      expect(lorebook.entries[1].key.contains('Empire'), true);
-      expect(lorebook.entries[1].key.contains('blue eyes'), true);
-      expect(lorebook.entries[1].key.contains('fair skin'), true);
+      expect(lorebook.entries[1].keys, ['Terran', 'Empire']);
+      expect(lorebook.entries[1].secondaryKeys, ['blue eyes', 'fair skin']);
+      expect(lorebook.entries[1].key.contains('blue eyes'), false);
       expect(lorebook.entries[1].constant, false);
       expect(lorebook.entries[1].enabled, true);
     });
@@ -357,21 +364,32 @@ void main() {
         final lorebook = Lorebook.fromJson(json);
         expect(lorebook.entries.length, 2);
 
-        // Entry 1: Teyvat
+        // Entry 1: Teyvat — secondaries separate, ST metadata read faithfully
         expect(lorebook.entries[0].name, 'Teyvat');
-        expect(lorebook.entries[0].key.contains('Teyvat'), true);
-        expect(lorebook.entries[0].key.contains('Continent'), true);
-        expect(lorebook.entries[0].key.contains('Place'), true);
+        expect(lorebook.entries[0].keys, ['Teyvat']);
+        expect(lorebook.entries[0].secondaryKeys, ['Continent', 'Place']);
         expect(lorebook.entries[0].content.contains('continent'), true);
         expect(lorebook.entries[0].enabled, true);
         expect(lorebook.entries[0].constant, false);
+        expect(lorebook.entries[0].order, 10);
+        expect(lorebook.entries[0].position, 1);
+        expect(lorebook.entries[0].excludeRecursion, true);
+        expect(lorebook.entries[0].probability, 100);
+        expect(lorebook.entries[0].stickyDepth, 1);
 
         // Entry 2: Mora
         expect(lorebook.entries[1].name, 'Mora');
-        expect(lorebook.entries[1].key.contains('Mora'), true);
-        expect(lorebook.entries[1].key.contains('trade'), true);
-        expect(lorebook.entries[1].key.contains('currency'), true);
+        expect(lorebook.entries[1].keys, ['Mora']);
+        expect(
+          lorebook.entries[1].secondaryKeys,
+          ['trade', 'barter', 'Money', 'currency'],
+        );
         expect(lorebook.entries[1].enabled, true);
+
+        // Book-level Chub metadata survives too.
+        expect(lorebook.scanDepth, 4);
+        expect(lorebook.tokenBudget, 530);
+        expect(lorebook.recursiveScanning, true);
       },
     );
 
@@ -470,30 +488,28 @@ void main() {
       expect(entry.key, 'alpha, beta');
     });
 
-    test('merges keys and secondary_keys (Chub)', () {
+    test('keeps keys and secondary_keys separate (Chub)', () {
       final json = {
         'keys': ['primary'],
         'secondary_keys': ['secondary1', 'secondary2'],
         'content': 'Content',
       };
       final entry = LorebookEntry.fromJson(json);
-      expect(entry.key.contains('primary'), true);
-      expect(entry.key.contains('secondary1'), true);
-      expect(entry.key.contains('secondary2'), true);
+      expect(entry.keys, ['primary']);
+      expect(entry.secondaryKeys, ['secondary1', 'secondary2']);
     });
 
-    test('merges key and keysecondary (SillyTavern)', () {
+    test('keeps key and keysecondary separate (SillyTavern)', () {
       final json = {
         'key': ['primary'],
         'keysecondary': ['secondary1', 'secondary2'],
-        'comment': 'Merged keys',
+        'comment': 'Separate keys',
         'content': 'Content',
       };
       final entry = LorebookEntry.fromJson(json);
-      expect(entry.name, 'Merged keys');
-      expect(entry.key.contains('primary'), true);
-      expect(entry.key.contains('secondary1'), true);
-      expect(entry.key.contains('secondary2'), true);
+      expect(entry.name, 'Separate keys');
+      expect(entry.keys, ['primary']);
+      expect(entry.secondaryKeys, ['secondary1', 'secondary2']);
     });
 
     test('uses comment as name fallback (SillyTavern)', () {
@@ -517,34 +533,116 @@ void main() {
       expect(entry.name, 'Name field');
     });
 
-    test('handles depth field for stickyDepth (SillyTavern)', () {
+    test('ST depth stays depth — never coerced into stickyDepth', () {
       final json = {
         'key': ['test'],
         'content': 'Content',
         'depth': 8,
       };
       final entry = LorebookEntry.fromJson(json);
-      expect(entry.stickyDepth, 8);
+      expect(entry.depth, 8);
+      expect(entry.stickyDepth, 1);
     });
 
-    test('handles sticky field for stickyDepth', () {
+    test('ST sticky timer stays sticky — never coerced into stickyDepth', () {
       final json = {
         'key': ['test'],
         'content': 'Content',
         'sticky': 3,
       };
       final entry = LorebookEntry.fromJson(json);
-      expect(entry.stickyDepth, 3);
+      expect(entry.sticky, 3);
+      expect(entry.stickyDepth, 1);
     });
 
-    test('handles insertion_order for stickyDepth', () {
+    test('insertion_order maps to order — never stickyDepth', () {
       final json = {
         'key': ['test'],
         'content': 'Content',
         'insertion_order': 7,
       };
       final entry = LorebookEntry.fromJson(json);
-      expect(entry.stickyDepth, 7);
+      expect(entry.order, 7);
+      expect(entry.stickyDepth, 1);
+    });
+
+    test('parseKeyList keeps regex keys with commas atomic', () {
+      final keys = LorebookEntry.parseKeyList('/a{1,2}/i, dragon, /cave|den/');
+      expect(keys, ['/a{1,2}/i', 'dragon', '/cave|den/']);
+    });
+
+    test('unknown extension data survives a full round-trip', () {
+      final json = {
+        'keys': ['test'],
+        'content': 'Content',
+        'extensions': {'risu_case_sensitive': true, 'custom': 'thing'},
+      };
+      final restored =
+          LorebookEntry.fromJson(LorebookEntry.fromJson(json).toJson());
+      expect(restored.extensions['risu_case_sensitive'], true);
+      expect(restored.extensions['custom'], 'thing');
+    });
+
+    test('card-style extensions carry ST fields (camelCase interchange)', () {
+      final json = {
+        'keys': ['queen'],
+        'secondary_keys': ['court', 'throne'],
+        'selective': true,
+        'content': 'Content',
+        'extensions': {
+          'probability': 25,
+          'useProbability': true,
+          'selectiveLogic': 3,
+          'position': 4,
+          'depth': 6,
+          'role': 2,
+          'sticky': 3,
+          'cooldown': 5,
+          'group': 'weather',
+          'match_whole_words': false,
+        },
+      };
+      final entry = LorebookEntry.fromJson(json);
+      expect(entry.probability, 25);
+      expect(entry.selectiveLogic, SelectiveLogic.andAll);
+      expect(entry.position, 4);
+      expect(entry.depth, 6);
+      expect(entry.role, 2);
+      expect(entry.sticky, 3);
+      expect(entry.cooldown, 5);
+      expect(entry.group, 'weather');
+      expect(entry.matchWholeWords, false);
+    });
+
+    test('injectableContent strips V3 decorator lines, content keeps them', () {
+      final entry = LorebookEntry(
+        keys: const ['vale'],
+        content: '@@depth 2\n@@role assistant\nThe Vale is quiet.',
+      );
+      expect(entry.injectableContent, 'The Vale is quiet.');
+      expect(entry.content.contains('@@depth 2'), true);
+    });
+
+    test('clone carries every field for edit-path preservation', () {
+      final entry = LorebookEntry.fromJson({
+        'keys': ['a'],
+        'keysecondary': ['b'],
+        'content': 'c',
+        'probability': 30,
+        'order': 7,
+        'position': 4,
+        'sticky': 2,
+        'extensions': {'foreign': 1},
+      });
+      final copy = entry.clone();
+      copy.name = 'edited';
+      expect(copy.probability, 30);
+      expect(copy.order, 7);
+      expect(copy.position, 4);
+      expect(copy.sticky, 2);
+      expect(copy.secondaryKeys, ['b']);
+      expect(copy.extensions['foreign'], 1);
+      expect(entry.name, ''); // clone is a copy, not a reference
     });
 
     test('handles null values gracefully', () {

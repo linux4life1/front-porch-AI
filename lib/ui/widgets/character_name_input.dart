@@ -65,7 +65,7 @@ class CharacterNameInput extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.blueAccent),
+              borderSide: const BorderSide(color: AppColors.formMasterAccent),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,

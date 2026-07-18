@@ -1,0 +1,266 @@
+/* Copyright (C) 2026 Front Porch AI
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * Porch Stories (WS-J) styles. Scoped to story pages and imported from the
+ * story .tsx files (never from the shared styles.css / App.tsx). All colors are
+ * declared as tokens in this :root block first, then referenced via var(...) —
+ * no raw hex outside :root, matching the project CSS policy. */
+
+:root {
+  /* Paper book reader aesthetic (warm parchment + ink). */
+  --story-paper: #f5e6d3;
+  --story-paper-edge: #e8d5bd;
+  --story-ink: #3a2a1a;
+  --story-ink-soft: #6b5840;
+  --story-wood: #2c1810;
+  --story-wood-edge: #5a3a25;
+  --story-gold: #ffca28;
+
+  /* Beat-type badges (mirror the desktop _beatTypeColor accents). */
+  --beat-action: #ff5252;
+  --beat-reaction: #448aff;
+  --beat-dialogue: #ffd740;
+  --beat-revelation: #e040fb;
+  --beat-resolution: #69f0ae;
+  --beat-default: rgba(255, 255, 255, 0.45);
+
+  /* Library-card status tones. */
+  --story-status-prose: #69f0ae;
+  --story-status-scenes: #448aff;
+  --story-status-acts: #b388ff;
+  --story-status-bible: #ffab40;
+  --story-status-new: rgba(255, 255, 255, 0.45);
+
+  /* Valence sparkline. */
+  --story-val-pos: #4ade80;
+  --story-val-neg: #ff6b6b;
+}
+
+/* ── Setup: option tiles + roles ─────────────────────────────────────────── */
+.opt-tiles { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 4px; }
+.opt-tile {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: 8px 12px; border-radius: var(--radius); cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+}
+.opt-tile:hover { border-color: var(--accent); }
+.opt-tile.on { border-color: var(--accent); background: rgba(244, 162, 89, 0.14); }
+.opt-tile .opt-title { font-weight: 600; font-size: 0.9rem; }
+.opt-tile .opt-desc { font-size: 0.78rem; color: var(--muted); }
+
+.cast-role-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.cast-role-row:last-child { border-bottom: none; }
+.cast-role-row .cast-name { font-weight: 600; flex: 1; min-width: 120px; }
+.cast-role-row select, .persona-role select {
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 4px 8px; font-size: 0.85rem;
+}
+.persona-role { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+.archetype-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.archetype-refresh {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 0.8rem; padding: 4px 6px;
+}
+.archetype-refresh:hover { color: var(--text); }
+
+/* ── Dashboard: cast voices, knots, editable acts, distill panel ─────────── */
+.cast-voice-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.cast-voice-row:last-child { border-bottom: none; }
+.cast-voice-row .cast-name { font-weight: 600; min-width: 120px; }
+.cast-voice-row .cast-role { color: var(--muted); font-size: 0.8rem; }
+.cast-voice-row select {
+  margin-left: auto; background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; font-size: 0.85rem;
+}
+
+.knot-list { margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.knot-row { font-size: 0.82rem; color: var(--muted); }
+.knot-row strong { color: var(--text); }
+
+.act-edit { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.act-edit:last-child { border-bottom: none; }
+.act-edit input, .act-edit textarea {
+  width: 100%; background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; margin-top: 4px;
+  font: inherit; resize: vertical;
+}
+.act-edit .act-edit-label { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+
+.distill-panel { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.distill-head {
+  display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+  cursor: pointer; background: none; border: none; width: 100%; color: var(--text); text-align: left;
+}
+.distill-badge { font-size: 0.72rem; padding: 1px 8px; border-radius: 999px; }
+.distill-badge.ok { background: rgba(105, 240, 174, 0.18); color: var(--ok); }
+.distill-badge.none { background: rgba(255, 171, 64, 0.18); color: var(--story-status-bible); }
+.distill-tabs { display: flex; gap: 8px; align-items: center; padding: 8px 14px 0; }
+.distill-tab {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  padding: 4px 8px; border-radius: 8px; font-size: 0.85rem;
+}
+.distill-tab.on { background: var(--surface-2); color: var(--text); }
+.distill-body {
+  max-height: 360px; overflow: auto; padding: 10px 14px 14px;
+  white-space: pre-wrap; font-size: 0.85rem; color: var(--muted); line-height: 1.55;
+}
+.distill-msg { display: flex; gap: 8px; padding: 3px 0; font-size: 0.82rem; }
+.distill-msg.user { color: var(--ok); }
+.distill-sep { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+/* Audiobook compile progress. */
+.ab-progress { display: flex; flex-direction: column; gap: 6px; }
+.ab-bar { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.ab-bar > span { display: block; height: 100%; background: var(--accent-amber); transition: width 0.3s; }
+
+/* ── Library card extras ─────────────────────────────────────────────────── */
+.story-status { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; }
+.story-tier {
+  font-size: 0.7rem; padding: 1px 8px; border-radius: 999px;
+  background: var(--surface-2); color: var(--muted); align-self: flex-start;
+}
+.story-card-actions { display: flex; gap: 6px; margin-top: 8px; }
+.export-pop { position: relative; }
+.export-menu {
+  position: absolute; right: 0; bottom: calc(100% + 4px); z-index: 5;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  display: flex; flex-direction: column; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.export-menu button {
+  background: none; border: none; color: var(--text); text-align: left;
+  padding: 8px 12px; cursor: pointer; font-size: 0.85rem;
+}
+.export-menu button:hover { background: var(--surface-2); }
+
+/* ── Structure: cast names, valence sparkline, completion ────────────────── */
+.scene-cast { color: var(--muted); font-size: 0.78rem; }
+.scene-complete {
+  font-size: 0.7rem; padding: 1px 8px; border-radius: 999px;
+  background: rgba(105, 240, 174, 0.18); color: var(--ok);
+}
+.valence-spark { display: inline-flex; align-items: flex-end; gap: 2px; height: 22px; }
+.valence-spark > i {
+  width: 5px; border-radius: 2px; display: block;
+  background: var(--story-val-pos);
+}
+.valence-spark > i.neg { background: var(--story-val-neg); }
+
+/* ── Writer: beat badges, pacing/valence, copy ───────────────────────────── */
+.beat-badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.beat-type {
+  font-size: 0.7rem; padding: 1px 8px; border-radius: 999px; font-weight: 600;
+  background: var(--beat-default); color: var(--bg);
+}
+.beat-type.action { background: var(--beat-action); }
+.beat-type.reaction { background: var(--beat-reaction); }
+.beat-type.dialogue { background: var(--beat-dialogue); }
+.beat-type.revelation { background: var(--beat-revelation); }
+.beat-type.resolution { background: var(--beat-resolution); }
+.beat-meta { font-size: 0.72rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.beat-actions { display: flex; gap: 6px; align-items: center; }
+.scene-menu { position: relative; }
+
+/* ── Reader: paper book ──────────────────────────────────────────────────── */
+.story-reader { display: flex; flex-direction: column; gap: 8px; }
+.reader-bar { display: flex; align-items: center; gap: 8px; }
+.reader-bar h2 { flex: 1; font-size: 1.05rem; margin: 0; }
+.reader-bar .icon-btn.on { color: var(--story-gold); }
+
+.book-wrap {
+  height: min(72vh, 880px); display: flex; align-items: stretch; justify-content: center;
+  background: var(--story-wood); border-radius: var(--radius); padding: 16px; overflow: hidden;
+}
+.book-page {
+  position: relative; width: 100%; max-width: 640px; height: 100%;
+  background: var(--story-paper);
+  background-image: linear-gradient(105deg, var(--story-paper-edge), var(--story-paper) 8%);
+  border-radius: 4px; overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+.book-flow {
+  position: absolute; top: 32px; bottom: 32px; left: 36px; right: 36px;
+  color: var(--story-ink); font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1rem; line-height: 1.7; transition: transform 0.32s ease;
+  overflow: visible; column-fill: auto;
+}
+.book-flow p { margin: 0 0 0.9em; text-indent: 1.3em; white-space: pre-wrap; }
+.book-cover, .book-act, .book-end {
+  break-before: column; break-after: column; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 10px;
+}
+.book-cover h1 { font-size: 1.8rem; margin: 0; }
+.book-cover .byline { font-style: italic; color: var(--story-ink-soft); }
+.book-cover .concept { font-size: 0.95rem; color: var(--story-ink-soft); text-indent: 0; }
+.book-act .act-kicker { letter-spacing: 3px; text-transform: uppercase; font-size: 0.8rem; color: var(--story-ink-soft); }
+.book-act h2 { font-size: 1.5rem; margin: 0; }
+.book-act .act-desc { font-style: italic; color: var(--story-ink-soft); text-indent: 0; }
+.book-end h2 { font-size: 1.6rem; margin: 0; }
+.book-scene { break-before: column; }
+.book-scene .scene-h { text-align: center; margin: 0 0 0.4em; }
+.book-scene .scene-h h3 { margin: 0; font-size: 1.15rem; }
+.book-scene .scene-h .scene-loc { font-size: 0.8rem; color: var(--story-ink-soft); font-style: italic; }
+
+.reader-foot { display: flex; align-items: center; gap: 12px; }
+.reader-foot .page-ind { font-size: 0.8rem; color: var(--muted); min-width: 90px; text-align: center; }
+.reader-prog { flex: 1; height: 5px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.reader-prog > span { display: block; height: 100%; background: var(--accent); }
+.reader-nav-btn { font-size: 1.1rem; padding: 6px 12px; }
+
+/* Reading status (read-to-me). */
+.read-status {
+  display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted);
+  padding: 4px 10px;
+}
+.read-status .read-buf {
+  font-size: 0.7rem; padding: 1px 8px; border-radius: 999px;
+  background: var(--surface-2); color: var(--muted);
+}
+
+/* Table of contents drawer. */
+.toc-scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 40; }
+.toc {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 85vw); z-index: 41;
+  background: var(--story-wood); color: var(--story-paper);
+  display: flex; flex-direction: column; box-shadow: -8px 0 24px rgba(0,0,0,0.5);
+}
+.toc-head { padding: 20px 18px 14px; border-bottom: 1px solid var(--story-wood-edge); }
+.toc-head .toc-title { font-family: Georgia, serif; font-weight: 700; font-size: 1.1rem; }
+.toc-head .toc-sub { font-size: 0.72rem; letter-spacing: 2px; opacity: 0.55; }
+.toc-list { flex: 1; overflow: auto; padding: 8px 0; }
+.toc-entry {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; border: none; color: var(--story-paper); cursor: pointer;
+  font-family: Georgia, serif; padding: 6px 18px; text-align: left; font-size: 0.85rem;
+}
+.toc-entry.act { font-weight: 600; padding-top: 12px; }
+.toc-entry.scene { padding-left: 36px; opacity: 0.85; font-size: 0.82rem; }
+.toc-entry.current { color: var(--story-gold); background: rgba(90, 58, 37, 0.4); }
+.toc-entry .toc-num { margin-left: auto; opacity: 0.4; font-size: 0.72rem; }
+.toc-entry:hover { background: rgba(90, 58, 37, 0.3); }
+
+/* ── Phone reader: keep the bar one row + give the page real height ──────── */
+@media (max-width: 768px) {
+  /* The back button already carries the title; hide the duplicate <h2> so the
+     bar stays a single row instead of collapsing the title into a vertical
+     one-letter-per-line strip that eats the whole screen. */
+  .reader-bar h2 { display: none; }
+  .reader-bar .ghost {
+    flex: 1 1 auto; min-width: 0; text-align: left;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* With the bar compact again, the paper page reclaims the vertical space. */
+  .book-wrap { height: 76vh; padding: 10px; }
+  .book-page { max-width: 100%; }
+  /* Tighter page margins + slightly larger type for comfortable phone reading
+     (.book-flow is absolutely inset, not padded). */
+  .book-flow { font-size: 1.08rem; line-height: 1.75; top: 22px; bottom: 22px; left: 20px; right: 20px; }
+  .reader-foot .page-ind { min-width: 0; }
+}

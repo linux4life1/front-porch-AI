@@ -17,6 +17,10 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:front_porch_ai/app_version.dart';
+import 'package:front_porch_ai/services/engine_health.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/sidebar.dart';
 import 'package:front_porch_ai/ui/pages/home_page.dart';
 import 'package:front_porch_ai/ui/pages/create_character_page.dart';
@@ -24,7 +28,6 @@ import 'package:front_porch_ai/ui/pages/model_manager_page.dart';
 import 'package:front_porch_ai/ui/pages/settings_page.dart';
 import 'package:front_porch_ai/ui/pages/user_persona_page.dart';
 import 'package:front_porch_ai/ui/pages/world_management_page.dart';
-import 'package:front_porch_ai/ui/pages/cloud_sync_page.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 
@@ -43,8 +46,54 @@ class _MainLayoutState extends State<MainLayout> {
     const SettingsPage(),
     const UserPersonaPage(),
     const WorldManagementPage(),
-    const CloudSyncPage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-release builds surface the first unexpected engine failure of the
+    // session as a report-it notice: a quietly-broken engine is otherwise
+    // indistinguishable from a working one (sidecar retirement playbook),
+    // and users only report what visibly breaks.
+    EngineHealth.instance.onFirstFailure = _showEngineFailureNotice;
+  }
+
+  @override
+  void dispose() {
+    if (EngineHealth.instance.onFirstFailure == _showEngineFailureNotice) {
+      EngineHealth.instance.onFirstFailure = null;
+    }
+    super.dispose();
+  }
+
+  void _showEngineFailureNotice(String engine, String reason) {
+    if (!isPreRelease || !mounted) return;
+    // Engines report from service code that may be mid-frame; defer so the
+    // snackbar never fires during a build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.porchAmberOf(context),
+          duration: const Duration(seconds: 10),
+          // Without persist:false, action snackbars never auto-dismiss.
+          persist: false,
+          content: Text(
+            '⚠️ $engine hit an engine error — please report this on '
+            'Discord.',
+            style: const TextStyle(color: AppColors.onChaosAccent),
+          ),
+          action: SnackBarAction(
+            label: 'Copy details',
+            textColor: AppColors.onChaosAccent,
+            onPressed: () => Clipboard.setData(
+              ClipboardData(text: EngineHealth.instance.buildReport()),
+            ),
+          ),
+        ),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

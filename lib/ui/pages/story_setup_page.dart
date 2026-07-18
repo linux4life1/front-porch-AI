@@ -9,7 +9,7 @@
 // (at your option) any later version.
 //
 // Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// but WITHOUT ANY WARRANTY, without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 //
@@ -18,17 +18,26 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/services/story_repository.dart';
-import 'package:front_porch_ai/services/story_pipeline_service.dart';
-import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
-import 'package:front_porch_ai/services/user_persona_service.dart';
-import 'package:front_porch_ai/models/story_project.dart';
-import 'package:front_porch_ai/models/character_card.dart';
-import 'package:front_porch_ai/ui/pages/story_dashboard_page.dart';
-import 'package:path/path.dart' as p;
 
-/// Setup page for a new Porch Story with comprehensive customization options.
+import 'package:front_porch_ai/models/story_project.dart';
+import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/story_repository.dart';
+import 'package:front_porch_ai/services/user_persona_service.dart';
+import 'package:front_porch_ai/ui/pages/story_dashboard_page.dart';
+import 'package:front_porch_ai/ui/story_setup/cast_step.dart';
+import 'package:front_porch_ai/ui/story_setup/concept_step.dart';
+import 'package:front_porch_ai/ui/story_setup/format_step.dart';
+import 'package:front_porch_ai/ui/story_setup/setup_widgets.dart';
+import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
+import 'package:front_porch_ai/ui/story_setup/style_step.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/ai_engine_status_card.dart';
+
+/// New-story wizard — the standard creation-wizard shell (top-bar step dots +
+/// linear progression, same pattern as `create_character_page.dart`), warm
+/// porch throughout. Step one puts the AI engine front and center: stories
+/// need a running, model-loaded backend, and this is where you see and fix
+/// that before investing in a setup.
 class StorySetupPage extends StatefulWidget {
   final String projectId;
   const StorySetupPage({super.key, required this.projectId});
@@ -38,1329 +47,412 @@ class StorySetupPage extends StatefulWidget {
 }
 
 class _StorySetupPageState extends State<StorySetupPage> {
-  // ── Basic Info ──
-  final _titleController = TextEditingController();
-  final _conceptController = TextEditingController();
-  List<Map<String, String>> _archetypes = [];
+  final _draft = StorySetupDraft();
+  int _currentStep = 0;
 
-  // ── Story Customization ──
-  String _pov = 'Third Person Limited';
-  int _actCount = 3;
-  final Set<String> _selectedGenres = {};
-  final Set<String> _selectedMoods = {};
-  String _writingStyle = '';
-  String _proseLength = 'Standard';
-  String _narrativePace = 'Balanced';
-  String _dialogueDensity = 'Balanced';
-  String _maturityRating = 'Mature';
-
-  // ── AI Config ──
-  PromptTier _selectedTier = PromptTier.frontier;
-  bool _useChatHistory = false;
-  bool _parallelGeneration = false;
-  final Set<String> _selectedCharacterIds = {};
-  final Map<String, String> _characterRoles = {}; // charDbId -> role
-  bool _includeUserPersona = false;
-  String _userPersonaRole = 'Protagonist';
-
-  static const _roleOptions = [
-    'Protagonist',
-    'Antagonist',
-    'Supporting',
-    'Love Interest',
-    'Mentor',
+  static const _stepLabels = [
+    'Engine',
+    'Concept',
+    'Style',
+    'Format',
+    'Cast',
+    'Review',
   ];
-
-  // ── Option Lists ──
-  static const _povOptions = [
-    'First Person',
-    'Third Person Limited',
-    'Third Person Omniscient',
-  ];
-
-  static const _genreOptions = [
-    'Fantasy',
-    'Sci-Fi',
-    'Romance',
-    'Thriller',
-    'Horror',
-    'Literary Fiction',
-    'Mystery',
-    'Historical',
-    'Comedy',
-    'Drama',
-    'Adventure',
-    'Dystopian',
-    'Paranormal',
-    'Western',
-    'Slice of Life',
-  ];
-
-  static const _moodOptions = [
-    'Dark',
-    'Light',
-    'Gritty',
-    'Whimsical',
-    'Melancholy',
-    'Tense',
-    'Hopeful',
-    'Bittersweet',
-    'Eerie',
-    'Nostalgic',
-    'Epic',
-    'Intimate',
-    'Satirical',
-  ];
-
-  static const _writingStyles = [
-    'Minimalist',
-    'Lyrical/Poetic',
-    'Pulpy/Action',
-    'Literary',
-    'Conversational',
-    'Gothic',
-    'Hardboiled',
-    'Philosophical',
-    'Cinematic',
-    'Fairy-Tale',
-  ];
-
-  static const _proseLengths = {
-    'Short': 'Novella (~20K words)',
-    'Standard': 'Novel (~50K words)',
-    'Epic': 'Long novel (~80K+ words)',
-  };
-
-  static const _paceOptions = {
-    'Slow Burn': 'Atmospheric, detailed worldbuilding',
-    'Balanced': 'Mix of action and reflection',
-    'Fast-Paced': 'Tight scenes, rapid plot movement',
-  };
-
-  static const _dialogueOptions = {
-    'Sparse': 'Mostly narrative prose',
-    'Balanced': 'Even mix of dialogue and prose',
-    'Dialogue-Heavy': 'Character-driven, lots of conversation',
-  };
-
-  static const _maturityOptions = {
-    'Clean': 'All ages, no violence or language',
-    'Mature': 'Adult themes, moderate violence',
-    'Explicit': 'Graphic content, no restrictions',
-  };
-
-  // ── Color palette ──
-  static const _bgDark = Color(0xFF0F172A);
-  static const _bgCard = Color(0xFF1E293B);
-  static const _accentAmber = Colors.amber;
 
   @override
   void initState() {
     super.initState();
-    _archetypes = StoryPipelineService.generateArchetypes(count: 6);
-    _loadProject();
-  }
-
-  void _loadProject() {
     final repo = Provider.of<StoryRepository>(context, listen: false);
+    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
     final project = repo.getById(widget.projectId);
-    if (project != null) {
-      _titleController.text = project.title;
-      _conceptController.text = project.concept;
-      _selectedTier = project.promptTier;
-      _useChatHistory = project.useChatHistory;
-      _parallelGeneration = project.parallelGeneration;
-      _selectedCharacterIds.addAll(project.chatHistoryCharacterIds);
-      _includeUserPersona = project.includeUserPersona;
-      _userPersonaRole = project.userPersonaRole;
-      // Restore roles from snapshots
-      for (final snap in project.characterCardSnapshots) {
-        final name = snap['name'] ?? '';
-        final role = snap['role'] ?? 'Supporting';
-        // Find the character ID by name
-        final charRepo = Provider.of<CharacterRepository>(
-          context,
-          listen: false,
-        );
-        for (final c in charRepo.characters) {
-          if (c.dbId != null &&
-              c.name == name &&
-              _selectedCharacterIds.contains(c.dbId)) {
-            _characterRoles[c.dbId!] = role;
-          }
-        }
-      }
-      _pov = project.pov;
-      _actCount = project.actCount;
-      _selectedGenres.addAll(project.selectedGenres);
-      _selectedMoods.addAll(project.selectedMoods);
-      _writingStyle = project.writingStyle;
-      _proseLength = project.proseLength;
-      _narrativePace = project.narrativePace;
-      _dialogueDensity = project.dialogueDensity;
-      _maturityRating = project.maturityRating;
-    }
+    if (project != null) _draft.loadFrom(project, charRepo);
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _conceptController.dispose();
+    _draft.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgDark,
+      backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.auto_stories, color: Colors.amberAccent, size: 22),
-            SizedBox(width: 8),
-            Text('New Porch Story'),
+            Icon(
+              Icons.auto_stories,
+              color: AppColors.porchHoneyOf(context),
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            const Text('New Porch Story'),
+            const Spacer(),
+            _buildStepIndicator(),
           ],
         ),
-        backgroundColor: _bgCard,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.cardOf(context),
+        foregroundColor: AppColors.textPrimary(context),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ═══════════════════════════════════════
-                //  SECTION 1: Story Identity
-                // ═══════════════════════════════════════
-                _sectionHeader('Story Identity', Icons.edit_note),
-                const SizedBox(height: 12),
-                _buildTextField(_titleController, 'Story title...'),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  _conceptController,
-                  'What is the story about? Be as detailed as you want...\n\n'
-                  'Examples:\n'
-                  '\u2022 A cyberpunk heist gone wrong in neon-drenched Tokyo\n'
-                  '\u2022 A slow-burn romance between rival guild leaders\n'
-                  '\u2022 An ancient war told from both sides',
-                  maxLines: 5,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Quick concepts:',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ..._archetypes.map(
-                      (a) => _chipButton(
-                        a['label']!,
-                        isSelected: false,
-                        onTap: () => setState(
-                          () => _conceptController.text = a['value']!,
-                        ),
-                        color: Colors.amber,
-                      ),
-                    ),
-                    ActionChip(
-                      avatar: const Icon(
-                        Icons.refresh,
-                        size: 14,
-                        color: Colors.white54,
-                      ),
-                      label: const Text(
-                        'Refresh',
-                        style: TextStyle(fontSize: 11, color: Colors.white54),
-                      ),
-                      backgroundColor: Colors.transparent,
-                      side: BorderSide.none,
-                      onPressed: () => setState(
-                        () => _archetypes =
-                            StoryPipelineService.generateArchetypes(count: 6),
-                      ),
-                    ),
-                  ],
-                ),
-                _sectionDivider(),
-
-                // ═══════════════════════════════════════
-                //  SECTION 2: Point of View
-                // ═══════════════════════════════════════
-                _sectionHeader('Point of View', Icons.visibility),
-                const SizedBox(height: 8),
-                Text(
-                  'Choose who narrates the story',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _povOptions
-                      .map(
-                        (pov) => _radioChip(
-                          pov,
-                          isSelected: _pov == pov,
-                          onTap: () => setState(() => _pov = pov),
-                          color: Colors.cyan,
-                        ),
-                      )
-                      .toList(),
-                ),
-                _sectionDivider(),
-
-                // ═══════════════════════════════════════
-                //  SECTION 3: Genre & Mood
-                // ═══════════════════════════════════════
-                _sectionHeader('Genre', Icons.category),
-                const SizedBox(height: 8),
-                Text(
-                  'Select one or more genres to blend',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _genreOptions
-                      .map(
-                        (g) => _chipButton(
-                          g,
-                          isSelected: _selectedGenres.contains(g),
-                          onTap: () => setState(() {
-                            if (_selectedGenres.contains(g)) {
-                              _selectedGenres.remove(g);
-                            } else {
-                              _selectedGenres.add(g);
-                            }
-                          }),
-                          color: Colors.purple,
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 20),
-                _sectionHeader('Mood', Icons.palette),
-                const SizedBox(height: 8),
-                Text(
-                  'Set the emotional atmosphere',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _moodOptions
-                      .map(
-                        (m) => _chipButton(
-                          m,
-                          isSelected: _selectedMoods.contains(m),
-                          onTap: () => setState(() {
-                            if (_selectedMoods.contains(m)) {
-                              _selectedMoods.remove(m);
-                            } else {
-                              _selectedMoods.add(m);
-                            }
-                          }),
-                          color: Colors.teal,
-                        ),
-                      )
-                      .toList(),
-                ),
-                _sectionDivider(),
-
-                // ═══════════════════════════════════════
-                //  SECTION 4: Writing Preferences
-                // ═══════════════════════════════════════
-                _sectionHeader('Writing Style', Icons.brush),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _writingStyles
-                      .map(
-                        (s) => _radioChip(
-                          s,
-                          isSelected: _writingStyle == s,
-                          onTap: () => setState(
-                            () => _writingStyle = _writingStyle == s ? '' : s,
-                          ),
-                          color: Colors.deepOrange,
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 20),
-                _sectionHeader('Prose Length', Icons.format_size),
-                const SizedBox(height: 10),
-                ..._proseLengths.entries.map(
-                  (e) => _radioTile(
-                    e.key,
-                    e.value,
-                    isSelected: _proseLength == e.key,
-                    onTap: () => setState(() => _proseLength = e.key),
-                    color: Colors.indigo,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _sectionHeader('Narrative Pace', Icons.speed),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _paceOptions.entries
-                      .map(
-                        (e) => _radioChip(
-                          e.key,
-                          isSelected: _narrativePace == e.key,
-                          onTap: () => setState(() => _narrativePace = e.key),
-                          color: Colors.amber,
-                          subtitle: e.value,
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 20),
-                _sectionHeader('Dialogue Density', Icons.chat_bubble_outline),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _dialogueOptions.entries
-                      .map(
-                        (e) => _radioChip(
-                          e.key,
-                          isSelected: _dialogueDensity == e.key,
-                          onTap: () => setState(() => _dialogueDensity = e.key),
-                          color: Colors.lightBlue,
-                          subtitle: e.value,
-                        ),
-                      )
-                      .toList(),
-                ),
-                _sectionDivider(),
-
-                // ═══════════════════════════════════════
-                //  SECTION 5: Story Structure
-                // ═══════════════════════════════════════
-                _sectionHeader('Story Structure', Icons.account_tree),
-                const SizedBox(height: 12),
-                _buildActCountSlider(),
-                const SizedBox(height: 20),
-                _sectionHeader('Maturity Rating', Icons.shield_outlined),
-                const SizedBox(height: 10),
-                ..._maturityOptions.entries.map(
-                  (e) => _radioTile(
-                    e.key,
-                    e.value,
-                    isSelected: _maturityRating == e.key,
-                    onTap: () => setState(() => _maturityRating = e.key),
-                    color: e.key == 'Clean'
-                        ? Colors.green
-                        : e.key == 'Mature'
-                        ? Colors.orange
-                        : Colors.red,
-                  ),
-                ),
-                _sectionDivider(),
-
-                // ═══════════════════════════════════════
-                //  SECTION 6: AI Configuration
-                // ═══════════════════════════════════════
-                _sectionHeader('AI Configuration', Icons.settings_suggest),
-                const SizedBox(height: 12),
-                _buildTierSelector(),
-                const SizedBox(height: 16),
-                _buildToggleTile(
-                  'Chat History Integration',
-                  'Weave past character conversations into the story via RAG',
-                  Icons.history,
-                  _useChatHistory,
-                  Colors.blueAccent,
-                  (v) => setState(() => _useChatHistory = v),
-                ),
-                if (_useChatHistory) ...[
-                  const SizedBox(height: 12),
-                  _buildCharacterPicker(),
-                  if (_selectedCharacterIds.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _buildRoleAssignment(),
-                  ],
-                  const SizedBox(height: 12),
-                  _buildUserPersonaToggle(),
-                ],
-                const SizedBox(height: 12),
-                const SizedBox(height: 32),
-
-                // ═══════════════════════════════════════
-                //  ACTIONS
-                // ═══════════════════════════════════════
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white54,
-                      ),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: _conceptController.text.trim().isEmpty
-                          ? null
-                          : _startGeneration,
-                      icon: const Icon(Icons.auto_awesome),
-                      label: const Text('Generate Story Bible'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _accentAmber.shade800,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: Colors.white10,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-              ],
-            ),
-          ),
-        ),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: _buildStepBody(),
       ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  REUSABLE WIDGETS
-  // ═══════════════════════════════════════════════════════════
+  // ── Step indicator (create_character_page pattern) ────────────────────────
 
-  Widget _sectionHeader(String title, IconData icon) {
-    return Row(
+  Widget _buildStepIndicator() {
+    final children = <Widget>[];
+    for (var i = 0; i < _stepLabels.length; i++) {
+      if (i > 0) {
+        children.add(
+          Container(
+            width: 24,
+            height: 2,
+            margin: const EdgeInsets.only(bottom: 14),
+            color: AppColors.borderOf(context).withValues(alpha: 0.35),
+          ),
+        );
+      }
+      children.add(_stepDot(i, _stepLabels[i]));
+    }
+    return Row(mainAxisSize: MainAxisSize.min, children: children);
+  }
+
+  Widget _stepDot(int step, String label) {
+    final isActive = _currentStep >= step;
+    final isCurrent = _currentStep == step;
+    final accent = AppColors.porchHoneyOf(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: Colors.amberAccent, size: 20),
-        const SizedBox(width: 8),
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isActive ? accent : AppColors.surfaceContainerOf(context),
+            border: isCurrent
+                ? Border.all(color: AppColors.textPrimary(context), width: 2)
+                : Border.all(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.3),
+                  ),
+          ),
+          child: Center(
+            child: isActive && !isCurrent
+                ? Icon(
+                    Icons.check,
+                    size: 14,
+                    color: AppColors.resolve(
+                      context,
+                      AppColors.onChaosAccent,
+                      AppColors.userText,
+                    ),
+                  )
+                : Text(
+                    '${step + 1}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isActive
+                          ? AppColors.resolve(
+                              context,
+                              AppColors.onChaosAccent,
+                              AppColors.userText,
+                            )
+                          : AppColors.textTertiary(context),
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 2),
         Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: isActive
+                ? AppColors.textSecondary(context)
+                : AppColors.textTertiary(context),
           ),
         ),
       ],
     );
   }
 
-  Widget _sectionDivider() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Divider(color: Colors.white.withValues(alpha: 0.06)),
-    );
-  }
+  // ── Step bodies ────────────────────────────────────────────────────────────
 
-  Widget _buildTextField(
-    TextEditingController ctrl,
-    String hint, {
-    int maxLines = 1,
-  }) {
-    return AppTextField(
-      controller: ctrl,
-      maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
-      onChanged: (_) => setState(() {}),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white24),
-        filled: true,
-        fillColor: _bgCard,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: const EdgeInsets.all(16),
-      ),
-    );
-  }
+  Widget _buildStepBody() {
+    final Widget content;
+    switch (_currentStep) {
+      case 0:
+        content = _buildEngineStep();
+      case 1:
+        content = ConceptStep(
+          draft: _draft,
+          onChanged: () => setState(() {}),
+        );
+      case 2:
+        content = StyleStep(draft: _draft, onChanged: () => setState(() {}));
+      case 3:
+        content = FormatStep(draft: _draft, onChanged: () => setState(() {}));
+      case 4:
+        content = CastStep(draft: _draft, onChanged: () => setState(() {}));
+      default:
+        content = _buildReviewStep();
+    }
 
-  /// A selectable chip for multi-select options (genre, mood, features).
-  Widget _chipButton(
-    String label, {
-    required bool isSelected,
-    required VoidCallback onTap,
-    required MaterialColor color,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? color.shade800.withValues(alpha: 0.3) : _bgCard,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? color.shade400 : Colors.white12,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? color.shade200 : Colors.white60,
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+    return Center(
+      key: ValueKey('story-setup-step-$_currentStep'),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [content, _buildNavButtons()],
           ),
         ),
       ),
     );
   }
 
-  /// A radio-style chip for single-select options (POV, pace, dialogue, style).
-  Widget _radioChip(
-    String label, {
-    required bool isSelected,
-    required VoidCallback onTap,
-    required Color color,
-    String? subtitle,
-  }) {
-    final chipColor = color is MaterialColor ? color.shade400 : color;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? chipColor.withValues(alpha: 0.15) : _bgCard,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? chipColor : Colors.white12,
-            width: isSelected ? 2 : 1,
+  Widget _buildEngineStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SetupSectionHeader(
+          'AI Engine',
+          Icons.memory,
+          subtitle:
+              'Stories are written by the same AI backend as chat. It must be '
+              'running with a model loaded before anything can generate — '
+              'story writing works best with strong models (a remote API or '
+              'a large local model).',
+        ),
+        const SizedBox(height: 12),
+        const AiEngineStatusCard(),
+        const SizedBox(height: 28),
+        const SetupSectionHeader(
+          'Prompt Style',
+          Icons.tune,
+          subtitle:
+              'How the story prompts are written for your model. This does '
+              'NOT pick the model — that\'s the engine card above.',
+        ),
+        const SizedBox(height: 10),
+        ...PromptTier.values.map(
+          (tier) => SetupRadioTile(
+            storyTierName(tier),
+            storyTierDescription(tier),
+            selected: _draft.tier == tier,
+            onTap: () => setState(() => _draft.tier = tier),
           ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isSelected
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  size: 16,
-                  color: isSelected ? chipColor : Colors.white30,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white60,
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ],
+      ],
+    );
+  }
+
+  Widget _buildReviewStep() {
+    final genres = _draft.selectedGenres.isEmpty
+        ? '—'
+        : _draft.selectedGenres.join(', ');
+    final moods = _draft.selectedMoods.isEmpty
+        ? '—'
+        : _draft.selectedMoods.join(', ');
+    final title = _draft.titleController.text.trim().isEmpty
+        ? 'Untitled Story'
+        : _draft.titleController.text.trim();
+
+    Widget row(String label, String value) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 12,
+              ),
             ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  fontSize: 10,
-                ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: AppColors.textPrimary(context),
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SetupSectionHeader(
+          'Ready to build your story bible',
+          Icons.auto_awesome,
+          subtitle:
+              'The Story Architect turns your concept into a full bible — '
+              'cast, world, themes, and hooks — which you can review and '
+              'edit before any prose is written.',
+        ),
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.cardOf(context),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.borderOf(context).withValues(alpha: 0.5),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              row('Title', title),
+              row(
+                'Concept',
+                _draft.conceptController.text.trim().isEmpty
+                    ? '— (required)'
+                    : _draft.conceptController.text.trim(),
+              ),
+              row('Point of view', _draft.pov),
+              row('Genres', genres),
+              row('Moods', moods),
+              row(
+                'Style',
+                _draft.writingStyle.isEmpty ? 'Default' : _draft.writingStyle,
+              ),
+              row(
+                'Shape',
+                '${_draft.proseLength} · ${_draft.narrativePace} · '
+                    '${_draft.dialogueDensity} · ${_draft.actCount} acts · '
+                    '${_draft.maturityRating}',
+              ),
+              row('Prompt style', storyTierName(_draft.tier)),
+              row(
+                'Cast',
+                _draft.useChatHistory
+                    ? '${_draft.selectedCharacterIds.length} character(s)'
+                          '${_draft.includeUserPersona ? ' + you' : ''}, '
+                          'chat history woven in'
+                    : 'Fresh cast, invented by the Architect',
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        const AiEngineStatusCard(),
+      ],
+    );
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
+
+  Widget _buildNavButtons() {
+    final isLast = _currentStep == _stepLabels.length - 1;
+    final accent = AppColors.porchHoneyOf(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 32),
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_currentStep > 0) ...[
+              SizedBox(
+                height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() => _currentStep -= 1),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back', style: TextStyle(fontSize: 14)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary(context),
+                    side: BorderSide(color: AppColors.borderOf(context)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+            ],
+            SizedBox(
+              width: 280,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: _onNextPressed,
+                icon: Icon(
+                  isLast ? Icons.auto_awesome : Icons.arrow_forward,
+                  size: 20,
+                ),
+                label: Text(
+                  isLast
+                      ? 'Generate Story Bible'
+                      : 'Next: ${_stepLabels[_currentStep + 1]}',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: AppColors.resolve(context, AppColors.onChaosAccent, AppColors.userText),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// A radio-style tile for single-select options with descriptions (prose length, maturity).
-  Widget _radioTile(
-    String label,
-    String description, {
-    required bool isSelected,
-    required VoidCallback onTap,
-    required Color color,
-  }) {
-    final tileColor = color is MaterialColor ? color.shade600 : color;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: isSelected ? tileColor.withValues(alpha: 0.12) : _bgCard,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? tileColor : Colors.white10,
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                isSelected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: isSelected ? tileColor : Colors.white38,
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+  void _onNextPressed() {
+    // The concept is the one hard requirement — everything else has defaults.
+    if (_currentStep == 1 &&
+        _draft.conceptController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Describe your story concept first'),
+          backgroundColor: AppColors.negativeAccentOf(context),
+          behavior: SnackBarBehavior.floating,
         ),
-      ),
-    );
-  }
-
-  Widget _buildActCountSlider() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Number of Acts',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade800.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '$_actCount',
-                  style: TextStyle(
-                    color: Colors.amber.shade300,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: Colors.amber.shade700,
-              inactiveTrackColor: Colors.white12,
-              thumbColor: Colors.amber.shade600,
-              overlayColor: Colors.amber.shade200.withValues(alpha: 0.2),
-              valueIndicatorColor: Colors.amber.shade800,
-              valueIndicatorTextStyle: const TextStyle(color: Colors.white),
-            ),
-            child: Slider(
-              value: _actCount.toDouble(),
-              min: 1,
-              max: 5,
-              divisions: 4,
-              label: '$_actCount acts',
-              onChanged: (v) => setState(() => _actCount = v.round()),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '1 (Short story)',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  fontSize: 10,
-                ),
-              ),
-              Text(
-                '3 (Classic)',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  fontSize: 10,
-                ),
-              ),
-              Text(
-                '5 (Epic)',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTierSelector() {
-    return Column(
-      children: PromptTier.values.map((tier) {
-        final isSelected = _selectedTier == tier;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => setState(() => _selectedTier = tier),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.amber.shade800.withValues(alpha: 0.15)
-                    : _bgCard,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected ? Colors.amber.shade700 : Colors.white10,
-                  width: isSelected ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    isSelected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                    color: isSelected ? Colors.amber.shade600 : Colors.white38,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _tierName(tier),
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white70,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          _tierDescription(tier),
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (tier == PromptTier.smallLocal)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade900.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.warning_amber,
-                            size: 14,
-                            color: Colors.orange.shade400,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Low quality',
-                            style: TextStyle(
-                              color: Colors.orange.shade400,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  String _tierName(PromptTier tier) {
-    switch (tier) {
-      case PromptTier.frontier:
-        return 'Frontier API Models';
-      case PromptTier.largLocal:
-        return 'Large Local Models (70B+)';
-      case PromptTier.smallLocal:
-        return 'Small/Mid Local Models (7-34B)';
+      );
+      return;
     }
-  }
-
-  String _tierDescription(PromptTier tier) {
-    switch (tier) {
-      case PromptTier.frontier:
-        return 'GPT-4, Claude, Gemini -- best quality, requires internet';
-      case PromptTier.largLocal:
-        return 'Locally run large models -- good quality, fully offline';
-      case PromptTier.smallLocal:
-        return 'Locally run small/mid models -- fast but output may vary';
+    if (_currentStep < _stepLabels.length - 1) {
+      setState(() => _currentStep += 1);
+      return;
     }
+    _startGeneration();
   }
 
-  Widget _buildToggleTile(
-    String title,
-    String subtitle,
-    IconData icon,
-    bool value,
-    Color color,
-    ValueChanged<bool> onChanged,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: value ? color.withValues(alpha: 0.5) : Colors.white10,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: value ? color : Colors.white38),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(value: value, activeThumbColor: color, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCharacterPicker() {
+  Future<void> _startGeneration() async {
+    if (_draft.conceptController.text.trim().isEmpty) {
+      setState(() => _currentStep = 1);
+      return;
+    }
+    final repo = Provider.of<StoryRepository>(context, listen: false);
     final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Select characters whose chat history to include:',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: charRepo.characters.where((c) => c.dbId != null).map((
-              char,
-            ) {
-              final charDbId = char.dbId!;
-              final isSelected = _selectedCharacterIds.contains(charDbId);
-              return FilterChip(
-                selected: isSelected,
-                label: Text(char.name),
-                selectedColor: Colors.blueAccent.withValues(alpha: 0.3),
-                checkmarkColor: Colors.blueAccent,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white54,
-                  fontSize: 12,
-                ),
-                backgroundColor: _bgDark,
-                side: BorderSide(
-                  color: isSelected ? Colors.blueAccent : Colors.white12,
-                ),
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedCharacterIds.add(charDbId);
-                      // Default first character to Protagonist
-                      if (_selectedCharacterIds.length == 1) {
-                        _characterRoles[charDbId] = 'Protagonist';
-                      } else {
-                        _characterRoles.putIfAbsent(
-                          charDbId,
-                          () => 'Supporting',
-                        );
-                      }
-                    } else {
-                      _selectedCharacterIds.remove(charDbId);
-                      _characterRoles.remove(charDbId);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRoleAssignment() {
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.theater_comedy,
-                size: 16,
-                color: Colors.purple.shade300,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Assign Roles',
-                style: TextStyle(
-                  color: Colors.purple.shade200,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ...charRepo.characters
-              .where(
-                (c) => c.dbId != null && _selectedCharacterIds.contains(c.dbId),
-              )
-              .map((char) {
-                final charDbId = char.dbId!;
-                final currentRole = _characterRoles[charDbId] ?? 'Supporting';
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 14,
-                        backgroundColor: Colors.purple.shade900.withValues(
-                          alpha: 0.4,
-                        ),
-                        child: Text(
-                          char.name[0],
-                          style: TextStyle(
-                            color: Colors.purple.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          char.name,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      DropdownButton<String>(
-                        value: currentRole,
-                        dropdownColor: const Color(0xFF1E293B),
-                        underline: Container(height: 1, color: Colors.white12),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                        items: _roleOptions
-                            .map(
-                              (r) => DropdownMenuItem(
-                                value: r,
-                                child: Text(
-                                  r,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) => setState(
-                          () => _characterRoles[charDbId] = v ?? 'Supporting',
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUserPersonaToggle() {
     final personaService = Provider.of<UserPersonaService>(
       context,
       listen: false,
     );
-    final persona = personaService.persona;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _includeUserPersona
-              ? Colors.amber.withValues(alpha: 0.4)
-              : Colors.white12,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.person_pin,
-                size: 18,
-                color: _includeUserPersona ? Colors.amber : Colors.white38,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Play as a character?',
-                  style: TextStyle(
-                    color: _includeUserPersona ? Colors.amber : Colors.white60,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              Switch(
-                value: _includeUserPersona,
-                activeThumbColor: Colors.amber,
-                onChanged: (v) => setState(() => _includeUserPersona = v),
-              ),
-            ],
-          ),
-          if (_includeUserPersona) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: Colors.amber.shade900.withValues(alpha: 0.4),
-                  child: Text(
-                    persona.name[0],
-                    style: TextStyle(
-                      color: Colors.amber.shade200,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        persona.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      if (persona.persona.isNotEmpty)
-                        Text(
-                          persona.persona,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
-                            fontSize: 11,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-                DropdownButton<String>(
-                  value: _userPersonaRole,
-                  dropdownColor: const Color(0xFF1E293B),
-                  underline: Container(height: 1, color: Colors.white12),
-                  style: const TextStyle(color: Colors.amber, fontSize: 12),
-                  items: _roleOptions
-                      .map(
-                        (r) => DropdownMenuItem(
-                          value: r,
-                          child: Text(r, style: const TextStyle(fontSize: 12)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) =>
-                      setState(() => _userPersonaRole = v ?? 'Protagonist'),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Match the same character ID format used by ChatService for RAG embeddings.
-  // ignore: unused_element
-  String _getCharacterEmbedId(CharacterCard card) {
-    if (card.imagePath != null) {
-      return p.basenameWithoutExtension(card.imagePath!);
-    }
-    return card.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
-  }
-
-  Future<void> _startGeneration() async {
-    final repo = Provider.of<StoryRepository>(context, listen: false);
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
     final project = repo.getById(widget.projectId);
     if (project == null) return;
 
-    // Save all fields
-    project.title = _titleController.text.trim().isEmpty
-        ? 'Untitled Story'
-        : _titleController.text.trim();
-    project.concept = _conceptController.text.trim();
-    project.promptTier = _selectedTier;
-    project.useChatHistory = _useChatHistory;
-    project.parallelGeneration = _parallelGeneration;
-    project.chatHistoryCharacterIds = _selectedCharacterIds.toList();
-    project.includeUserPersona = _includeUserPersona;
-    project.userPersonaRole = _userPersonaRole;
-
-    // Story customization
-    project.pov = _pov;
-    project.actCount = _actCount;
-    project.selectedGenres = _selectedGenres.toList();
-    project.selectedMoods = _selectedMoods.toList();
-    project.writingStyle = _writingStyle;
-    project.proseLength = _proseLength;
-    project.narrativePace = _narrativePace;
-    project.dialogueDensity = _dialogueDensity;
-    project.maturityRating = _maturityRating;
-
-    // Snapshot selected character card data with roles
-    final snapshots = <Map<String, String>>[];
-    if (_useChatHistory && _selectedCharacterIds.isNotEmpty) {
-      for (final char in charRepo.characters) {
-        if (char.dbId != null && _selectedCharacterIds.contains(char.dbId)) {
-          snapshots.add({
-            'name': char.name,
-            'description': char.description,
-            'personality': char.personality,
-            'scenario': char.scenario,
-            'first_message': char.firstMessage,
-            'system_prompt': char.systemPrompt,
-            'role': _characterRoles[char.dbId!] ?? 'Supporting',
-          });
-        }
-      }
-    }
-
-    // Add user persona as a character snapshot if enabled
-    if (_includeUserPersona) {
-      final personaService = Provider.of<UserPersonaService>(
-        context,
-        listen: false,
-      );
-      final persona = personaService.persona;
-      snapshots.add({
-        'name': persona.name,
-        'personality': persona.persona,
-        'scenario': '',
-        'first_message': '',
-        'system_prompt': '',
-        'role': _userPersonaRole,
-        'self_insert': 'true',
-      });
-    }
-
-    project.characterCardSnapshots = snapshots;
-
+    _draft.applyTo(project, charRepo, personaService);
     await repo.saveProject(project);
 
     if (mounted) {

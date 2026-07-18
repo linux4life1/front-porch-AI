@@ -19,7 +19,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/audiobook_generator_service.dart';
 import 'package:front_porch_ai/services/epub_generator_service.dart';
@@ -28,6 +27,8 @@ import 'package:front_porch_ai/ui/pages/story_setup_page.dart';
 import 'package:front_porch_ai/ui/pages/story_dashboard_page.dart';
 import 'package:front_porch_ai/ui/pages/story_reader_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/ai_engine_status_card.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 /// The "Porch Stories" home view — shows all story projects with create/delete.
 class StoryHomeView extends StatefulWidget {
@@ -54,7 +55,7 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                 Icon(
                   Icons.auto_stories,
                   size: 72,
-                  color: Colors.amber.withValues(alpha: 0.3),
+                  color: AppColors.porchHoneyOf(context).withValues(alpha: 0.4),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -72,6 +73,8 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                 ),
                 const SizedBox(height: 24),
                 _buildCreateButton(context, repo),
+                const SizedBox(height: 20),
+                const AiEngineStatusCard(compact: true),
               ],
             ),
           );
@@ -89,11 +92,7 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                 children: [
                   Icon(
                     Icons.auto_stories,
-                    color: AppColors.resolve(
-                      context,
-                      Colors.amber.shade400,
-                      Colors.amber.shade700,
-                    ),
+                    color: AppColors.porchHoneyOf(context),
                     size: 28,
                   ),
                   const SizedBox(width: 12),
@@ -112,34 +111,28 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.resolve(
+                      color: AppColors.porchHoneyOf(
                         context,
-                        Colors.amber.withValues(alpha: 0.2),
-                        Colors.amber.withValues(alpha: 0.15),
-                      ),
+                      ).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppColors.resolve(
+                        color: AppColors.porchHoneyOf(
                           context,
-                          Colors.amber.withValues(alpha: 0.4),
-                          Colors.amber.withValues(alpha: 0.3),
-                        ),
+                        ).withValues(alpha: 0.4),
                       ),
                     ),
                     child: Text(
                       '${repo.projects.length}',
                       style: TextStyle(
-                        color: AppColors.resolve(
-                          context,
-                          Colors.amber.shade300,
-                          Colors.amber.shade700,
-                        ),
+                        color: AppColors.porchHoneyOf(context),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                   const Spacer(),
+                  const AiEngineStatusCard(compact: true),
+                  const SizedBox(width: 12),
                   _buildCreateButton(context, repo),
                 ],
               ),
@@ -156,10 +149,14 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                   ),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade900.withValues(alpha: 0.25),
+                    color: AppColors.porchHoneyOf(
+                      context,
+                    ).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.amber.shade700.withValues(alpha: 0.5),
+                      color: AppColors.porchHoneyOf(
+                        context,
+                      ).withValues(alpha: 0.5),
                     ),
                   ),
                   child: Column(
@@ -167,11 +164,11 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                     children: [
                       Row(
                         children: [
-                          const SizedBox(
+                          SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                              color: Colors.amber,
+                              color: AppColors.porchHoneyOf(context),
                               strokeWidth: 2,
                             ),
                           ),
@@ -187,10 +184,10 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                           ),
                           TextButton(
                             onPressed: abService.stop,
-                            child: const Text(
+                            child: Text(
                               'Abort',
                               style: TextStyle(
-                                color: Colors.redAccent,
+                                color: AppColors.negativeAccentOf(context),
                                 fontSize: 12,
                               ),
                             ),
@@ -204,7 +201,7 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                           context,
                         ).withValues(alpha: 0.3),
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.amber.shade600,
+                          AppColors.porchHoneyOf(context),
                         ),
                         minHeight: 6,
                         borderRadius: BorderRadius.circular(3),
@@ -255,12 +252,8 @@ class _StoryHomeViewState extends State<StoryHomeView> {
       icon: const Icon(Icons.add),
       label: const Text('New Story'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.resolve(
-          context,
-          Colors.amber.shade800,
-          Colors.amber.shade700,
-        ),
-        foregroundColor: AppColors.resolve(context, Colors.white, Colors.white),
+        backgroundColor: AppColors.porchHoneyOf(context),
+        foregroundColor: AppColors.resolve(context, AppColors.onChaosAccent, AppColors.userText),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       ),
     );
@@ -286,19 +279,19 @@ class _StoryHomeViewState extends State<StoryHomeView> {
 
     if (totalProse > 0) {
       statusLabel = '$totalProse beats written';
-      statusColor = Colors.greenAccent;
+      statusColor = AppColors.bondHighOf(context);
       statusIcon = Icons.edit_note;
     } else if (totalScenes > 0) {
       statusLabel = '$totalScenes scenes planned';
-      statusColor = Colors.blueAccent;
+      statusColor = AppColors.frostAccentOf(context);
       statusIcon = Icons.view_timeline;
     } else if (hasActs) {
       statusLabel = '${project.acts.length} acts structured';
-      statusColor = Colors.purpleAccent;
+      statusColor = AppColors.fixationAccentOf(context);
       statusIcon = Icons.account_tree;
     } else if (project.concept.isNotEmpty) {
       statusLabel = 'Bible created';
-      statusColor = Colors.orangeAccent;
+      statusColor = AppColors.taskAccentOf(context);
       statusIcon = Icons.menu_book;
     } else {
       statusLabel = 'New — needs concept';
@@ -335,12 +328,14 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade900.withValues(alpha: 0.2),
+                  color: AppColors.porchHoneyOf(
+                    context,
+                  ).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   Icons.auto_stories,
-                  color: Colors.amber.shade600,
+                  color: AppColors.porchHoneyOf(context),
                   size: 28,
                 ),
               ),
@@ -385,13 +380,16 @@ class _StoryHomeViewState extends State<StoryHomeView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _tierColor(project.promptTier).withValues(alpha: 0.15),
+                  color: _tierColor(
+                    context,
+                    project.promptTier,
+                  ).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   _tierLabel(project.promptTier),
                   style: TextStyle(
-                    color: _tierColor(project.promptTier),
+                    color: _tierColor(context, project.promptTier),
                     fontSize: 11,
                   ),
                 ),
@@ -400,9 +398,9 @@ class _StoryHomeViewState extends State<StoryHomeView> {
               // Read Button
               if (hasActs)
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.menu_book,
-                    color: Colors.amber,
+                    color: AppColors.porchHoneyOf(context),
                     size: 20,
                   ),
                   tooltip: 'Read Story',
@@ -431,9 +429,9 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                       value: 'audiobook',
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.headphones,
-                            color: Colors.amber,
+                            color: AppColors.porchHoneyOf(context),
                             size: 18,
                           ),
                           const SizedBox(width: 10),
@@ -450,7 +448,11 @@ class _StoryHomeViewState extends State<StoryHomeView> {
                       value: 'epub',
                       child: Row(
                         children: [
-                          const Icon(Icons.book, color: Colors.blue, size: 18),
+                          Icon(
+                            Icons.book,
+                            color: AppColors.frostAccentOf(context),
+                            size: 18,
+                          ),
                           const SizedBox(width: 10),
                           Text(
                             'Export eBook (.epub)',
@@ -467,7 +469,9 @@ class _StoryHomeViewState extends State<StoryHomeView> {
               IconButton(
                 icon: Icon(
                   Icons.delete_outline,
-                  color: Colors.red.withValues(alpha: 0.5),
+                  color: AppColors.negativeAccentOf(
+                    context,
+                  ).withValues(alpha: 0.6),
                   size: 20,
                 ),
                 tooltip: 'Delete story',
@@ -488,7 +492,8 @@ class _StoryHomeViewState extends State<StoryHomeView> {
     try {
       final audiobook = await service.generateAudiobook(project);
       if (audiobook != null && mounted) {
-        final String? outputFile = await FilePicker.platform.saveFile(
+        final String? outputFile = await PickerPrefs.saveFile(
+          category: PickerPrefs.catExport,
           dialogTitle: 'Save Audiobook',
           fileName: 'audiobook_${project.title.replaceAll(' ', '_')}.wav',
           type: FileType.custom,
@@ -500,7 +505,7 @@ class _StoryHomeViewState extends State<StoryHomeView> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Audiobook saved to $outputFile'),
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.surfaceContainerOf(context),
               ),
             );
           }
@@ -511,7 +516,7 @@ class _StoryHomeViewState extends State<StoryHomeView> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Audiobook failed: $e'),
-            backgroundColor: Colors.red.shade800,
+            backgroundColor: AppColors.negativeAccentOf(context),
           ),
         );
       }
@@ -522,7 +527,8 @@ class _StoryHomeViewState extends State<StoryHomeView> {
     try {
       final epub = await EpubGeneratorService.generateEpub(project);
       if (epub != null && mounted) {
-        final String? outputFile = await FilePicker.platform.saveFile(
+        final String? outputFile = await PickerPrefs.saveFile(
+          category: PickerPrefs.catExport,
           dialogTitle: 'Save eBook',
           fileName: '${project.title.replaceAll(' ', '_')}.epub',
           type: FileType.custom,
@@ -534,7 +540,7 @@ class _StoryHomeViewState extends State<StoryHomeView> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('eBook saved to $outputFile'),
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.surfaceContainerOf(context),
               ),
             );
           }
@@ -545,7 +551,7 @@ class _StoryHomeViewState extends State<StoryHomeView> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('eBook export failed: $e'),
-            backgroundColor: Colors.red.shade800,
+            backgroundColor: AppColors.negativeAccentOf(context),
           ),
         );
       }
@@ -563,14 +569,14 @@ class _StoryHomeViewState extends State<StoryHomeView> {
     }
   }
 
-  Color _tierColor(PromptTier tier) {
+  Color _tierColor(BuildContext context, PromptTier tier) {
     switch (tier) {
       case PromptTier.frontier:
-        return Colors.cyanAccent;
+        return AppColors.frostAccentOf(context);
       case PromptTier.largLocal:
-        return Colors.greenAccent;
+        return AppColors.bondHighOf(context);
       case PromptTier.smallLocal:
-        return Colors.orangeAccent;
+        return AppColors.taskAccentOf(context);
     }
   }
 
@@ -601,9 +607,9 @@ class _StoryHomeViewState extends State<StoryHomeView> {
               repo.deleteProject(project.dbId!);
               Navigator.pop(ctx);
             },
-            child: const Text(
+            child: Text(
               'Delete',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: AppColors.negativeAccentOf(context)),
             ),
           ),
         ],

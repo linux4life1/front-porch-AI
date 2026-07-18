@@ -17,67 +17,135 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+
 import 'package:front_porch_ai/services/backend_manager.dart';
+import 'package:front_porch_ai/services/capability/vision_support_resolver.dart';
+import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/lmstudio_log_streamer.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
+import 'package:front_porch_ai/services/omlx_status_poller.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
-import 'package:front_porch_ai/services/pseudo_remote_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
-/// The available backend types.
-enum BackendType { kobold, openRouter, pseudoRemote, omlx }
+/// The available backend types. The former `pseudoRemote` (a local KoboldCpp
+/// launched from a .kcpps preset) was folded into [kobold]: the local backend
+/// launches a preset via `--config` when one is active, so it was a redundant
+/// second path. Presets are now just a launch option of the Kobold backend.
+enum BackendType { kobold, openRouter, omlx }
 
-/// Manages switching between LLM backends (local KoboldCPP, Pseudo-Remote, remote APIs).
+/// Manages switching between LLM backends (local KoboldCPP, remote APIs).
 ///
 /// Sits between ChatService and the actual backend implementations.
 /// Listens to StorageService for config changes and hot-swaps the active service.
 class LLMProvider extends ChangeNotifier {
   final KoboldService _koboldService;
   final OpenRouterService _openRouterService;
-  final PseudoRemoteService _pseudoRemoteService;
   final StorageService _storageService;
   final BackendManager _backendManager;
 
   BackendType _activeBackend = BackendType.kobold;
+
+  // ── Live generation status sources (truthful status bar) ────────────────
+  // One shared struct per non-Kobold source; [activeLiveProgress] resolves
+  // which one the UIs read. Wired lazily: the oMLX poller only issues HTTP
+  // while [isGenerationActive] says a chat generation is running, and the
+  // LM Studio log stream only spawns for a localhost OpenAI backend with
+  // LM Studio's CLI present.
+  late final OmlxStatusPoller _omlxPoller = OmlxStatusPoller(
+    isActive: () => isGenerationActive?.call() ?? false,
+  );
+  final LmStudioLogStreamer _lmStudioStreamer = LmStudioLogStreamer();
+
+  /// Set from main.dart wiring (mirrors the setX style): lets the status
+  /// sources gate their work on ChatService.isGenerating without this class
+  /// depending on ChatService.
+  bool Function()? isGenerationActive;
+
+  /// The live progress source for the ACTIVE backend, or null when none can
+  /// exist (plain remote APIs — providers expose no prefill data).
+  LiveGenProgress? get activeLiveProgress {
+    switch (_activeBackend) {
+      case BackendType.kobold:
+        return _koboldService.liveProgress;
+      case BackendType.omlx:
+        return _omlxPoller.progress;
+      case BackendType.openRouter:
+        // LM Studio presents as an OpenAI backend on localhost; its runtime
+        // log is only attachable when its CLI exists on this machine.
+        return _lmStudioStreamer.isRunning ? _lmStudioStreamer.progress : null;
+    }
+  }
+
+  /// Start/stop the per-backend live-status sources for the current backend
+  /// + URL. Called on backend switches; safe to call repeatedly.
+  void _syncLiveStatusSources() {
+    if (_activeBackend == BackendType.omlx) {
+      _omlxPoller.start(_openRouterService.apiUrl);
+    } else {
+      _omlxPoller.stop();
+    }
+    final url = _openRouterService.apiUrl;
+    final isLocalOpenAi =
+        _activeBackend == BackendType.openRouter &&
+        (url.contains('localhost') || url.contains('127.0.0.1'));
+    if (isLocalOpenAi) {
+      // Only attach to servers that really ARE LM Studio: its /api/v0/models
+      // endpoint is the same signature the vision resolver uses. Without
+      // this check, `lms log stream` could spawn against someone else's
+      // local OpenAI server (llama.cpp, text-gen-webui) and — worse — wake
+      // LM Studio's background service uninvited.
+      _startLmStudioStreamerIfConfirmed(url);
+    } else {
+      _lmStudioStreamer.stop();
+    }
+  }
+
+  Future<void> _startLmStudioStreamerIfConfirmed(String apiUrl) async {
+    if (_lmStudioStreamer.isRunning) return;
+    if (LmStudioLogStreamer.lmsBinaryPath() == null) return;
+    try {
+      final base = apiUrl.replaceFirst(RegExp(r'/v1/?$'), '');
+      final resp = await http
+          .get(Uri.parse('$base/api/v0/models'))
+          .timeout(const Duration(seconds: 2));
+      if (resp.statusCode == 200) {
+        await _lmStudioStreamer.start();
+      }
+    } catch (_) {
+      // Not LM Studio (or not up) — stay detached; a later backend switch
+      // re-probes.
+    }
+  }
 
   BackendType get activeBackend => _activeBackend;
   LLMService get activeService {
     switch (_activeBackend) {
       case BackendType.kobold:
         return _koboldService;
-      case BackendType.pseudoRemote:
-        return _pseudoRemoteService;
       case BackendType.openRouter:
       case BackendType.omlx:
         return _openRouterService;
     }
   }
 
-  /// Whether the currently active backend is the local KoboldCPP native API.
-  /// Pseudo-remote returns false here — it uses the OpenAI protocol,
-  /// so eval logic (concurrent dispatch, remote-style params) matches remote.
+  /// Whether the active backend is the local KoboldCpp instance (native or
+  /// launched from a .kcpps preset). Gates the local niceties — real
+  /// tokenizer counts and prefill perf metrics — and sequential eval dispatch
+  /// (one KoboldCpp generation slot).
   bool get isLocal => _activeBackend == BackendType.kobold;
 
-  /// Whether the active backend manages a local subprocess (kobold or pseudoRemote).
-  bool get hasManagedProcess =>
-      _activeBackend == BackendType.kobold ||
-      _activeBackend == BackendType.pseudoRemote;
+  /// Whether the active backend manages a local subprocess.
+  bool get hasManagedProcess => _activeBackend == BackendType.kobold;
 
-  /// True when any managed process (kobold or pseudoRemote) is currently running.
-  bool get hasAnyManagedProcessRunning =>
-      _koboldService.isRunning || _pseudoRemoteService.isRunning;
+  /// True when the managed process is currently running.
+  bool get hasAnyManagedProcessRunning => _koboldService.isRunning;
 
-  /// Ensures that the simple local Kobold backend is running when the user
-  /// enters a chat.
-  ///
-  /// This provides a good "it just works" experience for normal users.
-  ///
-  /// We deliberately do **not** auto-start the Pseudo-Remote backend here.
-  /// Using .kcpps presets is an advanced/power-user feature and those users
-  /// are expected to start the backend manually.
-  ///
-  /// Safe to call repeatedly — it is a no-op if already running or if the
-  /// current backend is remote / oMLX / Pseudo-Remote.
+  /// Ensures the local Kobold backend is running when the user enters a chat —
+  /// including when a .kcpps preset owns the model. Good "it just works" for
+  /// normal users; safe to call repeatedly (no-op if already running or the
+  /// active backend is remote / oMLX).
   Future<void> ensureManagedBackendIsRunning() async {
     if (!hasManagedProcess || hasAnyManagedProcessRunning) return;
 
@@ -92,9 +160,8 @@ class LLMProvider extends ChangeNotifier {
     }
 
     try {
-      // Only auto-start the simple native Kobold backend.
-      // Pseudo-Remote (.kcpps) is an advanced feature — those users are
-      // expected to start the backend themselves.
+      // Auto-start the local Kobold backend, whether it loads a plain model
+      // file (lastUsedModelPath) or a .kcpps preset that owns its own model.
       if (_activeBackend == BackendType.kobold) {
         final modelPath = _storageService.lastUsedModelPath;
         final hasPresetWithModel =
@@ -106,6 +173,9 @@ class LLMProvider extends ChangeNotifier {
             _backendManager.backendPath!,
             modelPath ?? '',
             kcppsPath: _storageService.activeKcppsPath,
+            mmprojPath: modelPath != null
+                ? _storageService.mmprojForModel(modelPath)
+                : null,
             gpuLayers: _storageService.gpuLayers,
             contextSize: _storageService.contextSize,
             useVulkan: _storageService.useVulkan ?? false,
@@ -124,26 +194,24 @@ class LLMProvider extends ChangeNotifier {
   /// Convenience getters for the underlying services (for UI that needs specifics).
   KoboldService get koboldService => _koboldService;
   OpenRouterService get openRouterService => _openRouterService;
-  PseudoRemoteService get pseudoRemoteService => _pseudoRemoteService;
 
   LLMProvider(
     this._koboldService,
     this._openRouterService,
-    this._pseudoRemoteService,
     this._storageService,
     this._backendManager,
   ) {
     _syncFromStorage();
     _storageService.addListener(_syncFromStorage);
     _koboldService.addListener(_onServiceChanged);
-    _pseudoRemoteService.addListener(_onServiceChanged);
   }
 
   @override
   void dispose() {
     _storageService.removeListener(_syncFromStorage);
     _koboldService.removeListener(_onServiceChanged);
-    _pseudoRemoteService.removeListener(_onServiceChanged);
+    _omlxPoller.stop();
+    _lmStudioStreamer.stop();
     super.dispose();
   }
 
@@ -155,12 +223,13 @@ class LLMProvider extends ChangeNotifier {
     final typeStr = _storageService.backendType;
     BackendType newType;
     switch (typeStr) {
-      case 'pseudoRemote':
-        newType = BackendType.pseudoRemote;
       case 'openRouter':
         newType = BackendType.openRouter;
       case 'omlx':
         newType = BackendType.omlx;
+      // 'pseudoRemote' (legacy) falls through to kobold — the preset now runs
+      // under the local Kobold backend. The stored value is rewritten to
+      // 'kobold' by the migration in BackendSettings.load().
       default:
         newType = BackendType.kobold;
     }
@@ -182,11 +251,38 @@ class LLMProvider extends ChangeNotifier {
       '[LLMProvider] Synced from storage: backend=$typeStr, URL=${_storageService.remoteApiUrl}',
     );
 
+    // Drop cached vision/tool-calling verdicts whenever the model identity the
+    // app is pointed at changes — backend type, remote URL/model, or active
+    // preset. Otherwise a switch from a vision model to a text-only one on the
+    // same endpoint keeps reporting the old "supported" verdict, and the photo
+    // attach path trusts it. (Local-model verdicts are re-derived from config
+    // each call, so this mainly guards the remote /models-metadata cache.)
+    final identity =
+        '$typeStr|${_storageService.remoteApiUrl}|'
+        '${_storageService.remoteModelName}|${_storageService.activeKcppsPath}|'
+        '${_storageService.lastUsedModelPath}';
+    if (identity != _lastModelIdentity) {
+      _lastModelIdentity = identity;
+      VisionSupportResolver.instance.clear();
+      // URL/model changes without a backend-type flip must also re-evaluate
+      // the live-status sources (e.g. the remote URL edited from a cloud
+      // host to a localhost LM Studio, or an oMLX port change) — review
+      // finding: type-only syncing left the streamer attached/detached
+      // against the wrong server.
+      _syncLiveStatusSources();
+    }
+
     if (newType != _activeBackend) {
       _activeBackend = newType;
+      _syncLiveStatusSources();
       notifyListeners();
     }
+
   }
+
+  /// Last model-identity string synced from storage; used to clear stale
+  /// capability verdicts on change (see [_syncFromStorage]).
+  String? _lastModelIdentity;
 
   /// Switch the active backend and persist the choice.
   /// Does NOT start or stop any processes — that is handled by the caller (UI).
@@ -196,8 +292,6 @@ class LLMProvider extends ChangeNotifier {
     _activeBackend = type;
     String persistValue;
     switch (type) {
-      case BackendType.pseudoRemote:
-        persistValue = 'pseudoRemote';
       case BackendType.openRouter:
         persistValue = 'openRouter';
       case BackendType.omlx:
@@ -216,41 +310,14 @@ class LLMProvider extends ChangeNotifier {
       );
     }
 
+    _syncLiveStatusSources();
     notifyListeners();
   }
 
-  /// Stop any running managed processes (kobold and/or pseudoRemote).
+  /// Stop the managed KoboldCpp process if it is running.
   Future<void> stopAllManagedProcesses() async {
     if (_koboldService.isRunning) {
       await _koboldService.stopKobold();
-    }
-    if (_pseudoRemoteService.isRunning) {
-      await _pseudoRemoteService.stop();
-    }
-  }
-
-  /// Start the currently selected managed backend.
-  /// Throws if [BackendType.openRouter] is active (no process to start).
-  Future<void> startActiveManagedProcess({
-    required String executablePath,
-    required String kcppsPath,
-  }) async {
-    switch (_activeBackend) {
-      case BackendType.kobold:
-        // The caller should provide model path etc. via the existing flow.
-        // This method is used by the unified start button in settings.
-        throw UnimplementedError(
-          'Use koboldService.startKobold() directly for local backend.',
-        );
-      case BackendType.pseudoRemote:
-        await _pseudoRemoteService.start(
-          executablePath: executablePath,
-          kcppsPath: kcppsPath,
-        );
-      case BackendType.openRouter:
-        throw Exception('Cannot start a process for the OpenRouter backend.');
-      case BackendType.omlx:
-        throw Exception('Cannot start a process for the oMLX backend.');
     }
   }
 }

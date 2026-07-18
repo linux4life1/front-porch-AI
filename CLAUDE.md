@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Front Porch AI is a Flutter desktop application (Windows/Linux/macOS) for AI-powered character chat using local LLMs via KoboldCpp. It features a "Realism Engine" for emotion/trust/relationship tracking, RAG memory via ONNX embeddings, TTS/STT, cloud sync, and a novel generator.
+Front Porch AI is a Flutter desktop application (Windows/Linux/macOS) for AI-powered character chat using local LLMs via KoboldCpp. It features a "Realism Engine" for emotion/trust/relationship tracking, RAG memory via ONNX embeddings, TTS/STT, a novel generator, **The Stoop** (a built-in, opt-in community character hub — see its section below), and a companion **web/mobile UI** (`web_ui/`). (Cloud Sync has been removed; automatic local backups are its replacement.)
 
 **License:** AGPL-3.0 (v0.9.0+), GPLv3 (earlier)
 **State management:** Provider (migrating to Riverpod for new code)
@@ -27,13 +27,10 @@ flutter test --coverage              # With coverage
 flutter test test/path/to/file.dart  # Single test file
 flutter test -n "test name"          # Run specific test by name
 
-# Build embedding server (Rust, required for RAG)
-cargo build --release --manifest-path tools/embed_server/Cargo.toml
-
 # Release builds
-flutter build linux                  # Linux (then copy embed_server to build/linux/x64/release/bundle/embed_server/)
-flutter build windows                # Windows (then copy embed_server.exe to build/windows/x64/runner/Release/)
-./scripts/build-macos.sh             # macOS (bundles embed_server automatically)
+flutter build linux                  # Linux
+flutter build windows                # Windows
+./scripts/build-macos.sh             # macOS (signs + packages + notarizes)
 ```
 
 ## Architecture
@@ -62,11 +59,15 @@ lib/
 │   │   ├── llm_eval_engine.dart         # Shared LLM eval plumbing (fire, strip think-blocks, extract JSON)
 │   │   ├── realism_evals.dart           # The 5 realism evaluation calls + prompts + parse
 │   │   ├── objective_proposal.dart      # Objective proposal + task generation + completion checks
-│   │   ├── summary_service.dart         # Chat summary generation (periodic, RAG-grounded)
-│   │   ├── fact_extraction.dart         # Fact extraction + consolidation + quality gate
+│   │   ├── journal_maintenance.dart     # The Journal: one periodic pass → memory cards + recap
+│   │   ├── journal_store.dart           # Journal card persistence (per-chat, per-character)
+│   │   ├── journal_ops.dart             # Journal XML transport parsing (pure functions)
+│   │   ├── journal_physics.dart         # Journal emotional physics: heat/flashbulb decay, mood recall, event salience (pure)
+│   │   ├── journal_prompt.dart          # Journal maintenance prompt builder (XML + tools variants, salience annotations)
+│   │   ├── journal_review.dart          # Journal proposals + the ONE applier; review-first parking (apply/discard)
 │   │   └── evolution_service.dart       # Character evolution (trait development, effective layering)
-│   ├── prompt_injection/        # 8 prompt-injection builders (author_note, relationship, emotion,
-│   │                            #   behavioral, time, nsfw, chaos, needs)
+│   ├── prompt_injection/        # prompt-injection builders (author_note, relationship, emotion,
+│   │                            #   behavioral, time, nsfw, chaos, needs, realism_state, journal)
 │   ├── cloud_providers/         # Cloud storage backends (Google Drive, OneDrive, WebDAV)
 │   ├── grpc/                    # gRPC-generated code and services (e.g. Draw Things)
 │   ├── chat_service.dart        # Core chat orchestration: context building, streaming, Realism
@@ -75,11 +76,11 @@ lib/
 │   ├── llm_provider.dart        # Abstraction over Kobold/OpenRouter/external APIs
 │   ├── character_repository.dart # Character CRUD via Drift
 │   ├── storage_service.dart     # File system paths, beta/stable data dir isolation
-│   ├── embedding_sidecar.dart   # Rust subprocess manager for ONNX embeddings
+│   ├── embedding_service.dart   # In-process RAG embeddings (nomic via onnxruntime)
 │   ├── memory_service.dart      # RAG memory extraction and retrieval
 │   ├── tts_service.dart         # TTS orchestration (Kokoro, ElevenLabs, OpenAI, Piper)
-│   ├── stt_service.dart         # Whisper STT via Python subprocess
-│   ├── cloud_sync_service.dart  # Google Drive / WebDAV sync
+│   ├── stt_service.dart         # Whisper STT via in-process sherpa-onnx
+│   ├── backup_service.dart      # Automatic local DB backups + restore
 │   ├── hardware_service.dart    # GPU detection, VRAM estimation
 │   ├── backend_manager.dart     # KoboldCpp lifecycle (start/stop/restart)
 │   ├── services.dart            # Curated public barrel (high-frequency surface; does NOT re-export chat/ leaves)
@@ -92,9 +93,27 @@ lib/
 │   │   ├── sidebar/             # Chat sidebar tab sections (memory, realism, chaos, nsfw, scene time)
 │   │   └── widgets/             # Granular interactive chat buttons and pills
 │   ├── layout/main_layout.dart  # Main shell with sidebar + content area
-│   ├── pages/                   # Screen pages (chat_page, home_page, settings_page, etc.)
+│   ├── pages/                   # Screen pages (chat_page, home_page, etc.)
+│   │   ├── settings_page.dart          # Settings shell only (~400 LOC): tab scaffold, state,
+│   │   │                               #   `rebuildState(fn)` public setState bridge for the parts
+│   │   ├── settings_page.controls.dart # `part of` — generation/sampler control builders
+│   │   ├── settings_page.advanced.dart # `part of` — advanced/experimental settings
+│   │   ├── settings_page.hardware.dart # `part of` — hardware/VRAM detection UI
+│   │   ├── settings_page.gpu.dart      # `part of` — GPU layer/offload UI
+│   │   └── settings_page.launch.dart   # `part of` — backend launch/args UI
+│   ├── settings/                # Settings screen, extracted from the old god file (all < 500 LOC
+│   │   │                        #   except voice_media_tab; extend these, don't regrow settings_page)
+│   │   ├── tabs/                # One file per Settings tab: general_tab, generation_tab,
+│   │   │   │                    #   backend_tab, voice_media_tab
+│   │   │   └── backend/         # Backend tab sections: backend_mode_selector, remote_api_section,
+│   │   │                        #   omlx_section, managed_backend_section
+│   │   ├── dialogs/             # Settings-local dialogs: color_picker, model_search, prompt_save/delete
+│   │   └── widgets/             # Settings-local widgets: section_header, slider_setting, color_row,
+│   │                            #   api_preset_chip, image_gen_enable_section, photo_understanding_card,
+│   │                            #   web_login_section
 │   ├── dialogs/                 # Modal dialogs
-│   ├── theme/app_colors.dart    # Central theme definitions and dark/light color helpers
+│   ├── theme/app_colors.dart    # Central theme + warm-porch palette (porchAmber/formMasterAccent/
+│   │                            #   onChaosAccent/porchAmberOf); dark/light color helpers
 │   └── widgets/                 # Reusable layout widgets (inputs, cards, sliders, dropdowns, etc.)
 └── utils/                       # Helpers (emotion_labels, vram_estimator, gguf_parser, etc.)
 ```
@@ -110,21 +129,15 @@ lib/
 - **LlmEvalEngine** (`lib/services/chat/llm_eval_engine.dart`): Shared eval plumbing — streaming LLM fire with retry/cancel, central think-block stripping, JSON extraction. Used by `realism_evals`, `objective_proposal`, and others.
 - **RealismEvals** (`lib/services/chat/realism_evals.dart`): The 5 realism evaluation calls (relationship, emotional state, physical state, narrative, one-shot) plus their prompt builders, orchestration, and parse (bond/trust/emotion/arousal/fixation/spatial/time deltas + pending chip metadata).
 - **ObjectiveProposal** (`lib/services/chat/objective_proposal.dart`): Objective proposal handling (autonomous "none" vs value, dedup, auto task-gen for autonomous), `generateObjectiveTasks`, and background task-completion checks.
-- **SummaryService** (`lib/services/chat/summary_service.dart`): Periodic chat summary generation using the active LLM with RAG grounding.
-- **FactExtraction** (`lib/services/chat/fact_extraction.dart`): Auto persona / learned-fact extraction, consolidation, and quality gate.
+- **The Journal** (`lib/services/chat/journal_maintenance.dart` + `journal_store.dart` + `journal_ops.dart` + `journal_physics.dart` + `prompt_injection/journal_injection.dart`; design: `docs/design/journal-memory.md`): the unified emotional memory system. One periodic maintenance pass per diary owner produces (a) per-chat, per-character **memory cards** (with emotion label + intensity stamped deterministically from the message metadata the Realism Engine already wrote) and (b) the per-chat **"Where we are" recap**, which reuses the old summary scalars/column (`_summary`, `Sessions.summary`, `summaryLastIndex` as the pass cursor) so EvolutionService, the sidebar, and the web facade surface kept working. Cards are strictly session-scoped — **no memory ever crosses chats** — and are deleted with the chat. XML-tag transport parsed forgivingly (local-model floor); reasoning off + think-strip via LlmEvalEngine. Replaced the deleted `SummaryService` + `FactExtraction` (and the persona learned-facts feature; `Personas.learnedFacts` column is dormant). **Emotional physics** (phase 2, all constants/math in `journal_physics.dart`, pure + deterministic): cards carry heat that cools one step per pass with flashbulb resistance (strong feelings barely fade; pinned never), cold cards (heat < 0.35) leave the always-injected hot set but resurface via cosine search against the recent turn (re-warmed to 0.75 + access recorded), hot-set ordering gets a mood-congruence boost (emotion families via `EmotionLabels.nuancedToStandard`, read from the same `_characterEmotion` scalar the group pre-gen load sets per speaker — parity), cap trims the coldest unpinned card, salient events (|bond/trust delta| ≥ 12, trust repair, Chance Time, objective completion via `ObjectiveProposal.onObjectiveCompleted` → `eventKickPending`) trigger an immediate pass from `_maybeRunJournalPass`, and a virgin journal on a long chat reads only the trailing 50 messages. Card embeddings ride `MemoryService.embedText` and are strictly optional (no-RAG floor: hot/pinned injection never needs the sidecar). **UI** (phase 3): sidebar peek `ui/chat_components/sidebar/journal_memory/journal_panel.dart` (follows the focused participant — `ChatParticipant.id` IS the cards' storage key) + full diary `ui/dialogs/journal_dialog.dart` + shared plant/edit editor `ui/dialogs/journal_card_editor.dart`; the UI mutates `ChatService.journalStore` directly and the injection builder re-reads the DB each turn, so edits need no extra plumbing. Receipts quote the cited lines AND tap-to-jump: `ui/chat_components/widgets/message_jump.dart` seeks the chat's reverse `ListView.builder` (bubbles keyed `GlobalObjectKey(msg)` — was ObjectKey) by proportional hop + viewport paging until the target key materializes, then `ensureVisible` + a brief `JumpFlash` tint. **Phase 4** — two transports, ONE applier (`journal_review.dart`): the pass (`_runExchange`) probes `LLMService.generateWithTools` once per backend identity per run (`kJournalTools` schemas + `parseJournalToolCalls` in journal_ops; OpenRouterService implements over its shared `_chatPayload`; KoboldCpp + PseudoRemote implement via the shared `postOpenAiChatWithTools` in openai_chat_stream.dart — Qwen3-class local models call tools fine, per user decision 2026-07-03), salvages tags from text-only replies, and remembers XML-only backends per backend+model identity (remote model name AND local model path ride the key). **Review-first mode** (`journal_review_first`, default off, toggle in the recap gear): the pass resolves ops into id-addressed `JournalProposedOp`s and parks a session-guarded `JournalReviewBatch` (blocks further auto passes; cursor moves only on Apply/Discard); sidebar banner → `journal_review_dialog.dart` checkboxes → Apply routes through the same `applyOwnerProposals` normal mode uses. Prompt building lives in `journal_prompt.dart` (XML + tools closing sections over an identical body).
 - **EvolutionService** (`lib/services/chat/evolution_service.dart`): Character evolution — trait development, effective personality/scenario layering, group per-character counts.
 - **KoboldService** (`lib/services/kobold_service.dart`): HTTP client for KoboldCpp (`/api/v1/generate`, `/api/extras/abort`, etc.).
 - **StorageService** (`lib/services/storage_service.dart`): Data directories. Beta builds use `FrontPorchAI-Beta/` with `beta_` prefixed SharedPreferences keys.
-- **EmbeddingSidecar** (`lib/services/embedding_sidecar.dart`): Manages the Rust `embed_server` subprocess for ONNX embeddings (RAG memory).
+- **EmbeddingService** (`lib/services/embedding_service.dart`): In-process RAG embeddings — nomic-embed-text-v1.5 via onnxruntime in a persistent worker isolate (`embedding/native_embedding_engine.dart`), golden-pinned to the retired Rust server's exact vectors so stored embeddings stay valid. Owns the model download/setup flow the RAG consent dialog drives.
 
-### Python Sidecars
+### Native Engines (no sidecars at all)
 
-TTS and STT use Python subprocesses communicating via JSON over stdin/stdout:
-- `kokoro_tts.py` — Kokoro TTS engine
-- `whisper_stt.py` — Whisper speech-to-text
-- `embed_server.py` — Fallback embedding server (Rust binary preferred)
-
-Protocol: read JSON from stdin → process → write JSON result to stdout → errors to stderr with non-zero exit.
+Every sidecar was retired in 2026-07 (docs/design/sidecar-retirement.md — read it before touching any engine). TTS (Kokoro/Piper via sherpa-onnx), STT (Whisper via sherpa-onnx), expression classification (onnxruntime), RAG embeddings (nomic via onnxruntime, golden-pinned to the old Rust server's vectors), and Draw Things (pure-Dart gRPC + fpzip FFI) all run **in-process** — the app spawns no helper processes. Engine successes/failures report to `EngineHealth` (`lib/services/engine_health.dart`); pre-release builds surface the first unexpected failure loudly. Do not reintroduce sidecar processes.
 
 ### Database
 
@@ -146,7 +159,7 @@ A multi-component system spanning `chat_service.dart` (orchestration, `_groupRea
 - Sims-style Needs Simulation (NeedsSimulation): decay, stepped descriptions, afterglow/lust-haze/post-climax-crash buffers, catastrophe triggers, hygiene inversion for "enjoys low hygiene"
 - Escape hatch: `cancelRealismEval()` aborts in-flight evals via `_isCancellingRealismEval` + `abortGeneration()`
 
-**Known gotcha**: GBNF grammar constraints cause many KoboldCPP models to return empty eval responses. Evals use stop sequences + regex parsing (no grammar). Remote APIs work fine without grammar.
+**Known gotcha**: GBNF grammar constraints cause many KoboldCPP models to return empty eval responses. Evals use stop sequences + regex parsing (no grammar). Remote APIs work fine without grammar. **Tools transport (2026-07-06)**: every flat-JSON eval — the 4 realism evals (relationship, emotional, narrative, one-shot), the needs-impact eval, the scene-time/posture eval, the expression reclassifier, and the cast detector — tries native tool calls first (`realism_tools.dart` schemas + the ONE shared negotiation `fireStructuredEval` in `pass_support.dart`, same probe-and-fallback as Journal/Growth via the shared `ToolTransportProbe`); a successful call is converted to the canonical flat-JSON text and flows through the UNCHANGED verifier/parse/apply pipeline, so parity holds by construction. The regex text path remains the floor and the sole path for tool-less backends. Deliberately text-only: the Director/verifier critique output, the AI character creator, and the story pipeline (streaming live-preview + their own repair machinery).
 
 **One-shot vs Normal Path Parity (strict)**: When `_storageService.realismOneShotEval` is true, `_evaluateOneShotCall` **must** produce 1:1 equivalent outputs for Bond/Trust/Emotion/Arousal/Fixation/Spatial Stance/Time/Needs deltas as the normal multi-call path (relationship + emotional-state + physical-state + narrative calls). The one-shot path exists purely for token/latency optimization — it must not change observable Realism or Needs behavior.
 
@@ -189,6 +202,22 @@ When you touch any of the above you **must**: keep 1:1 and group producing equiv
 ### Story Pipeline (Porch Stories)
 
 `StoryPipelineService` is created via `ChangeNotifierProxyProvider2` in `main.dart`. The `update` function must NOT return the previous instance early — it must recreate the service with `llmProvider.activeService` each time so backend switches (Kobold ↔ OpenRouter/Nano-GPT) take effect.
+
+## The Stoop (Community Character Hub) & Its Backend
+
+**The Stoop** is the built-in, opt-in, account-gated, strictly-18+ community hub for sharing character and group cards (browse/search, upload, download, upvotes, follow creators, and mod↔user messaging). It is served by a **companion backend API** (an independent service) that the app talks to over HTTPS. The Dart client lives in **`lib/services/backporch/`** — auth, browse/search, upload, downloads, messaging (+ a WebSocket for live messages/typing), and models such as `StoopCard` / `StoopCardDetail`. Everything else in the app remains local-first; The Stoop and any remote APIs are opt-in.
+
+**The backend's source, hosting, and deployment are maintained privately and are NOT part of this repository.** Do not add operational details (hosts, IPs, deploy steps, buckets, credentials) to this file or the repo.
+
+### API backward-compatibility (non-negotiable)
+The backend is deployed independently and **far more frequently** than the app, and users update the app slowly — so the live fleet is **always a mix of app versions**. A backend change must never break an already-installed app:
+- **Responses are additive-only.** Never remove, rename, or change the type/meaning of a field an app reads. New response fields are **optional/nullable**.
+- Never make a previously-optional **request** field required, and never tighten validation to reject payloads older apps send. Prefer computing derived values **server-side** over demanding new client inputs (e.g. a card's token count is computed on the server from the card the app already uploads).
+- **DB migrations stay additive** (nullable columns / defaults) so a mixed fleet — and a rollback — stay safe.
+- The Dart client must **parse defensively**: null-safe casts with defaults; tolerate missing *and* unknown fields.
+- A genuinely breaking change ships as a **new endpoint** (e.g. `/v2/…`), never by mutating an existing one, and keeps the old one alive until the fleet ages out.
+
+There is no app-version gating in the backend, and there must not be — the contract above is what keeps old and new apps interoperable.
 
 ## Branch Workflow
 
@@ -244,7 +273,9 @@ The user has **no ability to read or evaluate Dart code**. The following rules a
 - **Deletion is part of the task.** Any time you implement or modify behavior, audit the files you touch for dead code, duplicate logic, or obsolete methods and delete them.
 - **New private methods are expensive.** Before creating one, check whether an existing method can be extended, generalized, or refactored. New methods are a last resort.
 - **Method proliferation is forbidden.** If you introduce more than **two** new private methods in a piece of work, stop and either consolidate existing logic or explicitly justify why deletion was not possible.
-- **Parallel implementations are banned** unless the user explicitly approves. Do not create separate code paths for 1:1 vs group, or old vs new systems, without first attempting to unify them.
+- **Parallel implementations are banned** unless the user explicitly approves. Do not create separate code paths for 1:1 vs group, or old vs new systems, without first attempting to unify them. **(Exception: UX — see the addendum directly below.)**
+- **WebUI ↔ Desktop parity is mandatory (non-negotiable).** Every feature and every UX change shipped in the Flutter desktop app MUST land in the web/mobile UI (`web_ui/`) as part of the same body of work — same capabilities and the same visual language (the warm-porch theme), adapted to each form factor (adaptation is expected; omission is not — see the desktop-vs-mobile layout addendum below). This includes theming: any palette/design-language change on desktop must be mirrored in the web UI in the same effort. A desktop feature or UX change is NOT "done" until its web counterpart ships, or the maintainer has explicitly approved a deferral for that specific item in the current conversation. Silent deferrals documented only in design docs do not count.
+- **UX takes priority over de-duplication (addendum).** When proper UX/UI genuinely requires it, separate or duplicated implementations are acceptable and expected — correct user experience outweighs the anti-duplication rules in this section. The canonical case is **distinct desktop vs. mobile layouts** in the web UI (`web_ui/`): do **not** force a single responsive layout, component tree, or CSS path to serve both form factors when that degrades either one. Build separate desktop and mobile shells/styles (e.g. branch on `useLayout()` `wide`/`isPhone` and scope CSS so the two can't bleed into each other), duplicating as needed for a genuinely good experience on each. This exception covers **presentation/UX only** — it is not a license for duplicated business logic, services, data access, or Realism/Needs engine code, where consolidation still strictly applies.
 - **Overlapping / redundant features — offer deprecation or removal** (mandatory). When a request overlaps with or makes an existing feature redundant, proactively offer to deprecate and/or fully remove the now-useless feature as part of the same work. Do not leave dead enum values, old UI surfaces, parallel paths, orphaned tests, or stale docs. Document the rationale in your response, the relevant `docs/Rawhide.md` entry, and any changelog. Ask for confirmation if the removal scope is large, but default to offering the cleanup. (The Image Studio "Visualize N-slider vs. old Message Illustration" work is the canonical precedent.)
 - **Mandatory commands at the end of non-trivial work** (run and report results):
   - `flutter analyze --no-fatal-warnings --no-fatal-infos`
@@ -253,6 +284,7 @@ The user has **no ability to read or evaluate Dart code**. The following rules a
 - **UI consistency for creation wizards** (mandatory): All "Create X" flows must use the **same top-bar step indicator pattern** and linear progression as `create_character_page.dart` (horizontal step dots + labels + connecting lines in the AppBar, `AnimatedSwitcher` driven by a `_currentStep` int, `_buildNavButtons` at the bottom). Do not invent side menus, tab bars, or free-jumping section lists for wizards.
 - **Compilation gate after any structural change or major refactor** (non-negotiable): After deleting methods, large refactors, or changes to `home_page.dart`/`main.dart`/service init/widget trees, run a full `flutter analyze` (and ideally `flutter build macos` or `flutter run -d macos`) **before** claiming completion. "It looks good" is not sufficient. Leave the tree in a runnable state.
 - **All widgets, dialogs, menus, toggles, cards, and surfaces must honor the AppColors system** (non-negotiable): Use `AppColors` from `lib/ui/theme/app_colors.dart` exclusively. Prefer helpers — `backgroundOf/cardOf/surfaceOf/surfaceContainerOf(context)`, `textPrimary/Secondary/Tertiary(context)`, `iconPrimary/Secondary(context)`, `borderOf(context)`, and `AppColors.resolve(context, dark, light)` for custom accents. Hard-coded `Color(0xFF...)` or raw `Colors.whiteXX`/`Colors.blackXX` are forbidden in new or refactored UI (except the few semantic accent constants that already have light variants in AppColors).
+- **Warm-porch accent standard for every new widget, button, icon, border, spinner, and surface** (non-negotiable, CI-enforced): The app has ONE warm-porch accent palette. Any new or refactored chrome accent MUST use `AppColors.formMasterAccent` (the const primary amber) or `AppColors.porchAmberOf(context)` (brightness-aware), with `AppColors.onChaosAccent` (near-black ink) as the foreground on any solid amber fill (white-on-amber is unreadable). **Raw `Colors.blueAccent` is banned** — the whole ~225-site cool-blue chrome set was retired to porch amber (see `.claude/changelog.md` "blueAccent → porch amber sweep" clusters 1–4). Do not reintroduce cool-blue (or any other off-palette) chrome for new buttons/toggles/cards/menus. **Verification (mandatory):** the `theme-lint` CI job (`.github/workflows/ci.yml`) fails any PR that *adds* a raw `Colors.blueAccent` line under `lib/**/*.dart`; after adding UI, also grep your diff for stray `Colors.blueAccent`/`Colors.blue`/off-palette hex. **Only exception:** a genuinely *semantic* color (a status/indicator/legend hue whose meaning depends on being non-amber — e.g. Realism trust chips, live-call status colors, the lorebook "always-on vs enabled" 2-state markers) may stay off-palette **only when the maintainer explicitly requests/approves it in the current conversation**, and it MUST carry a trailing `// theme-keep: <reason>` comment (the CI gate's allow-list marker). Absent explicit approval, warm it.
 - **Destructive git operations on files are forbidden without explicit approval** (data loss risk): **Never** run `git checkout -- <file>`, `git restore <file>`, `git checkout HEAD -- <file>`, `git checkout <commit> -- <file>`, or anything that discards uncommitted local changes. Work is frequently done to files without immediate commits; these commands silently destroy it. Allowed only if the human explicitly authorizes the exact command in the current conversation. Prefer `git diff`, saving a patch (`git diff > /tmp/backup.patch`), or `git stash push -m "temp" -- <file>` (only when confirmed safe). If a file seems to need a destructive checkout to recover, **stop and ask** instead of acting.
 
 **Hygiene Summary Requirement**: At the end of any response involving non-trivial changes, include a short "Hygiene Summary" covering:
@@ -273,13 +305,15 @@ To prevent "God files" (historically some `.dart` files exceeded 9,000 lines):
 ### Reuse Existing Code
 - **Prefer existing variables and scaffolds** — do not add complexity when unnecessary.
 - **Utilize existing functions whenever possible** — reuse patterns that already work.
+- **Cost-audit every reuse in its NEW call context** (mandatory): a function that is correct and cheap where it was written can be a regression where you call it. Before reusing, ask: how often does the new call site run (once per event? per message? per widget build/frame during streaming?), and what does the function actually cost (disk I/O, DB query, process spawn, large allocation)? State the answer to "will this slow down or speed up the app?" in your response for any reuse in a hot path. **Synchronous I/O (`existsSync`, `readAs*Sync`, `lengthSync`, `Process.runSync`, DB queries) is banned in widget `build` paths and per-frame/per-token code** — resolve it once and cache/memoize (invalidate on the events that change the answer), or move it off the UI thread. **Verification (mandatory):** the `io-lint` CI job (`.github/workflows/ci.yml`) fails any PR that *adds* a synchronous I/O call under `lib/ui/**`; a line that genuinely cannot run in a build/frame path may carry a trailing `// io-ok: <reason>` comment (the allow-list marker). Canonical incident: `coverImageFileFor` (one `existsSync`, written for once-per-event surfaces) was reused per message bubble per rebuild — invisible on macOS/APFS, 10–100x slower on Windows under Defender, shipped as the 20260716-nightly "app is sluggish / replies don't appear" regression. Cheap-on-the-dev-Mac is not cheap everywhere; platform-asymmetric cost is part of the cross-platform verification duty.
 - **Avoid over-engineering** — simpler solutions are better when they achieve the same goal.
 - **Leverage shared state** (e.g., `StorageService`) as the single source of truth.
-- **Consolidate before extending**: In complex areas (Realism Engine, Needs, group chat), first try to generalize or extend existing methods rather than creating new ones. Parallel helpers for similar functionality are not acceptable.
+- **Consolidate before extending**: In complex areas (Realism Engine, Needs, group chat), first try to generalize or extend existing methods rather than creating new ones. Parallel helpers for similar functionality are not acceptable. (Presentation exception: distinct desktop vs. mobile UI layouts may be duplicated where UX requires it — see "UX takes priority over de-duplication" above. This applies to layout/CSS only, not logic.)
 
 ### Verification
 - **ALWAYS run `flutter analyze` after making code changes** — the project is at 0 warnings on the active rule set. New code must not introduce warnings. Never claim changes are "verified" without running it. Variables declared inside `try` blocks are not accessible outside — declare them before the `try` with defaults.
-- **Cross-platform verification is mandatory.** Front Porch AI is a Windows + macOS + Linux desktop app. Every non-trivial change must be checked (or have an explicit plan) so it does not regress on any platform — especially file paths, process spawning, Python sidecars, and anything touching `dart:io` or native binaries.
+- **Do NOT bulk-run `dart format` / `flutter format` on whole files.** The codebase is mid-migration to the Dart 3.11 "tall style" formatter, so running the new formatter on a not-yet-migrated file rewraps **hundreds of unrelated lines** (and can even introduce lint errors — e.g. splitting a one-line `if (x) return;` trips `curly_braces_in_flow_control_structures`), burying your real change in churn. Match the surrounding style **by hand** in the regions you edit; the Edit tool already preserves it. A whole-file reformat is its own intentional, isolated commit — never a side effect of a feature change.
+- **Cross-platform verification is mandatory.** Front Porch AI is a Windows + macOS + Linux desktop app. Every non-trivial change must be checked (or have an explicit plan) so it does not regress on any platform — especially file paths, process spawning, native libraries (sherpa-onnx, onnxruntime, libfpzip), and anything touching `dart:io` or native binaries.
 - **Realism & Needs parity is mandatory** (see the dedicated section). Any change to the Realism Engine or Needs simulation must keep 1:1 and group behavior consistent unless explicitly approved otherwise.
 - **Because the user cannot review code**, treat every change as if it will be accepted without scrutiny. Leave the codebase strictly cleaner (or at minimum no worse) than you found it.
 
@@ -305,8 +339,8 @@ To prevent "God files" (historically some `.dart` files exceeded 9,000 lines):
 
 ### Cross-Platform Compatibility (critical)
 - **Never hardcode Unix paths** (`/tmp`, `/Users/`, `~/`). Use `Directory.systemTemp`, `getApplicationDocumentsDirectory()`, `StorageService.rootPath`, or `path_provider` + `package:path/path.dart` with `p.join()`.
-- **Python sidecars** (`kokoro_tts.py`, `whisper_stt.py`, `piper_entry.py`): handle `python` vs `python3` (and `py` launcher on Windows); `;` vs `:` for `PYTHONPATH`/`PATH`; `HOME` (Unix) vs `USERPROFILE` (Windows). Prefer PyInstaller one-dir bundles; fall back to raw `python + .py` only in dev.
-- **Process management**: use `Process.start(..., includeParentEnvironment: true)`; expect `process.kill()` differences (Unix SIGTERM vs Windows TerminateProcess).
+- **Native libraries** (sherpa-onnx, onnxruntime, libfpzip): the sherpa/ort libs ship inside their pub packages for all three platforms; libfpzip is macOS-only (Draw Things is macOS-only software). Never assume a dylib/so/dll path — resolve via the existing helpers (`sherpa_runtime.dart`, `dt_fpzip.dart`).
+- **Process management** (KoboldCpp and other external tools): use `Process.start(..., includeParentEnvironment: true)`; expect `process.kill()` differences (Unix SIGTERM vs Windows TerminateProcess).
 - **Before marking a task "done"**, either run the affected feature on at least two platforms, or explicitly document the platform-specific limitation + mitigation.
 
 ### Dart conventions
@@ -344,11 +378,6 @@ When you add a new service or model used from 3+ locations and not purely intern
 - Use `AsyncNotifier` for async operations.
 - `ref.watch` for reactive dependencies, `ref.read` for one-time actions.
 - Proper error handling with `AsyncValue`.
-
-### Python sidecar protocol
-- Read JSON from stdin → process → write JSON to stdout → errors to stderr with non-zero exit.
-- Always validate input JSON; catch all exceptions; exit non-zero on failure.
-- Never write errors to stdout (breaks JSON parsing).
 
 ### Error handling
 - Never silently swallow errors; always log or surface to the user.

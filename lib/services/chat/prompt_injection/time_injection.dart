@@ -5,7 +5,7 @@
 //
 // Front Porch AI is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
-// the Software Foundation, either version 3 of the License, or
+// the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
 // Front Porch AI is distributed in the hope that it will be useful,
@@ -18,9 +18,10 @@
 
 import 'package:front_porch_ai/services/chat/time_service.dart';
 
-/// Plain time injection builder (step 8).
-/// Authoritative scene time text; god _getTimeInjection and time_service.build
-/// are thin wrappers (per pre-step comments). State remains in TimeService.
+/// Scene-time fragment for the words-only state block
+/// (docs/design/prompt-state-injection.md §3). One line; the day count is the
+/// one digit deliberately allowed in the composed block (dates are normal
+/// fiction, unlike meters). State stays in TimeService.
 class TimeInjection {
   final TimeService timeService;
 
@@ -29,8 +30,6 @@ class TimeInjection {
   String buildTimeInjection() {
     if (timeService.timeOfDay.isEmpty) return '';
     final timeLabel = timeService.timeOfDay.replaceAll('_', ' ');
-    final cap =
-        timeLabel.substring(0, 1).toUpperCase() + timeLabel.substring(1);
     const days = [
       'Monday',
       'Tuesday',
@@ -43,7 +42,7 @@ class TimeInjection {
     final narrativeDayIndex =
         (timeService.startDayOfWeekAnchor - 1 + (timeService.dayCount - 1)) % 7;
     final weekdayName = days[narrativeDayIndex];
-    return '[Scene Time: $cap, $weekdayName (Day ${timeService.dayCount})\n'
-        ' Describe appropriate lighting, atmosphere, and environmental details.]\n';
+    return 'It is $timeLabel on $weekdayName (day ${timeService.dayCount} of '
+        'the story).';
   }
 }

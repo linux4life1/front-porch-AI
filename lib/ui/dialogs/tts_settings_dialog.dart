@@ -101,7 +101,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.volume_up, color: Colors.blueAccent),
+                      const Icon(Icons.volume_up, color: AppColors.formMasterAccent),
                       const SizedBox(width: 12),
                       const Text(
                         'Text-to-Speech Settings',
@@ -140,7 +140,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                             ),
                           ),
                           value: storage.ttsEnabled,
-                          activeTrackColor: Colors.blueAccent,
+                          activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           onChanged: (val) => storage.setTtsEnabled(val),
                         ),
@@ -189,7 +189,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                             Text(
                               '${storage.ttsSpeechRate.toStringAsFixed(1)}x',
                               style: const TextStyle(
-                                color: Colors.blueAccent,
+                                color: AppColors.formMasterAccent,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -201,7 +201,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                           min: 0.5,
                           max: 2.0,
                           divisions: 15,
-                          activeColor: Colors.blueAccent,
+                          activeColor: AppColors.formMasterAccent,
                           inactiveColor: Colors.white12,
                           onChanged: (val) =>
                               setState(() => _dragTtsSpeechRate = val),
@@ -278,7 +278,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               Text(
                                 '${(_dragTtsConcurrency ?? storage.ttsConcurrency.toDouble()).round()} workers',
                                 style: const TextStyle(
-                                  color: Colors.blueAccent,
+                                  color: AppColors.formMasterAccent,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -292,7 +292,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                             min: 1,
                             max: 8,
                             divisions: 7,
-                            activeColor: Colors.blueAccent,
+                            activeColor: AppColors.formMasterAccent,
                             inactiveColor: Colors.white12,
                             onChanged: (val) =>
                                 setState(() => _dragTtsConcurrency = val),
@@ -348,7 +348,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                             ),
                           ),
                           value: storage.ttsAutoPlay,
-                          activeTrackColor: Colors.blueAccent,
+                          activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           onChanged: (val) => storage.setTtsAutoPlay(val),
                         ),
@@ -380,7 +380,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                             ),
                           ),
                           value: storage.ttsNarrateQuotedOnly,
-                          activeTrackColor: Colors.blueAccent,
+                          activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           dense: true,
                           onChanged: (val) =>
@@ -399,7 +399,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                             ),
                           ),
                           value: storage.ttsIgnoreAsterisks,
-                          activeTrackColor: Colors.blueAccent,
+                          activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           dense: true,
                           onChanged: (val) =>
@@ -421,7 +421,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                             ),
                           ),
                           value: storage.ttsReplaceCurlyQuotes,
-                          activeTrackColor: Colors.blueAccent,
+                          activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           dense: true,
                           onChanged: (val) =>
@@ -505,11 +505,11 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected
-                ? Colors.blueAccent.withValues(alpha: 0.3)
+                ? AppColors.formMasterAccent.withValues(alpha: 0.3)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: selected
-                ? Border.all(color: Colors.blueAccent, width: 1)
+                ? Border.all(color: AppColors.formMasterAccent, width: 1)
                 : null,
           ),
           child: Column(
@@ -517,7 +517,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
               Text(
                 label,
                 style: TextStyle(
-                  color: selected ? Colors.blueAccent : Colors.white54,
+                  color: selected ? AppColors.formMasterAccent : Colors.white54,
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -568,14 +568,14 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                         height: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.blueAccent,
+                          color: AppColors.formMasterAccent,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Downloading Kokoro model (${(tts.modelDownloadProgress * 100).toInt()}%)...',
                         style: const TextStyle(
-                          color: Colors.blueAccent,
+                          color: AppColors.formMasterAccent,
                           fontSize: 11,
                         ),
                       ),
@@ -585,7 +585,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                   LinearProgressIndicator(
                     value: tts.modelDownloadProgress,
                     backgroundColor: Colors.white12,
-                    color: Colors.blueAccent,
+                    color: AppColors.formMasterAccent,
                     minHeight: 4,
                     borderRadius: BorderRadius.circular(2),
                   ),
@@ -613,7 +613,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                     children: [
                       const Icon(
                         Icons.download_rounded,
-                        color: Colors.blueAccent,
+                        color: AppColors.formMasterAccent,
                         size: 16,
                       ),
                       const SizedBox(width: 8),
@@ -645,8 +645,8 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                         icon: const Icon(Icons.download, size: 14),
                         label: const Text('Download'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          foregroundColor: Colors.white,
+                          backgroundColor: AppColors.formMasterAccent,
+                          foregroundColor: AppColors.onChaosAccent,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 6,
@@ -702,7 +702,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
               child: Text(
                 entry.key,
                 style: const TextStyle(
-                  color: Colors.blueAccent,
+                  color: AppColors.formMasterAccent,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1037,8 +1037,8 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
             icon: const Icon(Icons.download, size: 16),
             label: const Text('Browse'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.formMasterAccent,
+              foregroundColor: AppColors.onChaosAccent,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             ),
           ),
@@ -1048,26 +1048,31 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
       Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.black26,
+          color: AppColors.surfaceContainerOf(context),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [
             Icon(
-              tts.isPiperAvailable ? Icons.check_circle : Icons.warning_amber,
-              color: tts.isPiperAvailable ? Colors.greenAccent : Colors.amber,
+              Icons.check_circle,
+              color: AppColors.resolve(
+                context,
+                AppColors.logReady,
+                AppColors.bondHighLight,
+              ),
               size: 16,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                tts.isPiperAvailable
-                    ? 'Piper TTS engine is ready'
-                    : 'Piper TTS engine not found. Requires bundled Piper binary.',
+                'Piper TTS is built in — voices download on install and '
+                'play with the in-app engine.',
                 style: TextStyle(
-                  color: tts.isPiperAvailable
-                      ? Colors.greenAccent
-                      : Colors.amber,
+                  color: AppColors.resolve(
+                    context,
+                    AppColors.logReady,
+                    AppColors.bondHighLight,
+                  ),
                   fontSize: 11,
                 ),
               ),
@@ -1261,8 +1266,8 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
             icon: const Icon(Icons.refresh, size: 14),
             label: const Text('Refresh'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.formMasterAccent,
+              foregroundColor: AppColors.onChaosAccent,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             ),
           ),
@@ -1296,7 +1301,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
             (_dragElevenlabsStability ?? storage.elevenlabsStability)
                 .toStringAsFixed(2),
             style: const TextStyle(
-              color: Colors.blueAccent,
+              color: AppColors.formMasterAccent,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -1308,7 +1313,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
         min: 0.0,
         max: 1.0,
         divisions: 20,
-        activeColor: Colors.blueAccent,
+        activeColor: AppColors.formMasterAccent,
         inactiveColor: Colors.white12,
         onChanged: (val) => setState(() => _dragElevenlabsStability = val),
         onChangeEnd: (val) {
@@ -1347,7 +1352,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
             (_dragElevenlabsSimilarity ?? storage.elevenlabsSimilarity)
                 .toStringAsFixed(2),
             style: const TextStyle(
-              color: Colors.blueAccent,
+              color: AppColors.formMasterAccent,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -1359,7 +1364,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
         min: 0.0,
         max: 1.0,
         divisions: 20,
-        activeColor: Colors.blueAccent,
+        activeColor: AppColors.formMasterAccent,
         inactiveColor: Colors.white12,
         onChanged: (val) => setState(() => _dragElevenlabsSimilarity = val),
         onChangeEnd: (val) {
@@ -1399,7 +1404,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
               2,
             ),
             style: const TextStyle(
-              color: Colors.blueAccent,
+              color: AppColors.formMasterAccent,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -1411,7 +1416,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
         min: 0.0,
         max: 1.0,
         divisions: 20,
-        activeColor: Colors.blueAccent,
+        activeColor: AppColors.formMasterAccent,
         inactiveColor: Colors.white12,
         onChanged: (val) => setState(() => _dragElevenlabsStyle = val),
         onChangeEnd: (val) {

@@ -21,7 +21,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
 // Barrel imports
@@ -31,9 +30,9 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 
 // Specific dialogs not in barrels
-import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 class EditCharacterDialog extends StatefulWidget {
   final CharacterCard character;
@@ -89,7 +88,6 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
   int _needsDecayComfort = 5;
 
   final TextEditingController _tagInputController = TextEditingController();
-  String? _newAvatarPath; // full path of newly picked avatar (null = no change)
 
   @override
   void initState() {
@@ -188,67 +186,11 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
 
   /// Resolve the current avatar image file for display.
   File? get _avatarFile {
-    // If user picked a new avatar, show that
-    if (_newAvatarPath != null) return File(_newAvatarPath!);
-    // Otherwise resolve the character's stored path
     final img = widget.character.imagePath;
     if (img == null || img.isEmpty) return null;
     if (p.isAbsolute(img)) return File(img);
     final storage = Provider.of<StorageService>(context, listen: false);
     return File(p.join(storage.charactersDir.path, img));
-  }
-
-  Future<void> _pickAvatar() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final pickedPath = result.files.single.path;
-      if (pickedPath == null) return;
-
-      final imageBytes = await File(pickedPath).readAsBytes();
-      if (!mounted) return;
-
-      // Show the crop dialog
-      final croppedBytes = await ImageCropDialog.show(
-        context,
-        imageBytes: imageBytes,
-      );
-      if (croppedBytes == null || !mounted) return;
-
-      // Save cropped image to charactersDir with a timestamped name
-      final storage = Provider.of<StorageService>(context, listen: false);
-      final charDir = storage.charactersDir;
-      await charDir.create(recursive: true);
-
-      final safeName = _nameController.text.trim().isNotEmpty
-          ? _nameController.text
-                .trim()
-                .replaceAll(RegExp(r'[^\w\s-]'), '')
-                .replaceAll(RegExp(r'\s+'), '_')
-          : 'avatar';
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final destFilename = '${safeName}_$timestamp.png';
-      final destPath = p.join(charDir.path, destFilename);
-
-      await File(destPath).writeAsBytes(croppedBytes);
-
-      setState(() {
-        _newAvatarPath = destPath;
-      });
-    } catch (e) {
-      debugPrint('File picker error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open file picker. Please try again.'),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _saveCharacter() async {
@@ -268,16 +210,11 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
     widget.character.worldNames = _selectedWorldNames;
     widget.character.tags = List<String>.from(_tags);
 
-    // Update avatar if changed
-    if (_newAvatarPath != null) {
-      widget.character.imagePath = _newAvatarPath!;
-    }
-
-    // Always embed V2 card data into the PNG to preserve extensions
+    // The portrait is managed in the Avatar Gallery now, not here — re-embed the
+    // V2 card data into the current imagePath PNG to preserve edited fields.
     final storage = Provider.of<StorageService>(context, listen: false);
-    String? targetPngPath = _newAvatarPath;
-    if (targetPngPath == null &&
-        widget.character.imagePath != null &&
+    String? targetPngPath;
+    if (widget.character.imagePath != null &&
         widget.character.imagePath!.isNotEmpty) {
       final img = widget.character.imagePath!;
       targetPngPath = p.isAbsolute(img)
@@ -310,7 +247,6 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
         listen: false,
       ).updateCharacter(
         widget.character,
-        worldRepo: Provider.of<WorldRepository>(context, listen: false),
       );
       if (mounted) {
         Navigator.pop(context, true);
@@ -340,7 +276,8 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
   }
 
   Future<void> _importLorebookJson() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await PickerPrefs.pickFiles(
+      category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
@@ -461,9 +398,9 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
               color: AppColors.surfaceContainerOf(context),
               child: TabBar(
                 controller: _tabController,
-                labelColor: Colors.blueAccent,
+                labelColor: AppColors.formMasterAccent,
                 unselectedLabelColor: AppColors.textSecondary(context),
-                indicatorColor: Colors.blueAccent,
+                indicatorColor: AppColors.formMasterAccent,
                 tabs: const [
                   Tab(text: 'Details'),
                   Tab(text: 'Lorebook'),
@@ -508,8 +445,8 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
                     icon: const Icon(Icons.save),
                     label: const Text('Save Changes'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.formMasterAccent,
+                      foregroundColor: AppColors.onChaosAccent,
                     ),
                   ),
                 ],
@@ -526,57 +463,21 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
-          // Avatar
+          // Avatar (read-only — portrait + images managed in the Avatar Gallery).
           Center(
-            child: GestureDetector(
-              onTap: _pickAvatar,
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: AppColors.surfaceContainerOf(context),
-                    backgroundImage:
-                        _avatarFile != null && _avatarFile!.existsSync()
-                        ? FileImage(_avatarFile!) as ImageProvider
-                        : null,
-                    child: _avatarFile == null || !_avatarFile!.existsSync()
-                        ? Icon(
-                            Icons.person,
-                            size: 48,
-                            color: AppColors.iconSecondary(context),
-                          )
-                        : null,
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.blueAccent,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFF1F2937),
-                          width: 2,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.camera_alt,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap to change avatar',
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.textSecondary(context),
+            child: CircleAvatar(
+              radius: 48,
+              backgroundColor: AppColors.surfaceContainerOf(context),
+              backgroundImage: _avatarFile != null && _avatarFile!.existsSync()
+                  ? FileImage(_avatarFile!) as ImageProvider
+                  : null,
+              child: _avatarFile == null || !_avatarFile!.existsSync()
+                  ? Icon(
+                      Icons.person,
+                      size: 48,
+                      color: AppColors.iconSecondary(context),
+                    )
+                  : null,
             ),
           ),
           const SizedBox(height: 16),
@@ -724,7 +625,9 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
                     tag,
                     style: const TextStyle(fontSize: 12, color: Colors.white),
                   ),
-                  backgroundColor: Colors.blueAccent.withValues(alpha: 0.25),
+                  backgroundColor: AppColors.formMasterAccent.withValues(
+                    alpha: 0.25,
+                  ),
                   deleteIconColor: Colors.white54,
                   onDeleted: () => setState(() => _tags.remove(tag)),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -774,7 +677,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
               IconButton(
                 icon: const Icon(
                   Icons.add_circle,
-                  color: Colors.blueAccent,
+                  color: AppColors.formMasterAccent,
                   size: 22,
                 ),
                 tooltip: 'Add tag',
@@ -1253,8 +1156,8 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
                 icon: const Icon(Icons.add, size: 16),
                 label: const Text('Add Entry'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.formMasterAccent,
+                  foregroundColor: AppColors.onChaosAccent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
@@ -1271,8 +1174,8 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
                 icon: const Icon(Icons.cloud_upload, size: 16),
                 label: const Text('Import'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.formMasterAccent,
+                  foregroundColor: AppColors.onChaosAccent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
@@ -1349,7 +1252,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
           color: entry.constant
               ? Colors.amberAccent.withValues(alpha: 0.3)
               : entry.enabled
-              ? Colors.blueAccent.withValues(alpha: 0.15)
+              ? AppColors.formMasterAccent.withValues(alpha: 0.15)
               : AppColors.borderOf(context).withValues(alpha: 0.5),
         ),
       ),
@@ -1364,7 +1267,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
                 color: entry.constant
                     ? Colors.amberAccent
                     : entry.enabled
-                    ? Colors.blueAccent
+                    ? AppColors.formMasterAccent
                     : Colors.white38,
               ),
               const SizedBox(width: 6),
@@ -1406,13 +1309,13 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blueAccent.withValues(alpha: 0.1),
+                    color: AppColors.formMasterAccent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     'Trigger Depth ${entry.stickyDepth}',
                     style: const TextStyle(
-                      color: Colors.blueAccent,
+                      color: AppColors.formMasterAccent,
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1430,8 +1333,10 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
                       entry.enabled = val;
                     });
                   },
-                  activeTrackColor: Colors.blueAccent.withValues(alpha: 0.5),
-                  activeThumbColor: Colors.blueAccent,
+                  activeTrackColor: AppColors.formMasterAccent.withValues(
+                    alpha: 0.5,
+                  ),
+                  activeThumbColor: AppColors.formMasterAccent,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
@@ -1466,8 +1371,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
             Wrap(
               spacing: 4,
               runSpacing: 3,
-              children: entry.key
-                  .split(',')
+              children: entry.keys
                   .map(
                     (k) => Container(
                       padding: const EdgeInsets.symmetric(
@@ -1536,7 +1440,7 @@ class _EditCharacterDialogState extends State<EditCharacterDialog>
               ),
               value: isSelected,
               checkColor: Colors.black,
-              activeColor: Colors.blueAccent,
+              activeColor: AppColors.formMasterAccent,
               onChanged: (val) {
                 setState(() {
                   if (val == true) {

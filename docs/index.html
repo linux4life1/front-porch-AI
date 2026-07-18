@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Front Porch AI - A private, offline-first AI character chat application for desktop. Free and open-source.">
+    <meta name="description" content="Front Porch AI — a private, local-first AI character chat app for Windows, macOS, and Linux. Free and open-source (AGPL-3.0), with The Stoop community character hub built in.">
     <meta property="og:title" content="Front Porch AI">
-    <meta property="og:description" content="Private, local-first AI character chat with persistent memory, voice chat, and more.">
+    <meta property="og:description" content="Private, local-first AI character chat with a Realism Engine, voice, long-term memory, and The Stoop — a built-in community character hub.">
     <meta property="og:type" content="website">
+    <meta property="og:image" content="https://frontporchai.app/assets/images/front_porch_ai_icon.png">
+    <link rel="icon" type="image/png" href="/assets/images/front_porch_ai_icon.png">
     <title>Front Porch AI — Private AI Character Chat</title>
     <style>
         :root {
@@ -89,6 +91,7 @@
         nav .nav-links {
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
         }
 
         nav .nav-links a {
@@ -108,7 +111,7 @@
         /* Hero section */
         .hero {
             text-align: center;
-            padding: 100px 20px 60px;
+            padding: 80px 20px 40px;
             max-width: 900px;
             margin: 0 auto;
         }
@@ -151,61 +154,241 @@
         .hero .description {
             font-size: 1.05rem;
             color: var(--text-muted);
-            max-width: 600px;
-            margin: 0 auto 40px;
+            max-width: 640px;
+            margin: 0 auto 8px;
             line-height: 1.6;
         }
 
-        /* CTA buttons */
-        .cta-group {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
+        /* Channels (Stable + Rawhide) */
+        .channels-section {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px 20px;
         }
 
-        .cta {
+        .channels-section > h2 {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .channels-section > .sub {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 36px;
+        }
+
+        .channels {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .channel-card {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 28px 28px 24px;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+
+        .channel-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+        }
+
+        .channel-stable { border-color: rgba(245, 166, 35, 0.45); }
+        .channel-stable:hover { border-color: var(--accent-gold); }
+        .channel-nightly { border-color: rgba(59, 130, 246, 0.45); }
+        .channel-nightly:hover { border-color: var(--accent-blue-light); }
+
+        .channel-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .channel-head h3 {
+            font-size: 1.35rem;
+            font-weight: 800;
+        }
+
+        .channel-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 4px 10px;
+            border-radius: 999px;
+        }
+
+        .badge-stable {
+            color: #1a1206;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light));
+        }
+
+        .badge-nightly {
+            color: var(--accent-blue-light);
+            background: rgba(59, 130, 246, 0.14);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+        }
+
+        .channel-version {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+        }
+
+        .channel-version code {
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .channel-notes {
+            list-style: none;
+            margin: 0 0 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 11px;
+            flex-grow: 1;
+        }
+
+        .channel-notes li {
+            font-size: 0.92rem;
+            color: var(--text-secondary);
+            line-height: 1.45;
+            padding-left: 4px;
+        }
+
+        .channel-notes li strong { color: var(--text-primary); }
+
+        .channel-cta {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
-            padding: 14px 28px;
+            padding: 13px 22px;
             border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
+            font-size: 0.98rem;
+            font-weight: 700;
             text-decoration: none;
-            transition: all 0.25s ease;
-            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
 
-        .cta-primary {
+        .cta-stable {
             background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light));
             color: #000;
             box-shadow: 0 4px 16px rgba(245, 166, 35, 0.3);
         }
+        .cta-stable:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(245, 166, 35, 0.42); }
 
-        .cta-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(245, 166, 35, 0.4);
+        .cta-nightly {
+            background: rgba(59, 130, 246, 0.16);
+            color: var(--accent-blue-light);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+        }
+        .cta-nightly:hover { transform: translateY(-2px); background: rgba(59, 130, 246, 0.26); }
+
+        .channel-foot {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-align: center;
         }
 
-        .cta-secondary {
-            background: var(--bg-card);
-            color: var(--text-primary);
+        .channel-foot a { color: var(--text-secondary); text-decoration: none; }
+        .channel-foot a:hover { color: var(--accent-gold); }
+
+        /* The Stoop spotlight */
+        .stoop {
+            max-width: 1000px;
+            margin: 28px auto 0;
+            padding: 0 20px;
+        }
+
+        .stoop-inner {
+            position: relative;
+            border-radius: 20px;
+            padding: 2px;
+            background: linear-gradient(135deg, rgba(245, 166, 35, 0.6), rgba(59, 130, 246, 0.5));
+        }
+
+        .stoop-body {
+            border-radius: 18px;
+            background: linear-gradient(180deg, #141d2e, #0f1626);
+            padding: 36px 34px;
+        }
+
+        .stoop-body .eyebrow {
+            display: inline-block;
+            font-size: 0.74rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--accent-gold-light);
+            margin-bottom: 12px;
+        }
+
+        .stoop-body h2 {
+            font-size: 1.9rem;
+            font-weight: 800;
+            margin-bottom: 14px;
+            line-height: 1.15;
+        }
+
+        .stoop-body > p {
+            font-size: 1.02rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            max-width: 720px;
+            margin-bottom: 22px;
+        }
+
+        .stoop-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 26px;
+        }
+
+        .stoop-chip {
+            font-size: 0.84rem;
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 7px 14px;
         }
 
-        .cta-secondary:hover {
-            border-color: var(--accent-gold);
-            background: var(--bg-card-hover);
-            transform: translateY(-2px);
+        .stoop-chip strong { color: var(--text-primary); }
+
+        .stoop-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--accent-gold-light);
+            text-decoration: none;
         }
+
+        .stoop-cta:hover { color: var(--accent-gold); }
 
         /* Features section */
         .features {
             max-width: 1100px;
             margin: 0 auto;
-            padding: 60px 20px 80px;
+            padding: 60px 20px 40px;
         }
 
         .features h2 {
@@ -250,9 +433,7 @@
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
         }
 
-        .feature-card:hover::before {
-            opacity: 1;
-        }
+        .feature-card:hover::before { opacity: 1; }
 
         .feature-icon {
             font-size: 1.8rem;
@@ -276,7 +457,7 @@
         /* Platforms */
         .platforms {
             text-align: center;
-            padding: 40px 20px 60px;
+            padding: 20px 20px 60px;
         }
 
         .platforms p {
@@ -317,7 +498,7 @@
         .docs-section {
             max-width: 800px;
             margin: 0 auto;
-            padding: 40px 20px 80px;
+            padding: 20px 20px 80px;
             text-align: center;
         }
 
@@ -373,9 +554,7 @@
             transition: color 0.2s;
         }
 
-        footer .footer-links a:hover {
-            color: var(--accent-gold);
-        }
+        footer .footer-links a:hover { color: var(--accent-gold); }
 
         footer .copyright {
             color: var(--text-muted);
@@ -396,31 +575,17 @@
             }
 
             .hero {
-                padding: 60px 20px 40px;
+                padding: 50px 20px 30px;
             }
 
-            .hero h1 {
-                font-size: 2.2rem;
-            }
+            .hero h1 { font-size: 2.2rem; }
+            .hero .tagline { font-size: 1.1rem; }
 
-            .hero .tagline {
-                font-size: 1.1rem;
-            }
+            .channels { grid-template-columns: 1fr; }
+            .stoop-body { padding: 28px 22px; }
+            .stoop-body h2 { font-size: 1.5rem; }
 
-            .features-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .cta-group {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .cta {
-                width: 100%;
-                max-width: 280px;
-                justify-content: center;
-            }
+            .features-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -434,9 +599,11 @@
             Front Porch AI
         </a>
         <div class="nav-links">
+            <a href="#get">Download</a>
+            <a href="#stoop">The Stoop</a>
             <a href="https://github.com/linux4life1/front-porch-AI">GitHub</a>
             <a href="https://discord.gg/e4tET6rpdv">Discord</a>
-            <a href="/docs/install.md">Docs</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/blob/main/docs/getting-started.md">Docs</a>
         </div>
     </nav>
 
@@ -445,19 +612,84 @@
         <h1>Front Porch AI</h1>
         <p class="tagline">Private AI character chat — running entirely on your machine.</p>
         <p class="description">
-            Free, open-source desktop app for immersive AI conversations. Run models locally for full privacy,
-            or connect to OpenRouter and other remote APIs. Persistent memory, voice chat, and a relationship system
-            that makes every character feel alive.
+            A free, open-source desktop app for immersive AI conversations. Run models locally for full privacy,
+            or connect to OpenRouter and other remote APIs. Persistent memory, voice chat, a Realism Engine that makes
+            every character feel alive — and now <strong>The Stoop</strong>, a community character hub built right in.
         </p>
-        <div class="cta-group">
-            <a href="https://github.com/linux4life1/front-porch-AI/releases" class="cta cta-primary">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
-            </a>
-            <a href="/docs/getting-started.md" class="cta cta-secondary">
-                Get Started
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-            </a>
+    </section>
+
+    <!-- Two release channels: pick your speed -->
+    <section class="channels-section" id="get">
+        <h2>Get Front Porch AI</h2>
+        <p class="sub">Two channels — pick your speed. Both are free, open-source, and install side-by-side without touching each other's data.</p>
+        <div class="channels">
+
+            <div class="channel-card channel-stable">
+                <div class="channel-head">
+                    <h3>🛋️ Stable</h3>
+                    <span class="channel-badge badge-stable">Recommended</span>
+                </div>
+                <p class="channel-version">Latest release · <code>v0.9.9.1.3</code> · tagged on <code>main</code></p>
+                <ul class="channel-notes">
+                    <li>🎭 <strong>Character Expressions</strong> — live emotion portraits that swap as the mood shifts (ONNX or LLM, fully on-device).</li>
+                    <li>🧠 <strong>Mature Realism Engine</strong> — bond, trust, emotion, and arousal tracking with inertia between turns.</li>
+                    <li>🗣️ <strong>Robust local voice</strong> — Kokoro &amp; Piper TTS plus Whisper push-to-talk, all offline.</li>
+                    <li>✍️ <strong>Redesigned character editor</strong> with editable Realism settings baked in.</li>
+                </ul>
+                <a class="channel-cta cta-stable" href="https://github.com/linux4life1/front-porch-AI/releases/latest">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download Stable
+                </a>
+                <p class="channel-foot"><a href="https://github.com/linux4life1/front-porch-AI/releases/latest">Full release notes →</a></p>
+            </div>
+
+            <div class="channel-card channel-nightly">
+                <div class="channel-head">
+                    <h3>🤠 Rawhide</h3>
+                    <span class="channel-badge badge-nightly">Nightly · cutting edge</span>
+                </div>
+                <p class="channel-version">Fresh builds every night from the <code>Rawhide</code> branch</p>
+                <ul class="channel-notes">
+                    <li>🏡 <strong>The Stoop</strong> — a community character hub built into the app: browse, share &amp; download cards (incl. whole group casts). <em>New!</em></li>
+                    <li>🎭 <strong>One chat, a changing cast</strong> — turn a 1:1 into a group <em>in place</em> and back, no forking or orphan copies.</li>
+                    <li>🌐 <strong>Web app &amp; phone access</strong> — the full experience in any browser, or on your phone over Tailscale.</li>
+                    <li>💾 <strong>Smarter local backups</strong> — two-tier rolling snapshots replace the deprecated Cloud Sync.</li>
+                </ul>
+                <a class="channel-cta cta-nightly" href="https://github.com/linux4life1/front-porch-AI/releases">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Get a Nightly
+                </a>
+                <p class="channel-foot">Grab the newest <code>Nightly rawhide.*</code> pre-release · may have rough edges</p>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- The Stoop spotlight -->
+    <section class="stoop" id="stoop">
+        <div class="stoop-inner">
+            <div class="stoop-body">
+                <span class="eyebrow">🏡 New on Rawhide</span>
+                <h2>The Stoop — pull up a chair, the neighbours brought characters</h2>
+                <p>
+                    A community character hub built right into the app. Browse featured &amp; mod-picked cards, follow
+                    creators, and download straight into your library — no browser, no separate website, no copy-paste
+                    imports. Whole <strong>group casts</strong> travel too: members, lorebooks, <strong>and</strong> their
+                    pre-seeded Realism &amp; Needs state all arrive intact, ready to play. Only the hub touches the network;
+                    everything else stays local.
+                </p>
+                <div class="stoop-chips">
+                    <span class="stoop-chip"><strong>Open-source</strong> · AGPL-3.0</span>
+                    <span class="stoop-chip"><strong>Local-first</strong> · only the hub is online</span>
+                    <span class="stoop-chip">Whole <strong>group casts</strong>, not just cards</span>
+                    <span class="stoop-chip">Opt-in · <strong>18+</strong> · NSFW off by default</span>
+                    <span class="stoop-chip">Optional <strong>two-factor auth</strong></span>
+                </div>
+                <a class="stoop-cta" href="https://github.com/linux4life1/front-porch-AI/blob/main/README.md#-the-stoop--built-in-community-character-hub">
+                    Read the full breakdown
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </a>
+            </div>
         </div>
     </section>
 
@@ -467,12 +699,17 @@
             <div class="feature-card">
                 <span class="feature-icon">🔒</span>
                 <h3>Private by Default</h3>
-                <p>Run AI models locally with KoboldCpp — your conversations never leave your machine. Or optionally connect to OpenRouter and other remote APIs. No accounts, no telemetry.</p>
+                <p>Run AI models locally with KoboldCpp — your conversations never leave your machine. No account needed and no telemetry for local use; remote APIs and The Stoop are strictly opt-in.</p>
             </div>
             <div class="feature-card">
                 <span class="feature-icon">🧠</span>
                 <h3>Realism Engine</h3>
                 <p>Characters develop bonds, trust, and emotions across conversations. A dynamic relationship system that evolves with every interaction.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🏡</span>
+                <h3>The Stoop</h3>
+                <p>A community character hub built right in — browse, share, and download cards, including whole group casts with their Realism/Needs state. Open-source, local-first, opt-in, and 18+.</p>
             </div>
             <div class="feature-card">
                 <span class="feature-icon">💬</span>
@@ -495,19 +732,14 @@
                 <p>Multi-agent novel writing pipeline. Generate full stories with character arcs, world-building, and structured narratives.</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">☁️</span>
-                <h3>Cloud Sync</h3>
-                <p>Bi-directional sync to Google Drive or WebDAV. Your characters and chats available across all your devices.</p>
-            </div>
-            <div class="feature-card">
                 <span class="feature-icon">🖥️</span>
                 <h3>Cross-Platform</h3>
                 <p>Native desktop app for Windows, macOS, and Linux. Apple Silicon optimized. GPU acceleration via CUDA, Metal, Vulkan, or ROCm.</p>
             </div>
             <div class="feature-card">
                 <span class="feature-icon">🌐</span>
-                <h3>Built-in Web Server</h3>
-                <p>Access your chat from any browser on your network. Full REST API with PIN authentication for remote access.</p>
+                <h3>Web &amp; Phone Access</h3>
+                <p>A full web app brings the desktop experience to any browser — or your phone over Tailscale — kept in sync with the desktop app.</p>
             </div>
         </div>
     </section>
@@ -533,14 +765,14 @@
     <section class="docs-section">
         <h2>Documentation</h2>
         <div class="docs-grid">
-            <a href="/docs/install.md">Installation</a>
-            <a href="/docs/getting-started.md">Getting Started</a>
-            <a href="/docs/user-guide.md">User Guide</a>
-            <a href="/docs/faq.md">FAQ</a>
-            <a href="/docs/troubleshooting.md">Troubleshooting</a>
-            <a href="/docs/realism-engine.md">Realism Engine</a>
-            <a href="/docs/characters.md">Characters</a>
-            <a href="/docs/release-notes.md">Release Notes</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/blob/main/docs/install.md">Installation</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/blob/main/docs/getting-started.md">Getting Started</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/blob/main/docs/user-guide.md">User Guide</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/blob/main/docs/faq.md">FAQ</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/blob/main/docs/troubleshooting.md">Troubleshooting</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/blob/main/docs/realism-engine.md">Realism Engine</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/blob/main/docs/characters.md">Characters</a>
+            <a href="https://github.com/linux4life1/front-porch-AI/blob/main/docs/release-notes.md">Release Notes</a>
         </div>
     </section>
 
@@ -549,7 +781,6 @@
             <a href="https://github.com/linux4life1/front-porch-AI">GitHub</a>
             <a href="https://github.com/linux4life1/front-porch-AI/releases">Releases</a>
             <a href="https://discord.gg/e4tET6rpdv">Discord</a>
-            <a href="https://matrix.dreamersai.art">Matrix</a>
             <a href="/privacy.html">Privacy Policy</a>
         </div>
         <p class="copyright">

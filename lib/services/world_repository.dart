@@ -23,7 +23,10 @@ import 'package:drift/drift.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/models/lorebook.dart';
+import 'package:front_porch_ai/models/lorebook_codec.dart';
+import 'package:front_porch_ai/models/lorebook_export.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 class WorldRepository extends ChangeNotifier {
@@ -137,6 +140,68 @@ class WorldRepository extends ChangeNotifier {
     }
   }
 
+  /// Rename a world AND follow every reference to it. Characters attach
+  /// worlds by name (worldNames) and groups by worldIds — before this,
+  /// renaming silently orphaned all of them, and the old save path even
+  /// inserted a duplicate row under the new name (lookup-by-new-name missed
+  /// the existing row). Updates the existing row BY ID and rewrites the
+  /// referencing characters/groups atomically from the caller's view.
+  /// Throws [StateError] on a name collision.
+  Future<void> renameWorld(
+    model.World world,
+    String newName, {
+    GroupChatRepository? groupRepo,
+  }) async {
+    final trimmed = newName.trim();
+    final oldName = world.name;
+    if (trimmed.isEmpty || trimmed == oldName) return;
+    if (await _db.getWorldByName(trimmed) != null) {
+      throw StateError('A world named "$trimmed" already exists.');
+    }
+
+    final existing = await _db.getWorldByName(oldName);
+    if (existing != null) {
+      await _db.updateWorld(
+        WorldsCompanion(
+          id: Value(existing.id),
+          name: Value(trimmed),
+          description: Value(existing.description),
+          lorebook: Value(existing.lorebook),
+          linkedCharacterName: Value(existing.linkedCharacterName),
+        ),
+      );
+    }
+    world.name = trimmed;
+
+    // Follow character attachments (persisted via the normal update path so
+    // the PNG-embedded card data stays consistent too).
+    final charRepo = _characterRepository;
+    if (charRepo != null) {
+      for (final c in List.of(charRepo.characters)) {
+        if (c.worldNames.contains(oldName)) {
+          c.worldNames = [
+            for (final n in c.worldNames) n == oldName ? trimmed : n,
+          ];
+          await charRepo.updateCharacter(c);
+        }
+      }
+    }
+
+    // Follow group attachments.
+    if (groupRepo != null) {
+      for (final g in List.of(groupRepo.groups)) {
+        if (g.worldIds.contains(oldName)) {
+          g.worldIds = [
+            for (final n in g.worldIds) n == oldName ? trimmed : n,
+          ];
+          await groupRepo.save(g);
+        }
+      }
+    }
+
+    notifyListeners();
+  }
+
   Future<void> saveWorld(model.World world) async {
     // Check if exists
     final existing = await _db.getWorldByName(world.name);
@@ -193,11 +258,15 @@ class WorldRepository extends ChangeNotifier {
       final Map<String, dynamic> json =
           jsonDecode(content) as Map<String, dynamic>;
 
-      // Validate basic structure
-      if (json['entries'] == null && json['lorebook'] == null) {
+      // Validate basic structure. Foreign formats (NovelAI, AgnAI, RisuAI,
+      // V3 lorebooks) carry their own markers instead of an `entries` key.
+      if (json['entries'] == null &&
+          json['lorebook'] == null &&
+          detectLorebookFormat(json) == LorebookFormat.fpaiOrSt) {
         throw FormatException(
           'Invalid lorebook file: missing "entries" or "lorebook" field. '
-          'Supported formats: SillyTavern, Chub.ai, Front Porch.',
+          'Supported formats: SillyTavern, Chub.ai, NovelAI, AgnAI, RisuAI, '
+          'Front Porch.',
         );
       }
 
@@ -219,9 +288,16 @@ class WorldRepository extends ChangeNotifier {
     }
   }
 
+  /// Write the world as a native SillyTavern world info file so exports drop
+  /// straight into ST/Chub (and re-import into any FPAI version) with all
+  /// entry metadata intact.
   Future<void> exportWorld(model.World world, String outputPath) async {
     final file = File(outputPath);
-    await file.writeAsString(jsonEncode(world.toJson()));
+    await file.writeAsString(jsonEncode(encodeStWorldInfo(
+      world.lorebook,
+      name: world.name,
+      description: world.description,
+    )));
   }
 }
 

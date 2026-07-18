@@ -35,6 +35,7 @@ export 'storage_service.dart';
 export 'character_repository.dart';
 export 'group_chat_repository.dart';
 export 'group_card_service.dart';
+export 'group_card_exporter.dart';
 export 'world_repository.dart';
 export 'story_repository.dart';
 
@@ -44,7 +45,6 @@ export 'llm_service.dart';
 export 'kobold_service.dart';
 export 'chat_service.dart';
 export 'backend_manager.dart';
-export 'pseudo_remote_service.dart';
 export 'open_router_service.dart';
 
 // Chat domain leaves (curated high-freq per extraction policy; needs impact evaluator
@@ -58,7 +58,6 @@ export 'stt_service.dart';
 export 'image_gen_service.dart';
 
 // Sync & data
-export 'cloud_sync_service.dart';
 export 'v2_card_service.dart';
 export 'user_persona_service.dart';
 export 'folder_service.dart';

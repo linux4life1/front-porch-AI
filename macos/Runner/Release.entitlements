@@ -11,10 +11,14 @@
 	<true/>
 	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
-	<!-- disable-library-validation is required to load the PyInstaller sidecar processes
-	     and any third-party dylibs not signed by this team. The JIT and unsigned-executable-memory
-	     entitlements are NOT included here — they require special Apple approval and will cause
-	     notarization to return 'Invalid'. Those entitlements live in Sidecar.entitlements only. -->
+	<!-- disable-library-validation lets the app load third-party dylibs not
+	     originally signed by this team (the sherpa-onnx / onnxruntime prebuilts
+	     that ship inside their pub packages, libfpzip). Removing it is untested
+	     against notarization — verify with a full signed build before touching.
+	     The JIT and unsigned-executable-memory entitlements are deliberately NOT
+	     included; they require special Apple approval and cause notarization to
+	     return 'Invalid'. (They previously lived in the now-deleted
+	     Sidecar.entitlements for the retired PyInstaller sidecars.) -->
 	<key>com.apple.security.cs.disable-library-validation</key>
 	<true/>
 </dict>

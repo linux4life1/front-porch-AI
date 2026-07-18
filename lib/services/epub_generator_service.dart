@@ -18,6 +18,7 @@
 
 import 'dart:convert';
 import 'package:archive/archive.dart';
+import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/models/story_project.dart';
 
 class FormattedEbook {
@@ -29,9 +30,10 @@ class FormattedEbook {
 
 /// Utility for compiling a Porch Story project into a standard, offline-compliant `.epub` file.
 class EpubGeneratorService {
-  /// Builds a fully-compliant EPUB 2/3 zip container entirely in memory.
+  /// Builds a fully-compliant EPUB 2 zip container entirely in memory.
   static Future<FormattedEbook?> generateEpub(StoryProject project) async {
     final archive = Archive();
+    final uuid = const Uuid().v4();
 
     // 1. mimetype (MUST be at root, MUST be uncompressed, MUST be first)
     final mimetypeBytes = utf8.encode('application/epub+zip');
@@ -65,10 +67,10 @@ class EpubGeneratorService {
     // Add Title Page
     chapterHtmlFiles['title.html'] = _buildHtmlWrap(project.title, '''
       <div style="text-align: center; margin-top: 25%;">
-        <h1>\${_escapeXml(project.title)}</h1>
+        <h1>${_escapeXml(project.title)}</h1>
         <p><i>A Story by Front Porch AI</i></p>
         <br/><br/>
-        <p>\${_escapeXml(project.concept)}</p>
+        <p>${_escapeXml(project.concept)}</p>
       </div>
     ''');
 
@@ -82,48 +84,46 @@ class EpubGeneratorService {
 
     // Add Acts / Chapters
     for (int actIdx = 0; actIdx < project.acts.length; actIdx++) {
-      // ignore: unused_local_variable
       final act = project.acts[actIdx];
       final scenes = project.scenes[actIdx] ?? [];
 
       final buffer = StringBuffer();
-      buffer.writeln('<h2>Act \${act.number}: \${_escapeXml(act.title)}</h2>');
-      buffer.writeln('<p><i>\${_escapeXml(act.description)}</i></p><hr/>');
+      buffer.writeln('<h2>Act ${act.number}: ${_escapeXml(act.title)}</h2>');
+      buffer.writeln('<p><i>${_escapeXml(act.description)}</i></p><hr/>');
 
       for (int sceneIdx = 0; sceneIdx < scenes.length; sceneIdx++) {
-        // ignore: unused_local_variable
         final scene = scenes[sceneIdx];
-        final sId = '\$actIdx-\$sceneIdx';
+        final sId = '$actIdx-$sceneIdx';
         final beats = project.beats[sId] ?? [];
 
-        buffer.writeln('<br/><h3>\${_escapeXml(scene.title)}</h3>');
+        buffer.writeln('<br/><h3>${_escapeXml(scene.title)}</h3>');
 
         for (int beatIdx = 0; beatIdx < beats.length; beatIdx++) {
-          final bId = '\$sId-\$beatIdx';
+          final bId = '$sId-$beatIdx';
           final prose =
               project.prose[bId]?.final_ ?? project.prose[bId]?.draft ?? '';
           if (prose.trim().isNotEmpty) {
             // Split into paragraphs for proper eBook indentation flow
-            final paragraphs = prose.split('\\n\\n');
+            final paragraphs = prose.split('\n\n');
             for (final p in paragraphs) {
               if (p.trim().isNotEmpty) {
-                buffer.writeln('<p>\${_escapeXml(p.trim())}</p>');
+                buffer.writeln('<p>${_escapeXml(p.trim())}</p>');
               }
             }
           }
         }
       }
 
-      final chapterFilename = 'act_\${actIdx + 1}.html';
+      final chapterFilename = 'act_${actIdx + 1}.html';
       chapterHtmlFiles[chapterFilename] = _buildHtmlWrap(
-        'Act \${act.number}',
+        'Act ${act.number}',
         buffer.toString(),
       );
 
       navPoints.add('''
-        <navPoint id="navPoint-\$playOrder" playOrder="\$playOrder">
-          <navLabel><text>Act \${act.number}: \${_escapeXml(act.title)}</text></navLabel>
-          <content src="Text/\$chapterFilename"/>
+        <navPoint id="navPoint-$playOrder" playOrder="$playOrder">
+          <navLabel><text>Act ${act.number}: ${_escapeXml(act.title)}</text></navLabel>
+          <content src="Text/$chapterFilename"/>
         </navPoint>
       ''');
       playOrder++;
@@ -131,7 +131,7 @@ class EpubGeneratorService {
 
     // Write Text folders to archive
     for (final entry in chapterHtmlFiles.entries) {
-      final path = 'OEBPS/Text/\${entry.key}';
+      final path = 'OEBPS/Text/${entry.key}';
       final bytes = utf8.encode(entry.value);
       archive.addFile(ArchiveFile(path, bytes.length, bytes));
     }
@@ -150,23 +150,24 @@ class EpubGeneratorService {
 
     for (int actIdx = 0; actIdx < project.acts.length; actIdx++) {
       manifestItems.writeln(
-        '<item id="act_\${actIdx + 1}" href="Text/act_\${actIdx + 1}.html" media-type="application/xhtml+xml"/>',
+        '<item id="act_${actIdx + 1}" href="Text/act_${actIdx + 1}.html" media-type="application/xhtml+xml"/>',
       );
-      spineItems.writeln('<itemref idref="act_\${actIdx + 1}"/>');
+      spineItems.writeln('<itemref idref="act_${actIdx + 1}"/>');
     }
 
-    final contentOpf = '''<?xml version="1.0" encoding="UTF-8"?>
+    final contentOpf =
+        '''<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
-    <dc:title>\${_escapeXml(project.title)}</dc:title>
+    <dc:title>${_escapeXml(project.title)}</dc:title>
     <dc:creator opf:role="aut">Front Porch AI</dc:creator>
     <dc:language>en</dc:language>
-    <dc:identifier id="BookId" opf:scheme="UUID">urn:uuid:\$uuid</dc:identifier>
+    <dc:identifier id="BookId" opf:scheme="UUID">urn:uuid:$uuid</dc:identifier>
   </metadata>
   <manifest>
-\${manifestItems.toString()}  </manifest>
+$manifestItems  </manifest>
   <spine toc="ncx">
-\${spineItems.toString()}  </spine>
+$spineItems  </spine>
 </package>''';
 
     archive.addFile(
@@ -178,20 +179,21 @@ class EpubGeneratorService {
     );
 
     // 5. Create toc.ncx
-    final tocNcx = '''<?xml version="1.0" encoding="UTF-8"?>
+    final tocNcx =
+        '''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
-    <meta name="dtb:uid" content="urn:uuid:\$uuid"/>
+    <meta name="dtb:uid" content="urn:uuid:$uuid"/>
     <meta name="dtb:depth" content="1"/>
     <meta name="dtb:totalPageCount" content="0"/>
     <meta name="dtb:maxPageNumber" content="0"/>
   </head>
   <docTitle>
-    <text>\${_escapeXml(project.title)}</text>
+    <text>${_escapeXml(project.title)}</text>
   </docTitle>
   <navMap>
-\${navPoints.join('\\n')}
+${navPoints.join('\n')}
   </navMap>
 </ncx>''';
 
@@ -214,7 +216,7 @@ class EpubGeneratorService {
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <title>\${_escapeXml(title)}</title>
+  <title>${_escapeXml(title)}</title>
   <style type="text/css">
     body { font-family: serif; line-height: 1.5; }
     p { margin-top: 0; margin-bottom: 0; text-indent: 1.5em; }
@@ -222,12 +224,11 @@ class EpubGeneratorService {
   </style>
 </head>
 <body>
-  \$body
+  $body
 </body>
 </html>''';
   }
 
-  // ignore: unused_element
   static String _escapeXml(String text) {
     return text
         .replaceAll('&', '&amp;')

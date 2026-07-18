@@ -1,0 +1,172 @@
+<!-- Landing page body. Injected into the site shell by build.mjs.
+     {{STABLE_VERSION}} is replaced at build time. -->
+
+<section class="hero">
+  <div class="hero-lamp"><img src="/assets/images/front_porch_ai_icon.png" alt="Front Porch AI"></div>
+  <h1>Pull up a chair.<br>Your characters are <em>already home</em>.</h1>
+  <p class="tagline">
+    Front Porch AI is a free, open-source desktop app for AI character chat that runs
+    <strong>entirely on your machine</strong>. Living characters with real moods, memory that
+    lasts, voices, stories — and not one word of it leaves your porch unless you say so.
+  </p>
+  <div class="hero-ctas">
+    <a class="btn btn-amber" href="#get">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download — it's free
+    </a>
+    <a class="btn btn-ghost" href="/docs/getting-started/">Read the docs</a>
+  </div>
+  <p class="hero-meta">Windows · macOS · Linux &nbsp;·&nbsp; open source under <a href="https://github.com/linux4life1/front-porch-AI/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a> &nbsp;·&nbsp; no account, no subscription</p>
+
+  <div class="porthole reveal">
+    <div class="frame"><img src="/screenshots/home_new.jpg" alt="The Front Porch AI character library" fetchpriority="high"></div>
+  </div>
+</section>
+
+<div class="trust reveal">
+  <span>🔒 <b>Local-first</b> — offline use sends nothing, ever</span>
+  <span>🆓 <b>Free forever</b> — AGPL keeps it that way</span>
+  <span>🍎 <b>Signed &amp; Apple-notarized</b> — no Gatekeeper warnings</span>
+  <span>🖥️ <b>Native app</b> on all three desktops</span>
+  <span>🃏 <b>Your cards work here</b> — SillyTavern &amp; Backyard compatible</span>
+</div>
+
+<!-- ============================ download ============================ -->
+<section class="channels-section" id="get">
+  <div class="head reveal">
+    <span class="eyebrow">Get Front Porch AI</span>
+    <h2 class="section-title">Two channels, one porch</h2>
+    <p class="section-sub">Both are free and install side-by-side without touching each other's data. Pick your speed.</p>
+    <div class="os-hint" id="os-hint"></div>
+  </div>
+
+  <div class="channels">
+    <div class="channel channel-stable reveal">
+      <div class="chead"><h3>🛋️ Stable</h3><span class="badge badge-stable">Recommended</span></div>
+      <p class="ver">Latest release · <code>{{STABLE_VERSION}}</code></p>
+      <ul>
+        <li>🎭 <strong>Character Expressions</strong> — portraits that change with the character's mood, fully on-device.</li>
+        <li>🧠 <strong>The Realism Engine</strong> — bond, trust, moods with memory, and time that actually passes.</li>
+        <li>🗣️ <strong>Voice built in</strong> — natural local text-to-speech and push-to-talk, all offline.</li>
+        <li>📱 <strong>Chat from your phone</strong> — the built-in web app mirrors your desktop.</li>
+      </ul>
+      <a class="btn btn-amber" href="https://github.com/linux4life1/front-porch-AI/releases/latest" target="_blank" rel="noopener">Download Stable</a>
+      <p class="foot"><a href="https://github.com/linux4life1/front-porch-AI/releases/latest" target="_blank" rel="noopener">Release notes →</a></p>
+    </div>
+
+    <div class="channel channel-nightly reveal">
+      <div class="chead"><h3>🤠 Rawhide</h3><span class="badge badge-nightly">Nightly · cutting edge</span></div>
+      <p class="ver">Fresh builds every night from the <code>Rawhide</code> branch</p>
+      <ul>
+        <li>🏡 <strong>The Stoop</strong> — the built-in community character hub. Browse, share, one-tap download. <em>New!</em></li>
+        <li>🎭 <strong>One chat, a changing cast</strong> — characters can join and leave a conversation in place.</li>
+        <li>💾 <strong>Smarter local backups</strong> — rolling snapshots so yesterday is always one click away.</li>
+        <li>🧪 Everything else lands here first.</li>
+      </ul>
+      <a class="btn btn-teal" href="https://github.com/linux4life1/front-porch-AI/releases" target="_blank" rel="noopener">Get a Nightly</a>
+      <p class="foot">Grab the newest <code>Nightly rawhide.*</code> pre-release · may have rough edges</p>
+    </div>
+  </div>
+
+  <div class="linux-line reveal">
+    <div class="box">
+      <span>🍎 On a Mac?</span>
+      <span>Grab the <code>.pkg</code> installer. Front Porch AI is code-signed and <strong>notarized by Apple</strong> — it opens first try, no Gatekeeper warnings, no right-click rituals. How many apps in this space go through that hassle?</span>
+    </div>
+  </div>
+
+  <div class="linux-line reveal">
+    <div class="box">
+      <span>🐧 Linux one-liner:</span>
+      <code>curl -fsSL https://apt.frontporchai.app/install.sh | bash &amp;&amp; sudo apt install front-porch-ai</code>
+      <a href="/docs/install/#linux--package-managers-recommended">Fedora / Arch / AppImage →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ the stoop ============================ -->
+<section class="stoop" id="stoop">
+  <div class="inner reveal">
+    <div class="panel">
+      <span class="eyebrow">🏡 New — in the app and in your browser</span>
+      <h2>The Stoop — the neighbours brought characters</h2>
+      <p class="lead">
+        A community character hub built right into the app — and now open from any browser at
+        <strong>hub.frontporchai.app</strong>. Browse featured cards, follow creators you love,
+        vote and share, and download straight into your library. Live counters update in real
+        time as the neighbourhood votes. Whole <strong>group casts</strong> travel too: members,
+        lorebooks, and their living Realism state arrive intact, ready to play. Only the hub
+        touches the network; everything else stays on your machine.
+      </p>
+      <div class="chips">
+        <span class="chip"><strong>Open-source</strong> · AGPL-3.0</span>
+        <span class="chip"><strong>Opt-in</strong> · the rest of the app stays local</span>
+        <span class="chip">Whole <strong>group casts</strong>, not just cards</span>
+        <span class="chip">Strictly <strong>18+</strong> · NSFW hidden by default</span>
+        <span class="chip">Optional <strong>two-factor auth</strong></span>
+      </div>
+      <a class="btn btn-amber" href="https://hub.frontporchai.app/" target="_blank" rel="noopener">Open The Stoop in your browser →</a>
+      &nbsp;
+      <a class="btn btn-ghost" href="https://github.com/linux4life1/front-porch-AI#-the-stoop--built-in-community-character-hub" target="_blank" rel="noopener">Read the full breakdown →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ features ============================ -->
+<section class="features">
+  <div class="head reveal">
+    <span class="eyebrow">Why people stay</span>
+    <h2 class="section-title">Everything you need, nothing watching you</h2>
+    <p class="section-sub">One app, out of the box. No extensions to hunt down, no servers to configure by hand.</p>
+  </div>
+  <div class="fgrid">
+    <div class="fcard reveal"><div class="ic">🔒</div><h3>Private by default</h3><p>AI models run locally on your GPU. Offline use collects nothing and sends nothing. Remote APIs exist — but only if you turn them on.</p></div>
+    <div class="fcard reveal"><div class="ic">🧠</div><h3>Realism Engine</h3><p>Characters build bond and trust, hold grudges, carry moods between scenes, get hungry and tired, and grow new traits as your story unfolds.</p></div>
+    <div class="fcard reveal"><div class="ic">📚</div><h3>Memory that lasts</h3><p>Local long-term memory means characters recall the promise you made three sessions ago — without a cloud service reading along.</p></div>
+    <div class="fcard reveal"><div class="ic">🎭</div><h3>Living expressions</h3><p>Portraits swap in real time with the character's emotions. Works with standard SillyTavern expression packs.</p></div>
+    <div class="fcard reveal"><div class="ic">🗣️</div><h3>Voice, both ways</h3><p>Natural offline text-to-speech in dozens of voices, push-to-talk dictation, and a hands-free voice call mode.</p></div>
+    <div class="fcard reveal"><div class="ic">👥</div><h3>Group chats</h3><p>Put a whole cast in one room. They talk to you and each other — each with their own moods, needs, and voice.</p></div>
+    <div class="fcard reveal"><div class="ic">✍️</div><h3>Porch Stories</h3><p>Turn your chats into an illustrated novel with a page-flip reader and audiobook narration.</p></div>
+    <div class="fcard reveal"><div class="ic">🖼️</div><h3>Image generation</h3><p>Connect A1111, Forge, SDNext, or Draw Things and get scene art and avatars without leaving the chat.</p></div>
+    <div class="fcard reveal"><div class="ic">📱</div><h3>Phone &amp; browser</h3><p>The built-in web app brings your library to any browser on your network — pick up the same chat from the couch.</p></div>
+  </div>
+</section>
+
+<!-- ============================ gallery ============================ -->
+<section class="gallery">
+  <div class="row">
+    <a class="shot reveal" href="/docs/getting-started/#your-first-chat"><img src="/screenshots/chat.jpg" alt="Chat view" loading="lazy"><span>Immersive chat with live Realism tracking</span></a>
+    <a class="shot reveal" href="/docs/user-guide/"><img src="/screenshots/group_chat_new.jpg" alt="Group chat" loading="lazy"><span>Group scenes with a full cast</span></a>
+    <a class="shot reveal" href="/docs/user-guide/"><img src="/screenshots/Porch_stories_book.jpg" alt="Porch Stories reader" loading="lazy"><span>Porch Stories — your chats, as a book</span></a>
+  </div>
+</section>
+
+<!-- ============================ privacy ============================ -->
+<section class="privacy-strip">
+  <div class="inner reveal">
+    <span class="eyebrow">The privacy promise</span>
+    <h2>What leaves your machine?</h2>
+    <p class="answer">“Nothing. Unless you say so.”</p>
+    <p>No account. No telemetry for local use. No subscription, ever. The optional Stoop hub and
+    remote APIs are the only online features, and both are strictly opt-in.
+    <a href="/privacy.html">Read the plain-English privacy policy →</a></p>
+  </div>
+</section>
+
+<!-- ============================ docs ============================ -->
+<section class="docs-links">
+  <div class="head reveal">
+    <span class="eyebrow">Documentation</span>
+    <h2 class="section-title">Learn the porch</h2>
+  </div>
+  <div class="dgrid reveal">
+    <a href="/docs/getting-started/">Getting Started<small>From download to first chat</small></a>
+    <a href="/docs/install/">Installation<small>Windows · macOS · Linux</small></a>
+    <a href="/docs/user-guide/">User Guide<small>The complete reference</small></a>
+    <a href="/docs/characters/">Characters<small>Create, import &amp; organize</small></a>
+    <a href="/docs/realism-engine/">Realism Engine<small>Living, feeling characters</small></a>
+    <a href="/docs/faq/">FAQ<small>Quick answers</small></a>
+    <a href="/docs/troubleshooting/">Troubleshooting<small>When something goes wrong</small></a>
+    <a href="/docs/release-notes/">Release Notes<small>What shipped, when</small></a>
+  </div>
+</section>

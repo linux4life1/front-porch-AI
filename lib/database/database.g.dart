@@ -1669,6 +1669,17 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _cooldownTurnsTotalMeta =
+      const VerificationMeta('cooldownTurnsTotal');
+  @override
+  late final GeneratedColumn<int> cooldownTurnsTotal = GeneratedColumn<int>(
+    'cooldown_turns_total',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _trustLevelMeta = const VerificationMeta(
     'trustLevel',
   );
@@ -1866,6 +1877,17 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _selectedLookAvatarIdMeta =
+      const VerificationMeta('selectedLookAvatarId');
+  @override
+  late final GeneratedColumn<String> selectedLookAvatarId =
+      GeneratedColumn<String>(
+        'selected_look_avatar_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _groupRealismStateMeta = const VerificationMeta(
     'groupRealismState',
   );
@@ -1945,6 +1967,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     passageOfTimeEnabled,
     arousalLevel,
     cooldownTurnsRemaining,
+    cooldownTurnsTotal,
     trustLevel,
     activeFixation,
     fixationLifespan,
@@ -1961,6 +1984,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     groupEvolvedScenarios,
     generationSettings,
     userPersonaId,
+    selectedLookAvatarId,
     groupRealismState,
     createdAt,
     updatedAt,
@@ -2214,6 +2238,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         ),
       );
     }
+    if (data.containsKey('cooldown_turns_total')) {
+      context.handle(
+        _cooldownTurnsTotalMeta,
+        cooldownTurnsTotal.isAcceptableOrUnknown(
+          data['cooldown_turns_total']!,
+          _cooldownTurnsTotalMeta,
+        ),
+      );
+    }
     if (data.containsKey('trust_level')) {
       context.handle(
         _trustLevelMeta,
@@ -2352,6 +2385,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         userPersonaId.isAcceptableOrUnknown(
           data['user_persona_id']!,
           _userPersonaIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('selected_look_avatar_id')) {
+      context.handle(
+        _selectedLookAvatarIdMeta,
+        selectedLookAvatarId.isAcceptableOrUnknown(
+          data['selected_look_avatar_id']!,
+          _selectedLookAvatarIdMeta,
         ),
       );
     }
@@ -2507,6 +2549,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.int,
         data['${effectivePrefix}cooldown_turns_remaining'],
       )!,
+      cooldownTurnsTotal: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cooldown_turns_total'],
+      )!,
       trustLevel: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}trust_level'],
@@ -2571,6 +2617,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}user_persona_id'],
       ),
+      selectedLookAvatarId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}selected_look_avatar_id'],
+      ),
       groupRealismState: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}group_realism_state'],
@@ -2626,6 +2676,7 @@ class Session extends DataClass implements Insertable<Session> {
   final bool passageOfTimeEnabled;
   final int arousalLevel;
   final int cooldownTurnsRemaining;
+  final int cooldownTurnsTotal;
   final int trustLevel;
   final String activeFixation;
   final int fixationLifespan;
@@ -2642,6 +2693,12 @@ class Session extends DataClass implements Insertable<Session> {
   final String groupEvolvedScenarios;
   final String? generationSettings;
   final String? userPersonaId;
+
+  /// The gallery "look" (avatar) selected for THIS chat, or null → show the
+  /// character's library face (`imagePath`). Per-chat selection over the global
+  /// look collection. Nullable + additive; the external card tool (Character
+  /// Card Forge) simply omits it (NULL).
+  final String? selectedLookAvatarId;
 
   /// Live per-character realism/needs state for group sessions.
   /// JSON map: { charId: { emotion, needs, affection, trust, fixation, relationships, ... } }
@@ -2681,6 +2738,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.passageOfTimeEnabled,
     required this.arousalLevel,
     required this.cooldownTurnsRemaining,
+    required this.cooldownTurnsTotal,
     required this.trustLevel,
     required this.activeFixation,
     required this.fixationLifespan,
@@ -2697,6 +2755,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.groupEvolvedScenarios,
     this.generationSettings,
     this.userPersonaId,
+    this.selectedLookAvatarId,
     required this.groupRealismState,
     required this.createdAt,
     required this.updatedAt,
@@ -2750,6 +2809,7 @@ class Session extends DataClass implements Insertable<Session> {
     map['passage_of_time_enabled'] = Variable<bool>(passageOfTimeEnabled);
     map['arousal_level'] = Variable<int>(arousalLevel);
     map['cooldown_turns_remaining'] = Variable<int>(cooldownTurnsRemaining);
+    map['cooldown_turns_total'] = Variable<int>(cooldownTurnsTotal);
     map['trust_level'] = Variable<int>(trustLevel);
     map['active_fixation'] = Variable<String>(activeFixation);
     map['fixation_lifespan'] = Variable<int>(fixationLifespan);
@@ -2773,6 +2833,9 @@ class Session extends DataClass implements Insertable<Session> {
     }
     if (!nullToAbsent || userPersonaId != null) {
       map['user_persona_id'] = Variable<String>(userPersonaId);
+    }
+    if (!nullToAbsent || selectedLookAvatarId != null) {
+      map['selected_look_avatar_id'] = Variable<String>(selectedLookAvatarId);
     }
     map['group_realism_state'] = Variable<String>(groupRealismState);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -2828,6 +2891,7 @@ class Session extends DataClass implements Insertable<Session> {
       passageOfTimeEnabled: Value(passageOfTimeEnabled),
       arousalLevel: Value(arousalLevel),
       cooldownTurnsRemaining: Value(cooldownTurnsRemaining),
+      cooldownTurnsTotal: Value(cooldownTurnsTotal),
       trustLevel: Value(trustLevel),
       activeFixation: Value(activeFixation),
       fixationLifespan: Value(fixationLifespan),
@@ -2850,6 +2914,9 @@ class Session extends DataClass implements Insertable<Session> {
       userPersonaId: userPersonaId == null && nullToAbsent
           ? const Value.absent()
           : Value(userPersonaId),
+      selectedLookAvatarId: selectedLookAvatarId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(selectedLookAvatarId),
       groupRealismState: Value(groupRealismState),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -2904,6 +2971,7 @@ class Session extends DataClass implements Insertable<Session> {
       cooldownTurnsRemaining: serializer.fromJson<int>(
         json['cooldownTurnsRemaining'],
       ),
+      cooldownTurnsTotal: serializer.fromJson<int>(json['cooldownTurnsTotal']),
       trustLevel: serializer.fromJson<int>(json['trustLevel']),
       activeFixation: serializer.fromJson<String>(json['activeFixation']),
       fixationLifespan: serializer.fromJson<int>(json['fixationLifespan']),
@@ -2928,6 +2996,9 @@ class Session extends DataClass implements Insertable<Session> {
         json['generationSettings'],
       ),
       userPersonaId: serializer.fromJson<String?>(json['userPersonaId']),
+      selectedLookAvatarId: serializer.fromJson<String?>(
+        json['selectedLookAvatarId'],
+      ),
       groupRealismState: serializer.fromJson<String>(json['groupRealismState']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -2969,6 +3040,7 @@ class Session extends DataClass implements Insertable<Session> {
       'passageOfTimeEnabled': serializer.toJson<bool>(passageOfTimeEnabled),
       'arousalLevel': serializer.toJson<int>(arousalLevel),
       'cooldownTurnsRemaining': serializer.toJson<int>(cooldownTurnsRemaining),
+      'cooldownTurnsTotal': serializer.toJson<int>(cooldownTurnsTotal),
       'trustLevel': serializer.toJson<int>(trustLevel),
       'activeFixation': serializer.toJson<String>(activeFixation),
       'fixationLifespan': serializer.toJson<int>(fixationLifespan),
@@ -2987,6 +3059,7 @@ class Session extends DataClass implements Insertable<Session> {
       'groupEvolvedScenarios': serializer.toJson<String>(groupEvolvedScenarios),
       'generationSettings': serializer.toJson<String?>(generationSettings),
       'userPersonaId': serializer.toJson<String?>(userPersonaId),
+      'selectedLookAvatarId': serializer.toJson<String?>(selectedLookAvatarId),
       'groupRealismState': serializer.toJson<String>(groupRealismState),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -3024,6 +3097,7 @@ class Session extends DataClass implements Insertable<Session> {
     bool? passageOfTimeEnabled,
     int? arousalLevel,
     int? cooldownTurnsRemaining,
+    int? cooldownTurnsTotal,
     int? trustLevel,
     String? activeFixation,
     int? fixationLifespan,
@@ -3040,6 +3114,7 @@ class Session extends DataClass implements Insertable<Session> {
     String? groupEvolvedScenarios,
     Value<String?> generationSettings = const Value.absent(),
     Value<String?> userPersonaId = const Value.absent(),
+    Value<String?> selectedLookAvatarId = const Value.absent(),
     String? groupRealismState,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -3081,6 +3156,7 @@ class Session extends DataClass implements Insertable<Session> {
     arousalLevel: arousalLevel ?? this.arousalLevel,
     cooldownTurnsRemaining:
         cooldownTurnsRemaining ?? this.cooldownTurnsRemaining,
+    cooldownTurnsTotal: cooldownTurnsTotal ?? this.cooldownTurnsTotal,
     trustLevel: trustLevel ?? this.trustLevel,
     activeFixation: activeFixation ?? this.activeFixation,
     fixationLifespan: fixationLifespan ?? this.fixationLifespan,
@@ -3102,6 +3178,9 @@ class Session extends DataClass implements Insertable<Session> {
     userPersonaId: userPersonaId.present
         ? userPersonaId.value
         : this.userPersonaId,
+    selectedLookAvatarId: selectedLookAvatarId.present
+        ? selectedLookAvatarId.value
+        : this.selectedLookAvatarId,
     groupRealismState: groupRealismState ?? this.groupRealismState,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -3182,6 +3261,9 @@ class Session extends DataClass implements Insertable<Session> {
       cooldownTurnsRemaining: data.cooldownTurnsRemaining.present
           ? data.cooldownTurnsRemaining.value
           : this.cooldownTurnsRemaining,
+      cooldownTurnsTotal: data.cooldownTurnsTotal.present
+          ? data.cooldownTurnsTotal.value
+          : this.cooldownTurnsTotal,
       trustLevel: data.trustLevel.present
           ? data.trustLevel.value
           : this.trustLevel,
@@ -3230,6 +3312,9 @@ class Session extends DataClass implements Insertable<Session> {
       userPersonaId: data.userPersonaId.present
           ? data.userPersonaId.value
           : this.userPersonaId,
+      selectedLookAvatarId: data.selectedLookAvatarId.present
+          ? data.selectedLookAvatarId.value
+          : this.selectedLookAvatarId,
       groupRealismState: data.groupRealismState.present
           ? data.groupRealismState.value
           : this.groupRealismState,
@@ -3271,6 +3356,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('passageOfTimeEnabled: $passageOfTimeEnabled, ')
           ..write('arousalLevel: $arousalLevel, ')
           ..write('cooldownTurnsRemaining: $cooldownTurnsRemaining, ')
+          ..write('cooldownTurnsTotal: $cooldownTurnsTotal, ')
           ..write('trustLevel: $trustLevel, ')
           ..write('activeFixation: $activeFixation, ')
           ..write('fixationLifespan: $fixationLifespan, ')
@@ -3287,6 +3373,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('groupEvolvedScenarios: $groupEvolvedScenarios, ')
           ..write('generationSettings: $generationSettings, ')
           ..write('userPersonaId: $userPersonaId, ')
+          ..write('selectedLookAvatarId: $selectedLookAvatarId, ')
           ..write('groupRealismState: $groupRealismState, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -3326,6 +3413,7 @@ class Session extends DataClass implements Insertable<Session> {
     passageOfTimeEnabled,
     arousalLevel,
     cooldownTurnsRemaining,
+    cooldownTurnsTotal,
     trustLevel,
     activeFixation,
     fixationLifespan,
@@ -3342,6 +3430,7 @@ class Session extends DataClass implements Insertable<Session> {
     groupEvolvedScenarios,
     generationSettings,
     userPersonaId,
+    selectedLookAvatarId,
     groupRealismState,
     createdAt,
     updatedAt,
@@ -3380,6 +3469,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.passageOfTimeEnabled == this.passageOfTimeEnabled &&
           other.arousalLevel == this.arousalLevel &&
           other.cooldownTurnsRemaining == this.cooldownTurnsRemaining &&
+          other.cooldownTurnsTotal == this.cooldownTurnsTotal &&
           other.trustLevel == this.trustLevel &&
           other.activeFixation == this.activeFixation &&
           other.fixationLifespan == this.fixationLifespan &&
@@ -3396,6 +3486,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.groupEvolvedScenarios == this.groupEvolvedScenarios &&
           other.generationSettings == this.generationSettings &&
           other.userPersonaId == this.userPersonaId &&
+          other.selectedLookAvatarId == this.selectedLookAvatarId &&
           other.groupRealismState == this.groupRealismState &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -3432,6 +3523,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<bool> passageOfTimeEnabled;
   final Value<int> arousalLevel;
   final Value<int> cooldownTurnsRemaining;
+  final Value<int> cooldownTurnsTotal;
   final Value<int> trustLevel;
   final Value<String> activeFixation;
   final Value<int> fixationLifespan;
@@ -3448,6 +3540,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<String> groupEvolvedScenarios;
   final Value<String?> generationSettings;
   final Value<String?> userPersonaId;
+  final Value<String?> selectedLookAvatarId;
   final Value<String> groupRealismState;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -3483,6 +3576,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.passageOfTimeEnabled = const Value.absent(),
     this.arousalLevel = const Value.absent(),
     this.cooldownTurnsRemaining = const Value.absent(),
+    this.cooldownTurnsTotal = const Value.absent(),
     this.trustLevel = const Value.absent(),
     this.activeFixation = const Value.absent(),
     this.fixationLifespan = const Value.absent(),
@@ -3499,6 +3593,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.groupEvolvedScenarios = const Value.absent(),
     this.generationSettings = const Value.absent(),
     this.userPersonaId = const Value.absent(),
+    this.selectedLookAvatarId = const Value.absent(),
     this.groupRealismState = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -3535,6 +3630,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.passageOfTimeEnabled = const Value.absent(),
     this.arousalLevel = const Value.absent(),
     this.cooldownTurnsRemaining = const Value.absent(),
+    this.cooldownTurnsTotal = const Value.absent(),
     this.trustLevel = const Value.absent(),
     this.activeFixation = const Value.absent(),
     this.fixationLifespan = const Value.absent(),
@@ -3551,6 +3647,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.groupEvolvedScenarios = const Value.absent(),
     this.generationSettings = const Value.absent(),
     this.userPersonaId = const Value.absent(),
+    this.selectedLookAvatarId = const Value.absent(),
     this.groupRealismState = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -3587,6 +3684,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<bool>? passageOfTimeEnabled,
     Expression<int>? arousalLevel,
     Expression<int>? cooldownTurnsRemaining,
+    Expression<int>? cooldownTurnsTotal,
     Expression<int>? trustLevel,
     Expression<String>? activeFixation,
     Expression<int>? fixationLifespan,
@@ -3603,6 +3701,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<String>? groupEvolvedScenarios,
     Expression<String>? generationSettings,
     Expression<String>? userPersonaId,
+    Expression<String>? selectedLookAvatarId,
     Expression<String>? groupRealismState,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -3644,6 +3743,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (arousalLevel != null) 'arousal_level': arousalLevel,
       if (cooldownTurnsRemaining != null)
         'cooldown_turns_remaining': cooldownTurnsRemaining,
+      if (cooldownTurnsTotal != null)
+        'cooldown_turns_total': cooldownTurnsTotal,
       if (trustLevel != null) 'trust_level': trustLevel,
       if (activeFixation != null) 'active_fixation': activeFixation,
       if (fixationLifespan != null) 'fixation_lifespan': fixationLifespan,
@@ -3663,6 +3764,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
         'group_evolved_scenarios': groupEvolvedScenarios,
       if (generationSettings != null) 'generation_settings': generationSettings,
       if (userPersonaId != null) 'user_persona_id': userPersonaId,
+      if (selectedLookAvatarId != null)
+        'selected_look_avatar_id': selectedLookAvatarId,
       if (groupRealismState != null) 'group_realism_state': groupRealismState,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -3701,6 +3804,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<bool>? passageOfTimeEnabled,
     Value<int>? arousalLevel,
     Value<int>? cooldownTurnsRemaining,
+    Value<int>? cooldownTurnsTotal,
     Value<int>? trustLevel,
     Value<String>? activeFixation,
     Value<int>? fixationLifespan,
@@ -3717,6 +3821,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<String>? groupEvolvedScenarios,
     Value<String?>? generationSettings,
     Value<String?>? userPersonaId,
+    Value<String?>? selectedLookAvatarId,
     Value<String>? groupRealismState,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -3756,6 +3861,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       arousalLevel: arousalLevel ?? this.arousalLevel,
       cooldownTurnsRemaining:
           cooldownTurnsRemaining ?? this.cooldownTurnsRemaining,
+      cooldownTurnsTotal: cooldownTurnsTotal ?? this.cooldownTurnsTotal,
       trustLevel: trustLevel ?? this.trustLevel,
       activeFixation: activeFixation ?? this.activeFixation,
       fixationLifespan: fixationLifespan ?? this.fixationLifespan,
@@ -3774,6 +3880,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           groupEvolvedScenarios ?? this.groupEvolvedScenarios,
       generationSettings: generationSettings ?? this.generationSettings,
       userPersonaId: userPersonaId ?? this.userPersonaId,
+      selectedLookAvatarId: selectedLookAvatarId ?? this.selectedLookAvatarId,
       groupRealismState: groupRealismState ?? this.groupRealismState,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -3880,6 +3987,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
         cooldownTurnsRemaining.value,
       );
     }
+    if (cooldownTurnsTotal.present) {
+      map['cooldown_turns_total'] = Variable<int>(cooldownTurnsTotal.value);
+    }
     if (trustLevel.present) {
       map['trust_level'] = Variable<int>(trustLevel.value);
     }
@@ -3932,6 +4042,11 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (userPersonaId.present) {
       map['user_persona_id'] = Variable<String>(userPersonaId.value);
     }
+    if (selectedLookAvatarId.present) {
+      map['selected_look_avatar_id'] = Variable<String>(
+        selectedLookAvatarId.value,
+      );
+    }
     if (groupRealismState.present) {
       map['group_realism_state'] = Variable<String>(groupRealismState.value);
     }
@@ -3982,6 +4097,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('passageOfTimeEnabled: $passageOfTimeEnabled, ')
           ..write('arousalLevel: $arousalLevel, ')
           ..write('cooldownTurnsRemaining: $cooldownTurnsRemaining, ')
+          ..write('cooldownTurnsTotal: $cooldownTurnsTotal, ')
           ..write('trustLevel: $trustLevel, ')
           ..write('activeFixation: $activeFixation, ')
           ..write('fixationLifespan: $fixationLifespan, ')
@@ -3998,6 +4114,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('groupEvolvedScenarios: $groupEvolvedScenarios, ')
           ..write('generationSettings: $generationSettings, ')
           ..write('userPersonaId: $userPersonaId, ')
+          ..write('selectedLookAvatarId: $selectedLookAvatarId, ')
           ..write('groupRealismState: $groupRealismState, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -4989,6 +5106,17 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         requiredDuringInsert: false,
         defaultValue: const Constant('{}'),
       );
+  static const VerificationMeta _stableIdMeta = const VerificationMeta(
+    'stableId',
+  );
+  @override
+  late final GeneratedColumn<String> stableId = GeneratedColumn<String>(
+    'stable_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -5031,6 +5159,7 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     inheritCharacterLorebooks,
     baselineRealismState,
     characterSystemPrompts,
+    stableId,
     updatedAt,
     deletedAt,
   ];
@@ -5185,6 +5314,12 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         ),
       );
     }
+    if (data.containsKey('stable_id')) {
+      context.handle(
+        _stableIdMeta,
+        stableId.isAcceptableOrUnknown(data['stable_id']!, _stableIdMeta),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -5274,6 +5409,10 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         DriftSqlType.string,
         data['${effectivePrefix}character_system_prompts'],
       )!,
+      stableId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stable_id'],
+      ),
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -5325,7 +5464,7 @@ class Group extends DataClass implements Insertable<Group> {
   final String baselineRealismState;
 
   /// Per-character system prompt overrides scoped to this group.
-  /// Stored as a first-class JSON column (Map<String, String> keyed by stable charId).
+  /// Stored as a first-class JSON column (Map&lt;String, String&gt; keyed by stable charId).
   ///
   /// This was previously the last remaining "Path B" transitional hack stored inside
   /// the defaultMemberRealismState JSON blob. As of v32 it has its own proper column.
@@ -5334,6 +5473,16 @@ class Group extends DataClass implements Insertable<Group> {
   /// Takes precedence over a character's normal system prompt when that character
   /// speaks inside this specific group, but sits under the group-level systemPrompt.
   final String characterSystemPrompts;
+
+  /// Portable, device-independent stable id for this group (schema v34).
+  ///
+  /// Distinct from [id] (a device-local `group_<timestamp>` handle): this id
+  /// travels in the exported Group Card and is preserved on import, so a shared
+  /// group can be UPDATED in place on The Stoop (no duplicate) and re-associated
+  /// after switching devices — the group analogue of a character's stable id.
+  /// Nullable + additive; groups is outside the Character Card Forge external-
+  /// writer set, so adding it cannot break CCF. Generated lazily in code.
+  final String? stableId;
   final DateTime updatedAt;
   final DateTime? deletedAt;
   const Group({
@@ -5354,6 +5503,7 @@ class Group extends DataClass implements Insertable<Group> {
     required this.inheritCharacterLorebooks,
     required this.baselineRealismState,
     required this.characterSystemPrompts,
+    this.stableId,
     required this.updatedAt,
     this.deletedAt,
   });
@@ -5381,6 +5531,9 @@ class Group extends DataClass implements Insertable<Group> {
     );
     map['baseline_realism_state'] = Variable<String>(baselineRealismState);
     map['character_system_prompts'] = Variable<String>(characterSystemPrompts);
+    if (!nullToAbsent || stableId != null) {
+      map['stable_id'] = Variable<String>(stableId);
+    }
     map['updated_at'] = Variable<DateTime>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
@@ -5407,6 +5560,9 @@ class Group extends DataClass implements Insertable<Group> {
       inheritCharacterLorebooks: Value(inheritCharacterLorebooks),
       baselineRealismState: Value(baselineRealismState),
       characterSystemPrompts: Value(characterSystemPrompts),
+      stableId: stableId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stableId),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
@@ -5445,6 +5601,7 @@ class Group extends DataClass implements Insertable<Group> {
       characterSystemPrompts: serializer.fromJson<String>(
         json['characterSystemPrompts'],
       ),
+      stableId: serializer.fromJson<String?>(json['stableId']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
     );
@@ -5476,6 +5633,7 @@ class Group extends DataClass implements Insertable<Group> {
       'characterSystemPrompts': serializer.toJson<String>(
         characterSystemPrompts,
       ),
+      'stableId': serializer.toJson<String?>(stableId),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
     };
@@ -5499,6 +5657,7 @@ class Group extends DataClass implements Insertable<Group> {
     bool? inheritCharacterLorebooks,
     String? baselineRealismState,
     String? characterSystemPrompts,
+    Value<String?> stableId = const Value.absent(),
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
   }) => Group(
@@ -5522,6 +5681,7 @@ class Group extends DataClass implements Insertable<Group> {
     baselineRealismState: baselineRealismState ?? this.baselineRealismState,
     characterSystemPrompts:
         characterSystemPrompts ?? this.characterSystemPrompts,
+    stableId: stableId.present ? stableId.value : this.stableId,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
   );
@@ -5568,6 +5728,7 @@ class Group extends DataClass implements Insertable<Group> {
       characterSystemPrompts: data.characterSystemPrompts.present
           ? data.characterSystemPrompts.value
           : this.characterSystemPrompts,
+      stableId: data.stableId.present ? data.stableId.value : this.stableId,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
     );
@@ -5593,6 +5754,7 @@ class Group extends DataClass implements Insertable<Group> {
           ..write('inheritCharacterLorebooks: $inheritCharacterLorebooks, ')
           ..write('baselineRealismState: $baselineRealismState, ')
           ..write('characterSystemPrompts: $characterSystemPrompts, ')
+          ..write('stableId: $stableId, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
           ..write(')'))
@@ -5618,6 +5780,7 @@ class Group extends DataClass implements Insertable<Group> {
     inheritCharacterLorebooks,
     baselineRealismState,
     characterSystemPrompts,
+    stableId,
     updatedAt,
     deletedAt,
   );
@@ -5642,6 +5805,7 @@ class Group extends DataClass implements Insertable<Group> {
           other.inheritCharacterLorebooks == this.inheritCharacterLorebooks &&
           other.baselineRealismState == this.baselineRealismState &&
           other.characterSystemPrompts == this.characterSystemPrompts &&
+          other.stableId == this.stableId &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
 }
@@ -5664,6 +5828,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
   final Value<bool> inheritCharacterLorebooks;
   final Value<String> baselineRealismState;
   final Value<String> characterSystemPrompts;
+  final Value<String?> stableId;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<int> rowid;
@@ -5685,6 +5850,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.inheritCharacterLorebooks = const Value.absent(),
     this.baselineRealismState = const Value.absent(),
     this.characterSystemPrompts = const Value.absent(),
+    this.stableId = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -5707,6 +5873,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.inheritCharacterLorebooks = const Value.absent(),
     this.baselineRealismState = const Value.absent(),
     this.characterSystemPrompts = const Value.absent(),
+    this.stableId = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -5730,6 +5897,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Expression<bool>? inheritCharacterLorebooks,
     Expression<String>? baselineRealismState,
     Expression<String>? characterSystemPrompts,
+    Expression<String>? stableId,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
     Expression<int>? rowid,
@@ -5756,6 +5924,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
         'baseline_realism_state': baselineRealismState,
       if (characterSystemPrompts != null)
         'character_system_prompts': characterSystemPrompts,
+      if (stableId != null) 'stable_id': stableId,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (rowid != null) 'rowid': rowid,
@@ -5780,6 +5949,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Value<bool>? inheritCharacterLorebooks,
     Value<String>? baselineRealismState,
     Value<String>? characterSystemPrompts,
+    Value<String?>? stableId,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<int>? rowid,
@@ -5805,6 +5975,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       baselineRealismState: baselineRealismState ?? this.baselineRealismState,
       characterSystemPrompts:
           characterSystemPrompts ?? this.characterSystemPrompts,
+      stableId: stableId ?? this.stableId,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       rowid: rowid ?? this.rowid,
@@ -5873,6 +6044,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
         characterSystemPrompts.value,
       );
     }
+    if (stableId.present) {
+      map['stable_id'] = Variable<String>(stableId.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -5905,6 +6079,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
           ..write('inheritCharacterLorebooks: $inheritCharacterLorebooks, ')
           ..write('baselineRealismState: $baselineRealismState, ')
           ..write('characterSystemPrompts: $characterSystemPrompts, ')
+          ..write('stableId: $stableId, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('rowid: $rowid')
@@ -7618,12 +7793,13 @@ class MessageEmbedding extends DataClass
   final int dimensions;
   final DateTime createdAt;
 
-  /// 'message' for normal RAG windows (default), 'needs_event' for long-term
-  /// salient Needs simulation events (high-magnitude pleasure/embarrassment etc.).
+  /// 'message' for normal RAG windows (default). DORMANT: the 'needs_event'
+  /// type (and its writer/reader in MemoryService) was removed with the
+  /// Journal work — column kept for additive-migration safety.
   final String memoryType;
 
-  /// Optional JSON blob for event details (e.g. {"category":"pleasure","magnitude":8,"..."}).
-  /// Null for ordinary message embeddings.
+  /// Optional JSON blob for event details. DORMANT (see memoryType) —
+  /// null for ordinary message embeddings.
   final String? metadata;
   const MessageEmbedding({
     required this.id,
@@ -8445,6 +8621,2019 @@ class DataBankEntriesCompanion extends UpdateCompanion<DataBankEntry> {
           ..write('embedding: $embedding, ')
           ..write('dimensions: $dimensions, ')
           ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $JournalMemoriesTable extends JournalMemories
+    with TableInfo<$JournalMemoriesTable, JournalMemoryData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $JournalMemoriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _characterIdMeta = const VerificationMeta(
+    'characterId',
+  );
+  @override
+  late final GeneratedColumn<String> characterId = GeneratedColumn<String>(
+    'character_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceMessageIdsMeta = const VerificationMeta(
+    'sourceMessageIds',
+  );
+  @override
+  late final GeneratedColumn<String> sourceMessageIds = GeneratedColumn<String>(
+    'source_message_ids',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('moment'),
+  );
+  static const VerificationMeta _emotionLabelMeta = const VerificationMeta(
+    'emotionLabel',
+  );
+  @override
+  late final GeneratedColumn<String> emotionLabel = GeneratedColumn<String>(
+    'emotion_label',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _emotionIntensityMeta = const VerificationMeta(
+    'emotionIntensity',
+  );
+  @override
+  late final GeneratedColumn<String> emotionIntensity = GeneratedColumn<String>(
+    'emotion_intensity',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _originalEmotionLabelMeta =
+      const VerificationMeta('originalEmotionLabel');
+  @override
+  late final GeneratedColumn<String> originalEmotionLabel =
+      GeneratedColumn<String>(
+        'original_emotion_label',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _heatMeta = const VerificationMeta('heat');
+  @override
+  late final GeneratedColumn<double> heat = GeneratedColumn<double>(
+    'heat',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
+  static const VerificationMeta _accessCountMeta = const VerificationMeta(
+    'accessCount',
+  );
+  @override
+  late final GeneratedColumn<int> accessCount = GeneratedColumn<int>(
+    'access_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _pinnedMeta = const VerificationMeta('pinned');
+  @override
+  late final GeneratedColumn<bool> pinned = GeneratedColumn<bool>(
+    'pinned',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pinned" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _embeddingMeta = const VerificationMeta(
+    'embedding',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> embedding = GeneratedColumn<Uint8List>(
+    'embedding',
+    aliasedName,
+    true,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dimensionsMeta = const VerificationMeta(
+    'dimensions',
+  );
+  @override
+  late final GeneratedColumn<int> dimensions = GeneratedColumn<int>(
+    'dimensions',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _lastAccessedAtMeta = const VerificationMeta(
+    'lastAccessedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastAccessedAt =
+      GeneratedColumn<DateTime>(
+        'last_accessed_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+        defaultValue: currentDateAndTime,
+      );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _metadataMeta = const VerificationMeta(
+    'metadata',
+  );
+  @override
+  late final GeneratedColumn<String> metadata = GeneratedColumn<String>(
+    'metadata',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sessionId,
+    characterId,
+    sourceMessageIds,
+    content,
+    category,
+    emotionLabel,
+    emotionIntensity,
+    originalEmotionLabel,
+    heat,
+    accessCount,
+    pinned,
+    embedding,
+    dimensions,
+    createdAt,
+    lastAccessedAt,
+    updatedAt,
+    metadata,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'journal_memories';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<JournalMemoryData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('character_id')) {
+      context.handle(
+        _characterIdMeta,
+        characterId.isAcceptableOrUnknown(
+          data['character_id']!,
+          _characterIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_characterIdMeta);
+    }
+    if (data.containsKey('source_message_ids')) {
+      context.handle(
+        _sourceMessageIdsMeta,
+        sourceMessageIds.isAcceptableOrUnknown(
+          data['source_message_ids']!,
+          _sourceMessageIdsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    }
+    if (data.containsKey('emotion_label')) {
+      context.handle(
+        _emotionLabelMeta,
+        emotionLabel.isAcceptableOrUnknown(
+          data['emotion_label']!,
+          _emotionLabelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('emotion_intensity')) {
+      context.handle(
+        _emotionIntensityMeta,
+        emotionIntensity.isAcceptableOrUnknown(
+          data['emotion_intensity']!,
+          _emotionIntensityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('original_emotion_label')) {
+      context.handle(
+        _originalEmotionLabelMeta,
+        originalEmotionLabel.isAcceptableOrUnknown(
+          data['original_emotion_label']!,
+          _originalEmotionLabelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('heat')) {
+      context.handle(
+        _heatMeta,
+        heat.isAcceptableOrUnknown(data['heat']!, _heatMeta),
+      );
+    }
+    if (data.containsKey('access_count')) {
+      context.handle(
+        _accessCountMeta,
+        accessCount.isAcceptableOrUnknown(
+          data['access_count']!,
+          _accessCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pinned')) {
+      context.handle(
+        _pinnedMeta,
+        pinned.isAcceptableOrUnknown(data['pinned']!, _pinnedMeta),
+      );
+    }
+    if (data.containsKey('embedding')) {
+      context.handle(
+        _embeddingMeta,
+        embedding.isAcceptableOrUnknown(data['embedding']!, _embeddingMeta),
+      );
+    }
+    if (data.containsKey('dimensions')) {
+      context.handle(
+        _dimensionsMeta,
+        dimensions.isAcceptableOrUnknown(data['dimensions']!, _dimensionsMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('last_accessed_at')) {
+      context.handle(
+        _lastAccessedAtMeta,
+        lastAccessedAt.isAcceptableOrUnknown(
+          data['last_accessed_at']!,
+          _lastAccessedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('metadata')) {
+      context.handle(
+        _metadataMeta,
+        metadata.isAcceptableOrUnknown(data['metadata']!, _metadataMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  JournalMemoryData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return JournalMemoryData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      characterId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}character_id'],
+      )!,
+      sourceMessageIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_message_ids'],
+      ),
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      emotionLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emotion_label'],
+      ),
+      emotionIntensity: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emotion_intensity'],
+      ),
+      originalEmotionLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}original_emotion_label'],
+      ),
+      heat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}heat'],
+      )!,
+      accessCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}access_count'],
+      )!,
+      pinned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pinned'],
+      )!,
+      embedding: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}embedding'],
+      ),
+      dimensions: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dimensions'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastAccessedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_accessed_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      metadata: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}metadata'],
+      ),
+    );
+  }
+
+  @override
+  $JournalMemoriesTable createAlias(String alias) {
+    return $JournalMemoriesTable(attachedDatabase, alias);
+  }
+}
+
+class JournalMemoryData extends DataClass
+    implements Insertable<JournalMemoryData> {
+  final String id;
+  final String sessionId;
+  final String characterId;
+
+  /// JSON array of int message POSITIONS (not DB ids — message UUIDs are
+  /// regenerated on every save, so positions are the stable receipt, same
+  /// trade-off MessageEmbeddings.positionStart/End already makes).
+  final String? sourceMessageIds;
+  final String content;
+  final String category;
+  final String? emotionLabel;
+  final String? emotionIntensity;
+  final String? originalEmotionLabel;
+  final double heat;
+  final int accessCount;
+  final bool pinned;
+  final Uint8List? embedding;
+  final int dimensions;
+  final DateTime createdAt;
+  final DateTime lastAccessedAt;
+  final DateTime updatedAt;
+  final String? metadata;
+  const JournalMemoryData({
+    required this.id,
+    required this.sessionId,
+    required this.characterId,
+    this.sourceMessageIds,
+    required this.content,
+    required this.category,
+    this.emotionLabel,
+    this.emotionIntensity,
+    this.originalEmotionLabel,
+    required this.heat,
+    required this.accessCount,
+    required this.pinned,
+    this.embedding,
+    required this.dimensions,
+    required this.createdAt,
+    required this.lastAccessedAt,
+    required this.updatedAt,
+    this.metadata,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['session_id'] = Variable<String>(sessionId);
+    map['character_id'] = Variable<String>(characterId);
+    if (!nullToAbsent || sourceMessageIds != null) {
+      map['source_message_ids'] = Variable<String>(sourceMessageIds);
+    }
+    map['content'] = Variable<String>(content);
+    map['category'] = Variable<String>(category);
+    if (!nullToAbsent || emotionLabel != null) {
+      map['emotion_label'] = Variable<String>(emotionLabel);
+    }
+    if (!nullToAbsent || emotionIntensity != null) {
+      map['emotion_intensity'] = Variable<String>(emotionIntensity);
+    }
+    if (!nullToAbsent || originalEmotionLabel != null) {
+      map['original_emotion_label'] = Variable<String>(originalEmotionLabel);
+    }
+    map['heat'] = Variable<double>(heat);
+    map['access_count'] = Variable<int>(accessCount);
+    map['pinned'] = Variable<bool>(pinned);
+    if (!nullToAbsent || embedding != null) {
+      map['embedding'] = Variable<Uint8List>(embedding);
+    }
+    map['dimensions'] = Variable<int>(dimensions);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['last_accessed_at'] = Variable<DateTime>(lastAccessedAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || metadata != null) {
+      map['metadata'] = Variable<String>(metadata);
+    }
+    return map;
+  }
+
+  JournalMemoriesCompanion toCompanion(bool nullToAbsent) {
+    return JournalMemoriesCompanion(
+      id: Value(id),
+      sessionId: Value(sessionId),
+      characterId: Value(characterId),
+      sourceMessageIds: sourceMessageIds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceMessageIds),
+      content: Value(content),
+      category: Value(category),
+      emotionLabel: emotionLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(emotionLabel),
+      emotionIntensity: emotionIntensity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(emotionIntensity),
+      originalEmotionLabel: originalEmotionLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originalEmotionLabel),
+      heat: Value(heat),
+      accessCount: Value(accessCount),
+      pinned: Value(pinned),
+      embedding: embedding == null && nullToAbsent
+          ? const Value.absent()
+          : Value(embedding),
+      dimensions: Value(dimensions),
+      createdAt: Value(createdAt),
+      lastAccessedAt: Value(lastAccessedAt),
+      updatedAt: Value(updatedAt),
+      metadata: metadata == null && nullToAbsent
+          ? const Value.absent()
+          : Value(metadata),
+    );
+  }
+
+  factory JournalMemoryData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return JournalMemoryData(
+      id: serializer.fromJson<String>(json['id']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      characterId: serializer.fromJson<String>(json['characterId']),
+      sourceMessageIds: serializer.fromJson<String?>(json['sourceMessageIds']),
+      content: serializer.fromJson<String>(json['content']),
+      category: serializer.fromJson<String>(json['category']),
+      emotionLabel: serializer.fromJson<String?>(json['emotionLabel']),
+      emotionIntensity: serializer.fromJson<String?>(json['emotionIntensity']),
+      originalEmotionLabel: serializer.fromJson<String?>(
+        json['originalEmotionLabel'],
+      ),
+      heat: serializer.fromJson<double>(json['heat']),
+      accessCount: serializer.fromJson<int>(json['accessCount']),
+      pinned: serializer.fromJson<bool>(json['pinned']),
+      embedding: serializer.fromJson<Uint8List?>(json['embedding']),
+      dimensions: serializer.fromJson<int>(json['dimensions']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lastAccessedAt: serializer.fromJson<DateTime>(json['lastAccessedAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      metadata: serializer.fromJson<String?>(json['metadata']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'characterId': serializer.toJson<String>(characterId),
+      'sourceMessageIds': serializer.toJson<String?>(sourceMessageIds),
+      'content': serializer.toJson<String>(content),
+      'category': serializer.toJson<String>(category),
+      'emotionLabel': serializer.toJson<String?>(emotionLabel),
+      'emotionIntensity': serializer.toJson<String?>(emotionIntensity),
+      'originalEmotionLabel': serializer.toJson<String?>(originalEmotionLabel),
+      'heat': serializer.toJson<double>(heat),
+      'accessCount': serializer.toJson<int>(accessCount),
+      'pinned': serializer.toJson<bool>(pinned),
+      'embedding': serializer.toJson<Uint8List?>(embedding),
+      'dimensions': serializer.toJson<int>(dimensions),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lastAccessedAt': serializer.toJson<DateTime>(lastAccessedAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'metadata': serializer.toJson<String?>(metadata),
+    };
+  }
+
+  JournalMemoryData copyWith({
+    String? id,
+    String? sessionId,
+    String? characterId,
+    Value<String?> sourceMessageIds = const Value.absent(),
+    String? content,
+    String? category,
+    Value<String?> emotionLabel = const Value.absent(),
+    Value<String?> emotionIntensity = const Value.absent(),
+    Value<String?> originalEmotionLabel = const Value.absent(),
+    double? heat,
+    int? accessCount,
+    bool? pinned,
+    Value<Uint8List?> embedding = const Value.absent(),
+    int? dimensions,
+    DateTime? createdAt,
+    DateTime? lastAccessedAt,
+    DateTime? updatedAt,
+    Value<String?> metadata = const Value.absent(),
+  }) => JournalMemoryData(
+    id: id ?? this.id,
+    sessionId: sessionId ?? this.sessionId,
+    characterId: characterId ?? this.characterId,
+    sourceMessageIds: sourceMessageIds.present
+        ? sourceMessageIds.value
+        : this.sourceMessageIds,
+    content: content ?? this.content,
+    category: category ?? this.category,
+    emotionLabel: emotionLabel.present ? emotionLabel.value : this.emotionLabel,
+    emotionIntensity: emotionIntensity.present
+        ? emotionIntensity.value
+        : this.emotionIntensity,
+    originalEmotionLabel: originalEmotionLabel.present
+        ? originalEmotionLabel.value
+        : this.originalEmotionLabel,
+    heat: heat ?? this.heat,
+    accessCount: accessCount ?? this.accessCount,
+    pinned: pinned ?? this.pinned,
+    embedding: embedding.present ? embedding.value : this.embedding,
+    dimensions: dimensions ?? this.dimensions,
+    createdAt: createdAt ?? this.createdAt,
+    lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    metadata: metadata.present ? metadata.value : this.metadata,
+  );
+  JournalMemoryData copyWithCompanion(JournalMemoriesCompanion data) {
+    return JournalMemoryData(
+      id: data.id.present ? data.id.value : this.id,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      characterId: data.characterId.present
+          ? data.characterId.value
+          : this.characterId,
+      sourceMessageIds: data.sourceMessageIds.present
+          ? data.sourceMessageIds.value
+          : this.sourceMessageIds,
+      content: data.content.present ? data.content.value : this.content,
+      category: data.category.present ? data.category.value : this.category,
+      emotionLabel: data.emotionLabel.present
+          ? data.emotionLabel.value
+          : this.emotionLabel,
+      emotionIntensity: data.emotionIntensity.present
+          ? data.emotionIntensity.value
+          : this.emotionIntensity,
+      originalEmotionLabel: data.originalEmotionLabel.present
+          ? data.originalEmotionLabel.value
+          : this.originalEmotionLabel,
+      heat: data.heat.present ? data.heat.value : this.heat,
+      accessCount: data.accessCount.present
+          ? data.accessCount.value
+          : this.accessCount,
+      pinned: data.pinned.present ? data.pinned.value : this.pinned,
+      embedding: data.embedding.present ? data.embedding.value : this.embedding,
+      dimensions: data.dimensions.present
+          ? data.dimensions.value
+          : this.dimensions,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastAccessedAt: data.lastAccessedAt.present
+          ? data.lastAccessedAt.value
+          : this.lastAccessedAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      metadata: data.metadata.present ? data.metadata.value : this.metadata,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('JournalMemoryData(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('characterId: $characterId, ')
+          ..write('sourceMessageIds: $sourceMessageIds, ')
+          ..write('content: $content, ')
+          ..write('category: $category, ')
+          ..write('emotionLabel: $emotionLabel, ')
+          ..write('emotionIntensity: $emotionIntensity, ')
+          ..write('originalEmotionLabel: $originalEmotionLabel, ')
+          ..write('heat: $heat, ')
+          ..write('accessCount: $accessCount, ')
+          ..write('pinned: $pinned, ')
+          ..write('embedding: $embedding, ')
+          ..write('dimensions: $dimensions, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastAccessedAt: $lastAccessedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('metadata: $metadata')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sessionId,
+    characterId,
+    sourceMessageIds,
+    content,
+    category,
+    emotionLabel,
+    emotionIntensity,
+    originalEmotionLabel,
+    heat,
+    accessCount,
+    pinned,
+    $driftBlobEquality.hash(embedding),
+    dimensions,
+    createdAt,
+    lastAccessedAt,
+    updatedAt,
+    metadata,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is JournalMemoryData &&
+          other.id == this.id &&
+          other.sessionId == this.sessionId &&
+          other.characterId == this.characterId &&
+          other.sourceMessageIds == this.sourceMessageIds &&
+          other.content == this.content &&
+          other.category == this.category &&
+          other.emotionLabel == this.emotionLabel &&
+          other.emotionIntensity == this.emotionIntensity &&
+          other.originalEmotionLabel == this.originalEmotionLabel &&
+          other.heat == this.heat &&
+          other.accessCount == this.accessCount &&
+          other.pinned == this.pinned &&
+          $driftBlobEquality.equals(other.embedding, this.embedding) &&
+          other.dimensions == this.dimensions &&
+          other.createdAt == this.createdAt &&
+          other.lastAccessedAt == this.lastAccessedAt &&
+          other.updatedAt == this.updatedAt &&
+          other.metadata == this.metadata);
+}
+
+class JournalMemoriesCompanion extends UpdateCompanion<JournalMemoryData> {
+  final Value<String> id;
+  final Value<String> sessionId;
+  final Value<String> characterId;
+  final Value<String?> sourceMessageIds;
+  final Value<String> content;
+  final Value<String> category;
+  final Value<String?> emotionLabel;
+  final Value<String?> emotionIntensity;
+  final Value<String?> originalEmotionLabel;
+  final Value<double> heat;
+  final Value<int> accessCount;
+  final Value<bool> pinned;
+  final Value<Uint8List?> embedding;
+  final Value<int> dimensions;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> lastAccessedAt;
+  final Value<DateTime> updatedAt;
+  final Value<String?> metadata;
+  final Value<int> rowid;
+  const JournalMemoriesCompanion({
+    this.id = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.characterId = const Value.absent(),
+    this.sourceMessageIds = const Value.absent(),
+    this.content = const Value.absent(),
+    this.category = const Value.absent(),
+    this.emotionLabel = const Value.absent(),
+    this.emotionIntensity = const Value.absent(),
+    this.originalEmotionLabel = const Value.absent(),
+    this.heat = const Value.absent(),
+    this.accessCount = const Value.absent(),
+    this.pinned = const Value.absent(),
+    this.embedding = const Value.absent(),
+    this.dimensions = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastAccessedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.metadata = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  JournalMemoriesCompanion.insert({
+    required String id,
+    required String sessionId,
+    required String characterId,
+    this.sourceMessageIds = const Value.absent(),
+    required String content,
+    this.category = const Value.absent(),
+    this.emotionLabel = const Value.absent(),
+    this.emotionIntensity = const Value.absent(),
+    this.originalEmotionLabel = const Value.absent(),
+    this.heat = const Value.absent(),
+    this.accessCount = const Value.absent(),
+    this.pinned = const Value.absent(),
+    this.embedding = const Value.absent(),
+    this.dimensions = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastAccessedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.metadata = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sessionId = Value(sessionId),
+       characterId = Value(characterId),
+       content = Value(content);
+  static Insertable<JournalMemoryData> custom({
+    Expression<String>? id,
+    Expression<String>? sessionId,
+    Expression<String>? characterId,
+    Expression<String>? sourceMessageIds,
+    Expression<String>? content,
+    Expression<String>? category,
+    Expression<String>? emotionLabel,
+    Expression<String>? emotionIntensity,
+    Expression<String>? originalEmotionLabel,
+    Expression<double>? heat,
+    Expression<int>? accessCount,
+    Expression<bool>? pinned,
+    Expression<Uint8List>? embedding,
+    Expression<int>? dimensions,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastAccessedAt,
+    Expression<DateTime>? updatedAt,
+    Expression<String>? metadata,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sessionId != null) 'session_id': sessionId,
+      if (characterId != null) 'character_id': characterId,
+      if (sourceMessageIds != null) 'source_message_ids': sourceMessageIds,
+      if (content != null) 'content': content,
+      if (category != null) 'category': category,
+      if (emotionLabel != null) 'emotion_label': emotionLabel,
+      if (emotionIntensity != null) 'emotion_intensity': emotionIntensity,
+      if (originalEmotionLabel != null)
+        'original_emotion_label': originalEmotionLabel,
+      if (heat != null) 'heat': heat,
+      if (accessCount != null) 'access_count': accessCount,
+      if (pinned != null) 'pinned': pinned,
+      if (embedding != null) 'embedding': embedding,
+      if (dimensions != null) 'dimensions': dimensions,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastAccessedAt != null) 'last_accessed_at': lastAccessedAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (metadata != null) 'metadata': metadata,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  JournalMemoriesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? sessionId,
+    Value<String>? characterId,
+    Value<String?>? sourceMessageIds,
+    Value<String>? content,
+    Value<String>? category,
+    Value<String?>? emotionLabel,
+    Value<String?>? emotionIntensity,
+    Value<String?>? originalEmotionLabel,
+    Value<double>? heat,
+    Value<int>? accessCount,
+    Value<bool>? pinned,
+    Value<Uint8List?>? embedding,
+    Value<int>? dimensions,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? lastAccessedAt,
+    Value<DateTime>? updatedAt,
+    Value<String?>? metadata,
+    Value<int>? rowid,
+  }) {
+    return JournalMemoriesCompanion(
+      id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      characterId: characterId ?? this.characterId,
+      sourceMessageIds: sourceMessageIds ?? this.sourceMessageIds,
+      content: content ?? this.content,
+      category: category ?? this.category,
+      emotionLabel: emotionLabel ?? this.emotionLabel,
+      emotionIntensity: emotionIntensity ?? this.emotionIntensity,
+      originalEmotionLabel: originalEmotionLabel ?? this.originalEmotionLabel,
+      heat: heat ?? this.heat,
+      accessCount: accessCount ?? this.accessCount,
+      pinned: pinned ?? this.pinned,
+      embedding: embedding ?? this.embedding,
+      dimensions: dimensions ?? this.dimensions,
+      createdAt: createdAt ?? this.createdAt,
+      lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      metadata: metadata ?? this.metadata,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (characterId.present) {
+      map['character_id'] = Variable<String>(characterId.value);
+    }
+    if (sourceMessageIds.present) {
+      map['source_message_ids'] = Variable<String>(sourceMessageIds.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (emotionLabel.present) {
+      map['emotion_label'] = Variable<String>(emotionLabel.value);
+    }
+    if (emotionIntensity.present) {
+      map['emotion_intensity'] = Variable<String>(emotionIntensity.value);
+    }
+    if (originalEmotionLabel.present) {
+      map['original_emotion_label'] = Variable<String>(
+        originalEmotionLabel.value,
+      );
+    }
+    if (heat.present) {
+      map['heat'] = Variable<double>(heat.value);
+    }
+    if (accessCount.present) {
+      map['access_count'] = Variable<int>(accessCount.value);
+    }
+    if (pinned.present) {
+      map['pinned'] = Variable<bool>(pinned.value);
+    }
+    if (embedding.present) {
+      map['embedding'] = Variable<Uint8List>(embedding.value);
+    }
+    if (dimensions.present) {
+      map['dimensions'] = Variable<int>(dimensions.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastAccessedAt.present) {
+      map['last_accessed_at'] = Variable<DateTime>(lastAccessedAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (metadata.present) {
+      map['metadata'] = Variable<String>(metadata.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('JournalMemoriesCompanion(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('characterId: $characterId, ')
+          ..write('sourceMessageIds: $sourceMessageIds, ')
+          ..write('content: $content, ')
+          ..write('category: $category, ')
+          ..write('emotionLabel: $emotionLabel, ')
+          ..write('emotionIntensity: $emotionIntensity, ')
+          ..write('originalEmotionLabel: $originalEmotionLabel, ')
+          ..write('heat: $heat, ')
+          ..write('accessCount: $accessCount, ')
+          ..write('pinned: $pinned, ')
+          ..write('embedding: $embedding, ')
+          ..write('dimensions: $dimensions, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastAccessedAt: $lastAccessedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('metadata: $metadata, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $GrowthRingsTable extends GrowthRings
+    with TableInfo<$GrowthRingsTable, GrowthRingData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GrowthRingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _characterIdMeta = const VerificationMeta(
+    'characterId',
+  );
+  @override
+  late final GeneratedColumn<String> characterId = GeneratedColumn<String>(
+    'character_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('trait'),
+  );
+  static const VerificationMeta _strengthMeta = const VerificationMeta(
+    'strength',
+  );
+  @override
+  late final GeneratedColumn<double> strength = GeneratedColumn<double>(
+    'strength',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.3),
+  );
+  static const VerificationMeta _pinnedMeta = const VerificationMeta('pinned');
+  @override
+  late final GeneratedColumn<bool> pinned = GeneratedColumn<bool>(
+    'pinned',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pinned" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _retiredMeta = const VerificationMeta(
+    'retired',
+  );
+  @override
+  late final GeneratedColumn<bool> retired = GeneratedColumn<bool>(
+    'retired',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("retired" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _sourceMessageIdsMeta = const VerificationMeta(
+    'sourceMessageIds',
+  );
+  @override
+  late final GeneratedColumn<String> sourceMessageIds = GeneratedColumn<String>(
+    'source_message_ids',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _lastReinforcedAtMeta = const VerificationMeta(
+    'lastReinforcedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastReinforcedAt =
+      GeneratedColumn<DateTime>(
+        'last_reinforced_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+        defaultValue: currentDateAndTime,
+      );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _metadataMeta = const VerificationMeta(
+    'metadata',
+  );
+  @override
+  late final GeneratedColumn<String> metadata = GeneratedColumn<String>(
+    'metadata',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sessionId,
+    characterId,
+    content,
+    category,
+    strength,
+    pinned,
+    retired,
+    sourceMessageIds,
+    createdAt,
+    lastReinforcedAt,
+    updatedAt,
+    metadata,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'growth_rings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<GrowthRingData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('character_id')) {
+      context.handle(
+        _characterIdMeta,
+        characterId.isAcceptableOrUnknown(
+          data['character_id']!,
+          _characterIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_characterIdMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    }
+    if (data.containsKey('strength')) {
+      context.handle(
+        _strengthMeta,
+        strength.isAcceptableOrUnknown(data['strength']!, _strengthMeta),
+      );
+    }
+    if (data.containsKey('pinned')) {
+      context.handle(
+        _pinnedMeta,
+        pinned.isAcceptableOrUnknown(data['pinned']!, _pinnedMeta),
+      );
+    }
+    if (data.containsKey('retired')) {
+      context.handle(
+        _retiredMeta,
+        retired.isAcceptableOrUnknown(data['retired']!, _retiredMeta),
+      );
+    }
+    if (data.containsKey('source_message_ids')) {
+      context.handle(
+        _sourceMessageIdsMeta,
+        sourceMessageIds.isAcceptableOrUnknown(
+          data['source_message_ids']!,
+          _sourceMessageIdsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('last_reinforced_at')) {
+      context.handle(
+        _lastReinforcedAtMeta,
+        lastReinforcedAt.isAcceptableOrUnknown(
+          data['last_reinforced_at']!,
+          _lastReinforcedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('metadata')) {
+      context.handle(
+        _metadataMeta,
+        metadata.isAcceptableOrUnknown(data['metadata']!, _metadataMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  GrowthRingData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GrowthRingData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      characterId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}character_id'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      strength: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}strength'],
+      )!,
+      pinned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pinned'],
+      )!,
+      retired: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}retired'],
+      )!,
+      sourceMessageIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_message_ids'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastReinforcedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_reinforced_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      metadata: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}metadata'],
+      ),
+    );
+  }
+
+  @override
+  $GrowthRingsTable createAlias(String alias) {
+    return $GrowthRingsTable(attachedDatabase, alias);
+  }
+}
+
+class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
+  final String id;
+  final String sessionId;
+  final String characterId;
+  final String content;
+  final String category;
+  final double strength;
+  final bool pinned;
+  final bool retired;
+
+  /// JSON array of int message POSITIONS (receipts; reinforcement appends).
+  /// Positions, not DB ids — same trade-off as JournalMemories.
+  final String? sourceMessageIds;
+  final DateTime createdAt;
+  final DateTime lastReinforcedAt;
+  final DateTime updatedAt;
+  final String? metadata;
+  const GrowthRingData({
+    required this.id,
+    required this.sessionId,
+    required this.characterId,
+    required this.content,
+    required this.category,
+    required this.strength,
+    required this.pinned,
+    required this.retired,
+    this.sourceMessageIds,
+    required this.createdAt,
+    required this.lastReinforcedAt,
+    required this.updatedAt,
+    this.metadata,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['session_id'] = Variable<String>(sessionId);
+    map['character_id'] = Variable<String>(characterId);
+    map['content'] = Variable<String>(content);
+    map['category'] = Variable<String>(category);
+    map['strength'] = Variable<double>(strength);
+    map['pinned'] = Variable<bool>(pinned);
+    map['retired'] = Variable<bool>(retired);
+    if (!nullToAbsent || sourceMessageIds != null) {
+      map['source_message_ids'] = Variable<String>(sourceMessageIds);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['last_reinforced_at'] = Variable<DateTime>(lastReinforcedAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || metadata != null) {
+      map['metadata'] = Variable<String>(metadata);
+    }
+    return map;
+  }
+
+  GrowthRingsCompanion toCompanion(bool nullToAbsent) {
+    return GrowthRingsCompanion(
+      id: Value(id),
+      sessionId: Value(sessionId),
+      characterId: Value(characterId),
+      content: Value(content),
+      category: Value(category),
+      strength: Value(strength),
+      pinned: Value(pinned),
+      retired: Value(retired),
+      sourceMessageIds: sourceMessageIds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceMessageIds),
+      createdAt: Value(createdAt),
+      lastReinforcedAt: Value(lastReinforcedAt),
+      updatedAt: Value(updatedAt),
+      metadata: metadata == null && nullToAbsent
+          ? const Value.absent()
+          : Value(metadata),
+    );
+  }
+
+  factory GrowthRingData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GrowthRingData(
+      id: serializer.fromJson<String>(json['id']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      characterId: serializer.fromJson<String>(json['characterId']),
+      content: serializer.fromJson<String>(json['content']),
+      category: serializer.fromJson<String>(json['category']),
+      strength: serializer.fromJson<double>(json['strength']),
+      pinned: serializer.fromJson<bool>(json['pinned']),
+      retired: serializer.fromJson<bool>(json['retired']),
+      sourceMessageIds: serializer.fromJson<String?>(json['sourceMessageIds']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lastReinforcedAt: serializer.fromJson<DateTime>(json['lastReinforcedAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      metadata: serializer.fromJson<String?>(json['metadata']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'characterId': serializer.toJson<String>(characterId),
+      'content': serializer.toJson<String>(content),
+      'category': serializer.toJson<String>(category),
+      'strength': serializer.toJson<double>(strength),
+      'pinned': serializer.toJson<bool>(pinned),
+      'retired': serializer.toJson<bool>(retired),
+      'sourceMessageIds': serializer.toJson<String?>(sourceMessageIds),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lastReinforcedAt': serializer.toJson<DateTime>(lastReinforcedAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'metadata': serializer.toJson<String?>(metadata),
+    };
+  }
+
+  GrowthRingData copyWith({
+    String? id,
+    String? sessionId,
+    String? characterId,
+    String? content,
+    String? category,
+    double? strength,
+    bool? pinned,
+    bool? retired,
+    Value<String?> sourceMessageIds = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? lastReinforcedAt,
+    DateTime? updatedAt,
+    Value<String?> metadata = const Value.absent(),
+  }) => GrowthRingData(
+    id: id ?? this.id,
+    sessionId: sessionId ?? this.sessionId,
+    characterId: characterId ?? this.characterId,
+    content: content ?? this.content,
+    category: category ?? this.category,
+    strength: strength ?? this.strength,
+    pinned: pinned ?? this.pinned,
+    retired: retired ?? this.retired,
+    sourceMessageIds: sourceMessageIds.present
+        ? sourceMessageIds.value
+        : this.sourceMessageIds,
+    createdAt: createdAt ?? this.createdAt,
+    lastReinforcedAt: lastReinforcedAt ?? this.lastReinforcedAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    metadata: metadata.present ? metadata.value : this.metadata,
+  );
+  GrowthRingData copyWithCompanion(GrowthRingsCompanion data) {
+    return GrowthRingData(
+      id: data.id.present ? data.id.value : this.id,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      characterId: data.characterId.present
+          ? data.characterId.value
+          : this.characterId,
+      content: data.content.present ? data.content.value : this.content,
+      category: data.category.present ? data.category.value : this.category,
+      strength: data.strength.present ? data.strength.value : this.strength,
+      pinned: data.pinned.present ? data.pinned.value : this.pinned,
+      retired: data.retired.present ? data.retired.value : this.retired,
+      sourceMessageIds: data.sourceMessageIds.present
+          ? data.sourceMessageIds.value
+          : this.sourceMessageIds,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastReinforcedAt: data.lastReinforcedAt.present
+          ? data.lastReinforcedAt.value
+          : this.lastReinforcedAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      metadata: data.metadata.present ? data.metadata.value : this.metadata,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GrowthRingData(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('characterId: $characterId, ')
+          ..write('content: $content, ')
+          ..write('category: $category, ')
+          ..write('strength: $strength, ')
+          ..write('pinned: $pinned, ')
+          ..write('retired: $retired, ')
+          ..write('sourceMessageIds: $sourceMessageIds, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastReinforcedAt: $lastReinforcedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('metadata: $metadata')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sessionId,
+    characterId,
+    content,
+    category,
+    strength,
+    pinned,
+    retired,
+    sourceMessageIds,
+    createdAt,
+    lastReinforcedAt,
+    updatedAt,
+    metadata,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GrowthRingData &&
+          other.id == this.id &&
+          other.sessionId == this.sessionId &&
+          other.characterId == this.characterId &&
+          other.content == this.content &&
+          other.category == this.category &&
+          other.strength == this.strength &&
+          other.pinned == this.pinned &&
+          other.retired == this.retired &&
+          other.sourceMessageIds == this.sourceMessageIds &&
+          other.createdAt == this.createdAt &&
+          other.lastReinforcedAt == this.lastReinforcedAt &&
+          other.updatedAt == this.updatedAt &&
+          other.metadata == this.metadata);
+}
+
+class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
+  final Value<String> id;
+  final Value<String> sessionId;
+  final Value<String> characterId;
+  final Value<String> content;
+  final Value<String> category;
+  final Value<double> strength;
+  final Value<bool> pinned;
+  final Value<bool> retired;
+  final Value<String?> sourceMessageIds;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> lastReinforcedAt;
+  final Value<DateTime> updatedAt;
+  final Value<String?> metadata;
+  final Value<int> rowid;
+  const GrowthRingsCompanion({
+    this.id = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.characterId = const Value.absent(),
+    this.content = const Value.absent(),
+    this.category = const Value.absent(),
+    this.strength = const Value.absent(),
+    this.pinned = const Value.absent(),
+    this.retired = const Value.absent(),
+    this.sourceMessageIds = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastReinforcedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.metadata = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GrowthRingsCompanion.insert({
+    required String id,
+    required String sessionId,
+    required String characterId,
+    required String content,
+    this.category = const Value.absent(),
+    this.strength = const Value.absent(),
+    this.pinned = const Value.absent(),
+    this.retired = const Value.absent(),
+    this.sourceMessageIds = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastReinforcedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.metadata = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sessionId = Value(sessionId),
+       characterId = Value(characterId),
+       content = Value(content);
+  static Insertable<GrowthRingData> custom({
+    Expression<String>? id,
+    Expression<String>? sessionId,
+    Expression<String>? characterId,
+    Expression<String>? content,
+    Expression<String>? category,
+    Expression<double>? strength,
+    Expression<bool>? pinned,
+    Expression<bool>? retired,
+    Expression<String>? sourceMessageIds,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastReinforcedAt,
+    Expression<DateTime>? updatedAt,
+    Expression<String>? metadata,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sessionId != null) 'session_id': sessionId,
+      if (characterId != null) 'character_id': characterId,
+      if (content != null) 'content': content,
+      if (category != null) 'category': category,
+      if (strength != null) 'strength': strength,
+      if (pinned != null) 'pinned': pinned,
+      if (retired != null) 'retired': retired,
+      if (sourceMessageIds != null) 'source_message_ids': sourceMessageIds,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastReinforcedAt != null) 'last_reinforced_at': lastReinforcedAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (metadata != null) 'metadata': metadata,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GrowthRingsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? sessionId,
+    Value<String>? characterId,
+    Value<String>? content,
+    Value<String>? category,
+    Value<double>? strength,
+    Value<bool>? pinned,
+    Value<bool>? retired,
+    Value<String?>? sourceMessageIds,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? lastReinforcedAt,
+    Value<DateTime>? updatedAt,
+    Value<String?>? metadata,
+    Value<int>? rowid,
+  }) {
+    return GrowthRingsCompanion(
+      id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      characterId: characterId ?? this.characterId,
+      content: content ?? this.content,
+      category: category ?? this.category,
+      strength: strength ?? this.strength,
+      pinned: pinned ?? this.pinned,
+      retired: retired ?? this.retired,
+      sourceMessageIds: sourceMessageIds ?? this.sourceMessageIds,
+      createdAt: createdAt ?? this.createdAt,
+      lastReinforcedAt: lastReinforcedAt ?? this.lastReinforcedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      metadata: metadata ?? this.metadata,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (characterId.present) {
+      map['character_id'] = Variable<String>(characterId.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (strength.present) {
+      map['strength'] = Variable<double>(strength.value);
+    }
+    if (pinned.present) {
+      map['pinned'] = Variable<bool>(pinned.value);
+    }
+    if (retired.present) {
+      map['retired'] = Variable<bool>(retired.value);
+    }
+    if (sourceMessageIds.present) {
+      map['source_message_ids'] = Variable<String>(sourceMessageIds.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastReinforcedAt.present) {
+      map['last_reinforced_at'] = Variable<DateTime>(lastReinforcedAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (metadata.present) {
+      map['metadata'] = Variable<String>(metadata.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GrowthRingsCompanion(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('characterId: $characterId, ')
+          ..write('content: $content, ')
+          ..write('category: $category, ')
+          ..write('strength: $strength, ')
+          ..write('pinned: $pinned, ')
+          ..write('retired: $retired, ')
+          ..write('sourceMessageIds: $sourceMessageIds, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastReinforcedAt: $lastReinforcedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('metadata: $metadata, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $GrowthStateTable extends GrowthState
+    with TableInfo<$GrowthStateTable, GrowthStateData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GrowthStateTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cursorMeta = const VerificationMeta('cursor');
+  @override
+  late final GeneratedColumn<int> cursor = GeneratedColumn<int>(
+    'cursor',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [sessionId, cursor];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'growth_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<GrowthStateData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('cursor')) {
+      context.handle(
+        _cursorMeta,
+        cursor.isAcceptableOrUnknown(data['cursor']!, _cursorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {sessionId};
+  @override
+  GrowthStateData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GrowthStateData(
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      cursor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cursor'],
+      )!,
+    );
+  }
+
+  @override
+  $GrowthStateTable createAlias(String alias) {
+    return $GrowthStateTable(attachedDatabase, alias);
+  }
+}
+
+class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
+  final String sessionId;
+  final int cursor;
+  const GrowthStateData({required this.sessionId, required this.cursor});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['session_id'] = Variable<String>(sessionId);
+    map['cursor'] = Variable<int>(cursor);
+    return map;
+  }
+
+  GrowthStateCompanion toCompanion(bool nullToAbsent) {
+    return GrowthStateCompanion(
+      sessionId: Value(sessionId),
+      cursor: Value(cursor),
+    );
+  }
+
+  factory GrowthStateData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GrowthStateData(
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      cursor: serializer.fromJson<int>(json['cursor']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'sessionId': serializer.toJson<String>(sessionId),
+      'cursor': serializer.toJson<int>(cursor),
+    };
+  }
+
+  GrowthStateData copyWith({String? sessionId, int? cursor}) => GrowthStateData(
+    sessionId: sessionId ?? this.sessionId,
+    cursor: cursor ?? this.cursor,
+  );
+  GrowthStateData copyWithCompanion(GrowthStateCompanion data) {
+    return GrowthStateData(
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      cursor: data.cursor.present ? data.cursor.value : this.cursor,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GrowthStateData(')
+          ..write('sessionId: $sessionId, ')
+          ..write('cursor: $cursor')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(sessionId, cursor);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GrowthStateData &&
+          other.sessionId == this.sessionId &&
+          other.cursor == this.cursor);
+}
+
+class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
+  final Value<String> sessionId;
+  final Value<int> cursor;
+  final Value<int> rowid;
+  const GrowthStateCompanion({
+    this.sessionId = const Value.absent(),
+    this.cursor = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GrowthStateCompanion.insert({
+    required String sessionId,
+    this.cursor = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : sessionId = Value(sessionId);
+  static Insertable<GrowthStateData> custom({
+    Expression<String>? sessionId,
+    Expression<int>? cursor,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (sessionId != null) 'session_id': sessionId,
+      if (cursor != null) 'cursor': cursor,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GrowthStateCompanion copyWith({
+    Value<String>? sessionId,
+    Value<int>? cursor,
+    Value<int>? rowid,
+  }) {
+    return GrowthStateCompanion(
+      sessionId: sessionId ?? this.sessionId,
+      cursor: cursor ?? this.cursor,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (cursor.present) {
+      map['cursor'] = Variable<int>(cursor.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GrowthStateCompanion(')
+          ..write('sessionId: $sessionId, ')
+          ..write('cursor: $cursor, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -11285,6 +13474,1090 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
   }
 }
 
+class $WebAuthCredentialsTable extends WebAuthCredentials
+    with TableInfo<$WebAuthCredentialsTable, WebAuthCredential> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WebAuthCredentialsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _usernameMeta = const VerificationMeta(
+    'username',
+  );
+  @override
+  late final GeneratedColumn<String> username = GeneratedColumn<String>(
+    'username',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _passwordHashMeta = const VerificationMeta(
+    'passwordHash',
+  );
+  @override
+  late final GeneratedColumn<String> passwordHash = GeneratedColumn<String>(
+    'password_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totpSecretMeta = const VerificationMeta(
+    'totpSecret',
+  );
+  @override
+  late final GeneratedColumn<String> totpSecret = GeneratedColumn<String>(
+    'totp_secret',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _totpEnabledMeta = const VerificationMeta(
+    'totpEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> totpEnabled = GeneratedColumn<bool>(
+    'totp_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("totp_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _recoveryCodesMeta = const VerificationMeta(
+    'recoveryCodes',
+  );
+  @override
+  late final GeneratedColumn<String> recoveryCodes = GeneratedColumn<String>(
+    'recovery_codes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    username,
+    passwordHash,
+    totpSecret,
+    totpEnabled,
+    recoveryCodes,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'web_auth_credentials';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WebAuthCredential> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('username')) {
+      context.handle(
+        _usernameMeta,
+        username.isAcceptableOrUnknown(data['username']!, _usernameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_usernameMeta);
+    }
+    if (data.containsKey('password_hash')) {
+      context.handle(
+        _passwordHashMeta,
+        passwordHash.isAcceptableOrUnknown(
+          data['password_hash']!,
+          _passwordHashMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_passwordHashMeta);
+    }
+    if (data.containsKey('totp_secret')) {
+      context.handle(
+        _totpSecretMeta,
+        totpSecret.isAcceptableOrUnknown(data['totp_secret']!, _totpSecretMeta),
+      );
+    }
+    if (data.containsKey('totp_enabled')) {
+      context.handle(
+        _totpEnabledMeta,
+        totpEnabled.isAcceptableOrUnknown(
+          data['totp_enabled']!,
+          _totpEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recovery_codes')) {
+      context.handle(
+        _recoveryCodesMeta,
+        recoveryCodes.isAcceptableOrUnknown(
+          data['recovery_codes']!,
+          _recoveryCodesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WebAuthCredential map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WebAuthCredential(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      username: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}username'],
+      )!,
+      passwordHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}password_hash'],
+      )!,
+      totpSecret: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}totp_secret'],
+      ),
+      totpEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}totp_enabled'],
+      )!,
+      recoveryCodes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recovery_codes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $WebAuthCredentialsTable createAlias(String alias) {
+    return $WebAuthCredentialsTable(attachedDatabase, alias);
+  }
+}
+
+class WebAuthCredential extends DataClass
+    implements Insertable<WebAuthCredential> {
+  final String id;
+  final String username;
+  final String passwordHash;
+  final String? totpSecret;
+  final bool totpEnabled;
+  final String? recoveryCodes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const WebAuthCredential({
+    required this.id,
+    required this.username,
+    required this.passwordHash,
+    this.totpSecret,
+    required this.totpEnabled,
+    this.recoveryCodes,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['username'] = Variable<String>(username);
+    map['password_hash'] = Variable<String>(passwordHash);
+    if (!nullToAbsent || totpSecret != null) {
+      map['totp_secret'] = Variable<String>(totpSecret);
+    }
+    map['totp_enabled'] = Variable<bool>(totpEnabled);
+    if (!nullToAbsent || recoveryCodes != null) {
+      map['recovery_codes'] = Variable<String>(recoveryCodes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  WebAuthCredentialsCompanion toCompanion(bool nullToAbsent) {
+    return WebAuthCredentialsCompanion(
+      id: Value(id),
+      username: Value(username),
+      passwordHash: Value(passwordHash),
+      totpSecret: totpSecret == null && nullToAbsent
+          ? const Value.absent()
+          : Value(totpSecret),
+      totpEnabled: Value(totpEnabled),
+      recoveryCodes: recoveryCodes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recoveryCodes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory WebAuthCredential.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WebAuthCredential(
+      id: serializer.fromJson<String>(json['id']),
+      username: serializer.fromJson<String>(json['username']),
+      passwordHash: serializer.fromJson<String>(json['passwordHash']),
+      totpSecret: serializer.fromJson<String?>(json['totpSecret']),
+      totpEnabled: serializer.fromJson<bool>(json['totpEnabled']),
+      recoveryCodes: serializer.fromJson<String?>(json['recoveryCodes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'username': serializer.toJson<String>(username),
+      'passwordHash': serializer.toJson<String>(passwordHash),
+      'totpSecret': serializer.toJson<String?>(totpSecret),
+      'totpEnabled': serializer.toJson<bool>(totpEnabled),
+      'recoveryCodes': serializer.toJson<String?>(recoveryCodes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  WebAuthCredential copyWith({
+    String? id,
+    String? username,
+    String? passwordHash,
+    Value<String?> totpSecret = const Value.absent(),
+    bool? totpEnabled,
+    Value<String?> recoveryCodes = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => WebAuthCredential(
+    id: id ?? this.id,
+    username: username ?? this.username,
+    passwordHash: passwordHash ?? this.passwordHash,
+    totpSecret: totpSecret.present ? totpSecret.value : this.totpSecret,
+    totpEnabled: totpEnabled ?? this.totpEnabled,
+    recoveryCodes: recoveryCodes.present
+        ? recoveryCodes.value
+        : this.recoveryCodes,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  WebAuthCredential copyWithCompanion(WebAuthCredentialsCompanion data) {
+    return WebAuthCredential(
+      id: data.id.present ? data.id.value : this.id,
+      username: data.username.present ? data.username.value : this.username,
+      passwordHash: data.passwordHash.present
+          ? data.passwordHash.value
+          : this.passwordHash,
+      totpSecret: data.totpSecret.present
+          ? data.totpSecret.value
+          : this.totpSecret,
+      totpEnabled: data.totpEnabled.present
+          ? data.totpEnabled.value
+          : this.totpEnabled,
+      recoveryCodes: data.recoveryCodes.present
+          ? data.recoveryCodes.value
+          : this.recoveryCodes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebAuthCredential(')
+          ..write('id: $id, ')
+          ..write('username: $username, ')
+          ..write('passwordHash: $passwordHash, ')
+          ..write('totpSecret: $totpSecret, ')
+          ..write('totpEnabled: $totpEnabled, ')
+          ..write('recoveryCodes: $recoveryCodes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    username,
+    passwordHash,
+    totpSecret,
+    totpEnabled,
+    recoveryCodes,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WebAuthCredential &&
+          other.id == this.id &&
+          other.username == this.username &&
+          other.passwordHash == this.passwordHash &&
+          other.totpSecret == this.totpSecret &&
+          other.totpEnabled == this.totpEnabled &&
+          other.recoveryCodes == this.recoveryCodes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class WebAuthCredentialsCompanion extends UpdateCompanion<WebAuthCredential> {
+  final Value<String> id;
+  final Value<String> username;
+  final Value<String> passwordHash;
+  final Value<String?> totpSecret;
+  final Value<bool> totpEnabled;
+  final Value<String?> recoveryCodes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const WebAuthCredentialsCompanion({
+    this.id = const Value.absent(),
+    this.username = const Value.absent(),
+    this.passwordHash = const Value.absent(),
+    this.totpSecret = const Value.absent(),
+    this.totpEnabled = const Value.absent(),
+    this.recoveryCodes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WebAuthCredentialsCompanion.insert({
+    required String id,
+    required String username,
+    required String passwordHash,
+    this.totpSecret = const Value.absent(),
+    this.totpEnabled = const Value.absent(),
+    this.recoveryCodes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       username = Value(username),
+       passwordHash = Value(passwordHash);
+  static Insertable<WebAuthCredential> custom({
+    Expression<String>? id,
+    Expression<String>? username,
+    Expression<String>? passwordHash,
+    Expression<String>? totpSecret,
+    Expression<bool>? totpEnabled,
+    Expression<String>? recoveryCodes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (username != null) 'username': username,
+      if (passwordHash != null) 'password_hash': passwordHash,
+      if (totpSecret != null) 'totp_secret': totpSecret,
+      if (totpEnabled != null) 'totp_enabled': totpEnabled,
+      if (recoveryCodes != null) 'recovery_codes': recoveryCodes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WebAuthCredentialsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? username,
+    Value<String>? passwordHash,
+    Value<String?>? totpSecret,
+    Value<bool>? totpEnabled,
+    Value<String?>? recoveryCodes,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return WebAuthCredentialsCompanion(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      passwordHash: passwordHash ?? this.passwordHash,
+      totpSecret: totpSecret ?? this.totpSecret,
+      totpEnabled: totpEnabled ?? this.totpEnabled,
+      recoveryCodes: recoveryCodes ?? this.recoveryCodes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (username.present) {
+      map['username'] = Variable<String>(username.value);
+    }
+    if (passwordHash.present) {
+      map['password_hash'] = Variable<String>(passwordHash.value);
+    }
+    if (totpSecret.present) {
+      map['totp_secret'] = Variable<String>(totpSecret.value);
+    }
+    if (totpEnabled.present) {
+      map['totp_enabled'] = Variable<bool>(totpEnabled.value);
+    }
+    if (recoveryCodes.present) {
+      map['recovery_codes'] = Variable<String>(recoveryCodes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebAuthCredentialsCompanion(')
+          ..write('id: $id, ')
+          ..write('username: $username, ')
+          ..write('passwordHash: $passwordHash, ')
+          ..write('totpSecret: $totpSecret, ')
+          ..write('totpEnabled: $totpEnabled, ')
+          ..write('recoveryCodes: $recoveryCodes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $WebAuthSessionsTable extends WebAuthSessions
+    with TableInfo<$WebAuthSessionsTable, WebAuthSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WebAuthSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tokenHashMeta = const VerificationMeta(
+    'tokenHash',
+  );
+  @override
+  late final GeneratedColumn<String> tokenHash = GeneratedColumn<String>(
+    'token_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastSeenAtMeta = const VerificationMeta(
+    'lastSeenAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastSeenAt = GeneratedColumn<int>(
+    'last_seen_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<int> expiresAt = GeneratedColumn<int>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _userAgentMeta = const VerificationMeta(
+    'userAgent',
+  );
+  @override
+  late final GeneratedColumn<String> userAgent = GeneratedColumn<String>(
+    'user_agent',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _ipMeta = const VerificationMeta('ip');
+  @override
+  late final GeneratedColumn<String> ip = GeneratedColumn<String>(
+    'ip',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revokedMeta = const VerificationMeta(
+    'revoked',
+  );
+  @override
+  late final GeneratedColumn<bool> revoked = GeneratedColumn<bool>(
+    'revoked',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("revoked" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tokenHash,
+    userId,
+    createdAt,
+    lastSeenAt,
+    expiresAt,
+    userAgent,
+    ip,
+    revoked,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'web_auth_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WebAuthSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('token_hash')) {
+      context.handle(
+        _tokenHashMeta,
+        tokenHash.isAcceptableOrUnknown(data['token_hash']!, _tokenHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tokenHashMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('last_seen_at')) {
+      context.handle(
+        _lastSeenAtMeta,
+        lastSeenAt.isAcceptableOrUnknown(
+          data['last_seen_at']!,
+          _lastSeenAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    }
+    if (data.containsKey('user_agent')) {
+      context.handle(
+        _userAgentMeta,
+        userAgent.isAcceptableOrUnknown(data['user_agent']!, _userAgentMeta),
+      );
+    }
+    if (data.containsKey('ip')) {
+      context.handle(_ipMeta, ip.isAcceptableOrUnknown(data['ip']!, _ipMeta));
+    }
+    if (data.containsKey('revoked')) {
+      context.handle(
+        _revokedMeta,
+        revoked.isAcceptableOrUnknown(data['revoked']!, _revokedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WebAuthSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WebAuthSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      tokenHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}token_hash'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastSeenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_seen_at'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      userAgent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_agent'],
+      ),
+      ip: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ip'],
+      ),
+      revoked: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}revoked'],
+      )!,
+    );
+  }
+
+  @override
+  $WebAuthSessionsTable createAlias(String alias) {
+    return $WebAuthSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class WebAuthSession extends DataClass implements Insertable<WebAuthSession> {
+  final String id;
+  final String tokenHash;
+  final String userId;
+  final int createdAt;
+  final int lastSeenAt;
+  final int expiresAt;
+  final String? userAgent;
+  final String? ip;
+  final bool revoked;
+  const WebAuthSession({
+    required this.id,
+    required this.tokenHash,
+    required this.userId,
+    required this.createdAt,
+    required this.lastSeenAt,
+    required this.expiresAt,
+    this.userAgent,
+    this.ip,
+    required this.revoked,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['token_hash'] = Variable<String>(tokenHash);
+    map['user_id'] = Variable<String>(userId);
+    map['created_at'] = Variable<int>(createdAt);
+    map['last_seen_at'] = Variable<int>(lastSeenAt);
+    map['expires_at'] = Variable<int>(expiresAt);
+    if (!nullToAbsent || userAgent != null) {
+      map['user_agent'] = Variable<String>(userAgent);
+    }
+    if (!nullToAbsent || ip != null) {
+      map['ip'] = Variable<String>(ip);
+    }
+    map['revoked'] = Variable<bool>(revoked);
+    return map;
+  }
+
+  WebAuthSessionsCompanion toCompanion(bool nullToAbsent) {
+    return WebAuthSessionsCompanion(
+      id: Value(id),
+      tokenHash: Value(tokenHash),
+      userId: Value(userId),
+      createdAt: Value(createdAt),
+      lastSeenAt: Value(lastSeenAt),
+      expiresAt: Value(expiresAt),
+      userAgent: userAgent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userAgent),
+      ip: ip == null && nullToAbsent ? const Value.absent() : Value(ip),
+      revoked: Value(revoked),
+    );
+  }
+
+  factory WebAuthSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WebAuthSession(
+      id: serializer.fromJson<String>(json['id']),
+      tokenHash: serializer.fromJson<String>(json['tokenHash']),
+      userId: serializer.fromJson<String>(json['userId']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      lastSeenAt: serializer.fromJson<int>(json['lastSeenAt']),
+      expiresAt: serializer.fromJson<int>(json['expiresAt']),
+      userAgent: serializer.fromJson<String?>(json['userAgent']),
+      ip: serializer.fromJson<String?>(json['ip']),
+      revoked: serializer.fromJson<bool>(json['revoked']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'tokenHash': serializer.toJson<String>(tokenHash),
+      'userId': serializer.toJson<String>(userId),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'lastSeenAt': serializer.toJson<int>(lastSeenAt),
+      'expiresAt': serializer.toJson<int>(expiresAt),
+      'userAgent': serializer.toJson<String?>(userAgent),
+      'ip': serializer.toJson<String?>(ip),
+      'revoked': serializer.toJson<bool>(revoked),
+    };
+  }
+
+  WebAuthSession copyWith({
+    String? id,
+    String? tokenHash,
+    String? userId,
+    int? createdAt,
+    int? lastSeenAt,
+    int? expiresAt,
+    Value<String?> userAgent = const Value.absent(),
+    Value<String?> ip = const Value.absent(),
+    bool? revoked,
+  }) => WebAuthSession(
+    id: id ?? this.id,
+    tokenHash: tokenHash ?? this.tokenHash,
+    userId: userId ?? this.userId,
+    createdAt: createdAt ?? this.createdAt,
+    lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    userAgent: userAgent.present ? userAgent.value : this.userAgent,
+    ip: ip.present ? ip.value : this.ip,
+    revoked: revoked ?? this.revoked,
+  );
+  WebAuthSession copyWithCompanion(WebAuthSessionsCompanion data) {
+    return WebAuthSession(
+      id: data.id.present ? data.id.value : this.id,
+      tokenHash: data.tokenHash.present ? data.tokenHash.value : this.tokenHash,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastSeenAt: data.lastSeenAt.present
+          ? data.lastSeenAt.value
+          : this.lastSeenAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      userAgent: data.userAgent.present ? data.userAgent.value : this.userAgent,
+      ip: data.ip.present ? data.ip.value : this.ip,
+      revoked: data.revoked.present ? data.revoked.value : this.revoked,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebAuthSession(')
+          ..write('id: $id, ')
+          ..write('tokenHash: $tokenHash, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('userAgent: $userAgent, ')
+          ..write('ip: $ip, ')
+          ..write('revoked: $revoked')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    tokenHash,
+    userId,
+    createdAt,
+    lastSeenAt,
+    expiresAt,
+    userAgent,
+    ip,
+    revoked,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WebAuthSession &&
+          other.id == this.id &&
+          other.tokenHash == this.tokenHash &&
+          other.userId == this.userId &&
+          other.createdAt == this.createdAt &&
+          other.lastSeenAt == this.lastSeenAt &&
+          other.expiresAt == this.expiresAt &&
+          other.userAgent == this.userAgent &&
+          other.ip == this.ip &&
+          other.revoked == this.revoked);
+}
+
+class WebAuthSessionsCompanion extends UpdateCompanion<WebAuthSession> {
+  final Value<String> id;
+  final Value<String> tokenHash;
+  final Value<String> userId;
+  final Value<int> createdAt;
+  final Value<int> lastSeenAt;
+  final Value<int> expiresAt;
+  final Value<String?> userAgent;
+  final Value<String?> ip;
+  final Value<bool> revoked;
+  final Value<int> rowid;
+  const WebAuthSessionsCompanion({
+    this.id = const Value.absent(),
+    this.tokenHash = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastSeenAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.userAgent = const Value.absent(),
+    this.ip = const Value.absent(),
+    this.revoked = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WebAuthSessionsCompanion.insert({
+    required String id,
+    required String tokenHash,
+    required String userId,
+    this.createdAt = const Value.absent(),
+    this.lastSeenAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.userAgent = const Value.absent(),
+    this.ip = const Value.absent(),
+    this.revoked = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       tokenHash = Value(tokenHash),
+       userId = Value(userId);
+  static Insertable<WebAuthSession> custom({
+    Expression<String>? id,
+    Expression<String>? tokenHash,
+    Expression<String>? userId,
+    Expression<int>? createdAt,
+    Expression<int>? lastSeenAt,
+    Expression<int>? expiresAt,
+    Expression<String>? userAgent,
+    Expression<String>? ip,
+    Expression<bool>? revoked,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tokenHash != null) 'token_hash': tokenHash,
+      if (userId != null) 'user_id': userId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (userAgent != null) 'user_agent': userAgent,
+      if (ip != null) 'ip': ip,
+      if (revoked != null) 'revoked': revoked,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WebAuthSessionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? tokenHash,
+    Value<String>? userId,
+    Value<int>? createdAt,
+    Value<int>? lastSeenAt,
+    Value<int>? expiresAt,
+    Value<String?>? userAgent,
+    Value<String?>? ip,
+    Value<bool>? revoked,
+    Value<int>? rowid,
+  }) {
+    return WebAuthSessionsCompanion(
+      id: id ?? this.id,
+      tokenHash: tokenHash ?? this.tokenHash,
+      userId: userId ?? this.userId,
+      createdAt: createdAt ?? this.createdAt,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      userAgent: userAgent ?? this.userAgent,
+      ip: ip ?? this.ip,
+      revoked: revoked ?? this.revoked,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (tokenHash.present) {
+      map['token_hash'] = Variable<String>(tokenHash.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (lastSeenAt.present) {
+      map['last_seen_at'] = Variable<int>(lastSeenAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<int>(expiresAt.value);
+    }
+    if (userAgent.present) {
+      map['user_agent'] = Variable<String>(userAgent.value);
+    }
+    if (ip.present) {
+      map['ip'] = Variable<String>(ip.value);
+    }
+    if (revoked.present) {
+      map['revoked'] = Variable<bool>(revoked.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WebAuthSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('tokenHash: $tokenHash, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('userAgent: $userAgent, ')
+          ..write('ip: $ip, ')
+          ..write('revoked: $revoked, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -11300,11 +14573,29 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DataBankEntriesTable dataBankEntries = $DataBankEntriesTable(
     this,
   );
+  late final $JournalMemoriesTable journalMemories = $JournalMemoriesTable(
+    this,
+  );
+  late final $GrowthRingsTable growthRings = $GrowthRingsTable(this);
+  late final $GrowthStateTable growthState = $GrowthStateTable(this);
   late final $ObjectivesTable objectives = $ObjectivesTable(this);
   late final $StoryProjectsTable storyProjects = $StoryProjectsTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   late final $AvatarImagesTable avatarImages = $AvatarImagesTable(this);
   late final $GroupMembersTable groupMembers = $GroupMembersTable(this);
+  late final $WebAuthCredentialsTable webAuthCredentials =
+      $WebAuthCredentialsTable(this);
+  late final $WebAuthSessionsTable webAuthSessions = $WebAuthSessionsTable(
+    this,
+  );
+  late final Index journalMemoriesSessionCharacter = Index(
+    'journal_memories_session_character',
+    'CREATE INDEX journal_memories_session_character ON journal_memories (session_id, character_id)',
+  );
+  late final Index growthRingsSessionCharacter = Index(
+    'growth_rings_session_character',
+    'CREATE INDEX growth_rings_session_character ON growth_rings (session_id, character_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -11319,11 +14610,18 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     worlds,
     messageEmbeddings,
     dataBankEntries,
+    journalMemories,
+    growthRings,
+    growthState,
     objectives,
     storyProjects,
     syncMeta,
     avatarImages,
     groupMembers,
+    webAuthCredentials,
+    webAuthSessions,
+    journalMemoriesSessionCharacter,
+    growthRingsSessionCharacter,
   ];
 }
 
@@ -11942,6 +15240,7 @@ typedef $$SessionsTableCreateCompanionBuilder =
       Value<bool> passageOfTimeEnabled,
       Value<int> arousalLevel,
       Value<int> cooldownTurnsRemaining,
+      Value<int> cooldownTurnsTotal,
       Value<int> trustLevel,
       Value<String> activeFixation,
       Value<int> fixationLifespan,
@@ -11958,6 +15257,7 @@ typedef $$SessionsTableCreateCompanionBuilder =
       Value<String> groupEvolvedScenarios,
       Value<String?> generationSettings,
       Value<String?> userPersonaId,
+      Value<String?> selectedLookAvatarId,
       Value<String> groupRealismState,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -11995,6 +15295,7 @@ typedef $$SessionsTableUpdateCompanionBuilder =
       Value<bool> passageOfTimeEnabled,
       Value<int> arousalLevel,
       Value<int> cooldownTurnsRemaining,
+      Value<int> cooldownTurnsTotal,
       Value<int> trustLevel,
       Value<String> activeFixation,
       Value<int> fixationLifespan,
@@ -12011,6 +15312,7 @@ typedef $$SessionsTableUpdateCompanionBuilder =
       Value<String> groupEvolvedScenarios,
       Value<String?> generationSettings,
       Value<String?> userPersonaId,
+      Value<String?> selectedLookAvatarId,
       Value<String> groupRealismState,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -12172,6 +15474,11 @@ class $$SessionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get cooldownTurnsTotal => $composableBuilder(
+    column: $table.cooldownTurnsTotal,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get trustLevel => $composableBuilder(
     column: $table.trustLevel,
     builder: (column) => ColumnFilters(column),
@@ -12249,6 +15556,11 @@ class $$SessionsTableFilterComposer
 
   ColumnFilters<String> get userPersonaId => $composableBuilder(
     column: $table.userPersonaId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get selectedLookAvatarId => $composableBuilder(
+    column: $table.selectedLookAvatarId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12427,6 +15739,11 @@ class $$SessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get cooldownTurnsTotal => $composableBuilder(
+    column: $table.cooldownTurnsTotal,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get trustLevel => $composableBuilder(
     column: $table.trustLevel,
     builder: (column) => ColumnOrderings(column),
@@ -12504,6 +15821,11 @@ class $$SessionsTableOrderingComposer
 
   ColumnOrderings<String> get userPersonaId => $composableBuilder(
     column: $table.userPersonaId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get selectedLookAvatarId => $composableBuilder(
+    column: $table.selectedLookAvatarId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -12668,6 +15990,11 @@ class $$SessionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get cooldownTurnsTotal => $composableBuilder(
+    column: $table.cooldownTurnsTotal,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get trustLevel => $composableBuilder(
     column: $table.trustLevel,
     builder: (column) => column,
@@ -12748,6 +16075,11 @@ class $$SessionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get selectedLookAvatarId => $composableBuilder(
+    column: $table.selectedLookAvatarId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get groupRealismState => $composableBuilder(
     column: $table.groupRealismState,
     builder: (column) => column,
@@ -12820,6 +16152,7 @@ class $$SessionsTableTableManager
                 Value<bool> passageOfTimeEnabled = const Value.absent(),
                 Value<int> arousalLevel = const Value.absent(),
                 Value<int> cooldownTurnsRemaining = const Value.absent(),
+                Value<int> cooldownTurnsTotal = const Value.absent(),
                 Value<int> trustLevel = const Value.absent(),
                 Value<String> activeFixation = const Value.absent(),
                 Value<int> fixationLifespan = const Value.absent(),
@@ -12836,6 +16169,7 @@ class $$SessionsTableTableManager
                 Value<String> groupEvolvedScenarios = const Value.absent(),
                 Value<String?> generationSettings = const Value.absent(),
                 Value<String?> userPersonaId = const Value.absent(),
+                Value<String?> selectedLookAvatarId = const Value.absent(),
                 Value<String> groupRealismState = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -12871,6 +16205,7 @@ class $$SessionsTableTableManager
                 passageOfTimeEnabled: passageOfTimeEnabled,
                 arousalLevel: arousalLevel,
                 cooldownTurnsRemaining: cooldownTurnsRemaining,
+                cooldownTurnsTotal: cooldownTurnsTotal,
                 trustLevel: trustLevel,
                 activeFixation: activeFixation,
                 fixationLifespan: fixationLifespan,
@@ -12887,6 +16222,7 @@ class $$SessionsTableTableManager
                 groupEvolvedScenarios: groupEvolvedScenarios,
                 generationSettings: generationSettings,
                 userPersonaId: userPersonaId,
+                selectedLookAvatarId: selectedLookAvatarId,
                 groupRealismState: groupRealismState,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -12924,6 +16260,7 @@ class $$SessionsTableTableManager
                 Value<bool> passageOfTimeEnabled = const Value.absent(),
                 Value<int> arousalLevel = const Value.absent(),
                 Value<int> cooldownTurnsRemaining = const Value.absent(),
+                Value<int> cooldownTurnsTotal = const Value.absent(),
                 Value<int> trustLevel = const Value.absent(),
                 Value<String> activeFixation = const Value.absent(),
                 Value<int> fixationLifespan = const Value.absent(),
@@ -12940,6 +16277,7 @@ class $$SessionsTableTableManager
                 Value<String> groupEvolvedScenarios = const Value.absent(),
                 Value<String?> generationSettings = const Value.absent(),
                 Value<String?> userPersonaId = const Value.absent(),
+                Value<String?> selectedLookAvatarId = const Value.absent(),
                 Value<String> groupRealismState = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -12975,6 +16313,7 @@ class $$SessionsTableTableManager
                 passageOfTimeEnabled: passageOfTimeEnabled,
                 arousalLevel: arousalLevel,
                 cooldownTurnsRemaining: cooldownTurnsRemaining,
+                cooldownTurnsTotal: cooldownTurnsTotal,
                 trustLevel: trustLevel,
                 activeFixation: activeFixation,
                 fixationLifespan: fixationLifespan,
@@ -12991,6 +16330,7 @@ class $$SessionsTableTableManager
                 groupEvolvedScenarios: groupEvolvedScenarios,
                 generationSettings: generationSettings,
                 userPersonaId: userPersonaId,
+                selectedLookAvatarId: selectedLookAvatarId,
                 groupRealismState: groupRealismState,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -13392,6 +16732,7 @@ typedef $$GroupsTableCreateCompanionBuilder =
       Value<bool> inheritCharacterLorebooks,
       Value<String> baselineRealismState,
       Value<String> characterSystemPrompts,
+      Value<String?> stableId,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> rowid,
@@ -13415,6 +16756,7 @@ typedef $$GroupsTableUpdateCompanionBuilder =
       Value<bool> inheritCharacterLorebooks,
       Value<String> baselineRealismState,
       Value<String> characterSystemPrompts,
+      Value<String?> stableId,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> rowid,
@@ -13511,6 +16853,11 @@ class $$GroupsTableFilterComposer
 
   ColumnFilters<String> get characterSystemPrompts => $composableBuilder(
     column: $table.characterSystemPrompts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stableId => $composableBuilder(
+    column: $table.stableId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13619,6 +16966,11 @@ class $$GroupsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get stableId => $composableBuilder(
+    column: $table.stableId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -13714,6 +17066,9 @@ class $$GroupsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get stableId =>
+      $composableBuilder(column: $table.stableId, builder: (column) => column);
+
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
@@ -13766,6 +17121,7 @@ class $$GroupsTableTableManager
                 Value<bool> inheritCharacterLorebooks = const Value.absent(),
                 Value<String> baselineRealismState = const Value.absent(),
                 Value<String> characterSystemPrompts = const Value.absent(),
+                Value<String?> stableId = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -13787,6 +17143,7 @@ class $$GroupsTableTableManager
                 inheritCharacterLorebooks: inheritCharacterLorebooks,
                 baselineRealismState: baselineRealismState,
                 characterSystemPrompts: characterSystemPrompts,
+                stableId: stableId,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 rowid: rowid,
@@ -13810,6 +17167,7 @@ class $$GroupsTableTableManager
                 Value<bool> inheritCharacterLorebooks = const Value.absent(),
                 Value<String> baselineRealismState = const Value.absent(),
                 Value<String> characterSystemPrompts = const Value.absent(),
+                Value<String?> stableId = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -13831,6 +17189,7 @@ class $$GroupsTableTableManager
                 inheritCharacterLorebooks: inheritCharacterLorebooks,
                 baselineRealismState: baselineRealismState,
                 characterSystemPrompts: characterSystemPrompts,
+                stableId: stableId,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 rowid: rowid,
@@ -15140,6 +18499,976 @@ typedef $$DataBankEntriesTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $DataBankEntriesTable, DataBankEntry>,
       ),
       DataBankEntry,
+      PrefetchHooks Function()
+    >;
+typedef $$JournalMemoriesTableCreateCompanionBuilder =
+    JournalMemoriesCompanion Function({
+      required String id,
+      required String sessionId,
+      required String characterId,
+      Value<String?> sourceMessageIds,
+      required String content,
+      Value<String> category,
+      Value<String?> emotionLabel,
+      Value<String?> emotionIntensity,
+      Value<String?> originalEmotionLabel,
+      Value<double> heat,
+      Value<int> accessCount,
+      Value<bool> pinned,
+      Value<Uint8List?> embedding,
+      Value<int> dimensions,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastAccessedAt,
+      Value<DateTime> updatedAt,
+      Value<String?> metadata,
+      Value<int> rowid,
+    });
+typedef $$JournalMemoriesTableUpdateCompanionBuilder =
+    JournalMemoriesCompanion Function({
+      Value<String> id,
+      Value<String> sessionId,
+      Value<String> characterId,
+      Value<String?> sourceMessageIds,
+      Value<String> content,
+      Value<String> category,
+      Value<String?> emotionLabel,
+      Value<String?> emotionIntensity,
+      Value<String?> originalEmotionLabel,
+      Value<double> heat,
+      Value<int> accessCount,
+      Value<bool> pinned,
+      Value<Uint8List?> embedding,
+      Value<int> dimensions,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastAccessedAt,
+      Value<DateTime> updatedAt,
+      Value<String?> metadata,
+      Value<int> rowid,
+    });
+
+class $$JournalMemoriesTableFilterComposer
+    extends Composer<_$AppDatabase, $JournalMemoriesTable> {
+  $$JournalMemoriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get characterId => $composableBuilder(
+    column: $table.characterId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceMessageIds => $composableBuilder(
+    column: $table.sourceMessageIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emotionLabel => $composableBuilder(
+    column: $table.emotionLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emotionIntensity => $composableBuilder(
+    column: $table.emotionIntensity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originalEmotionLabel => $composableBuilder(
+    column: $table.originalEmotionLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get heat => $composableBuilder(
+    column: $table.heat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get accessCount => $composableBuilder(
+    column: $table.accessCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pinned => $composableBuilder(
+    column: $table.pinned,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get embedding => $composableBuilder(
+    column: $table.embedding,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dimensions => $composableBuilder(
+    column: $table.dimensions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastAccessedAt => $composableBuilder(
+    column: $table.lastAccessedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get metadata => $composableBuilder(
+    column: $table.metadata,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$JournalMemoriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $JournalMemoriesTable> {
+  $$JournalMemoriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get characterId => $composableBuilder(
+    column: $table.characterId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceMessageIds => $composableBuilder(
+    column: $table.sourceMessageIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emotionLabel => $composableBuilder(
+    column: $table.emotionLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emotionIntensity => $composableBuilder(
+    column: $table.emotionIntensity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originalEmotionLabel => $composableBuilder(
+    column: $table.originalEmotionLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get heat => $composableBuilder(
+    column: $table.heat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get accessCount => $composableBuilder(
+    column: $table.accessCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get pinned => $composableBuilder(
+    column: $table.pinned,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get embedding => $composableBuilder(
+    column: $table.embedding,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dimensions => $composableBuilder(
+    column: $table.dimensions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastAccessedAt => $composableBuilder(
+    column: $table.lastAccessedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get metadata => $composableBuilder(
+    column: $table.metadata,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$JournalMemoriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $JournalMemoriesTable> {
+  $$JournalMemoriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<String> get characterId => $composableBuilder(
+    column: $table.characterId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceMessageIds => $composableBuilder(
+    column: $table.sourceMessageIds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get emotionLabel => $composableBuilder(
+    column: $table.emotionLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get emotionIntensity => $composableBuilder(
+    column: $table.emotionIntensity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originalEmotionLabel => $composableBuilder(
+    column: $table.originalEmotionLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get heat =>
+      $composableBuilder(column: $table.heat, builder: (column) => column);
+
+  GeneratedColumn<int> get accessCount => $composableBuilder(
+    column: $table.accessCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get pinned =>
+      $composableBuilder(column: $table.pinned, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get embedding =>
+      $composableBuilder(column: $table.embedding, builder: (column) => column);
+
+  GeneratedColumn<int> get dimensions => $composableBuilder(
+    column: $table.dimensions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastAccessedAt => $composableBuilder(
+    column: $table.lastAccessedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get metadata =>
+      $composableBuilder(column: $table.metadata, builder: (column) => column);
+}
+
+class $$JournalMemoriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $JournalMemoriesTable,
+          JournalMemoryData,
+          $$JournalMemoriesTableFilterComposer,
+          $$JournalMemoriesTableOrderingComposer,
+          $$JournalMemoriesTableAnnotationComposer,
+          $$JournalMemoriesTableCreateCompanionBuilder,
+          $$JournalMemoriesTableUpdateCompanionBuilder,
+          (
+            JournalMemoryData,
+            BaseReferences<
+              _$AppDatabase,
+              $JournalMemoriesTable,
+              JournalMemoryData
+            >,
+          ),
+          JournalMemoryData,
+          PrefetchHooks Function()
+        > {
+  $$JournalMemoriesTableTableManager(
+    _$AppDatabase db,
+    $JournalMemoriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$JournalMemoriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$JournalMemoriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$JournalMemoriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<String> characterId = const Value.absent(),
+                Value<String?> sourceMessageIds = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<String?> emotionLabel = const Value.absent(),
+                Value<String?> emotionIntensity = const Value.absent(),
+                Value<String?> originalEmotionLabel = const Value.absent(),
+                Value<double> heat = const Value.absent(),
+                Value<int> accessCount = const Value.absent(),
+                Value<bool> pinned = const Value.absent(),
+                Value<Uint8List?> embedding = const Value.absent(),
+                Value<int> dimensions = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastAccessedAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> metadata = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => JournalMemoriesCompanion(
+                id: id,
+                sessionId: sessionId,
+                characterId: characterId,
+                sourceMessageIds: sourceMessageIds,
+                content: content,
+                category: category,
+                emotionLabel: emotionLabel,
+                emotionIntensity: emotionIntensity,
+                originalEmotionLabel: originalEmotionLabel,
+                heat: heat,
+                accessCount: accessCount,
+                pinned: pinned,
+                embedding: embedding,
+                dimensions: dimensions,
+                createdAt: createdAt,
+                lastAccessedAt: lastAccessedAt,
+                updatedAt: updatedAt,
+                metadata: metadata,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String sessionId,
+                required String characterId,
+                Value<String?> sourceMessageIds = const Value.absent(),
+                required String content,
+                Value<String> category = const Value.absent(),
+                Value<String?> emotionLabel = const Value.absent(),
+                Value<String?> emotionIntensity = const Value.absent(),
+                Value<String?> originalEmotionLabel = const Value.absent(),
+                Value<double> heat = const Value.absent(),
+                Value<int> accessCount = const Value.absent(),
+                Value<bool> pinned = const Value.absent(),
+                Value<Uint8List?> embedding = const Value.absent(),
+                Value<int> dimensions = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastAccessedAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> metadata = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => JournalMemoriesCompanion.insert(
+                id: id,
+                sessionId: sessionId,
+                characterId: characterId,
+                sourceMessageIds: sourceMessageIds,
+                content: content,
+                category: category,
+                emotionLabel: emotionLabel,
+                emotionIntensity: emotionIntensity,
+                originalEmotionLabel: originalEmotionLabel,
+                heat: heat,
+                accessCount: accessCount,
+                pinned: pinned,
+                embedding: embedding,
+                dimensions: dimensions,
+                createdAt: createdAt,
+                lastAccessedAt: lastAccessedAt,
+                updatedAt: updatedAt,
+                metadata: metadata,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$JournalMemoriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $JournalMemoriesTable,
+      JournalMemoryData,
+      $$JournalMemoriesTableFilterComposer,
+      $$JournalMemoriesTableOrderingComposer,
+      $$JournalMemoriesTableAnnotationComposer,
+      $$JournalMemoriesTableCreateCompanionBuilder,
+      $$JournalMemoriesTableUpdateCompanionBuilder,
+      (
+        JournalMemoryData,
+        BaseReferences<_$AppDatabase, $JournalMemoriesTable, JournalMemoryData>,
+      ),
+      JournalMemoryData,
+      PrefetchHooks Function()
+    >;
+typedef $$GrowthRingsTableCreateCompanionBuilder =
+    GrowthRingsCompanion Function({
+      required String id,
+      required String sessionId,
+      required String characterId,
+      required String content,
+      Value<String> category,
+      Value<double> strength,
+      Value<bool> pinned,
+      Value<bool> retired,
+      Value<String?> sourceMessageIds,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastReinforcedAt,
+      Value<DateTime> updatedAt,
+      Value<String?> metadata,
+      Value<int> rowid,
+    });
+typedef $$GrowthRingsTableUpdateCompanionBuilder =
+    GrowthRingsCompanion Function({
+      Value<String> id,
+      Value<String> sessionId,
+      Value<String> characterId,
+      Value<String> content,
+      Value<String> category,
+      Value<double> strength,
+      Value<bool> pinned,
+      Value<bool> retired,
+      Value<String?> sourceMessageIds,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastReinforcedAt,
+      Value<DateTime> updatedAt,
+      Value<String?> metadata,
+      Value<int> rowid,
+    });
+
+class $$GrowthRingsTableFilterComposer
+    extends Composer<_$AppDatabase, $GrowthRingsTable> {
+  $$GrowthRingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get characterId => $composableBuilder(
+    column: $table.characterId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get strength => $composableBuilder(
+    column: $table.strength,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pinned => $composableBuilder(
+    column: $table.pinned,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get retired => $composableBuilder(
+    column: $table.retired,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceMessageIds => $composableBuilder(
+    column: $table.sourceMessageIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastReinforcedAt => $composableBuilder(
+    column: $table.lastReinforcedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get metadata => $composableBuilder(
+    column: $table.metadata,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$GrowthRingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $GrowthRingsTable> {
+  $$GrowthRingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get characterId => $composableBuilder(
+    column: $table.characterId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get strength => $composableBuilder(
+    column: $table.strength,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get pinned => $composableBuilder(
+    column: $table.pinned,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get retired => $composableBuilder(
+    column: $table.retired,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceMessageIds => $composableBuilder(
+    column: $table.sourceMessageIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastReinforcedAt => $composableBuilder(
+    column: $table.lastReinforcedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get metadata => $composableBuilder(
+    column: $table.metadata,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$GrowthRingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $GrowthRingsTable> {
+  $$GrowthRingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<String> get characterId => $composableBuilder(
+    column: $table.characterId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<double> get strength =>
+      $composableBuilder(column: $table.strength, builder: (column) => column);
+
+  GeneratedColumn<bool> get pinned =>
+      $composableBuilder(column: $table.pinned, builder: (column) => column);
+
+  GeneratedColumn<bool> get retired =>
+      $composableBuilder(column: $table.retired, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceMessageIds => $composableBuilder(
+    column: $table.sourceMessageIds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastReinforcedAt => $composableBuilder(
+    column: $table.lastReinforcedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get metadata =>
+      $composableBuilder(column: $table.metadata, builder: (column) => column);
+}
+
+class $$GrowthRingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $GrowthRingsTable,
+          GrowthRingData,
+          $$GrowthRingsTableFilterComposer,
+          $$GrowthRingsTableOrderingComposer,
+          $$GrowthRingsTableAnnotationComposer,
+          $$GrowthRingsTableCreateCompanionBuilder,
+          $$GrowthRingsTableUpdateCompanionBuilder,
+          (
+            GrowthRingData,
+            BaseReferences<_$AppDatabase, $GrowthRingsTable, GrowthRingData>,
+          ),
+          GrowthRingData,
+          PrefetchHooks Function()
+        > {
+  $$GrowthRingsTableTableManager(_$AppDatabase db, $GrowthRingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GrowthRingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GrowthRingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GrowthRingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<String> characterId = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<double> strength = const Value.absent(),
+                Value<bool> pinned = const Value.absent(),
+                Value<bool> retired = const Value.absent(),
+                Value<String?> sourceMessageIds = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastReinforcedAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> metadata = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GrowthRingsCompanion(
+                id: id,
+                sessionId: sessionId,
+                characterId: characterId,
+                content: content,
+                category: category,
+                strength: strength,
+                pinned: pinned,
+                retired: retired,
+                sourceMessageIds: sourceMessageIds,
+                createdAt: createdAt,
+                lastReinforcedAt: lastReinforcedAt,
+                updatedAt: updatedAt,
+                metadata: metadata,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String sessionId,
+                required String characterId,
+                required String content,
+                Value<String> category = const Value.absent(),
+                Value<double> strength = const Value.absent(),
+                Value<bool> pinned = const Value.absent(),
+                Value<bool> retired = const Value.absent(),
+                Value<String?> sourceMessageIds = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastReinforcedAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> metadata = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GrowthRingsCompanion.insert(
+                id: id,
+                sessionId: sessionId,
+                characterId: characterId,
+                content: content,
+                category: category,
+                strength: strength,
+                pinned: pinned,
+                retired: retired,
+                sourceMessageIds: sourceMessageIds,
+                createdAt: createdAt,
+                lastReinforcedAt: lastReinforcedAt,
+                updatedAt: updatedAt,
+                metadata: metadata,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$GrowthRingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $GrowthRingsTable,
+      GrowthRingData,
+      $$GrowthRingsTableFilterComposer,
+      $$GrowthRingsTableOrderingComposer,
+      $$GrowthRingsTableAnnotationComposer,
+      $$GrowthRingsTableCreateCompanionBuilder,
+      $$GrowthRingsTableUpdateCompanionBuilder,
+      (
+        GrowthRingData,
+        BaseReferences<_$AppDatabase, $GrowthRingsTable, GrowthRingData>,
+      ),
+      GrowthRingData,
+      PrefetchHooks Function()
+    >;
+typedef $$GrowthStateTableCreateCompanionBuilder =
+    GrowthStateCompanion Function({
+      required String sessionId,
+      Value<int> cursor,
+      Value<int> rowid,
+    });
+typedef $$GrowthStateTableUpdateCompanionBuilder =
+    GrowthStateCompanion Function({
+      Value<String> sessionId,
+      Value<int> cursor,
+      Value<int> rowid,
+    });
+
+class $$GrowthStateTableFilterComposer
+    extends Composer<_$AppDatabase, $GrowthStateTable> {
+  $$GrowthStateTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cursor => $composableBuilder(
+    column: $table.cursor,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$GrowthStateTableOrderingComposer
+    extends Composer<_$AppDatabase, $GrowthStateTable> {
+  $$GrowthStateTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cursor => $composableBuilder(
+    column: $table.cursor,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$GrowthStateTableAnnotationComposer
+    extends Composer<_$AppDatabase, $GrowthStateTable> {
+  $$GrowthStateTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<int> get cursor =>
+      $composableBuilder(column: $table.cursor, builder: (column) => column);
+}
+
+class $$GrowthStateTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $GrowthStateTable,
+          GrowthStateData,
+          $$GrowthStateTableFilterComposer,
+          $$GrowthStateTableOrderingComposer,
+          $$GrowthStateTableAnnotationComposer,
+          $$GrowthStateTableCreateCompanionBuilder,
+          $$GrowthStateTableUpdateCompanionBuilder,
+          (
+            GrowthStateData,
+            BaseReferences<_$AppDatabase, $GrowthStateTable, GrowthStateData>,
+          ),
+          GrowthStateData,
+          PrefetchHooks Function()
+        > {
+  $$GrowthStateTableTableManager(_$AppDatabase db, $GrowthStateTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GrowthStateTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GrowthStateTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GrowthStateTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> sessionId = const Value.absent(),
+                Value<int> cursor = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GrowthStateCompanion(
+                sessionId: sessionId,
+                cursor: cursor,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String sessionId,
+                Value<int> cursor = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GrowthStateCompanion.insert(
+                sessionId: sessionId,
+                cursor: cursor,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$GrowthStateTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $GrowthStateTable,
+      GrowthStateData,
+      $$GrowthStateTableFilterComposer,
+      $$GrowthStateTableOrderingComposer,
+      $$GrowthStateTableAnnotationComposer,
+      $$GrowthStateTableCreateCompanionBuilder,
+      $$GrowthStateTableUpdateCompanionBuilder,
+      (
+        GrowthStateData,
+        BaseReferences<_$AppDatabase, $GrowthStateTable, GrowthStateData>,
+      ),
+      GrowthStateData,
       PrefetchHooks Function()
     >;
 typedef $$ObjectivesTableCreateCompanionBuilder =
@@ -16549,6 +20878,568 @@ typedef $$GroupMembersTableProcessedTableManager =
       GroupMemberRow,
       PrefetchHooks Function()
     >;
+typedef $$WebAuthCredentialsTableCreateCompanionBuilder =
+    WebAuthCredentialsCompanion Function({
+      required String id,
+      required String username,
+      required String passwordHash,
+      Value<String?> totpSecret,
+      Value<bool> totpEnabled,
+      Value<String?> recoveryCodes,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$WebAuthCredentialsTableUpdateCompanionBuilder =
+    WebAuthCredentialsCompanion Function({
+      Value<String> id,
+      Value<String> username,
+      Value<String> passwordHash,
+      Value<String?> totpSecret,
+      Value<bool> totpEnabled,
+      Value<String?> recoveryCodes,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$WebAuthCredentialsTableFilterComposer
+    extends Composer<_$AppDatabase, $WebAuthCredentialsTable> {
+  $$WebAuthCredentialsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get username => $composableBuilder(
+    column: $table.username,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get totpSecret => $composableBuilder(
+    column: $table.totpSecret,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get totpEnabled => $composableBuilder(
+    column: $table.totpEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recoveryCodes => $composableBuilder(
+    column: $table.recoveryCodes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WebAuthCredentialsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WebAuthCredentialsTable> {
+  $$WebAuthCredentialsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get username => $composableBuilder(
+    column: $table.username,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get totpSecret => $composableBuilder(
+    column: $table.totpSecret,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get totpEnabled => $composableBuilder(
+    column: $table.totpEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recoveryCodes => $composableBuilder(
+    column: $table.recoveryCodes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WebAuthCredentialsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WebAuthCredentialsTable> {
+  $$WebAuthCredentialsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get username =>
+      $composableBuilder(column: $table.username, builder: (column) => column);
+
+  GeneratedColumn<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get totpSecret => $composableBuilder(
+    column: $table.totpSecret,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get totpEnabled => $composableBuilder(
+    column: $table.totpEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recoveryCodes => $composableBuilder(
+    column: $table.recoveryCodes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$WebAuthCredentialsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WebAuthCredentialsTable,
+          WebAuthCredential,
+          $$WebAuthCredentialsTableFilterComposer,
+          $$WebAuthCredentialsTableOrderingComposer,
+          $$WebAuthCredentialsTableAnnotationComposer,
+          $$WebAuthCredentialsTableCreateCompanionBuilder,
+          $$WebAuthCredentialsTableUpdateCompanionBuilder,
+          (
+            WebAuthCredential,
+            BaseReferences<
+              _$AppDatabase,
+              $WebAuthCredentialsTable,
+              WebAuthCredential
+            >,
+          ),
+          WebAuthCredential,
+          PrefetchHooks Function()
+        > {
+  $$WebAuthCredentialsTableTableManager(
+    _$AppDatabase db,
+    $WebAuthCredentialsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WebAuthCredentialsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WebAuthCredentialsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WebAuthCredentialsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> username = const Value.absent(),
+                Value<String> passwordHash = const Value.absent(),
+                Value<String?> totpSecret = const Value.absent(),
+                Value<bool> totpEnabled = const Value.absent(),
+                Value<String?> recoveryCodes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebAuthCredentialsCompanion(
+                id: id,
+                username: username,
+                passwordHash: passwordHash,
+                totpSecret: totpSecret,
+                totpEnabled: totpEnabled,
+                recoveryCodes: recoveryCodes,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String username,
+                required String passwordHash,
+                Value<String?> totpSecret = const Value.absent(),
+                Value<bool> totpEnabled = const Value.absent(),
+                Value<String?> recoveryCodes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebAuthCredentialsCompanion.insert(
+                id: id,
+                username: username,
+                passwordHash: passwordHash,
+                totpSecret: totpSecret,
+                totpEnabled: totpEnabled,
+                recoveryCodes: recoveryCodes,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WebAuthCredentialsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WebAuthCredentialsTable,
+      WebAuthCredential,
+      $$WebAuthCredentialsTableFilterComposer,
+      $$WebAuthCredentialsTableOrderingComposer,
+      $$WebAuthCredentialsTableAnnotationComposer,
+      $$WebAuthCredentialsTableCreateCompanionBuilder,
+      $$WebAuthCredentialsTableUpdateCompanionBuilder,
+      (
+        WebAuthCredential,
+        BaseReferences<
+          _$AppDatabase,
+          $WebAuthCredentialsTable,
+          WebAuthCredential
+        >,
+      ),
+      WebAuthCredential,
+      PrefetchHooks Function()
+    >;
+typedef $$WebAuthSessionsTableCreateCompanionBuilder =
+    WebAuthSessionsCompanion Function({
+      required String id,
+      required String tokenHash,
+      required String userId,
+      Value<int> createdAt,
+      Value<int> lastSeenAt,
+      Value<int> expiresAt,
+      Value<String?> userAgent,
+      Value<String?> ip,
+      Value<bool> revoked,
+      Value<int> rowid,
+    });
+typedef $$WebAuthSessionsTableUpdateCompanionBuilder =
+    WebAuthSessionsCompanion Function({
+      Value<String> id,
+      Value<String> tokenHash,
+      Value<String> userId,
+      Value<int> createdAt,
+      Value<int> lastSeenAt,
+      Value<int> expiresAt,
+      Value<String?> userAgent,
+      Value<String?> ip,
+      Value<bool> revoked,
+      Value<int> rowid,
+    });
+
+class $$WebAuthSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $WebAuthSessionsTable> {
+  $$WebAuthSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tokenHash => $composableBuilder(
+    column: $table.tokenHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userAgent => $composableBuilder(
+    column: $table.userAgent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ip => $composableBuilder(
+    column: $table.ip,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get revoked => $composableBuilder(
+    column: $table.revoked,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WebAuthSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WebAuthSessionsTable> {
+  $$WebAuthSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tokenHash => $composableBuilder(
+    column: $table.tokenHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userAgent => $composableBuilder(
+    column: $table.userAgent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ip => $composableBuilder(
+    column: $table.ip,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get revoked => $composableBuilder(
+    column: $table.revoked,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WebAuthSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WebAuthSessionsTable> {
+  $$WebAuthSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get tokenHash =>
+      $composableBuilder(column: $table.tokenHash, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<String> get userAgent =>
+      $composableBuilder(column: $table.userAgent, builder: (column) => column);
+
+  GeneratedColumn<String> get ip =>
+      $composableBuilder(column: $table.ip, builder: (column) => column);
+
+  GeneratedColumn<bool> get revoked =>
+      $composableBuilder(column: $table.revoked, builder: (column) => column);
+}
+
+class $$WebAuthSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WebAuthSessionsTable,
+          WebAuthSession,
+          $$WebAuthSessionsTableFilterComposer,
+          $$WebAuthSessionsTableOrderingComposer,
+          $$WebAuthSessionsTableAnnotationComposer,
+          $$WebAuthSessionsTableCreateCompanionBuilder,
+          $$WebAuthSessionsTableUpdateCompanionBuilder,
+          (
+            WebAuthSession,
+            BaseReferences<
+              _$AppDatabase,
+              $WebAuthSessionsTable,
+              WebAuthSession
+            >,
+          ),
+          WebAuthSession,
+          PrefetchHooks Function()
+        > {
+  $$WebAuthSessionsTableTableManager(
+    _$AppDatabase db,
+    $WebAuthSessionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WebAuthSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WebAuthSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WebAuthSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> tokenHash = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> lastSeenAt = const Value.absent(),
+                Value<int> expiresAt = const Value.absent(),
+                Value<String?> userAgent = const Value.absent(),
+                Value<String?> ip = const Value.absent(),
+                Value<bool> revoked = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebAuthSessionsCompanion(
+                id: id,
+                tokenHash: tokenHash,
+                userId: userId,
+                createdAt: createdAt,
+                lastSeenAt: lastSeenAt,
+                expiresAt: expiresAt,
+                userAgent: userAgent,
+                ip: ip,
+                revoked: revoked,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String tokenHash,
+                required String userId,
+                Value<int> createdAt = const Value.absent(),
+                Value<int> lastSeenAt = const Value.absent(),
+                Value<int> expiresAt = const Value.absent(),
+                Value<String?> userAgent = const Value.absent(),
+                Value<String?> ip = const Value.absent(),
+                Value<bool> revoked = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WebAuthSessionsCompanion.insert(
+                id: id,
+                tokenHash: tokenHash,
+                userId: userId,
+                createdAt: createdAt,
+                lastSeenAt: lastSeenAt,
+                expiresAt: expiresAt,
+                userAgent: userAgent,
+                ip: ip,
+                revoked: revoked,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WebAuthSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WebAuthSessionsTable,
+      WebAuthSession,
+      $$WebAuthSessionsTableFilterComposer,
+      $$WebAuthSessionsTableOrderingComposer,
+      $$WebAuthSessionsTableAnnotationComposer,
+      $$WebAuthSessionsTableCreateCompanionBuilder,
+      $$WebAuthSessionsTableUpdateCompanionBuilder,
+      (
+        WebAuthSession,
+        BaseReferences<_$AppDatabase, $WebAuthSessionsTable, WebAuthSession>,
+      ),
+      WebAuthSession,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -16571,6 +21462,12 @@ class $AppDatabaseManager {
       $$MessageEmbeddingsTableTableManager(_db, _db.messageEmbeddings);
   $$DataBankEntriesTableTableManager get dataBankEntries =>
       $$DataBankEntriesTableTableManager(_db, _db.dataBankEntries);
+  $$JournalMemoriesTableTableManager get journalMemories =>
+      $$JournalMemoriesTableTableManager(_db, _db.journalMemories);
+  $$GrowthRingsTableTableManager get growthRings =>
+      $$GrowthRingsTableTableManager(_db, _db.growthRings);
+  $$GrowthStateTableTableManager get growthState =>
+      $$GrowthStateTableTableManager(_db, _db.growthState);
   $$ObjectivesTableTableManager get objectives =>
       $$ObjectivesTableTableManager(_db, _db.objectives);
   $$StoryProjectsTableTableManager get storyProjects =>
@@ -16581,4 +21478,8 @@ class $AppDatabaseManager {
       $$AvatarImagesTableTableManager(_db, _db.avatarImages);
   $$GroupMembersTableTableManager get groupMembers =>
       $$GroupMembersTableTableManager(_db, _db.groupMembers);
+  $$WebAuthCredentialsTableTableManager get webAuthCredentials =>
+      $$WebAuthCredentialsTableTableManager(_db, _db.webAuthCredentials);
+  $$WebAuthSessionsTableTableManager get webAuthSessions =>
+      $$WebAuthSessionsTableTableManager(_db, _db.webAuthSessions);
 }

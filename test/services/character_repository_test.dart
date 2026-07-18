@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart';
 
+import 'package:front_porch_ai/models/avatar_image.dart' as model;
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -539,6 +540,43 @@ void main() {
     );
 
     test(
+      'importing a card with a lorebook does NOT auto-create a linked World '
+      '(Phase 4: single source of truth — lore lives on the card)',
+      () async {
+        _setupPathProviderMock();
+        SharedPreferences.setMockInitialValues({});
+        final storage = StorageService();
+        await storage.initialized;
+
+        final card = CharacterCard(
+          name: 'LoreCarrier',
+          description: 'carries lore',
+          lorebook: Lorebook(
+            entries: [LorebookEntry(key: 'vale', content: 'The Vale.')],
+          ),
+        );
+        final v2 = V2CardService();
+        final tmpDir = Directory.systemTemp.createTempSync('no_autoworld_');
+        final png = '${tmpDir.path}/lore.png';
+        await v2.saveCardAsPng(card, png, null);
+
+        final imported = await repo.importCharacter(File(png));
+        expect(imported != null, true);
+        expect(imported!.lorebook != null, true);
+        expect(imported.lorebook!.entries.single.keys, ['vale']);
+
+        // The old behavior wrote a "<name>'s world lore" row into worlds.
+        final worldRows = await db.select(db.worlds).get();
+        expect(
+          worldRows.where((w) => w.name.contains('LoreCarrier')),
+          isEmpty,
+        );
+
+        await tmpDir.delete(recursive: true);
+      },
+    );
+
+    test(
       'legacy name-only import (no stable) still works, ensure injects on touch',
       () async {
         _setupPathProviderMock();
@@ -567,5 +605,143 @@ void main() {
         await tmpDir.delete(recursive: true);
       },
     );
+
+    test(
+      'standalone .json import parses fields and synthesizes a placeholder avatar',
+      () async {
+        // Covers the user-facing fix: a raw .json card carries no image, so the
+        // importer must route through readCardFromJsonFile and let persist
+        // synthesize a placeholder PNG instead of producing an empty,
+        // name-only character (the pre-fix behavior).
+        final card = CharacterCard(
+          name: 'JsonImportChar',
+          description: 'imported from json',
+          personality: 'Curious',
+          firstMessage: 'Hi from JSON',
+          tags: ['imported'],
+          lorebook: Lorebook(
+            entries: [LorebookEntry(key: 'lore', content: 'Some lore')],
+          ),
+          frontPorchExtensions: FrontPorchExtensions(
+            realismEnabled: true,
+            trustLevel: 15,
+          ),
+        );
+        final v2 = V2CardService();
+        final tmpDir = Directory.systemTemp.createTempSync('json_import_');
+        final jsonPath = '${tmpDir.path}/card.json';
+        await v2.saveCardAsJson(card, jsonPath);
+
+        final imported = await repo.importCharacter(File(jsonPath));
+        // Note: this file imports drift, whose `isNotNull` collides with the
+        // matcher of the same name — use the `!= null` idiom like the rest.
+        expect(imported != null, true);
+        expect(imported!.name, 'JsonImportChar');
+        expect(imported.description, 'imported from json');
+        expect(imported.personality, 'Curious');
+        expect(imported.firstMessage, 'Hi from JSON');
+        expect(imported.tags, ['imported']);
+        expect(imported.lorebook?.entries.length, 1);
+        expect(imported.frontPorchExtensions?.trustLevel, 15);
+
+        // JSON has no avatar, so persist must synthesize a placeholder PNG
+        // that actually exists on disk.
+        expect(imported.imagePath != null, true);
+        expect(imported.imagePath, endsWith('.png'));
+        expect(File(imported.imagePath!).existsSync(), isTrue);
+
+        // The character lands in the repo's in-memory list.
+        expect(repo.characters.any((c) => c.name == 'JsonImportChar'), isTrue);
+
+        await tmpDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'deleteCharacters bulk-removes all cards and reports progress',
+      () async {
+        // Seed three extra cards alongside the setUp character.
+        final cards = <CharacterCard>[];
+        for (var i = 0; i < 3; i++) {
+          final card = CharacterCard(
+            name: 'Bulk $i',
+            description: 'to be purged',
+            imagePath: 'bulk_$i.png',
+          );
+          await repo.addCharacter(card);
+          cards.add(card);
+        }
+        expect(repo.characters.where((c) => c.name.startsWith('Bulk')), hasLength(3));
+
+        final progress = <int>[];
+        final deleted = await repo.deleteCharacters(
+          cards,
+          onProgress: (done, total) {
+            expect(total, 3);
+            progress.add(done);
+          },
+        );
+
+        expect(deleted, 3);
+        // Progress fires once per card, monotonically to the total.
+        expect(progress, [1, 2, 3]);
+        // All bulk cards gone from the in-memory list.
+        expect(repo.characters.any((c) => c.name.startsWith('Bulk')), isFalse);
+      },
+    );
+
+    test('deleteCharacters on an empty list is a safe no-op', () async {
+      final before = repo.characters.length;
+      final deleted = await repo.deleteCharacters(const []);
+      expect(deleted, 0);
+      expect(repo.characters.length, before);
+    });
+
+    // --- Cover-resolution cache (20260716 nightly sluggishness regression) ---
+    test('coverImageFileFor caches disk stats; mutations invalidate', () async {
+      _setupPathProviderMock();
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.initialized;
+      final testDb = AppDatabase.forTesting();
+      final testRepo = CharacterRepository(testDb, storage);
+      await Future<void>.delayed(Duration.zero);
+
+      // A starred avatar whose file really exists — the only branch that
+      // stats the disk.
+      final base = storage.characterBaseDir('CacheTest');
+      final avatarFile = File('${base.path}/avatars/star.png')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1, 2, 3]);
+      final card = CharacterCard(
+        name: 'CacheTest',
+        frontPorchExtensions: FrontPorchExtensions(favoriteAvatarId: 'a1'),
+      )..avatarImages = [
+          model.AvatarImage(
+            id: 'a1',
+            characterId: 'c1',
+            filename: 'star.png',
+            displayOrder: 0,
+            createdAt: DateTime(2026),
+          ),
+        ];
+
+      final first = testRepo.coverImageFileFor(card);
+      expect(first?.path, avatarFile.path);
+
+      // Delete the file on disk: a CACHED answer keeps returning the old
+      // File (no re-stat — this is the perf fix), until invalidation.
+      avatarFile.deleteSync();
+      expect(testRepo.coverImageFileFor(card)?.path, avatarFile.path);
+
+      // The gallery's deferred broadcast invalidates → fresh stat → the
+      // missing star now falls back (null: no portrait on this card).
+      testRepo.notifyCharactersChanged();
+      expect(testRepo.coverImageFileFor(card), equals(null));
+
+      // A ★ change self-invalidates via the key, no broadcast needed.
+      card.frontPorchExtensions!.favoriteAvatarId = 'a2';
+      expect(testRepo.coverImageFileFor(card), equals(null)); // a2
+    });
   });
 }

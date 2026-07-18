@@ -1,137 +1,46 @@
 # Keyboard Shortcuts
 
----
-
-## Table of Contents
-
-1. [Chat Shortcuts](#chat-shortcuts)
-2. [Navigation Shortcuts](#navigation-shortcuts)
-3. [Voice Shortcuts](#voice-shortcuts)
-4. [Editor Shortcuts](#editor-shortcuts)
-5. [Platform Notes](#platform-notes)
+Front Porch AI keeps keyboard handling simple on purpose — there's exactly one shortcut to memorize, and everything else follows your operating system's standard behavior.
 
 ---
 
-## Chat Shortcuts
-
-The only custom keyboard handling implemented in the chat composer (see `lib/ui/pages/chat_page.dart:199`):
-
-| Shortcut            | Action |
-|---------------------|--------|
-| `Enter`             | Send the current message (when the chat input field has focus and is not empty; generation must not be in progress) |
-| `Shift + Enter`     | Insert a literal newline in the message input (prevents accidental send) |
-
-Other actions (Regenerate, swipe left/right between alternate responses, Director Mode toggle, open Chat Settings, Voice input) are performed via on-screen buttons and icons in the chat UI — no dedicated global hotkeys are wired for them. Standard OS clipboard and editing keys (Copy/Paste/Undo) work inside the input field.
-
----
-
-## Navigation Shortcuts
-
-No custom global navigation hotkeys are implemented (sidebar selection is pointer-driven via `AppState.setIndex` in `lib/ui/layout/main_layout.dart` and `lib/ui/widgets/sidebar.dart`).
-
-| Shortcut          | Action |
-|-------------------|--------|
-| Tab / Shift+Tab   | Move keyboard focus between UI controls (standard Flutter behavior) |
-| (none)            | Direct sidebar page switching requires mouse click |
-
-Use the left sidebar to switch between Home, Create Character, Model Manager, Settings, User Persona, and Worlds. The AI Character Creator opens in its own window.
-
----
-
-## Voice Shortcuts
-
-No push-to-talk or voice-call hotkeys (Spacebar, etc.) are implemented. Voice features are controlled via the microphone icon in the chat input area (`SttService` + `record` package).
+## The One That Matters
 
 | Shortcut | Action |
-|----------|--------|
-| (none)   | Click the 🎤 mic icon to start/stop push-to-talk recording |
-| (none)   | Use the Voice Call overlay (continuous mode) for hands-free conversation |
+|---|---|
+| **Enter** | Send your message (while the chat box has focus) |
+| **Shift + Enter** | New line without sending |
 
-See Settings → Voice for STT engine configuration, silence threshold, and auto-send transcription.
+That's the whole trick to writing multi-paragraph messages: hold **Shift** when you press Enter.
 
----
-
-## Editor Shortcuts
-
-All character, story, and world editors use standard Flutter `TextField` / `TextFormField` widgets. No custom `Actions`/`Intent` or `SingleActivator` keyboard bindings are registered.
-
-| Shortcut                        | Action |
-|---------------------------------|--------|
-| `Ctrl / ⌘ + C`                  | Copy selected text |
-| `Ctrl / ⌘ + V`                  | Paste |
-| `Ctrl / ⌘ + X`                  | Cut |
-| `Ctrl / ⌘ + Z`                  | Undo |
-| `Ctrl / ⌘ + Shift + Z`          | Redo |
-| `Ctrl / ⌘ + A`                  | Select all |
-| Arrow keys / Home / End / PgUp / PgDn | Standard text navigation and selection |
-| `Enter`                         | Submit form (in character creator review step, etc.) |
-
-Rich text formatting shortcuts (bold/italic) are not implemented; the editors are plain-text or Markdown-based.
+Sending only happens when there's actually text in the box and the AI isn't already generating — so a stray Enter won't fire off empty messages.
 
 ---
 
-## Platform Notes
+## Standard Text Editing
 
-- **macOS**: Use the `⌘ Command` key in place of `Ctrl` for all standard OS-level shortcuts (copy, paste, undo, select all, close window, etc.). The chat `Enter` / `Shift+Enter` handler works identically.
-- **Windows / Linux**: Use the `Ctrl` key for the same operations.
-- The app does not register system-wide global hotkeys (no `hotkey_manager` or similar). All shortcuts require the app window to be focused.
-- On all platforms, `Esc` closes most dialogs (standard Material behavior).
-
-For the most up-to-date behavior, the source of truth is the `onKeyEvent` handler on the chat `FocusNode` and Flutter's built-in text editing actions.
-
----
-
-## Navigation Shortcuts
-
-No custom global navigation hotkeys are implemented (sidebar selection is pointer-driven via `AppState.setIndex` in `lib/ui/layout/main_layout.dart` and `lib/ui/widgets/sidebar.dart`).
-
-| Shortcut          | Action |
-|-------------------|--------|
-| Tab / Shift+Tab   | Move keyboard focus between UI controls (standard Flutter behavior) |
-| (none)            | Direct sidebar page switching requires mouse click |
-
-Use the left sidebar to switch between Home, Create Character, Model Manager, Settings, User Persona, and Worlds. The AI Character Creator opens in its own window.
-
----
-
-## Voice Shortcuts
-
-No push-to-talk or voice-call hotkeys (Spacebar, etc.) are implemented. Voice features are controlled via the microphone icon in the chat input area (`SttService` + `record` package).
+Every text field in the app (chat box, character editor, story editor…) supports your system's normal editing keys:
 
 | Shortcut | Action |
-|----------|--------|
-| (none)   | Click the 🎤 mic icon to start/stop push-to-talk recording |
-| (none)   | Use the Voice Call overlay (continuous mode) for hands-free conversation |
+|---|---|
+| `Ctrl / ⌘ + C` | Copy |
+| `Ctrl / ⌘ + V` | Paste |
+| `Ctrl / ⌘ + X` | Cut |
+| `Ctrl / ⌘ + Z` | Undo |
+| `Ctrl / ⌘ + Shift + Z` | Redo |
+| `Ctrl / ⌘ + A` | Select all |
+| Arrow keys, Home, End, PgUp, PgDn | Move around and select text |
 
-See Settings → Voice for STT engine configuration, silence threshold, and auto-send transcription.
+On macOS use **⌘ Command**; on Windows and Linux use **Ctrl**.
 
----
-
-## Editor Shortcuts
-
-All character, story, and world editors use standard Flutter `TextField` / `TextFormField` widgets. No custom `Actions`/`Intent` or `SingleActivator` keyboard bindings are registered.
-
-| Shortcut                        | Action |
-|---------------------------------|--------|
-| `Ctrl / ⌘ + C`                  | Copy selected text |
-| `Ctrl / ⌘ + V`                  | Paste |
-| `Ctrl / ⌘ + X`                  | Cut |
-| `Ctrl / ⌘ + Z`                  | Undo |
-| `Ctrl / ⌘ + Shift + Z`          | Redo |
-| `Ctrl / ⌘ + A`                  | Select all |
-| Arrow keys / Home / End / PgUp / PgDn | Standard text navigation and selection |
-| `Enter`                         | Submit form (in character creator review step, etc.) |
-
-Rich text formatting shortcuts (bold/italic) are not implemented; the editors are plain-text or Markdown-based.
+`Esc` closes most dialogs, and `Tab` moves focus between controls — standard behavior on every platform.
 
 ---
 
-## Platform Notes
+## Everything Else Is a Click
 
-- **macOS**: Use the `⌘ Command` key in place of `Ctrl` for all standard OS-level shortcuts (copy, paste, undo, select all, close window, etc.). The chat `Enter` / `Shift+Enter` handler works identically.
-- **Windows / Linux**: Use the `Ctrl` key for the same operations.
-- The app does not register system-wide global hotkeys (no `hotkey_manager` or similar). All shortcuts require the app window to be focused.
-- On all platforms, `Esc` closes most dialogs (standard Material behavior).
+Actions like Regenerate, flipping between alternate replies, Director Mode, and voice input are buttons in the chat interface rather than hotkeys. Navigation (Home, Manage Models, Settings, Worlds, Backups & Restore, and so on) lives in the left sidebar.
 
-For the most up-to-date behavior, the source of truth is the `onKeyEvent` handler on the chat `FocusNode` and Flutter's built-in text editing actions.
+The app doesn't register any system-wide hotkeys — nothing triggers while Front Porch AI is in the background.
 
+*If there's a shortcut you wish existed, tell me on [Discord](https://discord.gg/e4tET6rpdv) — this is the kind of thing user requests genuinely shape.*

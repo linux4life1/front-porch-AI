@@ -1,0 +1,6 @@
+# Front Porch AI web UI (React + Vite)
+node_modules/
+dist/
+*.local
+.vite/
+npm-debug.log*

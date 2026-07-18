@@ -34,8 +34,25 @@ class DownloadManager extends ChangeNotifier {
   /// Maximum number of concurrent downloads.
   final int maxConcurrent;
 
-  /// The directory where downloaded models are stored.
-  final String targetDir;
+  /// The directory where downloaded models are stored. NOT final: the provider
+  /// re-points it to the live `StorageService.modelsDir` once storage finishes
+  /// its async init. Without this it can be captured as a relative `models/`
+  /// (rootPath still null at create time), so downloads land beside the running
+  /// binary instead of the configured models folder and never appear as
+  /// installed. New tasks read this when queued; in-flight tasks keep their own.
+  String _targetDir;
+  String get targetDir => _targetDir;
+
+  /// Assigning a new dir re-ensures it exists. This is how the real absolute
+  /// models dir actually gets created: at construction [targetDir] is briefly
+  /// the relative fallback `models/` (which [_ensureTargetDir] skips), then the
+  /// provider re-points us here once StorageService init resolves the absolute
+  /// path.
+  set targetDir(String value) {
+    if (value == _targetDir) return;
+    _targetDir = value;
+    _ensureTargetDir();
+  }
 
   /// Queue of download tasks.
   final List<DownloadTask> _queue = [];
@@ -82,16 +99,30 @@ class DownloadManager extends ChangeNotifier {
   double get overallSpeed =>
       activeDownloads.fold<double>(0, (s, t) => s + t.speedBytesPerSec);
 
-  DownloadManager({required this.targetDir, this.maxConcurrent = 3}) {
+  DownloadManager({required String targetDir, this.maxConcurrent = 3})
+    : _targetDir = targetDir {
     _ensureTargetDir();
     _startProcessing();
   }
 
-  /// Ensures the target directory exists.
+  /// Ensures the target directory exists — best-effort, and never throws.
+  ///
+  /// Skips relative paths: during early startup [targetDir] is briefly the
+  /// relative fallback `models/` (StorageService.rootPath still null), and on
+  /// desktop GUI launches the working directory is `/`, so creating a relative
+  /// dir throws `Read-only file system`. The provider re-points us at the real
+  /// absolute dir moments later (see the [targetDir] setter).
   Future<void> _ensureTargetDir() async {
     final dir = Directory(targetDir);
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
+    if (!dir.isAbsolute) return;
+    try {
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+    } catch (e) {
+      debugPrint(
+        '[DownloadManager] Could not create models dir "$targetDir": $e',
+      );
     }
   }
 

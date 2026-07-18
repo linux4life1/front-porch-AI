@@ -317,7 +317,7 @@ class StyledTextController extends TextEditingController
 
     // Phase 2: Dialogue (medium priority) — char-by-char scan,
     // skipping " delimiters that land inside macro spans.
-    final dialogueRanges = scanDelimited(text, '"', '"', macroRanges);
+    final dialogueRanges = scanDialogue(text, macroRanges);
 
     // Phase 3: Action (lowest priority) — char-by-char scan,
     // skipping * delimiters that land inside macro or dialogue spans.
@@ -386,7 +386,7 @@ class StyledTextController extends TextEditingController
 /// Used by [StyledTextController] (chat preset) and [StyledChatMessage].
 List<({int start, int end, String matchText, StyledTokenType type})>
     tokenizeChat(String text) {
-  final dialogueRanges = scanDelimited(text, '"', '"', []);
+  final dialogueRanges = scanDialogue(text, []);
   final actionRanges = scanDelimited(text, '*', '*', dialogueRanges);
 
   // Split action ranges around dialogue ranges inside them
@@ -414,6 +414,54 @@ List<({int start, int end, String matchText, StyledTokenType type})>
       (start: a.start, end: a.end, matchText: text.substring(a.start, a.end),
         type: StyledTokenType.action),
   ]..sort((a, b) => a.start.compareTo(b.start));
+}
+
+/// Opening quote → the set of closing quotes that can terminate it, covering
+/// the common localized/typographic dialogue styles: straight ("…"), English
+/// curly (“…”), German/Polish/Czech („…“ / „…”), Nordic (”…”), French & German
+/// guillemets («…» / »…«) and CJK brackets (「…」). Scanned left-to-right, so a
+/// char that is both an opener and a closer (e.g. « in French vs German-alt)
+/// resolves by consumption order. Kept in sync with the web UI dialogue matcher
+/// (web_ui/src/components/rpText.tsx) so highlighting is identical on both.
+const Map<String, Set<String>> kDialogueQuotePairs = {
+  '"': {'"'},
+  '“': {'”'}, // “ … ”
+  '„': {'“', '”'}, // „ … “  /  „ … ”
+  '”': {'”'}, // ” … ”
+  '«': {'»'}, // « … »
+  '»': {'«'}, // » … «
+  '「': {'」'}, // 「 … 」
+};
+
+/// Scans [text] for dialogue quoted with any style in [kDialogueQuotePairs],
+/// skipping any delimiter inside [skipRanges]. The dialogue analogue of
+/// [scanDelimited]: quotes need multiple, asymmetric open/close pairs whereas
+/// asterisks only need one symmetric delimiter (so that path keeps using
+/// [scanDelimited] unchanged).
+List<({int start, int end})> scanDialogue(
+  String text,
+  List<({int start, int end})> skipRanges,
+) {
+  final ranges = <({int start, int end})>[];
+  int i = 0;
+  while (i < text.length) {
+    final closers = kDialogueQuotePairs[text[i]];
+    if (closers != null && !inRanges(i, skipRanges)) {
+      final start = i;
+      i++;
+      while (i < text.length) {
+        if (closers.contains(text[i]) && !inRanges(i, skipRanges)) {
+          ranges.add((start: start, end: i + 1));
+          i++;
+          break;
+        }
+        i++;
+      }
+    } else {
+      i++;
+    }
+  }
+  return ranges;
 }
 
 /// Scans [text] left-to-right for [openChar]…[closeChar] pairs,

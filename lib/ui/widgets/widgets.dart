@@ -28,16 +28,20 @@
 // import 'package:front_porch_ai/ui/widgets/widgets.dart';
 // ```
 
+export 'ai_engine_status_card.dart';
 export 'app_text_field.dart';
 export 'styled_text_controller.dart';
 export 'sidebar.dart';
 export 'model_selector.dart';
 export 'kcpps_selector.dart';
+export 'low_perf_cpu_warning.dart';
 export 'log_view.dart';
 export 'slider_with_input.dart';
 export 'character_card_grid.dart';
 export 'call_overlay.dart';
 export 'chance_time_overlay.dart';
+export 'warm_card.dart';
+export 'warm_dialog.dart';
 export 'onnx_download_overlay.dart';
 export 'remote_lock_overlay.dart';
 export 'setup_overlay.dart';
@@ -46,4 +50,6 @@ export 'expanded_editor_dialog.dart';
 export 'realism_progress_row.dart';
 export 'needs_bar.dart';
 export 'fixation_chip.dart';
+export 'group_avatar_montage.dart';
 export 'group_member_card.dart';
+export 'vision_projector_field.dart';

@@ -170,6 +170,101 @@ void main() {
       },
     );
 
+    // Regression: fixation (and spatial stance / pending trust-repair) must not
+    // bleed across chats with the SAME character. The in-chat "New Chat" button
+    // calls startNewChat directly (no preceding setActiveCharacter), and the 1:1
+    // branch re-seeds bond/trust from the card via seedFromCardV2OrExt — which by
+    // design leaves fixation/spatial/pending untouched. startNewChat must therefore
+    // resetForFreshChat() BEFORE re-seeding, or the previous conversation's
+    // "Background Thought" obsession leaks into (and is saved on) the new session.
+    test(
+      'new-chat reset invariant (1:1): resetForFreshChat clears fixation/spatial/'
+      'pending, card re-seed restores bond/trust (no cross-chat bleed)',
+      () {
+        final svc = createTestRelationship();
+
+        // A chat that developed an obsession, a spatial stance, and an armed
+        // trust-repair window (severe drop).
+        svc.updateFixationFromEvalResult('the locket in her pocket');
+        svc.setSpatialStance('sitting close on the porch swing');
+        svc.applyTrustDelta(-30);
+        expect(svc.activeFixation, 'the locket in her pocket');
+        expect(svc.spatialStance, isNotEmpty);
+        expect(svc.pendingTrustRepair, true);
+
+        // The card seed ALONE does not clear these — this is exactly why the
+        // reset is required (documents the root cause).
+        svc.seedFromCardV2OrExt(
+          shortTermBond: 55,
+          longTermBond: 40,
+          trustLevel: 20,
+        );
+        expect(
+          svc.activeFixation,
+          'the locket in her pocket',
+          reason: 'seedFromCardV2OrExt intentionally leaves fixation untouched',
+        );
+
+        // The fix ordering used by startNewChat's 1:1 branch.
+        svc.resetForFreshChat();
+        svc.seedFromCardV2OrExt(
+          shortTermBond: 55,
+          longTermBond: 40,
+          trustLevel: 20,
+        );
+
+        expect(
+          svc.activeFixation,
+          '',
+          reason: 'fixation must not bleed into a fresh chat',
+        );
+        expect(svc.fixationLifespan, 0);
+        expect(
+          svc.spatialStance,
+          '',
+          reason: 'spatial stance must not bleed into a fresh chat',
+        );
+        expect(svc.pendingTrustRepair, false);
+        // Bond/trust are correctly re-seeded from the card (plain clamp, ±300).
+        expect(svc.affectionScore, 55);
+        expect(svc.longTermScore, 40);
+        expect(svc.trustLevel, 20);
+      },
+    );
+
+    // Regression (group parity): the group equivalent of the leak was startNewChat
+    // never resetting _groupRealism, so each member carried their previous
+    // session's per-char fixation. The fix resets _groupRealism to the group's
+    // default member baselines (parseGroupRealismSeeds), whose seeds carry
+    // affection/trust/needs but NEVER a fixation. This verifies the runtime
+    // consequence: a speaker loaded from fixation-free baselines starts clean.
+    test(
+      'new-chat reset invariant (group): per-speaker load from fixation-free '
+      'baselines yields no Background Thought',
+      () {
+        final svc = createTestRelationship(
+          isGroup: true,
+          groupCharCount: 2,
+          currentSpeakerId: 'char1',
+          groupAffection: {'char1': 35},
+          groupTrust: {'char1': 40},
+          // No groupFixation entry for char1 — the reset-to-baselines state.
+        );
+
+        svc.loadRelationshipScalarsForSpeaker('char1');
+
+        expect(
+          svc.activeFixation,
+          '',
+          reason: 'a member re-seeded from fixation-free group baselines must '
+              'start the new chat with no obsession',
+        );
+        expect(svc.fixationLifespan, 0);
+        expect(svc.affectionScore, 35);
+        expect(svc.trustLevel, 40);
+      },
+    );
+
     test(
       'inter-char ensure seeds neutral for others and prunes stale (group <=4)',
       () {
@@ -267,6 +362,81 @@ void main() {
         gSvc.saveRelationshipScalarsToGroup('spk');
         expect(gSvc.affectionScore, 15);
         // (group map write verified via closure in factory; scalar confirms apply+save path)
+      },
+    );
+
+    // ── Per-character store round-trip (the safety net for unifying the host
+    //    onto the same per-participant store the group path uses) ────────────
+    test(
+      'all SAVED relationship scalars round-trip losslessly through the per-char map',
+      () {
+        final svc = createTestRelationship(
+          isGroup: true,
+          groupCharCount: 2,
+          currentSpeakerId: 'spk',
+        );
+        // Populate every saved field with a distinctive value.
+        svc.loadScalars(
+          affectionScore: 123,
+          longTermScore: -45,
+          trustLevel: 67,
+          activeFixation: 'the way she laughs',
+          fixationLifespan: 3,
+          spatialStance: 'leaning close',
+        );
+        final tierBefore = svc.relationshipTier;
+        final ltTierBefore = svc.longTermTier;
+
+        svc.saveRelationshipScalarsToGroup('spk');
+        // Wipe the working registers (as if another speaker had been loaded).
+        svc.resetForFreshChat();
+        expect(svc.affectionScore, 0);
+        expect(svc.activeFixation, '');
+
+        // Restore from the per-char map.
+        svc.loadRelationshipScalarsForSpeaker('spk');
+        expect(svc.affectionScore, 123);
+        expect(svc.longTermScore, -45);
+        expect(svc.trustLevel, 67);
+        expect(svc.activeFixation, 'the way she laughs');
+        expect(svc.fixationLifespan, 3);
+        expect(svc.spatialStance, 'leaning close');
+        expect(svc.relationshipTier, tierBefore);
+        expect(svc.longTermTier, ltTierBefore);
+      },
+    );
+
+    test(
+      'clearing fixation/spatial DOES propagate through save/load (unconditional '
+      'persist — required for unifying the always-loaded host onto this store)',
+      () {
+        final svc = createTestRelationship(
+          isGroup: true,
+          groupCharCount: 2,
+          currentSpeakerId: 'spk',
+        );
+        // Set a fixation + spatial and persist.
+        svc.loadScalars(
+          affectionScore: 10,
+          longTermScore: 10,
+          trustLevel: 0,
+          activeFixation: 'her smile',
+          fixationLifespan: 2,
+          spatialStance: 'near',
+        );
+        svc.saveRelationshipScalarsToGroup('spk');
+
+        // Now CLEAR them and save again (fixation='', lifespan=0, spatial='').
+        svc.loadScalars(affectionScore: 10, longTermScore: 10, trustLevel: 0);
+        expect(svc.activeFixation, '');
+        svc.saveRelationshipScalarsToGroup('spk');
+
+        // Reload: the clears now persist (no stale fixation/spatial survives).
+        svc.resetForFreshChat();
+        svc.loadRelationshipScalarsForSpeaker('spk');
+        expect(svc.activeFixation, '');
+        expect(svc.fixationLifespan, 0);
+        expect(svc.spatialStance, '');
       },
     );
 

@@ -33,23 +33,18 @@ library;
 //                          FakeHardwareService + FakeStorageService wire the three
 //                          build-time Provider.of reads.
 //   WorldManagementPage  — empty world list; FakeWorldRepository.
-//   CloudSyncPage        — disconnected / idle (isPreRelease=false so the full
-//                          sync section renders); FakeStorageService +
-//                          FakeCloudSyncService.
 //
-// Light + dark for each (10 PNGs total).
+// Light + dark for each.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/cloud_sync_service.dart';
 import 'package:front_porch_ai/services/hardware_service.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
-import 'package:front_porch_ai/ui/pages/cloud_sync_page.dart';
 import 'package:front_porch_ai/ui/pages/create_character_page.dart';
 import 'package:front_porch_ai/ui/pages/model_manager_page.dart';
 import 'package:front_porch_ai/ui/pages/user_persona_page.dart';
@@ -139,27 +134,6 @@ void main() {
       // AnimationController.repeat() drives the header glow — pumpAndSettle
       // blocks on the perpetual ticker.
       settle: false,
-    );
-  });
-
-  testWidgets('CloudSyncPage — disconnected / idle', (tester) async {
-    final storage = FakeStorageService();
-    addTearDown(storage.dispose);
-    final cloudSync = FakeCloudSyncService();
-    addTearDown(cloudSync.dispose);
-
-    await expectThemedGoldens(
-      tester,
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<StorageService>.value(value: storage),
-          ChangeNotifierProvider<CloudSyncService>.value(value: cloudSync),
-        ],
-        child: const CloudSyncPage(),
-      ),
-      group: 'pages',
-      name: 'cloud_sync',
-      surface: const Size(1280, 900),
     );
   });
 }

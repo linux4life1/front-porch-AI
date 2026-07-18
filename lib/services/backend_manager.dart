@@ -25,6 +25,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/update_service.dart';
+import 'package:front_porch_ai/utils/cpu_features.dart';
 
 class BackendManager extends ChangeNotifier {
   final StorageService _storageService;
@@ -43,6 +44,14 @@ class BackendManager extends ChangeNotifier {
   String _arch = 'x64';
   bool _useRocm = false;
   bool _hasCuda = false;
+  // Detected once. When the CPU lacks AVX2 (older/low-end PCs), KoboldCpp's
+  // standard + nocuda builds crash on launch, so we fetch its `oldpc` build
+  // instead (per KoboldCpp: "Cuda11 + AVX1" — it keeps CUDA 11 GPU offload for
+  // older NVIDIA cards but has NO ROCm; an AMD box on a non-AVX2 CPU therefore
+  // runs CPU-side, since the ROCm binary is a standard AVX2 build that would
+  // simply crash there). Defaults to true so detection failure never downgrades
+  // a capable machine. (Irrelevant on Apple Silicon; the mac build is arm64.)
+  final bool _hasAvx2 = cpuHasAvx2();
 
   bool get useRocm => _useRocm;
 
@@ -90,6 +99,12 @@ class BackendManager extends ChangeNotifier {
   }
 
   Future<void> _init() async {
+    if (!_hasAvx2 && (Platform.isWindows || Platform.isLinux)) {
+      print(
+        'AG_DEBUG: CPU lacks AVX2 — using KoboldCpp oldpc build '
+        '(${_getExecutableName()})',
+      );
+    }
     if (Platform.isMacOS) {
       try {
         final result = await Process.run('uname', ['-m']);
@@ -110,21 +125,12 @@ class BackendManager extends ChangeNotifier {
         _hasCuda = false;
         print('AG_DEBUG: CUDA not found (nvidia-smi not available)');
       }
-      // Check for AMD/ROCm — user preference overrides auto-detection
-      final userRocmPref = _storageService.backendSettings.useRocm;
-      if (userRocmPref != null) {
-        _useRocm = userRocmPref;
-        print('AG_DEBUG: ROCm set by user preference: $_useRocm');
-      } else {
-        try {
-          final res = await Process.run('rocminfo', []);
-          _useRocm = res.exitCode == 0;
-          print('AG_DEBUG: ROCm auto-detected: $_useRocm');
-        } catch (_) {
-          _useRocm = false;
-          print('AG_DEBUG: ROCm not found (rocminfo not available)');
-        }
-      }
+      // ROCm is an explicit expert opt-in ONLY (see GpuBackendResolver's
+      // policy note) — rocminfo succeeding is not proof koboldcpp's hipblas
+      // kernels support the card, and auto-selecting it used to hand AMD
+      // users a broken binary while their launch flags said Vulkan.
+      _useRocm = _storageService.backendSettings.useRocm == true;
+      print('AG_DEBUG: ROCm binary (user opt-in): $_useRocm');
     }
     await checkBackendAvailability();
     if (_storageService.rootPath != null) {
@@ -155,6 +161,7 @@ class BackendManager extends ChangeNotifier {
         'koboldcpp-linux-x64',
         'koboldcpp-linux-x64-rocm',
         'koboldcpp-linux-x64-nocuda',
+        'koboldcpp-linux-x64-oldpc',
       ]) {
         if (name != executableName) altNames.add(name);
       }
@@ -203,9 +210,16 @@ class BackendManager extends ChangeNotifier {
     try {
       final client = http.Client();
       try {
+        // The Linux ROCm build lives under the rolling `rocm-rolling` tag
+        // (what koboldai.org/cpplinuxrocm serves), never in releases/latest
+        // — version-checking it against latest lied about what was
+        // installed.
+        final releasePath = (Platform.isLinux && _useRocm)
+            ? 'releases/tags/rocm-rolling'
+            : 'releases/latest';
         final response = await client
             .get(Uri.parse(
-                'https://api.github.com/repos/LostRuins/koboldcpp/releases/latest'))
+                'https://api.github.com/repos/LostRuins/koboldcpp/$releasePath'))
             .timeout(const Duration(seconds: 10));
         if (response.statusCode == 200) {
           final body = jsonDecode(response.body);
@@ -215,6 +229,12 @@ class BackendManager extends ChangeNotifier {
           for (final a in (body['assets'] as List?) ?? []) {
             if (a['name'] == exeName) {
               _remoteAssetSize = a['size'] as int?;
+              // A rolling tag never changes name — the asset's rebuild
+              // date is the real version identity.
+              final updated = a['updated_at'] as String?;
+              if (releasePath != 'releases/latest' && updated != null) {
+                _remoteVersion = '$tag (${updated.split('T').first})';
+              }
               break;
             }
           }
@@ -442,8 +462,15 @@ class BackendManager extends ChangeNotifier {
   }
 
   String _getExecutableName() {
-    if (Platform.isWindows) return 'koboldcpp.exe';
+    if (Platform.isWindows) {
+      // No AVX2 → the oldpc build is the only one that will run.
+      return _hasAvx2 ? 'koboldcpp.exe' : 'koboldcpp-oldpc.exe';
+    }
     if (Platform.isLinux) {
+      // AVX2 absence is fatal for every AVX2 build (cuda/rocm/nocuda alike), so
+      // it takes priority over the GPU-acceleration choice. oldpc = Cuda11+AVX1
+      // (CUDA offload kept for older NVIDIA; no ROCm — AMD falls back to CPU).
+      if (!_hasAvx2) return 'koboldcpp-linux-x64-oldpc';
       if (_useRocm) return 'koboldcpp-linux-x64-rocm';
       if (_hasCuda) return 'koboldcpp-linux-x64';
       return 'koboldcpp-linux-x64-nocuda';
@@ -455,15 +482,18 @@ class BackendManager extends ChangeNotifier {
   }
 
   String _getDownloadUrl() {
+    const base =
+        'https://github.com/LostRuins/koboldcpp/releases/latest/download';
     if (Platform.isWindows) {
-      return 'https://github.com/LostRuins/koboldcpp/releases/latest/download/koboldcpp.exe';
+      // No AVX2 → the oldpc build is the only one that will run.
+      return _hasAvx2 ? '$base/koboldcpp.exe' : '$base/koboldcpp-oldpc.exe';
     }
     if (Platform.isLinux) {
+      // AVX2 absence is fatal for every AVX2 build, so it wins over GPU choice.
+      if (!_hasAvx2) return '$base/koboldcpp-linux-x64-oldpc';
       if (_useRocm) return 'https://koboldai.org/cpplinuxrocm';
-      if (_hasCuda) {
-        return 'https://github.com/LostRuins/koboldcpp/releases/latest/download/koboldcpp-linux-x64';
-      }
-      return 'https://github.com/LostRuins/koboldcpp/releases/latest/download/koboldcpp-linux-x64-nocuda';
+      if (_hasCuda) return '$base/koboldcpp-linux-x64';
+      return '$base/koboldcpp-linux-x64-nocuda';
     }
     if (Platform.isMacOS) {
       return _arch == 'arm64'

@@ -72,11 +72,7 @@ class _GeneratingStepState extends State<GeneratingStep>
                   value: state.progress > 0 ? state.progress : null,
                   backgroundColor: AppColors.borderOf(context),
                   valueColor: AlwaysStoppedAnimation(
-                    AppColors.resolve(
-                      context,
-                      Colors.blueAccent,
-                      Colors.blue.shade700,
-                    ),
+                    AppColors.porchAmberOf(context),
                   ),
                   minHeight: 6,
                 ),

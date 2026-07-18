@@ -394,48 +394,36 @@ class RealismVerification {
 
     if (kind == 'relationship' || kind == 'oneShot') {
       final delta = extractJsonInt(raw, 'relationship_delta') ?? 0;
-      final hasPos =
-          ['kiss', 'hug', 'love', 'affection', 'tender'].any(scene.contains) ||
+      // Sign-agnostic support check. The DIRECTION of a reaction is the
+      // judge's subjective, personality-informed call — unwanted affection can
+      // legitimately score negative for a guarded/dominant character — so this
+      // rule only asks whether the scene carries enough emotional charge to
+      // justify a large MAGNITUDE at all. It must never demand that valence
+      // match affection-vs-violence keywords (the old hasPos/hasNeg split
+      // shrank correct negative reactions to smothering scenes).
+      final charged =
+          const [
+            'kiss', 'hug', 'love', 'affection', 'tender', 'embrace', 'gift',
+            'confess', 'tears', 'cry', 'blush', 'whisper', 'tremb', 'grip',
+            'slap', 'push', 'hate', 'angry', 'yell', 'shove', 'cold',
+            'betray', 'insult', 'mock', 'ignore', 'reject', 'threat',
+            'apolog', 'protect', 'sacrific', 'promise',
+          ].any(scene.contains) ||
           (scene.contains('smile') && scene.contains('you'));
-      final hasNeg = [
-        'slap',
-        'push',
-        'hate',
-        'angry',
-        'yell',
-        'shove',
-        'cold',
-      ].any(scene.contains);
       final absD = delta.abs();
-      if (absD > (10 * strictFactor)) {
-        if (delta > 0 && !hasPos) {
-          return _RuleResult(
-            false,
-            'large +bond w/o support',
-            _correctedJson(
-              raw,
-              'relationship_delta',
-              (delta * 0.3).round().clamp(
-                -kMaxRelationshipDelta,
-                kMaxRelationshipDelta,
-              ),
+      if (absD > (10 * strictFactor) && !charged) {
+        return _RuleResult(
+          false,
+          'large bond delta w/o emotionally charged scene',
+          _correctedJson(
+            raw,
+            'relationship_delta',
+            (delta * 0.3).round().clamp(
+              -kMaxRelationshipDelta,
+              kMaxRelationshipDelta,
             ),
-          );
-        }
-        if (delta < 0 && !hasNeg) {
-          return _RuleResult(
-            false,
-            'large -bond w/o reject',
-            _correctedJson(
-              raw,
-              'relationship_delta',
-              (delta * 0.3).round().clamp(
-                -kMaxRelationshipDelta,
-                kMaxRelationshipDelta,
-              ),
-            ),
-          );
-        }
+          ),
+        );
       }
       if (preBond.abs() > 200 && absD > 12 && strict >= 3) {
         return _RuleResult(
@@ -561,8 +549,25 @@ class RealismVerification {
             : '';
     final emotionConstraint = (bundle['injections'] as Map<String, dynamic>?)?['emotion_constraint'] as String? ?? '';
     final constraintText = emotionConstraint.isNotEmpty ? '\n$emotionConstraint\n' : '';
+    // Persona so the Director corrects subjectively (the eval's dossier when
+    // available, else the raw card field). Without this it judged blind and
+    // pushed deltas back toward generic-nice.
+    final injPersona =
+        ((bundle['injections'] as Map<String, dynamic>?)?['personality']
+                as String? ??
+            '')
+            .trim();
+    final personaRaw = injPersona.isNotEmpty
+        ? injPersona
+        : (bundle['char_personality'] as String? ?? '').trim();
+    final persona = personaRaw.length > 400
+        ? '${personaRaw.substring(0, 400)}…'
+        : personaRaw;
+    final personaLine = persona.isEmpty
+        ? ''
+        : '\nPersona (deltas are subjective to this — affection can legitimately score negative for a guarded or dominant character): $persona';
     final s = scene.length > 600 ? scene.substring(0, 600) + '…' : scene;
-    return '$tone\n$note$structHint$constraintText\n\nEval: $kind for $charName.\nPre: $pre\nScene: $s\n\nOrig: $originalRaw\nReason: $reason\nSuggested: $suggested\n\nRe-eval; ONLY corrected JSON. Deltas to clamps. Match scene if classic.';
+    return '$tone\n$note$structHint$constraintText$personaLine\n\nEval: $kind for $charName.\nPre: $pre\nScene: $s\n\nOrig: $originalRaw\nReason: $reason\nSuggested: $suggested\n\nRe-eval; ONLY corrected JSON. Deltas to clamps. Match scene and persona if classic.';
   }
 
   String _correctedJson(String o, String k, int v) {

@@ -16,16 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/models/world.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
+import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
+import 'package:front_porch_ai/ui/pages/import_lorebook_page.dart';
 import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
 import 'package:front_porch_ai/utils/world_colors.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 class WorldManagementPage extends StatefulWidget {
   const WorldManagementPage({super.key});
@@ -246,8 +247,12 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                 children: [
                   IconButton(
                     icon: const Icon(Icons.download, color: Colors.cyanAccent),
-                    tooltip: 'Import World JSON',
-                    onPressed: () => _importWorld(context, repo),
+                    tooltip: 'Import Lorebook',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ImportLorebookPage(),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton.icon(
@@ -611,35 +616,14 @@ class _WorldManagementPageState extends State<WorldManagementPage>
     );
   }
 
-  Future<void> _importWorld(BuildContext context, WorldRepository repo) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-    );
-    if (result != null && result.files.single.path != null) {
-      try {
-        await repo.importWorld(File(result.files.single.path!));
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('World imported successfully!')),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
-        }
-      }
-    }
-  }
 
   Future<void> _exportWorld(
     BuildContext context,
     WorldRepository repo,
     World world,
   ) async {
-    String? outputFile = await FilePicker.platform.saveFile(
+    String? outputFile = await PickerPrefs.saveFile(
+      category: PickerPrefs.catExport,
       dialogTitle: 'Export World JSON',
       fileName: '${world.name}.json',
       type: FileType.custom,
@@ -676,19 +660,11 @@ class _WorldManagementPageState extends State<WorldManagementPage>
     );
 
     // Create a copy of the lorebook entries for editing
+    // Full clones — the old 6-field copy stripped imported ST metadata
+    // (secondary keys, probability, timers, ...) every time a world was
+    // opened for editing and saved.
     final List<LorebookEntry> editingEntries = world != null
-        ? world.lorebook.entries
-              .map(
-                (e) => LorebookEntry(
-                  name: e.name,
-                  key: e.key,
-                  content: e.content,
-                  enabled: e.enabled,
-                  constant: e.constant,
-                  stickyDepth: e.stickyDepth,
-                ),
-              )
-              .toList()
+        ? world.lorebook.entries.map((e) => e.clone()).toList()
         : <LorebookEntry>[];
 
     showDialog(
@@ -1230,21 +1206,46 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
-                        onPressed: () {
+                        onPressed: () async {
                           final newWorld =
                               world ??
                               World(
                                 name: '',
                                 lorebook: Lorebook(entries: []),
                               );
-                          newWorld.name = nameController.text.trim();
+                          final newName = nameController.text.trim();
+                          // Renames must go through renameWorld so the row is
+                          // updated in place (no duplicate) and every
+                          // character/group attachment follows the new name.
+                          if (world != null && newName != world.name) {
+                            try {
+                              await repo.renameWorld(
+                                world,
+                                newName,
+                                groupRepo: Provider.of<GroupChatRepository>(
+                                  context,
+                                  listen: false,
+                                ),
+                              );
+                            } on StateError catch (e) {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(content: Text(e.message)),
+                                );
+                              }
+                              return;
+                            }
+                          } else {
+                            newWorld.name = newName;
+                          }
                           newWorld.description = descController.text.trim();
 
                           // Update lorebook entries
                           newWorld.lorebook.entries.clear();
                           newWorld.lorebook.entries.addAll(editingEntries);
 
-                          repo.saveWorld(newWorld);
+                          await repo.saveWorld(newWorld);
+                          if (!ctx.mounted) return;
                           Navigator.pop(ctx);
 
                           if (context.mounted) {

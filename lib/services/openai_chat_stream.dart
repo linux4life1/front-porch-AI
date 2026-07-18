@@ -18,8 +18,12 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:front_porch_ai/services/chat/stop_sequences.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/llm_tool_parsing.dart';
+import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
 
 /// Streams an OpenAI-compatible `/v1/chat/completions` response token by token.
 ///
@@ -44,6 +48,145 @@ import 'package:front_porch_ai/services/llm_service.dart';
 /// Kept intentionally minimal and identical to the long-proven pseudo-remote
 /// path: a single `user` message (plus optional `system`), `frequency_penalty`
 /// derived from `repeatPenalty`, and the model's own template doing the rest.
+/// Chat-completions payload shared by [streamOpenAiChat] and
+/// [postOpenAiChatWithTools] — one builder so the two paths can't drift.
+Map<String, dynamic> _chatPayload(
+  GenerationParams params, {
+  required String modelName,
+  required bool stream,
+}) {
+  // Object-valued so the user content can be a plain string (text-only —
+  // byte-identical to the pre-vision payload) or a multimodal array when
+  // GenerationParams.images rides along (KoboldCpp accepts the OpenAI
+  // image_url shape on this endpoint when an mmproj is loaded).
+  final messages = <Map<String, Object>>[];
+  if (params.systemPrompt != null && params.systemPrompt!.isNotEmpty) {
+    messages.add({'role': 'system', 'content': params.systemPrompt!});
+  }
+  messages.add({'role': 'user', 'content': params.openAiUserContent});
+
+  final payload = <String, dynamic>{
+    'model': modelName,
+    'stream': stream,
+    'max_tokens': params.maxLength,
+    'temperature': params.temperature,
+    'top_p': params.topP,
+    'messages': messages,
+    // KoboldCpp accepts its native sampler fields on /v1/chat/completions
+    // (same handler as the classic API), so the sliders actually reach the
+    // model. This replaced a lossy frequency_penalty≈rep_pen−1 conversion
+    // that both mistranslated Rep Pen and silently dropped everything else.
+    'min_p': params.minP,
+    'rep_pen': params.repeatPenalty,
+    'rep_pen_range': params.repPenTokens,
+    'xtc_threshold': params.xtcThreshold,
+    'xtc_probability': params.xtcProbability,
+    if (params.topK > 0) 'top_k': params.topK,
+    if (params.dynatempRange != null)
+      'dynatemp_range': params.dynatempRange,
+    if (params.dryMultiplier > 0) ...{
+      // Standard DRY companions (KoboldCpp defaults, stated explicitly).
+      'dry_multiplier': params.dryMultiplier,
+      'dry_base': 1.75,
+      'dry_allowed_length': 2,
+      'dry_sequence_breakers': ['\n', ':', '"', '*'],
+    },
+    if (params.bannedPhrases != null && params.bannedPhrases!.isNotEmpty)
+      'banned_tokens': params.bannedPhrases,
+  };
+
+  // KoboldCpp reasoning controls. Kobold IGNORES the OpenRouter-style
+  // `reasoning:{enabled,effort}` object (verified against its release notes /
+  // koboldcpp.py), so we use Kobold's native fields:
+  //   • chat_template_kwargs.enable_thinking — the model's own Jinja on/off
+  //     switch. This ONLY takes effect because the managed backend now launches
+  //     with `--jinja` (see kobold_service.dart), which makes Kobold execute the
+  //     GGUF's embedded chat template instead of its built-in string adapter —
+  //     without it, this field is silently discarded and thinking never fires.
+  //   • reasoning_effort — think-token budget (none|low|medium|high); the app's
+  //     effort strings map 1:1.
+  // We deliberately do NOT send `encapsulate_thinking:false` anymore. In jinja
+  // mode Kobold splits the model's thinking into the standard `reasoning_content`
+  // field and leaves `content` as the clean final answer — the SAME shape the
+  // OpenRouter/oMLX path returns. streamOpenAiChat consumes reasoning_content and
+  // re-wraps it in <think>…</think> via the shared ReasoningTagWrapper, so both
+  // transports converge on one parser. (encapsulate_thinking:false was the old
+  // hack that kept thinking in `content`, but it only understood <think> tags;
+  // channel-format reasoners like Gemma-4 dumped raw channel markers instead.)
+  //
+  // ALWAYS emit an explicit decision — the app owns the setting, and the UI says
+  // reasoning "off" discards thinking. enable_thinking:false genuinely suppresses
+  // it in jinja mode (verified). reasoningMaxTokens==0 is the Continue/eval
+  // hard-suppress signal.
+  final thinkOn =
+      params.reasoningEnabled && params.reasoningMaxTokens != 0;
+  payload['chat_template_kwargs'] = {'enable_thinking': thinkOn};
+  payload['reasoning_effort'] = thinkOn
+      ? (params.reasoningEffort.isEmpty ? 'high' : params.reasoningEffort)
+      : 'none';
+
+  if (params.stopSequences != null && params.stopSequences!.isNotEmpty) {
+    // This transport only ever talks to KoboldCpp (managed local +
+    // pseudo-remote), which maps `stop` onto its native stop_sequence
+    // machinery (stop_token_max = 256 since v1.77; 16 is a safe floor for
+    // older builds). The old OpenAI-spec take(4) meant the shipped default
+    // stops filled every slot and custom/name stops never reached the server
+    // — the client-side trim hid it while the server generated on. The list
+    // arrives priority-ordered (stop_sequences.dart).
+    payload['stop'] = params.stopSequences!.take(kMaxLocalServerStops).toList();
+  }
+  return payload;
+}
+
+/// Non-streaming, tool-enabled chat completion against the same local
+/// endpoint — the local-backend implementation of
+/// [LLMService.generateWithTools]. Recent KoboldCpp versions support OpenAI
+/// tool calling with template-aware models (Qwen3 family and friends); older
+/// servers or non-tool models simply produce no tool calls and the Journal's
+/// transport negotiation falls back to (and remembers) the XML floor.
+/// Returns null on any failure — a best-effort upgrade, never an error.
+Future<LlmToolResponse?> postOpenAiChatWithTools(
+  String baseUrl,
+  GenerationParams params,
+  List<Map<String, dynamic>> tools, {
+  String modelName = 'koboldcpp',
+  void Function(http.Client client)? registerClient,
+  void Function()? onDone,
+}) async {
+  final payload = _chatPayload(params, modelName: modelName, stream: false)
+    ..['tools'] = tools
+    ..['tool_choice'] = 'auto';
+
+  final client = http.Client();
+  registerClient?.call(client);
+  try {
+    // No wall-clock timeout: a tool/eval call against a local model can take
+    // as long as the generation legitimately needs (a slow model, a large
+    // token budget, or a reasoning pass). A dead/crashed backend closes the
+    // socket (which throws and is handled), and the user's Cancel aborts an
+    // in-flight call — so a fixed cap only ever killed work that was fine.
+    final response = await client.post(
+      Uri.parse('$baseUrl/v1/chat/completions'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode != 200) {
+      debugPrint(
+        '[OpenAiChat] Tool call rejected (HTTP ${response.statusCode}) — '
+        'falling back to text transport',
+      );
+      return null;
+    }
+    return parseOpenAiToolResponse(response.body);
+  } catch (e) {
+    debugPrint('[OpenAiChat] Tool call failed: $e — falling back');
+    return null;
+  } finally {
+    onDone?.call();
+    client.close();
+  }
+}
+
 Stream<String> streamOpenAiChat(
   String baseUrl,
   GenerationParams params, {
@@ -52,42 +195,16 @@ Stream<String> streamOpenAiChat(
   void Function()? onDone,
 }) async* {
   final uri = Uri.parse('$baseUrl/v1/chat/completions');
+  final payload = _chatPayload(params, modelName: modelName, stream: true);
 
-  final messages = <Map<String, String>>[];
-  if (params.systemPrompt != null && params.systemPrompt!.isNotEmpty) {
-    messages.add({'role': 'system', 'content': params.systemPrompt!});
-  }
-  messages.add({'role': 'user', 'content': params.prompt});
-
-  final payload = <String, dynamic>{
-    'model': modelName,
-    'stream': true,
-    'max_tokens': params.maxLength,
-    'temperature': params.temperature,
-    'top_p': params.topP,
-    'frequency_penalty': params.repeatPenalty > 1.0
-        ? (params.repeatPenalty - 1.0).clamp(0.0, 2.0)
-        : 0.0,
-    'messages': messages,
-  };
-
-  if (params.reasoningEnabled || params.reasoningMaxTokens != null) {
-    final reasoning = <String, dynamic>{'enabled': params.reasoningEnabled};
-    if (params.reasoningEnabled) {
-      reasoning['effort'] = params.reasoningEffort;
-    }
-    if (params.reasoningMaxTokens != null) {
-      reasoning['max_tokens'] = params.reasoningMaxTokens;
-    }
-    if (!params.reasoningEnabled) {
-      reasoning['exclude'] = true;
-    }
-    payload['reasoning'] = reasoning;
-  }
-
-  if (params.stopSequences != null && params.stopSequences!.isNotEmpty) {
-    payload['stop'] = params.stopSequences!.take(4).toList();
-  }
+  // In jinja mode Kobold splits thinking into `reasoning_content`; re-wrap it in
+  // <think>…</think> for the app's parser. Armed only when thinking was actually
+  // requested (matches the payload's `thinkOn`) so an off toggle / the Continue
+  // + eval suppress path (reasoningMaxTokens==0) discards any stray reasoning
+  // rather than leaking it into the visible reply.
+  final wrapper = ReasoningTagWrapper(
+    wrap: params.reasoningEnabled && params.reasoningMaxTokens != 0,
+  );
 
   final request = http.Request('POST', uri);
   request.headers['Content-Type'] = 'application/json';
@@ -97,9 +214,12 @@ Stream<String> streamOpenAiChat(
   registerClient?.call(client);
 
   try {
-    final response = await client
-        .send(request)
-        .timeout(const Duration(seconds: 120));
+    // No wall-clock timeout on the streamed reply. Token streaming can run as
+    // long as the model needs — a long reasoning/thinking block especially —
+    // and capping total time just killed working generations. A crashed backend
+    // closes the socket (the stream ends / throws and is handled) and the user's
+    // Cancel aborts mid-stream, so the fixed 120s cap only ever hurt.
+    final response = await client.send(request);
 
     if (response.statusCode != 200) {
       final body = await response.stream.bytesToString();
@@ -119,7 +239,11 @@ Stream<String> streamOpenAiChat(
         final line = buffer.substring(0, idx).trim();
         buffer = buffer.substring(idx + 1);
         if (line.isEmpty) continue;
-        if (line == 'data: [DONE]' || line == 'data:[DONE]') return;
+        if (line == 'data: [DONE]' || line == 'data:[DONE]') {
+          final tail = wrapper.finish();
+          if (tail.isNotEmpty) yield tail;
+          return;
+        }
         if (!line.startsWith('data:')) continue;
         final data = line.startsWith('data: ')
             ? line.substring(6)
@@ -129,13 +253,26 @@ Stream<String> streamOpenAiChat(
           final choice = json['choices']?[0];
           final delta = choice?['delta'];
           if (delta == null) continue;
+          // Reasoning tokens first (jinja-mode Kobold uses reasoning_content;
+          // tolerate 'reasoning' too). A delta carrying reasoning is consumed
+          // and never also treated as content, mirroring the OpenRouter path.
+          final reasoning = delta['reasoning_content'] ?? delta['reasoning'];
+          if (reasoning != null && reasoning is String && reasoning.isNotEmpty) {
+            final out = wrapper.onReasoning(reasoning);
+            if (out.isNotEmpty) yield out;
+            continue;
+          }
           final content = delta['content'];
           if (content != null && content is String && content.isNotEmpty) {
-            yield content;
+            final out = wrapper.onContent(content);
+            if (out.isNotEmpty) yield out;
           }
         } catch (_) {}
       }
     }
+    // Stream closed without an explicit [DONE]: close an open reasoning block.
+    final tail = wrapper.finish();
+    if (tail.isNotEmpty) yield tail;
   } finally {
     onDone?.call();
     client.close();

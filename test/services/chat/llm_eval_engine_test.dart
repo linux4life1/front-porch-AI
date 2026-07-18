@@ -33,8 +33,7 @@
 // realism/oneShot/group parity qualified.
 // aug exercising only passive/qualified (no objective-proposal-specific aug file edits; full in dedicated + manual; exercised via god thins generate/check ; qualified notes only in dedicated header + god + MD per precedent). (step 11 fix round 2: 11 bodies post del in obj test, zeroing/mark/timing fixes in god/leaf, surfaces 0 warnings post clean).
 // aug exercising only passive/qualified (no summary-specific aug file edits; full in dedicated + manual; exercised via god thins _maybeUpdateSummary/force/generate ; qualified notes only in dedicated header + god + MD per precedent).
-// aug exercising only passive/qualified (no fact-extraction-specific aug file edits; full in dedicated + manual; exercised via god thins _maybeRunPeriodicEvals/_runPeriodicEvalsInSequence/_extractFactsInBackground ; qualified notes only in dedicated header + god + MD per precedent).
-// aug exercising only passive/qualified (no evolution-specific aug file edits; full in dedicated + manual; exercised via god thins _maybeRunPeriodicEvals/_runPeriodicEvalsInSequence/_triggerCharacterEvolution ; qualified notes only in dedicated header + god + MD per precedent).
+// aug exercising only passive/qualified (no evolution-specific aug file edits; full in dedicated + manual; exercised via god thins _maybeRunPeriodicEvals/_maybeRunGrowthPass ; qualified notes only in dedicated header + god + MD per precedent).
 
 // ignore_for_file: unnecessary_underscores, must_call_super
 
@@ -150,7 +149,6 @@ LlmEvalEngine createTestLlmEvalEngine({
     getMessages: () => messages,
     getLlmService: () => fakeLlm,
     getIsLocal: () => false,
-    getKoboldThinkingModel: () => false,
     getKoboldService: () => null,
     reconnectIfAlive: () async {},
     ensureServerIdle: () async {},
@@ -216,7 +214,6 @@ void main() {
         getMessages: () => [],
         getLlmService: () => _FakeLlmService((p) => Stream.value('{}')),
         getIsLocal: () => false,
-        getKoboldThinkingModel: () => false,
         getKoboldService: () => null,
         reconnectIfAlive: () async {},
         ensureServerIdle: () async {},
@@ -293,7 +290,6 @@ void main() {
             return Stream.value('{"hunger_delta": 3}');
           }),
           getIsLocal: () => false,
-          getKoboldThinkingModel: () => false,
           getKoboldService: () => null,
           reconnectIfAlive: () async {},
           ensureServerIdle: () async {},
@@ -367,7 +363,7 @@ void main() {
     );
 
     test(
-      'local thinking model sets banEosToken on fireLLMEval params',
+      'fireLLMEval no longer sets the EOS band-aid (chat template applied)',
       () async {
         List<GenerationParams> captured = [];
         final e = LlmEvalEngine(
@@ -382,7 +378,6 @@ void main() {
             return Stream.value('{"hunger_delta":1}');
           }),
           getIsLocal: () => true,
-          getKoboldThinkingModel: () => true,
           getKoboldService: () => null,
           reconnectIfAlive: () async {},
           ensureServerIdle: () async {},
@@ -398,8 +393,11 @@ void main() {
           relationshipService: createTestLlmEvalEngine().relationshipService,
         );
         await e.fireLLMEval('p');
-        expect(captured.single.banEosToken, true);
-        expect(captured.single.trimStop, false); // localThinking=true
+        // The raw-endpoint EOS band-aid is gone — local Kobold now generates
+        // through the templated /v1/chat/completions door, so evals use the
+        // GenerationParams defaults regardless of local/thinking state.
+        expect(captured.single.banEosToken, false);
+        expect(captured.single.trimStop, true);
       },
     );
 

@@ -1,0 +1,25 @@
+{
+  "type": "risu",
+  "data": [
+    {
+      "key": "festival, lantern night",
+      "secondkey": "vale, city",
+      "comment": "Lantern Night",
+      "content": "Lantern Night is held on the first ashless evening.",
+      "mode": "normal",
+      "alwaysActive": false,
+      "selective": true,
+      "insertorder": 35,
+      "activationPercent": 60
+    },
+    {
+      "key": "",
+      "secondkey": "",
+      "comment": "Always-on tone",
+      "content": "Keep a melancholic tone.",
+      "alwaysActive": true,
+      "selective": false,
+      "insertorder": 10
+    }
+  ]
+}

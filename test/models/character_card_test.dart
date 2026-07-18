@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/group_card.dart';
+import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/group_card_service.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
@@ -305,6 +306,25 @@ void main() {
       expect(copy.realismEnabled, false);
       expect(copy.shortTermBond, 0);
     });
+
+    test('tier defaults to null and is omitted from toJson', () {
+      final ext = FrontPorchExtensions();
+      expect(ext.tier, isNull);
+      final realism = ext.toJson()['realism_engine'] as Map<String, dynamic>;
+      expect(realism.containsKey('tier'), false);
+    });
+
+    test('tier (lite) round-trips through toJson/fromJson and copyWith', () {
+      final ext = FrontPorchExtensions(tier: 'lite');
+      final realism = ext.toJson()['realism_engine'] as Map<String, dynamic>;
+      expect(realism['tier'], 'lite');
+
+      final restored = FrontPorchExtensions.fromJson(ext.toJson());
+      expect(restored.tier, 'lite');
+
+      final cleared = restored.copyWith(realismEnabled: null);
+      expect(cleared.tier, 'lite'); // copyWith preserves tier when not passed
+    });
   });
 
   group('CharacterCard', () {
@@ -423,6 +443,25 @@ void main() {
         frontPorchExtensions: FrontPorchExtensions(realismEnabled: true),
       );
       expect(card.hasFrontPorchExtensions, true);
+    });
+
+    test('isLite false for normal / no-extension cards', () {
+      expect(CharacterCard(name: 'Test').isLite, false);
+      expect(
+        CharacterCard(
+          name: 'Test',
+          frontPorchExtensions: FrontPorchExtensions(),
+        ).isLite,
+        false,
+      );
+    });
+
+    test('isLite true only when tier == lite (Scene Guest)', () {
+      final guest = CharacterCard(
+        name: 'Guest',
+        frontPorchExtensions: FrontPorchExtensions(tier: 'lite'),
+      );
+      expect(guest.isLite, true);
     });
 
     test('toJson includes all fields', () {
@@ -852,6 +891,80 @@ void main() {
         if (await tmpDir.exists()) {
           await tmpDir.delete(recursive: true);
         }
+      },
+    );
+
+    test(
+      '_origin_library_stable_id round-trips per member (Group Card portable origin)',
+      () async {
+        // members[0]/[1] carry BOTH the realism-remap instance id AND the Phase 4
+        // library origin; members[2] is origin-unknown (only the instance id),
+        // simulating a legacy/foreign member.
+        final cards = [
+          CharacterCard(name: 'Aria'),
+          CharacterCard(name: 'Bryn'),
+          CharacterCard(name: 'Legacy'),
+        ];
+        final raws = <Map<String, dynamic>>[];
+        for (var i = 0; i < cards.length; i++) {
+          final raw = Map<String, dynamic>.from(cards[i].toJson());
+          raw['_original_stable_id'] = 'inst-$i'; // instance id (remap) on all
+          if (i < 2) {
+            raw['_origin_library_stable_id'] =
+                '${cards[i].name.toLowerCase()}_card';
+          }
+          raws.add(raw);
+        }
+
+        final gc = GroupCard(
+          name: 'Origin Roundtrip',
+          members: cards,
+          turnOrder: 'roundRobin',
+          rawMemberData: raws,
+        );
+
+        final service = GroupCardService();
+        final tmpPath = [
+          Directory.systemTemp.path,
+          '_fp_origin_${DateTime.now().millisecondsSinceEpoch}.png',
+        ].join(Platform.pathSeparator);
+        final tmp = File(tmpPath);
+        await service.saveGroupCardAsPng(gc, tmpPath);
+        final loaded = await service.loadGroupCardFromPng(tmpPath);
+
+        expect(loaded, isNotNull);
+        expect(loaded!.rawMemberData.length, 3);
+
+        // Both keys survive independently for a member with a known origin.
+        expect(
+          loaded.rawMemberData[0]['_origin_library_stable_id'],
+          'aria_card',
+        );
+        expect(loaded.rawMemberData[0]['_original_stable_id'], 'inst-0');
+
+        // Origin-unknown member: the Phase 4 key is absent (no false origin).
+        expect(
+          loaded.rawMemberData[2].containsKey('_origin_library_stable_id'),
+          false,
+        );
+
+        // The exact import stamping contract (no DB needed): the carried origin
+        // becomes a real provenance blob via encodeProvenance, and an absent key
+        // yields '{}' (the legacy/origin-unknown shape).
+        final stamped0 = GroupMember.encodeProvenance(
+          originStableId:
+              (loaded.rawMemberData[0]['_origin_library_stable_id'] as String?)
+                  ?.trim(),
+        );
+        expect(jsonDecode(stamped0)['originStableId'], 'aria_card');
+        final stamped2 = GroupMember.encodeProvenance(
+          originStableId:
+              (loaded.rawMemberData[2]['_origin_library_stable_id'] as String?)
+                  ?.trim(),
+        );
+        expect(stamped2, '{}');
+
+        if (await tmp.exists()) await tmp.delete();
       },
     );
   });

@@ -26,12 +26,15 @@
 //
 // Direct imports of individual utility files remain fully supported.
 
+export 'character_sort.dart';
 export 'emotion_labels.dart';
 export 'gguf_parser.dart';
 export 'character_id.dart';
+export 'group_realism_blobs.dart';
 export 'json_sanitizer.dart';
 export 'kobold_layer_solver.dart';
 export 'persona_colors.dart';
+export 'think_tags.dart';
 export 'vram_estimator.dart';
 export 'wav_utils.dart';
 export 'world_colors.dart';

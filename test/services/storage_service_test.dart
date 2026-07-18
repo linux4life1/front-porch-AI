@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -574,52 +575,6 @@ void main() {
     });
   });
 
-  // ─── Cloud Sync Settings ──────────────────────────────────────────
-
-  group('Cloud sync settings persistence', () {
-    test('setCloudSyncEnabled persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.setCloudSyncEnabled(true);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('cloud_sync_enabled'), true);
-    });
-
-    test('setCloudSyncProvider persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.setCloudSyncProvider('webdav');
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('cloud_sync_provider'), 'webdav');
-    });
-
-    test('setCloudSyncUrl persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.setCloudSyncUrl('https://dav.example.com');
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('cloud_sync_url'), 'https://dav.example.com');
-    });
-
-    test('setCloudSyncUsername persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.setCloudSyncUsername('user');
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('cloud_sync_username'), 'user');
-    });
-
-    test('setCloudSyncPassword persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.setCloudSyncPassword('pass');
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('cloud_sync_password'), 'pass');
-    });
-
-    test('setCloudSyncLastTime persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.setCloudSyncLastTime('2026-04-11T10:00:00Z');
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('cloud_sync_last_time'), '2026-04-11T10:00:00Z');
-    });
-  });
-
   // ─── Image Generation Settings ────────────────────────────────────
 
   group('Image generation settings persistence', () {
@@ -730,7 +685,6 @@ void main() {
       await svc.setDrawThingsGrpcPort(7860);
       await svc.setDrawThingsSampler(5);
       await svc.setDrawThingsShift(2.5);
-      await svc.setDrawThingsStrength(0.8);
       await svc.setDrawThingsSeedMode(1);
       await svc.setDrawThingsTeaCache(true);
       await svc.setDrawThingsCfgZeroStar(true);
@@ -739,7 +693,6 @@ void main() {
       expect(prefs.getInt('draw_things_grpc_port'), 7860);
       expect(prefs.getInt('draw_things_sampler'), 5);
       expect(prefs.getDouble('draw_things_shift'), 2.5);
-      expect(prefs.getDouble('draw_things_strength'), 0.8);
       expect(prefs.getInt('draw_things_seed_mode'), 1);
       expect(prefs.getBool('draw_things_tea_cache'), true);
       expect(prefs.getBool('draw_things_cfg_zero_star'), true);
@@ -762,44 +715,37 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('web_server_port'), 9090);
     });
-
-    test('setWebServerPin persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.setWebServerPin('1234');
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('web_server_pin'), '1234');
-    });
+    // The legacy web-server PIN was removed in the web UI rewrite (replaced by a
+    // real account: Argon2id password + optional TOTP). No PIN setting to test.
   });
 
-  // ─── Summary Settings ─────────────────────────────────────────────
+  // ─── Journal Settings ─────────────────────────────────────────────
 
-  group('Summary settings persistence', () {
-    test('setSummaryEnabled persists to SharedPreferences', () async {
+  group('Journal settings persistence', () {
+    test('journalEnabled defaults to true', () async {
       final svc = await createStorageService();
-      await svc.setSummaryEnabled(true);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('summary_enabled'), true);
+      expect(svc.journalEnabled, true);
     });
 
-    test('setSummaryInterval clamps and persists', () async {
+    test('setJournalEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setSummaryInterval(1); // should clamp to 3
+      await svc.setJournalEnabled(false);
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('summary_interval'), 3);
+      expect(prefs.getBool('journal_enabled'), false);
     });
 
-    test('setSummaryMaxWords clamps and persists', () async {
+    test('setJournalInterval clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setSummaryMaxWords(2000); // should clamp to 1000
+      await svc.setJournalInterval(1); // should clamp to 3
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('summary_max_words'), 1000);
+      expect(prefs.getInt('journal_interval'), 3);
     });
 
-    test('setSummaryPrompt persists to SharedPreferences', () async {
+    test('setJournalMaxCards clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setSummaryPrompt('Custom summary prompt');
+      await svc.setJournalMaxCards(5000); // should clamp to 1000
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('summary_prompt'), 'Custom summary prompt');
+      expect(prefs.getInt('journal_max_cards'), 1000);
     });
   });
 
@@ -860,24 +806,6 @@ void main() {
     });
   });
 
-  // ─── Auto-Persona Settings ────────────────────────────────────────
-
-  group('Auto-persona settings persistence', () {
-    test('setAutoPersonaEnabled persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.setAutoPersonaEnabled(true);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('auto_persona_enabled'), true);
-    });
-
-    test('setAutoPersonaInterval clamps and persists', () async {
-      final svc = await createStorageService();
-      await svc.setAutoPersonaInterval(100); // should clamp to 50
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('auto_persona_interval'), 50);
-    });
-  });
-
   // ─── Character Evolution Settings ─────────────────────────────────
 
   group('Character evolution settings persistence', () {
@@ -891,11 +819,13 @@ void main() {
       },
     );
 
-    test('setEvolutionInterval clamps and persists', () async {
+    test('setGrowthInterval clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setEvolutionInterval(5); // should clamp to 10
+      await svc.setGrowthInterval(1); // should clamp to 2 (growth-rings §6)
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('evolution_interval'), 10);
+      expect(prefs.getInt('growth_interval'), 2);
+      await svc.setGrowthInterval(50); // and down to 20
+      expect(prefs.getInt('growth_interval'), 20);
     });
   });
 
@@ -975,6 +905,65 @@ void main() {
       svc.addListener(() => callCount++);
       await svc.setLastUsedModelPath('/model.gguf');
       expect(callCount, greaterThanOrEqualTo(1));
+    });
+  });
+
+  // ─── Active .kcpps preset introspection ────────────────────────────
+  // kcppsModelPath / kcppsMmprojPath feed the vision-capability resolver
+  // (a preset-owned model must be interrogatable even though
+  // lastUsedModelPath stays empty in preset mode).
+
+  group('Active .kcpps preset getters', () {
+    File writeKcpps(Map<String, Object> json) {
+      final dir = Directory.systemTemp.createTempSync('fpai_kcpps_');
+      return File('${dir.path}/preset.kcpps')
+        ..writeAsStringSync(jsonEncode(json));
+    }
+
+    test('kcppsModelPath prefers model_param over model', () async {
+      final svc = await createStorageService();
+      final kcpps = writeKcpps({
+        'model_param': '/models/a.gguf',
+        'model': '/models/b.gguf',
+        'mmproj': '/models/proj.gguf',
+      });
+      await svc.setActiveKcppsPath(kcpps.path);
+      expect(svc.kcppsModelPath, '/models/a.gguf');
+      expect(svc.kcppsMmprojPath, '/models/proj.gguf');
+      expect(svc.kcppsHasModel, isTrue);
+    });
+
+    test('kcppsModelPath falls back to model key', () async {
+      final svc = await createStorageService();
+      final kcpps = writeKcpps({'model': '/models/b.gguf'});
+      await svc.setActiveKcppsPath(kcpps.path);
+      expect(svc.kcppsModelPath, '/models/b.gguf');
+      expect(svc.kcppsMmprojPath, isNull);
+    });
+
+    test('empty/absent keys and no active preset return null', () async {
+      final svc = await createStorageService();
+      final kcpps = writeKcpps({'model_param': '  ', 'mmproj': ''});
+      await svc.setActiveKcppsPath(kcpps.path);
+      expect(svc.kcppsModelPath, isNull);
+      expect(svc.kcppsHasModel, isFalse);
+      expect(svc.kcppsMmprojPath, isNull);
+
+      await svc.setActiveKcppsPath(null);
+      expect(svc.kcppsModelPath, isNull);
+      expect(svc.kcppsMmprojPath, isNull);
+    });
+
+    test('kcppsModelFileExists reflects the referenced file on disk', () async {
+      final svc = await createStorageService();
+      final dir = Directory.systemTemp.createTempSync('fpai_kcpps_');
+      final model = File('${dir.path}/real.gguf')..writeAsBytesSync([0]);
+      final kcpps = File('${dir.path}/preset.kcpps')
+        ..writeAsStringSync(jsonEncode({'model_param': model.path}));
+      await svc.setActiveKcppsPath(kcpps.path);
+      expect(svc.kcppsModelFileExists, isTrue);
+      model.deleteSync();
+      expect(svc.kcppsModelFileExists, isFalse);
     });
   });
 }

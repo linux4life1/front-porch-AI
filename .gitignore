@@ -111,7 +111,6 @@ aur_key
 aur_key.pub
 
 # Rust build artifacts
-tools/embed_server/target/
 *.png
 
 # Allow DMG background image (the *.png rule above would otherwise block it)
@@ -122,6 +121,13 @@ tools/embed_server/target/
 !test/golden/widget/_goldens/
 !test/golden/widget/_goldens/**
 
+# Allow the web-app PWA icons (the *.png rule above would block them). The
+# installable web UI needs real PNG icons — iOS ignores SVG/manifest-only icons
+# for "Add to Home Screen". Both the source (web_ui/public) and the shipped
+# build output (assets/web_app) must be tracked.
+!web_ui/public/icon-*.png
+!assets/web_app/icon-*.png
+
 # Testing
 .llm_context/
 bug_triage.md
@@ -130,3 +136,15 @@ bug_triage.md
 # Build/release scripts and docs
 create-dmg.sh
 docs/Newsletter-Since-March-28-2026.md
+
+# Local Claude Code skills (per-machine, never shared).
+.claude/skills/
+
+# Locally-built fpzip dylib for the native Draw Things client (scripts/build-fpzip-macos.sh)
+tools/fpzip/
+
+# Local build installers at the repo root (scripts/build-macos.sh output) —
+# a git add -A once swept a 1.2GB pkg+dmg pair into a commit and the push
+# died at GitHub's file-size wall. Never again.
+/*.pkg
+/*.dmg

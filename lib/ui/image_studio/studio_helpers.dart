@@ -27,15 +27,11 @@ import 'package:front_porch_ai/services/image_prompt/image_prompt_builder.dart';
 String getModeLabel(ImageGenMode mode) {
   switch (mode) {
     case ImageGenMode.customPrompt:
-      return 'Custom Image';
-    case ImageGenMode.visualizeScene:
-      return 'Scene Visualization';
+      return 'Freeform';
     case ImageGenMode.characterPortrait:
       return 'Character Portrait';
-    case ImageGenMode.chatBackground:
-      return 'Chat Background';
     case ImageGenMode.userAvatar:
-      return 'User Avatar';
+      return 'Your Persona';
   }
 }
 
@@ -44,16 +40,13 @@ String getAcceptLabel(ImageGenMode mode) {
     case ImageGenMode.characterPortrait:
     case ImageGenMode.userAvatar:
       return 'Set as Avatar';
-    case ImageGenMode.chatBackground:
-      return 'Set as Background';
-    default:
+    case ImageGenMode.customPrompt:
       return '';
   }
 }
 
 bool hasAcceptAction(ImageGenMode mode) {
   return mode == ImageGenMode.characterPortrait ||
-      mode == ImageGenMode.chatBackground ||
       mode == ImageGenMode.userAvatar;
 }
 

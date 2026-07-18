@@ -121,6 +121,12 @@ class _FakeLlmForReclass implements LLMService {
   bool get isReady => _ready;
 
   @override
+  Future<LlmToolResponse?> generateWithTools(
+    GenerationParams params,
+    List<Map<String, dynamic>> tools,
+  ) async => null;
+
+  @override
   Stream<String> generateStream(GenerationParams params) async* {
     final p = params.prompt;
     prompts.add(p);

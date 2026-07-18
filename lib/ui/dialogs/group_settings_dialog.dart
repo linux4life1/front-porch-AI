@@ -4,7 +4,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -15,7 +14,10 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/world.dart';
+import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
+import 'package:front_porch_ai/ui/widgets/styled_text_controller.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 /// Main settings dialog for a Group Chat.
 /// This is the central place for all per-group and per-character configuration.
@@ -214,16 +216,16 @@ class _PromptEngineeringTab extends StatefulWidget {
 
 class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
   // Group-level controllers / state (edited locally, applied on Save)
-  late final TextEditingController _groupSystemController;
-  late final TextEditingController _groupAuthorNoteController;
+  late final StyledTextController _groupSystemController;
+  late final StyledTextController _groupAuthorNoteController;
 
   // Per-character editing state. Keys are live CharacterCard instances
   // (stable references from chatService.groupCharacters).
-  final Map<CharacterCard, TextEditingController> _perCharNoteControllers = {};
+  final Map<CharacterCard, StyledTextController> _perCharNoteControllers = {};
   final Map<CharacterCard, int> _perCharStrengths = {};
 
   // Per-character group system prompt overrides (Path B feature).
-  final Map<CharacterCard, TextEditingController>
+  final Map<CharacterCard, StyledTextController>
   _perCharSystemPromptControllers = {};
 
   // Per-character accent colors (matches chat sidebar palette)
@@ -255,10 +257,14 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
     final cs = widget.chatService;
     final group = cs.activeGroup;
 
-    _groupSystemController = TextEditingController(
+    _groupSystemController = StyledTextController(
+      preset: StyledTextPreset.prose,
       text: group?.systemPrompt ?? '',
     );
-    _groupAuthorNoteController = TextEditingController(text: cs.authorNote);
+    _groupAuthorNoteController = StyledTextController(
+      preset: StyledTextPreset.prose,
+      text: cs.authorNote,
+    );
 
     // Pre-create controllers for current characters using live getters
     // (so first render has correct starting values).
@@ -268,17 +274,23 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
     }
   }
 
-  TextEditingController _getOrCreateNoteController(CharacterCard c) {
+  StyledTextController _getOrCreateNoteController(CharacterCard c) {
     return _perCharNoteControllers.putIfAbsent(c, () {
       final initial = widget.chatService.getAuthorNoteForGroupCharacter(c);
-      return TextEditingController(text: initial);
+      return StyledTextController(
+        preset: StyledTextPreset.prose,
+        text: initial,
+      );
     });
   }
 
-  TextEditingController _getOrCreateSystemPromptController(CharacterCard c) {
+  StyledTextController _getOrCreateSystemPromptController(CharacterCard c) {
     return _perCharSystemPromptControllers.putIfAbsent(c, () {
       final initial = widget.chatService.getSystemPromptForGroupCharacter(c);
-      return TextEditingController(text: initial);
+      return StyledTextController(
+        preset: StyledTextPreset.prose,
+        text: initial,
+      );
     });
   }
 
@@ -346,13 +358,13 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                 // ── Group System Prompt ─────────────────────────────────────
                 const Row(
                   children: [
-                    Icon(Icons.code, size: 16, color: Colors.blueAccent),
+                    Icon(Icons.code, size: 16, color: AppColors.formMasterAccent),
                     SizedBox(width: 6),
                     Text(
                       'Group System Prompt',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent,
+                        color: AppColors.formMasterAccent,
                         fontSize: 13,
                       ),
                     ),
@@ -394,7 +406,7 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.blueAccent),
+                      borderSide: const BorderSide(color: AppColors.formMasterAccent),
                     ),
                     contentPadding: const EdgeInsets.all(10),
                   ),
@@ -1119,6 +1131,7 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
   bool _passageOfTimeEnabled = true;
   bool _chaosModeEnabled = false;
   bool _chaosNsfwEnabled = false;
+  bool _nsfwEnhancementsEnabled = false;
 
   // Group-wide Time & Day.
   String _groupTimeOfDay = 'morning';
@@ -1167,6 +1180,10 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
     _passageOfTimeEnabled = cs.timeService.passageOfTimeEnabled;
     _chaosModeEnabled = cs.chaosModeService.chaosModeEnabled;
     _chaosNsfwEnabled = cs.chaosModeService.chaosNsfwEnabled;
+    // Group NSFW Enhancements (arousal/Lust + post-climax cooldowns). Uses the
+    // stable per-member group flag (the live nsfwService scalar is per-speaker
+    // volatile in groups); the write side propagates to every member.
+    _nsfwEnhancementsEnabled = cs.isGroupNsfwEnabled;
 
     // Group-wide Time & Day.
     final group = cs.activeGroup;
@@ -1459,7 +1476,10 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
     setState(() {
       _passageOfTimeEnabled = value;
     });
-    widget.chatService.timeService.setPassageOfTimeEnabled(value);
+    // Through the ChatService wrapper (saves + notifies) — the raw
+    // TimeService setter is side-effect-free, so the old direct call never
+    // persisted the toggle beyond this dialog's local state.
+    widget.chatService.setPassageOfTimeEnabled(value);
   }
 
   void _updateChaosMode(bool value) {
@@ -1474,6 +1494,15 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
       _chaosNsfwEnabled = value;
     });
     widget.chatService.chaosModeService.setNsfwEnabled(value);
+  }
+
+  void _updateNsfwEnhancements(bool value) {
+    setState(() {
+      _nsfwEnhancementsEnabled = value;
+    });
+    // Same setter the sidebar gear uses; in a group it propagates the flag to
+    // every member's realism state (1:1 just sets the scalar).
+    widget.chatService.setNsfwCooldownEnabled(value);
   }
 
   void _updateGroupTimeOfDay(String value) {
@@ -1665,6 +1694,65 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
                       padding: EdgeInsets.only(top: 6),
                       child: Text(
                         'Sub-features (Needs, etc.) have no effect while the master toggle is off.',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white38,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // NSFW Enhancements (arousal / Lust bar + post-climax cooldowns).
+            // Mirrors the sidebar Character State gear toggle so it's findable
+            // where users expect group-wide switches; applies to every member.
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111827),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('🔥', style: TextStyle(fontSize: 16)),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'NSFW Enhancements',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: _nsfwEnhancementsEnabled,
+                        activeThumbColor: const Color(0xFFFF6B9D),
+                        onChanged: _updateNsfwEnhancements,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Tracks arousal (the Lust bar) with post-climax refractory '
+                    'cooldowns for every character in this group. Only takes '
+                    'effect while the Realism Engine above is on.',
+                    style: TextStyle(fontSize: 11, color: Colors.white54),
+                  ),
+                  if (_nsfwEnhancementsEnabled && !_realismEnabled)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Turn on the Realism Engine above for this to have any '
+                        'effect.',
                         style: TextStyle(
                           fontSize: 10,
                           color: Colors.white38,
@@ -2429,14 +2517,13 @@ class _NeedsTabState extends State<_NeedsTab> {
   // Per-character needs baselines: char-id → field-name → value
   final Map<String, Map<String, int>> _needsBaselines = {};
 
+  // Per-character needs decay rates ("tick rate"): char-id → field-name → value.
+  // Each member decays at its own rate (parity with solo cards); persisted to
+  // that member's card ext via ChatService.setGroupNeedsDecayRate(memberId: …).
+  final Map<String, Map<String, int>> _decayRates = {};
+
   // Per-character static preference overrides (e.g. enjoys low hygiene) for this group.
   final Map<String, bool> _enjoysLowHygiene = {};
-
-  // Per-member Director/Verifier settings for groups.
-  final Map<String, bool> _verificationEnabled = {};
-  final Map<String, int> _verificationMaxReprocesses = {};
-  final Map<String, int> _verificationStrictness = {};
-  final Map<String, bool> _needsDirectorAuthority = {};
 
   List<CharacterCard> _chars = [];
 
@@ -2448,6 +2535,18 @@ class _NeedsTabState extends State<_NeedsTab> {
   static const _kFun = 'fun';
   static const _kHygiene = 'hygiene';
   static const _kComfort = 'comfort';
+
+  // Engine default decay per need (== NeedsSimulation.needDecay / the
+  // FrontPorchExtensions decay defaults) — used to seed a reset.
+  static const Map<String, int> _defaultDecayRates = {
+    _kHunger: 4,
+    _kBladder: 6,
+    _kEnergy: 3,
+    _kSocial: 2,
+    _kFun: 2,
+    _kHygiene: 1,
+    _kComfort: 2,
+  };
 
   @override
   void initState() {
@@ -2481,14 +2580,19 @@ class _NeedsTabState extends State<_NeedsTab> {
         _kComfort: ext?.needsBaselineComfort ?? 80,
       };
 
-      _enjoysLowHygiene[id] = ext?.enjoysLowHygiene ?? false;
+      // Seed per-member decay from ext (fallbacks = the engine's needDecay
+      // defaults, which equal the FrontPorchExtensions decay defaults).
+      _decayRates[id] = {
+        _kHunger: ext?.needsDecayHunger ?? 4,
+        _kBladder: ext?.needsDecayBladder ?? 6,
+        _kEnergy: ext?.needsDecayEnergy ?? 3,
+        _kSocial: ext?.needsDecaySocial ?? 2,
+        _kFun: ext?.needsDecayFun ?? 2,
+        _kHygiene: ext?.needsDecayHygiene ?? 1,
+        _kComfort: ext?.needsDecayComfort ?? 2,
+      };
 
-      // Load per-member Director/Verifier settings.
-      _verificationEnabled[id] = ext?.realismVerificationEnabled ?? false;
-      _verificationMaxReprocesses[id] =
-          ext?.realismVerificationMaxReprocesses ?? 1;
-      _verificationStrictness[id] = ext?.realismVerificationStrictness ?? 3;
-      _needsDirectorAuthority[id] = ext?.realismNeedsDirectorAuthority ?? false;
+      _enjoysLowHygiene[id] = ext?.enjoysLowHygiene ?? false;
     }
   }
 
@@ -2524,6 +2628,15 @@ class _NeedsTabState extends State<_NeedsTab> {
     _persistMemberNeedsPref(id, field, value);
   }
 
+  // Local display update while a decay slider is dragged. The persist (member
+  // card ext + PNG + DB row) is deferred to the slider's onChangeEnd →
+  // ChatService.setGroupNeedsDecayRate(memberId: …) to avoid PNG-encode jank.
+  void _updateMemberDecay(String id, String field, int value) {
+    setState(() {
+      _decayRates[id] = {...?_decayRates[id], field: value};
+    });
+  }
+
   void _updateMemberEnjoysLowHygiene(CharacterCard char, bool value) {
     final id = _getCharId(char);
     setState(() {
@@ -2535,45 +2648,6 @@ class _NeedsTabState extends State<_NeedsTab> {
         char.frontPorchExtensions?.ensureStableId();
     });
     _persistMemberVerificationPref(id, 'enjoysLowHygiene', value);
-  }
-
-  void _updateMemberVerificationMaxReprocesses(CharacterCard char, int value) {
-    final id = _getCharId(char);
-    setState(() {
-      _verificationMaxReprocesses[id] = value;
-      char.frontPorchExtensions =
-          (char.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
-            realismVerificationMaxReprocesses: value,
-          );
-        char.frontPorchExtensions?.ensureStableId();
-    });
-    _persistMemberVerificationPref(id, 'maxReprocesses', value);
-  }
-
-  void _updateMemberVerificationStrictness(CharacterCard char, int value) {
-    final id = _getCharId(char);
-    setState(() {
-      _verificationStrictness[id] = value;
-      char.frontPorchExtensions =
-          (char.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
-            realismVerificationStrictness: value,
-          );
-        char.frontPorchExtensions?.ensureStableId();
-    });
-    _persistMemberVerificationPref(id, 'strictness', value);
-  }
-
-  void _updateMemberNeedsDirectorAuthority(CharacterCard char, bool value) {
-    final id = _getCharId(char);
-    setState(() {
-      _needsDirectorAuthority[id] = value;
-      char.frontPorchExtensions =
-          (char.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
-            realismNeedsDirectorAuthority: value,
-          );
-        char.frontPorchExtensions?.ensureStableId();
-    });
-    _persistMemberVerificationPref(id, 'needsDirectorAuthority', value);
   }
 
   void _persistMemberVerificationPref(String id, String key, dynamic value) {
@@ -2644,6 +2718,7 @@ class _NeedsTabState extends State<_NeedsTab> {
           _kHygiene: 80,
           _kComfort: 80,
         };
+        _decayRates[id] = Map<String, int>.from(_defaultDecayRates);
         _enjoysLowHygiene[id] = false;
       });
       widget.chatService.resetRealismForGroupCharacter(c);
@@ -2662,6 +2737,7 @@ class _NeedsTabState extends State<_NeedsTab> {
         _kHygiene: 80,
         _kComfort: 80,
       };
+      _decayRates[id] = Map<String, int>.from(_defaultDecayRates);
       _enjoysLowHygiene[id] = false;
     });
     widget.chatService.resetRealismForGroupCharacter(character);
@@ -2678,50 +2754,6 @@ class _NeedsTabState extends State<_NeedsTab> {
       _needsSimEnabled = value;
     });
     widget.chatService.setNeedsSimEnabled(value);
-  }
-
-  Widget _groupDecaySlider(String label, String key, ChatService cs) {
-    final value = cs.groupDecayRates[key] ?? 5;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: Colors.white70),
-            ),
-            Text(
-              '$value/turn',
-              style: const TextStyle(fontSize: 11, color: Colors.white54),
-            ),
-          ],
-        ),
-        SizedBox(
-          height: 24,
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              trackHeight: 2,
-            ),
-            child: Slider(
-              value: value.toDouble(),
-              min: 0,
-              max: 20,
-              divisions: 20,
-              activeColor: Colors.orangeAccent,
-              inactiveColor: Colors.white12,
-              onChanged: (v) {
-                cs.setGroupNeedsDecayRate(key, v.round());
-              },
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
   }
 
   @override
@@ -2850,54 +2882,9 @@ class _NeedsTabState extends State<_NeedsTab> {
               ),
             ),
 
-            // Group Decay Rates section
-            Row(
-              children: [
-                const Icon(
-                  Icons.trending_down,
-                  size: 18,
-                  color: Colors.orangeAccent,
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Global Group Decay Rates',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Sets the baseline decay per turn for all characters in this group. Values represent how fast needs drop per turn.',
-              style: TextStyle(fontSize: 11, color: Colors.white54),
-            ),
-            const SizedBox(height: 10),
-
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111827),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _groupDecaySlider('Hunger', _kHunger, cs),
-                  _groupDecaySlider('Bladder', _kBladder, cs),
-                  _groupDecaySlider('Energy', _kEnergy, cs),
-                  _groupDecaySlider('Social', _kSocial, cs),
-                  _groupDecaySlider('Fun', _kFun, cs),
-                  _groupDecaySlider('Hygiene', _kHygiene, cs),
-                  _groupDecaySlider('Comfort', _kComfort, cs),
-                ],
-              ),
-            ),
-
             const SizedBox(height: 16),
 
-            // Per-character needs baselines section
+            // Per-character needs baselines + decay section
             Row(
               children: [
                 const Icon(
@@ -2908,7 +2895,7 @@ class _NeedsTabState extends State<_NeedsTab> {
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
-                    'Per-Character Needs Baselines',
+                    'Per-Character Needs Baselines & Decay',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                 ),
@@ -2931,7 +2918,7 @@ class _NeedsTabState extends State<_NeedsTab> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Adjust starting baseline values for each character\'s needs. These values are used when initializing or resetting a character\'s needs state.',
+              'Adjust each character\'s starting needs baselines and their per-turn decay ("tick rate"). Every member decays at its own rate, just like a solo character.',
               style: TextStyle(fontSize: 11, color: Colors.white54),
             ),
             const SizedBox(height: 10),
@@ -3018,41 +3005,75 @@ class _NeedsTabState extends State<_NeedsTab> {
                       ),
                       const SizedBox(height: 8),
 
-                      // 7 baseline sliders
+                      // 7 baseline sliders, each with its own per-turn decay.
                       _needsSlider(
                         'Hunger',
                         baselines[_kHunger] ?? 80,
                         (v) => _updateNeedsBaseline(id, _kHunger, v),
+                        decayValue: _decayRates[id]?[_kHunger] ?? 4,
+                        onDecayChanged: (v) =>
+                            _updateMemberDecay(id, _kHunger, v),
+                        onDecayChangeEnd: (v) => widget.chatService
+                            .setGroupNeedsDecayRate(_kHunger, v, memberId: id),
                       ),
                       _needsSlider(
                         'Bladder',
                         baselines[_kBladder] ?? 80,
                         (v) => _updateNeedsBaseline(id, _kBladder, v),
+                        decayValue: _decayRates[id]?[_kBladder] ?? 6,
+                        onDecayChanged: (v) =>
+                            _updateMemberDecay(id, _kBladder, v),
+                        onDecayChangeEnd: (v) => widget.chatService
+                            .setGroupNeedsDecayRate(_kBladder, v, memberId: id),
                       ),
                       _needsSlider(
                         'Energy',
                         baselines[_kEnergy] ?? 80,
                         (v) => _updateNeedsBaseline(id, _kEnergy, v),
+                        decayValue: _decayRates[id]?[_kEnergy] ?? 3,
+                        onDecayChanged: (v) =>
+                            _updateMemberDecay(id, _kEnergy, v),
+                        onDecayChangeEnd: (v) => widget.chatService
+                            .setGroupNeedsDecayRate(_kEnergy, v, memberId: id),
                       ),
                       _needsSlider(
                         'Social',
                         baselines[_kSocial] ?? 80,
                         (v) => _updateNeedsBaseline(id, _kSocial, v),
+                        decayValue: _decayRates[id]?[_kSocial] ?? 2,
+                        onDecayChanged: (v) =>
+                            _updateMemberDecay(id, _kSocial, v),
+                        onDecayChangeEnd: (v) => widget.chatService
+                            .setGroupNeedsDecayRate(_kSocial, v, memberId: id),
                       ),
                       _needsSlider(
                         'Fun',
                         baselines[_kFun] ?? 80,
                         (v) => _updateNeedsBaseline(id, _kFun, v),
+                        decayValue: _decayRates[id]?[_kFun] ?? 2,
+                        onDecayChanged: (v) => _updateMemberDecay(id, _kFun, v),
+                        onDecayChangeEnd: (v) => widget.chatService
+                            .setGroupNeedsDecayRate(_kFun, v, memberId: id),
                       ),
                       _needsSlider(
                         'Hygiene',
                         baselines[_kHygiene] ?? 80,
                         (v) => _updateNeedsBaseline(id, _kHygiene, v),
+                        decayValue: _decayRates[id]?[_kHygiene] ?? 1,
+                        onDecayChanged: (v) =>
+                            _updateMemberDecay(id, _kHygiene, v),
+                        onDecayChangeEnd: (v) => widget.chatService
+                            .setGroupNeedsDecayRate(_kHygiene, v, memberId: id),
                       ),
                       _needsSlider(
                         'Comfort',
                         baselines[_kComfort] ?? 80,
                         (v) => _updateNeedsBaseline(id, _kComfort, v),
+                        decayValue: _decayRates[id]?[_kComfort] ?? 2,
+                        onDecayChanged: (v) =>
+                            _updateMemberDecay(id, _kComfort, v),
+                        onDecayChangeEnd: (v) => widget.chatService
+                            .setGroupNeedsDecayRate(_kComfort, v, memberId: id),
                       ),
 
                       const SizedBox(height: 8),
@@ -3094,123 +3115,6 @@ class _NeedsTabState extends State<_NeedsTab> {
                           ),
                         ],
                       ),
-
-                      const SizedBox(height: 6),
-
-                      // Director/Verifier section (gated)
-                      if (_verificationEnabled[id] ?? false) ...[
-                        const Text(
-                          'Director/Verifier settings',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.white54,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              'Max: ${_verificationMaxReprocesses[id] ?? 1}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.white54,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            SizedBox(
-                              width: 80,
-                              child: SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 2,
-                                  thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 4,
-                                  ),
-                                  overlayShape: const RoundSliderOverlayShape(
-                                    overlayRadius: 8,
-                                  ),
-                                ),
-                                child: Slider(
-                                  value: (_verificationMaxReprocesses[id] ?? 1)
-                                      .toDouble(),
-                                  min: 1,
-                                  max: 5,
-                                  divisions: 4,
-                                  onChanged: (d) {
-                                    _updateMemberVerificationMaxReprocesses(
-                                      char,
-                                      d.round(),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Strict: ${_verificationStrictness[id] ?? 3}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.white54,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            SizedBox(
-                              width: 80,
-                              child: SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 2,
-                                  thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 4,
-                                  ),
-                                ),
-                                child: Slider(
-                                  value: (_verificationStrictness[id] ?? 3)
-                                      .toDouble(),
-                                  min: 1,
-                                  max: 5,
-                                  divisions: 4,
-                                  onChanged: (d) {
-                                    _updateMemberVerificationStrictness(
-                                      char,
-                                      d.round(),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            const Text(
-                              'Director authority (needs)',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.white54,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: Checkbox(
-                                value: _needsDirectorAuthority[id] ?? false,
-                                onChanged: (v) {
-                                  if (v != null) {
-                                    _updateMemberNeedsDirectorAuthority(
-                                      char,
-                                      v,
-                                    );
-                                  }
-                                },
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                     ],
                   ),
                 );
@@ -3223,8 +3127,15 @@ class _NeedsTabState extends State<_NeedsTab> {
     );
   }
 
-  Widget _needsSlider(String label, int value, ValueChanged<int> onChanged) {
-    return Column(
+  Widget _needsSlider(
+    String label,
+    int value,
+    ValueChanged<int> onChanged, {
+    int? decayValue,
+    ValueChanged<int>? onDecayChanged,
+    ValueChanged<int>? onDecayChangeEnd,
+  }) {
+    final baseline = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -3264,6 +3175,81 @@ class _NeedsTabState extends State<_NeedsTab> {
         ),
       ],
     );
+
+    // No decay wiring → plain baseline slider (keeps the method reusable).
+    if (decayValue == null || onDecayChanged == null) return baseline;
+
+    String decayLabel;
+    if (decayValue == 0) {
+      decayLabel = 'Static (0)';
+    } else if (decayValue <= 2) {
+      decayLabel = 'Very Slow ($decayValue)';
+    } else if (decayValue <= 4) {
+      decayLabel = 'Slow ($decayValue)';
+    } else if (decayValue <= 7) {
+      decayLabel = 'Normal ($decayValue)';
+    } else if (decayValue <= 12) {
+      decayLabel = 'Fast ($decayValue)';
+    } else {
+      decayLabel = 'Very Fast ($decayValue)';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        baseline,
+        Padding(
+          padding: const EdgeInsets.only(left: 10, right: 4, bottom: 2),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Decay / Turn',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    decayLabel,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.white.withValues(alpha: 0.45),
+                    ),
+                  ),
+                ],
+              ),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: Colors.tealAccent.withValues(alpha: 0.45),
+                  inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+                  thumbColor: Colors.tealAccent.withValues(alpha: 0.6),
+                  trackHeight: 2,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+                ),
+                child: Slider(
+                  value: decayValue.toDouble(),
+                  min: 0,
+                  max: 20,
+                  divisions: 20,
+                  // Smooth local update while dragging; the (expensive) persist
+                  // to the member PNG + DB row happens once, on release.
+                  onChanged: (d) => onDecayChanged(d.round()),
+                  onChangeEnd: onDecayChangeEnd == null
+                      ? null
+                      : (d) => onDecayChangeEnd(d.round()),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   // Simple accent palette for per-char avatars (reused from _RealismNeedsTab).
@@ -3289,9 +3275,9 @@ class _GeneralTab extends StatefulWidget {
 
 class _GeneralTabState extends State<_GeneralTab> {
   // Local editing controllers and state (applied on Save)
-  late final TextEditingController _nameController;
-  late final TextEditingController _scenarioController;
-  late final TextEditingController _firstMessageController;
+  late final StyledTextController _nameController;
+  late final StyledTextController _scenarioController;
+  late final StyledTextController _firstMessageController;
 
   TurnOrder _turnOrder = TurnOrder.roundRobin;
   bool _autoAdvance = false;
@@ -3309,16 +3295,25 @@ class _GeneralTabState extends State<_GeneralTab> {
     final g = widget.chatService.activeGroup;
 
     if (g != null) {
-      _nameController = TextEditingController(text: g.name);
-      _scenarioController = TextEditingController(text: g.scenario);
-      _firstMessageController = TextEditingController(text: g.firstMessage);
+      _nameController = StyledTextController(
+        preset: StyledTextPreset.prose,
+        text: g.name,
+      );
+      _scenarioController = StyledTextController(
+        preset: StyledTextPreset.prose,
+        text: g.scenario,
+      );
+      _firstMessageController = StyledTextController(
+        preset: StyledTextPreset.prose,
+        text: g.firstMessage,
+      );
       _turnOrder = g.turnOrder;
       _autoAdvance = g.autoAdvance;
       _directorModeDefault = g.directorMode;
     } else {
-      _nameController = TextEditingController(text: '');
-      _scenarioController = TextEditingController(text: '');
-      _firstMessageController = TextEditingController(text: '');
+      _nameController = StyledTextController(preset: StyledTextPreset.prose, text: '');
+      _scenarioController = StyledTextController(preset: StyledTextPreset.prose, text: '');
+      _firstMessageController = StyledTextController(preset: StyledTextPreset.prose, text: '');
       _turnOrder = TurnOrder.roundRobin;
       _autoAdvance = false;
       _directorModeDefault = false;
@@ -3898,242 +3893,43 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
     setState(() {});
   }
 
+  /// Write the tab's state back onto the LIVE group object after every
+  /// mutation. Without this, the dialog-level Save persisted a group this
+  /// tab never touched — lorebook/world edits made here were silently lost.
+  void _syncToGroup() {
+    final g = widget.chatService.activeGroup;
+    if (g == null) return;
+    g.inheritCharacterLorebooks = _inheritCharacterLorebooks;
+    g.worldIds = List<String>.from(_worldIds);
+    g.groupLorebook = _groupLoreEntries.isEmpty
+        ? ''
+        : jsonEncode(Lorebook(entries: _groupLoreEntries).toJson());
+  }
+
   Future<void> _showEntryEditor({LorebookEntry? existing, int? index}) async {
-    final keyCtrl = TextEditingController(text: existing?.key ?? '');
-    final contentCtrl = TextEditingController(text: existing?.content ?? '');
-
-    bool enabled = existing?.enabled ?? true;
-    bool constant = existing?.constant ?? false;
-    int stickyDepth = existing?.stickyDepth ?? 1;
-
-    final result = await showDialog<bool>(
+    // The shared Simple/Advanced editor (clone-preserving). The old bespoke
+    // 5-field dialog here rebuilt entries from scratch, destroying imported
+    // ST metadata (secondary keys, probability, timers, ...) on every edit.
+    final result = await showLorebookEntryDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(existing == null ? 'Add Lore Entry' : 'Edit Lore Entry'),
-        content: StatefulBuilder(
-          builder: (innerCtx, setInnerState) {
-            return SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!constant) ...[
-                    AppTextField(
-                      controller: keyCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Trigger Keys (comma separated)',
-                      ),
-                      style: TextStyle(color: AppColors.textPrimary(context)),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  AppTextField(
-                    controller: contentCtrl,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText: 'Content (injected when triggered)',
-                    ),
-                    style: TextStyle(color: AppColors.textPrimary(context)),
-                  ),
-                  const SizedBox(height: 16),
-
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardOf(context),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.borderOf(context)),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Enabled',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary(context),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'This entry can be injected when its keys match',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary(context),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: enabled,
-                              onChanged: (v) =>
-                                  setInnerState(() => enabled = v),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Divider(color: AppColors.borderOf(context), height: 1),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Constant',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary(context),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Always considered active (ignores trigger keys)',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary(context),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: constant,
-                              onChanged: (v) =>
-                                  setInnerState(() => constant = v),
-                            ),
-                          ],
-                        ),
-                        if (!constant) ...[
-                          const SizedBox(height: 12),
-                          Divider(
-                            color: AppColors.borderOf(context),
-                            height: 1,
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Sticky Depth — clean slider presentation
-                          // (hidden when Constant is on, since constant entries never decay)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    'Sticky Depth',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary(context),
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surfaceContainerOf(
-                                        context,
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '$stickyDepth',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textPrimary(context),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'How many turns the entry stays active after triggering',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary(context),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              SliderTheme(
-                                data: SliderThemeData(
-                                  activeTrackColor: Colors.tealAccent,
-                                  inactiveTrackColor: AppColors.borderOf(
-                                    context,
-                                  ).withValues(alpha: 0.4),
-                                  thumbColor: Colors.tealAccent,
-                                  trackHeight: 3,
-                                  thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 7,
-                                  ),
-                                ),
-                                child: Slider(
-                                  value: stickyDepth.toDouble().clamp(0, 12),
-                                  min: 0,
-                                  max: 12,
-                                  divisions: 12,
-                                  label: stickyDepth.toString(),
-                                  onChanged: (v) => setInnerState(
-                                    () => stickyDepth = v.round(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      existing: existing,
+      showEnabled: true,
     );
-
-    if (result != true) return;
-
-    final newEntry = LorebookEntry(
-      key: keyCtrl.text.trim(),
-      content: contentCtrl.text.trim(),
-      enabled: enabled,
-      constant: constant,
-      stickyDepth: stickyDepth,
-    );
+    if (result == null) return;
 
     setState(() {
       if (index != null && index >= 0 && index < _groupLoreEntries.length) {
-        _groupLoreEntries[index] = newEntry;
+        _groupLoreEntries[index] = result;
       } else {
-        _groupLoreEntries.add(newEntry);
+        _groupLoreEntries.add(result);
       }
     });
+    _syncToGroup();
   }
 
   Future<void> _importGroupLorebookJson() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await PickerPrefs.pickFiles(
+      category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
@@ -4162,6 +3958,7 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
       setState(() {
         _groupLoreEntries.addAll(imported.entries);
       });
+      _syncToGroup();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -4183,6 +3980,7 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
     setState(() {
       _groupLoreEntries.removeAt(index);
     });
+    _syncToGroup();
   }
 
   void _toggleWorld(String worldId) {
@@ -4193,6 +3991,7 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
         _worldIds.add(worldId);
       }
     });
+    _syncToGroup();
   }
 
   @override
@@ -4221,6 +4020,7 @@ class _LorebookWorldsTabState extends State<_LorebookWorldsTab> {
                     setState(() {
                       _inheritCharacterLorebooks = v;
                     });
+                    _syncToGroup();
                   },
                   activeThumbColor: Colors.orangeAccent,
                 ),

@@ -40,6 +40,23 @@ void main() {
       final settings = ChatGenerationSettings(temperature: 0.8);
       expect(settings.hasOverrides, isTrue);
     });
+
+    test('top-p / top-k / DRY overrides survive a JSON round trip', () {
+      final settings = ChatGenerationSettings(
+        topP: 0.92,
+        topK: 60,
+        dryMultiplier: 0.8,
+      );
+      expect(settings.hasOverrides, isTrue);
+      final back = ChatGenerationSettings.fromJsonString(
+        settings.toJsonString(),
+      );
+      expect(back.topP, 0.92);
+      expect(back.topK, 60);
+      expect(back.dryMultiplier, 0.8);
+      // Unset fields stay null (inherit global).
+      expect(back.temperature, isNull);
+    });
   });
 
   // ─── ChatGenerationSettings — JSON serialization ───────────────────

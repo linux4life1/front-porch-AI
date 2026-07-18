@@ -292,7 +292,6 @@ class CreatorState extends ChangeNotifier {
   String selectedLocalModelPath = '';
   bool isReloadingKobold = false;
   String koboldStatus = '';
-  bool isReloadingPseudoRemote = false;
   List<File> localPresets = [];
   bool extraSettingsExpanded = false;
   final gpuLayersController = TextEditingController();
@@ -763,8 +762,9 @@ class CreatorState extends ChangeNotifier {
     contextSizeController.text = storage.contextSize.toString();
   }
 
-  // Note: reloadKoboldWithModel, startPseudoRemote, stopPseudoRemote lifted with service params.
-  // Full bodies preserved for parity (callers in steps pass providers/storage from their context).
+  // Note: reloadKoboldWithModel lifted with service params (callers in steps
+  // pass providers/storage from their context). It already launches a .kcpps
+  // preset when one is active, so preset launching needs no separate path.
   Future<void> reloadKoboldWithModel(
     String modelPath,
     LLMProvider llmProvider,
@@ -806,6 +806,9 @@ class CreatorState extends ChangeNotifier {
         execPath,
         effectiveModel,
         kcppsPath: storage.activeKcppsPath,
+        mmprojPath: modelPath.isNotEmpty
+            ? storage.mmprojForModel(modelPath)
+            : null,
         port: 5001,
         gpuLayers: storage.gpuLayers,
         contextSize: storage.contextSize,
@@ -844,82 +847,6 @@ class CreatorState extends ChangeNotifier {
       koboldStatus = 'Error: $e';
       notifyListeners();
     }
-  }
-
-  Future<void> startPseudoRemote(
-    LLMProvider llmProvider,
-    StorageService storage,
-    BackendManager backendManager,
-  ) async {
-    if (isReloadingPseudoRemote) return;
-    final pseudoRemote = llmProvider.pseudoRemoteService;
-
-    isReloadingPseudoRemote = true;
-    koboldStatus = 'Starting Pseudo-Remote...';
-    notifyListeners();
-
-    try {
-      if (backendManager.backendPath == null) {
-        isReloadingPseudoRemote = false;
-        koboldStatus = 'Error: Backend executable not found';
-        notifyListeners();
-        return;
-      }
-      if (storage.activeKcppsPath == null ||
-          storage.activeKcppsPath!.isEmpty) {
-        isReloadingPseudoRemote = false;
-        koboldStatus = 'Error: No .kcpps preset selected';
-        notifyListeners();
-        return;
-      }
-
-      // Stop if already running
-      if (pseudoRemote.isRunning) {
-        await pseudoRemote.stop();
-        await Future.delayed(const Duration(seconds: 1));
-      }
-
-      // Override model: if kcpps preset has a valid model, use null (let kcpps manage).
-      // Otherwise use the manually selected model path.
-      final hasValidKcppsModel =
-          storage.kcppsHasModel && storage.kcppsModelFileExists;
-      final overrideModel =
-          hasValidKcppsModel ? null : selectedLocalModelPath;
-
-      await pseudoRemote.start(
-        executablePath: backendManager.backendPath!,
-        kcppsPath: storage.activeKcppsPath!,
-        modelPath:
-            overrideModel?.isNotEmpty == true ? overrideModel : null,
-      );
-
-      koboldStatus = 'Pseudo-Remote started successfully!';
-      isReloadingPseudoRemote = false;
-      notifyListeners();
-    } catch (e) {
-      isReloadingPseudoRemote = false;
-      koboldStatus = 'Error: $e';
-      notifyListeners();
-    }
-  }
-
-  Future<void> stopPseudoRemote(LLMProvider llmProvider) async {
-    if (isReloadingPseudoRemote) return;
-    final pseudoRemote = llmProvider.pseudoRemoteService;
-
-    isReloadingPseudoRemote = true;
-    koboldStatus = 'Stopping Pseudo-Remote...';
-    notifyListeners();
-
-    try {
-      await pseudoRemote.stop();
-      koboldStatus = 'Pseudo-Remote stopped.';
-    } catch (e) {
-      koboldStatus = 'Error stopping: $e';
-    }
-
-    isReloadingPseudoRemote = false;
-    notifyListeners();
   }
 
   /// The real generation + save engine lives in `creator_state_engine.dart`

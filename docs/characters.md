@@ -1,322 +1,185 @@
-# Characters & Import
+# Characters
 
-Everything about character cards — creation, import formats, and the V2/V2.5 specification.
+Characters are the heart of Front Porch AI. This guide covers everything about them — where to find ready-made ones, how to make your own, what's actually inside a character card, and how to keep a growing library organized.
 
 ---
 
 ## Table of Contents
 
 1. [What Is a Character Card?](#what-is-a-character-card)
-2. [Creating a Character from Scratch](#creating-a-character-from-scratch)
-3. [Character Fields Reference](#character-fields-reference)
-4. [Importing Characters](#importing-characters)
-5. [V2/V2.5 Card Specification](#v2v25-card-specification)
-6. [Front Porch Extensions](#front-porch-extensions)
-7. [Managing Characters](#managing-characters)
-8. [Troubleshooting Import Issues](#troubleshooting-import-issues)
+2. [Getting Characters Into the App](#getting-characters-into-the-app)
+3. [Creating Your Own Character](#creating-your-own-character)
+4. [What's Inside a Card](#whats-inside-a-card)
+5. [Editing & Managing Your Library](#editing--managing-your-library)
+6. [Expression Images](#expression-images)
+7. [Group Cards — Sharing a Whole Cast](#group-cards--sharing-a-whole-cast)
+8. [Compatibility With Other Apps](#compatibility-with-other-apps)
+9. [When an Import Goes Wrong](#when-an-import-goes-wrong)
 
 ---
 
 ## What Is a Character Card?
 
-A **character card** is a self-contained definition of an AI personality. It includes:
+A **character card** is a single file that holds everything about an AI character: their name, appearance, personality, the situation you meet them in, their opening message, and samples of how they talk. Share the file, and anyone can chat with the exact same character.
 
-- Name, physical description, personality traits, scenario, and first message
-- Example dialogues (few-shot prompting)
-- System prompt and post-history instructions
-- Alternate greetings
-- Tags, attached lorebooks, and linked worlds
-- TTS voice assignment
-- (In V2.5) Extensions for third-party features
+Cards come in two common shapes:
 
-**Storage formats**:
-- **PNG** (most common and recommended) — the JSON data is embedded in a `chara` tEXt chunk inside the image (standard V2 spec). The PNG itself is used as the avatar.
-- **JSON** — standalone card data (SillyTavern and others also support this).
-- **BYAF** — Backyard AI archive format (import only; converted to V2 PNG on save).
+- **PNG image** — the most common. The picture *is* the character's avatar, and all the personality data is hidden inside the image file itself. This is the format most character-sharing sites use.
+- **JSON file** — the same data as plain text, without an image.
 
-Front Porch AI is fully compatible with the **V2 / V2.5 character card specification** used by SillyTavern, Chub.ai, RisuAI, Agnai, and most other modern frontends. Cards you create or edit here will open correctly in those apps (and vice versa), with Front Porch-specific data preserved in the `extensions.front_porch` namespace.
+Front Porch AI uses the **V2 card format** (and its newer V2.5 revision) — the same standard used by SillyTavern, Chub.ai, RisuAI, and most of the character-chat world. Cards travel freely between these apps: anything you make here works there, and vice versa.
+
+> **Rescuing Backyard AI characters:** Front Porch AI also imports Backyard AI's `.byaf` archive format, so characters stranded there can move in. They're converted to standard V2 cards on the way.
 
 ---
 
-## Creating a Character from Scratch
+## Getting Characters Into the App
 
-Front Porch AI offers two powerful ways to create characters:
+Everything starts from the home screen — your character library.
 
-### 1. Manual 6-Step Wizard (`Create Character`)
+![The character library — your home screen](screenshots/home_new.png)
 
-Located in the sidebar or via the **+** button → **Create Character**:
+### Import files you already have
 
-- **Step 0 – Identity**: Upload avatar (PNG/JPG), name, tags, folder
-- **Step 1 – Personality**: Description, personality, scenario, system prompt, post-history instructions
-- **Step 2 – Dialogue**: First message, alternate greetings, message examples (few-shot)
-- **Step 3 – Lorebook**: Create or attach knowledge-base entries
-- **Step 4 – Realism Engine**: Set initial bond/trust, emotion, time-of-day, current task, NSFW cooldown, etc.
-- **Step 5 – Review & Save**: Preview, add expression images (for future animated avatars), finalize
+1. Click **Import** in the top toolbar.
+2. Pick one or more `.png` or `.json` card files (you can select several at once).
+3. After each import, a tag dialog pops up so you can label the character before it lands in your library.
 
-The wizard saves the character as a proper V2.5 PNG card (with embedded data) plus any extra avatar images.
+Have a whole folder of cards? Use the **folder import** option instead — point it at a directory and the app scans it top to bottom, including subfolders, finding every PNG card and `.byaf` archive inside. It shows you a breakdown of what it found and lets you confirm before anything is imported.
 
-### 2. AI-Powered Character Creator
+### Browse character sites without leaving the app
 
-**Character Creator** (also in sidebar) uses the LLM to generate complete cards from your concept:
+The toolbar has built-in browsers for two popular character sites:
 
-- **Automated mode**: Just give a name + short concept; it expands everything.
-- **Quick mode**: More control over tone, greeting length, relationships.
-- **Guided mode**: Detailed prompts for appearance, personality, backstory, kinks, etc.
+- **Chub.ai** — browse and search their huge catalog; when you hit a card's download button, it drops straight into your library. (A heads-up dialog appears first, since Chub hosts unfiltered community content.)
+- **aicharactercards.com** — same idea, different catalog.
 
-You can generate lorebooks, multiple alternate greetings, and even pull lore from URLs or local files. After generation you can review/edit every field before saving.
+On Linux, the built-in browser needs a system component called WebKit — the official AppImage bundles it. If it's missing, the app offers to open the site in your normal browser instead, and you can import the downloaded file manually. See [Troubleshooting](troubleshooting.md) if the browser won't open.
 
-Both methods produce fully editable, standards-compliant cards.
+### The Stoop *(currently in nightly builds)*
+
+The Stoop is the community hub built right into Front Porch AI — browse featured cards, follow creators you like, and download characters (including entire group casts) with one tap. It's opt-in, needs a free account, and is strictly 18+ with adult content hidden by default. The rest of the app stays fully offline whether or not you use it.
 
 ---
 
-## Character Fields Reference
+## Creating Your Own Character
 
-| Field                        | Purpose                                                                 | Tips / Best Practices |
-|-----------------------------|-------------------------------------------------------------------------|-----------------------|
-| **Name**                    | The character's display name                                            | Used in all `{{char}}` replacements |
-| **Description**             | Physical appearance, clothing, mannerisms, voice                        | Be vivid and specific; supports `{{user}}` / `{{char}}` placeholders |
-| **Personality**             | Core personality traits, speech patterns, likes/dislikes                | Combine with Description for best results |
-| **Scenario**                | Current situation, location, relationship to user                       | Sets the initial context for every new chat |
-| **First Message**           | The very first line the character sends                                 | Can be long and atmospheric |
-| **Message Examples**        | Few-shot dialogue samples (`{{char}}: ...` / `{{user}}: ...`)           | **Extremely important** for consistent voice, style, and formatting. 4–10 exchanges recommended |
-| **System Prompt**           | Hidden instructions prepended to the model                              | Overrides or augments the global system prompt |
-| **Post-History Instructions**| Author's note appended after recent chat history                       | Good for "remember this" style guidance |
-| **Alternate Greetings**     | Additional possible opening messages                                    | User can swipe or pick on first message |
-| **Tags**                    | Free-form labels for filtering/search                                   | Used in the character grid and search |
-| **Lorebook**                | Attached knowledge base (entries triggered by keywords)                 | See user-guide for entry syntax (`{{random:}}`, etc.) |
-| **Linked Worlds**           | One or more World containers (global lore)                              | Useful for shared settings across many characters |
-| **TTS Voice**               | Specific voice to use for this character                                | Overrides the global TTS engine/voice selection |
-| **Avatar Images**           | Multiple images (primary + expressions)                                 | Managed in the Avatars dialog; used by future animated features |
+There are two paths: let the AI build the character from your idea, or write every field yourself.
 
-All standard fields are serialized exactly according to the V2 spec so other frontends understand them.
+### The AI Character Creator
 
----
+![The AI character creator](screenshots/ez_char_creator.png)
 
-## Importing Characters
+Open the Character Creator and pick how much control you want:
 
-Front Porch AI supports several easy import methods:
+- **Quick Create** — the fastest path. Give it a name and a short description ("a sarcastic Victorian inventor who loves tea"), and the AI writes the whole card: description, personality, scenario, first message, and example dialogue.
+- **Automated Creator** — pick personality traits, genres, and tones from tappable bubbles, and the AI fills in the gaps around your choices.
+- **Guided Creator** — write out your vision in your own words, with guided prompts helping you cover appearance, personality, and backstory. Best when you already know exactly who this character is.
 
-- **Drag & Drop** — Drop any `.png` (V2 card), `.json`, or `.byaf` file directly onto the character grid in the Home page.
-- **File Picker** — Click **Import** (or the folder icon) → select one or more PNG/JSON files. Bulk import shows a progress dialog.
-- **Chub.ai Browser** — Click the Chub.ai button in the toolbar. An embedded browser lets you browse and download cards directly; they are auto-saved as PNGs and imported. (On Linux without wpewebkit it falls back to opening your regular browser.)
-- **BYAF Import** — Special importer for Backyard AI `.byaf` archives (extracts image + card data and converts to V2 PNG).
-- **Folder Import** — Import an entire folder of cards at once.
+A few things worth knowing, whichever mode you pick:
 
-**Compatibility**:
-- Full support for SillyTavern V1, V2, and V2.5 cards (both PNG `chara` chunk and JSON).
-- RisuAI, Agnai, and most other V2-compliant exporters work out of the box.
-- After import you are prompted to assign tags via the Tag Dialog.
-- All third-party extensions are preserved; Front Porch `front_porch` extensions are read and used for Realism defaults.
+- **Alternate greetings** — the creator can write up to 5 extra opening messages alongside the first one, each with its own tone (playful, dramatic, and so on). When you start a chat, you can flip between them and begin the story from whichever opening you like.
+- **World lore** — paste one or more wiki or lore page URLs (a Fandom wiki, for example), or attach local files (`.txt`, `.md`, `.pdf`, `.json`, `.csv`), and the creator weaves that knowledge into the character and their lorebook.
+- **Lorebook generation** — the creator can write world-knowledge entries to go with the character (more on lorebooks below).
+- **Avatar generation** — if you've connected an image generator (see the [User Guide](user-guide.md)), the review step can generate a matching portrait.
+- If the AI's response gets cut off mid-generation, the creator notices and automatically fills in whatever's missing.
 
-Imported characters appear in the grid immediately and can be edited like any native card.
+When generation finishes you review every field, edit anything you like, and save. The result is a normal, fully editable card — nothing about it is locked to the AI that wrote it.
+
+> **Tip:** The creator leans on your currently active AI model. A smarter model writes noticeably better cards, so some people temporarily switch to a remote API just for character creation, then switch back to their local model to chat.
+
+### The Manual Creator
+
+Prefer to write it all yourself? **Create Character** walks you through seven steps, in order: **Identity** (name, avatar, tags), **Personality** (description, traits, scenario), **Dialogue** (first message, alternate greetings, example conversations), **Lorebook**, **Realism** (the character's starting emotional state — see below), **Expressions** (optional emotion portraits), and **Review**.
+
+The Realism step sets where the character *starts*: their initial bond and trust toward you, their mood, the time of day, and which Realism Engine features are on. These become the character's defaults — every new chat begins from them. (Full details in the [Realism Engine guide](realism-engine.md).)
 
 ---
 
-## V2/V2.5 Card Specification
+## What's Inside a Card
 
-Front Porch AI implements the standard **V2 / V2.5** character card format used across the SillyTavern ecosystem.
+A quick tour of the fields, whether you're writing your own or editing an import:
 
-### Core JSON Structure (inside the `chara` chunk)
+| Field | What it does | Tips |
+|---|---|---|
+| **Name** | The character's display name | |
+| **Description** | Appearance, clothing, mannerisms, voice | Be vivid and specific — this is the model's mental picture |
+| **Personality** | Core traits, speech style, likes and dislikes | Works together with Description |
+| **Scenario** | The situation your story starts in | Where are you two, and why? |
+| **First Message** | The character's opening line | Long and atmospheric is fine |
+| **Example Dialogue** | Sample exchanges showing how they talk | **The single biggest lever** for a consistent voice — a handful of good exchanges works wonders |
+| **Alternate Greetings** | Extra possible openings | Flip between them when starting a chat |
+| **System Prompt** | Hidden instructions for the AI, specific to this character | Optional; overrides the global one |
+| **Post-History Instructions** | A reminder slipped in after the recent chat history | Good for "always stay in character" style nudges |
+| **Tags** | Labels for search and filtering | |
+| **Lorebook** | World-knowledge notes that activate when their keywords come up in chat | Great for places, factions, and backstory the character should "know" |
+| **TTS Voice** | A voice just for this character | Overrides your default voice; shines in group chats |
 
-```json
-{
-  "name": "Alice",
-  "description": "...",
-  "personality": "...",
-  "scenario": "...",
-  "first_mes": "...",
-  "mes_example": "...",
-  "system_prompt": "...",
-  "post_history_instructions": "...",
-  "alternate_greetings": ["...", "..."],
-  "tags": ["fantasy", "elf"],
-  "character_book": { /* Lorebook JSON */ },
-  "world_names": ["MyWorld"],
-  "tts_voice": "kokoro/en_female_1",
-  "extensions": { ... }
-}
-```
-
-**Key field name mappings** (for compatibility):
-- `first_mes` = First Message
-- `mes_example` = Message Examples
-- `character_book` = Lorebook
-- `world_names` = Linked Worlds
-
-### PNG Storage
-
-The entire JSON object is **Base64-encoded** and stored in a PNG `tEXt` chunk with the keyword **`chara`**. 
-
-The `V2CardService` in the app also manually parses `tEXt` and `iTXt` chunks for maximum compatibility with cards created by other tools (the `image` package alone is sometimes insufficient).
-
-### V2 vs V2.5
-
-- **V2**: The basic fields above + optional `extensions`.
-- **V2.5**: Adds the standardized `extensions` object. Front Porch AI stores its data under the `extensions.front_porch` key (see next section). Unknown extension keys from other apps are preserved verbatim (`rawExtensions`) so round-tripping never loses data.
-
-The `toJson()` / `readCard()` methods in `V2CardService` and `CharacterCard` handle both the nested `data` wrapper (some exporters use it) and top-level fields.
+Two placeholders appear throughout cards: **`{{char}}`** stands for the character's name and **`{{user}}`** for yours. Write "{{char}} smiles at {{user}}" and every player who imports the card sees their own name in the story.
 
 ---
 
-## Front Porch Extensions
+## Editing & Managing Your Library
 
-Front Porch AI stores its unique features inside the standard V2.5 `extensions.front_porch` namespace. This data is **only** read/written by Front Porch AI but never interferes with other frontends.
-
-### Realism Engine Defaults (`realism_engine` sub-object)
-
-When you start a **new chat** with a character, these values seed the initial state:
-
-- `enabled`
-- `short_term_bond`, `long_term_bond` (-300…+300)
-- `trust_level` (-100…+100)
-- `day_count`, `time_of_day`
-- `character_emotion`, `emotion_intensity`
-- `nsfw_cooldown_enabled`, `passage_of_time_enabled`, `chaos_mode_enabled`
-- `current_task` (initial quest / objective)
-
-These are edited in the **Realism** tab of the character editor (CreateCharacterPage or EditCharacterDialog) and saved into the PNG.
-
-### Visual & Appearance Extensions
-
-- Per-character chat bubble and text colors (`user_bubble_color`, `ai_bubble_color`, etc.)
-- Custom `chat_font_family`
-- Multiple avatar images + prime avatar index (stored in DB, referenced from the card)
-
-### Raw Third-Party Extensions
-
-Any keys other than `front_porch` inside `extensions` are kept in `rawExtensions` and written back on export. This guarantees perfect round-trip compatibility with cards that contain Tavern, Risu, or Agnai extensions.
-
-The `CharacterRepository` always re-reads the PNG extensions on load (via `V2CardService.readCard`) to ensure the latest values from the file are used.
+- **Edit** — open any character and change every field: personality, dialogue, lorebook, colors, avatar, Realism defaults. Edits to Realism defaults apply to *new* chats; conversations already in progress keep their living state.
+- **Duplicate** — one click makes a full copy (named "(duplicate)") including the lorebook and Realism settings. Perfect for experiments: tweak the copy, keep the original safe.
+- **Export** — saves the character back out as a standard V2 PNG card you can share anywhere.
+- **Delete** — removes the character from your library.
+- **Folders** — group characters however you like; create and rename folders right from the home screen.
+- **Tags & search** — filter the grid by tag or search by name instantly.
+- **Per-character looks** — each character can have their own chat bubble colors and font, and they survive export/import.
 
 ---
 
-## Managing Characters
+## Expression Images
 
-All management happens from the main character grid on the Home page and via right-click / context menus.
+Give a character a set of portraits — one per emotion — and their avatar changes live as their mood shifts during the conversation: smiling when they're happy, glowering when they're angry.
 
-### Editing
+- Add expressions in the creator's **Expressions** step or from the character editor.
+- **SillyTavern expression packs work as-is**, so packs you find in the community drop right in.
+- The app figures out the current emotion using either a small local classifier (fast, fully offline, downloads with one click in Settings) or the Realism Engine's deeper read of the scene.
+- If an emotion has no image, the app quietly falls back to neutral.
 
-- Click any character → **Edit** opens `EditCharacterDialog` (or the full `CreateCharacterPage` wizard in edit mode).
-- All fields, lorebook, Realism defaults, colors, and avatars are editable.
-- Changes are saved both to the database **and** re-embedded into the PNG via `V2CardService.saveCardAsPng`.
-- The `CharacterRepository` reloads PNG extensions on every load to prevent stale data.
-
-### Duplicating
-
-Right-click → **Duplicate** (or menu). Creates a copy with "(duplicate)" appended to the name, deep-copies lorebook + Realism extensions, and saves a new PNG + DB entry via `duplicateCharacter()`.
-
-### Exporting
-
-Right-click → **Export** → saves as a standard V2.5 PNG (using the same `saveCardAsPng` logic as creation). The exported file is fully portable to SillyTavern, Chub, etc.
-
-### Deleting
-
-Right-click → **Delete**. Removes from DB and (optionally) deletes the local PNG file. Cloud sync will propagate the deletion on next sync.
-
-### Organization Features
-
-- **Folders**: Characters can be assigned to folders (UI supports creation/renaming).
-- **Tags**: Free-text tags with autocomplete. Filter the grid by tag chips or the tag dialog. `CharacterRepository.allTags` provides the global list.
-- **Search**: Instant search by name, description, tags, or scenario.
-- **Sorting & Filters**: By name, date added, folder, etc.
-- **Bulk operations**: Multi-select for import tagging, moving, etc.
-
-`CharacterRepository` (a `ChangeNotifier`) is the single source of truth; the UI (Home page, sidebar, chat header) listens to it for live updates.
+The [User Guide](user-guide.md) covers display modes (sidebar vs. fullscreen) and setup in more detail.
 
 ---
 
-## Troubleshooting Import Issues
+## Group Cards — Sharing a Whole Cast
 
-### Common Problems & Solutions
+A Front Porch original: export an entire **group chat as one PNG file** — every member with their avatars and lorebooks, the group's scenario and opening message, the speaking order, *and* the cast's current Realism state (who trusts whom, everyone's mood and needs). Import it on another machine and the whole living scene rebuilds itself, ready to play.
 
-- **"Import failed" or blank character after PNG import**
-  - The PNG may not contain a valid `chara` tEXt chunk. Try opening it in SillyTavern first, then re-exporting as PNG.
-  - Use the manual `V2CardService.readCard` path (the app already falls back to manual chunk parsing).
+![Building a group](screenshots/group_chat_creator.png)
 
-- **Avatar image missing or shows as gray square**
-  - The image path in the DB was stored as an absolute path on another machine. The `CharacterRepository` automatically normalizes paths to basenames and resolves them from the local `Characters/` folder.
-  - Re-import the card or use the **Avatars** dialog to re-assign an image.
+A few notes:
 
-- **Chub.ai browser does nothing or crashes on Linux**
-  - Linux builds require `wpewebkit` (or use the official AppImage which bundles it). The app detects this and offers a fallback "Open in browser" dialog that still lets you copy the direct `.png` download URL.
-
-- **BYAF import fails**
-  - Make sure the `.byaf` archive is a valid Backyard AI export. The dedicated `ByafService` extracts the card JSON and any embedded image.
-
-- **JSON import produces garbled text**
-  - The file must be UTF-8 encoded. Re-save the JSON with UTF-8 encoding from your text editor.
-
-- **Lost third-party extensions or Realism data after round-trip**
-  - This should never happen. `V2CardService` explicitly preserves all non-`front_porch` extension keys (`rawExtensions`) and always re-reads the PNG on load.
-
-- **Card works in SillyTavern but not here (or vice versa)**
-  - Front Porch AI supports both the `data` wrapper and top-level fields. If a card still fails, open an issue with the card (sanitized) attached.
-
-When in doubt, the **Test Card** flow in the character editor or simply starting a new chat usually reveals whether the data was read correctly. All imported cards are immediately usable and can be edited/saved to "normalize" them into Front Porch's preferred V2.5 PNG layout.
+- To other apps, a group card looks like an ordinary image — the group data is a Front Porch format, so only Front Porch AI can open it. Single-character cards remain universal.
+- On nightly builds, group cards can be shared and downloaded on **The Stoop**, casts and all.
+- Developers building tools that work with group cards can find the full format specification in the [integration guide on GitHub](https://github.com/linux4life1/front-porch-AI/blob/main/docs/CharacterCardForge_GroupChat_Integration_Guide.md).
 
 ---
 
-*This document is kept in sync with the implementation in `lib/services/v2_card_service.dart`, `lib/services/character_repository.dart`, `lib/ui/dialogs/edit_character_dialog.dart`, `lib/ui/pages/create_character_page.dart`, and `lib/ui/pages/home_page.dart` (import/export flows).*
+## Compatibility With Other Apps
+
+Cards are meant to travel, and Front Porch AI takes round-tripping seriously:
+
+- **Reading**: V2 and V2.5 cards from SillyTavern, Chub.ai, RisuAI, Agnai, and other standard exporters open correctly, whether PNG or JSON.
+- **Writing**: exported cards are standard V2.5 PNGs that open anywhere the standard is supported.
+- **Nothing gets lost**: Front Porch's own additions (Realism defaults, bubble colors, voice assignment) live in the card's standard *extensions* area — the part of the format explicitly set aside for app-specific data. Other apps simply ignore it. And when a card arrives carrying another app's extension data, it's preserved untouched and written back on export.
+
+In short: import, edit, export, share — the card keeps working everywhere, and nobody's data gets stomped on.
 
 ---
 
-## Group Cards (fpa_group format)
+## When an Import Goes Wrong
 
-Front Porch supports exporting an entire **group chat** as a single portable PNG file (`.group.png`). This is a Front Porch innovation — there is no equivalent single-file group format in SillyTavern as of 2026.
+- **"Import failed" or the character comes in blank** — the PNG probably doesn't contain card data (it may be a plain image, or the data was stripped by an image editor or a site that re-compressed it). Re-download the original card file.
+- **Avatar shows as a gray square** — re-open the character and re-assign the image, or re-import the card.
+- **The Chub browser won't open on Linux** — install WebKit or use the AppImage build; the app will offer your regular browser as a fallback either way.
+- **A `.byaf` import fails** — make sure the file is a genuine Backyard AI export and not renamed or partially downloaded.
+- **A JSON card imports as gibberish** — the file needs to be saved with UTF-8 text encoding; re-save it from a text editor.
 
-### Container
+More fixes live in the [Troubleshooting guide](troubleshooting.md). If a card stumps you, bring it to the [Discord](https://discord.gg/e4tET6rpdv) — someone's usually seen it before.
 
-- The file is a normal PNG.
-- All group data lives in a private `fpa_group` tEXt chunk (base64-encoded JSON).
-- The chunk is deliberately invisible to SillyTavern, Risu, Agnai, Chub, etc. so they treat the file as an ordinary image.
+---
 
-### Top-level envelope
-
-```json
-{
-  "spec": "front_porch_group_card",
-  "spec_version": "1.0",
-  "data": { ... GroupCard object ... }
-}
-```
-
-### The `data` object (GroupCard)
-
-- `name`, `turn_order`, `auto_advance`, `director_mode`
-- `first_message`, `scenario`, `system_prompt` (group-level)
-- `members`: array of full V2.5 character card objects (with `avatar_base64` when present for high-fidelity round-tripping)
-- `realism_state`: **optional** — the group-level per-character realism + needs snapshot (same shape stored in `groups.default_member_realism_state` and `sessions.group_realism_state`).
-- `character_system_prompts`: **optional** — per-character system prompt overrides that only apply inside this specific group (keyed by stable charId). Additive in spec v1.0.
-
-When `realism_state` is present, importing the Group Card seeds `groups.default_member_realism_state` so that:
-- New chats start with the exported realism values.
-- Splitting a member out of the group into a solo character preserves bond/trust/emotion/needs/fixation/relationships from the group session.
-
-**Legacy note (v1.0 compatibility):** Older Group Cards may have `characterSystemPrompts` (or `character_system_prompts`) nested inside `realism_state` instead of at the top level of `data`. Front Porch importers automatically promote this data to the clean `character_system_prompts` field on the imported `GroupChat`. Writers should prefer the new top-level location going forward.
-
-### Prompt Priority Inside a Group (v1.0)
-
-When building the system prompt for a character speaking in a group, Front Porch uses this order (highest to lowest):
-
-1. **Group-level `system_prompt`** (if non-empty) — the base instructions for the whole group (scene, rules, tone, "don't talk over each other", etc.).
-2. **Per-character `character_system_prompts[charId]`** (if set for the speaking character in this group) — appended as additional instructions specific to that character in this group. Takes precedence over the character's normal card prompt.
-3. **Character's normal `system_prompt`** (from their individual card) — fallback if no group-specific override exists for them.
-4. **Per-character Author's Note** (if set for the speaker in this group) — always additive on top of the above, lighter weight, with its own strength control.
-
-This hierarchy ensures a group prompt sets the scene without completely erasing per-character instructions.
-
-### Why this matters for direct-SQL tools
-
-If you ever add Group Card read/write support to Character Card Forge, you must:
-1. Look for the `fpa_group` tEXt chunk (not `chara`).
-2. Parse the envelope above.
-3. When writing groups, prefer the new top-level `character_system_prompts` (optional, additive in v1.0). For full backward compatibility with older cards, also read from the legacy location inside `realism_state.characterSystemPrompts` / `character_system_prompts` and promote it.
-4. When writing groups/sessions, populate the two v30 realism columns (or at minimum the `realism_state` inside the exported Group Card) if you want realism state to survive export → import → split.
-
-The columns and the `realism_state` key inside Group Cards were added precisely so that group-evolved state is no longer trapped in hidden chat messages. The `character_system_prompts` field follows the same portability goals.
-
-See `lib/services/group_card_service.dart`, `lib/models/group_card.dart`, and the v30 columns in `lib/database/database.dart` for the canonical implementation.
-
-**Recommended reading for AI agents / Claude working on Forge integration:**  
-`docs/CharacterCardForge_GroupChat_Integration_Guide.md` — the definitive post-v30 guide covering the decoupled `group_members` architecture, private avatars, Group Card (`fpa_group`) format, ID remapping for Group Dynamics, and the “Separate to my library” splitting feature.
-
+*Next up: bring your characters to life with the [Realism Engine](realism-engine.md), or explore chats, voice, and more in the [User Guide](user-guide.md).*

@@ -20,6 +20,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:crop_your_image/crop_your_image.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// A reusable dialog that lets the user interactively crop an image.
 ///
@@ -153,7 +154,11 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.crop, color: Colors.blueAccent, size: 22),
+                  const Icon(
+                    Icons.crop,
+                    color: AppColors.formMasterAccent,
+                    size: 22,
+                  ),
                   const SizedBox(width: 10),
                   const Text(
                     'Crop Your Image',
@@ -206,7 +211,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                   baseColor: const Color(0xFF111827),
                   maskColor: Colors.black.withValues(alpha: 0.6),
                   cornerDotBuilder: (size, edgeAlignment) =>
-                      DotControl(color: Colors.blueAccent),
+                      DotControl(color: AppColors.formMasterAccent),
                   interactive: true,
                   fixCropRect: false,
                 ),
@@ -229,17 +234,17 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                             height: 14,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.blueAccent,
+                              color: AppColors.formMasterAccent,
                             ),
                           )
                         : const Icon(
                             Icons.zoom_out_map,
                             size: 16,
-                            color: Colors.blueAccent,
+                            color: AppColors.formMasterAccent,
                           ),
                     label: Text(
                       _isPadding ? 'Zooming...' : 'Zoom Out (Pad Canvas)',
-                      style: const TextStyle(color: Colors.blueAccent),
+                      style: const TextStyle(color: AppColors.formMasterAccent),
                     ),
                   ),
                   const Spacer(),
@@ -263,14 +268,14 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: AppColors.onChaosAccent,
                             ),
                           )
                         : const Icon(Icons.crop_sharp, size: 18),
                     label: Text(_isCropping ? 'Cropping...' : 'Crop & Save'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.formMasterAccent,
+                      foregroundColor: AppColors.onChaosAccent,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 12,

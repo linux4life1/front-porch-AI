@@ -197,15 +197,162 @@ class AppColors {
       resolve(context, verifiedAccent, verifiedAccentLight);
 
   static const Color bondHigh = Colors.greenAccent;
+  static const Color bondHighLight = Color(0xFF2E7D32);
+  static Color bondHighOf(BuildContext context) =>
+      resolve(context, bondHigh, bondHighLight);
+
   static const Color bondMid = Colors.blueAccent;
+  static const Color bondMidLight = Color(0xFF1565C0);
+  static Color bondMidOf(BuildContext context) =>
+      resolve(context, bondMid, bondMidLight);
+
   static const Color bondLow = Colors.orangeAccent;
+  static const Color bondLowLight = Color(0xFFE65100);
+  static Color bondLowOf(BuildContext context) =>
+      resolve(context, bondLow, bondLowLight);
+
   static const Color bondNeg = Colors.redAccent;
+  static const Color bondNegLight = Color(0xFFC62828);
+  static Color bondNegOf(BuildContext context) =>
+      resolve(context, bondNeg, bondNegLight);
 
   static const Color trustHigh = Colors.tealAccent;
-  static const Color formMasterAccent = Colors.blueAccent;
+  static const Color trustHighLight = Color(0xFF00695C);
+  static Color trustHighOf(BuildContext context) =>
+      resolve(context, trustHigh, trustHighLight);
+
+  /// Generic "primary accent" for forms, dialogs, Image Studio, and the
+  /// avatar gallery (icons, badges, borders, primary buttons). Warm-porch:
+  /// this is now porch amber (was Colors.blueAccent) so the ~30 files that key
+  /// off it warm up in one place. It is a single const (not brightness-aware);
+  /// on an amber button background use [onChaosAccent] for the foreground so
+  /// text stays readable in dark mode (white-on-amber is too low-contrast).
+  static const Color formMasterAccent = porchAmber;
+
   static const Color relationshipAccent = Colors.pinkAccent;
+  static const Color relationshipAccentLight = Color(0xFFC2185B);
+  static Color relationshipAccentOf(BuildContext context) =>
+      resolve(context, relationshipAccent, relationshipAccentLight);
+
   static const Color emotionAccent = Colors.purpleAccent;
+  static const Color emotionAccentLight = Color(0xFF7B1FA2);
+  static Color emotionAccentOf(BuildContext context) =>
+      resolve(context, emotionAccent, emotionAccentLight);
+
   static const Color optionalAccent = Colors.tealAccent;
+
   static const Color timeDayAccent = Colors.amberAccent;
+  static const Color timeDayAccentLight = Color(0xFFB45309);
+  static Color timeDayAccentOf(BuildContext context) =>
+      resolve(context, timeDayAccent, timeDayAccentLight);
+
   static const Color taskAccent = Colors.orangeAccent;
+  static const Color taskAccentLight = Color(0xFFC2410C);
+  static Color taskAccentOf(BuildContext context) =>
+      resolve(context, taskAccent, taskAccentLight);
+
+  // ---------------------------------------------------------------------------
+  // Warm-porch sidebar tokens (chat sidebar overhaul — one warm accent family
+  // for section chrome, rose/ember for lust, one supporting cool tone for the
+  // Journal/Memory cluster). Every former raw hex in the sidebar files maps to
+  // exactly one token below; all have deliberate light variants.
+  // ---------------------------------------------------------------------------
+
+  /// 🎭 Character State section accent (warm terracotta).
+  static const Color porchTerracotta = Color(0xFFE29578);
+  static const Color porchTerracottaLight = Color(0xFF9C4B2F);
+  static Color porchTerracottaOf(BuildContext context) =>
+      resolve(context, porchTerracotta, porchTerracottaLight);
+
+  /// 🎲 Story Tools section accent (warm honey).
+  static const Color porchHoney = Color(0xFFE9C46A);
+  static const Color porchHoneyLight = Color(0xFF8F6400);
+  static Color porchHoneyOf(BuildContext context) =>
+      resolve(context, porchHoney, porchHoneyLight);
+
+  /// Generic warm accent for buttons/badges in the sidebar family.
+  static const Color porchAmber = Color(0xFFF4A259);
+  static const Color porchAmberLight = Color(0xFFB45309);
+  static Color porchAmberOf(BuildContext context) =>
+      resolve(context, porchAmber, porchAmberLight);
+
+  /// 📖 Journal & Memory section accent — the recap, RAG, and evolution
+  /// controls share this single supporting cool tone ("porch sage").
+  static const Color journalAccent = Color(0xFF4DB6AC);
+  static const Color journalAccentLight = Color(0xFF00796B);
+  static Color journalAccentOf(BuildContext context) =>
+      resolve(context, journalAccent, journalAccentLight);
+
+  /// Lust bar / spicy toggles / NSFW headers (warm rose).
+  static const Color lustAccent = Color(0xFFFB7185);
+  static const Color lustAccentLight = Color(0xFFBE123C);
+  static Color lustAccentOf(BuildContext context) =>
+      resolve(context, lustAccent, lustAccentLight);
+
+  /// Lust "fire" state (arousal tier >= 6).
+  static const Color lustDeep = Color(0xFFF43F5E);
+  static const Color lustDeepLight = Color(0xFF9F1239);
+  static Color lustDeepOf(BuildContext context) =>
+      resolve(context, lustDeep, lustDeepLight);
+
+  /// Negative arousal / refractory chill.
+  static const Color frostAccent = Color(0xFF38BDF8);
+  static const Color frostAccentLight = Color(0xFF1D4ED8);
+  static Color frostAccentOf(BuildContext context) =>
+      resolve(context, frostAccent, frostAccentLight);
+
+  /// Chaos Mode gold (switch, spin button).
+  static const Color chaosAccent = Color(0xFFFFD166);
+  static const Color chaosAccentLight = Color(0xFF9A6B15);
+  static Color chaosAccentOf(BuildContext context) =>
+      resolve(context, chaosAccent, chaosAccentLight);
+
+  /// Spin-button gradient second stop.
+  static const Color chaosAccentDim = Color(0xFFFFC233);
+  static const Color chaosAccentDimLight = Color(0xFFB8860B);
+  static Color chaosAccentDimOf(BuildContext context) =>
+      resolve(context, chaosAccentDim, chaosAccentDimLight);
+
+  /// Text/icon color on the chaos gold button (both modes).
+  static const Color onChaosAccent = Color(0xFF1A1200);
+
+  /// Chaos pressure-lerp start (calm) and end (hot).
+  static const Color chaosCalm = Color(0xFF2EC4B6);
+  static const Color chaosCalmLight = Color(0xFF0F766E);
+  static Color chaosCalmOf(BuildContext context) =>
+      resolve(context, chaosCalm, chaosCalmLight);
+  static const Color chaosHot = Color(0xFFE63946);
+  static const Color chaosHotLight = Color(0xFFB3261E);
+  static Color chaosHotOf(BuildContext context) =>
+      resolve(context, chaosHot, chaosHotLight);
+
+  /// Positive trust bar/icon accent.
+  static const Color trustAccent = Color(0xFFFFB300);
+  static const Color trustAccentLight = Color(0xFFB45309);
+  static Color trustAccentOf(BuildContext context) =>
+      resolve(context, trustAccent, trustAccentLight);
+
+  /// Negative trust/bond, critical needs, destructive hints.
+  static const Color negativeAccent = Color(0xFFEF5350);
+  static const Color negativeAccentLight = Color(0xFFD32F2F);
+  static Color negativeAccentOf(BuildContext context) =>
+      resolve(context, negativeAccent, negativeAccentLight);
+
+  /// Fixation chip/banner purple (engine identity).
+  static const Color fixationAccent = Color(0xFFE040FB);
+  static const Color fixationAccentLight = Color(0xFF7B1FA2);
+  static Color fixationAccentOf(BuildContext context) =>
+      resolve(context, fixationAccent, fixationAccentLight);
+
+  /// Inset wells (settings panels, sunken sub-surfaces). Light = warm paper.
+  static const Color sunkenSurface = Color(0xFF111827);
+  static const Color sunkenSurfaceLight = Color(0xFFE9E2D8);
+  static Color sunkenSurfaceOf(BuildContext context) =>
+      resolve(context, sunkenSurface, sunkenSurfaceLight);
+
+  /// Read-only text wells (deepest inset, e.g. evolution "original" text).
+  static const Color deepWell = Color(0xFF0D1117);
+  static const Color deepWellLight = Color(0xFFF0EBE3);
+  static Color deepWellOf(BuildContext context) =>
+      resolve(context, deepWell, deepWellLight);
 }

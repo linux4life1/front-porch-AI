@@ -16,15 +16,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
-import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/models/chat_generation_settings.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/slider_with_input.dart';
 
 class ChatSettingsDialog extends StatefulWidget {
@@ -39,8 +38,6 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
   late final TextEditingController _bannedPhrasesController;
   late ChatGenerationSettings _gen;
   bool _initialised = false;
-  List<RemoteModelInfo> _omlxModels = [];
-  bool _isFetchingOmLxModels = false;
 
   @override
   void didChangeDependencies() {
@@ -175,13 +172,16 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Reasoning toggle (only for Remote API)
-                    if (isRemote) ...[
+                    // Reasoning toggle — all backends. KoboldCpp honors
+                    // thinking too now (native chat_template_kwargs +
+                    // reasoning_effort in openai_chat_stream.dart), so this is
+                    // no longer remote-only.
+                    ...[
                       const Text(
                         'Reasoning',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.blueAccent,
+                          color: AppColors.formMasterAccent,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -198,7 +198,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                               setState(() => _gen.reasoningEnabled = val);
                               _save();
                             },
-                            activeTrackColor: Colors.blueAccent,
+                            activeTrackColor: AppColors.formMasterAccent,
                           ),
                         ],
                       ),
@@ -269,133 +269,14 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                       const SizedBox(height: 8),
                     ],
 
-                    // oMLX Model Selection (macOS only)
-                    if (Platform.isMacOS &&
-                        llmProvider.activeBackend == BackendType.omlx) ...[
-                      const Text(
-                        'oMLX Model',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blueAccent,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _omlxModels.isEmpty
-                                ? Text(
-                                    'No models loaded',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      fontSize: 12,
-                                    ),
-                                  )
-                                : Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF374151),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        value:
-                                            _gen.remoteModelName ??
-                                            storage.remoteModelName,
-                                        dropdownColor: const Color(0xFF374151),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                        ),
-                                        isExpanded: true,
-                                        items: _omlxModels
-                                            .map(
-                                              (m) => DropdownMenuItem(
-                                                value: m.id,
-                                                child: Text(m.id),
-                                              ),
-                                            )
-                                            .toList(),
-                                        onChanged: (val) {
-                                          if (val != null) {
-                                            setState(
-                                              () => _gen.remoteModelName = val,
-                                            );
-                                            _save();
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: _isFetchingOmLxModels
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.refresh,
-                                    size: 20,
-                                    color: Colors.white70,
-                                  ),
-                            onPressed: _isFetchingOmLxModels
-                                ? null
-                                : () async {
-                                    setState(
-                                      () => _isFetchingOmLxModels = true,
-                                    );
-                                    final openRouter =
-                                        Provider.of<OpenRouterService>(
-                                          context,
-                                          listen: false,
-                                        );
-                                    openRouter.configure(
-                                      apiUrl: 'http://localhost:8000/v1',
-                                      apiKey: storage.remoteApiKey,
-                                    );
-                                    final models = await openRouter
-                                        .fetchAvailableModels();
-                                    if (mounted) {
-                                      setState(() {
-                                        _omlxModels = models;
-                                        _isFetchingOmLxModels = false;
-                                      });
-                                    }
-                                  },
-                            tooltip: 'Fetch models from oMLX',
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          'Select a model loaded in oMLX. Fetch models if the list is empty.',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Divider(color: Colors.white10),
-                      const SizedBox(height: 8),
-                    ],
+
 
                     // Generation
                     const Text(
                       'Generation',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent,
+                        color: AppColors.formMasterAccent,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -428,6 +309,35 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                       },
                     ),
                     SliderWithInput(
+                      label: 'Top-P',
+                      value: _gen.resolveTopP(storage),
+                      min: 0.1,
+                      max: 1.0,
+                      divisions: 90,
+                      tooltip:
+                          'Keeps only the most probable words up to this cumulative probability. 1.0 = off (let Min-P do the filtering). 0.9 is the classic default.',
+                      context: context,
+                      onChanged: (val) {
+                        setState(() => _gen.topP = val);
+                        _save();
+                      },
+                    ),
+                    SliderWithInput(
+                      label: 'Top-K',
+                      value: _gen.resolveTopK(storage).toDouble(),
+                      min: 0,
+                      max: 200,
+                      divisions: 200,
+                      isInteger: true,
+                      tooltip:
+                          'Limits choices to the K most likely words. 0 = off. 40–100 are typical values when used.',
+                      context: context,
+                      onChanged: (val) {
+                        setState(() => _gen.topK = val.toInt());
+                        _save();
+                      },
+                    ),
+                    SliderWithInput(
                       label: 'Repeat Penalty',
                       value: _gen.resolveRepeatPenalty(storage),
                       min: 1.0,
@@ -447,8 +357,8 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                           .resolveRepeatPenaltyTokens(storage)
                           .toDouble(),
                       min: 0,
-                      max: 512,
-                      divisions: 512,
+                      max: 2048,
+                      divisions: 256,
                       isInteger: true,
                       tooltip:
                           'How far back the AI checks for repetition (in tokens). Higher = checks more of the conversation history.',
@@ -458,34 +368,54 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                         _save();
                       },
                     ),
-                    SliderWithInput(
-                      label: 'XTC Threshold',
-                      value: _gen.resolveXtcThreshold(storage),
-                      min: 0.0,
-                      max: 0.5,
-                      divisions: 50,
-                      tooltip:
-                          'Exclude Top Choices — removes the most obvious/cliché word choices. Lower = stronger effect. Try 0.1 for more creative writing.',
-                      context: context,
-                      onChanged: (val) {
-                        setState(() => _gen.xtcThreshold = val);
-                        _save();
-                      },
-                    ),
-                    SliderWithInput(
-                      label: 'XTC Probability',
-                      value: _gen.resolveXtcProbability(storage),
-                      min: 0.0,
-                      max: 1.0,
-                      divisions: 20,
-                      tooltip:
-                          'How often XTC activates. 0 = never, 1 = always. Try 0.5 for a balance between creativity and coherence.',
-                      context: context,
-                      onChanged: (val) {
-                        setState(() => _gen.xtcProbability = val);
-                        _save();
-                      },
-                    ),
+                    // XTC and DRY are llama.cpp samplers — only the
+                    // KoboldCpp backend honors them, so they are hidden
+                    // (not just annotated) on oMLX/remote (maintainer
+                    // request 2026-07-15).
+                    if (llmProvider.activeBackend == BackendType.kobold) ...[
+                      SliderWithInput(
+                        label: 'XTC Threshold',
+                        value: _gen.resolveXtcThreshold(storage),
+                        min: 0.0,
+                        max: 0.5,
+                        divisions: 50,
+                        tooltip:
+                            'Exclude Top Choices — removes the most obvious/cliché word choices. Lower = stronger effect. Try 0.1 for more creative writing.',
+                        context: context,
+                        onChanged: (val) {
+                          setState(() => _gen.xtcThreshold = val);
+                          _save();
+                        },
+                      ),
+                      SliderWithInput(
+                        label: 'XTC Probability',
+                        value: _gen.resolveXtcProbability(storage),
+                        min: 0.0,
+                        max: 1.0,
+                        divisions: 20,
+                        tooltip:
+                            'How often XTC activates. 0 = never, 1 = always. Try 0.5 for a balance between creativity and coherence.',
+                        context: context,
+                        onChanged: (val) {
+                          setState(() => _gen.xtcProbability = val);
+                          _save();
+                        },
+                      ),
+                      SliderWithInput(
+                        label: 'DRY Strength',
+                        value: _gen.resolveDryMultiplier(storage),
+                        min: 0.0,
+                        max: 3.0,
+                        divisions: 60,
+                        tooltip:
+                            'DRY ("Don\'t Repeat Yourself") — the modern anti-repetition sampler; catches repeated phrases, not just words. 0 = off, 0.8 is the usual dose.',
+                        context: context,
+                        onChanged: (val) {
+                          setState(() => _gen.dryMultiplier = val);
+                          _save();
+                        },
+                      ),
+                    ],
                     SliderWithInput(
                       label: 'Max Output Tokens',
                       value: _gen.resolveMaxLength(storage).toDouble(),
@@ -578,7 +508,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                             setState(() => _gen.dynamicTempEnabled = val);
                             _save();
                           },
-                          activeTrackColor: Colors.blueAccent,
+                          activeTrackColor: AppColors.formMasterAccent,
                         ),
                       ],
                     ),
@@ -603,7 +533,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                       'Stop Sequences',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent,
+                        color: AppColors.formMasterAccent,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -648,7 +578,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                                 IconButton(
                                   icon: const Icon(
                                     Icons.add_circle,
-                                    color: Colors.blueAccent,
+                                    color: AppColors.formMasterAccent,
                                   ),
                                   onPressed: () {
                                     if (_stopSequenceController
@@ -712,7 +642,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                             'Banned Phrases',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.blueAccent,
+                              color: AppColors.formMasterAccent,
                             ),
                           ),
                           const SizedBox(width: 6),

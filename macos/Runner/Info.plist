@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Opt out of Flutter's experimental "merged platform/UI thread" (default ON
+	     in the 3.41.x engine). Left on, the app process launches but the window
+	     never presents on a Finder/dock (LaunchServices) launch — it only renders
+	     via `open`/`flutter run`. The stable separate-thread model renders
+	     reliably in all launch paths. -->
+	<key>FLTEnableMergedPlatformUIThread</key>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>
@@ -30,5 +37,11 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- Shown by macOS 15+ when the built-in web server first serves over the
+	     local network (the "Allow LAN access" / remote-via-Tailscale options).
+	     Loopback-only serving does not trigger the prompt. Without this key the
+	     OS can silently deny local-network access to the companion web/mobile UI. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Front Porch AI uses your local network to serve the companion web and mobile app from your computer when you enable LAN or remote access to the built-in web server.</string>
 </dict>
 </plist>

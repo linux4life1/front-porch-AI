@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 class ExportPersonaDialog extends StatefulWidget {
   final List<UserPersona> personas;
@@ -32,7 +32,8 @@ class _ExportPersonaDialogState extends State<ExportPersonaDialog> {
         ? 'FPAI_personas.json'
         : '${widget.personas.firstWhere((p) => p.id == _selectedPersonaId).name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_')}_FPAIpersona.json';
 
-    String? outputFile = await FilePicker.platform.saveFile(
+    String? outputFile = await PickerPrefs.saveFile(
+      category: PickerPrefs.catExport,
       dialogTitle: 'Export Personas',
       fileName: defaultName,
       type: FileType.custom,

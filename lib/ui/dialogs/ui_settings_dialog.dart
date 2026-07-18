@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'background_settings_dialog.dart';
 
@@ -91,7 +92,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                 'Appearance',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.blueAccent,
+                  color: AppColors.formMasterAccent,
                 ),
               ),
               const SizedBox(height: 12),
@@ -123,7 +124,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                 'Chat Colors',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.blueAccent,
+                  color: AppColors.formMasterAccent,
                 ),
               ),
               const SizedBox(height: 12),
@@ -179,7 +180,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                 'Chat Background',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.blueAccent,
+                  color: AppColors.formMasterAccent,
                 ),
               ),
               const SizedBox(height: 12),
@@ -239,7 +240,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
           onChanged: (val) async {
             _updateAvatarLocked(context, val);
           },
-          activeTrackColor: Colors.blueAccent,
+          activeTrackColor: AppColors.formMasterAccent,
         ),
       ],
     );
@@ -275,7 +276,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
           max: max,
           divisions: divisions,
           onChanged: onChanged,
-          activeColor: Colors.blueAccent,
+          activeColor: AppColors.formMasterAccent,
           inactiveColor: Colors.white24,
         ),
       ],
@@ -380,7 +381,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
                                     color: color == selectedColor
-                                        ? Colors.blueAccent
+                                        ? AppColors.formMasterAccent
                                         : Colors.white24,
                                     width: 2,
                                   ),
@@ -432,8 +433,8 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, selectedColor),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.formMasterAccent,
+                  foregroundColor: AppColors.onChaosAccent,
                 ),
                 child: const Text('OK'),
               ),

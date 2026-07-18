@@ -20,8 +20,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Prominent mode explanation card (per Stage 3 spec).
-/// Especially highlights the distillation contract for From Last Message.
+/// Prominent subject explanation card. Describes the currently selected
+/// Image Studio subject (Freeform / Character / Persona).
 class ModeInfoCard extends StatelessWidget {
   final ImageGenMode mode;
 
@@ -80,24 +80,14 @@ class ModeInfoCard extends StatelessWidget {
           'Character Portrait',
           'Tight visual close-up using only the character\'s appearance description and current expression from the card. No personality or backstory leaks into the image.',
         );
-      case ImageGenMode.chatBackground:
-        return (
-          'Chat Background',
-          'Wide panoramic environment/setting only. The prompt and negative explicitly exclude all people, characters, figures, and humans.',
-        );
-      case ImageGenMode.visualizeScene:
-        return (
-          'Visualize Scene',
-          'Current visual composition of the ongoing scene distilled from recent narrative: who is present, actions, clothing, spatial relations, lighting, and mood.',
-        );
       case ImageGenMode.customPrompt:
         return (
-          'Custom Prompt',
-          'Direct prompt you provide. Style is still enforced at the end for consistency.',
+          'Freeform',
+          'Describe anything you like — the prompt is fully yours. Leave it blank and tap Craft to picture the current scene from the recent chat. Style is enforced at the end for consistency.',
         );
       case ImageGenMode.userAvatar:
         return (
-          'User Avatar',
+          'Your Persona',
           'Portrait of your persona using the appearance description you provided. Close-up, expressive, high-quality rendering.',
         );
     }

@@ -9,7 +9,7 @@
 // (at your option) any later version.
 //
 // Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// but WITHOUT ANY WARRANTY, without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 //
@@ -24,6 +24,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/story_pipeline_service.dart';
 import 'package:front_porch_ai/models/story_project.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/ai_engine_status_card.dart';
 
 /// Writer page — beat-by-beat prose view with draft/edit/regenerate controls.
 class StoryWriterPage extends StatefulWidget {
@@ -70,7 +72,7 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
         final beats = project.beats[_sId] ?? [];
 
         return Scaffold(
-          backgroundColor: const Color(0xFF0F172A),
+          backgroundColor: AppColors.backgroundOf(context),
           appBar: AppBar(
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,13 +82,13 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                   'Act ${widget.actIndex + 1}, Scene ${widget.sceneIndex + 1} • ${scene.location}',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: AppColors.textTertiary(context),
                   ),
                 ),
               ],
             ),
-            backgroundColor: const Color(0xFF1E293B),
-            foregroundColor: Colors.white,
+            backgroundColor: AppColors.cardOf(context),
+            foregroundColor: AppColors.textPrimary(context),
             elevation: 0,
             actions: [
               if (beats.isEmpty)
@@ -94,14 +96,14 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                   onPressed: pipeline.isRunning
                       ? null
                       : () => _generateBeats(project, pipeline),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.auto_fix_high,
                     size: 16,
-                    color: Colors.amber,
+                    color: AppColors.porchHoneyOf(context),
                   ),
-                  label: const Text(
+                  label: Text(
                     'Generate Beats',
-                    style: TextStyle(color: Colors.amber),
+                    style: TextStyle(color: AppColors.porchHoneyOf(context)),
                   ),
                 ),
               if (beats.isNotEmpty)
@@ -109,19 +111,22 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                   onPressed: pipeline.isRunning
                       ? null
                       : () => _autoWriteScene(project, pipeline),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.play_arrow,
                     size: 16,
-                    color: Colors.greenAccent,
+                    color: AppColors.bondHighOf(context),
                   ),
-                  label: const Text(
+                  label: Text(
                     'Auto-Write',
-                    style: TextStyle(color: Colors.greenAccent),
+                    style: TextStyle(color: AppColors.bondHighOf(context)),
                   ),
                 ),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: Colors.white54),
-                color: const Color(0xFF1E293B),
+                icon: Icon(
+                  Icons.more_vert,
+                  color: AppColors.iconSecondary(context),
+                ),
+                color: AppColors.surfaceContainerOf(context),
                 onSelected: (v) => _handleMenuAction(v, project, pipeline),
                 itemBuilder: (_) => [
                   const PopupMenuItem(
@@ -163,16 +168,19 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(
+          SizedBox(
             width: 48,
             height: 48,
-            child: CircularProgressIndicator(strokeWidth: 3),
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: AppColors.porchHoneyOf(context),
+            ),
           ),
           const SizedBox(height: 24),
           Text(
             pipeline.currentStep,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -180,7 +188,10 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
           const SizedBox(height: 8),
           Text(
             pipeline.statusMessage,
-            style: const TextStyle(color: Colors.white54, fontSize: 14),
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -200,17 +211,23 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
             Icon(
               Icons.view_timeline,
               size: 64,
-              color: Colors.white.withValues(alpha: 0.15),
+              color: AppColors.porchHoneyOf(context).withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No beats yet',
-              style: TextStyle(color: Colors.white38, fontSize: 16),
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 16,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Generate beats to break this scene into narrative units',
-              style: TextStyle(color: Colors.white24, fontSize: 13),
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 13,
+              ),
             ),
           ],
         ),
@@ -237,14 +254,14 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
     final hasProse = prose?.final_ != null;
 
     return Card(
-      color: const Color(0xFF1E293B),
+      color: AppColors.cardOf(context),
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: hasProse
-              ? Colors.green.withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.05),
+              ? AppColors.bondHighOf(context).withValues(alpha: 0.25)
+              : AppColors.borderOf(context).withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -277,8 +294,8 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                 Expanded(
                   child: Text(
                     'Beat ${idx + 1}',
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: AppColors.textSecondary(context),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -290,16 +307,17 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                       ? Icons.speed
                       : (beat.pacing == 2 ? Icons.flash_on : Icons.balance),
                   size: 16,
-                  color: Colors.white24,
+                  color: AppColors.iconSecondary(context),
                 ),
                 const SizedBox(width: 8),
                 // Valence
                 Text(
                   beat.valence > 0 ? '+${beat.valence}' : '${beat.valence}',
                   style: TextStyle(
-                    color: beat.valence > 0
-                        ? Colors.greenAccent.withValues(alpha: 0.6)
-                        : Colors.redAccent.withValues(alpha: 0.6),
+                    color: (beat.valence > 0
+                            ? AppColors.bondHighOf(context)
+                            : AppColors.negativeAccentOf(context))
+                        .withValues(alpha: 0.7),
                     fontSize: 12,
                   ),
                 ),
@@ -312,7 +330,7 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
             child: Text(
               beat.description,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
+                color: AppColors.textTertiary(context),
                 fontSize: 12,
                 height: 1.4,
               ),
@@ -327,13 +345,13 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
+                  color: AppColors.sunkenSurfaceOf(context),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: SelectableText(
                   prose!.final_!,
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: AppColors.textSecondary(context),
                     fontSize: 14,
                     height: 1.7,
                     fontFamily: 'serif',
@@ -356,7 +374,7 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                     icon: const Icon(Icons.edit, size: 14),
                     label: const Text('Write', style: TextStyle(fontSize: 12)),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.amber.shade600,
+                      foregroundColor: AppColors.porchHoneyOf(context),
                     ),
                   ),
                 if (hasProse) ...[
@@ -370,7 +388,7 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                       style: TextStyle(fontSize: 12),
                     ),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.white38,
+                      foregroundColor: AppColors.textTertiary(context),
                     ),
                   ),
                   TextButton.icon(
@@ -386,7 +404,7 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                     icon: const Icon(Icons.copy, size: 14),
                     label: const Text('Copy', style: TextStyle(fontSize: 12)),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.white38,
+                      foregroundColor: AppColors.textTertiary(context),
                     ),
                   ),
                 ],
@@ -401,17 +419,17 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
   Color _beatTypeColor(String type) {
     switch (type.toLowerCase()) {
       case 'action':
-        return Colors.redAccent;
+        return AppColors.negativeAccentOf(context);
       case 'reaction':
-        return Colors.blueAccent;
+        return AppColors.frostAccentOf(context);
       case 'dialogue':
-        return Colors.amberAccent;
+        return AppColors.porchHoneyOf(context);
       case 'revelation':
-        return Colors.purpleAccent;
+        return AppColors.fixationAccentOf(context);
       case 'resolution':
-        return Colors.greenAccent;
+        return AppColors.bondHighOf(context);
       default:
-        return Colors.white54;
+        return AppColors.textTertiary(context);
     }
   }
 
@@ -427,14 +445,7 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
       );
       if (mounted) setState(() {});
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red.shade800,
-          ),
-        );
-      }
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
@@ -452,14 +463,7 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
       );
       if (mounted) setState(() {});
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red.shade800,
-          ),
-        );
-      }
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
@@ -476,21 +480,14 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
       if (mounted) {
         setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Scene complete!'),
-            backgroundColor: Color(0xFF2A2A2A),
+          SnackBar(
+            content: const Text('Scene complete!'),
+            backgroundColor: AppColors.surfaceContainerOf(context),
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red.shade800,
-          ),
-        );
-      }
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
@@ -544,19 +541,12 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Exported to ${file.path}'),
-            backgroundColor: const Color(0xFF2A2A2A),
+            backgroundColor: AppColors.surfaceContainerOf(context),
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export error: $e'),
-            backgroundColor: Colors.red.shade800,
-          ),
-        );
-      }
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 }

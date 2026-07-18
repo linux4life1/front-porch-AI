@@ -18,6 +18,10 @@
 
 import 'package:flutter/foundation.dart';
 
+import 'package:front_porch_ai/services/chat/pass_support.dart';
+import 'package:front_porch_ai/services/chat/realism_tools.dart';
+import 'package:front_porch_ai/services/llm_service.dart' show LlmToolResponse;
+
 /// Plain (non-ChangeNotifier) domain service owning the chat-scoped passage-of-time
 /// state machine: deterministic 6-turn clock, automatic LLM-vetoable advances
 /// (hold_time / new_day / posture side-effect), manual nudge (chevrons), OOC
@@ -51,10 +55,11 @@ import 'package:flutter/foundation.dart';
 ///   stays thin in god.
 /// - Pre-turn time advance (the LLM hold eval inside physical) is delegated
 ///   via evaluateTimeProgressAndPostureIfNeeded (called from existing
-///   _evaluatePhysicalStateCall); no new private methods added to god.
-///   (Time clock tick/hold/new_day only in normal physical path; oneShot paths
-///   bypass to posture + log only per pre-extract design + strict One-shot vs
-///   Normal Path Parity contract for time deltas.)
+///   _evaluatePhysicalStateCall, and from the one-shot eval with
+///   oneShotMode: true — clock tick + hold/new_day eval only, posture rides
+///   the fused JSON; this keeps the One-shot vs Normal Path Parity contract
+///   for time deltas, which the old posture-only bypass silently broke by
+///   never ticking the clock).
 /// - Capture/restore sites, drift save sites, and the ~10 "keep reset blocks
 ///   in sync" sites call service helpers (reset/seed/load/restore) + tightened
 ///   comments now list /time alongside needs/chaos/relationship/expression.
@@ -70,7 +75,9 @@ import 'package:flutter/foundation.dart';
 /// time injection only thin wrapper here; full builders in step 8.
 /// OOC feeding realism cross only manual + integrations.
 /// aug exercising only passive/qualified (resets hit by pre-existing startNew/setActive etc).
-/// oneShot vs normal time parity: advance/hold only in normal physical (oneShot posture+log; dispatch preserved).
+/// oneShot vs normal time parity: both paths tick the clock and run the
+/// hold/new_day eval when an advance is due (oneShotMode skips only the
+/// posture-only calls — posture rides the fused one-shot JSON).
 class TimeService {
   final VoidCallback onNotify;
   final Future<void> Function() onSaveChat;
@@ -98,12 +105,51 @@ class TimeService {
   /// 6 turns ≈ a meaningful scene chunk without forcing constant time-skips.
   static const int turnsPerTimePeriod = 6;
 
+  // Tools transport for the scene-time/posture evals (nullable — tests and
+  // any host without the tools door stay on the text path; the god wires the
+  // same shared probe/door the other structured evals use).
+  final Future<LlmToolResponse?> Function(
+    String prompt,
+    List<Map<String, dynamic>> tools,
+  )?
+  fireToolEval;
+  final ToolTransportProbe? probe;
+  final String Function()? getBackendIdentity;
+
   TimeService({
     required this.onNotify,
     required this.onSaveChat,
     required this.onSetPendingRealismMetadata,
     required this.onNudgePatchLastMessageRealismState,
+    this.fireToolEval,
+    this.probe,
+    this.getBackendIdentity,
   });
+
+  /// Fire one scene-time/posture eval through the shared tools-vs-text
+  /// negotiation (or straight text when the tools door isn't wired).
+  Future<String?> _fireSceneTimeEval(
+    String Function({required bool toolsMode}) buildPrompt, {
+    required Future<String?> Function(
+      String prompt, {
+      void Function(String)? onChunk,
+    })
+    fireLLMEval,
+    void Function(String)? onChunk,
+  }) => fireToolEval != null && probe != null
+      ? fireStructuredEval(
+          probe: probe!,
+          backendIdentity: getBackendIdentity?.call() ?? '',
+          debugLabel: kSceneTimeTool,
+          tools: kSceneTimeEvalTools,
+          buildPrompt: buildPrompt,
+          callToText: (resp) =>
+              realismToolCallToJson(kSceneTimeTool, resp.calls),
+          fireToolEval: fireToolEval!,
+          fireTextEval: fireLLMEval,
+          onChunk: onChunk,
+        )
+      : fireLLMEval(buildPrompt(toolsMode: false), onChunk: onChunk);
 
   // ── Public surface (for @Deprecated shims in ChatService + direct test/UI callers) ──────
 
@@ -213,12 +259,17 @@ class TimeService {
     }
   }
 
-  // For _restoreRealismStateFromMessage (and similar state replay).
+  // For _restoreRealismStateFromMessage + 1:1<->group conversion carry.
   void restoreTimeFromRealismState(Map<String, dynamic> state) {
-    if (_passageOfTimeEnabled) {
-      _timeOfDay = state['timeOfDay'] as String? ?? _timeOfDay;
-      _dayCount = state['dayCount'] as int? ?? _dayCount;
-    }
+    // Restore the scene time REGARDLESS of passage-of-time. A fixed time-of-day
+    // (e.g. "evening, Day 1") is meaningful even with auto-advance OFF, and must
+    // survive 1:1<->group conversion + per-speaker state replay. The old
+    // `if (_passageOfTimeEnabled)` gate — combined with the carry restoring time
+    // BEFORE the passage flag is re-applied — reset a fixed time to the morning/
+    // Day 1 default on conversion. (Auto-advance is a separate behavior; not
+    // restoring here never advances time, it only kept the stale default.)
+    _timeOfDay = state['timeOfDay'] as String? ?? _timeOfDay;
+    _dayCount = state['dayCount'] as int? ?? _dayCount;
     _startDayOfWeek = state['startDayOfWeek'] as int? ?? _startDayOfWeek;
   }
 
@@ -250,6 +301,28 @@ class TimeService {
     _turnsSinceLastTimeAdvance = 0; // reset clock after manual nudge
 
     onNudgePatchLastMessageRealismState(_timeOfDay, _dayCount);
+  }
+
+  /// Advance the clock by [count] time periods (skip LLM eval).
+  /// Used during AFK auto-response mode to simulate hours passing.
+  /// Respects the passageOfTimeEnabled toggle. Rolls over days naturally.
+  void advanceTimePeriods(int count) {
+    if (!_passageOfTimeEnabled) return;
+    if (count <= 0) return;
+
+    const validTimes = [
+      'dawn', 'morning', 'late_morning', 'afternoon', 'evening', 'night',
+    ];
+    int idx = validTimes.indexOf(_timeOfDay);
+    for (int i = 0; i < count; i++) {
+      idx++;
+      if (idx >= validTimes.length) {
+        idx = 0;
+        _dayCount++;
+      }
+    }
+    _timeOfDay = validTimes[idx];
+    _turnsSinceLastTimeAdvance = 0;
   }
 
   // ── OOC Time-Skip Detector ────────────────────────────────────────────────
@@ -409,14 +482,22 @@ class TimeService {
     required String Function() getCurrentSpatialStance,
     required String Function() getCharacterEmotion,
     required String Function() getEmotionIntensity,
+    bool oneShotMode = false,
   }) async {
+    // oneShotMode: called from the fused one-shot eval, whose JSON already
+    // carries posture — so the posture-only LLM paths are skipped and only the
+    // deterministic clock tick + the advance-eligible hold/new_day eval run
+    // (one extra call per [turnsPerTimePeriod] turns). Without this, one-shot
+    // mode never ticked the clock at all and time froze forever — violating
+    // the strict One-shot vs Normal Path Parity contract for Time.
     // ── Time-based evaluation (only if passage of time is enabled) ───────────
     if (!_passageOfTimeEnabled) {
+      if (oneShotMode) return; // posture already set from the fused JSON
       // ── Passage of time disabled — only evaluate posture ───────────────────
       final currentPostureCtx = getCurrentSpatialStance().isNotEmpty
           ? 'Recent position reference: $charName was "${getCurrentSpatialStance()}". '
           : '';
-      final posturePrompt =
+      String buildPosturePrompt({required bool toolsMode}) =>
           '$currentPostureCtx'
           'Current time: $_timeOfDay.\n\n'
           'What is $charName\'s current physical position and stance? Use "none" if unclear.\n'
@@ -425,11 +506,15 @@ class TimeService {
           '- Within the same scene, maintain natural continuity (don\'t jump locations).\n'
           '- Across scene breaks or time jumps, update to the new context.\n\n'
           'Recent conversation:\n$recent\n\n'
-          'Respond with ONLY valid JSON. Do NOT use markdown code blocks — return raw JSON only.\n'
-          'Example: {"posture": "standing by the window"} or {"posture": "none"}';
+          '${toolsMode ? 'Report by calling the $kSceneTimeTool tool (only the "posture" field matters here). Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY valid JSON. Do NOT use markdown code blocks — return raw JSON only.\n'
+                'Example: {"posture": "standing by the window"} or {"posture": "none"}'}';
 
       try {
-        final raw = await fireLLMEval(posturePrompt, onChunk: onChunk);
+        final raw = await _fireSceneTimeEval(
+          buildPosturePrompt,
+          fireLLMEval: fireLLMEval,
+          onChunk: onChunk,
+        );
         if (raw != null) {
           final text = stripThinkBlocks(raw).isNotEmpty
               ? stripThinkBlocks(raw)
@@ -472,7 +557,7 @@ class TimeService {
       final currentPostureCtx = getCurrentSpatialStance().isNotEmpty
           ? 'Recent position reference: $charName was "${getCurrentSpatialStance()}".\n'
           : '';
-      final holdPrompt =
+      String buildHoldPrompt({required bool toolsMode}) =>
           'You are evaluating physical state for $charName.\n\n'
           '$currentPostureCtx'
           'Current time: $_timeOfDay (Day $_dayCount). Time is advancing to the next period.\n'
@@ -485,10 +570,14 @@ class TimeService {
           '   - Maintain continuity only within the SAME scene — do NOT anchor them to a position from a previous scene.\n'
           '   - Avoid sudden jumps without setup, but DO update when the narrative context clearly shifted.\n\n'
           'Recent conversation:\n$recent\n\n'
-          'Respond with ONLY a flat JSON object containing "hold_time", "new_day", and "posture". '
-          'Do NOT use markdown code blocks — return raw JSON only.';
+          '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "hold_time", "new_day", and "posture". Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "hold_time", "new_day", and "posture". '
+                'Do NOT use markdown code blocks — return raw JSON only.'}';
       try {
-        final raw = await fireLLMEval(holdPrompt, onChunk: onChunk);
+        final raw = await _fireSceneTimeEval(
+          buildHoldPrompt,
+          fireLLMEval: fireLLMEval,
+          onChunk: onChunk,
+        );
         if (raw != null) {
           final text = stripThinkBlocks(raw).isNotEmpty
               ? stripThinkBlocks(raw)
@@ -551,6 +640,9 @@ class TimeService {
           '[Realism:Time] Eval error, auto-advanced to $_timeOfDay: $e',
         );
       }
+    } else if (oneShotMode) {
+      // Not yet eligible — the fused one-shot JSON already set posture; the
+      // clock tick above is all this turn needs. No extra LLM call.
     } else {
       // Not yet eligible — grab posture only
       final emotionCtx = getCharacterEmotion().isNotEmpty

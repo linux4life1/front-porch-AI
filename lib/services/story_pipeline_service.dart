@@ -22,6 +22,7 @@ import 'package:front_porch_ai/models/story_project.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
+import 'package:front_porch_ai/services/story_stage_params.dart';
 import 'package:front_porch_ai/database/database.dart' hide StoryProject;
 
 /// Orchestrates the multi-agent AI novel-writing pipeline for Porch Stories.
@@ -682,11 +683,26 @@ ${_jsonInstruction(tier)}''';
   // ── PIPELINE STAGES ─────────────────────────────────────────────────
 
   /// Call the LLM and get a text response. Streams tokens to _streamingText for UI.
+  ///
+  /// Every story stage funnels through here, so this is also where backend
+  /// availability is enforced: the story pages and the web client surface
+  /// pipeline errors verbatim, and a raw SocketException ("The remote computer
+  /// refused the network connection" on Windows) tells users nothing. Guard
+  /// up-front and translate connection failures into a plain-language
+  /// [LlmUnavailableException] instead.
   Future<String> _callLLM(
     String prompt, {
     int maxLength = 4096,
-    double temp = 0.8,
+    StoryStageParams stage = StoryStageParams.planning,
   }) async {
+    if (!_llmService.isReady) {
+      throw LlmUnavailableException(
+        'The AI backend (${_llmService.backendName}) isn\'t ready. Stories '
+        'use the same AI engine as chat — start it and load a model in '
+        'Settings (or set up your remote API), then try again.',
+      );
+    }
+
     // Prepend an anti-thinking instruction for reasoning models
     final fullPrompt =
         'Do NOT use <think> tags or chain-of-thought reasoning. Respond directly.\n\n$prompt';
@@ -694,10 +710,10 @@ ${_jsonInstruction(tier)}''';
     final params = GenerationParams(
       prompt: fullPrompt,
       maxLength: maxLength,
-      temperature: temp,
-      topP: 0.9,
-      minP: 0.05,
-      repeatPenalty: 1.1,
+      temperature: stage.temperature,
+      topP: stage.topP,
+      minP: stage.minP,
+      repeatPenalty: stage.repeatPenalty,
     );
 
     _streamingText = '';
@@ -706,16 +722,28 @@ ${_jsonInstruction(tier)}''';
 
     final buffer = StringBuffer();
     int notifyCounter = 0;
-    await for (final token in _llmService.generateStream(params)) {
-      buffer.write(token);
-      _streamingText = buffer.toString();
-      _tokenCount++;
-      notifyCounter++;
-      // Throttle UI updates to every 3 tokens to avoid jank
-      if (notifyCounter >= 3) {
-        notifyCounter = 0;
-        notifyListeners();
+    try {
+      await for (final token in _llmService.generateStream(params)) {
+        buffer.write(token);
+        _streamingText = buffer.toString();
+        _tokenCount++;
+        notifyCounter++;
+        // Throttle UI updates to every 3 tokens to avoid jank
+        if (notifyCounter >= 3) {
+          notifyCounter = 0;
+          notifyListeners();
+        }
       }
+    } catch (e) {
+      if (looksLikeBackendUnreachable(e)) {
+        throw LlmUnavailableException(
+          'Couldn\'t reach the AI backend (${_llmService.backendName}) — '
+          'nothing answered at its address, or it stopped responding '
+          'mid-generation. Make sure the engine is running with a model '
+          'loaded (stories use the same AI backend as chat), then try again.',
+        );
+      }
+      rethrow;
     }
     // Final update
     _streamingText = buffer.toString();
@@ -881,7 +909,11 @@ $chunkText
 
 Extract the timeline now. Output ONLY the timeline entries, nothing else.''';
 
-        final response = await _callLLM(prompt, maxLength: 4096, temp: 0.3);
+        final response = await _callLLM(
+          prompt,
+          maxLength: 4096,
+          stage: StoryStageParams.distill,
+        );
         final cleaned = _stripThinkTags(response).trim();
         if (cleaned.isNotEmpty) {
           chunkTimelines.add(cleaned);
@@ -907,7 +939,7 @@ Output the merged, deduplicated, chronologically ordered timeline. Output ONLY t
         final mergeResponse = await _callLLM(
           mergePrompt,
           maxLength: 8192,
-          temp: 0.2,
+          stage: StoryStageParams.distillMerge,
         );
         finalTimeline = _stripThinkTags(mergeResponse).trim();
       } else {
@@ -1008,7 +1040,11 @@ bible. You are encouraged to create additional supporting characters, antagonist
 enrich the world -- but the imported characters must remain central to the narrative.
 ${chatContext.isNotEmpty ? '\nCRITICAL: Chat history is provided above. This is the SOURCE TRUTH for the story. The plot, character arcs, and key events MUST follow what happened in these conversations. The story bible should structure these chat events into a coherent narrative arc -- do NOT invent a completely different plot. You are novelizing what happened, not writing a new story.' : ''}''';
 
-      final response = await _callLLM(prompt, maxLength: 8192);
+      final response = await _callLLM(
+        prompt,
+        maxLength: 8192,
+        stage: StoryStageParams.bible,
+      );
       final json = parseJson(response);
 
       if (json == null) {
@@ -1298,7 +1334,11 @@ ${nextBeat != null ? '## Next Beat Preview (end just before this)\n${nextBeat.de
 
 Write the prose now. Return ONLY the prose text, no commentary.''';
 
-      final draft = await _callLLM(drafterPrompt, maxLength: 1024, temp: 0.85);
+      final draft = await _callLLM(
+        drafterPrompt,
+        maxLength: 1024,
+        stage: StoryStageParams.prose,
+      );
 
       // Store draft
       project.prose[bId] = BeatProse(draft: draft.trim());
@@ -1321,7 +1361,11 @@ ${draft.trim()}
 
 Return ONLY the polished prose text.''';
 
-      final edited = await _callLLM(editorPrompt, maxLength: 1024, temp: 0.6);
+      final edited = await _callLLM(
+        editorPrompt,
+        maxLength: 1024,
+        stage: StoryStageParams.editing,
+      );
       project.prose[bId] = BeatProse(
         draft: draft.trim(),
         final_: edited.trim(),
@@ -1807,7 +1851,7 @@ Output ONLY the prose text for this single beat, nothing else. No labels, no hea
       final response = await _callLLM(
         prompt,
         maxLength: tier == PromptTier.smallLocal ? 4096 : 8192,
-        temp: 0.85,
+        stage: StoryStageParams.prose,
       );
       final cleanedResponse = _stripThinkTags(response).trim();
 

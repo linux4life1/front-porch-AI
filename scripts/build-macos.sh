@@ -19,16 +19,17 @@
 # Fallback: keychain profile "front-porch-ai" (run store-credentials once) or APPLE_ID envs.
 #
 # What it does:
-#   1. flutter build macos --release
+#   1. flutter build macos --release (+ web UI)
 #   2. Rename to FrontPorchAI-Rawhide.app + Plist patch for Rawhide
-#   3. Full ML sidecars (all PyInstaller + embed_server) unless --fast
-#   4. xattr clean + robust codesign (handles Python.framework from dt_grpc etc.)
+#   3. Bundle libfpzip (the only native helper file left — the sidecar
+#      retirement is complete; everything runs in-process, no subprocesses)
+#   4. xattr clean + codesign (hardened runtime, Developer ID)
 #   5. Bare pkgbuild .pkg (installs the app to /Applications)
 #   6. Notarize + staple the .pkg (using API key if set)
 #   7. Diagnostics + verification steps
 #
 # Usage:
-#   ./scripts/build-macos.sh            # full (sidecars + sign + bare .pkg + notarize + unsigned shim DMG)
+#   ./scripts/build-macos.sh            # full (build + sign + bare .pkg + notarize + unsigned shim DMG)
 #   ./scripts/build-macos.sh --fast
 #   ./scripts/build-macos.sh --full-notarize
 #   ./scripts/build-macos.sh --skip-shim   # independent; --skip-pkg does not force it
@@ -40,14 +41,13 @@
 # the .dmg->.pkg transition.
 # Note: --skip-shim is now independent of --skip-pkg (the .app bundle from a prior
 # full or --fast run is sufficient for shim production).
-# The app ends up with all sidecars in the correct bundle locations.
 
 set -euo pipefail
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Argument parsing (simple, no getopts for maximum portability)
 # ─────────────────────────────────────────────────────────────────────────────
-DO_ML=1          # full sidecars by default — user wants the complete app
+DO_ML=1          # full app build (Flutter + web UI) by default
 SKIP_SIGN=0
 SKIP_PKG=0
 SKIP_SHIM=0
@@ -77,7 +77,7 @@ for arg in "$@"; do
 done
 
 if [ "$DO_ML" -eq 0 ]; then
-  echo "==> --fast requested: will reuse existing sidecars for quick sign/PKG/staple iteration"
+  echo "==> --fast requested: will reuse the existing bundle for quick sign/PKG/staple iteration"
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -89,7 +89,7 @@ APP_NAME="FrontPorchAI-Rawhide.app"
 APP_BUNDLE="$ROOT/build/macos/Build/Products/Release/$APP_NAME"
 PKG_PATH=""
 SHIM_DMG_PATH=""
-EMBED_SRC="$ROOT/tools/embed_server"
+
 
 if [ "$DO_ML" -eq 1 ]; then
   echo "======================================================================"
@@ -102,12 +102,15 @@ if [ "$DO_ML" -eq 1 ]; then
   echo "==> Installing Flutter dependencies..."
   flutter pub get
 
-  echo "==> Building embedding server (Rust)..."
-  if ! command -v cargo &>/dev/null; then
-    echo "Error: Rust toolchain not found. Install it from https://rustup.rs/"
-    exit 1
+  # Build the rewritten React PWA (web_ui/) into assets/web_app so Flutter
+  # bundles a fresh web UI. Skipped gracefully if npm/web_ui is absent (e.g. the
+  # legacy web server is still the default until the parity cutover).
+  if [ -d "$ROOT/web_ui" ] && command -v npm &>/dev/null; then
+    echo "==> Building web UI (React + Vite) into assets/web_app..."
+    ( cd "$ROOT/web_ui" && npm ci && npm run build )
+  else
+    echo "==> Skipping web UI build (web_ui/ or npm not present)."
   fi
-  cargo build --release --manifest-path "$EMBED_SRC/Cargo.toml"
 
   echo "==> Building macOS app (release)..."
   flutter build macos --release
@@ -129,23 +132,16 @@ if [ "$DO_ML" -eq 1 ]; then
   cd "$ROOT"
   APP_BUNDLE="$ROOT/build/macos/Build/Products/Release/$APP_NAME"
 
-  # Embed the Rust server early (it is small)
-  echo "==> Bundling embed_server..."
-  EMBED_DEST="$APP_BUNDLE/Contents/Resources/embed_server"
-  mkdir -p "$EMBED_DEST"
-  cp "$EMBED_SRC/target/release/embed_server" "$EMBED_DEST/" || true
-  chmod +x "$EMBED_DEST/embed_server" 2>/dev/null || true
-
 else
   # ── FAST MODE ──────────────────────────────────────────────────────────────
-  # Skip flutter pub get, cargo build, flutter build, rename, and embed_server.
-  # Work with the existing bundle that already has all sidecars embedded from the
-  # last full build. This is the correct iteration loop for sign/PKG/notarize.
+  # Skip flutter pub get, flutter build, and the rename.
+  # Work with the existing bundle from the last full build. This is the
+  # correct iteration loop for sign/PKG/notarize.
   echo "======================================================================"
-  echo "  FAST MODE — reusing existing bundle (skip Flutter + sidecar build)"
+  echo "  FAST MODE — reusing existing bundle (skip Flutter + helper build)"
   echo "======================================================================"
   echo ""
-  echo "==> --fast: skipping Flutter build, Rust build, and sidecar copy."
+  echo "==> --fast: skipping the Flutter build."
   echo "    Working with existing bundle at:"
   echo "    $APP_BUNDLE"
   echo ""
@@ -155,154 +151,36 @@ else
     echo "Run without --fast first to do a full build."
     exit 1
   fi
-  # Sanity check: a real bundle with sidecars should be >> 100 MB
+  # Sanity check: a real bundle should be >> 100 MB (Flutter app + web UI +
+  # sherpa/ONNX libs).
   BUNDLE_SIZE_MB=$(du -sm "$APP_BUNDLE" 2>/dev/null | awk '{print $1}')
   if [ "${BUNDLE_SIZE_MB:-0}" -lt 100 ]; then
-    echo "WARNING: Bundle is only ${BUNDLE_SIZE_MB}MB — it may be missing sidecars."
-    echo "         Expected 400MB+. Run without --fast to rebuild from scratch."
+    echo "WARNING: Bundle is only ${BUNDLE_SIZE_MB}MB — it may be incomplete."
+    echo "         Run without --fast to rebuild from scratch."
   else
     echo "    Bundle size: ${BUNDLE_SIZE_MB}MB — looks good."
   fi
   echo ""
 fi
 
-if [ "$DO_ML" -eq 1 ]; then
-  echo "==> Building ALL ML sidecars (kokoro, piper, whisper, sentiment, dt_grpc_client)..."
-  echo "    (This is the expensive part — use --fast on subsequent runs for sign/PKG/staple only)"
+# (The sidecar builds that used to run here left with the sidecar
+# retirement — docs/design/sidecar-retirement.md. Everything runs
+# in-process now; the app spawns no helper processes.)
 
-  if ! command -v python3 &>/dev/null && ! command -v python &>/dev/null; then
-    echo "Error: Python 3 is required."
-    exit 1
-  fi
-
-  ML_DEST="$ROOT/build_tmp/ml_engines"
-  rm -rf "$ML_DEST"
-  mkdir -p "$ML_DEST"
-
-  python3 -m pip install --upgrade pip || pip install --upgrade pip
-
-  # Match the packages and flags used in nightly.yml as closely as possible
-  PIP_PKGS="pyinstaller kokoro-onnx soundfile piper_tts pathvalidate faster-whisper numpy onnxruntime transformers huggingface_hub tokenizers ctranslate2 grpcio grpcio-tools flatbuffers fpzip pillow"
-  python3 -m pip install $PIP_PKGS || pip install $PIP_PKGS
-
-  # Kokoro (expanded collect-all like CI)
-  echo "  -> kokoro_tts"
-  pyinstaller kokoro_tts.py \
-    --onedir --name kokoro_tts \
-    --collect-all kokoro_onnx --collect-all soundfile \
-    --collect-all language_tags --collect-all csvw --collect-all segments \
-    --collect-all phonemizer --collect-all espeakng_loader \
-    --hidden-import kokoro_onnx --hidden-import soundfile \
-    --hidden-import numpy --hidden-import onnxruntime \
-    --distpath "$ML_DEST" --workpath ./build_tmp/kokoro --specpath ./build_tmp/kokoro \
-    --clean --exclude-module torch --exclude-module torchvision --exclude-module torchaudio \
-    --noconfirm
-
-  # Piper
-  echo "  -> piper"
-  pyinstaller piper_entry.py \
-    --onedir --name piper \
-    --collect-all piper \
-    --hidden-import piper --hidden-import pathvalidate --hidden-import piper_phonemize \
-    --hidden-import onnxruntime \
-    --distpath "$ML_DEST" --workpath ./build_tmp/piper --specpath ./build_tmp/piper \
-    --clean --exclude-module torch --exclude-module torchvision --exclude-module torchaudio \
-    --noconfirm
-
-  # Whisper STT
-  echo "  -> whisper_stt"
-  pyinstaller whisper_stt.py \
-    --onedir --name whisper_stt \
-    --collect-all faster_whisper \
-    --hidden-import faster_whisper --hidden-import ctranslate2 \
-    --hidden-import huggingface_hub --hidden-import tokenizers \
-    --distpath "$ML_DEST" --workpath ./build_tmp/whisper --specpath ./build_tmp/whisper \
-    --clean --exclude-module torch --exclude-module torchvision --exclude-module torchaudio \
-    --noconfirm
-
-  # Sentiment classifier
-  echo "  -> sentiment_classifier"
-  pyinstaller sentiment_classifier.py \
-    --onedir --name sentiment_classifier \
-    --collect-all transformers --collect-all huggingface_hub \
-    --hidden-import transformers --hidden-import huggingface_hub \
-    --distpath "$ML_DEST" --workpath ./build_tmp/sentiment --specpath ./build_tmp/sentiment \
-    --clean --exclude-module torch --exclude-module torchvision --exclude-module torchaudio \
-    --noconfirm
-
-  # Draw Things gRPC client (exact flags from nightly.yml)
-  echo "  -> dt_grpc_client (Draw Things)"
-  GRPC_SRC="$ROOT/tools/dt-grpc-python"
-  pyinstaller "$GRPC_SRC/dt_grpc_client.py" \
-    --onedir --name dt_grpc_client \
-    --paths "$GRPC_SRC" \
-    --add-data "$GRPC_SRC/client.py:." \
-    --add-data "$GRPC_SRC/imageService_pb2.py:." \
-    --add-data "$GRPC_SRC/imageService_pb2_grpc.py:." \
-    --add-data "$GRPC_SRC/GenerationConfiguration.py:." \
-    --add-data "$GRPC_SRC/SamplerType.py:." \
-    --add-data "$GRPC_SRC/SeedMode.py:." \
-    --add-data "$GRPC_SRC/LoRA.py:." \
-    --add-data "$GRPC_SRC/LoRAMode.py:." \
-    --add-data "$GRPC_SRC/Control.py:." \
-    --add-data "$GRPC_SRC/ControlInputType.py:." \
-    --add-data "$GRPC_SRC/ControlMode.py:." \
-    --add-data "$GRPC_SRC/ca_chain.pem:." \
-    --collect-all grpcio --collect-all flatbuffers --collect-all fpzip \
-    --collect-all numpy --collect-all PIL \
-    --hidden-import grpc --hidden-import grpc._cython --hidden-import grpcio \
-    --hidden-import flatbuffers --hidden-import fpzip --hidden-import numpy \
-    --hidden-import PIL --hidden-import PIL.Image \
-    --hidden-import imageService_pb2 --hidden-import imageService_pb2_grpc \
-    --hidden-import GenerationConfiguration --hidden-import SamplerType \
-    --hidden-import SeedMode --hidden-import LoRA --hidden-import LoRAMode \
-    --hidden-import client \
-    --distpath "$ML_DEST" --workpath ./build_tmp/dt_grpc --specpath ./build_tmp/dt_grpc \
-    --clean --exclude-module torch --exclude-module torchvision --exclude-module torchaudio \
-    --noconfirm
-
-  echo "Sidecars built into $ML_DEST"
-
-  # Copy into the app bundle exactly like the CI does for macOS
-  echo "==> Copying sidecars into $APP_NAME/Contents/Resources/..."
-
-  # piper + kokoro (under Resources/piper/)
-  PIPER_RES="$APP_BUNDLE/Contents/Resources/piper"
-  mkdir -p "$PIPER_RES"
-  cp -R "$ML_DEST/kokoro_tts" "$PIPER_RES/" 2>/dev/null || true
-  cp -R "$ML_DEST/piper" "$PIPER_RES/" 2>/dev/null || true
-  chmod +x "$PIPER_RES/kokoro_tts/kokoro_tts" 2>/dev/null || true
-  chmod +x "$PIPER_RES/piper/piper" 2>/dev/null || true
-
-  # whisper_stt
-  WHISPER_RES="$APP_BUNDLE/Contents/Resources/whisper_stt"
-  mkdir -p "$WHISPER_RES"
-  cp -R "$ML_DEST/whisper_stt/"* "$WHISPER_RES/" 2>/dev/null || true
-  chmod +x "$WHISPER_RES/whisper_stt" 2>/dev/null || true
-
-  # sentiment_classifier
-  SENT_RES="$APP_BUNDLE/Contents/Resources/sentiment_classifier"
-  mkdir -p "$SENT_RES"
-  cp -R "$ML_DEST/sentiment_classifier/"* "$SENT_RES/" 2>/dev/null || true
-  chmod +x "$SENT_RES/sentiment_classifier" 2>/dev/null || true
-
-  # embed_server (Rust)
-  EMBED_RES="$APP_BUNDLE/Contents/Resources/embed_server"
-  mkdir -p "$EMBED_RES"
-  cp -R "$ML_DEST/embed_server/"* "$EMBED_RES/" 2>/dev/null || true
-  chmod +x "$EMBED_RES/embed_server" 2>/dev/null || true
-
-  # dt_grpc (Draw Things) — the one that was causing the Python.framework crash
-  DT_RES="$APP_BUNDLE/Contents/Resources/dt_grpc"
-  mkdir -p "$DT_RES"
-  cp -R "$ML_DEST/dt_grpc_client" "$DT_RES/" 2>/dev/null || true
-  chmod +x "$DT_RES/dt_grpc_client/dt_grpc_client" 2>/dev/null || true
-
-  echo "Sidecars copied."
-
-  # Optional cleanup
-  rm -rf ./build_tmp
+# ─────────────────────────────────────────────────────────────────────────────
+# libfpzip for the native Draw Things client (macOS-only feature)
+# ─────────────────────────────────────────────────────────────────────────────
+# The pure-Dart DT client decodes generated images through a tiny fpzip FFI
+# dylib (lib/services/grpc/dt_native/dt_fpzip.dart looks in
+# Contents/Frameworks/). Without it, Draw Things generation fails with a
+# clear libfpzip-missing error (there is no Python fallback anymore). The
+# dylib is signed by the codesign pass below like every other framework.
+echo "==> Bundling libfpzip (native Draw Things tensor decode)..."
+if [ ! -f "$ROOT/tools/fpzip/libfpzip.dylib" ]; then
+  "$ROOT/scripts/build-fpzip-macos.sh"
 fi
+mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+cp "$ROOT/tools/fpzip/libfpzip.dylib" "$APP_BUNDLE/Contents/Frameworks/"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # xattr clean (MUST be before any codesigning)
@@ -349,7 +227,6 @@ else
   fi
 
   ENTITLEMENTS="$ROOT/macos/Runner/Release.entitlements"
-  SIDECAR_ENT="$ROOT/macos/Runner/Sidecar.entitlements"
 
   # 1. Frameworks (outer)
   while IFS= read -r -d '' f; do
@@ -357,55 +234,11 @@ else
       2>&1 | grep -v -E '(replacing existing signature|already signed)' || true
   done < <(find "$APP_BUNDLE/Contents/Frameworks" \( -name "*.framework" -o -name "*.dylib" \) -print0 2>/dev/null || true)
 
-  # 2. Normal Mach-O under Resources (skip anything inside a .framework to avoid double-work)
-  echo "    Signing loose Mach-O files under Resources..."
-  while IFS= read -r -d '' f; do
-    if file "$f" | grep -q "Mach-O"; then
-      echo "    Signing native binary: $f"
-      codesign --force --sign "$CERT_NAME" --timestamp --options runtime \
-        --entitlements "$SIDECAR_ENT" "$f" \
-        2>&1 | grep -v -E '(replacing existing signature|already signed)' || true
-    fi
-  done < <(find "$APP_BUNDLE/Contents/Resources" -type f ! -path '*/.framework/*' ! -path '*/Python.framework/*' -print0 2>/dev/null || true)
+  # (The helper-signing passes that used to follow left with the sidecar
+  # retirement — since phase 5 the app spawns no helper processes, so
+  # Resources holds only data files.)
 
-  # 3. Special handling for every *.framework under Resources (the Python.framework fix)
-  echo "    Handling nested *.framework (Python.framework from PyInstaller etc.)..."
-  while IFS= read -r -d '' fw; do
-    echo "      $fw"
-    # All Mach-O inside the framework
-    while IFS= read -r -d '' bin; do
-      if file "$bin" | grep -q "Mach-O"; then
-        codesign --force --sign "$CERT_NAME" --timestamp --options runtime \
-          --entitlements "$SIDECAR_ENT" "$bin" \
-          2>&1 | grep -v -E '(replacing existing signature|already signed)' || true
-      fi
-    done < <(find "$fw" -type f -print0 2>/dev/null || true)
-
-    # The framework directory itself (this is what usually fixes the ambiguity)
-    codesign --force --sign "$CERT_NAME" --timestamp --options runtime \
-      "$fw" 2>&1 | grep -v -E '(replacing existing signature|already signed)' || true
-  done < <(find "$APP_BUNDLE/Contents/Resources" -type d -name "*.framework" -print0 2>/dev/null || true)
-
-  # 4. BROAD CATCH-ALL: Sign EVERY remaining Mach-O under Resources.
-  # This is the critical step for PyInstaller onedir sidecars (kokoro, piper, whisper, dt_grpc, sentiment).
-  # They contain hundreds of .dylib/.so in _internal/ dirs that are NOT inside *.framework.
-  # The previous loops can miss some due to path skips or "file" detection.
-  # Previous runs that succeeded had fewer sidecars; this ensures completeness for the .pkg payload.
-  echo "    Broad catch-all pass: force-signing EVERY Mach-O under Resources (sidecar _internal trees etc.)..."
-  while IFS= read -r -d '' f; do
-    if file "$f" | grep -qiE 'mach-o|executable|shared library|dynamically linked'; then
-      # Avoid re-doing the main app binary or outer Frameworks (already handled)
-      if [[ "$f" == *"/Contents/MacOS/FrontPorchAI"* ]] || [[ "$f" == *"/Contents/Frameworks/"* ]]; then
-        continue
-      fi
-      echo "      $f"
-      codesign --force --sign "$CERT_NAME" --timestamp --options runtime \
-        --entitlements "$SIDECAR_ENT" "$f" \
-        2>&1 | grep -v -E '(replacing existing signature|already signed|is not signed)' || true
-    fi
-  done < <(find "$APP_BUNDLE/Contents/Resources" -type f -print0 2>/dev/null || true)
-
-  # 5. The main app bundle last (after all nested/sidecar code is signed)
+  # 2. The main app bundle last (outermost)
   codesign --force --sign "$CERT_NAME" --timestamp --options runtime \
     --entitlements "$ENTITLEMENTS" "$APP_BUNDLE" || true
 
@@ -482,9 +315,9 @@ fi
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Bare-minimum .pkg (often more reliable for notarization on complex apps with
-# sidecars). Installs the exact same bundle to /Applications.
-# All sidecars stay inside the .app exactly as built.
+# Bare-minimum .pkg (often more reliable for notarization on complex apps).
+# Installs the exact same bundle to /Applications; libfpzip stays inside
+# the .app exactly as built.
 # ─────────────────────────────────────────────────────────────────────────────
 if [ "$SKIP_PKG" -eq 1 ]; then
   echo "==> Skipping .pkg creation (--skip-pkg)"
@@ -624,8 +457,8 @@ echo "  1. Double-click $PKG_PATH for the real signed install (recommended)."
 echo "  2. The unsigned shim DMG (if produced) is only for testing the legacy"
 echo "     in-app auto-update replace path from old .dmg-based installs."
 echo "  3. Let the Installer place the app to /Applications/FrontPorchAI-Rawhide.app"
-echo "  4. All sidecars (dt_grpc, whisper_stt, embed_server, etc.) are inside"
-echo "     the installed bundle in the exact correct relative paths."
+echo "  4. libfpzip is inside the installed bundle at the exact"
+echo "     correct relative path (Contents/Frameworks)."
 echo "  4. Run the 4 checks on the installed app:"
 echo "     codesign -vvv --deep --strict /Applications/$APP_NAME"
 echo "     spctl --assess --type exec -vv /Applications/$APP_NAME"

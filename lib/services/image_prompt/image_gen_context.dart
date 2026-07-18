@@ -28,17 +28,17 @@ import 'package:front_porch_ai/services/macro_resolver.dart';
 /// - User persona (only for userAvatar mode).
 /// - Optional hints for expression/pose, time-of-day lighting, group speaker targeting.
 /// - userInstruction: free text typed in studio box before Craft (sent to LLM to parse into visual prompt).
-/// - visualizeNumMessages: slider-controlled N for visualizeScene (recent messages stripped of `<think>` only; simple as messages pre-generated).
 ///
 /// The builder owns all distillation rules. This bag is intentionally "dumb" data +
 /// a couple of safe helpers (macro resolution, truncation). Callers supply the best
 /// raw material they have; the builder decides what is visual vs. irrelevant.
 ///
 /// Used by ImagePromptBuilder (the single source of truth for mode semantics and
-/// style enforcement). See image_prompt_builder.dart for the contracts of each mode,
-/// (fromLastMessage / Message Illustration was removed as redundant with Visualize Scene's N slider).
+/// style enforcement). See image_prompt_builder.dart for the contracts of each mode.
+/// For customPrompt, [recentMessages] is the scene source the builder distills when the
+/// user's typed prompt ([lastMessage]) is empty.
 /// Keep ctor / toString / usage in sync with service _buildPromptContext (thin), studio craft/ctor,
-/// chat_page _show collection, builder _generateSmartWith + _buildStatic. (incomplete zeroing N/A; per-invocation snapshot).
+/// chat_page _show collection, builder _generateSmartWith + _buildStatic. (per-invocation snapshot).
 class ImageGenContext {
   final ImageGenMode mode;
   final String style; // 'photorealistic' | 'anime' | 'fantasy_art' ...
@@ -79,14 +79,6 @@ class ImageGenContext {
   // "parses into the image gen prompt". Included for all modes on craft path.
   final String? userInstruction;
 
-  // For visualizeScene only: how many of the provided recentMessages (launch snapshot) to
-  // include in the context sent to the LLM (or static). Messages are already generated so
-  // stripping <think> is simple (_stripThinkBlocks / _cleanNarrativeForVisual). Slider (1-10,
-  // default 5) in Image Studio controls this; launcher collects >=10 recent to support.
-  // Other modes ignore. Keep in sync with studio slider, service thins, builder assembly,
-  // chat_page collection (take N), ImageStudio craft, _ctx usage, ModeInfoCard/visualize doc.
-  final int? visualizeNumMessages;
-
   const ImageGenContext({
     required this.mode,
     required this.style,
@@ -105,7 +97,6 @@ class ImageGenContext {
     this.timeOfDay,
     this.lightingHint,
     this.userInstruction,
-    this.visualizeNumMessages,
   });
 
   /// Resolve {{user}} / {{char}} (and common variants) in any source text.
@@ -150,5 +141,5 @@ class ImageGenContext {
   String toString() =>
       'ImageGenContext(mode: $mode, style: $style, paradigm: $paradigm, '
       'char: ${characterName ?? "none"}, lastMsgLen: ${lastMessage?.length ?? 0}, '
-      'userInstr: ${userInstruction != null}, vizN: $visualizeNumMessages)';
+      'userInstr: ${userInstruction != null})';
 }

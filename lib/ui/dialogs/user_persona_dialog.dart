@@ -19,9 +19,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/persona_colors.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 class UserPersonaDialog extends StatefulWidget {
   const UserPersonaDialog({super.key});
@@ -79,7 +80,8 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
   }
 
   Future<void> _pickAvatar() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await PickerPrefs.pickFiles(
+      category: PickerPrefs.catImage,
       type: FileType.image,
       allowMultiple: false,
     );
@@ -166,11 +168,11 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? Colors.blueAccent.withValues(alpha: 0.1)
+                          ? AppColors.formMasterAccent.withValues(alpha: 0.1)
                           : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
                       border: isActive
-                          ? Border.all(color: Colors.blueAccent)
+                          ? Border.all(color: AppColors.formMasterAccent)
                           : null,
                     ),
                     child: ListTile(
@@ -233,88 +235,6 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                 },
               ),
             ),
-            // Learned facts for active persona
-            if (service.persona.learnedFacts.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Divider(color: Colors.white12),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.auto_awesome,
-                    size: 16,
-                    color: Colors.purpleAccent,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Learned Facts (${service.persona.learnedFacts.length})',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (service.persona.learnedFacts.length > 10)
-                    TextButton.icon(
-                      onPressed: () =>
-                          _showClearFactsConfirmation(context, service),
-                      icon: const Icon(
-                        Icons.delete_sweep,
-                        size: 14,
-                        color: Colors.redAccent,
-                      ),
-                      label: const Text(
-                        'Clear All',
-                        style: TextStyle(fontSize: 11, color: Colors.redAccent),
-                      ),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 0),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Auto-extracted from your conversations:',
-                style: TextStyle(fontSize: 11, color: Colors.white30),
-              ),
-              const SizedBox(height: 6),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 120),
-                child: SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: List.generate(
-                      service.persona.learnedFacts.length,
-                      (i) {
-                        return Chip(
-                          label: Text(
-                            service.persona.learnedFacts[i],
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          backgroundColor: const Color(0xFF374151),
-                          deleteIcon: const Icon(
-                            Icons.close,
-                            size: 14,
-                            color: Colors.white38,
-                          ),
-                          onDeleted: () => service.removeLearnedFact(i),
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -323,7 +243,8 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                 icon: const Icon(Icons.add),
                 label: const Text('Add New Persona'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
+                  backgroundColor: AppColors.formMasterAccent,
+                  foregroundColor: AppColors.onChaosAccent,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -449,7 +370,7 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.blueAccent.withValues(
+                                  color: AppColors.formMasterAccent.withValues(
                                     alpha: 0.15,
                                   ),
                                   borderRadius: BorderRadius.circular(6),
@@ -457,7 +378,7 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                                 child: const Icon(
                                   Icons.open_in_full,
                                   size: 16,
-                                  color: Colors.blueAccent,
+                                  color: AppColors.formMasterAccent,
                                 ),
                               ),
                             ),
@@ -485,7 +406,8 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
               ElevatedButton(
                 onPressed: _savePersona,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
+                  backgroundColor: AppColors.formMasterAccent,
+                  foregroundColor: AppColors.onChaosAccent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,
@@ -564,7 +486,8 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                       Navigator.of(dialogContext).pop();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
+                      backgroundColor: AppColors.formMasterAccent,
+                      foregroundColor: AppColors.onChaosAccent,
                     ),
                     child: const Text('Save'),
                   ),
@@ -605,35 +528,4 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
     );
   }
 
-  void _showClearFactsConfirmation(
-    BuildContext context,
-    UserPersonaService service,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F2937),
-        title: const Text('Clear All Facts'),
-        content: Text(
-          'Remove all ${service.persona.learnedFacts.length} learned facts? This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              while (service.persona.learnedFacts.isNotEmpty) {
-                service.removeLearnedFact(0);
-              }
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Clear All'),
-          ),
-        ],
-      ),
-    );
-  }
 }

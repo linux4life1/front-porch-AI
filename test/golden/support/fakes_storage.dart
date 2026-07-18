@@ -25,9 +25,6 @@
 // author to add them here.
 //
 // Surface covered (build-time reads audited against each consumer page/dialog):
-//   CloudSyncPage:           cloudSyncEnabled, cloudSyncProvider, cloudSyncUrl,
-//                            cloudSyncUsername, cloudSyncPassword, cloudSyncLastTime,
-//                            rootPath, chatsDir
 //   BackgroundSettingsDialog: chatBackground, customBackgrounds
 //   UiSettingsDialog:        bubbleOpacity, textScale, globalUserBubbleColor,
 //                            globalUserTextColor, globalAiBubbleColor,
@@ -52,20 +49,6 @@ import 'package:front_porch_ai/services/storage_service.dart';
 /// build trees read at build time. All setter calls and unimplemented getters
 /// fall through to [noSuchMethod].
 class FakeStorageService extends ChangeNotifier implements StorageService {
-  // Cloud sync
-  @override
-  bool get cloudSyncEnabled => false;
-  @override
-  String get cloudSyncProvider => 'none';
-  @override
-  String get cloudSyncUrl => '';
-  @override
-  String get cloudSyncUsername => '';
-  @override
-  String get cloudSyncPassword => '';
-  @override
-  String get cloudSyncLastTime => '';
-
   // Paths / directories
   @override
   String? get rootPath => null;
@@ -188,6 +171,10 @@ class FakeStorageService extends ChangeNotifier implements StorageService {
   String get imageGenNegativePrompt => '';
   @override
   String get localImageGenUrl => '';
+  @override
+  String get comfyUiUrl => '';
+  @override
+  bool get imageGenPromptReview => true;
   @override
   int get imageGenSeed => 0;
   @override

@@ -20,11 +20,11 @@
 @TestOn('linux')
 library;
 
-// Widget pixel goldens for the chat sidebar sections — the first surface driven
-// by the shared timer-free `FakeChatService`. Each section is a focused,
-// character-behavior-facing panel; freezing them in light + dark locks the chat
-// sidebar against UI regressions. Sections are added here as the fake grows to
-// cover their `ChatService` read surface (see COVERAGE.md).
+// Widget pixel goldens for the warm-porch chat sidebar (grouped accordions).
+// Frozen in light + dark via the shared timer-free `FakeChatService`. The
+// Character State golden is the centerpiece: it pins the unified bond/trust/
+// LUST bar treatment (the nsfw_section merge) plus fixation, needs, and the
+// shared TimeStrip. (Pixel baselines regenerate on the Linux CI runner.)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,20 +35,22 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/author_note_section.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/chaos_mode_section.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/lorebook_section.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/nsfw_section.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/objective_section.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/realism_section.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/scene_time_section.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/summary_section.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_group.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_settings.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/summary_section.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/author_note_section.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/chaos_panel.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/lorebook_panel.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/objective_panel.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import '../support/creator_test_support.dart';
 import '../support/fakes.dart';
 import '../support/golden_app.dart';
 
-/// A sync StorageService (defaults only) for sections that read a setting at
+/// A sync StorageService (defaults only) for panels that read a setting at
 /// build. Its async init is irrelevant to a static golden.
 StorageService _storage() {
   SharedPreferences.setMockInitialValues({});
@@ -58,27 +60,136 @@ StorageService _storage() {
 void main() {
   setupPathProviderMock();
 
-  testWidgets('SceneTimeSection — evening, day 3', (tester) async {
+  testWidgets('TimeStrip — evening, day 3', (tester) async {
     final chat = FakeChatService(timeOfDay: 'evening', dayCount: 3);
     addTearDown(chat.dispose);
     await expectThemedGoldens(
       tester,
-      child: SizedBox(width: 300, child: SceneTimeSection(chat: chat)),
+      child: SizedBox(width: 300, child: TimeStrip(chat: chat)),
       group: 'sidebar',
-      name: 'scene_time_evening',
+      name: 'time_strip_evening',
       surface: const Size(340, 120),
     );
   });
 
-  testWidgets('SceneTimeSection — dawn, day 1', (tester) async {
+  testWidgets('TimeStrip — dawn, day 1', (tester) async {
     final chat = FakeChatService(timeOfDay: 'dawn', dayCount: 1);
     addTearDown(chat.dispose);
     await expectThemedGoldens(
       tester,
-      child: SizedBox(width: 300, child: SceneTimeSection(chat: chat)),
+      child: SizedBox(width: 300, child: TimeStrip(chat: chat)),
       group: 'sidebar',
-      name: 'scene_time_dawn',
+      name: 'time_strip_dawn',
       surface: const Size(340, 120),
+    );
+  });
+
+  testWidgets('PorchAccordion — collapsed and expanded', (tester) async {
+    await expectThemedGoldens(
+      tester,
+      child: Builder(
+        builder: (context) => SizedBox(
+          width: 320,
+          child: Column(
+            children: [
+              PorchAccordion(
+                id: 'demo_collapsed',
+                emoji: '🎭',
+                title: 'Character State',
+                subtitle: 'Fond · Trusting · Evening',
+                accent: AppColors.porchTerracottaOf(context),
+                child: const Text('body'),
+              ),
+              PorchAccordion(
+                id: 'demo_expanded',
+                emoji: '🎲',
+                title: 'Story Tools',
+                accent: AppColors.porchHoneyOf(context),
+                initiallyExpanded: true,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Text('Expanded body content'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      group: 'sidebar',
+      name: 'porch_accordion',
+      surface: const Size(360, 260),
+    );
+  });
+
+  testWidgets('CharacterStateGroup — 1:1 with Lust bar and fixation',
+      (tester) async {
+    final chat = FakeChatService(
+      activeCharacter: CharacterCard(name: 'Aria Vale'),
+      characterEmotion: 'affection',
+      emotionIntensity: 'strong',
+    );
+    addTearDown(chat.dispose);
+    // Seed the merged Lust bar (cooldown on, warm arousal, ticking
+    // refractory) and an active fixation — the exact surfaces the old
+    // separate NSFW box owned.
+    chat.nsfwService.loadNsfwScalars(
+      nsfwCooldownEnabled: true,
+      arousalLevel: 62,
+      cooldownTurnsRemaining: 2,
+      cooldownTurnsTotal: 4,
+    );
+    chat.relationshipService.loadScalars(
+      affectionScore: 120,
+      longTermScore: 60,
+      trustLevel: 40,
+      activeFixation: 'the lighthouse logs',
+      fixationLifespan: 3,
+    );
+    final storage = _storage();
+    addTearDown(storage.dispose);
+    await expectThemedGoldens(
+      tester,
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: SizedBox(
+          width: 340,
+          child: CharacterStateGroup(
+            chat: chat,
+            isGroup: false,
+            initiallyExpanded: true,
+          ),
+        ),
+      ),
+      group: 'sidebar',
+      name: 'character_state',
+      surface: const Size(380, 900),
+      settle: false,
+    );
+  });
+
+  testWidgets('CharacterStateSettings — flyout open', (tester) async {
+    final chat = FakeChatService();
+    addTearDown(chat.dispose);
+    final storage = _storage();
+    addTearDown(storage.dispose);
+    await expectThemedGoldens(
+      tester,
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: SizedBox(
+          width: 320,
+          child: CharacterStateSettings(chat: chat, isGroup: false),
+        ),
+      ),
+      group: 'sidebar',
+      name: 'character_state_settings',
+      surface: const Size(360, 520),
     );
   });
 
@@ -99,7 +210,7 @@ void main() {
     );
   });
 
-  testWidgets('SummarySection — populated summary', (tester) async {
+  testWidgets('SummarySection — populated recap', (tester) async {
     final chat = FakeChatService(
       summary: '{{user}} and {{char}} agreed to meet at the harbor at dawn '
           'after {{char}} admitted the lighthouse logs were forged.',
@@ -118,36 +229,22 @@ void main() {
       name: 'summary',
       surface: const Size(360, 420),
       settle: false,
-      // Section defaults disabled+collapsed; tapping the enable toggle turns it
-      // on and expands it, revealing the summary body.
-      afterPump: (t) => t.tap(find.byType(Switch).first),
+      // The Journal is on by default and the body renders inside the
+      // accordion now — no expansion tap needed.
     );
   });
 
-  testWidgets('NsfwEnhancementsSection — default state', (tester) async {
+  testWidgets('ChaosPanel — enabled with pressure', (tester) async {
     final chat = FakeChatService();
     addTearDown(chat.dispose);
-    await expectThemedGoldens(
-      tester,
-      child: SizedBox(width: 320, child: NsfwEnhancementsSection(chat: chat)),
-      group: 'sidebar',
-      name: 'nsfw',
-      surface: const Size(360, 320),
-      settle: false,
-    );
-  });
-
-  testWidgets('ChaosModeSection — enabled with pressure', (tester) async {
-    final chat = FakeChatService();
-    addTearDown(chat.dispose);
-    // Stateless section — seed the service before rendering to show the
+    // Stateless panel — seed the service before rendering to show the
     // enabled state (pressure gauge + spin control).
     chat.chaosModeService.loadScalars(modeEnabled: true, pressure: 60);
     await expectThemedGoldens(
       tester,
       child: SizedBox(
         width: 320,
-        child: ChaosModeSection(chat: chat, onSpinRequested: () {}),
+        child: ChaosPanel(chat: chat, onSpinRequested: () {}),
       ),
       group: 'sidebar',
       name: 'chaos',
@@ -167,7 +264,10 @@ void main() {
     );
     await expectThemedGoldens(
       tester,
-      child: SizedBox(width: 340, child: LorebookSection(character: character)),
+      child: SizedBox(
+        width: 340,
+        child: LorebookSection(character: character, activeLore: const {}),
+      ),
       group: 'sidebar',
       name: 'lorebook',
       surface: const Size(380, 420),
@@ -175,44 +275,19 @@ void main() {
     );
   });
 
-  testWidgets('ObjectiveSection — no active objective', (tester) async {
+  testWidgets('ObjectivePanel — no active objective', (tester) async {
     final chat = FakeChatService();
     addTearDown(chat.dispose);
     await expectThemedGoldens(
       tester,
-      // The section nests a Consumer<ChatService>, so provide it in the tree.
+      // The panel nests a Consumer<ChatService>, so provide it in the tree.
       child: ChangeNotifierProvider<ChatService>.value(
         value: chat,
-        child: SizedBox(width: 320, child: ObjectiveSection(chatService: chat)),
+        child: SizedBox(width: 320, child: ObjectivePanel(chatService: chat)),
       ),
       group: 'sidebar',
       name: 'objective_empty',
       surface: const Size(360, 360),
-      settle: false,
-    );
-  });
-
-  testWidgets('RealismSection — bond/trust/needs populated', (tester) async {
-    final chat = FakeChatService(
-      activeCharacter: CharacterCard(name: 'Aria Vale'),
-      characterEmotion: 'affection',
-      emotionIntensity: 'strong',
-    );
-    addTearDown(chat.dispose);
-    final storage = _storage();
-    addTearDown(storage.dispose);
-    await expectThemedGoldens(
-      tester,
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<StorageService>.value(value: storage),
-          ChangeNotifierProvider<ChatService>.value(value: chat),
-        ],
-        child: SizedBox(width: 340, child: RealismSection(chatService: chat)),
-      ),
-      group: 'sidebar',
-      name: 'realism',
-      surface: const Size(380, 900),
       settle: false,
     );
   });

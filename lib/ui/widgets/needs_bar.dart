@@ -82,7 +82,9 @@ class NeedsBar extends StatelessWidget {
         color = Colors.grey;
     }
 
-    final effectiveColor = isCritical ? Colors.redAccent : color;
+    final effectiveColor = isCritical
+        ? AppColors.negativeAccentOf(context)
+        : color;
 
     if (mini) {
       return Row(
@@ -162,7 +164,7 @@ class NeedsBar extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 color: isCritical
-                    ? Colors.redAccent
+                    ? AppColors.negativeAccentOf(context)
                     : AppColors.textTertiary(context),
                 fontWeight: isCritical ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -174,10 +176,10 @@ class NeedsBar extends StatelessWidget {
             Tooltip(
               message: reason,
               preferBelow: false,
-              child: const Icon(
+              child: Icon(
                 Icons.info_outline,
                 size: 11,
-                color: Colors.white38,
+                color: AppColors.textTertiary(context),
               ),
             ),
           ],

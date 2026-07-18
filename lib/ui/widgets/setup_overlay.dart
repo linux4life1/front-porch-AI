@@ -20,6 +20,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/setup_service.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
+import 'package:front_porch_ai/ui/widgets/low_perf_cpu_warning.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 class SetupOverlay extends StatefulWidget {
   const SetupOverlay({super.key});
@@ -56,10 +58,12 @@ class _SetupOverlayState extends State<SetupOverlay> {
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E26),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: AppColors.formMasterAccent.withValues(alpha: 0.3),
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.blueAccent.withValues(alpha: 0.1),
+                color: AppColors.formMasterAccent.withValues(alpha: 0.1),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),
@@ -70,7 +74,7 @@ class _SetupOverlayState extends State<SetupOverlay> {
             children: [
               const Icon(
                 Icons.auto_awesome,
-                color: Colors.blueAccent,
+                color: AppColors.formMasterAccent,
                 size: 48,
               ),
               const SizedBox(height: 24),
@@ -88,8 +92,8 @@ class _SetupOverlayState extends State<SetupOverlay> {
                 ElevatedButton(
                   onPressed: () => setupService.runAutoSetup(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.formMasterAccent,
+                    foregroundColor: AppColors.onChaosAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -128,7 +132,7 @@ class _SetupOverlayState extends State<SetupOverlay> {
               value: backend.downloadProgress,
               backgroundColor: Colors.white10,
               valueColor: const AlwaysStoppedAnimation<Color>(
-                Colors.blueAccent,
+                AppColors.formMasterAccent,
               ),
             ),
             const SizedBox(height: 12),
@@ -137,6 +141,7 @@ class _SetupOverlayState extends State<SetupOverlay> {
               style: const TextStyle(color: Colors.white70, fontSize: 13),
               textAlign: TextAlign.center,
             ),
+            const LowPerfCpuWarning(margin: EdgeInsets.only(top: 16)),
           ],
         );
       case SetupStep.startingBackend:
@@ -168,7 +173,7 @@ class _SetupOverlayState extends State<SetupOverlay> {
             height: 16,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Colors.blueAccent,
+              color: AppColors.formMasterAccent,
             ),
           ),
         if (spinning) const SizedBox(width: 12),

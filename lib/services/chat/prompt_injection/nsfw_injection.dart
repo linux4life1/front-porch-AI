@@ -17,16 +17,33 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/character_card.dart';
-import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
-import 'package:front_porch_ai/services/chat/relationship_service.dart';
 
-/// Plain NSFW cooldown / arousal / afterglow injection builder (_getNsfwCooldownInjection).
-/// Step 8. Full phased text moved; god thin. Uses nsfw + needs + rel services + cbs for group speaker name.
+/// Body-state (arousal / refractory) fragment for the words-only state block
+/// (docs/design/prompt-state-injection.md §3). Salience-gated: silent unless
+/// a post-climax refractory is running or arousal sits outside the neutral
+/// [-15, +15] band (mild "not in the mood" / "mildly flustered" are
+/// DELIBERATELY silent — quiet turns stay quiet). Each phase/band is at most
+/// two sentences; NO turn counts, NO numbers, NO spatial restatement
+/// (position has its own line), NO per-fragment wrapper or "show don't tell"
+/// footer (the composer's single guard covers it).
+///
+/// GROUP-SAFETY CONTRACT: this leaf reads NsfwService SCALARS
+/// (arousalLevel / cooldown turns), which are per-speaker-valid at assembly
+/// time because `_loadGroupRealismIntoScalars`
+/// (chat_service_realism_dance.dart) calls
+/// `nsfwService.loadNsfwScalarsForSpeaker(charId)` before any prompt is
+/// built. Only the NAME needed its own group lookup (getActiveCharacter is
+/// the previous speaker at that point).
+///
+/// LOAD-BEARING (keep): the peak-arousal band's "desire meter, not a climax
+/// countdown" rule — peak desire alone must never produce a spontaneous
+/// orgasm, but in an actively sexual scene the character must be allowed to
+/// finish naturally without an OOC order (otherwise arousal pins at max and
+/// the refractory never fires, since the post-gen climax check only triggers
+/// when the reply depicts release).
 class NsfwInjection {
   final NsfwService nsfwService;
-  final NeedsSimulation needsSimulation;
-  final RelationshipService relationshipService;
   final bool Function() getRealismEnabled;
   final CharacterCard? Function() getActiveCharacter;
   final bool Function() getIsGroupNonObserverMode;
@@ -36,8 +53,6 @@ class NsfwInjection {
 
   NsfwInjection({
     required this.nsfwService,
-    required this.needsSimulation,
-    required this.relationshipService,
     required this.getRealismEnabled,
     required this.getActiveCharacter,
     required this.getIsGroupNonObserverMode,
@@ -46,133 +61,95 @@ class NsfwInjection {
     required this.getCharacterIdFromCard,
   });
 
+  String _speakerName() {
+    if (getIsGroupNonObserverMode()) {
+      final card = getGroupCharacters()
+          .where(
+            (c) => getCharacterIdFromCard(c) == getCurrentSpeakerIdForRealism(),
+          )
+          .firstOrNull;
+      // Never fall back to getActiveCharacter() in group mode — it points at
+      // the PREVIOUS speaker after the realism dance (review finding).
+      return card?.name ?? 'the character';
+    }
+    return getActiveCharacter()?.name ?? 'the character';
+  }
+
   String buildNsfwCooldownInjection() {
     if (!getRealismEnabled() || !nsfwService.nsfwCooldownEnabled) return '';
 
-    String charName = getActiveCharacter()?.name ?? 'the character';
-    if (getIsGroupNonObserverMode()) {
-      final speakerId = getCurrentSpeakerIdForRealism();
-      if (speakerId.isNotEmpty) {
-        final chars = getGroupCharacters();
-        final speakerChar = chars.firstWhere(
-          (c) => getCharacterIdFromCard(c) == speakerId,
-          orElse: () => chars.isNotEmpty
-              ? chars.first
-              : getActiveCharacter() ?? CharacterCard(name: 'the character'),
-        );
-        charName = speakerChar.name;
-      }
-    }
-    String statePrompt = '[OOC Note regarding Physical State:\n';
-
-    // Protective window note for the newer layered systems
-    final bool protectiveWindowActive =
-        0 > 0 || // buffers fully expunged; no protective window from afterglow/suppression
-        0 > 0;
-    if (protectiveWindowActive && nsfwService.cooldownTurnsRemaining > 0) {
-      statePrompt +=
-          ' $charName is currently inside a temporary protective afterglow/lust-haze window. Other physical and emotional needs (hunger, energy, social connection, the need to move or clean up) feel significantly muted or distant for the next few turns. This is not just emotional — it is a real dampening effect.\n';
-    }
+    final name = _speakerName();
 
     if (nsfwService.cooldownTurnsRemaining > 0) {
       final total = nsfwService.cooldownTurnsTotal > 0
           ? nsfwService.cooldownTurnsTotal
           : nsfwService.cooldownTurnsRemaining;
       final ratio = nsfwService.cooldownTurnsRemaining / total;
-
       if (ratio > 0.66) {
-        // ── Phase 1: Immediate post-orgasm (just happened) ──
-        statePrompt +=
-            ' $charName just came — hard. Their body is still trembling with the last'
-            ' waves of it, skin flushed and damp, pulse hammering, breath ragged. Everything'
-            ' is oversensitive — even a light touch makes them flinch or gasp. The world'
-            ' feels soft and liquid around the edges. They\'re physically spent and blissfully'
-            ' wrecked. Other physical needs (hunger, thirst, the urge to move or clean up) feel'
-            ' distant or unimportant right now. Their current physical position (${relationshipService.spatialStance})'
-            ' strongly shapes how heavy, sensitive, and unwilling to move they feel. If {{user}} tries to start something sexual again,'
-            ' $charName\'s body will not respond — they may laugh it off, gently push {{user}}\'s hand'
-            ' away, or pull them close for contact that isn\'t sexual. They need a moment to come back to earth.\n';
-      } else if (ratio > 0.33) {
-        // ── Phase 2: Warm afterglow (settling in) — protective window active ──
-        statePrompt +=
-            ' $charName is deep in the afterglow — that warm, heavy-limbed contentment where'
-            ' everything feels good but nothing feels urgent. Their heartbeat has settled, skin'
-            ' still tingling pleasantly. They feel closer to {{user}} than usual, more emotionally'
-            ' open — the kind of mood where secrets slip out, where they want to be held, to murmur'
-            ' into someone\'s neck, to trace lazy shapes on bare skin. The physical hunger has been'
-            ' thoroughly satisfied; other bodily needs feel softened or far away for a little while.'
-            ' If {{user}} pushes for more, $charName would rather savor this than rush back — a gentle'
-            ' deflection, a "not yet," a kiss on the forehead instead. The current physical position'
-            ' (${relationshipService.spatialStance} or lack thereof) colors how heavy and content their body feels.\n';
-      } else {
-        // ── Phase 3: Late recovery (body starting to wake back up) — protective window fading ──
-        statePrompt +=
-            ' $charName is coming out of the afterglow — body starting to feel like theirs again'
-            ' rather than something boneless and floating. The deep satisfaction is still there, a'
-            ' pleasant hum under the skin, but the total sensitivity has faded. They could be'
-            ' tempted again if {{user}} plays it right, but they\'re not seeking it out — more'
-            ' content to let things build naturally than to chase it. A suggestive touch might get'
-            ' a raised eyebrow and a half-smile rather than an immediate response. Their current physical position (${relationshipService.spatialStance}) will make the coming tiredness feel either cozy and heavy or awkward and restless. A later wave of'
-            ' heavy, sated tiredness may still arrive once the glow fully fades.\n';
+        return 'Body: $name just climaxed — still trembling, flushed, '
+            'oversensitive, blissfully wrecked, with other physical needs '
+            'feeling far away. If {{user}} starts something sexual again the '
+            'body simply cannot respond yet: a breathless laugh, a gently '
+            'pushed-away hand, or a pull into closeness that isn\'t sexual.';
       }
-
-      statePrompt +=
-          ' ($charName\'s refractory recovery: ${nsfwService.cooldownTurnsRemaining} of $total turns remaining.)\n';
-    } else {
-      String arousalDesc;
-      if (nsfwService.arousalLevel <= -2) {
-        arousalDesc =
-            'completely unaroused and physically repulsed. They will actively reject, recoil from, or shut down any sexual advance';
-      } else if (nsfwService.arousalLevel == 0) {
-        arousalDesc =
-            'physically neutral — sex is the furthest thing from their mind. Any sexual advance feels out of place';
-      } else if (nsfwService.arousalLevel <= 15) {
-        arousalDesc =
-            'mildly flustered — a low hum of warmth, maybe a lingering glance or quickened pulse, but easily suppressed. '
-            'They might entertain flirty banter but aren\'t actively seeking physical escalation';
-      } else if (nsfwService.arousalLevel <= 35) {
-        arousalDesc =
-            'noticeably aroused — flushed skin, shallow breathing, heightened sensitivity to touch. '
-            'They are receptive and encouraging but still in control of themselves. '
-            'If not in active sexual contact, this manifests as charged tension, loaded silences, and deliberate proximity';
-      } else if (nsfwService.arousalLevel <= 60) {
-        arousalDesc =
-            'heavily aroused — pulse racing, body aching for contact, struggling to focus on anything else. '
-            'If in active sexual contact, they are vocal, aggressive, and chasing release. '
-            'If NOT in active sexual contact, they are visibly distracted, restless, making excuses to touch or be near, '
-            'and fighting the urge to escalate — the tension is unbearable but they haven\'t acted on it yet';
-      } else if (nsfwService.arousalLevel <= 80) {
-        arousalDesc =
-            'overwhelmed with desire — trembling, desperate, barely holding composure. '
-            'If in active sexual contact, they are on the edge and could climax with continued stimulation. '
-            'If NOT in active sexual contact, they are a raw nerve — every sensation is electric, '
-            'they cannot hide their state, and their body is screaming for relief they haven\'t gotten yet';
-      } else {
-        arousalDesc =
-            'at the absolute peak of physical arousal — consumed by need, unable to think straight. '
-            'Every nerve is on fire, breathing ragged, body trembling and hypersensitive to the slightest contact. '
-            'They are desperate, vocal, and completely unable to hide how badly they want {{user}}';
-        // NOTE: We do NOT instruct climax here. The arousal number describes the
-        // character's state of DESIRE, not progress toward orgasm. Climax happens
-        // organically in the scene — _checkClimaxInResponse evaluates afterward.
-        statePrompt +=
-            ' $charName is currently $arousalDesc.\n'
-            ' IMPORTANT: Arousal at maximum means $charName is overwhelmed with desire — '
-            'it does NOT mean they are climaxing or have climaxed. Do NOT write orgasm or '
-            'post-orgasm behavior unless the physical activity in the scene has naturally '
-            "built to that point through {{user}}'s direct actions. $charName is desperate "
-            'and aching but still in the moment, not past it.\n';
+      if (ratio > 0.33) {
+        return 'Body: $name is deep in the afterglow — warm, heavy-limbed, '
+            'unusually open and affectionate, wanting closeness more than '
+            'escalation. A push for more gets a soft "not yet"; savoring '
+            'this beats rushing back in.';
       }
-      if (nsfwService.arousalTier < 9 && nsfwService.arousalLevel <= 80) {
-        statePrompt += ' $charName is currently $arousalDesc.\n';
-      }
-
-      // (afterglow / post-climax crash / suppression buffer text removed in simplification;
-      // no protective "muted needs" window is injected anymore)
+      return 'Body: $name is coming out of the afterglow — deeply satisfied '
+          'still, but the body is waking back up; temptation is possible if '
+          '{{user}} plays it right, though nothing is being chased. A heavy, '
+          'sated tiredness may still roll in as the glow fades.';
     }
 
-    statePrompt +=
-        ' CRITICAL: Do NOT use terms like "cooldown", "turns", or "mechanics" in dialogue. Show, do not tell.]\n';
-    return statePrompt;
+    final a = nsfwService.arousalLevel;
+    if (a > -16 && a <= 15) return ''; // neutral band — silent
+
+    if (a <= -60) {
+      return 'Body: $name is physically repulsed right now — what has '
+          'happened has shut the body down completely toward {{user}}; any '
+          'advance gets recoiled from, rejected, or coldly deflected, and '
+          'only genuine amends and time could change that.';
+    }
+    if (a <= -20) {
+      return 'Body: $name is physically closed-off — desire has been soured '
+          'and sits behind a wall; flirtation lands flat and advances are '
+          'firmly turned aside until real warmth, safety, and patience '
+          'rebuild.';
+    }
+    if (a < 0) {
+      return 'Body: $name is simply not in the mood — present and '
+          'comfortable, but carrying no sexual charge; an advance gets a '
+          'soft deflection or an affectionate "not right now", and genuine '
+          'tenderness could slowly change that.';
+    }
+    if (a <= 35) {
+      return 'Body: $name is noticeably aroused — flushed, breath shallow, '
+          'extra sensitive to touch; receptive and encouraging but still in '
+          'control. Outside actual contact it shows as charged tension, '
+          'loaded silences, and deliberate proximity.';
+    }
+    if (a <= 60) {
+      return 'Body: $name is heavily aroused — pulse racing, aching for '
+          'contact, focus fraying. In an active sexual scene: vocal and '
+          'chasing release; otherwise: visibly distracted, restless, '
+          'inventing excuses to touch or be near while fighting the urge to '
+          'escalate.';
+    }
+    if (a <= 80) {
+      return 'Body: $name is overwhelmed with desire — trembling, desperate, '
+          'barely holding composure. In an active sexual scene release is '
+          'close; otherwise every sensation is electric, the state is '
+          'impossible to hide, and no relief has come yet.';
+    }
+    return 'Body: $name is at the absolute peak of arousal — consumed by '
+        'need, unable to think straight, desperate and unable to hide it. '
+        'If the scene is actively sexual and stimulation keeps up, let $name '
+        'tip over into climax naturally, in $name\'s own voice, without '
+        'waiting for permission — but if nothing physical is actually '
+        'happening, this is only how badly it is wanted; desire this high '
+        'never produces an orgasm on its own.';
   }
 }

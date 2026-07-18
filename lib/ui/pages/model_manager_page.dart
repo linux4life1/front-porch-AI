@@ -19,7 +19,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -29,6 +28,7 @@ import 'package:front_porch_ai/ui/widgets/hf_model_card.dart';
 import 'package:front_porch_ai/ui/widgets/local_model_card.dart';
 import 'package:front_porch_ai/ui/widgets/download_queue_panel.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 class ModelManagerPage extends StatefulWidget {
   const ModelManagerPage({super.key});
@@ -153,7 +153,8 @@ class _ModelManagerPageState extends State<ModelManagerPage>
   }
 
   Future<void> _importLocalModel() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await PickerPrefs.pickFiles(
+      category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['gguf'],
       dialogTitle: 'Select a GGUF Model to Import',
@@ -188,7 +189,8 @@ class _ModelManagerPageState extends State<ModelManagerPage>
   }
 
   Future<void> _changeModelsFolder() async {
-    final picked = await FilePicker.platform.getDirectoryPath(
+    final picked = await PickerPrefs.getDirectoryPath(
+      category: PickerPrefs.catDirectory,
       dialogTitle: 'Select Models Folder',
     );
     if (picked != null && mounted) {
@@ -238,7 +240,7 @@ class _ModelManagerPageState extends State<ModelManagerPage>
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.blueAccent),
+            icon: const Icon(Icons.refresh, color: AppColors.formMasterAccent),
             onPressed: () => modelManager.refreshModels(),
             tooltip: 'Scan for new models',
           ),

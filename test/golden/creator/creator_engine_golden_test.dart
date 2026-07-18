@@ -45,7 +45,6 @@ import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
-import 'package:front_porch_ai/services/pseudo_remote_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
@@ -80,8 +79,8 @@ class _ScriptedLlm extends LLMService {
 /// suite); we only override the three getters the engine consults.
 class _FakeLLMProvider extends LLMProvider {
   _FakeLLMProvider(this._svc, KoboldService k, OpenRouterService o,
-      PseudoRemoteService p, StorageService s, BackendManager b)
-      : super(k, o, p, s, b);
+      StorageService s, BackendManager b)
+      : super(k, o, s, b);
   final LLMService _svc;
 
   @override
@@ -97,7 +96,6 @@ _FakeLLMProvider _makeProvider(LLMService svc, StorageService storage) {
     svc,
     KoboldService(storage),
     OpenRouterService(),
-    PseudoRemoteService(),
     storage,
     BackendManager(storage),
   );

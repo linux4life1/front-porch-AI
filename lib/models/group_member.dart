@@ -156,6 +156,58 @@ class GroupMember {
     );
   }
 
+  // ── Provenance (Phase 0 of the "one chat, changing cast" unification) ──────
+  // A group member is a copy of a library character under a fresh UUID, so on
+  // its own it can't be traced back to the character it came from. These stamp
+  // and read the origin identity in [memberState] (a Forge-invisible blob — no
+  // DB migration), so later work can collapse a chat back to a 1:1 with the
+  // ORIGINAL library character and avoid orphaned duplicates.
+
+  /// The origin library character's `stableGroupId` this member was copied from
+  /// (for an imported member, the portable `_origin_library_stable_id` the Group
+  /// Card carried — NOT `_original_stable_id`, which is the realism-remap instance
+  /// id). Null for legacy/foreign members with no resolvable origin (their
+  /// [memberState] is '{}').
+  String? get originStableId {
+    final v = memberState['originStableId'];
+    return (v is String && v.isNotEmpty) ? v : null;
+  }
+
+  /// The origin library character's `dbId` when known (stamped alongside
+  /// [originStableId]). Null for external imports (no library row) and legacy
+  /// members.
+  String? get originLibraryDbId {
+    final v = memberState['originLibraryDbId'];
+    return (v is String && v.isNotEmpty) ? v : null;
+  }
+
+  /// Builds the `group_members.memberState` JSON that stamps a new member's
+  /// origin at creation. Single source of truth for the blob shape so every
+  /// creation site stamps identically and stays in sync with the
+  /// [originStableId] / [originLibraryDbId] getters. Stamped by:
+  ///   • _createGroupMember — the one path behind the 1:1→group fork (host +
+  ///     arrivals), live `/join` adds (addCharacterToGroup), and the web-API
+  ///     fork (which routes through forkToGroupChat); and
+  ///   • the create-group wizard.
+  /// Group-card IMPORT (home_page.dart `_importGroupCard`) ALSO stamps via this
+  /// method, reading the portable `_origin_library_stable_id` the export wrote
+  /// (the Group Card portable-origin work). Foreign/legacy cards that lack the
+  /// key pass `null` here and stay
+  /// origin-unknown ('{}'), reconnected by MemberOriginResolver's name fallback.
+  /// Empty/blank values are omitted, so a member with no resolvable origin yields
+  /// '{}' (legacy shape). The machine-local `originLibraryDbId` is never exported.
+  static String encodeProvenance({
+    required String? originStableId,
+    String? originLibraryDbId,
+  }) {
+    final map = <String, dynamic>{};
+    final sid = originStableId?.trim();
+    if (sid != null && sid.isNotEmpty) map['originStableId'] = sid;
+    final dbId = originLibraryDbId?.trim();
+    if (dbId != null && dbId.isNotEmpty) map['originLibraryDbId'] = dbId;
+    return jsonEncode(map);
+  }
+
   /// Reconstructs a transient CharacterCard for widgets / FileImage / existing
   /// code that still expects the old shape (GroupMemberCard, NeedsBar, etc.).
   ///
@@ -172,6 +224,13 @@ class GroupMember {
         fpExt = FrontPorchExtensions.fromJson(frontPorchExtensions!);
       } catch (_) {}
     }
+
+    // A character stored in a GroupChat's member table is a FULL member by
+    // definition — Scene Guests (tier 'lite') live in the 1:1 guest list, never
+    // here. Strip any leftover 'lite' tier (e.g. a character that first joined a
+    // scene as a guest before being added as a group member) so it isn't
+    // mislabeled "Guest" in the cast and gets full Realism/Needs in the group.
+    if (fpExt?.tier == 'lite') fpExt!.tier = null;
 
     return CharacterCard(
       name: name,
