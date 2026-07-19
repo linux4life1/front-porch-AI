@@ -379,6 +379,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                                                 listen: false,
                                               );
                                           String? voiceKey;
+                                          String? refAudio;
+                                          String? refTranscript;
                                           if (chatService.activeGroup != null) {
                                             final charMatch = chatService
                                                 .groupCharacters
@@ -388,15 +390,27 @@ class _MessageBubbleState extends State<MessageBubble> {
                                                 )
                                                 .firstOrNull;
                                             voiceKey = charMatch?.ttsVoice;
+                                            refAudio = charMatch
+                                                ?.zipvoiceReferenceAudio;
+                                            refTranscript = charMatch
+                                                ?.zipvoiceReferenceTranscript;
                                           } else {
                                             voiceKey = chatService
                                                 .activeCharacter
                                                 ?.ttsVoice;
+                                            refAudio = chatService
+                                                .activeCharacter
+                                                ?.zipvoiceReferenceAudio;
+                                            refTranscript = chatService
+                                                .activeCharacter
+                                                ?.zipvoiceReferenceTranscript;
                                           }
                                           tts.speak(
                                             message.displayText,
                                             voiceKey: voiceKey,
                                             messageId: msgId,
+                                            referenceAudioPath: refAudio,
+                                            referenceTranscript: refTranscript,
                                           );
                                         }
                                       },

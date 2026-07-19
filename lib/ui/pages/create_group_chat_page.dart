@@ -802,6 +802,8 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
           tags: Value(jsonEncode(source.tags)),
           avatarFilename: Value('$mid.png'),
           ttsVoice: Value(source.ttsVoice),
+          zipvoiceReferenceAudio: Value(source.zipvoiceReferenceAudio),
+          zipvoiceReferenceTranscript: Value(source.zipvoiceReferenceTranscript),
           lorebook: Value(
             source.lorebook != null
                 ? jsonEncode(source.lorebook!.toJson())

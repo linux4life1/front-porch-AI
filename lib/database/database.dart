@@ -52,6 +52,8 @@ class Characters extends Table {
       text().withDefault(const Constant('[]'))(); // JSON array
   TextColumn get imagePath => text().nullable()();
   TextColumn get ttsVoice => text().nullable()();
+  TextColumn get zipvoiceReferenceAudio => text().nullable()();
+  TextColumn get zipvoiceReferenceTranscript => text().nullable()();
   TextColumn get folderId => text().nullable()();
   TextColumn get lorebook => text().nullable()(); // JSON blob
   TextColumn get worldNames =>
@@ -585,6 +587,8 @@ class GroupMembers extends Table {
   TextColumn get avatarFilename => text().nullable()();
 
   TextColumn get ttsVoice => text().nullable()();
+  TextColumn get zipvoiceReferenceAudio => text().nullable()();
+  TextColumn get zipvoiceReferenceTranscript => text().nullable()();
 
   TextColumn get lorebook =>
       text().nullable()(); // JSON (same shape as Characters.lorebook)
@@ -901,6 +905,8 @@ class AppDatabase extends _$AppDatabase {
         "tags TEXT NOT NULL DEFAULT '[]'",
         'avatar_filename TEXT',
         'tts_voice TEXT',
+        'zipvoice_reference_audio TEXT',
+        'zipvoice_reference_transcript TEXT',
         'lorebook TEXT',
         "world_names TEXT NOT NULL DEFAULT '[]'",
         'front_porch_extensions TEXT',
@@ -1132,7 +1138,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 37;
+  int get schemaVersion => 38;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1779,6 +1785,31 @@ class AppDatabase extends _$AppDatabase {
         try {
           await customStatement(
             'ALTER TABLE sessions ADD COLUMN selected_look_avatar_id TEXT',
+          );
+        } catch (_) {}
+      }
+      if (from < 38) {
+        // v37→v38: ZipVoice zero-shot cloning — per-character reference audio
+        // path + transcript for voice cloning via sherpa-onnx ZipVoice model.
+        // Nullable, additive, no default.
+        try {
+          await customStatement(
+            'ALTER TABLE characters ADD COLUMN zipvoice_reference_audio TEXT',
+          );
+        } catch (_) {}
+        try {
+          await customStatement(
+            'ALTER TABLE characters ADD COLUMN zipvoice_reference_transcript TEXT',
+          );
+        } catch (_) {}
+        try {
+          await customStatement(
+            'ALTER TABLE group_members ADD COLUMN zipvoice_reference_audio TEXT',
+          );
+        } catch (_) {}
+        try {
+          await customStatement(
+            'ALTER TABLE group_members ADD COLUMN zipvoice_reference_transcript TEXT',
           );
         } catch (_) {}
       }

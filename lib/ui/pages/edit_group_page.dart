@@ -138,7 +138,8 @@ class _EditGroupPageState extends State<EditGroupPage>
         if (fn == null) continue;
         final avatarPath = p.join(storage.groupsDir.path, g.id, 'avatars', fn);
         if (!await File(avatarPath).exists()) continue;
-        cards.add(m.toCharacterCard(resolvedImagePath: avatarPath));
+        final card = m.toCharacterCard(resolvedImagePath: avatarPath);
+        cards.add(card);
         realismMembers.add(
           GroupRealismMember(
             mid: m.id,
@@ -319,6 +320,8 @@ class _EditGroupPageState extends State<EditGroupPage>
                       : null,
                 ),
                 worldNames: Value(jsonEncode(card.worldNames)),
+                zipvoiceReferenceAudio: Value(card.zipvoiceReferenceAudio),
+                zipvoiceReferenceTranscript: Value(card.zipvoiceReferenceTranscript),
               ),
             );
           },

@@ -78,7 +78,9 @@ class KokoroEngine implements TtsEngine {
     String text,
     String voice,
     double speed, {
-    void Function(double progress)? onProgress,
+    void Function(double)? onProgress,
+    String? referenceAudioPath,
+    String? referenceTranscript,
   }) async {
     try {
       _fileCounter++;

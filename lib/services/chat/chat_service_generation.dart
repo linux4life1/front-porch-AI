@@ -1552,18 +1552,26 @@ extension ChatServiceGeneration on ChatService {
           final msgId = 'msg_${_messages.length - 1}';
           // Resolve per-character voice, falling back to global default
           String? voiceKey;
+          String? refAudio;
+          String? refTranscript;
           if (_activeGroup != null) {
             final charMatch = _groupCharacters
                 .where((c) => c.name == lastMsg.sender)
                 .firstOrNull;
             voiceKey = charMatch?.ttsVoice;
+            refAudio = charMatch?.zipvoiceReferenceAudio;
+            refTranscript = charMatch?.zipvoiceReferenceTranscript;
           } else {
             voiceKey = _activeCharacter?.ttsVoice;
+            refAudio = _activeCharacter?.zipvoiceReferenceAudio;
+            refTranscript = _activeCharacter?.zipvoiceReferenceTranscript;
           }
           _ttsService!.speak(
             lastMsg.displayText,
             voiceKey: voiceKey,
             messageId: msgId,
+            referenceAudioPath: refAudio,
+            referenceTranscript: refTranscript,
           );
         }
 

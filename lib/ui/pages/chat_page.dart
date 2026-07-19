@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
@@ -44,6 +45,9 @@ import 'package:front_porch_ai/ui/dialogs/user_persona_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/context_viewer_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/scene_guest_detected_dialog.dart';
+import 'package:drift/drift.dart' hide Column;
+import 'package:path/path.dart' as p;
+import 'package:front_porch_ai/database/database.dart' as db;
 import 'package:front_porch_ai/services/chat/chat_command_handler.dart';
 import 'package:front_porch_ai/services/avatar_gallery.dart';
 import 'package:front_porch_ai/services/capability/model_capabilities.dart';
@@ -3026,8 +3030,51 @@ class _ChatPageState extends State<ChatPage> {
                     case 'edit_character':
                       final result = await showDialog(
                         context: context,
-                        builder: (context) =>
-                            EditCharacterDialog(character: character),
+                        builder: (context) => EditCharacterDialog(
+                          character: character,
+                          onSaveOverride: isGroup
+                              ? (card) async {
+                                  final database = Provider.of<db.AppDatabase>(
+                                    context,
+                                    listen: false,
+                                  );
+                                  final memberId =
+                                      p.basenameWithoutExtension(
+                                    character.imagePath ?? '',
+                                  );
+                                  if (memberId.isNotEmpty) {
+                                    await database.updateGroupMember(
+                                      db.GroupMembersCompanion(
+                                        id: Value(memberId),
+                                        name: Value(card.name),
+                                        description: Value(card.description),
+                                        personality: Value(card.personality),
+                                        scenario: Value(card.scenario),
+                                        firstMessage: Value(card.firstMessage),
+                                        mesExample: Value(card.mesExample),
+                                        systemPrompt: Value(card.systemPrompt),
+                                        postHistoryInstructions:
+                                            Value(
+                                              card.postHistoryInstructions,
+                                            ),
+                                        alternateGreetings: Value(
+                                          jsonEncode(card.alternateGreetings),
+                                        ),
+                                        tags: Value(jsonEncode(card.tags)),
+                                        zipvoiceReferenceAudio:
+                                            Value(
+                                              card.zipvoiceReferenceAudio,
+                                            ),
+                                        zipvoiceReferenceTranscript:
+                                            Value(
+                                              card.zipvoiceReferenceTranscript,
+                                            ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                        ),
                       );
                       if (result == true) {
                         setState(() {});

@@ -321,6 +321,8 @@ extension ChatServiceGroupMembership on ChatService {
         tags: drift.Value(jsonEncode(character.tags)),
         avatarFilename: drift.Value('$mid.png'),
         ttsVoice: drift.Value(character.ttsVoice),
+        zipvoiceReferenceAudio: drift.Value(character.zipvoiceReferenceAudio),
+        zipvoiceReferenceTranscript: drift.Value(character.zipvoiceReferenceTranscript),
         lorebook: drift.Value(
           character.lorebook != null
               ? jsonEncode(character.lorebook!.toJson())

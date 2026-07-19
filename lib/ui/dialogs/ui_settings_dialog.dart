@@ -476,6 +476,8 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
             : null,
         worldNames: List.from(character.worldNames),
         ttsVoice: character.ttsVoice,
+        zipvoiceReferenceAudio: character.zipvoiceReferenceAudio,
+        zipvoiceReferenceTranscript: character.zipvoiceReferenceTranscript,
         frontPorchExtensions: updatedExtensions,
         rawExtensions: character.rawExtensions != null
             ? Map<String, dynamic>.from(character.rawExtensions!)
@@ -522,6 +524,8 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
             : null,
         worldNames: List.from(character.worldNames),
         ttsVoice: character.ttsVoice,
+        zipvoiceReferenceAudio: character.zipvoiceReferenceAudio,
+        zipvoiceReferenceTranscript: character.zipvoiceReferenceTranscript,
         frontPorchExtensions: updatedExtensions,
         rawExtensions: character.rawExtensions != null
             ? Map<String, dynamic>.from(character.rawExtensions!)
@@ -568,6 +572,8 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
             : null,
         worldNames: List.from(character.worldNames),
         ttsVoice: character.ttsVoice,
+        zipvoiceReferenceAudio: character.zipvoiceReferenceAudio,
+        zipvoiceReferenceTranscript: character.zipvoiceReferenceTranscript,
         frontPorchExtensions: updatedExtensions,
         rawExtensions: character.rawExtensions != null
             ? Map<String, dynamic>.from(character.rawExtensions!)
@@ -612,6 +618,8 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
             : null,
         worldNames: List.from(character.worldNames),
         ttsVoice: character.ttsVoice,
+        zipvoiceReferenceAudio: character.zipvoiceReferenceAudio,
+        zipvoiceReferenceTranscript: character.zipvoiceReferenceTranscript,
         frontPorchExtensions: updatedExtensions,
         rawExtensions: character.rawExtensions != null
             ? Map<String, dynamic>.from(character.rawExtensions!)
@@ -658,6 +666,8 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
             : null,
         worldNames: List.from(character.worldNames),
         ttsVoice: character.ttsVoice,
+        zipvoiceReferenceAudio: character.zipvoiceReferenceAudio,
+        zipvoiceReferenceTranscript: character.zipvoiceReferenceTranscript,
         frontPorchExtensions: updatedExtensions,
         rawExtensions: character.rawExtensions != null
             ? Map<String, dynamic>.from(character.rawExtensions!)
@@ -702,6 +712,8 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
             : null,
         worldNames: List.from(character.worldNames),
         ttsVoice: character.ttsVoice,
+        zipvoiceReferenceAudio: character.zipvoiceReferenceAudio,
+        zipvoiceReferenceTranscript: character.zipvoiceReferenceTranscript,
         frontPorchExtensions: updatedExtensions,
         rawExtensions: character.rawExtensions != null
             ? Map<String, dynamic>.from(character.rawExtensions!)
@@ -746,6 +758,8 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
           : null,
       worldNames: List.from(character.worldNames),
       ttsVoice: character.ttsVoice,
+      zipvoiceReferenceAudio: character.zipvoiceReferenceAudio,
+      zipvoiceReferenceTranscript: character.zipvoiceReferenceTranscript,
       frontPorchExtensions: updatedExtensions,
       rawExtensions: character.rawExtensions != null
           ? Map<String, dynamic>.from(character.rawExtensions!)

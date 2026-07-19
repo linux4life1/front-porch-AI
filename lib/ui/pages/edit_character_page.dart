@@ -144,6 +144,10 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   int _needsDecayHygiene = 5;
   int _needsDecayComfort = 5;
 
+  // ── ZipVoice reference audio ──
+  String? _zipvoiceRefAudioPath;
+  String? _zipvoiceRefTranscript;
+
   @override
   void initState() {
     super.initState();
@@ -231,6 +235,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _needsDecayHygiene = ext.needsDecayHygiene;
       _needsDecayComfort = ext.needsDecayComfort;
     }
+
+    _zipvoiceRefAudioPath = widget.character.zipvoiceReferenceAudio;
+    _zipvoiceRefTranscript = widget.character.zipvoiceReferenceTranscript;
 
     _tabController = TabController(length: 4, vsync: this);
 
@@ -324,6 +331,14 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         .toList();
     widget.character.tags = List.from(_tags);
     widget.character.worldNames = _selectedWorldNames;
+    widget.character.zipvoiceReferenceAudio =
+        (_zipvoiceRefAudioPath != null && _zipvoiceRefAudioPath!.isNotEmpty)
+            ? _zipvoiceRefAudioPath
+            : null;
+    widget.character.zipvoiceReferenceTranscript =
+        _zipvoiceRefTranscript != null && _zipvoiceRefTranscript!.isNotEmpty
+            ? _zipvoiceRefTranscript
+            : null;
 
     // Always persist extensions — even when realism is disabled — so that
     // configured-but-disabled values survive the PNG round-trip. Skipped when
@@ -943,6 +958,11 @@ class _EditCharacterPageState extends State<EditCharacterPage>
               ),
               const SizedBox(height: 20),
 
+              // ── Voice Sample (ZipVoice) ──
+              _buildVoiceSampleSection(),
+
+              const SizedBox(height: 20),
+
               // ── Realism Engine Summary ── (hidden for group members, whose
               // realism/needs are group state edited in Group Settings)
               if (widget.showRealismTab) _buildRealismSection(),
@@ -1504,6 +1524,163 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           ),
         );
       },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  VOICE SAMPLE (ZipVoice)
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildVoiceSampleSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Voice Sample (ZipVoice)',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: AppColors.textSecondary(context),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.cardOf(context),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.borderOf(context)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _zipvoiceRefAudioPath != null &&
+                              _zipvoiceRefAudioPath!.isNotEmpty
+                          ? p.basename(_zipvoiceRefAudioPath!)
+                          : 'No reference audio configured',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _zipvoiceRefAudioPath != null &&
+                                _zipvoiceRefAudioPath!.isNotEmpty
+                            ? AppColors.textPrimary(context)
+                            : AppColors.textSecondary(context),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.folder_open, size: 20),
+                    tooltip: 'Select .wav file (3-15 seconds)',
+                    onPressed: () async {
+                      final result = await PickerPrefs.pickFiles(
+                        category: 'audio',
+                        type: FileType.custom,
+                        allowedExtensions: ['wav'],
+                        dialogTitle: 'Select reference audio (3-15s .wav)',
+                      );
+                      if (result != null && result.files.isNotEmpty) {
+                        final path = result.files.single.path;
+                        if (path != null) {
+                          setState(() => _zipvoiceRefAudioPath = path);
+                        }
+                      }
+                    },
+                  ),
+                  if (_zipvoiceRefAudioPath != null &&
+                      _zipvoiceRefAudioPath!.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear, size: 20),
+                      tooltip: 'Clear reference audio',
+                      onPressed: () {
+                        setState(() {
+                          _zipvoiceRefAudioPath = null;
+                          _zipvoiceRefTranscript = null;
+                        });
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Exact transcript of the reference audio',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary(context),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _zipvoiceRefTranscript != null &&
+                              _zipvoiceRefTranscript!.isNotEmpty
+                          ? (_zipvoiceRefTranscript!.length > 50
+                              ? '${_zipvoiceRefTranscript!.substring(0, 50)}...'
+                              : _zipvoiceRefTranscript!)
+                          : 'No transcript configured',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _zipvoiceRefTranscript != null &&
+                                _zipvoiceRefTranscript!.isNotEmpty
+                            ? AppColors.textPrimary(context)
+                            : AppColors.textSecondary(context),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.folder_open, size: 20),
+                    tooltip: 'Select .txt transcript file',
+                    onPressed: () async {
+                      final result = await PickerPrefs.pickFiles(
+                        category: 'text',
+                        type: FileType.custom,
+                        allowedExtensions: ['txt'],
+                        dialogTitle: 'Select transcript (.txt)',
+                      );
+                      if (result != null && result.files.isNotEmpty) {
+                        final path = result.files.single.path;
+                        if (path != null) {
+                          try {
+                            final content = await File(path).readAsString();
+                            if (mounted) {
+                              setState(() {
+                                _zipvoiceRefTranscript = content;
+                              });
+                            }
+                          } catch (e) {
+                            debugPrint(
+                              'Failed to read transcript file: $e',
+                            );
+                          }
+                        }
+                      }
+                    },
+                  ),
+                  if (_zipvoiceRefTranscript != null &&
+                      _zipvoiceRefTranscript!.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear, size: 20),
+                      tooltip: 'Clear transcript',
+                      onPressed: () {
+                        setState(() {
+                          _zipvoiceRefTranscript = null;
+                        });
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

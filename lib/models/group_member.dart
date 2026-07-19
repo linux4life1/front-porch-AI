@@ -57,6 +57,8 @@ class GroupMember {
   final String?
   avatarFilename; // basename only; resolve as path.join(storage.groupsDir.path, groupId, 'avatars', filename) (no dedicated group*Dir helpers added per strict no-new-methods rule)
   final String? ttsVoice;
+  final String? zipvoiceReferenceAudio;
+  final String? zipvoiceReferenceTranscript;
   final Lorebook? lorebook;
   final List<String> worldNames;
   final Map<String, dynamic>? frontPorchExtensions; // parsed
@@ -78,6 +80,8 @@ class GroupMember {
     this.tags = const [],
     this.avatarFilename,
     this.ttsVoice,
+    this.zipvoiceReferenceAudio,
+    this.zipvoiceReferenceTranscript,
     this.lorebook,
     this.worldNames = const [],
     this.frontPorchExtensions,
@@ -148,6 +152,8 @@ class GroupMember {
       tags: parseStringList(row.tags),
       avatarFilename: row.avatarFilename,
       ttsVoice: row.ttsVoice,
+      zipvoiceReferenceAudio: row.zipvoiceReferenceAudio,
+      zipvoiceReferenceTranscript: row.zipvoiceReferenceTranscript,
       lorebook: parseLorebook(row.lorebook),
       worldNames: parseStringList(row.worldNames),
       frontPorchExtensions: parseMap(row.frontPorchExtensions),
@@ -245,6 +251,8 @@ class GroupMember {
       tags: List.from(tags),
       imagePath: resolvedImagePath,
       ttsVoice: ttsVoice,
+      zipvoiceReferenceAudio: zipvoiceReferenceAudio,
+      zipvoiceReferenceTranscript: zipvoiceReferenceTranscript,
       lorebook: lorebook != null
           ? Lorebook(entries: List.from(lorebook!.entries))
           : null,

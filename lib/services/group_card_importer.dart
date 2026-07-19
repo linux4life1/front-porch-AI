@@ -186,6 +186,8 @@ class GroupCardImporter {
             tags: Value(jsonOrDefault(data['tags'] ?? [])),
             avatarFilename: Value('$memberId.png'),
             ttsVoice: Value(data['tts_voice']?.toString()),
+            zipvoiceReferenceAudio: Value(data['zipvoice_reference_audio']?.toString()),
+            zipvoiceReferenceTranscript: Value(data['zipvoice_reference_transcript']?.toString()),
             lorebook: Value(
               data['character_book'] != null
                   ? jsonEncode(data['character_book'])

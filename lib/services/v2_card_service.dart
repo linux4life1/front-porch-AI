@@ -224,6 +224,10 @@ class V2CardService {
             ? List<String>.from(data['world_names'] ?? jsonMap['world_names'])
             : const [],
         ttsVoice: data['tts_voice'] ?? jsonMap['tts_voice'],
+        zipvoiceReferenceAudio: data['zipvoice_reference_audio'] ??
+            jsonMap['zipvoice_reference_audio'],
+        zipvoiceReferenceTranscript: data['zipvoice_reference_transcript'] ??
+            jsonMap['zipvoice_reference_transcript'],
         imagePath: imagePath,
         frontPorchExtensions: fpExtensions,
         rawExtensions: rawExtensions,

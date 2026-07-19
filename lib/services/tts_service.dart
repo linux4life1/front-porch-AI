@@ -35,13 +35,15 @@ import 'package:front_porch_ai/services/openai_tts_engine.dart';
 import 'package:front_porch_ai/services/elevenlabs_tts_engine.dart';
 import 'package:front_porch_ai/services/tts/sherpa_piper_engine.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
+import 'package:front_porch_ai/services/zipvoice_engine.dart';
 
 /// Text-to-speech service — multi-engine architecture.
 ///
-/// Supports: Kokoro (local, default), Piper (local), OpenAI TTS (cloud),
-/// ElevenLabs (cloud). Handles buffered playback, progress tracking, and
-/// text sanitization. All local audio is generated in-process by
-/// sherpa-onnx (docs/design/sidecar-retirement.md — no Python involved).
+/// Supports: Kokoro (local, default), ZipVoice (local, zero-shot voice clone),
+/// Piper (local), OpenAI TTS (cloud), ElevenLabs (cloud). Handles buffered
+/// playback, progress tracking, and text sanitization. All local audio is
+/// generated in-process by sherpa-onnx
+/// (docs/design/sidecar-retirement.md — no Python involved).
 class TtsService extends ChangeNotifier {
   final StorageService _storageService;
   final VoiceManager _voiceManager;
@@ -55,6 +57,7 @@ class TtsService extends ChangeNotifier {
   OrderedAudioCollector? _audioCollector;
   final OpenAiTtsEngine _openaiEngine = OpenAiTtsEngine();
   final ElevenLabsTtsEngine _elevenlabsEngine = ElevenLabsTtsEngine();
+  late final ZipVoiceEngine _zipvoiceEngine = ZipVoiceEngine(_storageService);
 
   bool _isSpeaking = false;
   bool _isGenerating = false;
@@ -105,6 +108,8 @@ class TtsService extends ChangeNotifier {
         return _elevenlabsEngine;
       case 'kokoro':
         return _kokoroEngine;
+      case 'zipvoice':
+        return _zipvoiceEngine;
       default:
         return _kokoroEngine; // Piper handled separately for backward compat
     }
@@ -205,7 +210,13 @@ class TtsService extends ChangeNotifier {
   ///
   /// Generates audio for the entire message first (buffered), then plays
   /// it back seamlessly. Shows generation progress.
-  Future<void> speak(String text, {String? voiceKey, String? messageId}) async {
+  Future<void> speak(
+    String text, {
+    String? voiceKey,
+    String? messageId,
+    String? referenceAudioPath,
+    String? referenceTranscript,
+  }) async {
     if (!_storageService.ttsEnabled) {
       print('TTS: disabled, skipping');
       return;
@@ -219,8 +230,14 @@ class TtsService extends ChangeNotifier {
         ? voiceKey
         : _storageService.ttsVoiceModel;
     if (voice.isEmpty) {
-      print('TTS: no voice configured');
-      return;
+      // ZipVoice doesn't use the voice key — it clones from reference audio.
+      // Fall through with a placeholder so generation proceeds.
+      if (_storageService.ttsEngine == 'zipvoice') {
+        voice = 'zipvoice';
+      } else {
+        print('TTS: no voice configured');
+        return;
+      }
     }
 
     // Defensive check: if the resolved voice key is clearly incompatible
@@ -285,9 +302,11 @@ class TtsService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // For Kokoro, ensure model is downloaded
-      if (_storageService.ttsEngine == 'kokoro') {
-        final ready = await activeEngine.ensureModelReady(
+      // For Kokoro / ZipVoice, ensure model is downloaded
+      if (_storageService.ttsEngine == 'kokoro' ||
+          _storageService.ttsEngine == 'zipvoice') {
+        final engine = activeEngine;
+        final ready = await engine.ensureModelReady(
           onProgress: (p) {
             _modelDownloadProgress = p;
             _isDownloadingModel = p < 1.0;
@@ -296,25 +315,30 @@ class TtsService extends ChangeNotifier {
         );
         _isDownloadingModel = false;
         if (!ready || !_isSpeaking) {
-          print('TTS: Kokoro model not ready');
+          print('TTS: ${_storageService.ttsEngine} model not ready');
           return;
         }
 
         // Pre-start the worker pool so first audio doesn't have cold-start delay
-        if (activeEngine is KokoroEngine) {
-          unawaited((activeEngine as KokoroEngine).ensureWorkersWarm());
+        if (engine is KokoroEngine) {
+          unawaited(engine.ensureWorkersWarm());
+        }
+        if (engine is ZipVoiceEngine) {
+          unawaited(engine.ensureWorkersWarm());
         }
       }
 
       final bool isKokoro = _storageService.ttsEngine == 'kokoro';
+      final bool isZipVoice = _storageService.ttsEngine == 'zipvoice';
       final bool isPiper = _isPiperEngine;
 
-      // Unified modern path for Kokoro (persistent) and Piper (one-shot).
-      // Both now benefit from proper sanitization, smart chunking for long text,
+      // Unified modern path for Kokoro, ZipVoice and Piper.
+      // All three benefit from proper sanitization, smart chunking for long text,
       // real progress reporting, and correct ordering/collation.
       // Piper remains strictly one-shot under the hood (as the binary is designed).
-      if (isKokoro || isPiper) {
-        final engineName = isPiper ? 'Piper' : 'Kokoro';
+      // ZipVoice is in-process via sherpa-onnx (same as Piper).
+      if (isKokoro || isZipVoice || isPiper) {
+        final engineName = isPiper ? 'Piper' : isZipVoice ? 'ZipVoice' : 'Kokoro';
         final modeLabel = _storageService.ttsNarrateQuotedOnly
             ? 'Only Quotes'
             : _storageService.ttsIgnoreAsterisks
@@ -324,7 +348,6 @@ class TtsService extends ChangeNotifier {
           '[TtsService] $engineName single full-text generation ($modeLabel mode)',
         );
 
-        _generationProgress = 0.01;
         _isGenerating = true;
         notifyListeners();
 
@@ -379,8 +402,10 @@ class TtsService extends ChangeNotifier {
             notifyListeners();
           }
         } else {
-          // Kokoro: uses the persistent worker pool + internal chunking + collation
-          final wav = await activeEngine.generateAudio(
+          // Kokoro / ZipVoice: uses the persistent worker pool + internal
+          // chunking + collation. ZipVoice may return null when no reference
+          // audio is configured — fall back to Kokoro in that case.
+          var wav = await activeEngine.generateAudio(
             sanitized,
             voice,
             speed,
@@ -388,7 +413,22 @@ class TtsService extends ChangeNotifier {
               _generationProgress = progress;
               notifyListeners();
             },
+            referenceAudioPath: referenceAudioPath,
+            referenceTranscript: referenceTranscript,
           );
+
+          // ZipVoice fallback: no reference configured → Kokoro
+          if (wav == null && activeEngine is ZipVoiceEngine) {
+            wav = await _kokoroEngine.generateAudio(
+              sanitized,
+              voice,
+              speed,
+              onProgress: (progress) {
+                _generationProgress = progress;
+                notifyListeners();
+              },
+            );
+          }
 
           if (wav != null) {
             generatedWavs = [wav];
@@ -560,6 +600,8 @@ class TtsService extends ChangeNotifier {
   Future<void> speakStreaming(
     Stream<String> sentenceStream, {
     String? voiceKey,
+    String? referenceAudioPath,
+    String? referenceTranscript,
   }) async {
     if (!_storageService.ttsEnabled) return;
 
@@ -669,8 +711,24 @@ class TtsService extends ChangeNotifier {
               kDebugPrint(
                 '[TtsService] Streaming: generating audio for chunk (len=${sanitized.length})',
               );
-              wavFile = await engine.generateAudio(sanitized, voice, speed);
+              wavFile = await engine.generateAudio(
+                sanitized,
+                voice,
+                speed,
+                referenceAudioPath: referenceAudioPath,
+                referenceTranscript: referenceTranscript,
+              );
             }
+
+            // ZipVoice fallback: no reference configured → Kokoro
+            if (wavFile == null && engine is ZipVoiceEngine) {
+              wavFile = await _kokoroEngine.generateAudio(
+                sanitized,
+                voice,
+                speed,
+              );
+            }
+
             return wavFile;
           }();
 
@@ -754,7 +812,12 @@ class TtsService extends ChangeNotifier {
 
   /// Generate audio for the given text and return the WAV file without playing.
   /// Used by the web server to stream audio to the browser.
-  Future<File?> generateAudioFile(String text, {String? voiceKey}) async {
+  Future<File?> generateAudioFile(
+    String text, {
+    String? voiceKey,
+    String? referenceAudioPath,
+    String? referenceTranscript,
+  }) async {
     if (!_storageService.ttsEnabled) return null;
 
     var voice = (voiceKey != null && voiceKey.isNotEmpty)
@@ -777,7 +840,8 @@ class TtsService extends ChangeNotifier {
     if (_isPiperEngine && !await _ensurePiperVoice(voice)) return null;
 
     try {
-      if (_storageService.ttsEngine == 'kokoro') {
+      if (_storageService.ttsEngine == 'kokoro' ||
+          _storageService.ttsEngine == 'zipvoice') {
         final ready = await activeEngine.ensureModelReady(onProgress: (_) {});
         if (!ready) return null;
 
@@ -806,6 +870,20 @@ class TtsService extends ChangeNotifier {
         final speed = _storageService.ttsSpeechRate;
         final maxConcurrency = _storageService.ttsConcurrency;
 
+        Future<File?> generateWithFallback(String sentence) async {
+          var wav = await engine.generateAudio(
+            sentence,
+            voice,
+            speed,
+            referenceAudioPath: referenceAudioPath,
+            referenceTranscript: referenceTranscript,
+          );
+          if (wav == null && engine is ZipVoiceEngine) {
+            wav = await _kokoroEngine.generateAudio(sentence, voice, speed);
+          }
+          return wav;
+        }
+
         for (
           int batchStart = 0;
           batchStart < sentences.length;
@@ -817,7 +895,7 @@ class TtsService extends ChangeNotifier {
           );
           final futures = <Future<File?>>[];
           for (int i = batchStart; i < batchEnd; i++) {
-            futures.add(engine.generateAudio(sentences[i], voice, speed));
+            futures.add(generateWithFallback(sentences[i]));
           }
           final results = await Future.wait(futures);
           bool failed = false;
@@ -1135,9 +1213,20 @@ class TtsService extends ChangeNotifier {
       ),
       '',
     );
+    // Replace "..." with a space so espeak-ng doesn't phonemize each period
+    result = result.replaceAll(RegExp(r'\.{2,}'), ' ');
+    result = result.replaceAll(RegExp(r'…'), ' ');
+    // Capitalise standalone "i" → "I" so phonemizers don't read it as /ɪ/
+    result = result.replaceAll(RegExp(r'\bi\b'), 'I');
+    // Replace standalone "a" with a more phonetic spelling so the phonemizer
+    // doesn't read it as a letter name (/eɪ/) that sounds like "I" through ZipVoice.
+    result = result.replaceAll(RegExp(r'\ba\b'), 'uh');
+    // Spell "my" as "mye" so espeak-ng reads it /maɪ/ not /miː/
+    result = result.replaceAll(RegExp(r'\bmy\b', caseSensitive: false), 'mye');
     result = result.replaceAll(RegExp(r'\s+'), ' ');
 
-    return result.trim();
+    final out = result.trim();
+    return out;
   }
 
   /// Split text into sentences for progress tracking.

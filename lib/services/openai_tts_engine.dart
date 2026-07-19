@@ -56,7 +56,9 @@ class OpenAiTtsEngine implements TtsEngine {
     String text,
     String voice,
     double speed, {
-    void Function(double progress)? onProgress,
+    void Function(double)? onProgress,
+    String? referenceAudioPath,
+    String? referenceTranscript,
   }) async {
     if (apiKey.isEmpty) {
       print('OpenAI TTS: no API key configured');

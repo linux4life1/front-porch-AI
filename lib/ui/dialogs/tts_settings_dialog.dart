@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/voice_manager.dart';
+import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
 import 'package:front_porch_ai/services/elevenlabs_tts_engine.dart';
@@ -170,6 +171,8 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                           ..._buildElevenLabsSettings(storage, tts, voices),
                         if (engineId == 'piper')
                           ..._buildPiperSettings(storage, tts),
+                        if (engineId == 'zipvoice')
+                          ..._buildZipVoiceSettings(storage, tts),
 
                         const SizedBox(height: 20),
 
@@ -441,7 +444,19 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                                           storage.ttsNarrateQuotedOnly
                                           ? '“Hello! This is a test of the text to speech system.” The quick brown fox jumps over the lazy dog.'
                                           : 'Hello! This is a test of the text to speech system. The quick brown fox jumps over the lazy dog.';
-                                      tts.speak(testText);
+                                      String? refAudio;
+                                      String? refTranscript;
+                                      if (storage.ttsEngine == 'zipvoice') {
+                                        final chatService =
+                                            Provider.of<ChatService>(context, listen: false);
+                                        refAudio = chatService.activeCharacter?.zipvoiceReferenceAudio;
+                                        refTranscript = chatService.activeCharacter?.zipvoiceReferenceTranscript;
+                                      }
+                                      tts.speak(
+                                        testText,
+                                        referenceAudioPath: refAudio,
+                                        referenceTranscript: refTranscript,
+                                      );
                                     },
                               icon: Icon(
                                 tts.isSpeaking ? Icons.stop : Icons.play_arrow,
@@ -482,6 +497,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
           _engineTab(storage, 'openai', '☁️ OpenAI', 'Cloud API'),
           _engineTab(storage, 'elevenlabs', '🎙 ElevenLabs', 'Premium'),
           _engineTab(storage, 'piper', '📦 Piper', 'Lightweight'),
+          _engineTab(storage, 'zipvoice', '🎭 ZipVoice', 'Clone'),
         ],
       ),
     );
@@ -499,7 +515,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
         onTap: () {
           storage.setTtsEngine(id);
           // Clear voice model when switching engines
-          storage.setTtsVoiceModel('');
+          storage.setTtsVoiceModel(id == 'zipvoice' ? 'zipvoice' : '');
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1076,6 +1092,140 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                   fontSize: 11,
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  /// ZipVoice-specific settings — zero-shot voice clone.
+  /// Model is downloaded on first use; voice reference is configured
+  /// per-character in the character editor dialog.
+  List<Widget> _buildZipVoiceSettings(
+    StorageService storage,
+    TtsService tts,
+  ) {
+    return [
+      // Model status
+      StreamBuilder<bool>(
+        stream: tts.activeEngine.isAvailable.asStream(),
+        builder: (context, snapshot) {
+          final available = snapshot.data ?? false;
+          return Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  available ? Icons.check_circle : Icons.downloading,
+                  color: available
+                      ? Colors.greenAccent
+                      : Colors.orangeAccent,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    available
+                        ? 'ZipVoice model ready'
+                        : 'Model will download on first use',
+                    style: TextStyle(
+                      color: available
+                          ? Colors.greenAccent
+                          : Colors.orangeAccent,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                if (!available)
+                  TextButton(
+                    onPressed: () async {
+                      await tts.activeEngine.ensureModelReady(
+                        onProgress: (p) {
+                          // progress is handled internally
+                        },
+                      );
+                    },
+                    child: const Text(
+                      'Download Now',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 16),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blueGrey.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Colors.blueGrey.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.white54,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'ZipVoice clones a character\'s voice from a short '
+                    'reference audio sample (3–15 seconds). Each character '
+                    'needs its own sample.',
+                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'How to set up:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    '1. Close this dialog and open Edit Character\n'
+                    '2. Scroll down to "Voice Sample (ZipVoice)"\n'
+                    '3. Click the folder icon to select a .wav file (3–15s)\n'
+                    '4. Type the exact words spoken in the audio\n'
+                    '5. Save the character',
+                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'No reference configured → automatically uses Kokoro',
+              style: TextStyle(color: Colors.white38, fontSize: 10),
             ),
           ],
         ),

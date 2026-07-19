@@ -38,11 +38,16 @@ abstract class TtsEngine {
   ///
   /// [onProgress] is optional and only meaningfully used by Kokoro in verbatim
   /// ("read everything") mode to report 0.0–1.0 chunk completion for the UI spinner.
+  ///
+  /// [referenceAudioPath] and [referenceTranscript] are used by ZipVoice for
+  /// zero-shot voice cloning. Other engines ignore them.
   Future<File?> generateAudio(
     String text,
     String voice,
     double speed, {
     void Function(double progress)? onProgress,
+    String? referenceAudioPath,
+    String? referenceTranscript,
   });
 
   /// List of voices available for this engine.

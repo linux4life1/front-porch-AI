@@ -87,6 +87,9 @@ class _CallOverlayState extends State<CallOverlay>
     // order. There is deliberately no isSpeaking polling anywhere.
     sttService.call.onTranscription = (text) async {
       final voiceKey = chatService.activeCharacter?.ttsVoice;
+      final refAudio = chatService.activeCharacter?.zipvoiceReferenceAudio;
+      final refTranscript =
+          chatService.activeCharacter?.zipvoiceReferenceTranscript;
 
       // Buffer sentences so none are lost between sendMessage starting to
       // stream and speakStreaming subscribing (broadcast streams drop
@@ -110,6 +113,8 @@ class _CallOverlayState extends State<CallOverlay>
         await ttsService.speakStreaming(
           sentenceController.stream,
           voiceKey: voiceKey,
+          referenceAudioPath: refAudio,
+          referenceTranscript: refTranscript,
         );
       } finally {
         await sub.cancel();

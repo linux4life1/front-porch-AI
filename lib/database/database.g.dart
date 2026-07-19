@@ -155,6 +155,28 @@ class $CharactersTable extends Characters
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _zipvoiceReferenceAudioMeta =
+      const VerificationMeta('zipvoiceReferenceAudio');
+  @override
+  late final GeneratedColumn<String> zipvoiceReferenceAudio =
+      GeneratedColumn<String>(
+        'zipvoice_reference_audio',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _zipvoiceReferenceTranscriptMeta =
+      const VerificationMeta('zipvoiceReferenceTranscript');
+  @override
+  late final GeneratedColumn<String> zipvoiceReferenceTranscript =
+      GeneratedColumn<String>(
+        'zipvoice_reference_transcript',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _folderIdMeta = const VerificationMeta(
     'folderId',
   );
@@ -299,6 +321,8 @@ class $CharactersTable extends Characters
     tags,
     imagePath,
     ttsVoice,
+    zipvoiceReferenceAudio,
+    zipvoiceReferenceTranscript,
     folderId,
     lorebook,
     worldNames,
@@ -418,6 +442,24 @@ class $CharactersTable extends Characters
       context.handle(
         _ttsVoiceMeta,
         ttsVoice.isAcceptableOrUnknown(data['tts_voice']!, _ttsVoiceMeta),
+      );
+    }
+    if (data.containsKey('zipvoice_reference_audio')) {
+      context.handle(
+        _zipvoiceReferenceAudioMeta,
+        zipvoiceReferenceAudio.isAcceptableOrUnknown(
+          data['zipvoice_reference_audio']!,
+          _zipvoiceReferenceAudioMeta,
+        ),
+      );
+    }
+    if (data.containsKey('zipvoice_reference_transcript')) {
+      context.handle(
+        _zipvoiceReferenceTranscriptMeta,
+        zipvoiceReferenceTranscript.isAcceptableOrUnknown(
+          data['zipvoice_reference_transcript']!,
+          _zipvoiceReferenceTranscriptMeta,
+        ),
       );
     }
     if (data.containsKey('folder_id')) {
@@ -562,6 +604,14 @@ class $CharactersTable extends Characters
         DriftSqlType.string,
         data['${effectivePrefix}tts_voice'],
       ),
+      zipvoiceReferenceAudio: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}zipvoice_reference_audio'],
+      ),
+      zipvoiceReferenceTranscript: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}zipvoice_reference_transcript'],
+      ),
       folderId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}folder_id'],
@@ -629,6 +679,8 @@ class Character extends DataClass implements Insertable<Character> {
   final String tags;
   final String? imagePath;
   final String? ttsVoice;
+  final String? zipvoiceReferenceAudio;
+  final String? zipvoiceReferenceTranscript;
   final String? folderId;
   final String? lorebook;
   final String worldNames;
@@ -654,6 +706,8 @@ class Character extends DataClass implements Insertable<Character> {
     required this.tags,
     this.imagePath,
     this.ttsVoice,
+    this.zipvoiceReferenceAudio,
+    this.zipvoiceReferenceTranscript,
     this.folderId,
     this.lorebook,
     required this.worldNames,
@@ -687,6 +741,16 @@ class Character extends DataClass implements Insertable<Character> {
     }
     if (!nullToAbsent || ttsVoice != null) {
       map['tts_voice'] = Variable<String>(ttsVoice);
+    }
+    if (!nullToAbsent || zipvoiceReferenceAudio != null) {
+      map['zipvoice_reference_audio'] = Variable<String>(
+        zipvoiceReferenceAudio,
+      );
+    }
+    if (!nullToAbsent || zipvoiceReferenceTranscript != null) {
+      map['zipvoice_reference_transcript'] = Variable<String>(
+        zipvoiceReferenceTranscript,
+      );
     }
     if (!nullToAbsent || folderId != null) {
       map['folder_id'] = Variable<String>(folderId);
@@ -727,6 +791,13 @@ class Character extends DataClass implements Insertable<Character> {
       ttsVoice: ttsVoice == null && nullToAbsent
           ? const Value.absent()
           : Value(ttsVoice),
+      zipvoiceReferenceAudio: zipvoiceReferenceAudio == null && nullToAbsent
+          ? const Value.absent()
+          : Value(zipvoiceReferenceAudio),
+      zipvoiceReferenceTranscript:
+          zipvoiceReferenceTranscript == null && nullToAbsent
+          ? const Value.absent()
+          : Value(zipvoiceReferenceTranscript),
       folderId: folderId == null && nullToAbsent
           ? const Value.absent()
           : Value(folderId),
@@ -770,6 +841,12 @@ class Character extends DataClass implements Insertable<Character> {
       tags: serializer.fromJson<String>(json['tags']),
       imagePath: serializer.fromJson<String?>(json['imagePath']),
       ttsVoice: serializer.fromJson<String?>(json['ttsVoice']),
+      zipvoiceReferenceAudio: serializer.fromJson<String?>(
+        json['zipvoiceReferenceAudio'],
+      ),
+      zipvoiceReferenceTranscript: serializer.fromJson<String?>(
+        json['zipvoiceReferenceTranscript'],
+      ),
       folderId: serializer.fromJson<String?>(json['folderId']),
       lorebook: serializer.fromJson<String?>(json['lorebook']),
       worldNames: serializer.fromJson<String>(json['worldNames']),
@@ -804,6 +881,12 @@ class Character extends DataClass implements Insertable<Character> {
       'tags': serializer.toJson<String>(tags),
       'imagePath': serializer.toJson<String?>(imagePath),
       'ttsVoice': serializer.toJson<String?>(ttsVoice),
+      'zipvoiceReferenceAudio': serializer.toJson<String?>(
+        zipvoiceReferenceAudio,
+      ),
+      'zipvoiceReferenceTranscript': serializer.toJson<String?>(
+        zipvoiceReferenceTranscript,
+      ),
       'folderId': serializer.toJson<String?>(folderId),
       'lorebook': serializer.toJson<String?>(lorebook),
       'worldNames': serializer.toJson<String>(worldNames),
@@ -832,6 +915,8 @@ class Character extends DataClass implements Insertable<Character> {
     String? tags,
     Value<String?> imagePath = const Value.absent(),
     Value<String?> ttsVoice = const Value.absent(),
+    Value<String?> zipvoiceReferenceAudio = const Value.absent(),
+    Value<String?> zipvoiceReferenceTranscript = const Value.absent(),
     Value<String?> folderId = const Value.absent(),
     Value<String?> lorebook = const Value.absent(),
     String? worldNames,
@@ -858,6 +943,12 @@ class Character extends DataClass implements Insertable<Character> {
     tags: tags ?? this.tags,
     imagePath: imagePath.present ? imagePath.value : this.imagePath,
     ttsVoice: ttsVoice.present ? ttsVoice.value : this.ttsVoice,
+    zipvoiceReferenceAudio: zipvoiceReferenceAudio.present
+        ? zipvoiceReferenceAudio.value
+        : this.zipvoiceReferenceAudio,
+    zipvoiceReferenceTranscript: zipvoiceReferenceTranscript.present
+        ? zipvoiceReferenceTranscript.value
+        : this.zipvoiceReferenceTranscript,
     folderId: folderId.present ? folderId.value : this.folderId,
     lorebook: lorebook.present ? lorebook.value : this.lorebook,
     worldNames: worldNames ?? this.worldNames,
@@ -899,6 +990,12 @@ class Character extends DataClass implements Insertable<Character> {
       tags: data.tags.present ? data.tags.value : this.tags,
       imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
       ttsVoice: data.ttsVoice.present ? data.ttsVoice.value : this.ttsVoice,
+      zipvoiceReferenceAudio: data.zipvoiceReferenceAudio.present
+          ? data.zipvoiceReferenceAudio.value
+          : this.zipvoiceReferenceAudio,
+      zipvoiceReferenceTranscript: data.zipvoiceReferenceTranscript.present
+          ? data.zipvoiceReferenceTranscript.value
+          : this.zipvoiceReferenceTranscript,
       folderId: data.folderId.present ? data.folderId.value : this.folderId,
       lorebook: data.lorebook.present ? data.lorebook.value : this.lorebook,
       worldNames: data.worldNames.present
@@ -941,6 +1038,8 @@ class Character extends DataClass implements Insertable<Character> {
           ..write('tags: $tags, ')
           ..write('imagePath: $imagePath, ')
           ..write('ttsVoice: $ttsVoice, ')
+          ..write('zipvoiceReferenceAudio: $zipvoiceReferenceAudio, ')
+          ..write('zipvoiceReferenceTranscript: $zipvoiceReferenceTranscript, ')
           ..write('folderId: $folderId, ')
           ..write('lorebook: $lorebook, ')
           ..write('worldNames: $worldNames, ')
@@ -971,6 +1070,8 @@ class Character extends DataClass implements Insertable<Character> {
     tags,
     imagePath,
     ttsVoice,
+    zipvoiceReferenceAudio,
+    zipvoiceReferenceTranscript,
     folderId,
     lorebook,
     worldNames,
@@ -1000,6 +1101,9 @@ class Character extends DataClass implements Insertable<Character> {
           other.tags == this.tags &&
           other.imagePath == this.imagePath &&
           other.ttsVoice == this.ttsVoice &&
+          other.zipvoiceReferenceAudio == this.zipvoiceReferenceAudio &&
+          other.zipvoiceReferenceTranscript ==
+              this.zipvoiceReferenceTranscript &&
           other.folderId == this.folderId &&
           other.lorebook == this.lorebook &&
           other.worldNames == this.worldNames &&
@@ -1027,6 +1131,8 @@ class CharactersCompanion extends UpdateCompanion<Character> {
   final Value<String> tags;
   final Value<String?> imagePath;
   final Value<String?> ttsVoice;
+  final Value<String?> zipvoiceReferenceAudio;
+  final Value<String?> zipvoiceReferenceTranscript;
   final Value<String?> folderId;
   final Value<String?> lorebook;
   final Value<String> worldNames;
@@ -1053,6 +1159,8 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     this.tags = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.ttsVoice = const Value.absent(),
+    this.zipvoiceReferenceAudio = const Value.absent(),
+    this.zipvoiceReferenceTranscript = const Value.absent(),
     this.folderId = const Value.absent(),
     this.lorebook = const Value.absent(),
     this.worldNames = const Value.absent(),
@@ -1080,6 +1188,8 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     this.tags = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.ttsVoice = const Value.absent(),
+    this.zipvoiceReferenceAudio = const Value.absent(),
+    this.zipvoiceReferenceTranscript = const Value.absent(),
     this.folderId = const Value.absent(),
     this.lorebook = const Value.absent(),
     this.worldNames = const Value.absent(),
@@ -1108,6 +1218,8 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     Expression<String>? tags,
     Expression<String>? imagePath,
     Expression<String>? ttsVoice,
+    Expression<String>? zipvoiceReferenceAudio,
+    Expression<String>? zipvoiceReferenceTranscript,
     Expression<String>? folderId,
     Expression<String>? lorebook,
     Expression<String>? worldNames,
@@ -1136,6 +1248,10 @@ class CharactersCompanion extends UpdateCompanion<Character> {
       if (tags != null) 'tags': tags,
       if (imagePath != null) 'image_path': imagePath,
       if (ttsVoice != null) 'tts_voice': ttsVoice,
+      if (zipvoiceReferenceAudio != null)
+        'zipvoice_reference_audio': zipvoiceReferenceAudio,
+      if (zipvoiceReferenceTranscript != null)
+        'zipvoice_reference_transcript': zipvoiceReferenceTranscript,
       if (folderId != null) 'folder_id': folderId,
       if (lorebook != null) 'lorebook': lorebook,
       if (worldNames != null) 'world_names': worldNames,
@@ -1165,6 +1281,8 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     Value<String>? tags,
     Value<String?>? imagePath,
     Value<String?>? ttsVoice,
+    Value<String?>? zipvoiceReferenceAudio,
+    Value<String?>? zipvoiceReferenceTranscript,
     Value<String?>? folderId,
     Value<String?>? lorebook,
     Value<String>? worldNames,
@@ -1193,6 +1311,10 @@ class CharactersCompanion extends UpdateCompanion<Character> {
       tags: tags ?? this.tags,
       imagePath: imagePath ?? this.imagePath,
       ttsVoice: ttsVoice ?? this.ttsVoice,
+      zipvoiceReferenceAudio:
+          zipvoiceReferenceAudio ?? this.zipvoiceReferenceAudio,
+      zipvoiceReferenceTranscript:
+          zipvoiceReferenceTranscript ?? this.zipvoiceReferenceTranscript,
       folderId: folderId ?? this.folderId,
       lorebook: lorebook ?? this.lorebook,
       worldNames: worldNames ?? this.worldNames,
@@ -1252,6 +1374,16 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     if (ttsVoice.present) {
       map['tts_voice'] = Variable<String>(ttsVoice.value);
     }
+    if (zipvoiceReferenceAudio.present) {
+      map['zipvoice_reference_audio'] = Variable<String>(
+        zipvoiceReferenceAudio.value,
+      );
+    }
+    if (zipvoiceReferenceTranscript.present) {
+      map['zipvoice_reference_transcript'] = Variable<String>(
+        zipvoiceReferenceTranscript.value,
+      );
+    }
     if (folderId.present) {
       map['folder_id'] = Variable<String>(folderId.value);
     }
@@ -1307,6 +1439,8 @@ class CharactersCompanion extends UpdateCompanion<Character> {
           ..write('tags: $tags, ')
           ..write('imagePath: $imagePath, ')
           ..write('ttsVoice: $ttsVoice, ')
+          ..write('zipvoiceReferenceAudio: $zipvoiceReferenceAudio, ')
+          ..write('zipvoiceReferenceTranscript: $zipvoiceReferenceTranscript, ')
           ..write('folderId: $folderId, ')
           ..write('lorebook: $lorebook, ')
           ..write('worldNames: $worldNames, ')
@@ -12482,6 +12616,28 @@ class $GroupMembersTable extends GroupMembers
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _zipvoiceReferenceAudioMeta =
+      const VerificationMeta('zipvoiceReferenceAudio');
+  @override
+  late final GeneratedColumn<String> zipvoiceReferenceAudio =
+      GeneratedColumn<String>(
+        'zipvoice_reference_audio',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _zipvoiceReferenceTranscriptMeta =
+      const VerificationMeta('zipvoiceReferenceTranscript');
+  @override
+  late final GeneratedColumn<String> zipvoiceReferenceTranscript =
+      GeneratedColumn<String>(
+        'zipvoice_reference_transcript',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _lorebookMeta = const VerificationMeta(
     'lorebook',
   );
@@ -12567,6 +12723,8 @@ class $GroupMembersTable extends GroupMembers
     tags,
     avatarFilename,
     ttsVoice,
+    zipvoiceReferenceAudio,
+    zipvoiceReferenceTranscript,
     lorebook,
     worldNames,
     frontPorchExtensions,
@@ -12694,6 +12852,24 @@ class $GroupMembersTable extends GroupMembers
         ttsVoice.isAcceptableOrUnknown(data['tts_voice']!, _ttsVoiceMeta),
       );
     }
+    if (data.containsKey('zipvoice_reference_audio')) {
+      context.handle(
+        _zipvoiceReferenceAudioMeta,
+        zipvoiceReferenceAudio.isAcceptableOrUnknown(
+          data['zipvoice_reference_audio']!,
+          _zipvoiceReferenceAudioMeta,
+        ),
+      );
+    }
+    if (data.containsKey('zipvoice_reference_transcript')) {
+      context.handle(
+        _zipvoiceReferenceTranscriptMeta,
+        zipvoiceReferenceTranscript.isAcceptableOrUnknown(
+          data['zipvoice_reference_transcript']!,
+          _zipvoiceReferenceTranscriptMeta,
+        ),
+      );
+    }
     if (data.containsKey('lorebook')) {
       context.handle(
         _lorebookMeta,
@@ -12804,6 +12980,14 @@ class $GroupMembersTable extends GroupMembers
         DriftSqlType.string,
         data['${effectivePrefix}tts_voice'],
       ),
+      zipvoiceReferenceAudio: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}zipvoice_reference_audio'],
+      ),
+      zipvoiceReferenceTranscript: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}zipvoice_reference_transcript'],
+      ),
       lorebook: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}lorebook'],
@@ -12856,6 +13040,8 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
   /// Never a full path, never an expression list.
   final String? avatarFilename;
   final String? ttsVoice;
+  final String? zipvoiceReferenceAudio;
+  final String? zipvoiceReferenceTranscript;
   final String? lorebook;
   final String worldNames;
 
@@ -12885,6 +13071,8 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
     required this.tags,
     this.avatarFilename,
     this.ttsVoice,
+    this.zipvoiceReferenceAudio,
+    this.zipvoiceReferenceTranscript,
     this.lorebook,
     required this.worldNames,
     this.frontPorchExtensions,
@@ -12914,6 +13102,16 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
     }
     if (!nullToAbsent || ttsVoice != null) {
       map['tts_voice'] = Variable<String>(ttsVoice);
+    }
+    if (!nullToAbsent || zipvoiceReferenceAudio != null) {
+      map['zipvoice_reference_audio'] = Variable<String>(
+        zipvoiceReferenceAudio,
+      );
+    }
+    if (!nullToAbsent || zipvoiceReferenceTranscript != null) {
+      map['zipvoice_reference_transcript'] = Variable<String>(
+        zipvoiceReferenceTranscript,
+      );
     }
     if (!nullToAbsent || lorebook != null) {
       map['lorebook'] = Variable<String>(lorebook);
@@ -12950,6 +13148,13 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
       ttsVoice: ttsVoice == null && nullToAbsent
           ? const Value.absent()
           : Value(ttsVoice),
+      zipvoiceReferenceAudio: zipvoiceReferenceAudio == null && nullToAbsent
+          ? const Value.absent()
+          : Value(zipvoiceReferenceAudio),
+      zipvoiceReferenceTranscript:
+          zipvoiceReferenceTranscript == null && nullToAbsent
+          ? const Value.absent()
+          : Value(zipvoiceReferenceTranscript),
       lorebook: lorebook == null && nullToAbsent
           ? const Value.absent()
           : Value(lorebook),
@@ -12989,6 +13194,12 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
       tags: serializer.fromJson<String>(json['tags']),
       avatarFilename: serializer.fromJson<String?>(json['avatarFilename']),
       ttsVoice: serializer.fromJson<String?>(json['ttsVoice']),
+      zipvoiceReferenceAudio: serializer.fromJson<String?>(
+        json['zipvoiceReferenceAudio'],
+      ),
+      zipvoiceReferenceTranscript: serializer.fromJson<String?>(
+        json['zipvoiceReferenceTranscript'],
+      ),
       lorebook: serializer.fromJson<String?>(json['lorebook']),
       worldNames: serializer.fromJson<String>(json['worldNames']),
       frontPorchExtensions: serializer.fromJson<String?>(
@@ -13019,6 +13230,12 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
       'tags': serializer.toJson<String>(tags),
       'avatarFilename': serializer.toJson<String?>(avatarFilename),
       'ttsVoice': serializer.toJson<String?>(ttsVoice),
+      'zipvoiceReferenceAudio': serializer.toJson<String?>(
+        zipvoiceReferenceAudio,
+      ),
+      'zipvoiceReferenceTranscript': serializer.toJson<String?>(
+        zipvoiceReferenceTranscript,
+      ),
       'lorebook': serializer.toJson<String?>(lorebook),
       'worldNames': serializer.toJson<String>(worldNames),
       'frontPorchExtensions': serializer.toJson<String?>(frontPorchExtensions),
@@ -13043,6 +13260,8 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
     String? tags,
     Value<String?> avatarFilename = const Value.absent(),
     Value<String?> ttsVoice = const Value.absent(),
+    Value<String?> zipvoiceReferenceAudio = const Value.absent(),
+    Value<String?> zipvoiceReferenceTranscript = const Value.absent(),
     Value<String?> lorebook = const Value.absent(),
     String? worldNames,
     Value<String?> frontPorchExtensions = const Value.absent(),
@@ -13067,6 +13286,12 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
         ? avatarFilename.value
         : this.avatarFilename,
     ttsVoice: ttsVoice.present ? ttsVoice.value : this.ttsVoice,
+    zipvoiceReferenceAudio: zipvoiceReferenceAudio.present
+        ? zipvoiceReferenceAudio.value
+        : this.zipvoiceReferenceAudio,
+    zipvoiceReferenceTranscript: zipvoiceReferenceTranscript.present
+        ? zipvoiceReferenceTranscript.value
+        : this.zipvoiceReferenceTranscript,
     lorebook: lorebook.present ? lorebook.value : this.lorebook,
     worldNames: worldNames ?? this.worldNames,
     frontPorchExtensions: frontPorchExtensions.present
@@ -13110,6 +13335,12 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
           ? data.avatarFilename.value
           : this.avatarFilename,
       ttsVoice: data.ttsVoice.present ? data.ttsVoice.value : this.ttsVoice,
+      zipvoiceReferenceAudio: data.zipvoiceReferenceAudio.present
+          ? data.zipvoiceReferenceAudio.value
+          : this.zipvoiceReferenceAudio,
+      zipvoiceReferenceTranscript: data.zipvoiceReferenceTranscript.present
+          ? data.zipvoiceReferenceTranscript.value
+          : this.zipvoiceReferenceTranscript,
       lorebook: data.lorebook.present ? data.lorebook.value : this.lorebook,
       worldNames: data.worldNames.present
           ? data.worldNames.value
@@ -13144,6 +13375,8 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
           ..write('tags: $tags, ')
           ..write('avatarFilename: $avatarFilename, ')
           ..write('ttsVoice: $ttsVoice, ')
+          ..write('zipvoiceReferenceAudio: $zipvoiceReferenceAudio, ')
+          ..write('zipvoiceReferenceTranscript: $zipvoiceReferenceTranscript, ')
           ..write('lorebook: $lorebook, ')
           ..write('worldNames: $worldNames, ')
           ..write('frontPorchExtensions: $frontPorchExtensions, ')
@@ -13155,7 +13388,7 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     groupId,
     name,
@@ -13170,13 +13403,15 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
     tags,
     avatarFilename,
     ttsVoice,
+    zipvoiceReferenceAudio,
+    zipvoiceReferenceTranscript,
     lorebook,
     worldNames,
     frontPorchExtensions,
     rawExtensions,
     memberState,
     updatedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -13195,6 +13430,9 @@ class GroupMemberRow extends DataClass implements Insertable<GroupMemberRow> {
           other.tags == this.tags &&
           other.avatarFilename == this.avatarFilename &&
           other.ttsVoice == this.ttsVoice &&
+          other.zipvoiceReferenceAudio == this.zipvoiceReferenceAudio &&
+          other.zipvoiceReferenceTranscript ==
+              this.zipvoiceReferenceTranscript &&
           other.lorebook == this.lorebook &&
           other.worldNames == this.worldNames &&
           other.frontPorchExtensions == this.frontPorchExtensions &&
@@ -13218,6 +13456,8 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
   final Value<String> tags;
   final Value<String?> avatarFilename;
   final Value<String?> ttsVoice;
+  final Value<String?> zipvoiceReferenceAudio;
+  final Value<String?> zipvoiceReferenceTranscript;
   final Value<String?> lorebook;
   final Value<String> worldNames;
   final Value<String?> frontPorchExtensions;
@@ -13240,6 +13480,8 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
     this.tags = const Value.absent(),
     this.avatarFilename = const Value.absent(),
     this.ttsVoice = const Value.absent(),
+    this.zipvoiceReferenceAudio = const Value.absent(),
+    this.zipvoiceReferenceTranscript = const Value.absent(),
     this.lorebook = const Value.absent(),
     this.worldNames = const Value.absent(),
     this.frontPorchExtensions = const Value.absent(),
@@ -13263,6 +13505,8 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
     this.tags = const Value.absent(),
     this.avatarFilename = const Value.absent(),
     this.ttsVoice = const Value.absent(),
+    this.zipvoiceReferenceAudio = const Value.absent(),
+    this.zipvoiceReferenceTranscript = const Value.absent(),
     this.lorebook = const Value.absent(),
     this.worldNames = const Value.absent(),
     this.frontPorchExtensions = const Value.absent(),
@@ -13288,6 +13532,8 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
     Expression<String>? tags,
     Expression<String>? avatarFilename,
     Expression<String>? ttsVoice,
+    Expression<String>? zipvoiceReferenceAudio,
+    Expression<String>? zipvoiceReferenceTranscript,
     Expression<String>? lorebook,
     Expression<String>? worldNames,
     Expression<String>? frontPorchExtensions,
@@ -13312,6 +13558,10 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
       if (tags != null) 'tags': tags,
       if (avatarFilename != null) 'avatar_filename': avatarFilename,
       if (ttsVoice != null) 'tts_voice': ttsVoice,
+      if (zipvoiceReferenceAudio != null)
+        'zipvoice_reference_audio': zipvoiceReferenceAudio,
+      if (zipvoiceReferenceTranscript != null)
+        'zipvoice_reference_transcript': zipvoiceReferenceTranscript,
       if (lorebook != null) 'lorebook': lorebook,
       if (worldNames != null) 'world_names': worldNames,
       if (frontPorchExtensions != null)
@@ -13338,6 +13588,8 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
     Value<String>? tags,
     Value<String?>? avatarFilename,
     Value<String?>? ttsVoice,
+    Value<String?>? zipvoiceReferenceAudio,
+    Value<String?>? zipvoiceReferenceTranscript,
     Value<String?>? lorebook,
     Value<String>? worldNames,
     Value<String?>? frontPorchExtensions,
@@ -13362,6 +13614,10 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
       tags: tags ?? this.tags,
       avatarFilename: avatarFilename ?? this.avatarFilename,
       ttsVoice: ttsVoice ?? this.ttsVoice,
+      zipvoiceReferenceAudio:
+          zipvoiceReferenceAudio ?? this.zipvoiceReferenceAudio,
+      zipvoiceReferenceTranscript:
+          zipvoiceReferenceTranscript ?? this.zipvoiceReferenceTranscript,
       lorebook: lorebook ?? this.lorebook,
       worldNames: worldNames ?? this.worldNames,
       frontPorchExtensions: frontPorchExtensions ?? this.frontPorchExtensions,
@@ -13419,6 +13675,16 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
     if (ttsVoice.present) {
       map['tts_voice'] = Variable<String>(ttsVoice.value);
     }
+    if (zipvoiceReferenceAudio.present) {
+      map['zipvoice_reference_audio'] = Variable<String>(
+        zipvoiceReferenceAudio.value,
+      );
+    }
+    if (zipvoiceReferenceTranscript.present) {
+      map['zipvoice_reference_transcript'] = Variable<String>(
+        zipvoiceReferenceTranscript.value,
+      );
+    }
     if (lorebook.present) {
       map['lorebook'] = Variable<String>(lorebook.value);
     }
@@ -13462,6 +13728,8 @@ class GroupMembersCompanion extends UpdateCompanion<GroupMemberRow> {
           ..write('tags: $tags, ')
           ..write('avatarFilename: $avatarFilename, ')
           ..write('ttsVoice: $ttsVoice, ')
+          ..write('zipvoiceReferenceAudio: $zipvoiceReferenceAudio, ')
+          ..write('zipvoiceReferenceTranscript: $zipvoiceReferenceTranscript, ')
           ..write('lorebook: $lorebook, ')
           ..write('worldNames: $worldNames, ')
           ..write('frontPorchExtensions: $frontPorchExtensions, ')
@@ -14640,6 +14908,8 @@ typedef $$CharactersTableCreateCompanionBuilder =
       Value<String> tags,
       Value<String?> imagePath,
       Value<String?> ttsVoice,
+      Value<String?> zipvoiceReferenceAudio,
+      Value<String?> zipvoiceReferenceTranscript,
       Value<String?> folderId,
       Value<String?> lorebook,
       Value<String> worldNames,
@@ -14668,6 +14938,8 @@ typedef $$CharactersTableUpdateCompanionBuilder =
       Value<String> tags,
       Value<String?> imagePath,
       Value<String?> ttsVoice,
+      Value<String?> zipvoiceReferenceAudio,
+      Value<String?> zipvoiceReferenceTranscript,
       Value<String?> folderId,
       Value<String?> lorebook,
       Value<String> worldNames,
@@ -14753,6 +15025,16 @@ class $$CharactersTableFilterComposer
 
   ColumnFilters<String> get ttsVoice => $composableBuilder(
     column: $table.ttsVoice,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get zipvoiceReferenceAudio => $composableBuilder(
+    column: $table.zipvoiceReferenceAudio,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get zipvoiceReferenceTranscript => $composableBuilder(
+    column: $table.zipvoiceReferenceTranscript,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14886,6 +15168,16 @@ class $$CharactersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get zipvoiceReferenceAudio => $composableBuilder(
+    column: $table.zipvoiceReferenceAudio,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get zipvoiceReferenceTranscript => $composableBuilder(
+    column: $table.zipvoiceReferenceTranscript,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get folderId => $composableBuilder(
     column: $table.folderId,
     builder: (column) => ColumnOrderings(column),
@@ -15004,6 +15296,16 @@ class $$CharactersTableAnnotationComposer
   GeneratedColumn<String> get ttsVoice =>
       $composableBuilder(column: $table.ttsVoice, builder: (column) => column);
 
+  GeneratedColumn<String> get zipvoiceReferenceAudio => $composableBuilder(
+    column: $table.zipvoiceReferenceAudio,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get zipvoiceReferenceTranscript => $composableBuilder(
+    column: $table.zipvoiceReferenceTranscript,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get folderId =>
       $composableBuilder(column: $table.folderId, builder: (column) => column);
 
@@ -15094,6 +15396,9 @@ class $$CharactersTableTableManager
                 Value<String> tags = const Value.absent(),
                 Value<String?> imagePath = const Value.absent(),
                 Value<String?> ttsVoice = const Value.absent(),
+                Value<String?> zipvoiceReferenceAudio = const Value.absent(),
+                Value<String?> zipvoiceReferenceTranscript =
+                    const Value.absent(),
                 Value<String?> folderId = const Value.absent(),
                 Value<String?> lorebook = const Value.absent(),
                 Value<String> worldNames = const Value.absent(),
@@ -15120,6 +15425,8 @@ class $$CharactersTableTableManager
                 tags: tags,
                 imagePath: imagePath,
                 ttsVoice: ttsVoice,
+                zipvoiceReferenceAudio: zipvoiceReferenceAudio,
+                zipvoiceReferenceTranscript: zipvoiceReferenceTranscript,
                 folderId: folderId,
                 lorebook: lorebook,
                 worldNames: worldNames,
@@ -15148,6 +15455,9 @@ class $$CharactersTableTableManager
                 Value<String> tags = const Value.absent(),
                 Value<String?> imagePath = const Value.absent(),
                 Value<String?> ttsVoice = const Value.absent(),
+                Value<String?> zipvoiceReferenceAudio = const Value.absent(),
+                Value<String?> zipvoiceReferenceTranscript =
+                    const Value.absent(),
                 Value<String?> folderId = const Value.absent(),
                 Value<String?> lorebook = const Value.absent(),
                 Value<String> worldNames = const Value.absent(),
@@ -15174,6 +15484,8 @@ class $$CharactersTableTableManager
                 tags: tags,
                 imagePath: imagePath,
                 ttsVoice: ttsVoice,
+                zipvoiceReferenceAudio: zipvoiceReferenceAudio,
+                zipvoiceReferenceTranscript: zipvoiceReferenceTranscript,
                 folderId: folderId,
                 lorebook: lorebook,
                 worldNames: worldNames,
@@ -20385,6 +20697,8 @@ typedef $$GroupMembersTableCreateCompanionBuilder =
       Value<String> tags,
       Value<String?> avatarFilename,
       Value<String?> ttsVoice,
+      Value<String?> zipvoiceReferenceAudio,
+      Value<String?> zipvoiceReferenceTranscript,
       Value<String?> lorebook,
       Value<String> worldNames,
       Value<String?> frontPorchExtensions,
@@ -20409,6 +20723,8 @@ typedef $$GroupMembersTableUpdateCompanionBuilder =
       Value<String> tags,
       Value<String?> avatarFilename,
       Value<String?> ttsVoice,
+      Value<String?> zipvoiceReferenceAudio,
+      Value<String?> zipvoiceReferenceTranscript,
       Value<String?> lorebook,
       Value<String> worldNames,
       Value<String?> frontPorchExtensions,
@@ -20494,6 +20810,16 @@ class $$GroupMembersTableFilterComposer
 
   ColumnFilters<String> get ttsVoice => $composableBuilder(
     column: $table.ttsVoice,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get zipvoiceReferenceAudio => $composableBuilder(
+    column: $table.zipvoiceReferenceAudio,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get zipvoiceReferenceTranscript => $composableBuilder(
+    column: $table.zipvoiceReferenceTranscript,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -20607,6 +20933,16 @@ class $$GroupMembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get zipvoiceReferenceAudio => $composableBuilder(
+    column: $table.zipvoiceReferenceAudio,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get zipvoiceReferenceTranscript => $composableBuilder(
+    column: $table.zipvoiceReferenceTranscript,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get lorebook => $composableBuilder(
     column: $table.lorebook,
     builder: (column) => ColumnOrderings(column),
@@ -20705,6 +21041,16 @@ class $$GroupMembersTableAnnotationComposer
   GeneratedColumn<String> get ttsVoice =>
       $composableBuilder(column: $table.ttsVoice, builder: (column) => column);
 
+  GeneratedColumn<String> get zipvoiceReferenceAudio => $composableBuilder(
+    column: $table.zipvoiceReferenceAudio,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get zipvoiceReferenceTranscript => $composableBuilder(
+    column: $table.zipvoiceReferenceTranscript,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get lorebook =>
       $composableBuilder(column: $table.lorebook, builder: (column) => column);
 
@@ -20777,6 +21123,9 @@ class $$GroupMembersTableTableManager
                 Value<String> tags = const Value.absent(),
                 Value<String?> avatarFilename = const Value.absent(),
                 Value<String?> ttsVoice = const Value.absent(),
+                Value<String?> zipvoiceReferenceAudio = const Value.absent(),
+                Value<String?> zipvoiceReferenceTranscript =
+                    const Value.absent(),
                 Value<String?> lorebook = const Value.absent(),
                 Value<String> worldNames = const Value.absent(),
                 Value<String?> frontPorchExtensions = const Value.absent(),
@@ -20799,6 +21148,8 @@ class $$GroupMembersTableTableManager
                 tags: tags,
                 avatarFilename: avatarFilename,
                 ttsVoice: ttsVoice,
+                zipvoiceReferenceAudio: zipvoiceReferenceAudio,
+                zipvoiceReferenceTranscript: zipvoiceReferenceTranscript,
                 lorebook: lorebook,
                 worldNames: worldNames,
                 frontPorchExtensions: frontPorchExtensions,
@@ -20823,6 +21174,9 @@ class $$GroupMembersTableTableManager
                 Value<String> tags = const Value.absent(),
                 Value<String?> avatarFilename = const Value.absent(),
                 Value<String?> ttsVoice = const Value.absent(),
+                Value<String?> zipvoiceReferenceAudio = const Value.absent(),
+                Value<String?> zipvoiceReferenceTranscript =
+                    const Value.absent(),
                 Value<String?> lorebook = const Value.absent(),
                 Value<String> worldNames = const Value.absent(),
                 Value<String?> frontPorchExtensions = const Value.absent(),
@@ -20845,6 +21199,8 @@ class $$GroupMembersTableTableManager
                 tags: tags,
                 avatarFilename: avatarFilename,
                 ttsVoice: ttsVoice,
+                zipvoiceReferenceAudio: zipvoiceReferenceAudio,
+                zipvoiceReferenceTranscript: zipvoiceReferenceTranscript,
                 lorebook: lorebook,
                 worldNames: worldNames,
                 frontPorchExtensions: frontPorchExtensions,

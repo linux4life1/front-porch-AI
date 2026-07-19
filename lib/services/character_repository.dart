@@ -285,6 +285,8 @@ class CharacterRepository extends ChangeNotifier {
       tags: tags,
       imagePath: c.imagePath,
       ttsVoice: c.ttsVoice,
+      zipvoiceReferenceAudio: c.zipvoiceReferenceAudio,
+      zipvoiceReferenceTranscript: c.zipvoiceReferenceTranscript,
       lorebook: lorebook,
       worldNames: worldNames,
     );
@@ -318,6 +320,8 @@ class CharacterRepository extends ChangeNotifier {
         tags: Value(jsonEncode(character.tags)),
         imagePath: Value(dbImagePath),
         ttsVoice: Value(character.ttsVoice),
+        zipvoiceReferenceAudio: Value(character.zipvoiceReferenceAudio),
+        zipvoiceReferenceTranscript: Value(character.zipvoiceReferenceTranscript),
         lorebook: Value(
           character.lorebook != null
               ? jsonEncode(character.lorebook!.toJson())
@@ -765,6 +769,8 @@ class CharacterRepository extends ChangeNotifier {
             tags: Value(jsonEncode(card.tags)),
             imagePath: Value(dbImagePath),
             ttsVoice: Value(card.ttsVoice),
+            zipvoiceReferenceAudio: Value(card.zipvoiceReferenceAudio),
+            zipvoiceReferenceTranscript: Value(card.zipvoiceReferenceTranscript),
             lorebook: Value(
               card.lorebook != null
                   ? jsonEncode(card.lorebook!.toJson())
@@ -841,6 +847,8 @@ class CharacterRepository extends ChangeNotifier {
         alternateGreetings: List.from(card.alternateGreetings),
         tags: List.from(card.tags),
         ttsVoice: card.ttsVoice,
+        zipvoiceReferenceAudio: card.zipvoiceReferenceAudio,
+        zipvoiceReferenceTranscript: card.zipvoiceReferenceTranscript,
         lorebook: card.lorebook != null
             ? Lorebook(entries: List.from(card.lorebook!.entries))
             : null,

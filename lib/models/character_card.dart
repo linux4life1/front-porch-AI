@@ -470,6 +470,15 @@ class CharacterCard {
   /// (e.g. 'af_heart' for Kokoro, 'en_US-lessac-medium' for Piper, etc.).
   /// The UI now prevents (and warns about) cross-engine assignments.
   String? ttsVoice;
+
+  /// Path to a .wav reference audio file for ZipVoice zero-shot cloning.
+  /// The user picks this via a file picker in the character editor.
+  /// Null means no ZipVoice reference configured — falls back to Kokoro.
+  String? zipvoiceReferenceAudio;
+
+  /// Exact transcript of [zipvoiceReferenceAudio]. Must match what's spoken
+  /// in the .wav file — quality degrades significantly if it doesn't.
+  String? zipvoiceReferenceTranscript;
   String? dbId; // UUID primary key (runtime only, not serialized)
   DateTime? createdAt; // library "date added" from DB (runtime only, not serialized)
   FrontPorchExtensions? frontPorchExtensions; // V2.5 Realism Engine defaults
@@ -494,6 +503,8 @@ class CharacterCard {
     this.lorebook,
     this.worldNames = const [],
     this.ttsVoice,
+    this.zipvoiceReferenceAudio,
+    this.zipvoiceReferenceTranscript,
     this.frontPorchExtensions,
     this.rawExtensions,
     this.avatarImages,
@@ -535,6 +546,10 @@ class CharacterCard {
       'character_book': lorebook == null ? null : encodeCharacterBook(lorebook!),
       'world_names': worldNames,
       if (ttsVoice != null) 'tts_voice': ttsVoice,
+      if (zipvoiceReferenceAudio != null)
+        'zipvoice_reference_audio': zipvoiceReferenceAudio,
+      if (zipvoiceReferenceTranscript != null)
+        'zipvoice_reference_transcript': zipvoiceReferenceTranscript,
       'extensions': ?extensions,
     };
   }
