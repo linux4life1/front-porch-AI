@@ -29,6 +29,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../widgets/inline_chat_image.dart';
 import 'styled_chat_message.dart';
+import 'border_painters.dart';
 
 /// Message bubble widget (extracted from chat_page god file).
 /// Preserves all original behavior for 1:1 + group, swipes, TTS, realism indicators, thoughts, actions, Chance Time, etc.
@@ -73,6 +74,11 @@ class _MessageBubbleState extends State<MessageBubble> {
         message.activeMetadata?['is_chance_time_narration'] == true;
     final bubbleOpacity = Provider.of<StorageService>(context).bubbleOpacity;
     final storage = Provider.of<StorageService>(context);
+    final themeOverrides = widget.chatService?.sessionThemeOverrides;
+    final themePreset = ChatThemePreset.byId(themeOverrides?.themeId);
+    final themeAccent = themePreset != null
+        ? storage.getUserTextColor(character, themePreset, themeOverrides)
+        : null;
 
     // Chance Time narrations get a special centered banner
     if (isChanceTimeNarration) {
@@ -124,6 +130,31 @@ class _MessageBubbleState extends State<MessageBubble> {
       );
     }
 
+    // Compute border painter from active theme
+    final borderRadius = BorderRadius.only(
+      topLeft: const Radius.circular(12),
+      topRight: const Radius.circular(12),
+      bottomLeft: message.isUser && !isDirectorNote
+          ? const Radius.circular(12)
+          : Radius.zero,
+      bottomRight: message.isUser && !isDirectorNote
+          ? Radius.zero
+          : const Radius.circular(12),
+    );
+    final borderColor = message.isUser
+        ? storage.getUserTextColor(
+            character, themePreset, themeOverrides,
+          )
+        : storage.getAiTextColor(
+            character, themePreset, themeOverrides,
+          );
+    final borderStyle = themePreset != null
+        ? (themeOverrides?.resolvedBorderStyle(themePreset) ?? themePreset.defaultBorderStyle)
+        : null;
+    final borderPainter = borderStyle != null && borderPainterFactories.containsKey(borderStyle)
+        ? borderPainterFactories[borderStyle]!(borderColor)
+        : null;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -145,53 +176,50 @@ class _MessageBubbleState extends State<MessageBubble> {
           if (!message.isUser && !isDirectorNote) const SizedBox(width: 12),
 
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDirectorNote
-                    ? AppColors.resolve(
-                        context,
-                        AppColors.resolve(
-                          context,
-                          const Color(0xFFFFD166),
-                          const Color(0xFFF59E0B),
-                        ).withValues(alpha: 0.1 * bubbleOpacity),
-                        const Color(
-                          0xFFD97706,
-                        ).withValues(alpha: 0.12 * bubbleOpacity),
-                      )
-                    : message.isUser
-                    ? storage
-                          .getUserBubbleColor(character)
-                          .withValues(alpha: bubbleOpacity)
-                    : storage
-                          .getAiBubbleColor(character)
-                          .withValues(alpha: bubbleOpacity),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(12),
-                  topRight: const Radius.circular(12),
-                  bottomLeft: message.isUser && !isDirectorNote
-                      ? const Radius.circular(12)
-                      : Radius.zero,
-                  bottomRight: message.isUser && !isDirectorNote
-                      ? Radius.zero
-                      : const Radius.circular(12),
-                ),
-                border: isDirectorNote
-                    ? Border.all(
-                        color: AppColors.resolve(
-                          context,
-                          AppColors.resolve(
+            child: Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDirectorNote
+                        ? AppColors.resolve(
                             context,
-                            const Color(0xFFFFD166),
-                            const Color(0xFFF59E0B),
-                          ).withValues(alpha: 0.3),
-                          const Color(0xFFD97706).withValues(alpha: 0.35),
-                        ),
-                      )
-                    : null,
-              ),
-              child: Column(
+                            AppColors.resolve(
+                              context,
+                              const Color(0xFFFFD166),
+                              const Color(0xFFF59E0B),
+                            ).withValues(alpha: 0.1 * bubbleOpacity),
+                            const Color(
+                              0xFFD97706,
+                            ).withValues(alpha: 0.12 * bubbleOpacity),
+                          )
+                        : message.isUser
+                        ? storage
+                              .getUserBubbleColor(
+                                character, themePreset, themeOverrides,
+                              )
+                              .withValues(alpha: bubbleOpacity)
+                        : storage
+                              .getAiBubbleColor(
+                                character, themePreset, themeOverrides,
+                              )
+                              .withValues(alpha: bubbleOpacity),
+                    borderRadius: borderRadius,
+                    border: isDirectorNote
+                        ? Border.all(
+                            color: AppColors.resolve(
+                              context,
+                              AppColors.resolve(
+                                context,
+                                const Color(0xFFFFD166),
+                                const Color(0xFFF59E0B),
+                              ).withValues(alpha: 0.3),
+                              const Color(0xFFD97706).withValues(alpha: 0.35),
+                            ),
+                          )
+                        : null,
+                  ),
+                  child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
@@ -242,8 +270,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
-                                color:
-                                    widget.senderColor ??
+                                color: widget.senderColor ??
+                                    themeAccent ??
                                     storage.getDialogueColor(character),
                               ),
                             );
@@ -409,7 +437,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                           icon: Icon(
                             Icons.edit_outlined,
                             size: 16,
-                            color: AppColors.textTertiary(context),
+                            color:
+                                themeAccent ?? AppColors.textTertiary(context),
                           ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -422,7 +451,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                           icon: Icon(
                             Icons.call_split,
                             size: 16,
-                            color: AppColors.textTertiary(context),
+                            color:
+                                themeAccent ?? AppColors.textTertiary(context),
                           ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -435,12 +465,13 @@ class _MessageBubbleState extends State<MessageBubble> {
                         icon: Icon(
                           Icons.delete_outline,
                           size: 16,
-                          color: AppColors.textTertiary(context),
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () =>
-                            _showDeleteConfirmation(context, index),
+                            color:
+                                themeAccent ?? AppColors.textTertiary(context),
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () =>
+                              _showDeleteConfirmation(context, index),
                       ),
                     ],
                   ),
@@ -590,6 +621,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                     onRequestImagePermission: widget.onRequestImagePermission,
                     character:
                         widget.character ?? widget.chatService?.activeCharacter,
+                    themePreset: themePreset,
+                    themeOverrides: themeOverrides,
                   ),
                   // Locally generated image (from /image or the Image Studio's
                   // "Send to chat") — click to zoom, right-click to save.
@@ -848,19 +881,19 @@ class _MessageBubbleState extends State<MessageBubble> {
                                           ),
                                         )
                                       else
-                                        const Icon(
+                                        Icon(
                                           Icons.lightbulb_outline,
                                           size: 13,
-                                          color: Colors.white30,
+                                          color: themeAccent ?? Colors.white30,
                                         ),
                                       const SizedBox(width: 5),
                                       Text(
                                         isGenerating
                                             ? 'Thinking...'
                                             : 'Suggest actions',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.white30,
+                                          color: themeAccent ?? Colors.white30,
                                         ),
                                       ),
                                     ],
@@ -898,9 +931,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                                         ),
                                         child: Text(
                                           action,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.white70,
+                                            color: themeAccent ?? Colors.white70,
                                           ),
                                         ),
                                       ),
@@ -913,7 +946,6 @@ class _MessageBubbleState extends State<MessageBubble> {
                       },
                     ),
                 ],
-              ),
             ),
           ),
 
@@ -937,9 +969,19 @@ class _MessageBubbleState extends State<MessageBubble> {
                 );
               },
             ),
-        ],
+          if (borderPainter != null)
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: borderRadius,
+                child: CustomPaint(painter: borderPainter),
+              ),
+            ),
+          ],
+        ),
       ),
-    );
+    ],
+  ),
+);
   }
 
   void _showDeleteConfirmation(BuildContext context, int index) {

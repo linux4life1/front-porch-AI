@@ -379,6 +379,12 @@ extension ChatServiceSessionState on ChatService {
       updates: {_db.sessions},
     );
 
+    // Per-chat theme overrides — saved via raw SQL (no build_runner needed).
+    await _db.setThemeOverrides(
+      sessionId,
+      _sessionThemeOverrides.toJsonString(),
+    );
+
     // Replace all messages for this session using the snapshot.
     // Use a transaction for the delete+insert to keep the replace atomic even
     // if other writers (cloud sync, external tools) touch the DB concurrently.

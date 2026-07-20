@@ -31,6 +31,8 @@ export 'avatar_image.dart';
 export 'character_card.dart';
 export 'chat_generation_settings.dart';
 export 'chat_message.dart';
+export 'chat_theme_overrides.dart';
+export 'chat_theme_preset.dart';
 export 'chat_participant.dart';
 export 'download_task.dart';
 export 'group_chat.dart';

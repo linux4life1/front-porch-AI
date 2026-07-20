@@ -18,6 +18,48 @@ class BackgroundSettingsDialog extends StatelessWidget {
       _buildBgThumbnail(storageService, 'none', 'None', null),
       _buildBgThumbnail(
         storageService,
+        'noir',
+        'Noir',
+        'assets/backgrounds/noir.png',
+      ),
+      _buildBgThumbnail(
+        storageService,
+        'fantasy',
+        'Fantasy',
+        'assets/backgrounds/fantasy.png',
+      ),
+      _buildBgThumbnail(
+        storageService,
+        'grid',
+        'Grid',
+        'assets/backgrounds/grid.png',
+      ),
+      _buildBgThumbnail(
+        storageService,
+        'roman_market',
+        'Roman Market',
+        'assets/backgrounds/roman_market.png',
+      ),
+      _buildBgThumbnail(
+        storageService,
+        'enchanted_wood',
+        'Enchanted Wood',
+        'assets/backgrounds/enchanted_wood.png',
+      ),
+      _buildBgThumbnail(
+        storageService,
+        'ocean_depth',
+        'Ocean Depth',
+        'assets/backgrounds/ocean_depth.png',
+      ),
+      _buildBgThumbnail(
+        storageService,
+        'steampunk_bg',
+        'Steampunk',
+        'assets/backgrounds/steampunk_bg.png',
+      ),
+      _buildBgThumbnail(
+        storageService,
         'cyberpunk_bedroom',
         'Cyberpunk',
         'assets/backgrounds/cyberpunk_bedroom.png',

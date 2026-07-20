@@ -20,6 +20,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/chat_theme_preset.dart';
+import 'package:front_porch_ai/models/chat_theme_overrides.dart';
 import 'settings_base.dart';
 
 /// UI / theme / chat presentation settings (bubble colors/opacity, fonts,
@@ -345,28 +347,68 @@ class UiSettings with SettingsBase {
     notify();
   }
 
-  /// Get effective user bubble color (per-character overrides global)
-  Color getUserBubbleColor(CharacterCard? character) {
-    final fallback = _isDark ? _globalUserBubbleColor : _lightUserBubbleColor;
-    return character?.frontPorchExtensions?.userBubbleColor ?? fallback;
+  /// Get effective user bubble color.
+  /// Resolution: per-character override → theme override → theme preset → global.
+  Color getUserBubbleColor(
+    CharacterCard? character, {
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  }) {
+    final charColor = character?.frontPorchExtensions?.userBubbleColor;
+    if (charColor != null) return charColor;
+    if (themeOverrides?.userBubbleColor != null && themePreset != null) {
+      return themeOverrides!.resolvedUserBubbleColor(themePreset);
+    }
+    if (themePreset != null) return themePreset.defaultUserBubbleColor;
+    return _isDark ? _globalUserBubbleColor : _lightUserBubbleColor;
   }
 
-  /// Get effective user text color (per-character overrides global)
-  Color getUserTextColor(CharacterCard? character) {
-    final fallback = _isDark ? _globalUserTextColor : _lightUserTextColor;
-    return character?.frontPorchExtensions?.userTextColor ?? fallback;
+  /// Get effective user text color.
+  /// Resolution: per-character override → theme override → theme preset → global.
+  Color getUserTextColor(
+    CharacterCard? character, {
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  }) {
+    final charColor = character?.frontPorchExtensions?.userTextColor;
+    if (charColor != null) return charColor;
+    if (themeOverrides?.userTextColor != null && themePreset != null) {
+      return themeOverrides!.resolvedUserTextColor(themePreset);
+    }
+    if (themePreset != null) return themePreset.defaultUserTextColor;
+    return _isDark ? _globalUserTextColor : _lightUserTextColor;
   }
 
-  /// Get effective AI bubble color (per-character overrides global)
-  Color getAiBubbleColor(CharacterCard? character) {
-    final fallback = _isDark ? _globalAiBubbleColor : _lightAiBubbleColor;
-    return character?.frontPorchExtensions?.aiBubbleColor ?? fallback;
+  /// Get effective AI bubble color.
+  /// Resolution: per-character override → theme override → theme preset → global.
+  Color getAiBubbleColor(
+    CharacterCard? character, {
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  }) {
+    final charColor = character?.frontPorchExtensions?.aiBubbleColor;
+    if (charColor != null) return charColor;
+    if (themeOverrides?.aiBubbleColor != null && themePreset != null) {
+      return themeOverrides!.resolvedAiBubbleColor(themePreset);
+    }
+    if (themePreset != null) return themePreset.defaultAiBubbleColor;
+    return _isDark ? _globalAiBubbleColor : _lightAiBubbleColor;
   }
 
-  /// Get effective AI text color (per-character overrides global)
-  Color getAiTextColor(CharacterCard? character) {
-    final fallback = _isDark ? _globalAiTextColor : _lightAiTextColor;
-    return character?.frontPorchExtensions?.aiTextColor ?? fallback;
+  /// Get effective AI text color.
+  /// Resolution: per-character override → theme override → theme preset → global.
+  Color getAiTextColor(
+    CharacterCard? character, {
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  }) {
+    final charColor = character?.frontPorchExtensions?.aiTextColor;
+    if (charColor != null) return charColor;
+    if (themeOverrides?.aiTextColor != null && themePreset != null) {
+      return themeOverrides!.resolvedAiTextColor(themePreset);
+    }
+    if (themePreset != null) return themePreset.defaultAiTextColor;
+    return _isDark ? _globalAiTextColor : _lightAiTextColor;
   }
 
   /// Get effective dialogue color (per-character overrides global)
@@ -381,9 +423,19 @@ class UiSettings with SettingsBase {
     return character?.frontPorchExtensions?.actionColor ?? fallback;
   }
 
-  /// Get effective chat font family (per-character overrides global)
-  String getChatFontFamily(CharacterCard? character) {
-    return character?.frontPorchExtensions?.chatFontFamily ??
-        _globalChatFontFamily;
+  /// Get effective chat font family.
+  /// Resolution: per-character override → theme override → theme preset → global.
+  String getChatFontFamily(
+    CharacterCard? character, {
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  }) {
+    final charFont = character?.frontPorchExtensions?.chatFontFamily;
+    if (charFont != null) return charFont;
+    if (themeOverrides?.fontFamily != null && themePreset != null) {
+      return themeOverrides!.resolvedFontFamily(themePreset);
+    }
+    if (themePreset != null) return themePreset.defaultFontFamily;
+    return _globalChatFontFamily;
   }
 }

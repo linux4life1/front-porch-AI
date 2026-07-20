@@ -559,8 +559,27 @@ class _ChatPageState extends State<ChatPage> {
                             builder: (context) {
                               final storageService =
                                   Provider.of<StorageService>(context);
-                              final bgKey = storageService.chatBackground;
+                              final chatService = Provider.of<ChatService>(context, listen: false);
+                              final themeOverrides = chatService.sessionThemeOverrides;
+                              final themePreset = ChatThemePreset.byId(themeOverrides.themeId);
+                              final bgKey = themePreset != null
+                                  ? themeOverrides.resolvedBackgroundKey(themePreset)
+                                  : storageService.chatBackground;
                               const bgAssets = {
+                                'noir':
+                                    'assets/backgrounds/noir.png',
+                                'fantasy':
+                                    'assets/backgrounds/fantasy.png',
+                                'grid':
+                                    'assets/backgrounds/grid.png',
+                                'roman_market':
+                                    'assets/backgrounds/roman_market.png',
+                                'enchanted_wood':
+                                    'assets/backgrounds/enchanted_wood.png',
+                                'ocean_depth':
+                                    'assets/backgrounds/ocean_depth.png',
+                                'steampunk_bg':
+                                    'assets/backgrounds/steampunk_bg.png',
                                 'cyberpunk_bedroom':
                                     'assets/backgrounds/cyberpunk_bedroom.png',
                                 'coffee_shop':
@@ -3006,6 +3025,7 @@ class _ChatPageState extends State<ChatPage> {
             child: SizedBox(
               width: double.infinity,
               child: PopupMenuButton<String>(
+                icon: Icon(Icons.tune, color: AppColors.textSecondary(context)),
                 color: AppColors.surfaceContainerOf(context),
                 elevation: 8,
                 style: OutlinedButton.styleFrom(

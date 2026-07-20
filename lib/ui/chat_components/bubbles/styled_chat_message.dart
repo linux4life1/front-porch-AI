@@ -82,6 +82,8 @@ class StyledChatMessage extends StatelessWidget {
   final bool? externalImagesAllowed;
   final Future<bool> Function()? onRequestImagePermission;
   final CharacterCard? character;
+  final ChatThemePreset? themePreset;
+  final ChatThemeOverrides? themeOverrides;
 
   const StyledChatMessage({
     super.key,
@@ -90,6 +92,8 @@ class StyledChatMessage extends StatelessWidget {
     this.externalImagesAllowed,
     this.onRequestImagePermission,
     this.character,
+    this.themePreset,
+    this.themeOverrides,
   });
 
   @override
@@ -101,7 +105,10 @@ class StyledChatMessage extends StatelessWidget {
     final imageMatches = _markdownImageRegex.allMatches(text).toList();
     if (imageMatches.isEmpty) {
       // No images — use existing fast path
-      return _buildStyledText(context, text, scaledSize, character);
+      return _buildStyledText(
+        context, text, scaledSize, character,
+        themePreset: themePreset, themeOverrides: themeOverrides,
+      );
     }
 
     // Split text into segments: [text, image, text, image, text]
@@ -114,7 +121,10 @@ class StyledChatMessage extends StatelessWidget {
         final textBefore = text.substring(lastEnd, match.start).trim();
         if (textBefore.isNotEmpty) {
           widgets.add(
-            _buildStyledText(context, textBefore, scaledSize, character),
+            _buildStyledText(
+              context, textBefore, scaledSize, character,
+              themePreset: themePreset, themeOverrides: themeOverrides,
+            ),
           );
         }
       }
@@ -140,7 +150,10 @@ class StyledChatMessage extends StatelessWidget {
       final textAfter = text.substring(lastEnd).trim();
       if (textAfter.isNotEmpty) {
         widgets.add(
-          _buildStyledText(context, textAfter, scaledSize, character),
+          _buildStyledText(
+            context, textAfter, scaledSize, character,
+            themePreset: themePreset, themeOverrides: themeOverrides,
+          ),
         );
       }
     }
@@ -155,13 +168,21 @@ class StyledChatMessage extends StatelessWidget {
     BuildContext context,
     String segment,
     double scaledSize,
-    CharacterCard? character,
-  ) {
+    CharacterCard? character, {
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  }) {
     final storageService = Provider.of<StorageService>(context);
-    final fontFamily = storageService.getChatFontFamily(character);
+    final fontFamily = storageService.getChatFontFamily(
+      character, themePreset, themeOverrides,
+    );
     final textColor = isUser
-        ? storageService.getUserTextColor(character)
-        : storageService.getAiTextColor(character);
+        ? storageService.getUserTextColor(
+            character, themePreset, themeOverrides,
+          )
+        : storageService.getAiTextColor(
+            character, themePreset, themeOverrides,
+          );
     final plainStyle = _applyGoogleFont(
       fontFamily,
       TextStyle(color: textColor, fontSize: scaledSize),

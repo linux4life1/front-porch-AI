@@ -23,6 +23,8 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/models/chat_generation_settings.dart';
+import 'package:front_porch_ai/models/chat_theme_preset.dart';
+import 'package:front_porch_ai/models/chat_theme_overrides.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/slider_with_input.dart';
 
@@ -37,7 +39,9 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
   final TextEditingController _stopSequenceController = TextEditingController();
   late final TextEditingController _bannedPhrasesController;
   late ChatGenerationSettings _gen;
+  late ChatThemeOverrides _themeOverrides;
   bool _initialised = false;
+  final ScrollController _themeScrollController = ScrollController();
 
   @override
   void didChangeDependencies() {
@@ -46,6 +50,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
       final chatService = Provider.of<ChatService>(context, listen: false);
       final storage = Provider.of<StorageService>(context, listen: false);
       _gen = chatService.sessionGenSettings;
+      _themeOverrides = chatService.sessionThemeOverrides.copy();
       _bannedPhrasesController = TextEditingController(
         text: _gen.resolveBannedPhrases(storage).join('\n'),
       );
@@ -65,6 +70,500 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
     final chatService = Provider.of<ChatService>(context, listen: false);
     chatService.sessionGenSettings = _gen;
   }
+
+  /// Write mutated [_themeOverrides] back to ChatService.
+  void _saveTheme() {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    chatService.sessionThemeOverrides = _themeOverrides;
+  }
+
+  Widget _buildThemeSection() {
+    final activePreset = ChatThemePreset.byId(_themeOverrides.themeId);
+    const bgAssets = {
+      'noir': 'Noir',
+      'fantasy': 'Fantasy',
+      'grid': 'Grid',
+      'roman_market': 'Roman Market',
+      'enchanted_wood': 'Enchanted Wood',
+      'ocean_depth': 'Ocean Depth',
+      'steampunk_bg': 'Steampunk',
+      'cyberpunk_bedroom': 'Cyberpunk Bedroom',
+      'coffee_shop': 'Coffee Shop',
+      'beach': 'Beach',
+      'futuristic_city': 'Futuristic City',
+      'edm_rave': 'EDM Rave',
+      'cozy_library': 'Cozy Library',
+      'rainy_japan': 'Rainy Japan',
+      'space_station': 'Space Station',
+      'enchanted_forest': 'Enchanted Forest',
+      'anime_cherry_blossom': 'Anime Cherry Blossom',
+      'anime_rooftop': 'Anime Rooftop',
+      'anime_rooftop_sunset': 'Anime Rooftop Sunset',
+      'cherry_blossom': 'Cherry Blossom',
+      'beach_waves': 'Beach Waves',
+      'waifu_gaming_room': 'Waifu Gaming Room',
+      'waifu_beach_bar': 'Waifu Beach Bar',
+      'waifu_garden': 'Waifu Garden',
+      'waifu_neon': 'Waifu Neon',
+      'waifu_beach': 'Waifu Beach',
+    };
+    const borderStyles = [
+      'scalloped', 'dualLine', 'grid', 'wavy', 'shadow',
+      'vine', 'wave', 'glitch', 'floral', 'gear',
+    ];
+    const fontOptions = [
+      'serif', 'sans-serif', 'monospace', 'Georgia', 'Times New Roman',
+      'Arial', 'Helvetica', 'Courier New', 'Verdana', 'Roboto',
+      'Open Sans', 'Lato', 'Merriweather', 'Playfair Display',
+      'Source Code Pro',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Divider(color: Colors.white10),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Text(
+              'Chat Theme',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppColors.formMasterAccent,
+              ),
+            ),
+            const Spacer(),
+            if (_themeOverrides.hasTheme)
+              TextButton.icon(
+                icon: const Icon(Icons.remove_circle_outline, size: 16),
+                label: const Text('Remove Theme'),
+                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                onPressed: () {
+                  setState(() {
+                    _themeOverrides = ChatThemeOverrides();
+                  });
+                  _saveTheme();
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_themeOverrides.isCustomized)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              '${activePreset?.displayName ?? 'Theme'} (Customized)',
+              style: TextStyle(
+                color: Colors.amber.shade300,
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left, color: Colors.white54),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 72),
+              padding: EdgeInsets.zero,
+              onPressed: () {
+                final offset = _themeScrollController.offset;
+                _themeScrollController.animateTo(
+                  (offset - 144).clamp(0, _themeScrollController.position.maxScrollExtent),
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                );
+              },
+            ),
+            Expanded(
+              child: SizedBox(
+                height: 72,
+                child: ListView.separated(
+                  controller: _themeScrollController,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: ChatThemePreset.presets.length + 1,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+              if (index == 0) {
+                // "None" card
+                final isSelected = !_themeOverrides.hasTheme;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _themeOverrides = ChatThemeOverrides();
+                    });
+                    _saveTheme();
+                  },
+                  child: Container(
+                    width: 64,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.white.withValues(alpha: 0.15)
+                          : const Color(0xFF374151),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected ? AppColors.formMasterAccent : Colors.white12,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Text('None', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    ),
+                  ),
+                );
+              }
+              final preset = ChatThemePreset.presets[index - 1];
+              final isSelected = _themeOverrides.themeId == preset.id;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _themeOverrides = ChatThemeOverrides(themeId: preset.id);
+                  });
+                  _saveTheme();
+                },
+                child: Container(
+                  width: 64,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF374151),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected ? AppColors.formMasterAccent : Colors.white12,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 16, height: 16,
+                            decoration: BoxDecoration(
+                              color: preset.defaultUserBubbleColor,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Container(
+                            width: 16, height: 16,
+                            decoration: BoxDecoration(
+                              color: preset.defaultAiBubbleColor,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        preset.displayName,
+                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        preset.defaultBorderStyle,
+                        style: const TextStyle(color: Colors.white38, fontSize: 8),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, color: Colors.white54),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 72),
+            padding: EdgeInsets.zero,
+            onPressed: () {
+              final offset = _themeScrollController.offset;
+              _themeScrollController.animateTo(
+                (offset + 144).clamp(0, _themeScrollController.position.maxScrollExtent),
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+              );
+            },
+          ),
+        ],
+      ),
+
+        if (activePreset != null) ...[
+          const SizedBox(height: 16),
+
+          // Font family
+          Row(
+            children: [
+              const SizedBox(width: 8),
+              const Text('Font', style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF374151),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _themeOverrides.fontFamily ?? activePreset.defaultFontFamily,
+                    dropdownColor: const Color(0xFF374151),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    items: fontOptions.map((f) => DropdownMenuItem(
+                      value: f,
+                      child: Text(f, style: TextStyle(fontFamily: f)),
+                    )).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          if (val == activePreset.defaultFontFamily) {
+                            _themeOverrides.fontFamily = null;
+                          } else {
+                            _themeOverrides.fontFamily = val;
+                          }
+                        });
+                        _saveTheme();
+                      }
+                    },
+                  ),
+                ),
+              ),
+              if (_themeOverrides.fontFamily != null)
+                IconButton(
+                  icon: const Icon(Icons.restart_alt, size: 14, color: Colors.amber),
+                  onPressed: () {
+                    setState(() => _themeOverrides.fontFamily = null);
+                    _saveTheme();
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+            ],
+          ),
+
+          // User bubble color
+          _buildColorRow(
+            label: 'User Bubble',
+            hexValue: _themeOverrides.userBubbleColor,
+            defaultColor: activePreset.defaultUserBubbleColor,
+            onChanged: (hex) {
+              setState(() => _themeOverrides.userBubbleColor = hex);
+              _saveTheme();
+            },
+            onReset: () {
+              setState(() => _themeOverrides.userBubbleColor = null);
+              _saveTheme();
+            },
+          ),
+
+          // User text color
+          _buildColorRow(
+            label: 'User Text',
+            hexValue: _themeOverrides.userTextColor,
+            defaultColor: activePreset.defaultUserTextColor,
+            onChanged: (hex) {
+              setState(() => _themeOverrides.userTextColor = hex);
+              _saveTheme();
+            },
+            onReset: () {
+              setState(() => _themeOverrides.userTextColor = null);
+              _saveTheme();
+            },
+          ),
+
+          // AI bubble color
+          _buildColorRow(
+            label: 'AI Bubble',
+            hexValue: _themeOverrides.aiBubbleColor,
+            defaultColor: activePreset.defaultAiBubbleColor,
+            onChanged: (hex) {
+              setState(() => _themeOverrides.aiBubbleColor = hex);
+              _saveTheme();
+            },
+            onReset: () {
+              setState(() => _themeOverrides.aiBubbleColor = null);
+              _saveTheme();
+            },
+          ),
+
+          // AI text color
+          _buildColorRow(
+            label: 'AI Text',
+            hexValue: _themeOverrides.aiTextColor,
+            defaultColor: activePreset.defaultAiTextColor,
+            onChanged: (hex) {
+              setState(() => _themeOverrides.aiTextColor = hex);
+              _saveTheme();
+            },
+            onReset: () {
+              setState(() => _themeOverrides.aiTextColor = null);
+              _saveTheme();
+            },
+          ),
+
+          // Background
+          Row(
+            children: [
+              const SizedBox(width: 8),
+              const Text('Background', style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF374151),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _themeOverrides.backgroundKey ?? activePreset.defaultBackgroundKey,
+                    dropdownColor: const Color(0xFF374151),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    items: bgAssets.entries.map((e) => DropdownMenuItem(
+                      value: e.key,
+                      child: Text(e.value, style: const TextStyle(fontSize: 12)),
+                    )).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          if (val == activePreset.defaultBackgroundKey) {
+                            _themeOverrides.backgroundKey = null;
+                          } else {
+                            _themeOverrides.backgroundKey = val;
+                          }
+                        });
+                        _saveTheme();
+                      }
+                    },
+                  ),
+                ),
+              ),
+              if (_themeOverrides.backgroundKey != null)
+                IconButton(
+                  icon: const Icon(Icons.restart_alt, size: 14, color: Colors.amber),
+                  onPressed: () {
+                    setState(() => _themeOverrides.backgroundKey = null);
+                    _saveTheme();
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+            ],
+          ),
+
+          // Border style
+          Row(
+            children: [
+              const SizedBox(width: 8),
+              const Text('Border', style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF374151),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _themeOverrides.borderStyle ?? activePreset.defaultBorderStyle,
+                    dropdownColor: const Color(0xFF374151),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    items: borderStyles.map((b) => DropdownMenuItem(
+                      value: b,
+                      child: Text(b, style: const TextStyle(fontSize: 12)),
+                    )).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          if (val == activePreset.defaultBorderStyle) {
+                            _themeOverrides.borderStyle = null;
+                          } else {
+                            _themeOverrides.borderStyle = val;
+                          }
+                        });
+                        _saveTheme();
+                      }
+                    },
+                  ),
+                ),
+              ),
+              if (_themeOverrides.borderStyle != null)
+                IconButton(
+                  icon: const Icon(Icons.restart_alt, size: 14, color: Colors.amber),
+                  onPressed: () {
+                    setState(() => _themeOverrides.borderStyle = null);
+                    _saveTheme();
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildColorRow({
+    required String label,
+    required String? hexValue,
+    required Color defaultColor,
+    required ValueChanged<String?> onChanged,
+    required VoidCallback onReset,
+  }) {
+    final currentColor = hexValue != null
+        ? ChatThemeOverrides.fromJsonString('{"userBubbleColor":"$hexValue"}')
+            .resolvedUserBubbleColor(ChatThemePreset.presets.first)
+        : defaultColor;
+    final controller = TextEditingController(text: hexValue ?? '');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          Container(
+            width: 14, height: 14,
+            decoration: BoxDecoration(
+              color: currentColor,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: Colors.white24),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          const Spacer(),
+          SizedBox(
+            width: 72,
+            child: TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              decoration: InputDecoration(
+                hintText: _colorToHex(defaultColor),
+                hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              ),
+              onChanged: (val) {
+                final cleaned = val.replaceAll('#', '');
+                if (cleaned.length == 6 || cleaned.isEmpty) {
+                  onChanged(cleaned.isEmpty ? null : cleaned);
+                }
+              },
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.restart_alt, size: 14, color: Colors.amber),
+            onPressed: onReset,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _colorToHex(Color c) =>
+      c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
 
   @override
   Widget build(BuildContext context) {
@@ -172,6 +671,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildThemeSection(),
                     // Reasoning toggle — all backends. KoboldCpp honors
                     // thinking too now (native chat_template_kwargs +
                     // reasoning_effort in openai_chat_stream.dart), so this is

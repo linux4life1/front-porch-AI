@@ -883,6 +883,8 @@ class AppDatabase extends _$AppDatabase {
         // silent-catch (duplicate-column on rollback/dual-run), so this list is
         // what guarantees the column exists if that first ALTER ever failed.
         'selected_look_avatar_id TEXT',
+        // Per-chat theme overrides (theme preset + font/color/border/background overrides).
+        'theme_overrides TEXT',
       ],
       'group_members': [
         // Per current GroupMembers Dart definition + created_at (to match the repair-path CREATE TABLE).
@@ -2335,6 +2337,47 @@ class AppDatabase extends _$AppDatabase {
           selectedLookAvatarId: Value(avatarId),
         ),
       );
+
+  /// Save per-chat theme overrides JSON for a session — raw SQL so no
+  /// build_runner regeneration is needed.
+  Future<void> setThemeOverrides(
+    String sessionId,
+    String? themeOverridesJson,
+  ) async {
+    await customUpdate(
+      'UPDATE sessions SET theme_overrides = ? WHERE id = ?',
+      variables: [Variable(themeOverridesJson), Variable(sessionId)],
+      updates: {sessions},
+    );
+    await bumpSyncVersion();
+  }
+
+  /// Load per-chat theme overrides JSON for a session.
+  Future<String?> getThemeOverrides(String sessionId) async {
+    final rows = await customSelect(
+      'SELECT theme_overrides FROM sessions WHERE id = ?',
+      variables: [Variable(sessionId)],
+    ).get();
+    return rows.isNotEmpty ? rows.first.read<String?>('theme_overrides') : null;
+  }
+
+  /// Get the theme_overrides from the most recent non-deleted session for a
+  /// given character or group. Used by startNewChat to inherit the previous
+  /// chat's theme when starting a fresh session.
+  Future<String?> getLastSessionThemeOverrides({
+    String? characterId,
+    String? groupId,
+  }) async {
+    final column = characterId != null ? 'character_id' : 'group_id';
+    final id = characterId ?? groupId;
+    if (id == null) return null;
+    final rows = await customSelect(
+      'SELECT theme_overrides FROM sessions WHERE $column = ? '
+      'AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
+      variables: [Variable(id)],
+    ).get();
+    return rows.isNotEmpty ? rows.first.read<String?>('theme_overrides') : null;
+  }
 
   Future<int> deleteSessionById(String id) async {
     // Hard delete: also delete all messages + journal cards + growth rings in

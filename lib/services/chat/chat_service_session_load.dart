@@ -143,6 +143,23 @@ extension ChatServiceSessionLoad on ChatService {
     _enjoysLowHygiene =
         _activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ?? false;
 
+    // Load per-chat theme overrides from the session's raw JSON column.
+    try {
+      final themeRows = await _db
+          .customSelect(
+            'SELECT theme_overrides FROM sessions WHERE id = ?',
+            variables: [drift.Variable(_currentSessionId)],
+          )
+          .get();
+      final themeJson = themeRows.isNotEmpty
+          ? themeRows.first.read<String?>('theme_overrides')
+          : null;
+      _sessionThemeOverrides =
+          ChatThemeOverrides.fromJsonString(themeJson);
+    } catch (_) {
+      _sessionThemeOverrides = ChatThemeOverrides();
+    }
+
     _needsSimulation.resetBuffers();
     // trust/fixation/spatial/pending/affection/tiers already loaded via _relationshipService.loadScalars above.
     debugPrint(
@@ -524,6 +541,23 @@ extension ChatServiceSessionLoad on ChatService {
         _sessionGenSettings = ChatGenerationSettings.fromJsonString(genJson);
       } catch (_) {
         _sessionGenSettings = ChatGenerationSettings();
+      }
+
+      // Per-chat theme overrides — loaded via raw SQL to avoid build_runner.
+      try {
+        final themeRows = await _db
+            .customSelect(
+              'SELECT theme_overrides FROM sessions WHERE id = ?',
+              variables: [drift.Variable(sessionId)],
+            )
+            .get();
+        final themeJson = themeRows.isNotEmpty
+            ? themeRows.first.read<String?>('theme_overrides')
+            : null;
+        _sessionThemeOverrides =
+            ChatThemeOverrides.fromJsonString(themeJson);
+      } catch (_) {
+        _sessionThemeOverrides = ChatThemeOverrides();
       }
 
       if (_messages.isNotEmpty) {

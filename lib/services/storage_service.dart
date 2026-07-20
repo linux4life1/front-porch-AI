@@ -24,6 +24,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/chat_theme_preset.dart';
+import 'package:front_porch_ai/models/chat_theme_overrides.dart';
 
 // Stage 7: storage decomposition (directories + domain settings; final cleanup complete - shims excised; corrective COMPAT FLAT ACCESSORS bridge re-inserted at ~113 after incomplete 29bbf59d; see block comments + refactoring-guide.md "old API preserved via shim" for current state; long-term pure-dir + *Settings wiring intended). NOTE: file >500 LOC due to bridge (documented exception; do not grow per rule).
 import 'storage/directories.dart';
@@ -197,14 +199,57 @@ class StorageService extends ChangeNotifier {
   Future<void> setSortMode(String v) => uiSettings.setSortMode(v);
   double get gridScale => uiSettings.gridScale;
   Future<void> setGridScale(double v) => uiSettings.setGridScale(v);
-  Color getUserBubbleColor([CharacterCard? c]) =>
-      uiSettings.getUserBubbleColor(c);
-  Color getAiBubbleColor([CharacterCard? c]) => uiSettings.getAiBubbleColor(c);
+  Color getUserBubbleColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getUserBubbleColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
+  Color getAiBubbleColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getAiBubbleColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
   Color getDialogueColor([CharacterCard? c]) => uiSettings.getDialogueColor(c);
-  Color getUserTextColor([CharacterCard? c]) => uiSettings.getUserTextColor(c);
-  Color getAiTextColor([CharacterCard? c]) => uiSettings.getAiTextColor(c);
-  String getChatFontFamily([CharacterCard? c]) =>
-      uiSettings.getChatFontFamily(c);
+  Color getUserTextColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getUserTextColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
+  Color getAiTextColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getAiTextColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
+  String getChatFontFamily([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getChatFontFamily(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
   Color getActionColor([CharacterCard? c]) => uiSettings.getActionColor(c);
   Future<void> setIsDark(bool v) => uiSettings.setIsDark(v);
 
