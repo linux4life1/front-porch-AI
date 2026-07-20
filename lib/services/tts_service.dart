@@ -324,7 +324,13 @@ class TtsService extends ChangeNotifier {
           unawaited(engine.ensureWorkersWarm());
         }
         if (engine is ZipVoiceEngine) {
-          unawaited(engine.ensureWorkersWarm());
+          // Awaited deliberately: the zipvoice model load (sherpa-onnx
+          // init + ONNX model parse) can segfault the worker isolate if
+          // the model files are corrupt or the native library is
+          // incompatible. Awaiting here ensures the error surfaces inside
+          // the outer try/catch and triggers fallback instead of killing
+          // the entire process via an unhandled native crash.
+          await engine.ensureWorkersWarm();
         }
       }
 

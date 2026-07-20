@@ -93,6 +93,10 @@ class ZipVoiceEngine implements TtsEngine {
       print('[ZipVoiceEngine] no reference audio configured');
       return null;
     }
+    if (!File(referenceAudioPath).existsSync()) {
+      print('[ZipVoiceEngine] reference audio file not found: $referenceAudioPath');
+      return null;
+    }
     if (referenceTranscript == null || referenceTranscript.isEmpty) {
       print('[ZipVoiceEngine] no reference transcript configured');
       return null;
