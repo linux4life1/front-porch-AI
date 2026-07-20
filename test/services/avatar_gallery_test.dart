@@ -6,6 +6,7 @@
 // per-chat selection is an input), so no DB/session dependency.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/avatar_image.dart';
 import 'package:front_porch_ai/services/avatar_gallery.dart';
@@ -48,13 +49,14 @@ void main() {
     });
 
     test('resolveFile picks looks/ vs avatars/ off the character base folder', () {
+      final base = '/chars/Carly';
       expect(
-        _look('a').resolveFile('/chars/Carly').path,
-        '/chars/Carly/looks/a.png',
+        _look('a').resolveFile(base).path,
+        p.join(base, 'looks', 'a.png'),
       );
       expect(
-        _expr('b', 'joy').resolveFile('/chars/Carly').path,
-        '/chars/Carly/avatars/b.png',
+        _expr('b', 'joy').resolveFile(base).path,
+        p.join(base, 'avatars', 'b.png'),
       );
     });
   });

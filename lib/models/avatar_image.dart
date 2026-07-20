@@ -18,6 +18,8 @@
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 /// Represents a single avatar image for a character.
 /// Characters can have up to 10 avatars, with one marked as prime.
 class AvatarImage {
@@ -63,7 +65,7 @@ class AvatarImage {
   /// `avatars/`. The single look-aware resolver — new look-reading code should
   /// use this rather than joining a hard-coded `avatars/` path.
   File resolveFile(String characterBaseDirPath) {
-    return File('$characterBaseDirPath/$subfolder/$filename');
+    return File(p.join(characterBaseDirPath, subfolder, filename));
   }
 
   AvatarImage copyWith({

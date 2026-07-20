@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart';
 
@@ -710,7 +711,7 @@ void main() {
       // A starred avatar whose file really exists — the only branch that
       // stats the disk.
       final base = storage.characterBaseDir('CacheTest');
-      final avatarFile = File('${base.path}/avatars/star.png')
+      final avatarFile = File(p.join(base.path, 'avatars', 'star.png'))
         ..createSync(recursive: true)
         ..writeAsBytesSync([1, 2, 3]);
       final card = CharacterCard(
