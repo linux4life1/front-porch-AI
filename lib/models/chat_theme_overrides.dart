@@ -11,6 +11,7 @@ class ChatThemeOverrides {
   String? aiTextColor;
   String? backgroundKey;
   String? borderStyle;
+  String? borderColor;
 
   ChatThemeOverrides({
     this.themeId,
@@ -21,6 +22,7 @@ class ChatThemeOverrides {
     this.aiTextColor,
     this.backgroundKey,
     this.borderStyle,
+    this.borderColor,
   });
 
   bool get hasTheme => themeId != null;
@@ -35,7 +37,8 @@ class ChatThemeOverrides {
         aiBubbleColor != null ||
         aiTextColor != null ||
         backgroundKey != null ||
-        borderStyle != null;
+        borderStyle != null ||
+        borderColor != null;
   }
 
   String resolvedFontFamily(ChatThemePreset preset) =>
@@ -67,6 +70,9 @@ class ChatThemeOverrides {
   String resolvedBorderStyle(ChatThemePreset preset) =>
       borderStyle ?? preset.defaultBorderStyle;
 
+  Color? resolvedBorderColor(ChatThemePreset preset) =>
+      borderColor != null ? _parseColor(borderColor!) : preset.defaultBorderColor;
+
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
     if (themeId != null) map['themeId'] = themeId;
@@ -77,6 +83,7 @@ class ChatThemeOverrides {
     if (aiTextColor != null) map['aiTextColor'] = aiTextColor;
     if (backgroundKey != null) map['backgroundKey'] = backgroundKey;
     if (borderStyle != null) map['borderStyle'] = borderStyle;
+    if (borderColor != null) map['borderColor'] = borderColor;
     return map;
   }
 
@@ -90,6 +97,7 @@ class ChatThemeOverrides {
       aiTextColor: json['aiTextColor'] as String?,
       backgroundKey: json['backgroundKey'] as String?,
       borderStyle: json['borderStyle'] as String?,
+      borderColor: json['borderColor'] as String?,
     );
   }
 

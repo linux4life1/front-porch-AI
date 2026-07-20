@@ -141,13 +141,16 @@ class _MessageBubbleState extends State<MessageBubble> {
           ? Radius.zero
           : const Radius.circular(12),
     );
-    final borderColor = message.isUser
+    final textColor = message.isUser
         ? storage.getUserTextColor(
             character, themePreset, themeOverrides,
           )
         : storage.getAiTextColor(
             character, themePreset, themeOverrides,
           );
+    final borderColor = themePreset != null
+        ? (themeOverrides?.resolvedBorderColor(themePreset) ?? textColor)
+        : textColor;
     final borderStyle = themePreset != null
         ? (themeOverrides?.resolvedBorderStyle(themePreset) ?? themePreset.defaultBorderStyle)
         : null;

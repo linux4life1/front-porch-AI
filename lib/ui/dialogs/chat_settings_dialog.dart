@@ -26,6 +26,7 @@ import 'package:front_porch_ai/models/chat_generation_settings.dart';
 import 'package:front_porch_ai/models/chat_theme_preset.dart';
 import 'package:front_porch_ai/models/chat_theme_overrides.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/slider_with_input.dart';
 
 class ChatSettingsDialog extends StatefulWidget {
@@ -109,7 +110,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
     };
     const borderStyles = [
       'scalloped', 'dualLine', 'grid', 'wavy', 'shadow',
-      'vine', 'wave', 'glitch', 'floral', 'gear',
+      'vine', 'wave', 'glitch', 'floral', 'gear', 'greekKey',
     ];
     const fontOptions = [
       'serif', 'sans-serif', 'monospace', 'Georgia', 'Times New Roman',
@@ -133,19 +134,6 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                 color: AppColors.formMasterAccent,
               ),
             ),
-            const Spacer(),
-            if (_themeOverrides.hasTheme)
-              TextButton.icon(
-                icon: const Icon(Icons.remove_circle_outline, size: 16),
-                label: const Text('Remove Theme'),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                onPressed: () {
-                  setState(() {
-                    _themeOverrides = ChatThemeOverrides();
-                  });
-                  _saveTheme();
-                },
-              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -337,6 +325,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
+              const SizedBox(width: 12),
             ],
           ),
 
@@ -446,6 +435,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
+              const SizedBox(width: 12),
             ],
           ),
 
@@ -495,7 +485,23 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
+              const SizedBox(width: 12),
             ],
+          ),
+
+          // Border color
+          _buildColorRow(
+            label: 'Border',
+            hexValue: _themeOverrides.borderColor,
+            defaultColor: activePreset.defaultBorderColor ?? activePreset.defaultUserTextColor,
+            onChanged: (hex) {
+              setState(() => _themeOverrides.borderColor = hex);
+              _saveTheme();
+            },
+            onReset: () {
+              setState(() => _themeOverrides.borderColor = null);
+              _saveTheme();
+            },
           ),
         ],
       ],
@@ -513,50 +519,50 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
         ? ChatThemeOverrides.fromJsonString('{"userBubbleColor":"$hexValue"}')
             .resolvedUserBubbleColor(ChatThemePreset.presets.first)
         : defaultColor;
-    final controller = TextEditingController(text: hexValue ?? '');
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
           const SizedBox(width: 8),
-          Container(
-            width: 14, height: 14,
-            decoration: BoxDecoration(
-              color: currentColor,
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(color: Colors.white24),
+          GestureDetector(
+            onTap: () {
+              showColorPicker(
+                context,
+                currentColor,
+                (picked) {
+                  final hex = picked.toARGB32()
+                      .toRadixString(16).padLeft(8, '0')
+                      .substring(2).toUpperCase();
+                  onChanged(hex);
+                },
+              );
+            },
+            child: Container(
+              width: 22, height: 22,
+              decoration: BoxDecoration(
+                color: currentColor,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: const Icon(Icons.colorize, size: 14, color: Colors.white54),
             ),
           ),
           const SizedBox(width: 8),
           Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
           const Spacer(),
-          SizedBox(
-            width: 72,
-            child: TextField(
-              controller: controller,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-              decoration: InputDecoration(
-                hintText: _colorToHex(defaultColor),
-                hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              ),
-              onChanged: (val) {
-                final cleaned = val.replaceAll('#', '');
-                if (cleaned.length == 6 || cleaned.isEmpty) {
-                  onChanged(cleaned.isEmpty ? null : cleaned);
-                }
-              },
-            ),
+          Text(
+            _colorToHex(currentColor),
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
           ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.restart_alt, size: 14, color: Colors.amber),
             onPressed: onReset,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
+          const SizedBox(width: 12),
         ],
       ),
     );

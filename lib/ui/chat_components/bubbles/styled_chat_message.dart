@@ -26,15 +26,14 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/widgets/styled_text_controller.dart';
 import 'external_image_widget.dart';
 
-/// Applies a Google Font to a base TextStyle dynamically. (moved from chat_page god file; only used by styled messages)
+/// Applies a font family to a base TextStyle dynamically.
+/// Uses Google Fonts for web-hosted fonts, otherwise applies system fonts directly.
 TextStyle _applyGoogleFont(String? fontFamily, TextStyle baseStyle) {
   if (fontFamily == null || fontFamily.isEmpty) return baseStyle;
 
   switch (fontFamily) {
     case 'Roboto':
-      return GoogleFonts.roboto(
-        textStyle: baseStyle,
-      ); // note: assumes import below
+      return GoogleFonts.roboto(textStyle: baseStyle);
     case 'Open Sans':
       return GoogleFonts.openSans(textStyle: baseStyle);
     case 'Lato':
@@ -67,8 +66,17 @@ TextStyle _applyGoogleFont(String? fontFamily, TextStyle baseStyle) {
       return GoogleFonts.robotoMono(textStyle: baseStyle);
     case 'Fira Code':
       return GoogleFonts.firaCode(textStyle: baseStyle);
+    case 'Source Code Pro':
+      return GoogleFonts.sourceCodePro(textStyle: baseStyle);
+    // System fonts — apply as named fontFamily directly
+    case 'serif':
+      return baseStyle.copyWith(fontFamily: 'Times New Roman');
+    case 'sans-serif':
+      return baseStyle.copyWith(fontFamily: 'Arial');
+    case 'monospace':
+      return baseStyle.copyWith(fontFamily: 'Courier New');
     default:
-      return baseStyle;
+      return baseStyle.copyWith(fontFamily: fontFamily);
   }
 }
 
