@@ -82,6 +82,9 @@ analyze_results.txt
 .flutter-plugins
 .flutter-plugins-dependencies
 windows/flutter/ephemeral/
+**/generated_plugin_registrant.*
+**/generated_plugins.cmake
+**/GeneratedPluginRegistrant.swift
 
 # AppImage artifacts
 AppDir/
