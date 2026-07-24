@@ -203,7 +203,9 @@ class EmotionalVoiceDsp {
     }
     if (maxVal > 0) {
       final scale = _peak / maxVal;
-      for (int i = 0; i < result.length; i++) result[i] *= scale;
+      for (int i = 0; i < result.length; i++) {
+        result[i] *= scale;
+      }
     }
     return result;
   }
@@ -242,7 +244,9 @@ class EmotionalVoiceDsp {
 
   static void _ifft(Float64List real, Float64List imag) {
     final n = real.length;
-    for (int i = 0; i < n; i++) imag[i] = -imag[i];
+    for (int i = 0; i < n; i++) {
+      imag[i] = -imag[i];
+    }
     _fft(real, imag);
     for (int i = 0; i < n; i++) {
       real[i] /= n;
@@ -353,10 +357,14 @@ class EmotionalVoiceDsp {
     for (int t = 0; t < nf; t++) {
       final off = t * _bins;
       double energy = 0;
-      for (int b = 0; b < _bins; b++) energy += mag[off + b].abs();
+      for (int b = 0; b < _bins; b++) {
+        energy += mag[off + b].abs();
+      }
       energy = energy / _bins;
       final mod = 1.0 + (scale - 1.0) * energy;
-      for (int b = 0; b < _bins; b++) out[off + b] = mag[off + b] * mod;
+      for (int b = 0; b < _bins; b++) {
+        out[off + b] = mag[off + b] * mod;
+      }
     }
     return out;
   }
@@ -376,7 +384,9 @@ class EmotionalVoiceDsp {
     final out = Float64List(mag.length);
     for (int t = 0; t < nf; t++) {
       final off = t * _bins;
-      for (int b = 0; b < _bins; b++) out[off + b] = mag[off + b] * gain[b];
+      for (int b = 0; b < _bins; b++) {
+        out[off + b] = mag[off + b] * gain[b];
+      }
     }
     return out;
   }
@@ -415,7 +425,9 @@ class EmotionalVoiceDsp {
     for (int t = 0; t < nf; t++) {
       final off = t * _bins;
       double energy = 0;
-      for (int b = lowBin; b < _bins; b++) energy += mag[off + b].abs();
+      for (int b = lowBin; b < _bins; b++) {
+        energy += mag[off + b].abs();
+      }
       energy = (energy / (_bins - lowBin)) * amount;
       for (int b = 0; b < _bins; b++) {
         if (b < lowBin) {
