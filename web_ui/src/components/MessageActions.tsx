@@ -13,6 +13,7 @@ export function MessageActions({
   isLast,
   busy,
   canSpeak,
+  emotion,
   onSwipe,
   onRegenerate,
   onContinue,
@@ -23,6 +24,7 @@ export function MessageActions({
   isLast: boolean;
   busy: boolean;
   canSpeak: boolean;
+  emotion?: string;
   onSwipe: (index: number, direction: number) => void;
   onRegenerate: () => void;
   onContinue: () => void;
@@ -59,7 +61,7 @@ export function MessageActions({
       {m.isUser && isLast && (
         <button className="icon-btn" title="Generate reply" disabled={busy} onClick={onRegenerate}>⟳</button>
       )}
-      {canSpeak && !m.isUser && m.text.trim() !== '' && <SpeakButton text={m.text} />}
+      {canSpeak && !m.isUser && m.text.trim() !== '' && <SpeakButton text={m.text} emotion={emotion} />}
       <button className="icon-btn" title="Edit" disabled={busy} onClick={onEdit}>✎</button>
       <button className="icon-btn" title="Delete" disabled={busy} onClick={onDelete}>🗑</button>
     </div>

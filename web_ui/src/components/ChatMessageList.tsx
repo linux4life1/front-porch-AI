@@ -61,6 +61,8 @@ export function ChatMessageList({
     <div className="chat-messages" ref={scrollRef}>
       {messages.map((m) => {
         const speaker = !m.isUser && m.characterId ? castById.get(m.characterId) : undefined;
+        // Resolve per-message emotion: per-turn chip → per-member field
+        const emotion = m.chips?.emotionLabel || speaker?.emotion || undefined;
         return (
           <div key={m.index} className="msg-row">
             {multiCast && speaker && <span className="msg-speaker">{speaker.name}</span>}
@@ -113,6 +115,7 @@ export function ChatMessageList({
                   isLast={m.index === lastIndex}
                   busy={busy}
                   canSpeak={canSpeak}
+                  emotion={emotion}
                   onSwipe={onSwipe}
                   onRegenerate={onRegenerate}
                   onContinue={onContinue}

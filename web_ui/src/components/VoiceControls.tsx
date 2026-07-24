@@ -8,22 +8,39 @@
 
 import { useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
+import { processEmotionalVoice } from '../audio/emotionalVoiceProcessor';
 
-/** 🔊 Synthesize a message and play it on this device. */
-export function SpeakButton({ text }: { text: string }) {
+/** 🔊 Synthesize a message and play it on this device.
+ *  When [emotion] is provided, the audio is processed through the
+ *  in-browser emotional voice DSP before playback. */
+export function SpeakButton({ text, emotion }: { text: string; emotion?: string }) {
   const [busy, setBusy] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const speak = async () => {
     if (busy || !text.trim()) return;
     setBusy(true);
     try {
       const blob = await api.postForBlob('/api/tts/speak', { text });
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => URL.revokeObjectURL(url);
-      await audio.play();
+      // Try emotional voice DSP (returns null when disabled or on failure)
+      const enabled = localStorage.getItem('emotionalVoice') === 'true';
+      const processed = await processEmotionalVoice(blob, emotion, enabled);
+      if (processed) {
+        const ctx = new AudioContext();
+        const source = ctx.createBufferSource();
+        source.buffer = processed;
+        source.connect(ctx.destination);
+        sourceRef.current = source;
+        source.onended = () => { sourceRef.current = null; ctx.close(); };
+        source.start();
+      } else {
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => URL.revokeObjectURL(url);
+        await audio.play();
+      }
     } catch {
       // TTS off or no audio — surface nothing intrusive; the button just resets.
     } finally {

@@ -6,6 +6,7 @@ import { api, ApiError } from '../api/client';
 import { PersonaManager } from '../components/PersonaManager';
 import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
+import { isEmotionalVoiceEnabled, setEmotionalVoiceEnabled } from '../audio/emotionalVoiceProcessor';
 
 // A single backend picker (replacing the old Backend + Provider dropdowns,
 // which overlapped). Each entry maps to a real BackendType; the OpenAI-compatible
@@ -65,6 +66,7 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testMsg, setTestMsg] = useState('');
+  const [emotionalVoice, setEmotionalVoice] = useState(isEmotionalVoiceEnabled);
 
   const load = () => api.get<Settings>('/api/settings').then(setS).catch(() => {});
   useEffect(() => {
@@ -287,6 +289,24 @@ export function SettingsPage() {
               onChange={(v) => patchGen({ dynamicResponseInterval: Math.round(v) })} />
           </>
         )}
+      </section>
+
+      <section className="card">
+        <h3>Audio</h3>
+        <label className="row-label">
+          <span>Emotional voice</span>
+          <input
+            type="checkbox"
+            checked={emotionalVoice}
+            onChange={(e) => {
+              setEmotionalVoice(e.target.checked);
+              setEmotionalVoiceEnabled(e.target.checked);
+            }}
+          />
+        </label>
+        <p className="muted small">
+          Adapts TTS playback to match each character's expressed emotion.
+        </p>
       </section>
 
       {error && <p className="error">{error}</p>}
