@@ -43,7 +43,7 @@ class SceneGuestPickerDialog extends StatefulWidget {
   final List<CharacterCard> characters;
 
   /// Resolves a character `imagePath` (basename or full path) to a [File].
-  final File Function(String imagePath) resolveImage;
+  final File? Function(CharacterCard card) resolveImage;
 
   /// Pre-fills the search box (e.g. the text typed after `/join`).
   final String initialFilter;
@@ -76,11 +76,18 @@ class _SceneGuestPickerDialogState extends State<SceneGuestPickerDialog> {
         .toList();
   }
 
+  // Memoized per open dialog: _avatar runs per character row per rebuild,
+  // and this dialog rebuilds on every search keystroke — N existsSync per
+  // keypress is the io-lint bug class.
+  final Map<String, ImageProvider?> _avatarCache = {};
+
   ImageProvider? _avatar(CharacterCard c) {
-    final path = c.imagePath;
-    if (path == null || path.isEmpty) return null;
-    final file = widget.resolveImage(path);
-    return file.existsSync() ? FileImage(file) : null;
+    return _avatarCache.putIfAbsent(c.name, () {
+      final file = widget.resolveImage(c);
+      return (file != null && file.existsSync()) // io-ok: memoized per dialog
+          ? FileImage(file)
+          : null;
+    });
   }
 
   @override

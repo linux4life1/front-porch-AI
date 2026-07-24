@@ -82,12 +82,19 @@ class AppDirectories {
     return resolved;
   }
 
-  /// Return the avatars subdirectory for a character by name.
-  /// (Creation is the caller's responsibility when writing files, matching original god contract/impl.)
-  Directory characterAvatarDir(String characterName) {
+  /// The character's private data folder (`<charactersDir>/<safeName>`).
+  /// `avatars/` (expressions) and `looks/` (gallery) both live under it, so this
+  /// single-sources the safe-name rule they must agree on.
+  /// (Creation is the caller's responsibility when writing files.)
+  Directory characterBaseDir(String characterName) {
     final safeName = characterName
         .replaceAll(RegExp(r'[^\w\s\-]'), '')
         .replaceAll(' ', '_');
-    return Directory(path.join(charactersDir.path, safeName, 'avatars'));
+    return Directory(path.join(charactersDir.path, safeName));
   }
+
+  /// Return the avatars subdirectory for a character by name.
+  /// (Creation is the caller's responsibility when writing files, matching original god contract/impl.)
+  Directory characterAvatarDir(String characterName) =>
+      Directory(path.join(characterBaseDir(characterName).path, 'avatars'));
 }

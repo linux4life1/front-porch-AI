@@ -35,10 +35,17 @@ class SelectiveLogic {
 /// character_book entry shapes, including the ST card `extensions.*` mapping.
 /// Unknown fields are preserved in [extensions] so imports round-trip.
 ///
-/// Phase 1 note: only keys/secondary logic, probability, regex keys,
-/// case/whole-word overrides, `constant`, and the legacy [stickyDepth] are
-/// honored by the runtime engine; the remaining fields are stored faithfully
-/// and come alive in the engine-parity phase.
+/// Runtime-honored fields (verified 2026-07 against `lib/services/chat/`
+/// `lorebook_scanner`/`matcher`/`injector`/`timed_effects`): keys + secondary
+/// logic, `probability`, regex keys, case/whole-word overrides, `constant`,
+/// insertion `order`, `position` (0-6; 7 degrades to before-char), `depth`/@depth,
+/// inclusion groups (`group`/`groupWeight`/`useGroupScoring`/`groupOverride`),
+/// recursion (`excludeRecursion`/`preventRecursion`/`delayUntilRecursion`),
+/// timed effects (`sticky`/`cooldown`/`delay`), and token-budget/`ignoreBudget`.
+/// Still stored-only (not yet honored by the engine): `vectorized` (keyword-only
+/// matching — no embedding path), the extra scan-source flags
+/// (`matchScenario`/`matchCharacterDescription`/…), `role` on @depth entries in
+/// text-completion mode, and legacy [stickyDepth].
 class LorebookEntry {
   String name;
   List<String> keys;

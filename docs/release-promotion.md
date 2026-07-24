@@ -50,7 +50,18 @@ ancestry stays connected and the **next** promotion has a clean merge base.
 - [ ] Version decided. (Don't hand-edit `pubspec.yaml`; CI normalizes the version
       from the tag — see CLAUDE.md.)
 - [ ] Stable "What's New" ready in `docs/main.md`, and `README.md` on `main` is the
-      one you want to ship (these are guarded — edit them on `main`, not Rawhide).
+      one you want to ship (these are guarded — edit them on `main`, not Rawhide;
+      drafts can be prepared and reviewed on a candidate/practice branch first, but
+      they only count once committed to `main`).
+- [ ] **Screenshots are current**: the README hero (`docs/screenshots/home_new.png`)
+      and any shots the release announcement or website will reuse are retaken on the
+      current UI. (The existing `docs/screenshots/` set predates the warm-porch
+      redesign — stale for 1.0.)
+- [ ] **Website refresh prepared**: `frontporchai.app` must be updated alongside the
+      release — new screenshots, current feature descriptions, and version/download
+      links. The site is self-hosted and built from `website/` in this repo; deploy
+      details are private (kept out of the repo on purpose). Publish the refresh when
+      the release goes live, not before.
 - [ ] **APT/RPM deploy hosts are live**: Rawhide's `release.yml` publishes `.deb`/
       `.rpm` to `apt.frontporchai.app` / `rpm.frontporchai.app`. Confirm those are
       configured on the server before tagging, or `publish-apt`/`publish-rpm` fail.

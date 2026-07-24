@@ -225,6 +225,17 @@ extension _HomePageChrome on _HomePageState {
       case 'edit':
         _editCharacter(context, character);
         break;
+      case 'avatar_gallery':
+        // Replace-portrait / star both call repository.updateCharacter, which
+        // notifyListeners() → the home grid rebuilds on its own (same as edit).
+        showAvatarGallery(
+          context: context,
+          character: character,
+          repository: Provider.of<CharacterRepository>(context, listen: false),
+          storage: Provider.of<StorageService>(context, listen: false),
+          mode: WardrobeMode.library,
+        );
+        break;
       case 'duplicate':
         _duplicateCharacter(context, character);
         break;

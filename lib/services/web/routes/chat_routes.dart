@@ -53,6 +53,7 @@ class WebChatRoutes {
     router.post('/api/chat/reprocess-needs', _reprocessNeeds);
     router.post('/api/chat/revert-needs-reprocess', _revertNeedsReprocess);
     router.post('/api/chat/author-note', _authorNote);
+    router.post('/api/chat/theme-overrides', _setThemeOverrides);
     router.get('/api/chat/lorebook', _chatLorebook);
     router.post('/api/chat/lorebook', _setChatLorebook);
     router.post('/api/chat/lore-preview', _lorePreview);
@@ -294,6 +295,13 @@ class WebChatRoutes {
     final note = body['authorNote']?.toString() ?? '';
     final strength = body['strength'] is int ? body['strength'] as int : null;
     _facade.setAuthorNote(note, strength: strength);
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  Future<shelf.Response> _setThemeOverrides(shelf.Request request) async {
+    final body = await _json(request);
+    final ok = await _facade.setThemeOverrides(body);
+    if (!ok) return JsonResponse.error(400, 'No active session');
     return JsonResponse.ok({'status': 'ok'});
   }
 

@@ -5,6 +5,8 @@ PODS:
   - file_picker (0.0.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
+  - onnxruntime_v2 (0.0.1):
+    - FlutterMacOS
   - package_info_plus (0.0.1):
     - FlutterMacOS
   - record_macos (1.2.0):
@@ -13,6 +15,8 @@ PODS:
     - FlutterMacOS
   - shared_preferences_foundation (0.0.1):
     - Flutter
+    - FlutterMacOS
+  - sherpa_onnx_macos (1.13.4):
     - FlutterMacOS
   - url_launcher_macos (0.0.1):
     - FlutterMacOS
@@ -23,10 +27,12 @@ DEPENDENCIES:
   - audioplayers_darwin (from `Flutter/ephemeral/.symlinks/plugins/audioplayers_darwin/darwin`)
   - file_picker (from `Flutter/ephemeral/.symlinks/plugins/file_picker/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
+  - onnxruntime_v2 (from `Flutter/ephemeral/.symlinks/plugins/onnxruntime_v2/macos`)
   - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
   - record_macos (from `Flutter/ephemeral/.symlinks/plugins/record_macos/macos`)
   - screen_retriever_macos (from `Flutter/ephemeral/.symlinks/plugins/screen_retriever_macos/macos`)
   - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - sherpa_onnx_macos (from `Flutter/ephemeral/.symlinks/plugins/sherpa_onnx_macos/macos`)
   - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
   - window_manager (from `Flutter/ephemeral/.symlinks/plugins/window_manager/macos`)
 
@@ -37,6 +43,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/file_picker/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
+  onnxruntime_v2:
+    :path: Flutter/ephemeral/.symlinks/plugins/onnxruntime_v2/macos
   package_info_plus:
     :path: Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos
   record_macos:
@@ -45,6 +53,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/screen_retriever_macos/macos
   shared_preferences_foundation:
     :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
+  sherpa_onnx_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/sherpa_onnx_macos/macos
   url_launcher_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
   window_manager:
@@ -54,10 +64,12 @@ SPEC CHECKSUMS:
   audioplayers_darwin: 835ced6edd4c9fc8ebb0a7cc9e294a91d99917d5
   file_picker: 7584aae6fa07a041af2b36a2655122d42f578c1a
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  onnxruntime_v2: 71bdf3f44d1fb6a55468279f8029ffbafceb17ac
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
   record_macos: 7f227161b93c49e7e34fe681c5891c8622c8cc8b
   screen_retriever_macos: 452e51764a9e1cdb74b3c541238795849f21557f
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  sherpa_onnx_macos: e648c8a9f1a02ec1d7e2788a2963bc86e67e2dd7
   url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
   window_manager: b729e31d38fb04905235df9ea896128991cad99e
 

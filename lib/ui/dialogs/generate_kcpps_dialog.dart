@@ -24,8 +24,8 @@ class GenerateKcppsDialog extends StatefulWidget {
 
 class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
   String? _selectedModelPath;
-  final _contextSizeController = TextEditingController(text: '8192');
-  int _contextSize = 8192;
+  final _contextSizeController = TextEditingController(text: '16384');
+  int _contextSize = 16384;
   String _kvQuant = 'f16';
   int _threads = 4;
   final _threadsController = TextEditingController(text: '4');

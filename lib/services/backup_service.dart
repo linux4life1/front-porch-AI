@@ -50,8 +50,11 @@ class BackupService {
     );
     _autoBackupTimer = Timer.periodic(_autoBackupInterval, (_) async {
       try {
-        await createBackup();
-        await pruneBackups();
+        final created = await createBackup();
+        // Never prune after a failed snapshot: the daily-retention window
+        // keeps sliding, so pruning during a persistent failure streak would
+        // slowly delete healthy history while writing nothing new.
+        if (created != null) await pruneBackups();
       } catch (e) {
         debugPrint('[Backup] Auto-backup failed: $e');
       }
@@ -76,7 +79,7 @@ class BackupService {
     return backupDir;
   }
 
-  /// Copy the current DB to a timestamped backup file.
+  /// Snapshot the current DB to a timestamped backup file.
   /// Returns the backup path, or null if the DB doesn't exist.
   static Future<String?> createBackup() async {
     final dbPath = AppDatabase.dbFilePath;
@@ -85,14 +88,6 @@ class BackupService {
     final dbFile = File(dbPath);
     if (!await dbFile.exists()) return null;
 
-    // Checkpoint WAL so the .db file is self-contained
-    try {
-      final db = await AppDatabase.instance();
-      await db.checkpoint();
-    } catch (e) {
-      debugPrint('[Backup] WAL checkpoint failed: $e');
-    }
-
     final backupDir = await _getBackupDir();
     final timestamp = DateTime.now()
         .toIso8601String()
@@ -100,7 +95,26 @@ class BackupService {
         .replaceAll('.', '-');
     final backupPath = path.join(backupDir.path, 'front_porch_$timestamp.db');
 
-    await dbFile.copy(backupPath);
+    // VACUUM INTO makes SQLite itself write a transactionally-consistent
+    // snapshot. The old File.copy of the live DB could catch a mid-write
+    // moment (the DB runs in rollback-journal mode, so writes mutate the
+    // file in place) and produce a torn, unrestorable backup — discovered
+    // only at restore time, after the primary DB has already failed.
+    try {
+      final db = await AppDatabase.instance();
+      await db.customStatement(
+        "VACUUM INTO '${backupPath.replaceAll("'", "''")}'",
+      );
+    } catch (e) {
+      debugPrint('[Backup] VACUUM INTO failed — no backup written: $e');
+      // Never fall back to a raw copy of the live file: a torn copy silently
+      // poisons the safety net. Remove any partial target and report failure.
+      try {
+        final partial = File(backupPath);
+        if (await partial.exists()) await partial.delete();
+      } catch (_) {}
+      return null;
+    }
     debugPrint('[Backup] Created backup: $backupPath');
     return backupPath;
   }

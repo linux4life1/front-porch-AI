@@ -54,6 +54,16 @@ extension ChatServiceRealismDance on ChatService {
     // logic work exactly as they do for 1:1 chats.
     _activeCharacter = speaker;
 
+    // Short-term bond decay for the PINNED speaker (moved from sendMessage,
+    // where the speaker wasn't picked yet and random turn order made the
+    // decay always hit the first member). The check runs on this speaker's
+    // own cadence counter directly against their map entry, so it is correct
+    // to run it BEFORE the scalar load below (the map write flows into the
+    // load). 1:1 keeps its original sendMessage tick.
+    if (_activeGroup != null && !_observerMode) {
+      _applyMoodDecay();
+    }
+
     // Group non-observer: ensure this definite speaker receives their per-turn needs decay
     // (central tick in sendMessage is skipped for groups to support random turn order without
     // always decaying the 'first' member). Snapshot the pre-decay value for chips/realism_state
@@ -76,17 +86,30 @@ extension ChatServiceRealismDance on ChatService {
       // THIS speaker's own per-member decay rates (from their card ext) — the
       // same source the 1:1 path uses — so each group member decays at its own
       // authored rate. `_activeCharacter` is this speaker (impersonated above).
+      // decayedValueFor is THE shared rule (rate + modifier pipeline): group
+      // members get the same conditional decay boosts (low energy → faster
+      // hunger, etc.) that 1:1 always applied — this loop used to skip them.
       final decayed = Map<String, int>.from(preDecay);
       final customRates = _activeDecayRates();
       for (final key in NeedsSimulation.needKeys) {
         final cur = decayed[key] ?? 80;
-        final decay = customRates[key] ?? NeedsSimulation.needDecay[key] ?? 0;
-        decayed[key] = (cur - decay).clamp(0, 100);
+        decayed[key] = _needsSimulation.decayedValueFor(
+          key,
+          cur,
+          decayed,
+          customRates,
+        );
       }
       _setGroupNeeds(sidForDecay, decayed);
 
       // Now load the post-decay state into scalars for the remainder of the speaker eval + prompt injection.
       _loadGroupRealismIntoScalars(charId);
+
+      // Catastrophe check on THIS speaker's just-loaded vector — 1:1 parity
+      // (the 1:1 host runs this inside tickDecay). Persist the recovery floor
+      // back to the speaker's group entry so it sticks.
+      _needsSimulation.applyCatastropheIfNeeded();
+      _setGroupNeeds(sidForDecay, Map<String, int>.from(_needsSimulation.vector));
     } else if (_activeGroup != null) {
       // Group speaker (observer mode or needs-off): load this speaker's persisted
       // group realism state into the scalar fields the eval will read and mutate.
@@ -145,12 +168,14 @@ extension ChatServiceRealismDance on ChatService {
     }
 
     try {
-      // Respect early cancellation
+      // Respect early cancellation. Do NOT consume the flag here: the callers
+      // own it — sendMessage (1:1) and _generateResponse (group) both check it
+      // right after this returns and abort generation. Consuming it here was
+      // why Cancel stopped aborting generation.
       if (_realismEvalCancelled) {
         debugPrint(
           '[Realism:Group] Evaluation cancelled before LLM calls for ${speaker.name}',
         );
-        _realismEvalCancelled = false;
         return;
       }
 
@@ -213,12 +238,13 @@ extension ChatServiceRealismDance on ChatService {
         }
       }
 
-      // Handle cancellation after the eval calls
+      // Handle cancellation after the eval calls. The flag is deliberately
+      // left set — the caller (sendMessage / _generateResponse) consumes it
+      // and aborts generation (see the pre-eval check above).
       if (_realismEvalCancelled) {
         debugPrint(
           '[Realism:Unified] Evaluation cancelled during/after LLM calls for ${speaker.name}',
         );
-        _realismEvalCancelled = false;
         return;
       }
 

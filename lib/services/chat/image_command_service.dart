@@ -54,12 +54,17 @@ class ImageCommandService {
     )
     generate,
     required Future<String?> Function(Uint8List bytes) saveImage,
-    required Future<void> Function(
+    // Returns true if the image was actually attached, false if it was dropped
+    // (e.g. the user switched chats mid-gen) so the run doesn't post a false
+    // "added to the chat" success line over the drop's own status.
+    required Future<bool> Function(
       String path,
       String prompt,
       ImageCommandRequest request,
+      Object? launchToken,
     )
     attachToChat,
+    Object? Function()? snapshotSession,
     void Function()? notifyRunStateChanged,
   }) : _isConfigured = isConfigured,
        _isBusy = isBusy,
@@ -68,6 +73,7 @@ class ImageCommandService {
        _generate = generate,
        _saveImage = saveImage,
        _attachToChat = attachToChat,
+       _snapshotSession = snapshotSession,
        _notifyRunStateChanged = notifyRunStateChanged;
 
   final bool Function() _isConfigured;
@@ -77,12 +83,19 @@ class ImageCommandService {
   final Future<Uint8List?> Function(String prompt, ImageCommandRequest request)
   _generate;
   final Future<String?> Function(Uint8List bytes) _saveImage;
-  final Future<void> Function(
+  final Future<bool> Function(
     String path,
     String prompt,
     ImageCommandRequest request,
+    Object? launchToken,
   )
   _attachToChat;
+
+  /// Snapshots an OPAQUE token identifying the chat/session this run belongs
+  /// to (captured at run start, passed back to [attachToChat] so the wiring
+  /// can drop the result if the user switched chats during the slow gen). The
+  /// leaf never interprets it — it just carries it, keeping this pure.
+  final Object? Function()? _snapshotSession;
   final void Function()? _notifyRunStateChanged;
 
   /// Guards against overlapping `/image` runs (generation is slow). Public
@@ -156,6 +169,9 @@ class ImageCommandService {
 
     _generating = true;
     _notifyRunStateChanged?.call();
+    // Which chat this run belongs to — checked at attach time so a slow gen
+    // (1-10 min local) whose user switched chats can't land in the wrong one.
+    final launchToken = _snapshotSession?.call();
     try {
       String? prompt;
       if (request.kind == ImageCommandKind.raw) {
@@ -189,8 +205,12 @@ class ImageCommandService {
         return;
       }
 
-      await _attachToChat(path, prompt, request);
-      _onStatus('🎨 Image added to the chat.', sticky: false);
+      final attached = await _attachToChat(path, prompt, request, launchToken);
+      // The drop path posts its own "you left the chat" status; only claim
+      // success when the image actually landed.
+      if (attached) {
+        _onStatus('🎨 Image added to the chat.', sticky: false);
+      }
     } finally {
       _generating = false;
       _notifyRunStateChanged?.call();

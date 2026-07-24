@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -904,6 +905,65 @@ void main() {
       svc.addListener(() => callCount++);
       await svc.setLastUsedModelPath('/model.gguf');
       expect(callCount, greaterThanOrEqualTo(1));
+    });
+  });
+
+  // ─── Active .kcpps preset introspection ────────────────────────────
+  // kcppsModelPath / kcppsMmprojPath feed the vision-capability resolver
+  // (a preset-owned model must be interrogatable even though
+  // lastUsedModelPath stays empty in preset mode).
+
+  group('Active .kcpps preset getters', () {
+    File writeKcpps(Map<String, Object> json) {
+      final dir = Directory.systemTemp.createTempSync('fpai_kcpps_');
+      return File('${dir.path}/preset.kcpps')
+        ..writeAsStringSync(jsonEncode(json));
+    }
+
+    test('kcppsModelPath prefers model_param over model', () async {
+      final svc = await createStorageService();
+      final kcpps = writeKcpps({
+        'model_param': '/models/a.gguf',
+        'model': '/models/b.gguf',
+        'mmproj': '/models/proj.gguf',
+      });
+      await svc.setActiveKcppsPath(kcpps.path);
+      expect(svc.kcppsModelPath, '/models/a.gguf');
+      expect(svc.kcppsMmprojPath, '/models/proj.gguf');
+      expect(svc.kcppsHasModel, isTrue);
+    });
+
+    test('kcppsModelPath falls back to model key', () async {
+      final svc = await createStorageService();
+      final kcpps = writeKcpps({'model': '/models/b.gguf'});
+      await svc.setActiveKcppsPath(kcpps.path);
+      expect(svc.kcppsModelPath, '/models/b.gguf');
+      expect(svc.kcppsMmprojPath, isNull);
+    });
+
+    test('empty/absent keys and no active preset return null', () async {
+      final svc = await createStorageService();
+      final kcpps = writeKcpps({'model_param': '  ', 'mmproj': ''});
+      await svc.setActiveKcppsPath(kcpps.path);
+      expect(svc.kcppsModelPath, isNull);
+      expect(svc.kcppsHasModel, isFalse);
+      expect(svc.kcppsMmprojPath, isNull);
+
+      await svc.setActiveKcppsPath(null);
+      expect(svc.kcppsModelPath, isNull);
+      expect(svc.kcppsMmprojPath, isNull);
+    });
+
+    test('kcppsModelFileExists reflects the referenced file on disk', () async {
+      final svc = await createStorageService();
+      final dir = Directory.systemTemp.createTempSync('fpai_kcpps_');
+      final model = File('${dir.path}/real.gguf')..writeAsBytesSync([0]);
+      final kcpps = File('${dir.path}/preset.kcpps')
+        ..writeAsStringSync(jsonEncode({'model_param': model.path}));
+      await svc.setActiveKcppsPath(kcpps.path);
+      expect(svc.kcppsModelFileExists, isTrue);
+      model.deleteSync();
+      expect(svc.kcppsModelFileExists, isFalse);
     });
   });
 }

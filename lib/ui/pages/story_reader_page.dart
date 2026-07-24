@@ -231,9 +231,22 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       final audioFile = audioBuffer[_currentPage];
       if (audioFile != null && audioFile.existsSync()) {
         final segPlayer = AudioPlayer();
+        // Publish the ACTIVE player so the stop button can reach it.
+        // Field-reported bug: _readAlongPlayer was declared and .stop()ed
+        // but never assigned — stop only halted the buffer loop while the
+        // current page kept playing to its natural end.
+        _readAlongPlayer = segPlayer;
         final completer = Completer<void>();
         final sub = segPlayer.onPlayerComplete.listen((_) {
           if (!completer.isCompleted) completer.complete();
+        });
+        // Manual stop() emits PlayerState.stopped, NOT onPlayerComplete —
+        // without this listener the loop would hang on the completer even
+        // after the audio was silenced.
+        final stopSub = segPlayer.onPlayerStateChanged.listen((state) {
+          if (state == PlayerState.stopped && !completer.isCompleted) {
+            completer.complete();
+          }
         });
 
         try {
@@ -243,6 +256,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           debugPrint('[ReadAlong] Playback error: $e');
         } finally {
           await sub.cancel();
+          await stopSub.cancel();
+          if (_readAlongPlayer == segPlayer) _readAlongPlayer = null;
           await segPlayer.dispose();
         }
       }

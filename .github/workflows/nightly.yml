@@ -10,7 +10,7 @@ name: Nightly Build (Rawhide)
 # with "Undefined name" compile errors for any new getters/symbols (e.g. isNightlyBuild).
 #
 # The job itself checks out `ref: Rawhide` for the actual source, but the workflow
-# definition (including the sed/python patch logic) always comes from main's copy.
+# definition (including the sed version-patch logic) always comes from main's copy.
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -19,6 +19,11 @@ on:
   schedule:
     - cron: '0 7 * * *'
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force a nightly even if Rawhide has no new commits since the last one'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -57,6 +62,7 @@ jobs:
     outputs:
       full_sha: ${{ steps.r.outputs.full_sha }}
       version: ${{ steps.r.outputs.version }}
+      should_build: ${{ steps.gate.outputs.should_build }}
     steps:
       - name: Checkout Rawhide
         uses: actions/checkout@v4
@@ -74,9 +80,67 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Resolved nightly version $VERSION at $FULL_SHA"
 
+      # Skip the whole nightly if Rawhide hasn't moved since the last one.
+      # We don't diff git history — we just compare the commit we're about to
+      # build (Rawhide's current HEAD) against the commit the LAST nightly was
+      # built from. That last commit is baked into the previous release's tag
+      # (nightly-rawhide.<date>.<sha>), so the trailing "<sha>" IS the last
+      # build's commit. We prefix-match it against the FULL current SHA (not a
+      # short==short compare) so a later, longer git abbreviation can't cause a
+      # spurious rebuild. Same commit → no new commits → nothing to build.
+      # The Force checkbox on a manual run rebuilds even the same commit.
+      - name: Decide whether to build (skip if no new commits since last nightly)
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          CURRENT_FULL=$(git rev-parse HEAD)
+          CURRENT_SHORT=$(git rev-parse --short HEAD)
+          DECISION=""
+
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            echo "Force requested — building $CURRENT_SHORT regardless of commit changes."
+            DECISION=true
+          else
+            LAST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 40 \
+              --json tagName,createdAt \
+              --jq '[.[] | select(.tagName | startswith("nightly-rawhide."))] | sort_by(.createdAt) | last | .tagName' 2>/dev/null || echo "")
+
+            if [ -z "$LAST_TAG" ]; then
+              echo "No previous nightly release found — building."
+              DECISION=true
+            else
+              LAST_SHA="${LAST_TAG##*.}"
+              echo "Current Rawhide HEAD : $CURRENT_SHORT ($CURRENT_FULL)"
+              echo "Last nightly's commit: $LAST_SHA (from tag $LAST_TAG)"
+              if [ -z "$LAST_SHA" ]; then
+                # Couldn't parse a sha — never skip on ambiguity; build to be safe.
+                echo "Could not parse a sha from '$LAST_TAG' — building to be safe."
+                DECISION=true
+              else
+                # Prefix-match the last build's short sha against the current full sha.
+                case "$CURRENT_FULL" in
+                  "$LAST_SHA"*)
+                    echo "::notice::No new commits on Rawhide since the last nightly ($LAST_SHA) — skipping build."
+                    DECISION=false
+                    ;;
+                  *)
+                    echo "New commits since $LAST_SHA — building $CURRENT_SHORT."
+                    DECISION=true
+                    ;;
+                esac
+              fi
+            fi
+          fi
+
+          # Single, guaranteed write of the output (never leave it empty).
+          echo "should_build=$DECISION" >> "$GITHUB_OUTPUT"
+
   nightly:
     name: Build Nightly
     needs: resolve
+    if: needs.resolve.outputs.should_build == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -105,12 +169,6 @@ jobs:
           flutter-version: '3.41.1'
           channel: 'stable'
           cache: true
-
-      - name: Setup Python (with pip cache)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
 
       - name: Install Linux Dependencies
         if: matrix.platform == 'linux'
@@ -186,23 +244,6 @@ jobs:
         run: npm ci && npm run build
         working-directory: web_ui
 
-      - name: Disable inappwebview Linux plugin (uses external browser fallback)
-        if: matrix.platform == 'linux'
-        run: |
-          echo "" >> pubspec.yaml
-          echo "dependency_overrides:" >> pubspec.yaml
-          echo "  flutter_inappwebview_linux:" >> pubspec.yaml
-          echo "    path: ci/flutter_inappwebview_linux_stub" >> pubspec.yaml
-          flutter pub get
-
-      - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust build artifacts (embed_server + ort prebuilts)
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "tools/embed_server"
-
       - name: Build Application
         if: matrix.platform != 'linux'
         run: flutter build ${{ matrix.platform }} --release
@@ -245,243 +286,27 @@ jobs:
             /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.linux4life1.frontPorchAi.nightly" FrontPorchAI-Rawhide.app/Contents/Info.plist 2>/dev/null || true
           fi
 
-      - name: Bundle ML Engines (Kokoro TTS, Piper TTS, Whisper STT, ONNX Embeddings)
+      - name: Bundle libfpzip for the native Draw Things client (macOS)
+        if: matrix.platform == 'macos'
         shell: bash
         run: |
-          # ML sidecars are ALWAYS built fresh from source — caching of this step is
-          # deliberately DISABLED. A previous "Cache ML Engines" step cached the ENTIRE
-          # build directory (which also contains the compiled Flutter app), so on a cache
-          # hit it restored a STALE app over the fresh `flutter build` output — shipping
-          # weeks-old code under fresh version tags and causing an endless "Update
-          # Available" loop on every platform (the published rawhide.20260625 .pkg
-          # actually contained rawhide.20260621 code). Rather than risk that class of
-          # "everything says current but isn't" bug ever again, we eat the sidecar build
-          # time on every run. Correctness > a few minutes of CI. The other caches
-          # (Flutter SDK, pub, pip, cargo/rust-cache) only cache build *inputs*, never
-          # the app output, so they remain safe and are kept.
-          echo "Building ML engines from source (caching intentionally disabled)"
-          DEST="${{ matrix.build_path }}/piper"
-            mkdir -p "$DEST"
-
-            # Install TTS dependencies + PyInstaller
-            pip install pyinstaller kokoro-onnx soundfile piper_tts pathvalidate faster-whisper numpy onnxruntime transformers huggingface_hub
-
-            # Build Kokoro TTS as a standalone directory bundle
-            echo "Building Kokoro TTS binary..."
-            pyinstaller kokoro_tts.py \
-              --onedir \
-              --name kokoro_tts \
-              --collect-all kokoro_onnx \
-              --collect-all soundfile \
-              --collect-all language_tags \
-              --collect-all csvw \
-              --collect-all segments \
-              --collect-all phonemizer \
-              --collect-all espeakng_loader \
-              --hidden-import kokoro_onnx \
-              --hidden-import soundfile \
-              --hidden-import numpy \
-              --hidden-import onnxruntime \
-              --distpath "$DEST" \
-              --workpath ./build_tmp/kokoro \
-              --specpath ./build_tmp/kokoro \
-              --clean \
-              --exclude-module torch \
-              --exclude-module torchvision \
-              --exclude-module torchaudio \
-              --noconfirm
-            echo "Kokoro built at: $DEST/kokoro_tts/"
-
-            # Build Piper TTS as a standalone directory bundle
-            echo "Building Piper TTS binary..."
-            pyinstaller piper_entry.py \
-              --onedir \
-              --name piper \
-              --collect-all piper \
-              --hidden-import piper \
-              --hidden-import pathvalidate \
-              --hidden-import piper_phonemize \
-              --hidden-import onnxruntime \
-              --distpath "$DEST" \
-              --workpath ./build_tmp/piper \
-              --specpath ./build_tmp/piper \
-              --clean \
-              --exclude-module torch \
-              --exclude-module torchvision \
-              --exclude-module torchaudio \
-              --noconfirm
-            echo "Piper built at: $DEST/piper/"
-
-            # Build Whisper STT as a standalone directory bundle
-            echo "Building Whisper STT binary..."
-            STT_DEST="${{ matrix.build_path }}"
-            pyinstaller whisper_stt.py \
-              --onedir \
-              --name whisper_stt \
-              --collect-all faster_whisper \
-              --hidden-import faster_whisper \
-              --hidden-import ctranslate2 \
-              --hidden-import huggingface_hub \
-              --hidden-import tokenizers \
-              --distpath "$STT_DEST" \
-              --workpath ./build_tmp/whisper \
-              --specpath ./build_tmp/whisper \
-              --clean \
-              --exclude-module torch \
-              --exclude-module torchvision \
-              --exclude-module torchaudio \
-              --noconfirm
-            echo "Whisper STT built at: $STT_DEST/whisper_stt/"
-
-            # Build Embedding Server (Rust binary)
-            # NOTE: Uses prebuilt ONNX Runtime static libs downloaded by ort-sys from
-            # parcel.pyke.io. These downloads are occasionally flaky (timeouts/5xx).
-            # We retry + rely on rust-cache + ML-engines-cache to avoid repeated downloads.
-            echo "Building Embedding Server (Rust)..."
-            cd tools/embed_server
-            for attempt in 1 2 3; do
-              if cargo build --release; then
-                echo "cargo build succeeded on attempt $attempt"
-                break
-              else
-                echo "cargo build attempt $attempt failed"
-                if [ $attempt -lt 3 ]; then
-                  echo "Retrying in 15s..."
-                  sleep 15
-                else
-                  echo "ERROR: cargo build failed after 3 attempts"
-                  exit 1
-                fi
-              fi
-            done
-            cd ../..
-            EMBED_BINARY="tools/embed_server/target/release/embed_server"
-            if [ "${{ matrix.platform }}" = "windows" ]; then
-              EMBED_BINARY="tools/embed_server/target/release/embed_server.exe"
-            fi
-            mkdir -p "$STT_DEST/embed_server"
-            cp "$EMBED_BINARY" "$STT_DEST/embed_server/"
-            echo "Embedding server built at: $STT_DEST/embed_server/"
-
-            # Build Sentiment Classifier (expression images ONNX)
-            echo "Building Sentiment Classifier binary..."
-            pyinstaller sentiment_classifier.py \
-              --onedir \
-              --name sentiment_classifier \
-              --collect-all huggingface_hub \
-              --collect-all transformers \
-              --collect-all numpy \
-              --collect-all onnxruntime \
-              --hidden-import huggingface_hub \
-              --hidden-import transformers \
-              --hidden-import numpy \
-              --hidden-import onnxruntime \
-              --distpath "$STT_DEST" \
-              --workpath ./build_tmp/sentiment \
-              --specpath ./build_tmp/sentiment \
-              --clean \
-              --exclude-module torch \
-              --exclude-module torchvision \
-              --exclude-module torchaudio \
-              --noconfirm
-            echo "Sentiment classifier built at: $STT_DEST/sentiment_classifier/"
-
-            # Build Draw Things gRPC client (proper PyInstaller bundle for release .app)
-            # --add-data includes the sibling .py source files (client.py, pb2 files, etc.)
-            # that dt_grpc_client.py imports via sys.path.insert(0, dirname(__file__)).
-            # Without --add-data these files are absent inside the frozen bundle, causing
-            # ImportError in .app builds (while flutter run works because the raw .py files
-            # are on disk and sys.path.insert finds them).
-            # --paths tells PyInstaller to trace imports from the sibling directory at
-            # bundle time, so hidden-import client / imageService_pb2 are actually found.
-            echo "Building Draw Things gRPC client..."
-            # Use $(pwd) absolute paths for --add-data: when --specpath is set,
-            # PyInstaller resolves relative paths relative to the spec file location
-            # (./build_tmp/dt_grpc/), not the workspace root. Absolute paths are
-            # unambiguous regardless of where the spec file lives.
-            GRPC_SRC="$(pwd)/tools/dt-grpc-python"
-            pyinstaller "$GRPC_SRC/dt_grpc_client.py" \
-              --onedir \
-              --name dt_grpc_client \
-              --paths "$GRPC_SRC" \
-              --add-data "$GRPC_SRC/client.py:." \
-              --add-data "$GRPC_SRC/imageService_pb2.py:." \
-              --add-data "$GRPC_SRC/imageService_pb2_grpc.py:." \
-              --add-data "$GRPC_SRC/GenerationConfiguration.py:." \
-              --add-data "$GRPC_SRC/SamplerType.py:." \
-              --add-data "$GRPC_SRC/SeedMode.py:." \
-              --add-data "$GRPC_SRC/LoRA.py:." \
-              --add-data "$GRPC_SRC/LoRAMode.py:." \
-              --add-data "$GRPC_SRC/Control.py:." \
-              --add-data "$GRPC_SRC/ControlInputType.py:." \
-              --add-data "$GRPC_SRC/ControlMode.py:." \
-              --add-data "$GRPC_SRC/ca_chain.pem:." \
-              --collect-all grpcio \
-              --collect-all flatbuffers \
-              --collect-all fpzip \
-              --collect-all numpy \
-              --collect-all PIL \
-              --hidden-import grpc \
-              --hidden-import grpc._cython \
-              --hidden-import grpcio \
-              --hidden-import flatbuffers \
-              --hidden-import fpzip \
-              --hidden-import numpy \
-              --hidden-import PIL \
-              --hidden-import PIL.Image \
-              --hidden-import imageService_pb2 \
-              --hidden-import imageService_pb2_grpc \
-              --hidden-import GenerationConfiguration \
-              --hidden-import SamplerType \
-              --hidden-import SeedMode \
-              --hidden-import LoRA \
-              --hidden-import LoRAMode \
-              --hidden-import client \
-              --distpath "$STT_DEST" \
-              --workpath ./build_tmp/dt_grpc \
-              --specpath ./build_tmp/dt_grpc \
-              --clean \
-              --exclude-module torch \
-              --exclude-module torchvision \
-              --exclude-module torchaudio \
-              --noconfirm
-            echo "Draw Things gRPC client built at: $STT_DEST/dt_grpc_client/"
-
-          # For macOS, copy into the app bundle Resources (always runs)
-          if [ "${{ matrix.platform }}" = "macos" ]; then
-            APP_NAME=$(ls -d ${{ matrix.build_path }}/*.app 2>/dev/null | head -1)
-            if [ -n "$APP_NAME" ]; then
-              RESOURCES="$APP_NAME/Contents/Resources/piper"
-              mkdir -p "$RESOURCES"
-              cp -R "${{ matrix.build_path }}/piper/kokoro_tts" "$RESOURCES/kokoro_tts" 2>/dev/null || true
-              cp -R "${{ matrix.build_path }}/piper/piper" "$RESOURCES/piper" 2>/dev/null || true
-              chmod +x "$RESOURCES/kokoro_tts/kokoro_tts" 2>/dev/null || true
-              chmod +x "$RESOURCES/piper/piper" 2>/dev/null || true
-
-              STT_RESOURCES="$APP_NAME/Contents/Resources/whisper_stt"
-              mkdir -p "$STT_RESOURCES"
-              cp -R "${{ matrix.build_path }}/whisper_stt/"* "$STT_RESOURCES/" 2>/dev/null || true
-              chmod +x "$STT_RESOURCES/whisper_stt" 2>/dev/null || true
-
-              EMBED_RESOURCES="$APP_NAME/Contents/Resources/embed_server"
-              mkdir -p "$EMBED_RESOURCES"
-              cp -R "${{ matrix.build_path }}/embed_server/"* "$EMBED_RESOURCES/" 2>/dev/null || true
-              chmod +x "$EMBED_RESOURCES/embed_server" 2>/dev/null || true
-
-              SENTIMENT_RESOURCES="$APP_NAME/Contents/Resources/sentiment_classifier"
-              mkdir -p "$SENTIMENT_RESOURCES"
-              cp -R "${{ matrix.build_path }}/sentiment_classifier/"* "$SENTIMENT_RESOURCES/" 2>/dev/null || true
-              chmod +x "$SENTIMENT_RESOURCES/sentiment_classifier" 2>/dev/null || true
-
-              # Draw Things gRPC client (proper bundled executable, not raw sources)
-              DT_RESOURCES="$APP_NAME/Contents/Resources/dt_grpc"
-              mkdir -p "$DT_RESOURCES"
-              cp -R "${{ matrix.build_path }}/dt_grpc_client" "$DT_RESOURCES/" 2>/dev/null || true
-              chmod +x "$DT_RESOURCES/dt_grpc_client/dt_grpc_client" 2>/dev/null || true
-            fi
+          # The pure-Dart Draw Things client decodes generated images through
+          # a tiny fpzip FFI dylib (dt_fpzip.dart looks in Contents/Frameworks/).
+          # Without it, Draw Things generation fails with a clear
+          # libfpzip-missing error (no fallback exists — the sidecars are
+          # gone). Built fresh (LLNL fpzip 1.3.0, universal arm64+x86_64)
+          # and signed by the codesign pass below like every other
+          # Frameworks dylib. Draw Things is macOS-only software, so no
+          # Windows/Linux counterpart exists.
+          ./scripts/build-fpzip-macos.sh
+          APP_PATH=$(find build/macos/Build/Products/Release -maxdepth 1 -name "*.app" | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found for libfpzip bundling" >&2
+            exit 1
           fi
-
-          echo "ML engine bundling step complete"
+          mkdir -p "$APP_PATH/Contents/Frameworks"
+          cp tools/fpzip/libfpzip.dylib "$APP_PATH/Contents/Frameworks/"
+          echo "Bundled libfpzip into $APP_PATH/Contents/Frameworks/"
 
       - name: Download VC++ Redistributable (Windows)
         if: matrix.platform == 'windows'
@@ -581,40 +406,17 @@ jobs:
         run: |
           APP_NAME=$(ls -d ${{ matrix.build_path }}/*.app | head -1)
           ENTITLEMENTS="${{ github.workspace }}/macos/Runner/Release.entitlements"
-          # Sidecar entitlements: required for all PyInstaller bundles under hardened
-          # runtime. PyInstaller's boot-loader needs:
-          #   - cs.disable-library-validation   (load unsigned .so extension modules
-          #                                      bundled inside _internal/)
-          #   - cs.allow-unsigned-executable-memory (mmap the .pyc archive as exec)
-          # Without these, macOS kills the sidecar immediately when the app runs.
-          SIDECAR_ENT="${{ github.workspace }}/macos/Runner/Sidecar.entitlements"
-
-          # Parallelize signing across the thousands of Mach-O files in the
-          # PyInstaller sidecars. Passes run inside-out (the main .app is signed
-          # LAST); only distinct files WITHIN a pass run in parallel. BSD xargs on
-          # macOS, so no GNU-only flags and we guard against empty input.
-          #
-          # Two distinct failure modes are handled here:
-          #
-          # 1. TIMESTAMP THROTTLE (intermittent "Invalid"): each
-          #    `codesign --timestamp` is a network round-trip to Apple's timestamp
-          #    server, which throttles under this parallel burst. Every codesign
-          #    RETRIES with backoff to heal the throttle.
-          #
-          # 2. AMBIGUOUS PyInstaller FRAMEWORKS (deterministic "Invalid"): PyInstaller's
-          #    frameworks are already versioned (Versions/<X.Y>/<name> is the real
-          #    Mach-O) but ALSO carry a DUPLICATE real binary/Resources at the bundle
-          #    ROOT. A real Mach-O at the root looks app-like while Versions/ looks
-          #    framework-like, so codesign reports "bundle format is ambiguous (could
-          #    be app or framework)" and refuses to SEAL the framework — and Apple
-          #    then rejects notarization with "The signature of the binary is invalid."
-          #    The dedicated framework pass below normalizes each framework to the
-          #    canonical layout (root entries become symlinks into Versions/Current),
-          #    SEALS it, and HARD-fails on a local `codesign --verify --deep --strict`
-          #    so we never submit a framework Apple would reject.
-          # If Apple still rejects anything, the notarize step below fetches
-          # `notarytool log` so the precise reason is in the CI log.
-          export MACOS_CERTIFICATE_NAME SIDECAR_ENT ENTITLEMENTS
+          # Sign inside-out (the main .app is signed LAST); distinct files
+          # WITHIN a pass run in parallel. BSD xargs on macOS, so no GNU-only
+          # flags and we guard against empty input. Each `codesign --timestamp`
+          # is a network round-trip to Apple's timestamp server, which
+          # throttles under a parallel burst — every codesign RETRIES with
+          # backoff. (The helper-signing passes that used to follow left with
+          # the sidecar retirement — since phase 5 the app spawns no helper
+          # processes, so Resources holds only data files.) If Apple rejects
+          # anything, the notarize step below fetches `notarytool log` so the
+          # precise reason is in the CI log.
+          export MACOS_CERTIFICATE_NAME ENTITLEMENTS
           JOBS=8
 
           echo "Code signing $APP_NAME with hardened runtime using Developer ID certificate (parallel x$JOBS, with retries)..."
@@ -627,112 +429,6 @@ jobs:
                 until codesign --force --sign "$MACOS_CERTIFICATE_NAME" --timestamp --options runtime "$f" >"/tmp/cs.$$.log" 2>&1; do
                   i=$((i + 1))
                   if [ "$i" -ge 4 ]; then echo "  ⚠ codesign skipped after 4 tries (continuing — Apple still notarizes; matches the long-standing pipeline): $f" >&2; break; fi
-                  sleep $((i * 2))
-                done
-                rm -f "/tmp/cs.$$.log"
-              ' _ {}
-
-          echo "    Signing loose Mach-O files under Resources (excluding *.framework internals)..."
-          { find "$APP_NAME/Contents/Resources" -type f ! -path '*.framework/*' -print0 2>/dev/null || true; } \
-            | xargs -0 -P "$JOBS" -I {} bash -c '
-                f="$1"; [ -n "$f" ] || exit 0
-                file "$f" | grep -q "Mach-O" || exit 0
-                i=0
-                until codesign --force --sign "$MACOS_CERTIFICATE_NAME" --timestamp --options runtime --entitlements "$SIDECAR_ENT" "$f" >"/tmp/cs.$$.log" 2>&1; do
-                  i=$((i + 1))
-                  if [ "$i" -ge 4 ]; then echo "  ⚠ codesign skipped after 4 tries (continuing — non-framework Mach-O, throttle): $f" >&2; break; fi
-                  sleep $((i * 2))
-                done
-                rm -f "/tmp/cs.$$.log"
-              ' _ {}
-
-          echo "    Normalizing + signing nested *.framework bundles (PyInstaller layout)..."
-          # Ground truth from a failed run's structure dump: PyInstaller's frameworks
-          # are NOT flat — they are already versioned (Versions/<X.Y>/<name> is the
-          # real Mach-O, with a Versions/Current). The problem is that PyInstaller
-          # ALSO drops a DUPLICATE real binary (and real Resources/Headers) at the
-          # framework ROOT. A real Mach-O at the bundle root looks app-like while
-          # Versions/ looks framework-like, so codesign reports
-          #   "bundle format is ambiguous (could be app or framework)"
-          # and refuses to seal it — which is why notarization then reports
-          #   "The signature of the binary is invalid."
-          # Fix: normalize to the canonical framework layout — the root entries must
-          # be SYMLINKS into Versions/Current, and Versions/Current a symlink to the
-          # real version dir — then codesign can seal the framework cleanly. The real
-          # python.org Info.plist already present in the version dir is used as-is. A
-          # hard local `codesign --verify --deep --strict` gate means we never submit
-          # a framework Apple would reject (and dumps the structure if a guess is off).
-          while IFS= read -r -d '' fw; do
-            name="$(basename "$fw" .framework)"
-
-            # Discover the real version dir: a dir under Versions/ (not Current, not a
-            # stray A) that holds the real principal binary.
-            realver=""
-            shopt -s nullglob
-            for cand in "$fw"/Versions/*/; do
-              cn="$(basename "$cand")"
-              case "$cn" in Current) continue;; esac
-              if [ -f "$cand$name" ] && [ ! -L "${cand}$name" ]; then realver="$cn"; break; fi
-            done
-            shopt -u nullglob
-
-            if [ -n "$realver" ]; then
-              # Remove any stray Versions/A a prior run of this script created (it only
-              # ever held a synthesized Info.plist, never a binary), unless it IS the
-              # real version we just found.
-              if [ "$realver" != "A" ] && [ -d "$fw/Versions/A" ] && [ ! -f "$fw/Versions/A/$name" ]; then
-                rm -rf "$fw/Versions/A"
-              fi
-              # Versions/Current → real version (replace whatever is there).
-              rm -rf "$fw/Versions/Current"
-              ln -s "$realver" "$fw/Versions/Current"
-              # Root entries → symlinks into Versions/Current (drop the duplicate root
-              # binary; this is what clears the "ambiguous bundle" error).
-              for sub in "$name" Resources Headers Modules; do
-                if [ -e "$fw/Versions/$realver/$sub" ] && [ ! -L "$fw/$sub" ]; then
-                  rm -rf "$fw/$sub"
-                  ln -s "Versions/Current/$sub" "$fw/$sub"
-                fi
-              done
-              echo "      ↻ normalized framework layout: $fw (version $realver)"
-            fi
-
-            # Sign any non-principal nested Mach-O (.so/.dylib) inside the version first.
-            tgtver="${realver:+$fw/Versions/$realver}"; tgtver="${tgtver:-$fw}"
-            while IFS= read -r -d '' inner; do
-              case "$inner" in */"$name") [ -n "$realver" ] && [ "$inner" = "$fw/Versions/$realver/$name" ] && continue;; esac
-              file "$inner" | grep -q "Mach-O" || continue
-              codesign --force --sign "$MACOS_CERTIFICATE_NAME" --timestamp --options runtime "$inner" >/dev/null 2>&1 || true
-            done < <(find "$tgtver" -type f -print0 2>/dev/null || true)
-
-            # Seal the framework bundle (also signs the principal binary). HARD fail.
-            i=0
-            until codesign --force --sign "$MACOS_CERTIFICATE_NAME" --timestamp --options runtime "$fw" >/tmp/cs_fw.log 2>&1; do
-              i=$((i + 1)); if [ "$i" -ge 4 ]; then echo "::error::Failed to sign framework $fw"; cat /tmp/cs_fw.log; ls -laR "$fw" | head -120; exit 1; fi
-              sleep $((i * 2))
-            done
-
-            # Verify locally exactly how Apple's notary does. Never ship a bad seal.
-            if ! codesign --verify --deep --strict --verbose=2 "$fw" >/tmp/cs_vfy.log 2>&1; then
-              echo "::error::codesign --verify failed for framework $fw"; cat /tmp/cs_vfy.log
-              echo "---- framework structure ----"; ls -laR "$fw" | head -120
-              exit 1
-            fi
-            echo "      ✓ framework signed + verified: $fw"
-          done < <(find "$APP_NAME/Contents/Resources" -type d -name "*.framework" -print0 2>/dev/null || true)
-
-          echo "    Broad catch-all pass: force-signing EVERY remaining Mach-O under Resources..."
-          { find "$APP_NAME/Contents/Resources" -type f -print0 2>/dev/null || true; } \
-            | xargs -0 -P "$JOBS" -I {} bash -c '
-                f="$1"; [ -n "$f" ] || exit 0
-                case "$f" in
-                  */Contents/MacOS/FrontPorchAI*|*/Contents/Frameworks/*|*.framework/*) exit 0 ;;
-                esac
-                file "$f" | grep -qiE "mach-o|executable|shared library|dynamically linked" || exit 0
-                i=0
-                until codesign --force --sign "$MACOS_CERTIFICATE_NAME" --timestamp --options runtime --entitlements "$SIDECAR_ENT" "$f" >"/tmp/cs.$$.log" 2>&1; do
-                  i=$((i + 1))
-                  if [ "$i" -ge 4 ]; then echo "  ⚠ codesign skipped after 4 tries (continuing — throttle): $f" >&2; break; fi
                   sleep $((i * 2))
                 done
                 rm -f "/tmp/cs.$$.log"
@@ -948,6 +644,7 @@ jobs:
   publish-nightly:
     name: Publish Nightly Release
     needs: [resolve, nightly]
+    if: needs.resolve.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Rawhide (pinned to the resolved commit, for release notes)
@@ -1030,6 +727,7 @@ jobs:
   publish-aur-beta:
     name: Update AUR Beta Package (from Rawhide)
     needs: [resolve, nightly, publish-nightly]
+    if: needs.resolve.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Rawhide (pinned to the resolved commit)

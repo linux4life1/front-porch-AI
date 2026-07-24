@@ -24,7 +24,9 @@ extension GenParsing on CharacterGenService {
         )
         .trim();
 
-    return cleaned;
+    // Normalize any single-brace {pick}/{roll} the model emitted so the
+    // "living detail" macro resolves at display instead of rendering literally.
+    return fixDynamicMacroBraces(cleaned);
   }
 
   /// Check if a greeting was truncated (cut off mid-sentence).
@@ -336,25 +338,32 @@ extension GenParsing on CharacterGenService {
       tags: _getStringList(data, 'tags'),
     );
 
-    // Parse lorebook entries if present
+    // Parse lorebook entries if the base card volunteered any (the base prompt
+    // doesn't request them, so this is a rare path — the dedicated generator in
+    // character_gen_steps2 is the normal one). Route through the SAME mechanics
+    // assigner so inline entries get consistent construction + category tiering.
     final lorebookData = data['lorebook'];
     if (lorebookData is List && lorebookData.isNotEmpty) {
-      final entries = <LorebookEntry>[];
+      final generated = <GeneratedLoreEntry>[];
       for (final entry in lorebookData) {
         if (entry is Map<String, dynamic>) {
-          entries.add(
-            LorebookEntry(
+          generated.add(
+            GeneratedLoreEntry(
               name: entry['name']?.toString() ?? '',
               key: entry['key']?.toString() ?? '',
               content: entry['content']?.toString() ?? '',
-              enabled: true,
+              category: entry['category']?.toString() ?? '',
+              secondary: entry['secondary']?.toString() ?? '',
             ),
           );
         }
       }
-      if (entries.isNotEmpty) {
-        card.lorebook = Lorebook(entries: entries);
-        debugPrint('CharacterGen: Parsed ${entries.length} lorebook entries');
+      final lorebook = buildSmartLorebook(generated);
+      if (lorebook != null) {
+        card.lorebook = lorebook;
+        debugPrint(
+          'CharacterGen: Parsed ${lorebook.entries.length} lorebook entries',
+        );
       }
     }
 

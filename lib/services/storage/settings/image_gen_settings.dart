@@ -16,6 +16,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
+import 'package:front_porch_ai/services/capability/image_reference_role.dart';
+
+import '../../image/edit_profile.dart';
 import 'settings_base.dart';
 
 /// Image generation (A1111/Draw Things/remote) + Draw Things gRPC settings.
@@ -32,6 +37,15 @@ class ImageGenSettings with SettingsBase {
   String _localImageGenUrl = 'http://127.0.0.1:7860';
   String _comfyUiUrl = 'http://127.0.0.1:8188';
   String _imageGenModel = '';
+
+  // The EDIT-task model slot (phase #12 model-slot split). One shared
+  // `imageGenModel` used to serve both Studio tabs, so an edit model left
+  // selected after an Edit session silently poisoned base-image generation
+  // (edit models can't txt2img — maintainer catch, 2026-07-16). The existing
+  // key stays the CREATE slot for back-compat; edit paths (Edit tab, edit-
+  // first expression packs on DT/remote) read this one. ComfyUI's edit setup
+  // lives in its own comfyEdit* keys and is deliberately not duplicated here.
+  String _imageGenEditModel = '';
   String _imageGenSize = '1024x1024';
   String _imageGenNegativePrompt = 'blurry, low quality, watermark, text';
   String _imageGenStyle = 'photorealistic';
@@ -64,11 +78,32 @@ class ImageGenSettings with SettingsBase {
   bool _drawThingsTeaCache = false;
   bool _drawThingsCfgZeroStar = false;
 
+  // Edit-scoped generation knobs (Image Studio → Edit tab, instruction-edit
+  // models like Qwen-Image-Edit). Kept SEPARATE from the txt2img knobs above so
+  // tuning an edit never clobbers Create's sampler/CFG/steps — the two model
+  // families want very different values. Seeded from the field-tested recipe
+  // (edit_profile.dart) and then honored verbatim; nothing overrides them.
+  int _editSteps = kEditRecommendedSteps;
+  double _editCfgScale = kEditRecommendedCfg;
+  int _editSampler = kEditRecommendedSamplerInt;
+  double _editShift = kEditRecommendedShift;
+  int _editSeedMode = kEditRecommendedSeedMode;
+
+  // ComfyUI edit: which bundled preset drives an edit (matches a preset id, or
+  // the '__uploaded__' sentinel for a user-supplied workflow), the per-preset
+  // model-slot file choices ("presetId/%TOKEN%" -> filename), and any uploaded
+  // workflow JSON. The DT-flavored edit knobs above still supply steps/CFG/
+  // strength/shift; ComfyUI uses its own sampler/scheduler defaults.
+  String _comfyEditWorkflowId = 'qwen_image_edit'; // == kQwenImageEditPreset.id
+  Map<String, String> _comfyEditModelChoices = {};
+  String _comfyEditUploadedWorkflow = '';
+
   bool get imageGenEnabled => _imageGenEnabled;
   String get imageGenBackend => _imageGenBackend;
   String get localImageGenUrl => _localImageGenUrl;
   String get comfyUiUrl => _comfyUiUrl;
   String get imageGenModel => _imageGenModel;
+  String get imageGenEditModel => _imageGenEditModel;
   String get imageGenSize => _imageGenSize;
   String get imageGenNegativePrompt => _imageGenNegativePrompt;
   String get imageGenStyle => _imageGenStyle;
@@ -94,6 +129,21 @@ class ImageGenSettings with SettingsBase {
   bool get drawThingsTeaCache => _drawThingsTeaCache;
   bool get drawThingsCfgZeroStar => _drawThingsCfgZeroStar;
 
+  int get editSteps => _editSteps;
+  double get editCfgScale => _editCfgScale;
+  int get editSampler => _editSampler;
+  double get editShift => _editShift;
+  int get editSeedMode => _editSeedMode;
+
+  String get comfyEditWorkflowId => _comfyEditWorkflowId;
+  Map<String, String> get comfyEditModelChoices =>
+      Map.unmodifiable(_comfyEditModelChoices);
+  String get comfyEditUploadedWorkflow => _comfyEditUploadedWorkflow;
+
+  /// The user's chosen file for a preset's model slot, or null if unpicked.
+  String? comfyEditModelChoice(String presetId, String token) =>
+      _comfyEditModelChoices['$presetId/$token'];
+
   void load() {
     _imageGenEnabled = prefs?.getBool(k('image_gen_enabled')) ?? true;
     _imageGenBackend = prefs?.getString(k('image_gen_backend')) ?? 'remote';
@@ -102,6 +152,16 @@ class ImageGenSettings with SettingsBase {
     _comfyUiUrl =
         prefs?.getString(k('comfy_ui_url')) ?? 'http://127.0.0.1:8188';
     _imageGenModel = prefs?.getString(k('image_gen_model')) ?? '';
+    _imageGenEditModel = prefs?.getString(k('image_gen_edit_model')) ?? '';
+    // One-time migration seed: before the slot split the single model served
+    // both tabs, so a user whose current model IS an edit model configured it
+    // for the Edit tab — carry it into the edit slot so their setup survives.
+    // (The create slot keeps the value too; the non-blocking warning nudges
+    // them to pick a real create model.)
+    if (_imageGenEditModel.isEmpty && looksLikeEditModel(_imageGenModel)) {
+      _imageGenEditModel = _imageGenModel;
+      prefs?.setString(k('image_gen_edit_model'), _imageGenEditModel);
+    }
     _imageGenSize = prefs?.getString(k('image_gen_size')) ?? '1024x1024';
     _imageGenNegativePrompt =
         prefs?.getString(k('image_gen_negative_prompt')) ??
@@ -130,6 +190,35 @@ class ImageGenSettings with SettingsBase {
     _drawThingsTeaCache = prefs?.getBool(k('draw_things_tea_cache')) ?? false;
     _drawThingsCfgZeroStar =
         prefs?.getBool(k('draw_things_cfg_zero_star')) ?? false;
+
+    _editSteps = prefs?.getInt(k('image_gen_edit_steps')) ?? kEditRecommendedSteps;
+    _editCfgScale =
+        prefs?.getDouble(k('image_gen_edit_cfg_scale')) ?? kEditRecommendedCfg;
+    _editSampler =
+        prefs?.getInt(k('draw_things_edit_sampler')) ?? kEditRecommendedSamplerInt;
+    _editShift =
+        prefs?.getDouble(k('draw_things_edit_shift')) ?? kEditRecommendedShift;
+    _editSeedMode =
+        prefs?.getInt(k('draw_things_edit_seed_mode')) ?? kEditRecommendedSeedMode;
+
+    _comfyEditWorkflowId =
+        prefs?.getString(k('comfy_edit_workflow_id')) ?? 'qwen_image_edit';
+    _comfyEditModelChoices = _decodeStringMap(
+      prefs?.getString(k('comfy_edit_model_choices')),
+    );
+    _comfyEditUploadedWorkflow =
+        prefs?.getString(k('comfy_edit_uploaded_workflow')) ?? '';
+  }
+
+  static Map<String, String> _decodeStringMap(String? s) {
+    if (s == null || s.isEmpty) return {};
+    try {
+      final m = jsonDecode(s);
+      if (m is Map) {
+        return m.map((k, v) => MapEntry(k.toString(), v.toString()));
+      }
+    } catch (_) {}
+    return {};
   }
 
   Future<void> setImageGenEnabled(bool value) async {
@@ -165,6 +254,12 @@ class ImageGenSettings with SettingsBase {
   Future<void> setImageGenModel(String value) async {
     _imageGenModel = value;
     await prefs?.setString(k('image_gen_model'), value);
+    notify();
+  }
+
+  Future<void> setImageGenEditModel(String value) async {
+    _imageGenEditModel = value;
+    await prefs?.setString(k('image_gen_edit_model'), value);
     notify();
   }
 
@@ -282,6 +377,74 @@ class ImageGenSettings with SettingsBase {
   Future<void> setDrawThingsCfgZeroStar(bool value) async {
     _drawThingsCfgZeroStar = value;
     await prefs?.setBool(k('draw_things_cfg_zero_star'), value);
+    notify();
+  }
+
+  // Edit-scoped setters (Image Studio → Edit tab). Same clamps as their txt2img
+  // twins; they persist to their own keys so Create's knobs are never touched.
+  Future<void> setEditSteps(int value) async {
+    _editSteps = value.clamp(1, 50);
+    await prefs?.setInt(k('image_gen_edit_steps'), _editSteps);
+    notify();
+  }
+
+  Future<void> setEditCfgScale(double value) async {
+    _editCfgScale = value.clamp(1.0, 20.0);
+    await prefs?.setDouble(k('image_gen_edit_cfg_scale'), _editCfgScale);
+    notify();
+  }
+
+  Future<void> setEditSampler(int value) async {
+    _editSampler = value;
+    await prefs?.setInt(k('draw_things_edit_sampler'), value);
+    notify();
+  }
+
+  Future<void> setEditShift(double value) async {
+    _editShift = value;
+    await prefs?.setDouble(k('draw_things_edit_shift'), value);
+    notify();
+  }
+
+  Future<void> setEditSeedMode(int value) async {
+    _editSeedMode = value;
+    await prefs?.setInt(k('draw_things_edit_seed_mode'), value);
+    notify();
+  }
+
+  /// One-tap "Use recommended edit settings" — writes the field-tested edit
+  /// recipe back into the edit-scoped knobs (never touches the Create knobs).
+  Future<void> resetEditKnobsToRecommended() async {
+    await setEditSteps(kEditRecommendedSteps);
+    await setEditCfgScale(kEditRecommendedCfg);
+    await setEditSampler(kEditRecommendedSamplerInt);
+    await setEditShift(kEditRecommendedShift);
+    await setEditSeedMode(kEditRecommendedSeedMode);
+  }
+
+  // ComfyUI edit setters.
+  Future<void> setComfyEditWorkflowId(String value) async {
+    _comfyEditWorkflowId = value;
+    await prefs?.setString(k('comfy_edit_workflow_id'), value);
+    notify();
+  }
+
+  Future<void> setComfyEditModelChoice(
+    String presetId,
+    String token,
+    String file,
+  ) async {
+    _comfyEditModelChoices['$presetId/$token'] = file;
+    await prefs?.setString(
+      k('comfy_edit_model_choices'),
+      jsonEncode(_comfyEditModelChoices),
+    );
+    notify();
+  }
+
+  Future<void> setComfyEditUploadedWorkflow(String json) async {
+    _comfyEditUploadedWorkflow = json;
+    await prefs?.setString(k('comfy_edit_uploaded_workflow'), json);
     notify();
   }
 }

@@ -44,7 +44,7 @@
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
 }
 .opt-tile:hover { border-color: var(--accent); }
-.opt-tile.on { border-color: var(--accent); background: rgba(59, 130, 246, 0.14); }
+.opt-tile.on { border-color: var(--accent); background: rgba(244, 162, 89, 0.14); }
 .opt-tile .opt-title { font-weight: 600; font-size: 0.9rem; }
 .opt-tile .opt-desc { font-size: 0.78rem; color: var(--muted); }
 

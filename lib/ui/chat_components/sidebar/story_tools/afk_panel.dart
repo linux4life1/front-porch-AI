@@ -224,6 +224,52 @@ class _AfkPanelState extends State<AfkPanel> {
                       },
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  // Away pace (Living Time): story time per snapshot —
+                  // deterministic; the model never chooses the span.
+                  Row(
+                    children: [
+                      Text(
+                        'Story time per scene',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary(context),
+                        ),
+                      ),
+                      const Spacer(),
+                      DropdownButton<int>(
+                        value:
+                            const [1, 3, 6].contains(
+                              storage.dynamicResponsePacePeriods,
+                            )
+                            ? storage.dynamicResponsePacePeriods
+                            : 1,
+                        isDense: true,
+                        dropdownColor: AppColors.cardOf(context),
+                        style: TextStyle(fontSize: 11, color: accent),
+                        underline: const SizedBox.shrink(),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 1,
+                            child: Text('a few hours'),
+                          ),
+                          DropdownMenuItem(
+                            value: 3,
+                            child: Text('half the day'),
+                          ),
+                          DropdownMenuItem(
+                            value: 6,
+                            child: Text('a full day'),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            storage.setDynamicResponsePacePeriods(v);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     'While you step away, the character keeps living their day '

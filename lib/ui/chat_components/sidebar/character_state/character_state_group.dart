@@ -23,6 +23,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/fixation_chip.dart';
 import 'package:front_porch_ai/ui/widgets/needs_bar.dart';
 import '../porch_accordion.dart';
+import 'ambitions_row.dart';
 import 'bond_bars.dart';
 import 'character_state_settings.dart';
 import 'time_strip.dart';
@@ -181,6 +182,15 @@ class _CharacterStateGroupState extends State<CharacterStateGroup> {
                 topic: chat.relationshipService.activeFixation,
                 lifespan: chat.relationshipService.fixationLifespan,
                 compact: false,
+              ),
+            ],
+            // ── Ambitions (Living Time §6) — visible from the first frame
+            //     so an armed ambition is never invisible ──
+            if (chat.activeCharacter != null &&
+                chat.ambitionsFor(chat.activeCharacter!).isNotEmpty) ...[
+              const SizedBox(height: 10),
+              AmbitionsRow(
+                ambitions: chat.ambitionsFor(chat.activeCharacter!),
               ),
             ],
             // ── Needs ──

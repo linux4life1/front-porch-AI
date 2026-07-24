@@ -14,6 +14,82 @@ import { MessageActions } from './MessageActions';
 import { type CastMember } from './CastBar';
 import { type Message } from './chatTypes';
 
+/// Truthful generation status (desktop status-bar parity): live prompt-reading
+/// counts from the managed local backend + which background pass holds the
+/// single local slot. Null fields = no live data (remote backend). The server
+/// interpolates estFraction between the backend's per-batch console lines and
+/// flags promptDone only when the console confirmed completion.
+export type GenStatus = {
+  phase: string;
+  busyWith: string | null;
+  queued: number;
+  promptCur: number | null;
+  promptTotal: number | null;
+  promptDone: boolean;
+  estFraction: number | null;
+  genCur: number | null;
+  genTotal: number | null;
+};
+
+/// Exact count with thousands separators ("8,347") — a live ticker, not just
+/// a percent (maintainer request).
+function fmtExact(n: number): string {
+  return n.toLocaleString('en-US');
+}
+
+/// Mirror of the desktop status-bar wording so both surfaces tell the same
+/// truth about the wait.
+function genStatusLabel(s: GenStatus): { label: string; fraction: number | null } {
+  // Backend queue depth is a neutral fact — never attributed (may be
+  // someone waiting on us).
+  const queueNote =
+    s.queued > 0 ? ` — ${s.queued} request${s.queued === 1 ? '' : 's'} queued` : '';
+  const hasLive = s.promptTotal != null && s.promptTotal > 0;
+  const fraction = hasLive
+    ? (s.estFraction ?? Math.min(1, (s.promptCur ?? 0) / (s.promptTotal as number)))
+    : null;
+  const estTokens = hasLive
+    ? (s.promptDone
+        ? (s.promptTotal as number)
+        : Math.round((s.promptTotal as number) * (fraction ?? 0)))
+    : 0;
+  const counts = hasLive
+    ? `${fmtExact(estTokens)} / ${fmtExact(s.promptTotal as number)} tokens`
+    : '';
+  if (s.busyWith) {
+    const pass = s.busyWith === 'journal' ? 'journal pass' : 'growth pass';
+    if (hasLive) {
+      const stage =
+        (s.genTotal ?? 0) > 0
+          ? `writing (${s.genCur} tokens)`
+          : s.promptDone
+            ? 'finishing up'
+            : `reading ${counts} (${Math.round((fraction ?? 0) * 100)}%)`;
+      return { label: `Waiting — ${pass} is using the model: ${stage}`, fraction };
+    }
+    return { label: `Waiting — ${pass} is using the model…`, fraction: null };
+  }
+  if (hasLive && !s.promptDone) {
+    return {
+      label: `Reading prompt — ${counts} (${Math.round((fraction ?? 0) * 100)}%)${queueNote}`,
+      fraction,
+    };
+  }
+  if (hasLive) {
+    // Prompt fully read. A running decode with no streamed token yet IS our
+    // reply warming up — only busyWith marks someone else's work.
+    return {
+      label:
+        (s.genTotal ?? 0) > 0
+          ? `Starting the reply — ${s.genCur} tokens written${queueNote}`
+          : `Prompt read — starting the reply…${queueNote}`,
+      fraction: 1,
+    };
+  }
+  if (s.phase === 'thinking') return { label: 'Model is thinking…', fraction: null };
+  return { label: 'Processing prompt…', fraction: null };
+}
+
 export function ChatMessageList({
   messages,
   castById,
@@ -21,6 +97,7 @@ export function ChatMessageList({
   lastIndex,
   busy,
   streaming,
+  genStatus,
   scrollRef,
   canSpeak,
   editIndex,
@@ -42,6 +119,7 @@ export function ChatMessageList({
   lastIndex: number;
   busy: boolean;
   streaming: string;
+  genStatus: GenStatus | null;
   scrollRef: RefObject<HTMLDivElement>;
   canSpeak: boolean;
   editIndex: number | null;
@@ -63,6 +141,17 @@ export function ChatMessageList({
         const speaker = !m.isUser && m.characterId ? castById.get(m.characterId) : undefined;
         // Resolve per-message emotion: per-turn chip → per-member field
         const emotion = m.chips?.emotionLabel || speaker?.emotion || undefined;
+        // Living Time §1: dreams render as a centered narration banner
+        // (desktop parity — same treatment as Chance Time).
+        if (m.isDream) {
+          return (
+            <div key={m.index} className="msg-row">
+              <div className="dream-banner">
+                🌙 <em>{m.sender} dreamt: {m.text}</em>
+              </div>
+            </div>
+          );
+        }
         return (
           <div key={m.index} className="msg-row">
             {multiCast && speaker && <span className="msg-speaker">{speaker.name}</span>}
@@ -149,6 +238,25 @@ export function ChatMessageList({
               </div>
             )}
             {rest && <MessageContent text={rest} />}
+          </div>
+        );
+      })()}
+      {!streaming && genStatus && (() => {
+        // Before the first token arrives, name the wait truthfully instead of
+        // showing nothing: real prompt-reading progress from the local
+        // backend, or which background pass is holding the slot.
+        const { label, fraction } = genStatusLabel(genStatus);
+        return (
+          <div className="bubble ai streaming gen-status" aria-live="polite">
+            <span className="muted small">{label}</span>
+            {fraction != null && (
+              <div className="gen-status-track">
+                <div
+                  className="gen-status-fill"
+                  style={{ width: `${Math.round(fraction * 100)}%` }}
+                />
+              </div>
+            )}
           </div>
         );
       })()}

@@ -20,7 +20,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
@@ -206,13 +205,13 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     final isActive = creatorState.currentStep >= step;
     final isCurrent = creatorState.currentStep == step;
     final dotColor = isActive
-        ? AppColors.resolve(context, Colors.blueAccent, Colors.blue.shade700)
+        ? AppColors.porchAmberOf(context)
         : AppColors.surfaceContainerOf(context);
     final borderColor = isCurrent
         ? AppColors.textPrimary(context)
         : AppColors.borderOf(context);
     final numberOrCheckColor = isActive
-        ? AppColors.resolve(context, Colors.white, Colors.white)
+        ? AppColors.onChaosAccent
         : AppColors.textTertiary(context);
     final labelColor = isActive
         ? AppColors.textSecondary(context)
@@ -315,10 +314,6 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                             context,
                             listen: false,
                           ),
-                          imageService: Provider.of<ImageGenService>(
-                            context,
-                            listen: false,
-                          ),
                         );
                         return;
                       }
@@ -334,16 +329,8 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 ),
                 label: Text(nextText, style: const TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.resolve(
-                    context,
-                    Colors.blueAccent,
-                    Colors.blue.shade700,
-                  ),
-                  foregroundColor: AppColors.resolve(
-                    context,
-                    Colors.white,
-                    Colors.black87,
-                  ),
+                  backgroundColor: AppColors.porchAmberOf(context),
+                  foregroundColor: AppColors.onChaosAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

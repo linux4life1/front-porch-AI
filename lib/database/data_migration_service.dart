@@ -108,6 +108,19 @@ class DataMigrationService {
         final card = await v2Service.readCard(entity.path);
         if (card == null) continue;
 
+        // Idempotent re-run guard: if a prior (aborted) migration already
+        // imported this card, skip it. Characters are stored with the PNG
+        // basename as imagePath, so that's the dedup key. Without this, a
+        // migration that threw on a LATER step re-imported every character on
+        // the next launch, multiplying duplicates each time.
+        final basename = card.imagePath != null
+            ? card.imagePath!.split(RegExp(r'[/\\]')).last
+            : entity.path.split(RegExp(r'[/\\]')).last;
+        if (await _db.getCharacterByImagePath(basename) != null) {
+          debugPrint('DB_MIGRATION: Skipping already-imported: ${card.name}');
+          continue;
+        }
+
         await _db.insertCharacter(
           CharactersCompanion(
             name: Value(card.name),

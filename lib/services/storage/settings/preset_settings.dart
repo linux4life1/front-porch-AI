@@ -37,7 +37,7 @@ class PresetSettings with SettingsBase {
   Map<String, String> get modelPresetMap => Map.unmodifiable(_modelPresetMap);
 
   /// Per-local-model mmproj (vision projector) file overrides. Keyed by the
-  /// model's GGUF path → the mmproj file to pass to KoboldCpp/PseudoRemote so a
+  /// model's GGUF path → the mmproj file to pass to KoboldCpp so a
   /// multimodal-but-no-embedded-projector model can actually see images.
   Map<String, String> get modelMmprojMap => Map.unmodifiable(_modelMmprojMap);
 

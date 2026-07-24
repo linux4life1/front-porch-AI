@@ -195,11 +195,7 @@ class ExpressionPackGrid extends StatelessWidget {
             label: Text('Import ${session.keptCount} expressions'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.resolve(
-                context,
-                Colors.white,
-                Colors.white,
-              ),
+              foregroundColor: AppColors.onChaosAccent,
             ),
           ),
         );

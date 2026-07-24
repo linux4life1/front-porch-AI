@@ -75,7 +75,7 @@ Future<void> showExpandedEditorDialog({
                     label: const Text('Apply'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.formMasterAccent,
-                      foregroundColor: AppColors.textPrimary(ctx),
+                      foregroundColor: AppColors.onChaosAccent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),

@@ -62,6 +62,12 @@ class JournalProposedOp {
   /// Review checkbox state; every op ships accepted.
   bool accepted = true;
 
+  /// Deterministic story-date stamp (story-calendar §4), resolved from the
+  /// cited messages' realism_state at proposal time — same snapshot-while-live
+  /// contract as the emotion stamp.
+  final int? storyDay;
+  final String? storyClock;
+
   JournalProposedOp({
     required this.action,
     this.cardId,
@@ -72,6 +78,8 @@ class JournalProposedOp {
     this.emotionLabel,
     this.emotionIntensity,
     this.sourcePositions = const [],
+    this.storyDay,
+    this.storyClock,
   });
 }
 
@@ -164,6 +172,8 @@ class JournalReview {
             emotionLabel: op.emotionLabel,
             emotionIntensity: op.emotionIntensity,
             sourcePositions: op.sourcePositions,
+            storyDay: op.storyDay,
+            storyClock: op.storyClock,
             maxCards: getMaxCards(),
           );
           break;
@@ -191,17 +201,25 @@ class JournalReview {
   /// without writing anything.
   Future<void> apply() async {
     final batch = _pending;
-    _pending = null;
     if (batch == null) return;
     if (getSessionId() != batch.sessionId) {
+      _pending = null;
       onNotify();
       return;
     }
+    // Keep _pending SET during the writes: that's what makes hasPendingFor()
+    // still block a competing auto-pass (_maybeRunJournalPass), so a generation
+    // finishing mid-apply can't reprocess the same window into duplicate cards.
+    // Advance the cursor + clear _pending only AFTER every write succeeds, so a
+    // write failure leaves the batch intact for retry instead of silently
+    // abandoning accepted proposals (the earlier "advance first" version fixed
+    // the race but introduced that loss).
     for (final owner in batch.owners) {
       await applyOwnerProposals(batch.sessionId, owner);
     }
     if (batch.recap != null && batch.recapAccepted) setRecap(batch.recap!);
     setCursor(batch.cursorTarget);
+    _pending = null;
     await onSaveChat();
     onNotify();
     debugPrint('[Journal] ✓ Review applied (${batch.totalProposals} proposal(s))');

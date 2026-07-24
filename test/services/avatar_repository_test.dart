@@ -50,8 +50,8 @@ void main() {
       await db.close();
     });
 
-    test('schema version is 36', () {
-      expect(db.schemaVersion, 36);
+    test('schema version is 38', () {
+      expect(db.schemaVersion, 38);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

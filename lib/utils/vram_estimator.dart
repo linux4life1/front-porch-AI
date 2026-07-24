@@ -30,7 +30,7 @@ typedef VramEstimateBreakdown = ({
 });
 
 /// Default context size used for VRAM estimation when none is specified.
-const int defaultContextSize = 8192;
+const int defaultContextSize = 16384;
 
 /// Threshold (in MB) below which a model is considered "tight" fit.
 /// If available VRAM - needed VRAM < this value, status is "tight" (yellow).
@@ -49,7 +49,7 @@ class VramEstimator {
   ///
   /// Parameters:
   /// - [fileSizeBytes]: Size of the GGUF file in bytes (the model weights).
-  /// - [contextSize]: Number of tokens in the context window (default: 8192).
+  /// - [contextSize]: Number of tokens in the context window (default: 16384).
   /// - [kvBytesPerToken]: Bytes needed per token for KV cache. If null,
   ///   estimates based on [paramCountB].
   /// - [paramCountB]: Model parameter count in billions (for KV estimation).

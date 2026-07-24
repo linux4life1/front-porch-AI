@@ -6,6 +6,45 @@ import 'package:front_porch_ai/services/memory_service.dart';
 
 void main() {
   group('MemoryService — pure logic tests', () {
+    group('isWindowEligible (retrieval boundary + min-age gate)', () {
+      const gate = MemoryService.kRagMinAgeMessages;
+
+      bool eligible(String session, int positionEnd, {int boundary = 100}) =>
+          MemoryService.isWindowEligible(
+            candidateSessionId: session,
+            currentSessionId: 's1',
+            positionEnd: positionEnd,
+            inContextStart: boundary,
+          );
+
+      test('window fully inside visible context is excluded', () {
+        expect(eligible('s1', 120), isFalse);
+      });
+
+      test('window straddling the context boundary is excluded '
+          '(the old start-only check let these through)', () {
+        // start 97, end 101 with boundary 100: tail lines are ALSO in the
+        // visible transcript — injecting it is literal self-repetition.
+        expect(eligible('s1', 101), isFalse);
+      });
+
+      test('window just below the boundary is excluded by the min-age gate',
+          () {
+        expect(eligible('s1', 100 - gate), isFalse); // exactly at the gate
+        expect(eligible('s1', 100 - gate + 5), isFalse); // inside the gate
+      });
+
+      test('window strictly older than the gate is eligible', () {
+        expect(eligible('s1', 100 - gate - 1), isTrue);
+        expect(eligible('s1', 0), isTrue);
+      });
+
+      test('other-session and Data Bank content is never age-gated', () {
+        expect(eligible('other-session', 99), isTrue);
+        expect(eligible('databank', -1), isTrue);
+      });
+    });
+
     group('cosineSimilarity', () {
       test('returns 1.0 for identical vectors', () {
         final a = [1.0, 2.0, 3.0];

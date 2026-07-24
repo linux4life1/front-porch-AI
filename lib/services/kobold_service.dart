@@ -21,7 +21,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
+import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold_binary_version.dart';
+import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/openai_chat_stream.dart';
@@ -45,11 +47,29 @@ class KoboldService extends ChangeNotifier
   String? _executablePath;
   Timer? _readinessProbe;
 
+  /// Ground-truth per-request progress parsed from the managed process's own
+  /// console output (see live_gen_progress.dart) — what the status bar
+  /// shows instead of a black box. Covers WHATEVER request Kobold is working
+  /// on, including queued background passes.
+  final LiveGenProgress liveProgress = LiveGenProgress();
+  DateTime _lastLiveNotify = DateTime.fromMillisecondsSinceEpoch(0);
+
   bool get isRunning => _isRunning;
   bool get isStarting => _isStarting;
   List<String> get logs => List.unmodifiable(_logs);
   String get modelLoadingStatus => _modelLoadingStatus;
   bool get modelReady => _modelReady;
+
+  /// Feed a console chunk to [liveProgress]; notify at most every 150ms
+  /// (Generating lines arrive once per token).
+  void _ingestLiveProgress(String data) {
+    if (!liveProgress.ingest(data)) return;
+    final now = DateTime.now();
+    if (now.difference(_lastLiveNotify).inMilliseconds >= 150) {
+      _lastLiveNotify = now;
+      notifyListeners();
+    }
+  }
 
   /// Consume the one-shot "model just loaded" notification flag.
   /// Returns true exactly once after each model load, for UI notifications
@@ -281,7 +301,9 @@ class KoboldService extends ChangeNotifier
       }
 
       if (useRocm) {
-        args.add('--usehipblas');
+        // Explicit device index — same iGPU-defaulting hazard as CUDA on
+        // APU + dGPU systems.
+        args.addAll(['--usehipblas', _storageService.gpuId.toString()]);
         // Flash attention kernel crashes on many AMD GPUs — always disable for ROCm.
         args.add('--noflashattention');
       }
@@ -324,14 +346,50 @@ class KoboldService extends ChangeNotifier
       // evaluation). Higher = faster context loading, more VRAM. Default 512.
       // Large-VRAM users (24 GB+) benefit from 1024\u20132048.
       if (_storageService.blasBatchSize != 512) {
-        // Only pass the flag when non-default so KoboldCPP\u2019s built-in default
-        // applies for users who haven\u2019t changed this setting.
-        args.addAll([
-          '--blasbatchsize',
-          _storageService.blasBatchSize.toString(),
-        ]);
+        final batch = _storageService.blasBatchSize;
+        if (batch > 4096) {
+          // KoboldCpp's CLI rejects anything above 4096 \u2014 but that cap is
+          // launcher-only (an argparse `choices` list); the engine itself has
+          // no upper clamp for GGUF models and sets n_ubatch = n_batch from
+          // whatever arrives. Values loaded from a --config file are applied
+          // with setattr AFTER argument parsing \u2014 no choices validation \u2014 and
+          // Kobold's loader is explicitly designed so CLI flags override
+          // config keys, so this one-key config carries ONLY the batch size
+          // while every other flag stays authoritative on the CLI. If a
+          // future build hardens config validation, the worst case is the
+          // key failing to apply (Kobold runs at its default batch instead
+          // of refusing to start, which is what the raw CLI flag did).
+          final overrides = File(
+            path.join(
+              path.dirname(executablePath),
+              'fpai_batch_override.kcpps',
+            ),
+          );
+          await overrides.writeAsString(jsonEncode({'batchsize': batch}));
+          args.addAll(['--config', overrides.path]);
+        } else {
+          // Only pass the flag when non-default so KoboldCPP's built-in
+          // default applies for users who haven't changed this setting.
+          args.addAll(['--blasbatchsize', batch.toString()]);
+        }
       }
     }
+
+    // ── Jinja chat templates ─────────────────────────────────────────────────
+    // Run each model's OWN embedded chat template server-side instead of
+    // KoboldCpp's built-in AutoGuess string adapter. This is what lets a model's
+    // `chat_template_kwargs` (notably enable_thinking) actually take effect —
+    // without --jinja, Kobold discards that field, so reasoning/thinking models
+    // whose template defaults to suppressed (Gemma-4-class channel reasoners)
+    // never think, and the "Request Reasoning" toggle is a no-op locally.
+    // Applied to BOTH launch paths (preset .kcpps and standard) since both drive
+    // the shared /v1/chat/completions transport. Safe as a global default: if a
+    // model's embedded template is missing or malformed, KoboldCpp automatically
+    // falls back to its heuristic adapter (verified — the server still starts and
+    // answers), so this never blocks a model from loading. Plain --jinja keeps
+    // tool calls on the non-jinja path (unchanged); --jinja_tools is intentionally
+    // NOT used.
+    args.add('--jinja');
 
     // ── Vision projector (mmproj) ────────────────────────────────────────────
     // A multimodal model whose projector is NOT baked into the GGUF (it ships in
@@ -353,10 +411,18 @@ class KoboldService extends ChangeNotifier
       print('AG_DEBUG: File exists: ${File(executablePath).existsSync()}');
       print('AG_DEBUG: Model exists: ${File(modelPath).existsSync()}');
 
+      // ROCm: consumer RDNA cards need HSA_OVERRIDE_GFX_VERSION or the
+      // hipblas kernels abort at load — resolver detects the gfx arch and
+      // supplies it (no-op when unnecessary or already exported).
+      final extraEnv = useRocm
+          ? await GpuBackendResolver.rocmEnvironment()
+          : const <String, String>{};
       _process = await Process.start(
         executablePath,
         args,
         workingDirectory: path.dirname(executablePath),
+        environment: extraEnv.isEmpty ? null : extraEnv,
+        includeParentEnvironment: true,
       );
       print('AG_DEBUG: Process started successfully! PID: ${_process!.pid}');
       _isRunning = true;
@@ -374,6 +440,7 @@ class KoboldService extends ChangeNotifier
           .listen((data) {
             _addLog(data);
             _parseLoadingStatus(data);
+            _ingestLiveProgress(data);
           });
 
       _process!.stderr
@@ -389,6 +456,7 @@ class KoboldService extends ChangeNotifier
               if (cleanData != '.' && cleanData != '..' && cleanData != '...') {
                 _addLog(cleanData);
                 _parseLoadingStatus(cleanData);
+                _ingestLiveProgress(cleanData);
               }
             }
           });
@@ -433,13 +501,29 @@ class KoboldService extends ChangeNotifier
     List<Map<String, dynamic>> tools,
   ) async {
     if (!isReady) return null;
-    return postOpenAiChatWithTools(
-      _baseUrl,
-      params,
-      tools,
-      registerClient: (client) => _activeClient = client,
-      onDone: () => _activeClient = null,
-    );
+    // Serialize politely on the single-slot local engine: wait for any
+    // in-flight request first, and register on the SAME _pendingRequest slot
+    // generateStream uses — so waitForIdle callers (text evals, the Scene
+    // Guest mint's background-safe path) genuinely wait for an in-flight
+    // tools call instead of racing it.
+    await waitForIdle();
+    final completer = Completer<void>();
+    _pendingRequest = completer.future;
+    try {
+      return await postOpenAiChatWithTools(
+        _baseUrl,
+        params,
+        tools,
+        registerClient: (client) => _activeClient = client,
+        onDone: () => _activeClient = null,
+      );
+    } finally {
+      if (!completer.isCompleted) completer.complete();
+      // Only release the slot if it is still OURS — a stream that started
+      // meanwhile (the main chat path doesn't waitForIdle) must not have its
+      // registration nulled by this call's late finally.
+      if (identical(_pendingRequest, completer.future)) _pendingRequest = null;
+    }
   }
 
   /// `_activeClient` is registered for [abortGeneration]; `_pendingRequest`
@@ -457,7 +541,9 @@ class KoboldService extends ChangeNotifier
       );
     } finally {
       if (!completer.isCompleted) completer.complete();
-      _pendingRequest = null;
+      // Same slot-ownership guard as generateWithTools: don't null a newer
+      // request's registration from this one's late finally.
+      if (identical(_pendingRequest, completer.future)) _pendingRequest = null;
     }
   }
 

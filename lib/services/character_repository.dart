@@ -24,6 +24,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
+import 'package:front_porch_ai/services/portrait_promotion.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -94,6 +95,12 @@ class CharacterRepository extends ChangeNotifier {
     // Fire-and-forget callers (e.g. some web server paths) may be dropped when busy;
     // the in-flight load will still deliver the final update to listeners.
     if (_isLoading) return;
+
+    // Full reload = the path that picks up EXTERNAL changes (Character
+    // Card Forge writes files/DB directly, manual PNG swaps, the toolbar
+    // refresh) — the cover cache must not survive it, or a file replaced
+    // on disk under an unchanged star/portrait key would render stale.
+    _clearCoverCache();
 
     _isLoading = true;
     notifyListeners();
@@ -334,6 +341,7 @@ class CharacterRepository extends ChangeNotifier {
     WorldRepository? worldRepo,
     Directory? chatsDir,
   }) async {
+    _clearCoverCache();
     // Remove from in-memory list
     _characters.remove(character);
     notifyListeners();
@@ -371,6 +379,32 @@ class CharacterRepository extends ChangeNotifier {
       }
     }
 
+    // Delete the avatar-gallery media folder (Characters/<safeName>/ holding
+    // avatars/ + looks/) — the PNG is already hard-deleted above, so leaving
+    // this behind just leaks gallery images on disk (a full pack is ~28 files)
+    // for every deleted character. Best-effort; name-keyed like the write path.
+    try {
+      final safeName = _mediaFolderName(character.name);
+      // Only delete when NO other character shares this folder — sanitized
+      // names collide ("A!" and "A" → same folder), and nuking a shared folder
+      // would take another character's gallery with it. When ambiguous, leave
+      // it (a small disk leak) rather than risk cross-character data loss.
+      final shared = _characters.any(
+        (c) =>
+            c.dbId != character.dbId && _mediaFolderName(c.name) == safeName,
+      );
+      if (safeName.isNotEmpty && !shared) {
+        final mediaDir = Directory(
+          p.join(_storage.charactersDir.path, safeName),
+        );
+        if (await mediaDir.exists()) {
+          await mediaDir.delete(recursive: true);
+        }
+      }
+    } catch (e) {
+      debugPrint('[CharacterRepository] delete media folder failed: $e');
+    }
+
     // Remove any linked world
     if (worldRepo != null) {
       final linkedWorld = worldRepo.worlds
@@ -402,7 +436,36 @@ class CharacterRepository extends ChangeNotifier {
     return done;
   }
 
-  Future<CharacterCard?> importCharacter(File file) async {
+  /// Library characters whose display name equals [name] (exact match).
+  /// Used by the single-file import collision dialog.
+  List<CharacterCard> charactersWithName(String name) {
+    return _characters.where((c) => c.name == name).toList(growable: false);
+  }
+
+  /// Library character whose PNG-carried stableId matches [stableId], if any.
+  CharacterCard? findByStableId(String? stableId) {
+    if (stableId == null || stableId.isEmpty) return null;
+    for (final c in _characters) {
+      if (c.frontPorchExtensions?.stableId == stableId) return c;
+    }
+    return null;
+  }
+
+  /// Import a character card file (V2 PNG or standalone V2 JSON).
+  ///
+  /// Update-in-place happens only when:
+  /// - the incoming card's [FrontPorchExtensions.stableId] matches a library
+  ///   character (FP reimport / realism edit path — preserves chats), or
+  /// - [forceReplaceTarget] is set (user chose "Replace existing" in the
+  ///   single-file name-collision dialog).
+  ///
+  /// Same display name alone never overwrites or soft-deletes. Bulk import
+  /// and silent callers omit [forceReplaceTarget] so variants land as
+  /// separate library entries (issue #161).
+  Future<CharacterCard?> importCharacter(
+    File file, {
+    CharacterCard? forceReplaceTarget,
+  }) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -428,6 +491,7 @@ class CharacterRepository extends ChangeNotifier {
         card,
         // JSON has no image to copy; persist synthesizes a placeholder instead.
         sourceFileForCopy: isJson ? null : file,
+        forceReplaceTarget: forceReplaceTarget,
       );
     } catch (e) {
       rethrow;
@@ -437,19 +501,20 @@ class CharacterRepository extends ChangeNotifier {
     }
   }
 
-  /// Internal helper that persists an already-parsed CharacterCard (from file or from
-  /// embedded group card data). Handles collision detection (now by stableId when present,
-  /// falling back to name), update-in-place reuse of dbId+PNG for matching identity (so
-  /// sessions/chat history survive realism/needs edits), or fresh insert.
-  /// Only true non-matched name dups still get soft-deleted.
+  /// Internal helper that persists an already-parsed CharacterCard.
+  ///
+  /// Collision policy (issue #161 + history-preserving reimport):
+  /// - **stableId match** → update in place (reuse dbId + PNG path; chats kept)
+  /// - **[forceReplaceTarget]** → same update path when the user explicitly
+  ///   chose Replace on a same-name card that has no stableId match
+  /// - **name-only collision** → fresh insert (never soft-delete peers)
   ///
   /// Ensures stableId is present before embedding via saveCardAsPng.
-  ///
   /// When [sourceFileForCopy] is provided we use it as visual source for V2 embed.
-  /// Otherwise we expect [card.imagePath] ...
   Future<CharacterCard?> _persistImportedCharacterCard(
     CharacterCard card, {
     File? sourceFileForCopy,
+    CharacterCard? forceReplaceTarget,
   }) async {
     final charDir = _storage.charactersDir;
     if (!await charDir.exists()) {
@@ -460,80 +525,50 @@ class CharacterRepository extends ChangeNotifier {
         .replaceAll(RegExp(r'[^\w\s\-]'), '')
         .replaceAll(' ', '_');
 
-    // Collision handling: prefer stableId match (from PNG realism_engine) for identity
-    // preservation across edits/reimports; fallback to name for legacy cards.
-    // Refactored from always-nuke to update-in-place reuse of dbId for target match.
-    // Only non-target name dups (extra collisions) are soft-deleted + removed.
-    final incomingStable = card.frontPorchExtensions?.stableId;
-    CharacterCard? stableMatch;
-    final cardName = card.name;
-    final nameMatches = _characters.where((c) => c.name == cardName).toList();
-    if (incomingStable != null && incomingStable.isNotEmpty) {
-      for (final c in _characters) {
-        if (c.frontPorchExtensions?.stableId == incomingStable) {
-          stableMatch = c;
-          break;
-        }
-      }
-    }
-    final target =
-        stableMatch ?? (nameMatches.isNotEmpty ? nameMatches.first : null);
-
-    // Soft-delete + remove ONLY non-target name collisions (true dups or old name-only)
-    // Note: stableMatch may have different .name than incoming (name drift); we still reuse
-    // its dbId via target and replace in list by dbId later. nameMatches snapshot + remove by ref is safe here.
-    for (final oldChar in nameMatches) {
-      if (target != null && oldChar.dbId == target.dbId) {
-        continue; // preserve the matched target; we will update it in place
-      }
-      if (oldChar.dbId != null) {
-        try {
-          await _db.softDeleteCharacterById(oldChar.dbId!);
-          debugPrint(
-            '[Import] Soft-deleted old character row for name collision: ${oldChar.name} (id=${oldChar.dbId})',
-          );
-        } catch (e) {
-          debugPrint('[Import] Could not soft-delete old character row: $e');
-        }
-      }
-      if (oldChar.imagePath != null) {
-        try {
-          final oldFile = File(oldChar.imagePath!);
-          if (await oldFile.exists()) {
-            await oldFile.delete();
-            debugPrint(
-              '[Import] Deleted old PNG for ${card.name}: ${p.basename(oldChar.imagePath!)}',
-            );
+    // Identity: stableId only. Name is never enough to overwrite or delete.
+    // forceReplaceTarget is the explicit single-file "Replace existing" path.
+    final stableMatch =
+        findByStableId(card.frontPorchExtensions?.stableId);
+    CharacterCard? target = stableMatch;
+    if (target == null && forceReplaceTarget != null) {
+      // Resolve against the live list by dbId so we don't hold a stale ref.
+      final rid = forceReplaceTarget.dbId;
+      if (rid != null) {
+        for (final c in _characters) {
+          if (c.dbId == rid) {
+            target = c;
+            break;
           }
-        } catch (e) {
-          debugPrint('[Import] Could not delete old PNG: $e');
         }
       }
-      _characters.remove(oldChar);
+      target ??= forceReplaceTarget;
     }
 
-    // Ensure stableId is generated/carried before any save/embed (for new or update paths).
-    // (Harmless if later write fails; in-memory card gets identity, which is fine and matches plan.)
+    // Ensure stableId before embed. On force-replace of a no-id incoming card,
+    // carry the library character's stableId so future FP reimports still match.
     card.frontPorchExtensions ??= FrontPorchExtensions();
+    final incomingStable = card.frontPorchExtensions!.stableId;
+    if ((incomingStable == null || incomingStable.isEmpty) &&
+        target != null) {
+      final keep = target.frontPorchExtensions?.stableId;
+      if (keep != null && keep.isNotEmpty) {
+        card.frontPorchExtensions!.stableId = keep;
+      }
+    }
     card.frontPorchExtensions!.ensureStableId();
 
     String destPath;
-    // For stable target match, prefer reusing the existing target's imagePath (overwrite in place)
-    // to avoid unnecessary filename churn on reimport of edited cards (e.g. realism settings).
-    // Fallback to fresh timestamped name for new entries or non-matches (historical).
+    // Reuse the target's PNG path on update-in-place to avoid filename churn.
+    // Fresh timestamped name for new library entries.
     if (target != null && target.imagePath != null) {
       destPath = target.imagePath!;
     } else if (sourceFileForCopy != null) {
       destPath =
           '${charDir.path}/${safeName}_${DateTime.now().millisecondsSinceEpoch}.png';
-      // Do NOT raw copy here; use v2 saveCardAsPng below to embed stable + FP data
-      // (pixels preserved by resolve logic inside saveCardAsPng using source).
     } else if (card.imagePath != null) {
-      // Already have a file (e.g. from group card member extraction)
       destPath =
           '${charDir.path}/${safeName}_${DateTime.now().millisecondsSinceEpoch}.png';
     } else {
-      // No image at all — create a tiny placeholder (will be overwritten by savePng)
       destPath =
           '${charDir.path}/${safeName}_${DateTime.now().millisecondsSinceEpoch}.png';
     }
@@ -554,8 +589,7 @@ class CharacterRepository extends ChangeNotifier {
         : null;
 
     if (target != null) {
-      // Update-in-place for stable or name match: reuse dbId (prevents data loss)
-      // Delete old PNG only if its basename differs from the (new) dest we wrote.
+      // Update-in-place: reuse dbId so sessions/chat history survive.
       if (target.imagePath != null) {
         final oldBase = _toBasename(target.imagePath!);
         final newBase = _toBasename(destPath);
@@ -565,11 +599,8 @@ class CharacterRepository extends ChangeNotifier {
             if (await oldFile.exists()) {
               await oldFile.delete();
               debugPrint(
-                '[Import] Deleted previous PNG for matched identity ' +
-                    card.name +
-                    ' (old=' +
-                    oldBase +
-                    ')',
+                '[Import] Deleted previous PNG for matched identity '
+                '${card.name} (old=$oldBase)',
               );
             }
           } catch (e) {
@@ -581,12 +612,9 @@ class CharacterRepository extends ChangeNotifier {
       }
       card.dbId = target.dbId;
 
-      // Reuse updateCharacter for the DB update (exact companion + updatedAt) + list replace.
-      // (png already embedded above via saveCardAsPng for stable; update will re-embed same, harmless).
-      // This eliminates the inlined companion duplication. Minor: double notify/_isLoading possible in import context but semantics/observables unchanged.
+      // updateCharacter does DB companion + list replace (re-embeds PNG; harmless).
       await updateCharacter(card);
     } else {
-      // No match: fresh insert path (original behavior)
       final dbId = await _db.insertCharacterReturningId(
         CharactersCompanion(
           name: Value(card.name),
@@ -612,13 +640,7 @@ class CharacterRepository extends ChangeNotifier {
       _characters.add(card);
     }
 
-    // (Until Phase 4 of the lorebook overhaul, an imported card's book was
-    // ALSO copied into an auto-created "X's world lore" World — two sources
-    // of truth kept in sync by string matching. New imports keep lore on the
-    // card only; existing auto-created worlds remain as ordinary worlds.)
-
-    // Note: list management (add or replace) happens inside the target/!target branches above
-    // so that we reuse dbId for matches without duplication.
+    // Imported lore stays on the card only (no auto-linked World).
     return card;
   }
 
@@ -663,11 +685,18 @@ class CharacterRepository extends ChangeNotifier {
     return {'imported': imported, 'failed': failed, 'errors': errors};
   }
 
-  Future<void> updateCharacter(CharacterCard card) async {
+  /// [notify] = false persists silently (DB + PNG still written): the Avatar
+  /// Gallery's ★ writes per click, and broadcasting each one repainted the
+  /// whole home grid behind the open dialog. Silent callers MUST follow up
+  /// with [notifyCharactersChanged] when their surface closes.
+  Future<void> updateCharacter(CharacterCard card, {bool notify = true}) async {
     if (card.imagePath == null) return;
+    _clearCoverCache(); // avatar files may have changed under a stable key
 
-    _isLoading = true;
-    notifyListeners();
+    if (notify) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
     try {
       final v2Service = V2CardService();
@@ -693,6 +722,19 @@ class CharacterRepository extends ChangeNotifier {
 
       // Update in database — store basename only for cross-platform portability
       if (card.dbId != null) {
+        // A rename must carry the avatar-gallery media with it: expression and
+        // look PNGs live under Characters/<safeName>/{avatars,looks}/, keyed on
+        // the CURRENT name at both write and read time. Capture the OLD name
+        // before the DB write so we can move the folder AFTER it — DB-first so
+        // a failed move leaves the (pre-existing) blank-gallery bug (logged),
+        // never the worse split-brain of "DB says new name, files under old".
+        String? oldNameForMove;
+        try {
+          oldNameForMove = (await _db.getCharacterById(card.dbId!)).name;
+        } catch (_) {
+          oldNameForMove = null;
+        }
+
         final dbImagePath = card.imagePath != null
             ? _toBasename(card.imagePath!)
             : null;
@@ -720,6 +762,18 @@ class CharacterRepository extends ChangeNotifier {
             updatedAt: Value(DateTime.now()),
           ),
         );
+
+        // Move the gallery media to match the new name, AFTER the DB commit.
+        // Best-effort: a failure here must not block the rename (the card text
+        // is what the user asked to save) — it only logs, leaving the media
+        // stranded (recoverable) rather than risking loss.
+        if (oldNameForMove != null) {
+          try {
+            await _moveCharacterMediaFolder(oldNameForMove, card.name);
+          } catch (e) {
+            debugPrint('[CharacterRepository] Avatar folder move skipped: $e');
+          }
+        }
       }
 
       // Update the list entry
@@ -729,14 +783,23 @@ class CharacterRepository extends ChangeNotifier {
       if (index != -1) {
         _characters[index] = card;
       }
-      notifyListeners();
+      if (notify) notifyListeners();
     } catch (e) {
       print('Error updating character: $e');
       rethrow;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (notify) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
+  }
+
+  /// One deferred broadcast for surfaces that persisted silently
+  /// (updateCharacter notify: false) — fired when their dialog closes.
+  void notifyCharactersChanged() {
+    _clearCoverCache();
+    notifyListeners();
   }
 
   Future<CharacterCard?> duplicateCharacter(
@@ -907,7 +970,9 @@ class CharacterRepository extends ChangeNotifier {
   }
 
   /// Add a new avatar image for a character.
-  Future<void> addAvatar(
+  /// Add a labeled expression avatar (goes to `avatars/`). Returns the new
+  /// avatar id so callers can roll back a partial batch on failure.
+  Future<String> addAvatar(
     String characterId,
     String characterName,
     Uint8List imageBytes,
@@ -947,9 +1012,124 @@ class CharacterRepository extends ChangeNotifier {
         ),
       );
       debugPrint('[CharacterRepository] addAvatar: DB insert done');
+      return avatarId;
     } catch (e) {
       debugPrint('[CharacterRepository] addAvatar: ERROR: $e');
       rethrow;
+    }
+  }
+
+  /// Add a gallery LOOK — a plain alternate avatar (a new outfit, a scene), NOT
+  /// an expression image. Non-destructive: written to the character's SEPARATE
+  /// `looks/` folder and tagged [AvatarImage.lookLabel] so it stays out of the
+  /// emotion pipeline. Returns the new avatar id. Deliberately never touches
+  /// `imagePath` — selecting a look (per chat) is the caller's job.
+  Future<String> addLook(
+    String characterId,
+    String characterName,
+    Uint8List imageBytes,
+  ) async {
+    final safeName = characterName
+        .replaceAll(RegExp(r'[^\w\s\-]'), '')
+        .replaceAll(' ', '_');
+    final looksDir = Directory(
+      p.join(_storage.charactersDir.path, safeName, 'looks'),
+    );
+    if (!await looksDir.exists()) {
+      await looksDir.create(recursive: true);
+    }
+    final filename = 'look_${DateTime.now().millisecondsSinceEpoch}.png';
+    await File(p.join(looksDir.path, filename)).writeAsBytes(imageBytes);
+
+    final displayOrder = await _db.countAvatarsForCharacter(characterId);
+    final avatarId = const Uuid().v4();
+    await _db.insertAvatar(
+      AvatarImagesCompanion(
+        id: Value(avatarId),
+        characterId: Value(characterId),
+        filename: Value(filename),
+        label: Value(AvatarImage.lookLabel),
+        displayOrder: Value(displayOrder),
+      ),
+    );
+    return avatarId;
+  }
+
+  /// Character-name → on-disk media folder name (same rule used everywhere an
+  /// avatar/look path is built). Centralized so the rename move can't drift
+  /// from the write/read/delete sites.
+  static String _mediaFolderName(String characterName) => characterName
+      .replaceAll(RegExp(r'[^\w\s\-]'), '')
+      .replaceAll(' ', '_');
+
+  /// Move a character's avatar-gallery media folder when a rename changes its
+  /// safe name. Renames the whole dir when the target is free; otherwise merges
+  /// the avatars/ + looks/ files into the existing target.
+  ///
+  /// NON-DESTRUCTIVE by construction: a file whose destination already exists
+  /// (safe-name collision — `Alice`, `Alice!`, `Bob Smith`, `Bob_Smith` all
+  /// map to one folder) is LEFT at the source and logged, never overwritten
+  /// and never deleted. The source tree is only ever pruned by removing files
+  /// this method itself just moved (and then empty dirs) — it never runs a
+  /// blanket recursive delete, so an un-merged file can't be destroyed.
+  /// No-op when the safe name is unchanged or the source is absent.
+  Future<void> _moveCharacterMediaFolder(String oldName, String newName) async {
+    final oldSafe = _mediaFolderName(oldName);
+    final newSafe = _mediaFolderName(newName);
+    if (oldSafe.isEmpty || newSafe.isEmpty || oldSafe == newSafe) return;
+
+    final base = _storage.charactersDir.path;
+    final oldDir = Directory(p.join(base, oldSafe));
+    if (!await oldDir.exists()) return;
+
+    final newDir = Directory(p.join(base, newSafe));
+    if (!await newDir.exists()) {
+      // Target free — try an atomic directory rename first. It fails across
+      // devices / some network FS; fall through to the per-file merge then.
+      try {
+        await oldDir.rename(newDir.path);
+        debugPrint('[CharacterRepository] Moved media $oldSafe → $newSafe');
+        return;
+      } catch (_) {/* fall through to per-file move */}
+    }
+
+    var conflicts = 0;
+    for (final sub in const ['avatars', 'looks']) {
+      final from = Directory(p.join(oldDir.path, sub));
+      if (!await from.exists()) continue;
+      final to = Directory(p.join(newDir.path, sub));
+      if (!await to.exists()) await to.create(recursive: true);
+      await for (final entity in from.list()) {
+        if (entity is! File) continue;
+        final dest = p.join(to.path, p.basename(entity.path));
+        if (await File(dest).exists()) {
+          // Collision: leave the source file untouched (it is NOT lost, just
+          // stranded under the old folder) rather than overwrite or delete.
+          conflicts++;
+          continue;
+        }
+        await entity.rename(dest);
+      }
+      // Only remove the source subfolder if we emptied it (no conflicts left).
+      try {
+        if (await from.exists() && await from.list().isEmpty) {
+          await from.delete();
+        }
+      } catch (_) {}
+    }
+    // Remove the old top-level dir ONLY if nothing remains in it.
+    try {
+      if (await oldDir.exists() && await oldDir.list().isEmpty) {
+        await oldDir.delete();
+      }
+    } catch (_) {}
+    if (conflicts > 0) {
+      debugPrint(
+        '[CharacterRepository] Merged media $oldSafe → $newSafe with '
+        '$conflicts conflict(s) left in place (safe-name collision).',
+      );
+    } else {
+      debugPrint('[CharacterRepository] Merged media $oldSafe → $newSafe');
     }
   }
 
@@ -965,10 +1145,20 @@ class CharacterRepository extends ChangeNotifier {
           final safeName = char.name
               .replaceAll(RegExp(r'[^\w\s\-]'), '')
               .replaceAll(' ', '_');
-          final avatarDir = Directory(
-            p.join(_storage.charactersDir.path, safeName, 'avatars'),
+          // Looks live in `looks/`, expressions in `avatars/` — pick the right
+          // folder off the row's own label (single-sourced via
+          // AvatarImage.subfolder) so deleting a look doesn't orphan its PNG.
+          final model = AvatarImage(
+            id: avatar.id,
+            characterId: avatar.characterId,
+            filename: avatar.filename,
+            label: avatar.label,
+            displayOrder: avatar.displayOrder,
+            createdAt: avatar.createdAt,
           );
-          final file = File(p.join(avatarDir.path, avatar.filename));
+          final file = File(
+            p.join(_storage.charactersDir.path, safeName, model.subfolder, avatar.filename),
+          );
           if (await file.exists()) {
             await file.delete();
           }
@@ -1041,6 +1231,65 @@ class CharacterRepository extends ChangeNotifier {
   ) async {
     card.imagePath = imagePath;
     await updateCharacter(card);
+  }
+
+  /// Deletes the canonical portrait; a gallery look is promoted in its place.
+  /// Returns the promoted look's id (callers clean their own cascades). Logic
+  /// lives in the portrait_promotion leaf — this file is over the size cap.
+  Future<String> deletePortraitPromotingLook(CharacterCard card) =>
+      promoteLookOverPortrait(
+        card: card,
+        storage: _storage,
+        updateCharacter: updateCharacter,
+        removeAvatar: removeAvatar,
+      );
+
+  /// The file to bake as the character's exported / Stoop card cover: the ★
+  /// starred avatar (a gallery look OR an expression image) when it's set and
+  /// present on disk, else the library portrait (`imagePath`). Null when neither
+  /// resolves. Lets a user pick their best render (an outfit, a mood) as the
+  /// card's face without touching the in-app portrait.
+  ///
+  /// [card] must be a HYDRATED library card (`avatarImages` loaded) for the star
+  /// to resolve — a bare card silently falls back to the portrait. Every PNG
+  /// bake / upload path should route through this so the star works everywhere.
+  /// Memo for [coverImageFileFor]: chat message bubbles resolve the cover
+  /// on EVERY rebuild (dozens of bubbles × every streaming token batch),
+  /// and the uncached path does a synchronous existsSync per call — near
+  /// free on macOS/APFS, but 10-100x slower on Windows where Defender
+  /// intercepts file stats. Field-reported as "the app got sluggish" in
+  /// the 20260716 nightly. The key embeds the star id and portrait path,
+  /// so changing either self-invalidates; mutations also clear the whole
+  /// cache (updateCharacter / delete / notifyCharactersChanged) to cover
+  /// files changing on disk under an unchanged key.
+  final Map<String, File?> _coverCache = {};
+
+  void _clearCoverCache() => _coverCache.clear();
+
+  File? coverImageFileFor(CharacterCard card) {
+    final favId = card.frontPorchExtensions?.favoriteAvatarId;
+    final key = '${card.name}|$favId|${card.imagePath}';
+    if (_coverCache.containsKey(key)) return _coverCache[key];
+    if (_coverCache.length > 512) _coverCache.clear();
+
+    File? result;
+    if (favId != null) {
+      for (final a in card.avatarImages ?? const <AvatarImage>[]) {
+        if (a.id == favId) {
+          final f = a.resolveFile(_storage.characterBaseDir(card.name).path);
+          if (f.existsSync()) result = f;
+          break;
+        }
+      }
+    }
+    if (result == null) {
+      final img = card.imagePath;
+      if (img != null && img.isNotEmpty) {
+        result = _storage.resolveCharacterImage(img);
+      }
+    }
+    _coverCache[key] = result;
+    return result;
   }
 
   /// Set the character's TTS voice (null = global default) and persist.

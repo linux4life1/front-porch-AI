@@ -18,6 +18,8 @@
 
 import 'package:flutter/foundation.dart';
 
+import 'package:front_porch_ai/services/chat/relationship_milestones.dart';
+
 /// Plain (non-ChangeNotifier) domain service owning relationship / affection /
 /// trust / fixation / inter-character feelings state and logic (scores, bond+trust
 /// deltas via apply, tier calculation, fixation lifespan+update, short/long term
@@ -119,6 +121,23 @@ class RelationshipService {
   final void Function(String charId, Map<String, int> rels)
   setGroupInterCharacterRelationships;
 
+  // Generic per-speaker cadence-counter access (turnsSinceLongTermCheck /
+  // shortTermDeltasSummary / turnsSinceDecayCheck ride the same _groupRealism
+  // entry as the scalars above). Optional: when unwired (tests), the legacy
+  // shared working registers are used — in production ChatService wires these
+  // so each group member grows/decays on their OWN turn count instead of the
+  // whole group's shared cadence (parity with 1:1).
+  final int Function(String charId, String key, {int defaultValue})?
+  getGroupCounter;
+  final void Function(String charId, String key, int value)? setGroupCounter;
+
+  /// Living Time §7 v1.5 / v1.5.1: fired when short-term bond, long-term bond,
+  /// or trust *tier* changes via a forward apply. Null in tests that don't
+  /// care. ChatService plants a journal milestone card. Never fires on
+  /// load/seed/snapshot restore or when [applyScoreDelta] /
+  /// [applyTrustDelta] run with recordMilestone: false (regen revert).
+  final void Function(TierCrossing crossing)? onTierCrossing;
+
   // Owned simulation state (moved verbatim from ChatService).
   int _affectionScore = 0;
   int _relationshipTier = 0;
@@ -169,10 +188,13 @@ class RelationshipService {
     required this.setGroupRelationshipTier,
     required this.getGroupLongTermTier,
     required this.setGroupLongTermTier,
+    this.getGroupCounter,
+    this.setGroupCounter,
     required this.getGroupSpatialStance,
     required this.setGroupSpatialStance,
     required this.getGroupInterCharacterRelationships,
     required this.setGroupInterCharacterRelationships,
+    this.onTierCrossing,
   });
 
   // ── Public surface (for @Deprecated shims in ChatService + direct test/UI callers) ──────
@@ -574,6 +596,23 @@ class RelationshipService {
     _relationshipTier = relT != 0 ? relT : _calculateTier(_affectionScore);
     final ltT = getGroupLongTermTier(charId, defaultValue: 0);
     _longTermTier = ltT != 0 ? ltT : _calculateTier(_longTermScore);
+
+    // Per-speaker long-term cadence (parity): each member's growth check runs
+    // on THEIR OWN eval count and THEIR OWN delta history. With the shared
+    // registers, the 5-turn threshold was hit by the whole group's evals and
+    // the long-term bump landed on whichever member happened to be loaded.
+    if (getGroupCounter != null) {
+      _turnsSinceLongTermCheck = getGroupCounter!(
+        charId,
+        'turnsSinceLongTermCheck',
+        defaultValue: 0,
+      );
+      _shortTermDeltasSummary = getGroupCounter!(
+        charId,
+        'shortTermDeltasSummary',
+        defaultValue: 0,
+      );
+    }
   }
 
   /// Write current scalars back into the target group character's _groupRealism
@@ -597,21 +636,42 @@ class RelationshipService {
 
     setGroupRelationshipTier(charId, _relationshipTier);
     setGroupLongTermTier(charId, _longTermTier);
+
+    // Per-speaker long-term cadence counters (see the load-side comment).
+    if (setGroupCounter != null) {
+      setGroupCounter!(
+        charId,
+        'turnsSinceLongTermCheck',
+        _turnsSinceLongTermCheck,
+      );
+      setGroupCounter!(
+        charId,
+        'shortTermDeltasSummary',
+        _shortTermDeltasSummary,
+      );
+    }
   }
 
   // ── Deltas, growth, decay, fixation (verbatim) ─────────────────────────────
 
-  void applyScoreDelta(int delta) {
+  /// Apply a short-term bond delta. When the named short-term tier changes
+  /// and [recordMilestone] is true, fires [onTierCrossing] (Living Time
+  /// v1.5). Every 5 applies also runs long-term growth, which may fire a
+  /// separate `long_term` crossing (v1.5.1). Regen/reprocess passes
+  /// [recordMilestone]: false so undoing a rejected reply never invents
+  /// reverse story beats (short- or long-term).
+  void applyScoreDelta(int delta, {bool recordMilestone = true}) {
     _shortTermDeltasSummary += delta;
     _turnsSinceLongTermCheck++;
 
     if (_turnsSinceLongTermCheck >= 5) {
-      _evalLongTermGrowth();
+      _evalLongTermGrowth(recordMilestone: recordMilestone);
     }
 
     if (delta == 0) return;
     final oldScore = _affectionScore;
     final oldTier = _relationshipTier;
+    final oldLabel = bondTierLabel(oldTier);
 
     _affectionScore = (_affectionScore + delta).clamp(-300, 300);
     _relationshipTier = _calculateTier(_affectionScore);
@@ -623,11 +683,29 @@ class RelationshipService {
       );
       onNotify();
     }
+    if (recordMilestone &&
+        oldTier != _relationshipTier &&
+        onTierCrossing != null) {
+      onTierCrossing!(
+        TierCrossing(
+          axis: 'bond',
+          oldTier: oldTier,
+          newTier: _relationshipTier,
+          oldLabel: oldLabel,
+          newLabel: shortTermTierName,
+        ),
+      );
+    }
   }
 
-  void applyTrustDelta(int delta) {
+  /// Apply a trust delta. Tier crossings fire [onTierCrossing] when
+  /// [recordMilestone] is true (default). Severe drops still arm repair.
+  void applyTrustDelta(int delta, {bool recordMilestone = true}) {
     if (delta == 0) return;
+    final oldTier = trustTier;
+    final oldLabel = trustTierLabel(oldTier);
     _trustLevel = (_trustLevel + delta).clamp(-100, 100);
+    final newTier = trustTier;
     debugPrint(
       '[Realism:Relationship] Trust shifted by $delta -> $_trustLevel',
     );
@@ -637,11 +715,23 @@ class RelationshipService {
       _pendingTrustRepair = true;
       debugPrint('[Realism:Trust] Severe drop — repair window armed');
     }
+    if (recordMilestone && oldTier != newTier && onTierCrossing != null) {
+      onTierCrossing!(
+        TierCrossing(
+          axis: 'trust',
+          oldTier: oldTier,
+          newTier: newTier,
+          oldLabel: oldLabel,
+          newLabel: trustTierLabel(newTier),
+        ),
+      );
+    }
   }
 
-  void _evalLongTermGrowth() {
+  void _evalLongTermGrowth({bool recordMilestone = true}) {
     final oldLTScore = _longTermScore;
     final oldLTTier = _longTermTier;
+    final oldLabel = longTermTierLabel(oldLTTier);
 
     // Proportional growth based on average short-term tier over the evaluation window
     // (use current tier as proxy for recent average)
@@ -677,15 +767,56 @@ class RelationshipService {
         '[Realism] Long-Term Bond check (No change) - Status: $_longTermScore ($longTermTierName)',
       );
     }
+    // Living Time v1.5.1: plant only when the *named* long-term tier moves.
+    // Score ticks inside the same tier stay silent (climate, not weather).
+    if (recordMilestone &&
+        oldLTTier != _longTermTier &&
+        onTierCrossing != null) {
+      onTierCrossing!(
+        TierCrossing(
+          axis: 'long_term',
+          oldTier: oldLTTier,
+          newTier: _longTermTier,
+          oldLabel: oldLabel,
+          newLabel: longTermTierName,
+        ),
+      );
+    }
   }
 
   /// Short-term relationship decay (toward 0 by 1 every 10 turns) + hidden
   /// inter-char decay (when under cap). Extracted from _applyMoodDecay body.
+  ///
+  /// Cadence counter: in a group with the counter callbacks wired, the check
+  /// runs on the SPEAKER's own counter (their map entry) — so it is safe to
+  /// call before the scalar load, and each member decays every 10 of THEIR
+  /// OWN turns, exactly like a 1:1 host. Unwired (tests) falls back to the
+  /// legacy shared register.
   void applyShortTermDecay() {
-    _turnsSinceDecayCheck++;
-    if (_turnsSinceDecayCheck >= 10) {
-      if (getIsGroupActive() && !getObserverMode()) {
-        final id = getCurrentSpeakerIdForRealism();
+    final isGroup = getIsGroupActive() && !getObserverMode();
+    final perSpeaker =
+        isGroup && getGroupCounter != null && setGroupCounter != null;
+    final speakerId = isGroup ? getCurrentSpeakerIdForRealism() : '';
+    var turns = perSpeaker
+        ? getGroupCounter!(speakerId, 'turnsSinceDecayCheck', defaultValue: 0)
+        : _turnsSinceDecayCheck;
+    turns++;
+    if (turns < 10) {
+      if (perSpeaker) {
+        setGroupCounter!(speakerId, 'turnsSinceDecayCheck', turns);
+      } else {
+        _turnsSinceDecayCheck = turns;
+      }
+      return;
+    }
+    if (perSpeaker) {
+      setGroupCounter!(speakerId, 'turnsSinceDecayCheck', 0);
+    } else {
+      _turnsSinceDecayCheck = 0;
+    }
+    {
+      if (isGroup) {
+        final id = speakerId;
         final current = getGroupAffectionScore(
           id,
           defaultValue: _affectionScore,
@@ -736,7 +867,6 @@ class RelationshipService {
           debugPrint('[Realism] Short-term decay applied: $_affectionScore');
         }
       }
-      _turnsSinceDecayCheck = 0;
       onNotify();
     }
   }

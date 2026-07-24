@@ -120,6 +120,10 @@ Respond with ONLY the JSON:''';
     String interviewTranscript = '',
     String? worldLore,
   }) {
+    // Opt-in dynamic-macro rule — only when the creator's toggle is on.
+    final macroLine = _includeDynamicMacros
+        ? '\n- LIVING DETAIL (optional, at most ONE, only if it fits naturally): you MAY use a {{pick:...}} macro for a single incidental detail that could vary between playthroughs — a background sound, a passing scent, a minor object — so no two openings are identical. EXACT double-brace syntax: {{pick:option one, option two, option three}}. Never use it on anything plot-critical, and never break the prose to force one in; most greetings need none.'
+        : '';
     String lengthEnforcement;
     switch (length) {
       case 'Short (1-2 paragraphs)':
@@ -256,7 +260,7 @@ $toneSpec
 - NEVER write actions, thoughts, feelings, appearance, or dialogue for {{user}} — {{user}} is a blank slate
 - Do NOT start the message by addressing {{user}} — start with scene description
 - ALL dialogue and actions MUST be consistent with the Scenario. Do NOT contradict established facts
-- AVOID CLICHÉ OPENINGS: Do NOT start with weather descriptions ("The sun was setting"), looking up from work, adjusting glasses, sighing while staring out windows, or any opening that could belong to any character. The opening line should be SPECIFIC to this character and this scene.
+- AVOID CLICHÉ OPENINGS: Do NOT start with weather descriptions ("The sun was setting"), looking up from work, adjusting glasses, sighing while staring out windows, or any opening that could belong to any character. The opening line should be SPECIFIC to this character and this scene.$macroLine
 
 == LENGTH ==
 $lengthEnforcement

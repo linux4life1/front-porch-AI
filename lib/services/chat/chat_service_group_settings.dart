@@ -32,12 +32,22 @@ extension ChatServiceGroupSettings on ChatService {
 
   double get groupMemoryBudgetPercent => _groupMemoryBudgetPercent;
 
-  double getCharacterRAGPriority(String charId) {
-    return _groupCharacterRAGPriorities[charId] ?? 1.0;
-  }
-
   Map<String, double> get currentGroupRAGPriorities =>
       Map.unmodifiable(_groupCharacterRAGPriorities);
+
+  /// RAG retrieval priority for [c] in the active group (1.0 = neutral).
+  /// Card-keyed on purpose: storage uses the stable character id — the same
+  /// key retrieval multiplies by (memory_service characterPriorities) — and
+  /// the settings dialog only has cards. The old NAME-keyed dialog reads
+  /// always missed and every character showed 1.0.
+  double ragPriorityForGroupCharacter(CharacterCard c) =>
+      _groupCharacterRAGPriorities[_getCharacterIdFromCard(c)] ?? 1.0;
+
+  void setRAGPriorityForGroupCharacter(CharacterCard c, double priority) {
+    if (_activeGroup == null) return;
+    _groupCharacterRAGPriorities[_getCharacterIdFromCard(c)] = priority;
+    notifyListeners();
+  }
 
   void setGroupRAGEnabled(bool value) {
     if (_activeGroup == null) return;
@@ -56,19 +66,6 @@ extension ChatServiceGroupSettings on ChatService {
   void setGroupMemoryBudgetPercent(double value) {
     if (_activeGroup == null) return;
     _groupMemoryBudgetPercent = value;
-    // (old checkpoint call removed in v30)
-    notifyListeners();
-  }
-
-  void setCharacterRAGPriority(String charId, double priority) {
-    if (_activeGroup == null) return;
-    _groupCharacterRAGPriorities[charId] = priority;
-    // (old checkpoint call removed in v30)
-    notifyListeners();
-  }
-
-  void clearCharacterRAGPriority(String charId) {
-    _groupCharacterRAGPriorities.remove(charId);
     // (old checkpoint call removed in v30)
     notifyListeners();
   }

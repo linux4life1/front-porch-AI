@@ -13,6 +13,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { GroupSettings, type GroupBlock } from './GroupSettings';
 import { GrowthPanel } from './GrowthPanel';
+import { MilestonesPanel } from './MilestonesPanel';
+import { StoryCalendarModal } from './StoryCalendarModal';
 
 interface ObjectiveTask {
   description: string;
@@ -49,7 +51,29 @@ interface ToolsState {
   };
   chaos: { enabled: boolean; nsfwEnabled: boolean; pressure: number; hasPendingEvent: boolean };
   nsfw: { cooldownEnabled: boolean; cooldownTurnsRemaining: number; arousalLevel: number; arousalTier: string };
-  time: { timeOfDay: string; dayCount: number; weekday: string; passageEnabled: boolean };
+  // Ambitions (Living Time §6, additive — absent on older facades).
+  ambitions?: Array<{ text: string; progress: number; stage: string }>;
+  time: {
+    timeOfDay: string;
+    dayCount: number;
+    weekday: string;
+    passageEnabled: boolean;
+    // Living Time story weather (additive — absent on older facades, null
+    // when the feature is off).
+    weather?: {
+      condition: string;
+      temp: string;
+      season: string;
+      label: string;
+      emoji: string;
+    } | null;
+    // Story Calendar (additive — absent on older facades).
+    clock?: string;
+    date?: string;
+    dateLong?: string;
+    storyClock?: string;
+    storyStartDate?: string;
+  };
   objectives: { primary: ObjectiveView | null; secondary: ObjectiveView[]; isChecking: boolean };
   focusedId?: string | null;
   group?: GroupBlock | null;
@@ -118,7 +142,10 @@ export function ChatTools({
   onCommand?: (cmd: string) => void;
 }) {
   const [t, setT] = useState<ToolsState | null>(null);
+  // Living Time §4: feedback line for "turn this chat into a story".
+  const [storyMsg, setStoryMsg] = useState<string | null>(null);
   const [goal, setGoal] = useState('');
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Scope every tools call to the focused cast participant so objectives/arousal
   // (and the snapshot returned by mutations) follow the focus.
@@ -182,8 +209,14 @@ export function ChatTools({
             </>
           )}
           <Toggle label="Journal (memories + recap)" value={t.memory.journalEnabled} onChange={(v) => settings({ journalEnabled: v })} />
-          {t.memory.journalEnabled && (
+          {t.memory.journalEnabled ? (
             <NumField label="Every (msgs)" value={t.memory.journalInterval} onCommit={(v) => settings({ journalInterval: v })} />
+          ) : (
+            <p className="muted small">
+              Journal off: long-term memory AND the &quot;Where we are&quot; recap are
+              paused — the character only remembers what still fits in the
+              context window.
+            </p>
           )}
         </div>
       </details>
@@ -209,6 +242,54 @@ export function ChatTools({
               <GrowthPanel focusedId={focusedId} reloadKey={reloadKey} />
             </>
           )}
+        </div>
+      </details>
+
+      {(t.ambitions?.length ?? 0) > 0 && (
+        <details className="tool-section" open>
+          <summary>Ambitions</summary>
+          <div className="tool-body">
+            {t.ambitions!.map((a, i) => (
+              <div key={i} className="ambition-row" title={`${a.text} — ${a.stage}`}>
+                <div className="ambition-line">
+                  <span>🧭 {a.text}</span>
+                  <em className="ambition-stage">{a.stage}</em>
+                </div>
+                <div className="ambition-bar">
+                  <div
+                    className="ambition-bar-fill"
+                    style={{ width: `${Math.min(100, Math.max(0, a.progress))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      <details className="tool-section">
+        <summary>Our story</summary>
+        <div className="tool-body">
+          <MilestonesPanel focusedId={focusedId} reloadKey={reloadKey} />
+          <div className="tool-row">
+            <button
+              onClick={async () => {
+                setStoryMsg(null);
+                try {
+                  const r = await api.post<{ id: string; title: string }>(
+                    '/api/chat/tools/to-story',
+                    {},
+                  );
+                  setStoryMsg(`Created "${r.title}" — open Stories to run it.`);
+                } catch {
+                  setStoryMsg('Needs a 1:1 chat with a character.');
+                }
+              }}
+            >
+              📖 Turn this chat into a story
+            </button>
+          </div>
+          {storyMsg && <p className="muted milestones-empty">{storyMsg}</p>}
         </div>
       </details>
 
@@ -350,9 +431,25 @@ export function ChatTools({
         <summary>Scene &amp; time</summary>
         <div className="tool-body">
           <div className="stat-line">
-            <span>{t.time.weekday}, day {t.time.dayCount}</span>
-            <span className="muted">{t.time.timeOfDay.replace(/_/g, ' ')}</span>
+            <span>{t.time.date ?? t.time.weekday}, day {t.time.dayCount}</span>
+            <span className="muted">
+              {t.time.timeOfDay.replace(/_/g, ' ')}
+              {t.time.clock ? ` · ${t.time.clock}` : ''}
+            </span>
           </div>
+          {t.time.weather && (
+            <div className="stat-line">
+              <span title={`${t.time.weather.label} · ${t.time.weather.season}`}>
+                {t.time.weather.emoji} {t.time.weather.label}
+              </span>
+              <span className="muted">{t.time.weather.season}</span>
+            </div>
+          )}
+          {t.time.storyClock && (
+            <button className="link-btn story-cal-open" onClick={() => setShowCalendar(true)}>
+              📅 Story Calendar
+            </button>
+          )}
           <div className="time-dots">
             {TIME_DOTS.map(([period, dot]) => (
               <div
@@ -392,6 +489,14 @@ export function ChatTools({
         />
       )}
 
+      {showCalendar && (
+        <StoryCalendarModal
+          focusedId={focusedId}
+          canEdit={t.realismEnabled}
+          onClose={() => setShowCalendar(false)}
+          onChanged={load}
+        />
+      )}
     </div>
   );
 }

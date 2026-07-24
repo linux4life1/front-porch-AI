@@ -78,6 +78,48 @@ void main() {
     });
   });
 
+  group('promptText (photo-aware eval/context text)', () {
+    test('non-photo message returns displayText unchanged', () {
+      final msg = ChatMessage(text: 'Hello!', sender: 'You', isUser: true);
+      expect(msg.promptText, 'Hello!');
+    });
+
+    test('photo-only message (empty text) shows the marker, not blank', () {
+      final msg = ChatMessage(
+        text: '',
+        sender: 'You',
+        isUser: true,
+        metadata: {'is_user_image': true, 'image_path': '/x/y.png'},
+      );
+      // The bug: realism evals saw a bare "You: " for this turn.
+      expect(msg.promptText, '[shared a photo]');
+    });
+
+    test('photo + text keeps both, marker appended', () {
+      final msg = ChatMessage(
+        text: 'do you like it?',
+        sender: 'You',
+        isUser: true,
+        metadata: {'is_user_image': true, 'image_path': '/x/y.png'},
+      );
+      expect(msg.promptText, 'do you like it? [shared a photo]');
+    });
+
+    test('once captioned, the marker carries the description', () {
+      final msg = ChatMessage(
+        text: '',
+        sender: 'You',
+        isUser: true,
+        metadata: {
+          'is_user_image': true,
+          'image_path': '/x/y.png',
+          'image_caption': 'a sunset over the porch',
+        },
+      );
+      expect(msg.promptText, '[shared a photo: a sunset over the porch]');
+    });
+  });
+
   group('displayText', () {
     test('preserves text without thinking tags', () {
       final msg = ChatMessage(text: 'Hello!', sender: 'Luna', isUser: false);

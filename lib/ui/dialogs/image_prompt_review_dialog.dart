@@ -116,7 +116,7 @@ class _ImagePromptReviewDialogState extends State<ImagePromptReviewDialog> {
           label: const Text('Generate'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.formMasterAccent,
-            foregroundColor: AppColors.textPrimary(context),
+            foregroundColor: AppColors.onChaosAccent,
           ),
         ),
       ],

@@ -162,8 +162,9 @@ extension ChatServiceGrowth on ChatService {
         JournalPhysics.hasSalientEvent(_messages.sublist(windowStart));
 
     if (due || eventKick) {
-      _growthService.eventKickPending = false;
-      // Fire and forget — don't await
+      // Fire and forget — don't await. The pass consumes eventKickPending
+      // itself once it actually starts, so a parked review batch (or an
+      // already-running pass) can't silently eat the kick.
       _growthService.runGrowthPass();
     }
   }

@@ -175,6 +175,8 @@ extension ChatServiceRealismEvals on ChatService {
       'timeOfDay': _timeService.timeOfDay,
       'dayCount': _timeService.dayCount,
       'startDayOfWeek': _timeService.startDayOfWeekAnchor,
+      'storyClock': _timeService.storyClockIso,
+      'storyStartDate': _timeService.storyStartDateIso,
       'arousalLevel': _nsfwService.arousalLevel,
       'cooldownTurnsRemaining': _nsfwService.cooldownTurnsRemaining,
       'cooldownTurnsTotal': _nsfwService.cooldownTurnsTotal,

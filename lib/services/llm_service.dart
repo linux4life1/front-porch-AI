@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 /// Generation parameters shared across all LLM backends.
@@ -147,6 +149,14 @@ abstract class LLMService extends ChangeNotifier {
   /// real backend implements it (remote APIs and local KoboldCpp alike —
   /// Qwen3-class local models call tools well); a model that can't simply
   /// produces no calls and the caller's negotiation handles the rest.
+  ///
+  /// Contract: null is a CAPABILITY signal (the backend answered and the
+  /// call yielded nothing usable). Transport failures — host unreachable,
+  /// the client torn down mid-call by [abortGeneration], a whole-call
+  /// timeout, or a busy/5xx server — THROW instead, so verdict-recording
+  /// callers (the shared ToolTransportProbe consumers) can classify them as
+  /// network events via [isToolTransportFailure] rather than branding the
+  /// backend XML-only for the whole run.
   Future<LlmToolResponse?> generateWithTools(
     GenerationParams params,
     List<Map<String, dynamic>> tools,
@@ -177,6 +187,34 @@ bool looksLikeBackendUnreachable(Object error) {
       s.contains('Connection closed before full header') ||
       (s.contains('ClientException') && s.contains('closed'));
 }
+
+/// Thrown by [LLMService.generateWithTools] implementations when the server
+/// answered "busy / unavailable" (HTTP 429 or 5xx) — the transient sibling
+/// of a thrown socket error. Says nothing about the model's tool-calling
+/// capability; callers classify it via [isToolTransportFailure].
+class LlmToolTransportException implements Exception {
+  final String message;
+
+  LlmToolTransportException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// True when a tools-transport attempt failed at the TRANSPORT level — an
+/// unreachable backend, a client torn down mid-call (an app-side
+/// abortGeneration), a whole-call timeout, or a busy/5xx server. These say
+/// nothing about the MODEL's tool-calling capability, so verdict-recording
+/// callers (the shared ToolTransportProbe consumers) must not brand a
+/// backend XML-only on them.
+bool isToolTransportFailure(Object error) =>
+    error is TimeoutException ||
+    error is LlmToolTransportException ||
+    looksLikeBackendUnreachable(error) ||
+    // package:http race: abortGeneration closed the client between its
+    // creation and the post() — surfaces as a StateError, not a
+    // ClientException.
+    error.toString().contains('Client is already closed');
 
 /// Thrown when a feature needs the AI backend but it isn't ready or can't be
 /// reached. [message] is user-facing — surfaces like the story pages and the

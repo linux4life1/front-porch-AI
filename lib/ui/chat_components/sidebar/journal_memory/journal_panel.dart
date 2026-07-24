@@ -315,6 +315,8 @@ class _JournalPanelState extends State<JournalPanel> {
       content: draft.content,
       category: draft.category,
       emotionLabel: draft.feeling,
+      storyDay: widget.chatService.timeService.dayCount,
+      storyClock: widget.chatService.timeService.storyClockIso,
       maxCards: storage.journalMaxCards,
     );
     await _load();

@@ -775,25 +775,21 @@ class HardwareService extends ChangeNotifier {
       if (res != null) _hasCuda = true;
     }
 
-    // ROCm/HIP Check
-    // Windows: Check if amdsysinfo or similar exists, or just defer to Vulkan availability which is standard.
-    // But user asked for "ROCm files". On Windows, real ROCm is rare for consumers, they use HIP SDK.
-    // We'll filter by "ROCm" if we find 'rocminfo' on Linux or 'hipinfo' on Windows.
-    // Simplified: On Windows, if AMD vendor, assume "ROCm/HIP" capability is provided by driver for Kobold (Vulkan is actual backend though).
-    // Let's check for 'rocminfo' on Linux.
+    // ROCm runtime presence — Linux only, and purely ADVISORY: it enables
+    // the expert opt-in chip in Settings and the guidance dialog. It never
+    // selects the backend (see GpuBackendResolver). rocminfo succeeding
+    // proves the runtime is installed, not that koboldcpp's hipblas
+    // kernels support this card.
+    //
+    // Windows is deliberately always false: the old check keyed on
+    // amdhip64.dll, which ships with EVERY standard Adrenalin driver, and
+    // the mainline Windows koboldcpp.exe has no hipblas backend at all —
+    // Windows AMD users belong on Vulkan.
     if (Platform.isLinux) {
       try {
         final res = await Process.run('rocminfo', []);
         if (res.exitCode == 0) _hasRocm = true;
       } catch (_) {}
-    } else if (Platform.isWindows) {
-      // Harder to check "ROCm" specifically on Windows without HIP SDK.
-      // But we can check if the driver itself is functioning.
-      // For now, if Vendor is AMD, we'll assume the files are "available" in the sense that the driver is there.
-      // Or we can check for `C:\Windows\System32\amdhip64.dll` if we want to be pedantic about HIP.
-      if (File(r'C:\Windows\System32\amdhip64.dll').existsSync()) {
-        _hasRocm = true;
-      }
     }
   }
 }

@@ -29,6 +29,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../widgets/inline_chat_image.dart';
 import 'styled_chat_message.dart';
+import 'theme_border_resolver.dart';
 
 /// Message bubble widget (extracted from chat_page god file).
 /// Preserves all original behavior for 1:1 + group, swipes, TTS, realism indicators, thoughts, actions, Chance Time, etc.
@@ -66,6 +67,59 @@ class _MessageBubbleState extends State<MessageBubble> {
   int get index => widget.index;
   CharacterCard? get character => widget.character;
 
+  /// The one centered narration banner (Chance Time 🎰, Dreams 🌙 — Living
+  /// Time §1). Warm-porch amber tints, italic center text.
+  Widget _narrationBanner(
+    BuildContext context, {
+    required String emoji,
+    required String text,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 32),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.resolve(
+            context,
+            const Color(0xFFFFD166).withValues(alpha: 0.12),
+            const Color(0xFFF59E0B).withValues(alpha: 0.18),
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.resolve(
+              context,
+              const Color(0xFFFFD166).withValues(alpha: 0.35),
+              const Color(0xFFF59E0B).withValues(alpha: 0.4),
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.resolve(
+                    context,
+                    const Color(0xFFFFD166),
+                    const Color(0xFFB45309),
+                  ),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDirectorNote = message.characterId == '__director__';
@@ -73,54 +127,31 @@ class _MessageBubbleState extends State<MessageBubble> {
         message.activeMetadata?['is_chance_time_narration'] == true;
     final bubbleOpacity = Provider.of<StorageService>(context).bubbleOpacity;
     final storage = Provider.of<StorageService>(context);
+    final theme = ThemeBorderResolver.resolve(
+      chatService: widget.chatService,
+      storage: storage,
+      character: character,
+      isUser: message.isUser,
+      isDirectorNote: isDirectorNote,
+    );
 
-    // Chance Time narrations get a special centered banner
+    // Centered narration banners: Chance Time and Dreams share ONE builder
+    // (the chance-time banner was inlined here before dreams arrived; the
+    // extraction deletes that duplication rather than adding a parallel copy).
     if (isChanceTimeNarration) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 32),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.resolve(
-              context,
-              const Color(0xFFFFD166).withValues(alpha: 0.12),
-              const Color(0xFFF59E0B).withValues(alpha: 0.18),
-            ),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.resolve(
-                context,
-                const Color(0xFFFFD166).withValues(alpha: 0.35),
-                const Color(0xFFF59E0B).withValues(alpha: 0.4),
-              ),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('🎰', style: TextStyle(fontSize: 16)),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  message.text
-                      .replaceAll('[🎰 CHANCE TIME! ', '')
-                      .replaceAll(']', ''),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.resolve(
-                      context,
-                      const Color(0xFFFFD166),
-                      const Color(0xFFB45309),
-                    ),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      return _narrationBanner(
+        context,
+        emoji: '🎰',
+        text: message.text
+            .replaceAll('[🎰 CHANCE TIME! ', '')
+            .replaceAll(']', ''),
+      );
+    }
+    if (message.activeMetadata?['is_dream'] == true) {
+      return _narrationBanner(
+        context,
+        emoji: '🌙',
+        text: '${message.sender} dreamt: ${message.text}',
       );
     }
 
@@ -145,798 +176,853 @@ class _MessageBubbleState extends State<MessageBubble> {
           if (!message.isUser && !isDirectorNote) const SizedBox(width: 12),
 
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDirectorNote
-                    ? AppColors.resolve(
-                        context,
-                        AppColors.resolve(
-                          context,
-                          const Color(0xFFFFD166),
-                          const Color(0xFFF59E0B),
-                        ).withValues(alpha: 0.1 * bubbleOpacity),
-                        const Color(
-                          0xFFD97706,
-                        ).withValues(alpha: 0.12 * bubbleOpacity),
-                      )
-                    : message.isUser
-                    ? storage
-                          .getUserBubbleColor(character)
-                          .withValues(alpha: bubbleOpacity)
-                    : storage
-                          .getAiBubbleColor(character)
-                          .withValues(alpha: bubbleOpacity),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(12),
-                  topRight: const Radius.circular(12),
-                  bottomLeft: message.isUser && !isDirectorNote
-                      ? const Radius.circular(12)
-                      : Radius.zero,
-                  bottomRight: message.isUser && !isDirectorNote
-                      ? Radius.zero
-                      : const Radius.circular(12),
-                ),
-                border: isDirectorNote
-                    ? Border.all(
-                        color: AppColors.resolve(
-                          context,
-                          AppColors.resolve(
-                            context,
-                            const Color(0xFFFFD166),
-                            const Color(0xFFF59E0B),
-                          ).withValues(alpha: 0.3),
-                          const Color(0xFFD97706).withValues(alpha: 0.35),
-                        ),
-                      )
-                    : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isDirectorNote) ...[
-                        Icon(
-                          Icons.movie_creation,
-                          size: 14,
-                          color: AppColors.resolve(
+            child: Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDirectorNote
+                        ? AppColors.resolve(
                             context,
                             AppColors.resolve(
                               context,
                               const Color(0xFFFFD166),
                               const Color(0xFFF59E0B),
-                            ),
-                            const Color(0xFFD97706),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Director',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                            ).withValues(alpha: 0.1 * bubbleOpacity),
+                            const Color(
+                              0xFFD97706,
+                            ).withValues(alpha: 0.12 * bubbleOpacity),
+                          )
+                        : message.isUser
+                        ? storage
+                              .getUserBubbleColor(
+                                character,
+                                theme.preset,
+                                theme.overrides,
+                              )
+                              .withValues(alpha: bubbleOpacity)
+                        : storage
+                              .getAiBubbleColor(
+                                character,
+                                theme.preset,
+                                theme.overrides,
+                              )
+                              .withValues(alpha: bubbleOpacity),
+                    borderRadius: theme.borderRadius,
+                    border: isDirectorNote
+                        ? Border.all(
                             color: AppColors.resolve(
                               context,
                               AppColors.resolve(
                                 context,
                                 const Color(0xFFFFD166),
                                 const Color(0xFFF59E0B),
-                              ),
-                              const Color(0xFFD97706),
+                              ).withValues(alpha: 0.3),
+                              const Color(0xFFD97706).withValues(alpha: 0.35),
                             ),
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                        const Spacer(),
-                      ] else if (!message.isUser) ...[
-                        Builder(
-                          builder: (context) {
-                            final chatService = Provider.of<ChatService>(
-                              context,
-                              listen: false,
-                            );
-                            final nameWidget = Text(
-                              message.sender,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color:
-                                    widget.senderColor ??
-                                    storage.getDialogueColor(character),
-                              ),
-                            );
-                            if (chatService.isGroupMode) {
-                              return GestureDetector(
-                                onTap: () {
-                                  final ch = chatService.groupCharacters
-                                      .where((c) => c.name == message.sender)
-                                      .firstOrNull;
-                                  if (ch != null) {
-                                    chatService.setNextCharacter(ch);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '${message.sender} will respond next',
-                                        ),
-                                        duration: const Duration(seconds: 1),
-                                        backgroundColor:
-                                            widget.senderColor ??
-                                            Colors.blueAccent,
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: nameWidget,
-                                ),
-                              );
-                            }
-                            return nameWidget;
-                          },
-                        ),
-                        const Spacer(),
-                      ],
-                      // TTS speaker button
-                      if (!message.isUser &&
-                          message.sender != 'System' &&
-                          !isDirectorNote)
-                        Consumer2<TtsService, StorageService>(
-                          builder: (context, tts, storage, _) {
-                            if (!storage.ttsEnabled) {
-                              return const SizedBox.shrink();
-                            }
-                            final msgId = 'msg_${widget.index}';
-                            final isThisMsg = tts.currentMessageId == msgId;
-                            final isGeneratingThis =
-                                isThisMsg && tts.isGenerating;
-                            final isSpeakingThis =
-                                isThisMsg &&
-                                tts.isSpeaking &&
-                                !tts.isGenerating;
-
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 4),
-                              child: isGeneratingThis
-                                  ? Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        InkWell(
-                                          onTap: () => tts.stop(),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          child: const Padding(
-                                            padding: EdgeInsets.all(2),
-                                            child: Icon(
-                                              Icons.stop_circle,
-                                              size: 16,
-                                              color: Colors.redAccent,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 2),
-                                        SizedBox(
-                                          width: 28,
-                                          height: 28,
-                                          child: Stack(
-                                            alignment: Alignment.center,
-                                            children: [
-                                              SizedBox(
-                                                width: 18,
-                                                height: 18,
-                                                child: CircularProgressIndicator(
-                                                  value:
-                                                      tts.generationProgress > 0
-                                                      ? tts.generationProgress
-                                                      : null,
-                                                  strokeWidth: 2,
-                                                  color: Colors.blueAccent,
-                                                ),
-                                              ),
-                                              if (tts.generationProgress > 0)
-                                                Text(
-                                                  '${(tts.generationProgress * 100).toInt()}',
-                                                  style: TextStyle(
-                                                    color:
-                                                        AppColors.textSecondary(
-                                                          context,
-                                                        ),
-                                                    fontSize: 7,
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : IconButton(
-                                      icon: Icon(
-                                        isSpeakingThis
-                                            ? Icons.stop_circle
-                                            : Icons.volume_up,
-                                        size: 16,
-                                        color: isSpeakingThis
-                                            ? Colors.orangeAccent
-                                            : AppColors.textTertiary(context),
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      tooltip: isSpeakingThis
-                                          ? 'Stop speaking'
-                                          : 'Speak message',
-                                      onPressed: () {
-                                        if (isSpeakingThis) {
-                                          tts.stop();
-                                        } else {
-                                          final chatService =
-                                              Provider.of<ChatService>(
-                                                context,
-                                                listen: false,
-                                              );
-                                          String? voiceKey;
-                                          if (chatService.activeGroup != null) {
-                                            final charMatch = chatService
-                                                .groupCharacters
-                                                .where(
-                                                  (c) =>
-                                                      c.name == message.sender,
-                                                )
-                                                .firstOrNull;
-                                            voiceKey = charMatch?.ttsVoice;
-                                          } else {
-                                            voiceKey = chatService
-                                                .activeCharacter
-                                                ?.ttsVoice;
-                                          }
-                                          tts.speak(
-                                            message.displayText,
-                                            voiceKey: voiceKey,
-                                            messageId: msgId,
-                                            emotion:
-                                                chatService.currentExpressionLabel,
-                                          );
-                                        }
-                                      },
-                                    ),
-                            );
-                          },
-                        ),
-                      if (message.sender != 'System')
-                        IconButton(
-                          icon: Icon(
-                            Icons.edit_outlined,
-                            size: 16,
-                            color: AppColors.textTertiary(context),
-                          ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          tooltip: 'Edit message',
-                          onPressed: () => _showEditDialog(context, index),
-                        ),
-                      if (message.sender != 'System') const SizedBox(width: 8),
-                      if (message.sender != 'System')
-                        IconButton(
-                          icon: Icon(
-                            Icons.call_split,
-                            size: 16,
-                            color: AppColors.textTertiary(context),
-                          ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          tooltip: 'Fork from here',
-                          onPressed: () =>
-                              _showForkConfirmation(context, index),
-                        ),
-                      if (message.sender != 'System') const SizedBox(width: 8),
-                      IconButton(
-                        icon: Icon(
-                          Icons.delete_outline,
-                          size: 16,
-                          color: AppColors.textTertiary(context),
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () =>
-                            _showDeleteConfirmation(context, index),
-                      ),
-                    ],
+                          )
+                        : null,
                   ),
-                  if (!message.isUser) const SizedBox(height: 4),
-                  // Collapsible Thought chip
-                  if (!message.isUser && message.hasThinking)
-                    GestureDetector(
-                      onTap: () =>
-                          setState(() => _thoughtExpanded = !_thoughtExpanded),
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isDirectorNote) ...[
                             Icon(
-                              _thoughtExpanded
-                                  ? Icons.expand_more
-                                  : Icons.chevron_right,
-                              size: 20,
-                              color: AppColors.textSecondary(context),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.resolve(
-                                  context,
-                                  const Color(0xFF2A4A5A),
-                                  const Color(0xFFE0F2FE),
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                'Thought',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.tealAccent,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Icon(
-                              Icons.lightbulb_outline,
-                              size: 16,
+                              Icons.movie_creation,
+                              size: 14,
                               color: AppColors.resolve(
                                 context,
                                 AppColors.resolve(
                                   context,
-                                  Colors.amber,
-                                  const Color(0xFFB45309),
+                                  const Color(0xFFFFD166),
+                                  const Color(0xFFF59E0B),
                                 ),
-                                const Color(0xFFB45309),
+                                const Color(0xFFD97706),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  // Expanded thinking details
-                  if (!message.isUser &&
-                      message.hasThinking &&
-                      _thoughtExpanded)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 8, left: 20),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.resolve(
-                          context,
-                          const Color(0xFF1A2A3A),
-                          const Color(0xFFE0F2FE),
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (message.thinkingDurationMs > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Text(
-                                'Thought for ${(message.thinkingDurationMs / 1000).toStringAsFixed(1)}s',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.tealAccent,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                          if (message.thinkingContent != null)
+                            const SizedBox(width: 6),
                             Text(
-                              message.thinkingContent!,
+                              'Director',
                               style: TextStyle(
+                                fontWeight: FontWeight.bold,
                                 fontSize: 12,
-                                color: AppColors.textSecondary(context),
+                                color: AppColors.resolve(
+                                  context,
+                                  AppColors.resolve(
+                                    context,
+                                    const Color(0xFFFFD166),
+                                    const Color(0xFFF59E0B),
+                                  ),
+                                  const Color(0xFFD97706),
+                                ),
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
+                            const Spacer(),
+                          ] else if (!message.isUser) ...[
+                            Builder(
+                              builder: (context) {
+                                final chatService = Provider.of<ChatService>(
+                                  context,
+                                  listen: false,
+                                );
+                                final nameWidget = Text(
+                                  message.sender,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color:
+                                        widget.senderColor ??
+                                        theme.accent ??
+                                        storage.getDialogueColor(character),
+                                  ),
+                                );
+                                if (chatService.isGroupMode) {
+                                  return GestureDetector(
+                                    onTap: () {
+                                      final ch = chatService.groupCharacters
+                                          .where(
+                                            (c) => c.name == message.sender,
+                                          )
+                                          .firstOrNull;
+                                      if (ch != null) {
+                                        chatService.setNextCharacter(ch);
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              '${message.sender} will respond next',
+                                            ),
+                                            duration: const Duration(
+                                              seconds: 1,
+                                            ),
+                                            backgroundColor:
+                                                widget.senderColor ??
+                                                AppColors.porchAmberOf(context),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      child: nameWidget,
+                                    ),
+                                  );
+                                }
+                                return nameWidget;
+                              },
+                            ),
+                            const Spacer(),
+                          ],
+                          // TTS speaker button
+                          if (!message.isUser &&
+                              message.sender != 'System' &&
+                              !isDirectorNote)
+                            Consumer2<TtsService, StorageService>(
+                              builder: (context, tts, storage, _) {
+                                if (!storage.ttsEnabled) {
+                                  return const SizedBox.shrink();
+                                }
+                                final msgId = 'msg_${widget.index}';
+                                final isThisMsg = tts.currentMessageId == msgId;
+                                final isGeneratingThis =
+                                    isThisMsg && tts.isGenerating;
+                                final isSpeakingThis =
+                                    isThisMsg &&
+                                    tts.isSpeaking &&
+                                    !tts.isGenerating;
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: isGeneratingThis
+                                      ? Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            InkWell(
+                                              onTap: () => tts.stop(),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              child: const Padding(
+                                                padding: EdgeInsets.all(2),
+                                                child: Icon(
+                                                  Icons.stop_circle,
+                                                  size: 16,
+                                                  color: Colors.redAccent,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 2),
+                                            SizedBox(
+                                              width: 28,
+                                              height: 28,
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child: CircularProgressIndicator(
+                                                      value:
+                                                          tts.generationProgress >
+                                                              0
+                                                          ? tts.generationProgress
+                                                          : null,
+                                                      strokeWidth: 2,
+                                                      color:
+                                                          AppColors.porchAmberOf(
+                                                            context,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  if (tts.generationProgress >
+                                                      0)
+                                                    Text(
+                                                      '${(tts.generationProgress * 100).toInt()}',
+                                                      style: TextStyle(
+                                                        color:
+                                                            AppColors.textSecondary(
+                                                              context,
+                                                            ),
+                                                        fontSize: 7,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : IconButton(
+                                          icon: Icon(
+                                            isSpeakingThis
+                                                ? Icons.stop_circle
+                                                : Icons.volume_up,
+                                            size: 16,
+                                            color: isSpeakingThis
+                                                ? Colors.orangeAccent
+                                                : AppColors.textTertiary(
+                                                    context,
+                                                  ),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          tooltip: isSpeakingThis
+                                              ? 'Stop speaking'
+                                              : 'Speak message',
+                                          onPressed: () {
+                                            if (isSpeakingThis) {
+                                              tts.stop();
+                                            } else {
+                                              final chatService =
+                                                  Provider.of<ChatService>(
+                                                    context,
+                                                    listen: false,
+                                                  );
+                                              String? voiceKey;
+                                              if (chatService.activeGroup !=
+                                                  null) {
+                                                final charMatch = chatService
+                                                    .groupCharacters
+                                                    .where(
+                                                      (c) =>
+                                                          c.name ==
+                                                          message.sender,
+                                                    )
+                                                    .firstOrNull;
+                                                voiceKey = charMatch?.ttsVoice;
+                                              } else {
+                                                voiceKey = chatService
+                                                    .activeCharacter
+                                                    ?.ttsVoice;
+                                              }
+                                              tts.speak(
+                                                message.displayText,
+                                                voiceKey: voiceKey,
+                                                messageId: msgId,
+                                                emotion: chatService.currentExpressionLabel,
+                                              );
+                                            }
+                                          },
+                                        ),
+                                );
+                              },
+                            ),
+                          if (message.sender != 'System')
+                            IconButton(
+                              icon: Icon(
+                                Icons.edit_outlined,
+                                size: 16,
+                                color:
+                                    theme.accent ??
+                                    AppColors.textTertiary(context),
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Edit message',
+                              onPressed: () => _showEditDialog(context, index),
+                            ),
+                          if (message.sender != 'System')
+                            const SizedBox(width: 8),
+                          if (message.sender != 'System')
+                            IconButton(
+                              icon: Icon(
+                                Icons.call_split,
+                                size: 16,
+                                color:
+                                    theme.accent ??
+                                    AppColors.textTertiary(context),
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Fork from here',
+                              onPressed: () =>
+                                  _showForkConfirmation(context, index),
+                            ),
+                          if (message.sender != 'System')
+                            const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 16,
+                              color:
+                                  theme.accent ??
+                                  AppColors.textTertiary(context),
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () =>
+                                _showDeleteConfirmation(context, index),
+                          ),
                         ],
                       ),
-                    ),
-                  // Live thinking timer
-                  if (!message.isUser &&
-                      message.thinkingStartTime != null &&
-                      message.thinkingDurationMs == 0)
-                    Consumer<ChatService>(
-                      builder: (context, chatService, _) {
-                        if (!chatService.isGenerating) {
-                          return const SizedBox.shrink();
-                        }
-                        final elapsed =
-                            DateTime.now().millisecondsSinceEpoch -
-                            message.thinkingStartTime!;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(
-                                width: 10,
-                                height: 10,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: Colors.tealAccent,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Thinking ${(elapsed / 1000).toStringAsFixed(0)}s...',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textTertiary(context),
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
+                      if (!message.isUser) const SizedBox(height: 4),
+                      // Collapsible Thought chip
+                      if (!message.isUser && message.hasThinking)
+                        GestureDetector(
+                          onTap: () => setState(
+                            () => _thoughtExpanded = !_thoughtExpanded,
                           ),
-                        );
-                      },
-                    ),
-                  StyledChatMessage(
-                    text: message.displayText,
-                    isUser: message.isUser,
-                    externalImagesAllowed: widget.externalImagesAllowed,
-                    onRequestImagePermission: widget.onRequestImagePermission,
-                    character:
-                        widget.character ?? widget.chatService?.activeCharacter,
-                  ),
-                  // Locally generated image (from /image or the Image Studio's
-                  // "Send to chat") — click to zoom, right-click to save.
-                  if (message.activeMetadata?['image_path'] is String)
-                    InlineChatImage(
-                      path: message.activeMetadata!['image_path'] as String,
-                      prompt:
-                          message.activeMetadata!['image_prompt'] as String?,
-                    ),
-                  if (message.activeMetadata != null)
-                    _buildRealismIndicator(message.activeMetadata!),
-                  // Swipe arrows for alternate greetings on first message
-                  if (index == 0 && !message.isUser)
-                    Consumer<ChatService>(
-                      builder: (context, chatService, _) {
-                        final character = chatService.activeCharacter;
-                        if (character == null) return const SizedBox.shrink();
-                        final allGreetings = character.allGreetings;
-                        if (allGreetings.length <= 1) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              InkWell(
-                                onTap: () => chatService.cycleGreeting(-1),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: EdgeInsets.all(4),
-                                  child: Icon(
-                                    Icons.chevron_left,
-                                    size: 20,
-                                    color: AppColors.textSecondary(context),
-                                  ),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _thoughtExpanded
+                                      ? Icons.expand_more
+                                      : Icons.chevron_right,
+                                  size: 20,
+                                  color: AppColors.textSecondary(context),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${chatService.greetingIndex + 1}/${allGreetings.length}',
-                                style: const TextStyle(
-                                  color: Colors.orangeAccent,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              InkWell(
-                                onTap: () => chatService.cycleGreeting(1),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: EdgeInsets.all(4),
-                                  child: Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                    color: AppColors.textSecondary(context),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  // Action buttons: regen, continue, swipe arrows.
-                  // Generated-image messages carry no regenerable text, so the
-                  // text-generation actions are hidden for them (regen would
-                  // stream prose into an image bubble).
-                  if (!message.isUser &&
-                      message.sender != 'System' &&
-                      message.activeMetadata?['is_generated_image'] != true)
-                    Consumer<ChatService>(
-                      builder: (context, chatService, _) {
-                        final isLastBotMessage =
-                            index == chatService.messages.length - 1 &&
-                            !chatService.isGenerating;
-                        final hasSwipes = message.swipes.length > 1;
-                        // This host (main character) message is buried under one
-                        // or more Scene Guest (Lite NPC) replies, so the normal
-                        // last-message regen can't reach it. Offer a regen that
-                        // first removes those stale guest replies. (By definition
-                        // this is never the last message.)
-                        final isRegenHostBelowGuests =
-                            index ==
-                                chatService.regenerableHostBelowGuestsIndex &&
-                            !chatService.isGenerating;
-
-                        // Nothing to show if not last message, no swipes, and not
-                        // a host buried under guest replies.
-                        if (!isLastBotMessage &&
-                            !hasSwipes &&
-                            !isRegenHostBelowGuests) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              // Regen the main character even though a Lite NPC
-                              // spoke after it — pops the NPC's now-stale reply,
-                              // regenerates this message, then lets the NPC chime
-                              // again only if still relevant.
-                              if (isRegenHostBelowGuests) ...[
-                                Tooltip(
-                                  message:
-                                      'Regenerate main character\n(removes the NPC’s reply)',
-                                  child: InkWell(
-                                    onTap: () =>
-                                        chatService.regenerateMainCharacter(),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        Icons.refresh,
-                                        size: 20,
-                                        color: AppColors.resolve(
-                                          context,
-                                          Colors.orangeAccent,
-                                          Colors.orange.shade800,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (hasSwipes) const SizedBox(width: 12),
-                              ],
-                              // Regen button — last bot message only
-                              if (isLastBotMessage) ...[
-                                Tooltip(
-                                  message: 'Regenerate',
-                                  child: InkWell(
-                                    onTap: () =>
-                                        chatService.regenerateLastMessage(),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(4),
-                                      child: Icon(
-                                        Icons.refresh,
-                                        size: 20,
-                                        color: Colors.orangeAccent,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                // Continue button
-                                Tooltip(
-                                  message: 'Continue generation',
-                                  child: InkWell(
-                                    onTap: () =>
-                                        chatService.continueGeneration(),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(4),
-                                      child: Icon(
-                                        Icons.arrow_downward,
-                                        size: 20,
-                                        color: Colors.blue,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (hasSwipes) const SizedBox(width: 12),
-                              ],
-                              // Swipe arrows — only when multiple swipes exist
-                              if (hasSwipes) ...[
-                                InkWell(
-                                  onTap: () =>
-                                      chatService.swipeMessage(index, -1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Padding(
-                                    padding: EdgeInsets.all(4),
-                                    child: Icon(
-                                      Icons.chevron_left,
-                                      size: 20,
-                                      color: AppColors.textSecondary(context),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${message.swipeIndex + 1}/${message.swipes.length}',
-                                  style: TextStyle(
-                                    color: Colors.greenAccent,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                InkWell(
-                                  onTap: () =>
-                                      chatService.swipeMessage(index, 1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Padding(
-                                    padding: EdgeInsets.all(4),
-                                    child: Icon(
-                                      Icons.chevron_right,
-                                      size: 20,
-                                      color: AppColors.textSecondary(context),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  // Suggest actions button + action pills (last bot message only;
-                  // hidden for generated-image messages like the regen row above)
-                  if (!message.isUser &&
-                      message.sender != 'System' &&
-                      message.activeMetadata?['is_generated_image'] != true)
-                    Consumer<ChatService>(
-                      builder: (context, chatService, _) {
-                        final isLast =
-                            index == chatService.messages.length - 1 &&
-                            !chatService.isGenerating;
-                        if (!isLast) return const SizedBox.shrink();
-
-                        final actions = chatService.suggestedActions;
-                        final isGenerating = chatService.isGeneratingActions;
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // "Suggest actions" button
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: InkWell(
-                                onTap: isGenerating
-                                    ? null
-                                    : () => chatService.generateActions(),
-                                borderRadius: BorderRadius.circular(4),
-                                child: Padding(
+                                Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
+                                    horizontal: 10,
                                     vertical: 3,
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (isGenerating)
-                                        SizedBox(
-                                          width: 12,
-                                          height: 12,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 1.5,
-                                            color: AppColors.textTertiary(
-                                              context,
-                                            ),
-                                          ),
-                                        )
-                                      else
-                                        const Icon(
-                                          Icons.lightbulb_outline,
-                                          size: 13,
-                                          color: Colors.white30,
-                                        ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        isGenerating
-                                            ? 'Thinking...'
-                                            : 'Suggest actions',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.white30,
-                                        ),
-                                      ),
-                                    ],
+                                  decoration: BoxDecoration(
+                                    color: AppColors.resolve(
+                                      context,
+                                      const Color(0xFF2A4A5A),
+                                      const Color(0xFFE0F2FE),
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'Thought',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.tealAccent,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
-                              ),
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.lightbulb_outline,
+                                  size: 16,
+                                  color: AppColors.porchAmberOf(context),
+                                ),
+                              ],
                             ),
-                            // Action pills
-                            if (actions.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: actions.map((action) {
-                                    return InkWell(
-                                      onTap: () =>
-                                          chatService.sendMessage(action),
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.06,
+                          ),
+                        ),
+                      // Expanded thinking details
+                      if (!message.isUser &&
+                          message.hasThinking &&
+                          _thoughtExpanded)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 8, left: 20),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.resolve(
+                              context,
+                              const Color(0xFF1A2A3A),
+                              const Color(0xFFE0F2FE),
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.borderOf(context),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (message.thinkingDurationMs > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Text(
+                                    'Thought for ${(message.thinkingDurationMs / 1000).toStringAsFixed(1)}s',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.tealAccent,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ),
+                              if (message.thinkingContent != null)
+                                Text(
+                                  message.thinkingContent!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary(context),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      // Live thinking timer
+                      if (!message.isUser &&
+                          message.thinkingStartTime != null &&
+                          message.thinkingDurationMs == 0)
+                        Consumer<ChatService>(
+                          builder: (context, chatService, _) {
+                            if (!chatService.isGenerating) {
+                              return const SizedBox.shrink();
+                            }
+                            final elapsed =
+                                DateTime.now().millisecondsSinceEpoch -
+                                message.thinkingStartTime!;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(
+                                    width: 10,
+                                    height: 10,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: Colors.tealAccent,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Thinking ${(elapsed / 1000).toStringAsFixed(0)}s...',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textTertiary(context),
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      StyledChatMessage(
+                        text: message.displayText,
+                        isUser: message.isUser,
+                        externalImagesAllowed: widget.externalImagesAllowed,
+                        onRequestImagePermission:
+                            widget.onRequestImagePermission,
+                        character:
+                            widget.character ??
+                            widget.chatService?.activeCharacter,
+                        themePreset: theme.preset,
+                        themeOverrides: theme.overrides,
+                      ),
+                      // Locally generated image (from /image or the Image Studio's
+                      // "Send to chat") — click to zoom, right-click to save.
+                      if (message.activeMetadata?['image_path'] is String)
+                        InlineChatImage(
+                          path: message.activeMetadata!['image_path'] as String,
+                          prompt:
+                              message.activeMetadata!['image_prompt']
+                                  as String?,
+                        ),
+                      if (message.activeMetadata != null)
+                        _buildRealismIndicator(message.activeMetadata!),
+                      // Swipe arrows for alternate greetings on first message
+                      if (index == 0 && !message.isUser)
+                        Consumer<ChatService>(
+                          builder: (context, chatService, _) {
+                            final character = chatService.activeCharacter;
+                            if (character == null) {
+                              return const SizedBox.shrink();
+                            }
+                            final allGreetings = character.allGreetings;
+                            if (allGreetings.length <= 1) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  InkWell(
+                                    onTap: () => chatService.cycleGreeting(-1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.chevron_left,
+                                        size: 20,
+                                        color: AppColors.textSecondary(context),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${chatService.greetingIndex + 1}/${allGreetings.length}',
+                                    style: const TextStyle(
+                                      color: Colors.orangeAccent,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  InkWell(
+                                    onTap: () => chatService.cycleGreeting(1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.chevron_right,
+                                        size: 20,
+                                        color: AppColors.textSecondary(context),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      // Action buttons: regen, continue, swipe arrows.
+                      // Generated-image messages carry no regenerable text, so the
+                      // text-generation actions are hidden for them (regen would
+                      // stream prose into an image bubble).
+                      if (!message.isUser &&
+                          message.sender != 'System' &&
+                          message.activeMetadata?['is_generated_image'] != true)
+                        Consumer<ChatService>(
+                          builder: (context, chatService, _) {
+                            final isLastBotMessage =
+                                index == chatService.messages.length - 1 &&
+                                !chatService.isGenerating;
+                            final hasSwipes = message.swipes.length > 1;
+                            // This host (main character) message is buried under one
+                            // or more Scene Guest (Lite NPC) replies, so the normal
+                            // last-message regen can't reach it. Offer a regen that
+                            // first removes those stale guest replies. (By definition
+                            // this is never the last message.)
+                            final isRegenHostBelowGuests =
+                                index ==
+                                    chatService
+                                        .regenerableHostBelowGuestsIndex &&
+                                !chatService.isGenerating;
+
+                            // Nothing to show if not last message, no swipes, and not
+                            // a host buried under guest replies.
+                            if (!isLastBotMessage &&
+                                !hasSwipes &&
+                                !isRegenHostBelowGuests) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  // Regen the main character even though a Lite NPC
+                                  // spoke after it — pops the NPC's now-stale reply,
+                                  // regenerates this message, then lets the NPC chime
+                                  // again only if still relevant.
+                                  if (isRegenHostBelowGuests) ...[
+                                    Tooltip(
+                                      message:
+                                          'Regenerate main character\n(removes the NPC’s reply)',
+                                      child: InkWell(
+                                        onTap: () => chatService
+                                            .regenerateMainCharacter(),
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4),
+                                          child: Icon(
+                                            Icons.refresh,
+                                            size: 20,
+                                            color: AppColors.resolve(
+                                              context,
+                                              Colors.orangeAccent,
+                                              Colors.orange.shade800,
+                                            ),
                                           ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (hasSwipes) const SizedBox(width: 12),
+                                  ],
+                                  // Regen button — last bot message only
+                                  if (isLastBotMessage) ...[
+                                    Tooltip(
+                                      message: 'Regenerate',
+                                      child: InkWell(
+                                        onTap: () =>
+                                            chatService.regenerateLastMessage(),
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(4),
+                                          child: Icon(
+                                            Icons.refresh,
+                                            size: 20,
+                                            color: Colors.orangeAccent,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Continue button
+                                    Tooltip(
+                                      message: 'Continue generation',
+                                      child: InkWell(
+                                        onTap: () =>
+                                            chatService.continueGeneration(),
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(4),
+                                          child: Icon(
+                                            Icons.arrow_downward,
+                                            size: 20,
+                                            color: Colors.blue,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (hasSwipes) const SizedBox(width: 12),
+                                  ],
+                                  // Swipe arrows — only when multiple swipes exist
+                                  if (hasSwipes) ...[
+                                    InkWell(
+                                      onTap: () =>
+                                          chatService.swipeMessage(index, -1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Padding(
+                                        padding: EdgeInsets.all(4),
+                                        child: Icon(
+                                          Icons.chevron_left,
+                                          size: 20,
+                                          color: AppColors.textSecondary(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${message.swipeIndex + 1}/${message.swipes.length}',
+                                      style: TextStyle(
+                                        color: Colors.greenAccent,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    InkWell(
+                                      onTap: () =>
+                                          chatService.swipeMessage(index, 1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Padding(
+                                        padding: EdgeInsets.all(4),
+                                        child: Icon(
+                                          Icons.chevron_right,
+                                          size: 20,
+                                          color: AppColors.textSecondary(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      // Suggest actions button + action pills (last bot message only;
+                      // hidden for generated-image messages like the regen row above)
+                      if (!message.isUser &&
+                          message.sender != 'System' &&
+                          message.activeMetadata?['is_generated_image'] != true)
+                        Consumer<ChatService>(
+                          builder: (context, chatService, _) {
+                            final isLast =
+                                index == chatService.messages.length - 1 &&
+                                !chatService.isGenerating;
+                            if (!isLast) return const SizedBox.shrink();
+
+                            final actions = chatService.suggestedActions;
+                            final isGenerating =
+                                chatService.isGeneratingActions;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // "Suggest actions" button
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: InkWell(
+                                    onTap: isGenerating
+                                        ? null
+                                        : () => chatService.generateActions(),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 3,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (isGenerating)
+                                            SizedBox(
+                                              width: 12,
+                                              height: 12,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.5,
+                                                color: AppColors.textTertiary(
+                                                  context,
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            Icon(
+                                              Icons.lightbulb_outline,
+                                              size: 13,
+                                              color:
+                                                  theme.accent ??
+                                                  AppColors.textTertiary(
+                                                    context,
+                                                  ),
+                                            ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            isGenerating
+                                                ? 'Thinking...'
+                                                : 'Suggest actions',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color:
+                                                  theme.accent ??
+                                                  AppColors.textTertiary(
+                                                    context,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Action pills
+                                if (actions.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: actions.map((action) {
+                                        return InkWell(
+                                          onTap: () =>
+                                              chatService.sendMessage(action),
                                           borderRadius: BorderRadius.circular(
                                             16,
                                           ),
-                                          border: Border.all(
-                                            color: Colors.white12,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.06,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                              border: Border.all(
+                                                color: Colors.white12,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              action,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color:
+                                                    theme.accent ??
+                                                    AppColors.textSecondary(
+                                                      context,
+                                                    ),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        child: Text(
-                                          action,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+
+                if (message.isUser) const SizedBox(width: 12),
+                if (message.isUser)
+                  Consumer<UserPersonaService>(
+                    builder: (context, service, _) {
+                      final persona = service.personas
+                          .where((p) => p.name == message.sender)
+                          .firstOrNull;
+                      if (persona?.avatarPath != null) {
+                        return CircleAvatar(
+                          backgroundImage: FileImage(
+                            File(persona!.avatarPath!),
+                          ),
+                          radius: 16,
                         );
-                      },
+                      }
+                      return const CircleAvatar(
+                        backgroundColor: Colors.purple,
+                        radius: 16,
+                        child: Icon(Icons.person, color: Colors.white),
+                      );
+                    },
+                  ),
+                if (theme.borderPainter != null)
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: theme.borderRadius,
+                      child: CustomPaint(painter: theme.borderPainter),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
-
-          if (message.isUser) const SizedBox(width: 12),
-          if (message.isUser)
-            Consumer<UserPersonaService>(
-              builder: (context, service, _) {
-                final persona = service.personas
-                    .where((p) => p.name == message.sender)
-                    .firstOrNull;
-                if (persona?.avatarPath != null) {
-                  return CircleAvatar(
-                    backgroundImage: FileImage(File(persona!.avatarPath!)),
-                    radius: 16,
-                  );
-                }
-                return const CircleAvatar(
-                  backgroundColor: Colors.purple,
-                  radius: 16,
-                  child: Icon(Icons.person, color: Colors.white),
-                );
-              },
-            ),
         ],
       ),
     );
@@ -981,7 +1067,7 @@ class _MessageBubbleState extends State<MessageBubble> {
         backgroundColor: AppColors.surfaceOf(context),
         title: Row(
           children: const [
-            Icon(Icons.call_split, color: Colors.blueAccent, size: 22),
+            Icon(Icons.call_split, color: AppColors.formMasterAccent, size: 22),
             SizedBox(width: 8),
             Text('Fork Conversation'),
           ],
@@ -1013,7 +1099,10 @@ class _MessageBubbleState extends State<MessageBubble> {
             },
             icon: Icon(Icons.call_split, size: 18),
             label: const Text('Fork'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.formMasterAccent,
+              foregroundColor: AppColors.onChaosAccent,
+            ),
           ),
         ],
       ),
@@ -1327,15 +1416,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             Icon(
               Icons.fast_forward,
               size: 11,
-              color: AppColors.resolve(
-                context,
-                AppColors.resolve(
-                  context,
-                  Colors.amber,
-                  const Color(0xFFB45309),
-                ),
-                const Color(0xFFB45309),
-              ),
+              color: AppColors.porchAmberOf(context),
             ),
             const SizedBox(width: 4),
             Text(
@@ -1343,15 +1424,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: AppColors.resolve(
-                  context,
-                  AppColors.resolve(
-                    context,
-                    Colors.amber,
-                    const Color(0xFFB45309),
-                  ),
-                  const Color(0xFFB45309),
-                ),
+                color: AppColors.porchAmberOf(context),
               ),
             ),
           ],
@@ -1804,8 +1877,14 @@ class _MessageBubbleState extends State<MessageBubble> {
               chatService.editMessage(index, controller.text);
               Navigator.of(context).pop();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.formMasterAccent,
+              foregroundColor: AppColors.onChaosAccent,
+            ),
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.onChaosAccent),
+            ),
           ),
         ],
       ),

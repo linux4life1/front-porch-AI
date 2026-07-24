@@ -98,14 +98,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Setup Python (for sidecars used by expression classifier / ONNX tests etc.)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python deps for test sidecars (matching build workflows to avoid classifier/ONNX crashes)
-        run: pip install numpy onnxruntime huggingface_hub transformers faster-whisper kokoro-onnx soundfile piper_tts pathvalidate
-
       - name: Run Tests
         # Use --concurrency=1 because several tests (notably the "real production"
         # ChatService + GroupTurnManager + per-speaker realism evals + DB settles
@@ -147,6 +139,100 @@ jobs:
           npm run lint
           npm test
         working-directory: web_ui
+
+  theme-lint:
+    name: Theme lint (no new raw blueAccent)
+    # Skip on Rawhide→main promotion PRs: their diff is the ENTIRE Rawhide
+    # branch, so every line grandfathered as diff context on normal PRs
+    # re-appears as "added" (even comments that merely mention the banned
+    # token) and the gate re-litigates history it already passed
+    # incrementally. Same guard on io-lint below.
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release/promote-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # needed for git diff against base branch
+
+      - name: Reject newly-added raw Colors.blueAccent
+        run: |
+          # The app has a single warm-porch palette. Raw `Colors.blueAccent`
+          # chrome was fully retired in favour of AppColors.formMasterAccent /
+          # AppColors.porchAmberOf(context). This gate keeps it retired: it only
+          # inspects lines *added* in this PR/push (existing deliberate semantic
+          # uses — trust chips, call-status colors, lorebook state badges — are
+          # grandfathered as diff context and never re-scanned).
+          #
+          # Base-branch resolution mirrors the analyze job:
+          #   - pull_request: github.base_ref is the target (e.g. Rawhide)
+          #   - push:         github.ref_name is the branch pushed to
+          BASE_BRANCH="${{ github.base_ref || github.ref_name || 'Rawhide' }}"
+
+          ADDED=$(git diff --diff-filter=ACM "origin/$BASE_BRANCH...HEAD" -- 'lib/**/*.dart' \
+            | grep -E '^\+' | grep -vE '^\+\+\+' \
+            | grep 'Colors\.blueAccent' \
+            | grep -v 'theme-keep' || true)
+
+          if [ -n "$ADDED" ]; then
+            echo "::error::New raw Colors.blueAccent introduced — the app uses the warm-porch palette."
+            echo ""
+            echo "Use AppColors.formMasterAccent (const) or AppColors.porchAmberOf(context) instead."
+            echo "If this is a DELIBERATE semantic color (e.g. a status/indicator hue, not chrome),"
+            echo "append a trailing '// theme-keep: <reason>' comment on the same line to allow it."
+            echo ""
+            echo "Offending added line(s):"
+            echo "$ADDED"
+            exit 1
+          fi
+          echo "No new raw Colors.blueAccent introduced. ✔"
+
+  io-lint:
+    name: IO lint (no new sync I/O in UI code)
+    # Promotion-PR skip — see the theme-lint comment above.
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release/promote-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # needed for git diff against base branch
+
+      - name: Reject newly-added synchronous I/O under lib/ui
+        run: |
+          # Synchronous I/O in widget build paths multiplies by widget count
+          # x rebuild rate (per streaming token batch) and is invisible on
+          # dev Macs but 10-100x more expensive on Windows under Defender's
+          # file-stat interception. Canonical incident: coverImageFileFor's
+          # existsSync ran per message bubble per rebuild and shipped as the
+          # 20260716-nightly "app is sluggish" regression. This gate bans
+          # NEW sync I/O anywhere under lib/ui (build paths can't be told
+          # apart by grep, and UI-layer I/O belongs in services/caches
+          # anyway). Existing sites are grandfathered as diff context.
+          #
+          # Base-branch resolution mirrors the theme-lint job.
+          BASE_BRANCH="${{ github.base_ref || github.ref_name || 'Rawhide' }}"
+
+          PATTERN='\.(existsSync|readAsStringSync|readAsBytesSync|readAsLinesSync|lengthSync|statSync|listSync|writeAsStringSync|writeAsBytesSync|createSync|deleteSync|copySync|renameSync)\(|Process\.runSync\('
+          ADDED=$(git diff --diff-filter=ACM "origin/$BASE_BRANCH...HEAD" -- 'lib/ui/**/*.dart' \
+            | grep -E '^\+' | grep -vE '^\+\+\+' \
+            | grep -E "$PATTERN" \
+            | grep -v 'io-ok' || true)
+
+          if [ -n "$ADDED" ]; then
+            echo "::error::New synchronous I/O added under lib/ui — this jank ships to users."
+            echo ""
+            echo "Resolve the value once in a service and cache/memoize it (invalidate on the"
+            echo "events that change the answer), or use the async API off the build path."
+            echo "If this line genuinely cannot run in a build/frame path (e.g. a one-shot"
+            echo "dialog action handler), append '// io-ok: <reason>' on the same line."
+            echo ""
+            echo "Offending added line(s):"
+            echo "$ADDED"
+            exit 1
+          fi
+          echo "No new synchronous I/O under lib/ui. ✔"
+
 
   golden:
     name: Widget Golden Tests

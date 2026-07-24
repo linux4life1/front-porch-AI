@@ -26,12 +26,14 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/avatar_image.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
+import 'package:front_porch_ai/services/avatar_gallery.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/expression_classifier.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/emotion_labels.dart';
+import 'package:front_porch_ai/utils/think_tags.dart';
 
 /// Plain (non-ChangeNotifier) domain service owning the chat-scoped expression
 /// label selection state machine, manual override, avatar resolution (with
@@ -259,8 +261,10 @@ class ExpressionService {
     CharacterCard character, {
     bool rerollIfSame = false,
   }) {
-    final avatars = character.avatarImages;
-    if (avatars == null || avatars.isEmpty) {
+    // Gallery "looks" are stored as avatar rows too — filter them out so a look
+    // can never be chosen (or counted) as an emotion face.
+    final avatars = expressionsFrom(character.avatarImages);
+    if (avatars.isEmpty) {
       return null;
     }
 
@@ -510,6 +514,9 @@ class ExpressionService {
           break;
         }
       }
+      // Reasoning models leave their <think> block in the stored message
+      // text — classify the character's prose, not the meta-reasoning.
+      text = stripThinkTags(text);
       if (text.isEmpty) text = emotion;
 
       final result = await _expressionClassifierService!.classify(text);

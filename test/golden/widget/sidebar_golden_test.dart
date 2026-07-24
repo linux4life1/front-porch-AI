@@ -27,12 +27,14 @@ library;
 // shared TimeStrip. (Pixel baselines regenerate on the Linux CI runner.)
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
+import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_group.dart';
@@ -81,6 +83,29 @@ void main() {
       group: 'sidebar',
       name: 'time_strip_dawn',
       surface: const Size(340, 120),
+    );
+  });
+
+  testWidgets('TimeStrip — with weather chip (Living Time)', (tester) async {
+    final chat = FakeChatService(timeOfDay: 'morning', dayCount: 2)
+      // Non-null gates the chip on; the chip's own pixels come from
+      // WeatherEngine over the fake's deterministic session/day/clock, so
+      // this golden is stable across runs and platforms.
+      ..currentWeatherValue = const DailyWeather(
+        condition: WeatherCondition.rain,
+        temp: TempBand.cool,
+        season: 'autumn',
+      );
+    addTearDown(chat.dispose);
+    await expectThemedGoldens(
+      tester,
+      // ProviderScope: WeatherChip is the app's first Riverpod ConsumerWidget.
+      child: ProviderScope(
+        child: SizedBox(width: 300, child: TimeStrip(chat: chat)),
+      ),
+      group: 'sidebar',
+      name: 'time_strip_weather',
+      surface: const Size(340, 140),
     );
   });
 

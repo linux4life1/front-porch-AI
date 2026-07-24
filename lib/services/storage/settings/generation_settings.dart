@@ -36,7 +36,10 @@ class GenerationSettings with SettingsBase {
   int _topK = 0; // 0 = disabled (both KoboldCpp and remote APIs treat it so)
   double _temperature = 0.7;
   double _repeatPenalty = 1.1;
-  int _repeatPenaltyTokens = 64;
+  // Penalty look-back window. 1024 per community standard (360–2048);
+  // the old 64 (~50 words) let anything two paragraphs back repeat
+  // penalty-free (defaults audit, maintainer-approved 2026-07-15).
+  int _repeatPenaltyTokens = 1024;
   // DRY anti-repetition (KoboldCpp only). 0 = off; ~0.8 is the usual dose.
   double _dryMultiplier = 0.0;
   bool _dynamicTempEnabled = false;
@@ -44,14 +47,27 @@ class GenerationSettings with SettingsBase {
   bool _dynamicResponses = false;
   int _dynamicResponseInterval = 60;
   int _dynamicResponseMaxMessages = 3;
+
+  /// Away pace (Living Time): story periods each AFK snapshot advances.
+  /// 1 = a few hours (legacy default), 3 = half the day, 6 = a full day.
+  /// Deterministic by design — the model never chooses the span.
+  int _dynamicResponsePacePeriods = 1;
   double _xtcThreshold = 0.1;
   // 0 = XTC off. The old default was 0.5, but XTC never actually reached the
   // model back then — now that samplers are delivered, defaulting it ON would
   // surprise-activate it. Users who explicitly set a value keep theirs.
   double _xtcProbability = 0.0;
-  int _maxLength = 1024;
+  // 2048 (was 1024): thinking models spend their reasoning stream against
+  // this same cap, so 1024 could leave a heavy thinker a truncated one-liner.
+  // The generation reserve subtracts this from the history budget, which the
+  // 16k default context (backend_settings.dart) absorbs comfortably.
+  int _maxLength = 2048;
   int _minLength = 0;
-  List<String> _stopSequences = [
+  /// Shipped default stop strings. Public + const so the prioritized stop
+  /// builder (lib/services/chat/stop_sequences.dart) can tell user-added
+  /// custom stops (higher priority) apart from these defaults (lowest
+  /// priority) — the stored list holds both mixed together.
+  static const List<String> kDefaultStopSequences = [
     "\nUser:",
     "\n###",
     "\nScenario:",
@@ -66,6 +82,8 @@ class GenerationSettings with SettingsBase {
     "\n{Note:",
   ];
 
+  List<String> _stopSequences = List.of(kDefaultStopSequences);
+
   String get systemPrompt => _systemPrompt;
   double get minP => _minP;
   double get topP => _topP;
@@ -79,6 +97,7 @@ class GenerationSettings with SettingsBase {
   bool get dynamicResponses => _dynamicResponses;
   int get dynamicResponseInterval => _dynamicResponseInterval;
   int get dynamicResponseMaxMessages => _dynamicResponseMaxMessages;
+  int get dynamicResponsePacePeriods => _dynamicResponsePacePeriods;
   double get xtcThreshold => _xtcThreshold;
   double get xtcProbability => _xtcProbability;
   int get maxLength => _maxLength;
@@ -103,6 +122,8 @@ class GenerationSettings with SettingsBase {
         prefs?.getBool(k('dynamic_responses')) ?? _dynamicResponses;
     _dynamicResponseInterval =
         prefs?.getInt(k('dynamic_response_interval')) ?? _dynamicResponseInterval;
+    _dynamicResponsePacePeriods =
+        (prefs?.getInt(k('dynamic_response_pace_periods')) ?? 1).clamp(1, 6);
     _dynamicResponseMaxMessages =
         prefs?.getInt(k('dynamic_response_max_messages')) ??
         _dynamicResponseMaxMessages;
@@ -201,6 +222,15 @@ class GenerationSettings with SettingsBase {
   Future<void> setDynamicResponseMaxMessages(int value) async {
     _dynamicResponseMaxMessages = value;
     await prefs?.setInt(k('dynamic_response_max_messages'), value);
+    notify();
+  }
+
+  Future<void> setDynamicResponsePacePeriods(int value) async {
+    _dynamicResponsePacePeriods = value.clamp(1, 6);
+    await prefs?.setInt(
+      k('dynamic_response_pace_periods'),
+      _dynamicResponsePacePeriods,
+    );
     notify();
   }
 

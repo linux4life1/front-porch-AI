@@ -53,7 +53,7 @@ class FolderGridCard extends StatelessWidget {
     String? parentId,
   })
   onFolderDialogAction;
-  final File Function(String imagePath) onResolveCharImage;
+  final File Function(CharacterCard card) onResolveCharImage;
 
   List<File> _folderPreviewImages(
     BuildContext context,
@@ -62,16 +62,16 @@ class FolderGridCard extends StatelessWidget {
   ) {
     if (folder.characterPaths.isEmpty) return const [];
     final repo = Provider.of<CharacterRepository>(context, listen: false);
-    final byFilename = <String, String>{};
+    final byFilename = <String, CharacterCard>{};
     for (final c in repo.characters) {
       final p = c.imagePath;
-      if (p != null) byFilename.putIfAbsent(path.basename(p), () => p);
+      if (p != null) byFilename.putIfAbsent(path.basename(p), () => c);
     }
     final files = <File>[];
     for (final ref in folder.characterPaths) {
-      final full = byFilename[path.basename(ref)];
-      if (full != null) {
-        files.add(onResolveCharImage(full));
+      final card = byFilename[path.basename(ref)];
+      if (card != null) {
+        files.add(onResolveCharImage(card));
         if (files.length >= max) break;
       }
     }

@@ -32,7 +32,6 @@ import 'package:front_porch_ai/services/hardware_service.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
-import 'package:front_porch_ai/services/pseudo_remote_service.dart';
 import 'package:front_porch_ai/services/voice_manager.dart';
 
 /// [ModelManager] double. Exposes the getters [ModelManagerPage.build] reads
@@ -108,30 +107,6 @@ class FakeKoboldService extends ChangeNotifier implements KoboldService {
   bool get isStarting => false;
   @override
   bool get isReady => false;
-  @override
-  List<String> get logs => const [];
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-/// [PseudoRemoteService] double for [KoboldLogDialog]. Needs to be in the
-/// provider tree even for [BackendType.kobold] because the Consumer builder
-/// does a one-off `Provider.of<PseudoRemoteService>(context, listen: false)`.
-class FakePseudoRemoteService extends ChangeNotifier
-    implements PseudoRemoteService {
-  @override
-  bool get isRunning => false;
-  @override
-  bool get isProcessRunning => false;
-  @override
-  bool get isStarting => false;
-  @override
-  bool get isReady => false;
-  @override
-  String get backendName => 'PseudoRemote';
-  @override
-  String get modelName => '';
   @override
   List<String> get logs => const [];
 

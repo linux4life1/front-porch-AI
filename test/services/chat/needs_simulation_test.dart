@@ -229,5 +229,52 @@ void main() {
       // current getNeedStep: 10 <=15 -> step 1 (thresholds [0,15,30,...])
       expect(sim.getNeedStep('hunger', 10), 1);
     });
+
+    test('catastrophe fires at 0 for a hard-event need + lifts to floor', () {
+      sim.initializeFresh();
+      sim.restoreFromSnapshot({
+        'vector': {
+          'hunger': 60,
+          'bladder': 0, // bottomed out
+          'energy': 60,
+          'social': 60,
+          'fun': 60,
+          'hygiene': 60,
+          'comfort': 60,
+        },
+      });
+      sim.applyCatastropheIfNeeded();
+      expect(sim.pendingCatastrophe, isNotNull);
+      expect(sim.pendingCatastrophe, contains('control gives out')); // bladder
+      expect(sim.vector['bladder'],
+          NeedsSimulation.needPostCatastropheFloor['bladder']); // lifted
+    });
+
+    test('social/fun at 0 do NOT fire a catastrophe (moods, not events)', () {
+      sim.initializeFresh();
+      sim.restoreFromSnapshot({
+        'vector': {
+          'hunger': 60, 'bladder': 60, 'energy': 60,
+          'social': 0, 'fun': 0, // bottomed out, but excluded
+          'hygiene': 60, 'comfort': 60,
+        },
+      });
+      sim.applyCatastropheIfNeeded();
+      expect(sim.pendingCatastrophe, isNull);
+    });
+
+    test('hygiene catastrophe is suppressed for enjoys-low-hygiene characters',
+        () {
+      final sim2 = createTestSim(enjoysFn: () => true);
+      sim2.initializeFresh();
+      sim2.restoreFromSnapshot({
+        'vector': {
+          'hunger': 60, 'bladder': 60, 'energy': 60, 'social': 60,
+          'fun': 60, 'hygiene': 0, 'comfort': 60,
+        },
+      });
+      sim2.applyCatastropheIfNeeded();
+      expect(sim2.pendingCatastrophe, isNull); // 0 hygiene = comfort for them
+    });
   });
 }

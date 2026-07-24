@@ -40,13 +40,16 @@ class ChaosInjection {
     final event = chaosModeService.pendingChaosInjection!;
     // Mark as delivered via service so it can be cleared on the NEXT sendMessage.
     chaosModeService.markEventDelivered();
-    return '\n[OOC — URGENT NARRATIVE INTERRUPT:\n'
-        'THE FOLLOWING EVENT JUST HAPPENED RIGHT NOW, THIS VERY MOMENT, during the scene:\n'
-        '>>> $event <<<\n\n'
-        'MANDATORY: $charName MUST acknowledge and react to this event IN THEIR VERY FIRST PARAGRAPH.\n'
-        'This is NOT optional. This is NOT background flavor. This event is happening RIGHT NOW and $charName witnesses/experiences it directly.\n'
-        'Write $charName\'s immediate, visceral reaction to this event FIRST, then continue responding to the conversation naturally.\n'
-        'Do NOT ignore this event. Do NOT save it for later. React NOW.\n'
-        'Do NOT mention game mechanics, "Chance Time", or systems.]\n';
+    // Calm-but-firm house register (same as the needs-catastrophe block —
+    // ALL-CAPS instruction walls read as jailbreak-fight energy and backfire
+    // on local models). Placement stays post-suffix: a documented recency
+    // choice, only to be moved after a measured A/B (spec §5b).
+    return '\n[SCENE EVENT — CANON, happening this very moment:\n'
+        '$event\n'
+        'Open the reply with $charName experiencing this event as it happens '
+        '— do not skip it, soften it to a near-miss, or save it for later. '
+        'Write $charName\'s immediate reaction in their own voice first, then '
+        'let the scene continue from its consequences. Never mention '
+        '"Chance Time", game mechanics, or systems.]\n';
   }
 }

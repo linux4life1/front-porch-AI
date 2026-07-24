@@ -77,6 +77,13 @@ class SceneGuestFactory {
         // Inherit the host's NSFW cooldown intent as the best available signal
         // that this scene allows mature content.
         nsfwEnabled: host?.frontPorchExtensions?.nsfwCooldownEnabled ?? false,
+        // The mint runs inside a live chat: a background pass (journal/growth/
+        // realism) is often mid-request on the shared backend when creation
+        // starts. The generator's default "clear stuck state" abort killed
+        // that in-flight call, which used to brand the backend "tool calling
+        // not supported" for the whole run. Nothing of the mint's own needs
+        // clearing (_addGuestWithStatus already guards against a busy chat).
+        abortInFlight: false,
       );
     } catch (e) {
       debugPrint('[SceneGuest:mint] generation failed: $e');

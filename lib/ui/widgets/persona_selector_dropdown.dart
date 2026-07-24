@@ -46,7 +46,7 @@ class PersonaSelectorDropdown extends StatelessWidget {
             value: p.id,
             child: Row(
               children: [
-                Icon(Icons.person, size: 16, color: Colors.blueAccent),
+                Icon(Icons.person, size: 16, color: AppColors.formMasterAccent),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(p.displayLabel, overflow: TextOverflow.ellipsis),

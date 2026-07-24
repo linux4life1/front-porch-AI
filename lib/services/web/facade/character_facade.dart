@@ -153,7 +153,7 @@ class CharacterFacade {
             // small over a slow uplink.
             'tags': _jsonList(c.tags),
             'hasAvatar': c.imagePath != null && c.imagePath!.isNotEmpty,
-            'avatarVersion': _avatarVersion(c.imagePath),
+            'avatarVersion': _avatarVersion(c.imagePath, c.id),
             'folderId': c.folderId ?? '',
             'messageCount': msgCounts[c.id] ?? 0,
           },
@@ -161,15 +161,23 @@ class CharacterFacade {
         .toList();
   }
 
-  /// The avatar file's modified-time (ms) — used by the web UI as a cache-
-  /// busting version token in the thumbnail URL (`?w=…&v=<version>`), so a
-  /// character whose picture is swapped gets a *new* URL and both the browser
-  /// and service-worker caches fetch it fresh instead of serving the old one.
-  /// Returns 0 when there's no avatar or it can't be stat'd (the client then
-  /// simply omits `v`, which is still correct — just uncached-by-version).
-  int _avatarVersion(String? imagePath) {
-    if (imagePath == null || imagePath.isEmpty) return 0;
+  /// The avatar's cache-busting version token for the thumbnail URL
+  /// (`?w=…&v=<version>`), so a character whose picture changes gets a *new*
+  /// URL and both the browser and service-worker caches fetch it fresh.
+  /// Star-aware: the version comes from the RESOLVED cover file (the ★
+  /// gallery avatar when set) so starring a look busts the cache too — the
+  /// portrait's mtime alone wouldn't change on a star flip. Returns 0 when
+  /// nothing resolves (the client then omits `v` — uncached-by-version).
+  int _avatarVersion(String? imagePath, String characterId) {
     try {
+      final hydrated = _repo?.characters
+          .where((c) => c.dbId == characterId)
+          .firstOrNull;
+      final cover = hydrated == null ? null : _repo?.coverImageFileFor(hydrated);
+      if (cover != null && cover.existsSync()) {
+        return cover.statSync().modified.millisecondsSinceEpoch;
+      }
+      if (imagePath == null || imagePath.isEmpty) return 0;
       final f = File(
         p.join(_storage.charactersDir.path, p.basename(imagePath)),
       );
@@ -273,7 +281,7 @@ class CharacterFacade {
   }
 
   /// Create a brand-new character from web wizard fields. Mirrors the desktop
-  /// `create_character_page._saveCharacter`: build the card + Realism seeds, write
+  /// `create_character_page._createAndAdvance`: build the card + Realism seeds, write
   /// a V2 PNG (embedding the extensions so the seeds survive — the DB has no
   /// realism columns) with a synthesized placeholder avatar, then add it via the
   /// same [CharacterRepository.addCharacter] path. Returns {id, name} or null.
@@ -357,11 +365,21 @@ class CharacterFacade {
   /// Import a character card uploaded from the web (V2 PNG or .byaf). Writes the
   /// bytes to a temp file and reuses the desktop import path
   /// ([CharacterRepository.importCharacter]) so parsing/parity is identical.
-  /// Returns the new character's {id, name}, or null on failure.
+  ///
+  /// [collision]:
+  /// - `keepBoth` (default) — insert on name clash (bulk-safe; issue #161)
+  /// - `ask` — if name clashes and no stableId match, return
+  ///   `{status: 'name_collision', name, existing: [...]}` without writing
+  /// - `replace` — update [replaceId] in place (chats kept)
+  ///
+  /// Returns `{id, name}` on success, the collision map for `ask`, or null
+  /// on hard failure.
   Future<Map<String, dynamic>?> importBytes(
     List<int> bytes,
-    String filename,
-  ) async {
+    String filename, {
+    String collision = 'keepBoth',
+    String? replaceId,
+  }) async {
     final repo = _repo;
     if (repo == null) return null;
     final ext = p.extension(filename).isNotEmpty
@@ -375,6 +393,61 @@ class CharacterFacade {
     );
     try {
       await tmp.writeAsBytes(bytes, flush: true);
+
+      // Peek identity for collision policy (same rules as desktop single-import).
+      CharacterCard? peeked;
+      try {
+        final isJson = tmp.path.toLowerCase().endsWith('.json');
+        final v2 = V2CardService();
+        peeked = isJson
+            ? await v2.readCardFromJsonFile(tmp.path)
+            : await v2.readCard(tmp.path);
+      } catch (_) {
+        peeked = null;
+      }
+      final name =
+          peeked?.name ?? p.basenameWithoutExtension(filename);
+      final stableId = peeked?.frontPorchExtensions?.stableId;
+      final stableMatch = repo.findByStableId(stableId);
+
+      if (stableMatch == null) {
+        final existing = repo.charactersWithName(name);
+        if (existing.isNotEmpty) {
+          if (collision == 'ask') {
+            return {
+              'status': 'name_collision',
+              'name': name,
+              'existing': [
+                for (final c in existing)
+                  {
+                    'id': c.dbId,
+                    'name': c.name,
+                  },
+              ],
+            };
+          }
+          if (collision == 'replace') {
+            CharacterCard? target;
+            if (replaceId != null && replaceId.isNotEmpty) {
+              for (final c in existing) {
+                if (c.dbId == replaceId) {
+                  target = c;
+                  break;
+                }
+              }
+            }
+            target ??= existing.first;
+            final card = await repo.importCharacter(
+              tmp,
+              forceReplaceTarget: target,
+            );
+            if (card == null) return null;
+            return {'id': card.dbId, 'name': card.name, 'replaced': true};
+          }
+          // keepBoth: fall through to plain import (insert)
+        }
+      }
+
       final card = await repo.importCharacter(tmp);
       if (card == null) return null;
       return {'id': card.dbId, 'name': card.name};
@@ -406,9 +479,18 @@ class CharacterFacade {
     return file.existsSync() ? file : null;
   }
 
-  /// Resolve the on-disk avatar file for [id], or null if none.
+  /// Resolve the on-disk avatar file for [id], or null if none. Star-aware:
+  /// the ★ gallery avatar wins when set (desktop home-grid parity — both
+  /// route through [CharacterRepository.coverImageFileFor]'s rules).
   Future<File?> avatarFile(String id) async {
     try {
+      final hydrated = _repo?.characters
+          .where((c) => c.dbId == id)
+          .firstOrNull;
+      if (hydrated != null) {
+        final cover = _repo?.coverImageFileFor(hydrated);
+        if (cover != null && cover.existsSync()) return cover;
+      }
       final c = await _db.getCharacterById(id);
       if (c.imagePath == null || c.imagePath!.isEmpty) return null;
       final file = File(

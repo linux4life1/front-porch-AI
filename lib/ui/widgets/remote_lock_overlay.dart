@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/web/web_server_host.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Full-screen overlay that blocks the Flutter desktop UI when a remote
 /// web client is connected via the HTTP server.
@@ -152,7 +153,7 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: Colors.blueAccent, size: 18),
+        Icon(icon, color: AppColors.formMasterAccent, size: 18),
         const SizedBox(width: 10),
         Text(
           '$label:',
@@ -217,15 +218,15 @@ class _PulsingIconState extends State<_PulsingIcon>
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blueAccent.shade700, Colors.cyanAccent.shade400],
+            gradient: const LinearGradient(
+              colors: [AppColors.porchAmberLight, AppColors.porchAmber],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.blueAccent.withValues(
+                color: AppColors.formMasterAccent.withValues(
                   alpha: 0.3 * _animation.value,
                 ),
                 blurRadius: 24 * _animation.value,

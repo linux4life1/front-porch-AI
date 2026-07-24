@@ -77,6 +77,25 @@ class ChatMessage {
     return result.trim();
   }
 
+  /// Text to feed LLM prompt/eval CONTEXT for this message: the visible text,
+  /// but annotated when the message carries a user-attached photo so realism
+  /// evals, the guest-director gate, and any other history consumer never see
+  /// a blank user turn (which would score bond/trust against an apparently
+  /// silent user). Uses the stored caption once the captioner has written it.
+  /// Non-photo messages return [displayText] unchanged.
+  String get promptText {
+    final md = activeMetadata;
+    if (md?['is_user_image'] == true) {
+      final caption = (md?['image_caption'] as String? ?? '').trim();
+      final marker = caption.isEmpty
+          ? '[shared a photo]'
+          : '[shared a photo: $caption]';
+      final visible = displayText.trim();
+      return visible.isEmpty ? marker : '$visible $marker';
+    }
+    return displayText;
+  }
+
   /// Returns the thinking content (between &lt;think&gt; tags), or null if none.
   /// Handles both completed and in-progress (streaming) think blocks.
   String? get thinkingContent {

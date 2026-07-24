@@ -50,7 +50,7 @@ class HFModelCard extends StatefulWidget {
     super.key,
     required this.model,
     required this.availableVramMb,
-    this.contextSize = 8192,
+    this.contextSize = 16384,
     required this.onDownload,
     this.downloadingFiles = const {},
     this.downloadedFiles = const {},

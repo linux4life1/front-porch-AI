@@ -340,6 +340,16 @@ class StoryProject {
   PromptTier promptTier;
   bool useChatHistory; // Whether to draw from character chat history RAG
   List<String> chatHistoryCharacterIds; // Character embed IDs to pull RAG from
+
+  /// Living Time §4: when non-empty, the distiller and raw-history fallback
+  /// read ONLY these session ids (a single chat) instead of every session for
+  /// the character. Additive — old projects deserialize to empty (= all).
+  List<String> chatHistorySessionIds;
+
+  /// Living Time §4: faithful-retelling mode — the architect and scene
+  /// weaver are constrained to follow the distilled chat events in order
+  /// rather than treating them as inspiration.
+  bool faithfulMode;
   List<Map<String, String>>
   characterCardSnapshots; // Snapshotted character card data
   bool
@@ -391,6 +401,8 @@ class StoryProject {
     this.promptTier = PromptTier.frontier,
     this.useChatHistory = false,
     this.chatHistoryCharacterIds = const [],
+    this.chatHistorySessionIds = const [],
+    this.faithfulMode = false,
     this.characterCardSnapshots = const [],
     this.parallelGeneration = false,
     this.includeUserPersona = false,
@@ -441,6 +453,8 @@ class StoryProject {
     'prompt_tier': promptTier.name,
     'use_chat_history': useChatHistory,
     'chat_history_character_ids': chatHistoryCharacterIds,
+    'chat_history_session_ids': chatHistorySessionIds,
+    'faithful_mode': faithfulMode,
     'character_card_snapshots': characterCardSnapshots,
     'parallel_generation': parallelGeneration,
     'include_user_persona': includeUserPersona,
@@ -510,6 +524,10 @@ class StoryProject {
         orElse: () => PromptTier.frontier,
       ),
       useChatHistory: json['use_chat_history'] ?? false,
+      chatHistorySessionIds: List<String>.from(
+        json['chat_history_session_ids'] ?? const [],
+      ),
+      faithfulMode: json['faithful_mode'] ?? false,
       chatHistoryCharacterIds:
           (json['chat_history_character_ids'] as List?)
               ?.map((e) => e.toString())

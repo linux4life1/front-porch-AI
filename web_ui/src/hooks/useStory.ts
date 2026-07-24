@@ -42,6 +42,12 @@ export function useStory(id: string) {
       } else if (e.event === 'story_error') {
         setStatus((s) => (s ? { ...s, running: false } : s));
         setError(e.error || 'Generation failed');
+      } else if (e.event === 'connected') {
+        // (Re)connected — a `story_updated`/`story_status` may have fired while
+        // the socket was down. Re-pull status + project so a finished (or
+        // progressed) pipeline isn't shown as stuck.
+        api.get<StoryStatus>('/api/stories/status').then(setStatus).catch(() => {});
+        reload();
       }
     });
     socket.connect();

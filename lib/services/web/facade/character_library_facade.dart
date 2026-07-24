@@ -175,9 +175,14 @@ class CharacterLibraryFacade {
   Future<({List<int> bytes, String filename})?> exportPng(String charId) async {
     final card = await _resolve(charId);
     if (card == null) return null;
+    // Bake the ★ starred avatar (a look/expression) as the cover when set,
+    // else the library portrait — matching desktop export
+    // (home_page_transfer.dart). Web previously always used imagePath, so a
+    // starred face was ignored only when exporting from the web.
+    final cover = _repo.coverImageFileFor(card);
     final bytes = await V2CardService().encodeCharacterCardToPngBytes(
       card,
-      card.imagePath,
+      cover?.path ?? card.imagePath,
     );
     return (bytes: bytes, filename: '${safeFileBase(card.name)}.png');
   }

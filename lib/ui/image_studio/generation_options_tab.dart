@@ -8,8 +8,10 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
+import 'package:front_porch_ai/ui/image_studio/backend_catalog.dart';
 import 'package:front_porch_ai/ui/image_studio/connection_status_card.dart';
 import 'package:front_porch_ai/ui/image_studio/lora_picker.dart';
+import 'package:front_porch_ai/ui/image_studio/model_slot_dropdown.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 const List<({String label, int value})> _drawThingsSamplers = [
@@ -42,10 +44,22 @@ class GenerationOptionsTab extends StatefulWidget {
   /// settings panel too would duplicate the control. The standalone image
   /// settings dialog (which has no StylePreview) keeps them.
   final bool showStyleControls;
+
+  /// When true, the per-generation knobs (Steps / CFG / DT Sampler / Shift /
+  /// SeedMode) read and write the EDIT-scoped store instead of the Create
+  /// (txt2img) store, so the Image Studio Edit tab can tune an edit without
+  /// clobbering Create. The MODEL picker is edit-scoped too on Draw Things and
+  /// remote (the phase-#12 create/edit slot split — an edit model left selected
+  /// after an Edit session used to poison base generation); ComfyUI's edit
+  /// models live in comfyEdit* and A1111 can't edit, so their checkpoint
+  /// pickers stay on the create slot. Everything else (backend, size, seed,
+  /// LoRA) stays shared. Default false = the normal Create/settings behavior.
+  final bool editScoped;
   const GenerationOptionsTab({
     super.key,
     this.showEnableToggle = true,
     this.showStyleControls = true,
+    this.editScoped = false,
   });
   @override
   State<GenerationOptionsTab> createState() => _GenerationOptionsTabState();
@@ -117,24 +131,16 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
     }
   }
 
-  Future<void> _fetchLocalModels(String url) async {
+  Future<void> _fetchLocalModels() async {
     final st = Provider.of<StorageService>(context, listen: false);
-    final backend = st.imageGenBackend;
-    final isDT = backend == 'drawthings';
-    final isComfy = backend == 'comfyui';
-    if (!isDT && !isComfy && url.isEmpty) return;
-    if (isDT && st.drawThingsGrpcHost.isEmpty) return;
-    if (isComfy && st.comfyUiUrl.isEmpty) return;
+    if (backendProbeUrl(st).isEmpty) return;
     setState(() => _loadingLocalModels = true);
     final svc = Provider.of<ImageGenService>(context, listen: false);
-    final ms = isDT
-        ? await svc.fetchDrawThingsModels(url)
-        : isComfy
-        ? await svc.fetchComfyModels(url)
-        : await svc.fetchA1111Models(url);
+    // Shared per-backend dispatch (also the creators' engine strip).
+    final options = await fetchBackendModelOptions(svc, st);
     if (mounted) {
       setState(() {
-        _localModels = ms;
+        _localModels = [for (final o in options) o.value];
         _loadingLocalModels = false;
       });
     }
@@ -193,20 +199,10 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
   }
 
   Future<void> _testConnection() async {
+    // The URL controllers write straight through to storage onChanged, so the
+    // shared settings-derived probe URL always matches what the user typed.
     final st = Provider.of<StorageService>(context, listen: false);
-    final isDT = st.imageGenBackend == 'drawthings';
-    final isComfy = st.imageGenBackend == 'comfyui';
-    String u = _localUrlController.text.trim();
-    if (isDT) {
-      final h = _dtHostController.text.trim();
-      final p = _dtPortController.text.trim();
-      final host = h.isNotEmpty ? h : st.drawThingsGrpcHost;
-      final port = p.isNotEmpty ? p : st.drawThingsGrpcPort.toString();
-      u = '$host:$port';
-    } else if (isComfy) {
-      final typed = _comfyUrlController.text.trim();
-      u = typed.isNotEmpty ? typed : st.comfyUiUrl;
-    }
+    final u = backendProbeUrl(st);
     if (u.isEmpty) return;
     setState(() {
       _testingConnection = true;
@@ -220,7 +216,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
         _testingConnection = false;
       });
       if (ok) {
-        _fetchLocalModels(u);
+        _fetchLocalModels();
         _fetchLocalSamplers(u);
         _fetchLocalLoras(u);
       }
@@ -401,36 +397,19 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: _models.any((m) => m.id == st.imageGenModel)
-                    ? st.imageGenModel
-                    : null,
-                dropdownColor: AppColors.surfaceContainerOf(context),
-                style: TextStyle(color: AppColors.textPrimary(context)),
-                isExpanded: true,
-                menuMaxHeight: 400,
+              child: ModelSlotDropdown(
+                settings: st.imageGenSettings,
+                editSlot: widget.editScoped,
+                keyPrefix: 'remote-model',
+                fontSize: 12,
                 decoration: _deco(
                   hint: _loadingModels
                       ? 'Loading...'
                       : (_models.isEmpty ? 'No models' : 'Select'),
                 ),
-                items: _models
-                    .map(
-                      (m) => DropdownMenuItem(
-                        value: m.id,
-                        child: Text(
-                          m.displayName.isNotEmpty ? m.displayName : m.id,
-                          style: TextStyle(
-                            color: AppColors.textPrimary(context),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) st.setImageGenModel(v);
-                },
+                options: [
+                  for (final m in _models) (value: m.id, label: m.displayName),
+                ],
               ),
             ),
             const SizedBox(width: 6),
@@ -539,7 +518,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
           Row(
             children: [
               Text(
-                'Checkpoint Model',
+                widget.editScoped ? 'Edit Model' : 'Checkpoint Model',
                 style: TextStyle(
                   color: AppColors.textSecondary(context),
                   fontSize: 12,
@@ -555,12 +534,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
                     width: 24,
                     height: 24,
                   ),
-                  onPressed: () {
-                    final h = _dtHostController.text.trim();
-                    final p = _dtPortController.text.trim();
-                    final url = h.isNotEmpty ? '$h:$p' : st.drawThingsGrpcHost;
-                    _fetchLocalModels(url);
-                  },
+                  onPressed: _fetchLocalModels,
                   tooltip: 'Refresh model list',
                 ),
             ],
@@ -579,11 +553,14 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
           else
             Builder(
               builder: (_) {
+                // Offline fallback: show the persisted slot value so the
+                // selection is visible before the server is connected.
+                final slotValue = widget.editScoped
+                    ? st.imageGenSettings.imageGenEditModel
+                    : st.imageGenModel;
                 final dtModels = _localModels.isNotEmpty
                     ? _localModels
-                    : (st.imageGenModel.isNotEmpty
-                          ? [st.imageGenModel]
-                          : <String>[]);
+                    : (slotValue.isNotEmpty ? [slotValue] : <String>[]);
                 if (dtModels.isEmpty) {
                   return Text(
                     'Models appear here once the server is connected.',
@@ -593,35 +570,12 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
                     ),
                   );
                 }
-                return DropdownButtonFormField<String>(
-                  key: ValueKey('dt-checkpoint-${st.imageGenModel}'),
-                  initialValue: dtModels.contains(st.imageGenModel)
-                      ? st.imageGenModel
-                      : null,
-                  dropdownColor: AppColors.surfaceContainerOf(context),
-                  style: TextStyle(
-                    color: AppColors.textPrimary(context),
-                    fontSize: 11,
-                  ),
-                  isExpanded: true,
+                return ModelSlotDropdown(
+                  settings: st.imageGenSettings,
+                  editSlot: widget.editScoped,
+                  keyPrefix: 'dt-checkpoint',
                   decoration: _deco(hint: 'Select'),
-                  items: dtModels
-                      .map(
-                        (m) => DropdownMenuItem(
-                          value: m,
-                          child: Text(
-                            m,
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) st.setImageGenModel(v);
-                  },
+                  options: [for (final m in dtModels) (value: m, label: m)],
                 );
               },
             ),
@@ -687,35 +641,14 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
               ),
             )
           else
-            DropdownButtonFormField<String>(
-              key: ValueKey('comfy-checkpoint-${st.imageGenModel}'),
-              initialValue: _localModels.contains(st.imageGenModel)
-                  ? st.imageGenModel
-                  : null,
-              dropdownColor: AppColors.surfaceContainerOf(context),
-              style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontSize: 11,
-              ),
-              isExpanded: true,
+            // Always the CREATE slot — ComfyUI's edit models live in the
+            // comfyEdit* workflow slots, never here.
+            ModelSlotDropdown(
+              settings: st.imageGenSettings,
+              editSlot: false,
+              keyPrefix: 'comfy-checkpoint',
               decoration: _deco(hint: 'Select'),
-              items: _localModels
-                  .map(
-                    (m) => DropdownMenuItem(
-                      value: m,
-                      child: Text(
-                        m,
-                        style: TextStyle(
-                          color: AppColors.textPrimary(context),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) st.setImageGenModel(v);
-              },
+              options: [for (final m in _localModels) (value: m, label: m)],
             ),
           const SizedBox(height: 4),
           Text(
@@ -776,35 +709,14 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
               ),
             )
           else
-            DropdownButtonFormField<String>(
-              key: ValueKey('a1111-checkpoint-${st.imageGenModel}'),
-              initialValue: _localModels.contains(st.imageGenModel)
-                  ? st.imageGenModel
-                  : null,
-              dropdownColor: AppColors.surfaceContainerOf(context),
-              style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontSize: 11,
-              ),
-              isExpanded: true,
+            // Always the CREATE slot — stock A1111 can't instruction-edit,
+            // so an edit slot has no meaning here (img2img fallback only).
+            ModelSlotDropdown(
+              settings: st.imageGenSettings,
+              editSlot: false,
+              keyPrefix: 'a1111-checkpoint',
               decoration: _deco(hint: 'Select'),
-              items: _localModels
-                  .map(
-                    (m) => DropdownMenuItem(
-                      value: m,
-                      child: Text(
-                        m,
-                        style: TextStyle(
-                          color: AppColors.textPrimary(context),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) st.setImageGenModel(v);
-              },
+              options: [for (final m in _localModels) (value: m, label: m)],
             ),
           Row(
             children: [
@@ -871,7 +783,13 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
           else
             LoraPicker(
               loras: _localLoras,
-              checkpointFamily: ImageModelFamily.detectFromName(st.imageGenModel),
+              // Family-filter against the slot this surface generates with
+              // (the Edit tab pairs LoRAs with the EDIT model on DT).
+              checkpointFamily: ImageModelFamily.detectFromName(
+                widget.editScoped && isDT
+                    ? st.imageGenSettings.imageGenEditModel
+                    : st.imageGenModel,
+              ),
               selected: st.imageGenLora,
               weight: st.imageGenLoraWeight,
               onSelected: (val) => st.setImageGenLora(val),
@@ -1072,6 +990,14 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
     StorageService st, {
     required bool isDrawThings,
   }) {
+    // On the Edit tab these knobs are edit-scoped so an edit never clobbers
+    // Create's txt2img settings; everywhere else they are the shared knobs.
+    final editScoped = widget.editScoped;
+    final steps = editScoped ? st.editSteps : st.imageGenSteps;
+    final cfg = editScoped ? st.editCfgScale : st.imageGenCfgScale;
+    final dtSampler = editScoped ? st.editSampler : st.drawThingsSampler;
+    final dtShift = editScoped ? st.editShift : st.drawThingsShift;
+    final dtSeedMode = editScoped ? st.editSeedMode : st.drawThingsSeedMode;
     return [
       Row(
         children: [
@@ -1084,7 +1010,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
           ),
           Expanded(
             child: Slider(
-              value: _dragSteps ?? st.imageGenSteps.toDouble(),
+              value: _dragSteps ?? steps.toDouble(),
               min: 5,
               max: 50,
               divisions: 45,
@@ -1093,14 +1019,16 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
               onChanged: (v) => setState(() => _dragSteps = v),
               onChangeEnd: (v) {
                 _dragSteps = null;
-                st.setImageGenSteps(v.round());
+                editScoped
+                    ? st.setEditSteps(v.round())
+                    : st.setImageGenSteps(v.round());
               },
             ),
           ),
           SizedBox(
             width: 26,
             child: Text(
-              (_dragSteps ?? st.imageGenSteps.toDouble()).round().toString(),
+              (_dragSteps ?? steps.toDouble()).round().toString(),
               style: TextStyle(
                 color: AppColors.textSecondary(context),
                 fontSize: 9,
@@ -1121,7 +1049,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
           ),
           Expanded(
             child: Slider(
-              value: _dragCfgScale ?? st.imageGenCfgScale,
+              value: _dragCfgScale ?? cfg,
               min: 1,
               max: 20,
               divisions: 190,
@@ -1130,14 +1058,14 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
               onChanged: (v) => setState(() => _dragCfgScale = v),
               onChangeEnd: (v) {
                 _dragCfgScale = null;
-                st.setImageGenCfgScale(v);
+                editScoped ? st.setEditCfgScale(v) : st.setImageGenCfgScale(v);
               },
             ),
           ),
           SizedBox(
             width: 30,
             child: Text(
-              (_dragCfgScale ?? st.imageGenCfgScale).toStringAsFixed(1),
+              (_dragCfgScale ?? cfg).toStringAsFixed(1),
               style: TextStyle(
                 color: AppColors.textSecondary(context),
                 fontSize: 9,
@@ -1147,7 +1075,12 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
           ),
         ],
       ),
-      Row(
+      // In EDIT mode the string sampler (ComfyUI/A1111) is hidden: the ComfyUI
+      // edit preset bakes its own sampler, and picking one here only clobbered
+      // the Create-tab sampler while doing nothing to the edit. The DrawThings
+      // int sampler stays — it IS edit-scoped (setEditSampler below).
+      if (isDrawThings || !editScoped)
+        Row(
         children: [
           Expanded(
             flex: 2,
@@ -1163,7 +1096,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
             flex: 3,
             child: isDrawThings
                 ? DropdownButtonFormField<int>(
-                    initialValue: st.drawThingsSampler,
+                    initialValue: dtSampler,
                     dropdownColor: AppColors.surfaceContainerOf(context),
                     style: TextStyle(
                       color: AppColors.textPrimary(context),
@@ -1186,7 +1119,10 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
                         )
                         .toList(),
                     onChanged: (v) {
-                      if (v != null) st.setDrawThingsSampler(v);
+                      if (v == null) return;
+                      editScoped
+                          ? st.setEditSampler(v)
+                          : st.setDrawThingsSampler(v);
                     },
                   )
                 : DropdownButtonFormField<String>(
@@ -1223,9 +1159,11 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
       ),
       // Scheduler (noise schedule) — a real quality lever on A1111 and ComfyUI.
       // Draw Things has no separate scheduler concept, so it's hidden there.
+      // Hidden in EDIT mode too: the ComfyUI edit preset controls it, so a
+      // choice here only clobbered the Create-tab scheduler (same as sampler).
       // 'Automatic' means the backend decides (A1111 default / sampler-derived
       // for ComfyUI); the fetched list is server-specific.
-      if (!isDrawThings)
+      if (!isDrawThings && !editScoped)
         Row(
           children: [
             Expanded(
@@ -1338,18 +1276,19 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
             ),
             Expanded(
               child: Slider(
-                value: st.drawThingsShift,
+                value: dtShift,
                 min: 0,
                 max: 10,
                 divisions: 100,
                 activeColor: AppColors.formMasterAccent,
-                onChanged: (v) => st.setDrawThingsShift(v),
+                onChanged: (v) =>
+                    editScoped ? st.setEditShift(v) : st.setDrawThingsShift(v),
               ),
             ),
             SizedBox(
               width: 24,
               child: Text(
-                st.drawThingsShift.toStringAsFixed(1),
+                dtShift.toStringAsFixed(1),
                 style: TextStyle(fontSize: 8),
                 textAlign: TextAlign.end,
               ),
@@ -1366,7 +1305,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
               ),
             ),
             DropdownButton<int>(
-              value: st.drawThingsSeedMode,
+              value: dtSeedMode,
               style: TextStyle(fontSize: 9),
               items: const [
                 DropdownMenuItem(
@@ -1387,7 +1326,10 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
                 ),
               ],
               onChanged: (v) {
-                if (v != null) st.setDrawThingsSeedMode(v);
+                if (v == null) return;
+                editScoped
+                    ? st.setEditSeedMode(v)
+                    : st.setDrawThingsSeedMode(v);
               },
             ),
             Checkbox(

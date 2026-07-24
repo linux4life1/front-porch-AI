@@ -30,9 +30,23 @@ import 'package:shelf/shelf.dart' as shelf;
 /// layouts (the same locations the legacy WebAssetServer used). This is the
 /// clean-namespace replacement that will fully supersede it at Phase 6 cutover.
 class StaticRoutes {
-  StaticRoutes() : _baseDir = _resolveBaseDir();
+  StaticRoutes._(this._baseDir, this._backgroundsDir);
+
+  /// Resolves the web-app dir and, from it, the sibling per-chat theme
+  /// backgrounds dir (both live under the same `flutter_assets/assets/` tree).
+  factory StaticRoutes() {
+    final base = _resolveBaseDir();
+    final backgrounds = base == null
+        ? null
+        : p.join(p.dirname(base), 'backgrounds');
+    return StaticRoutes._(base, backgrounds);
+  }
 
   final String? _baseDir;
+
+  /// `assets/backgrounds/` — theme scene images shared with the desktop app,
+  /// served so the web chat can show the same per-chat background.
+  final String? _backgroundsDir;
 
   /// Handle a non-`api/` GET as a static asset or SPA fallback.
   shelf.Response handle(shelf.Request request) {
@@ -45,6 +59,24 @@ class StaticRoutes {
     }
 
     final rel = request.url.path; // already strips leading '/'
+
+    // Per-chat theme background images (parity with the desktop chat scene).
+    // Served from the sibling assets/backgrounds dir; the web CSS references
+    // them as `/backgrounds/<key>.png`.
+    if (rel.startsWith('backgrounds/')) {
+      final bgDir = _backgroundsDir;
+      if (bgDir != null) {
+        final normalized = p.normalize(rel.substring('backgrounds/'.length));
+        if (!normalized.contains('..') &&
+            !p.isAbsolute(normalized) &&
+            !normalized.startsWith('/')) {
+          final file = File(p.join(bgDir, normalized));
+          if (file.existsSync()) return _serveFile(file, rel);
+        }
+      }
+      return shelf.Response.notFound('background not found');
+    }
+
     if (rel.isNotEmpty) {
       final normalized = p.normalize(rel);
       if (!normalized.contains('..') &&
@@ -64,7 +96,7 @@ class StaticRoutes {
   shelf.Response _serveFile(File file, String relPath) {
     final name = p.basename(relPath).toLowerCase();
     final isImmutable =
-        relPath.startsWith('assets/') &&
+        (relPath.startsWith('assets/') || relPath.startsWith('backgrounds/')) &&
         name != 'index.html' &&
         !name.endsWith('.webmanifest');
     final isServiceWorker = name == 'sw.js' || name == 'service-worker.js';

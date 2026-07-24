@@ -199,16 +199,23 @@ class GrowthReview {
   /// window. A batch from another chat is dropped without writing anything.
   Future<void> apply() async {
     final batch = _pending;
-    _pending = null;
     if (batch == null) return;
     if (getSessionId() != batch.sessionId) {
+      _pending = null;
       onNotify();
       return;
     }
+    // Keep _pending SET during the writes so hasPendingFor() still blocks a
+    // competing auto-pass (no reprocess → no duplicate rings). Advance the
+    // (DB-backed) cursor + clear _pending only AFTER every write succeeds, so a
+    // write failure preserves the batch for retry instead of silently
+    // abandoning accepted rings (the earlier "advance first" version fixed the
+    // race but introduced that loss).
     for (final owner in batch.owners) {
       await applyOwnerProposals(batch.sessionId, owner);
     }
     await store.setCursor(batch.sessionId, batch.cursorTarget);
+    _pending = null;
     await onApplied();
     onNotify();
     debugPrint('[Growth] ✓ Review applied (${batch.totalProposals} proposal(s))');

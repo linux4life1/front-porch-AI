@@ -19,6 +19,7 @@ import { CharacterCard, FolderCard, GroupCard } from '../components/library/Libr
 import { LibraryToolbar, SelectionBar } from '../components/library/LibraryToolbar';
 import {
   ConfirmDialog,
+  ImportNameCollisionDialog,
   MoveToFolderDialog,
   PromptDialog,
   TypeConfirmDialog,
@@ -334,6 +335,15 @@ export function CharactersPage() {
           danger
           onConfirm={() => lib.deleteGroup(dialog.group)}
           onClose={() => setDialog(null)}
+        />
+      )}
+      {lib.nameCollision && (
+        <ImportNameCollisionDialog
+          cardName={lib.nameCollision.name}
+          existing={lib.nameCollision.existing}
+          onKeepBoth={() => lib.resolveNameCollision('keepBoth')}
+          onReplace={(id) => lib.resolveNameCollision('replace', id)}
+          onClose={() => lib.resolveNameCollision('cancel')}
         />
       )}
       {dialog?.kind === 'extractGroup' && (

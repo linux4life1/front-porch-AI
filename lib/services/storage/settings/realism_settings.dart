@@ -29,12 +29,33 @@ class RealismSettings with SettingsBase {
   bool _nsfwCooldownDefault = false;
   bool _passageOfTimeDefault = true;
   bool _realismOneShotEval = false;
+  bool _weatherEnabled = true;
+  bool _absenceBannerEnabled = true;
+  bool _absenceAckEnabled = false;
+  int _absenceThresholdHours = 24;
+  bool _dreamsEnabled = true;
   List<String> _bannedPhrases = [];
 
   bool get realismDefault => _realismDefault;
   bool get nsfwCooldownDefault => _nsfwCooldownDefault;
   bool get passageOfTimeDefault => _passageOfTimeDefault;
   bool get realismOneShotEval => _realismOneShotEval;
+
+  /// Living Time story weather (living-time-features.md §3). Effective only
+  /// when realism + passage-of-time are on — ChatService gates that.
+  bool get weatherEnabled => _weatherEnabled;
+
+  /// Living Time absence awareness (living-time-features.md §2). Banner is
+  /// app-voice and default ON; the in-character acknowledgment is default
+  /// OFF by explicit maintainer decision (can read as creepy). Threshold in
+  /// hours before either fires.
+  bool get absenceBannerEnabled => _absenceBannerEnabled;
+  bool get absenceAckEnabled => _absenceAckEnabled;
+  int get absenceThresholdHours => _absenceThresholdHours;
+
+  /// Living Time dreams (living-time-features.md §1). Effective only when
+  /// realism + passage-of-time + the Journal are on — ChatService gates.
+  bool get dreamsEnabled => _dreamsEnabled;
   List<String> get bannedPhrases => List.unmodifiable(_bannedPhrases);
 
   void load() {
@@ -43,6 +64,13 @@ class RealismSettings with SettingsBase {
     _passageOfTimeDefault =
         prefs?.getBool(k('passage_of_time_default')) ?? true;
     _realismOneShotEval = prefs?.getBool(k('realism_one_shot_eval')) ?? false;
+    _weatherEnabled = prefs?.getBool(k('weather_enabled')) ?? true;
+    _absenceBannerEnabled =
+        prefs?.getBool(k('absence_banner_enabled')) ?? true;
+    _absenceAckEnabled = prefs?.getBool(k('absence_ack_enabled')) ?? false;
+    _absenceThresholdHours =
+        prefs?.getInt(k('absence_threshold_hours')) ?? 24;
+    _dreamsEnabled = prefs?.getBool(k('dreams_enabled')) ?? true;
 
     final bannedJson = prefs?.getString(k('banned_phrases'));
     if (bannedJson != null) {
@@ -52,6 +80,36 @@ class RealismSettings with SettingsBase {
         _bannedPhrases = [];
       }
     }
+  }
+
+  Future<void> setWeatherEnabled(bool value) async {
+    _weatherEnabled = value;
+    await prefs?.setBool(k('weather_enabled'), value);
+    notify();
+  }
+
+  Future<void> setAbsenceBannerEnabled(bool value) async {
+    _absenceBannerEnabled = value;
+    await prefs?.setBool(k('absence_banner_enabled'), value);
+    notify();
+  }
+
+  Future<void> setAbsenceAckEnabled(bool value) async {
+    _absenceAckEnabled = value;
+    await prefs?.setBool(k('absence_ack_enabled'), value);
+    notify();
+  }
+
+  Future<void> setAbsenceThresholdHours(int value) async {
+    _absenceThresholdHours = value;
+    await prefs?.setInt(k('absence_threshold_hours'), value);
+    notify();
+  }
+
+  Future<void> setDreamsEnabled(bool value) async {
+    _dreamsEnabled = value;
+    await prefs?.setBool(k('dreams_enabled'), value);
+    notify();
   }
 
   Future<void> setRealismOneShotEval(bool value) async {

@@ -20,91 +20,59 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
+import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/llm_service.dart' show LlmToolResponse;
 
 /// Plain (non-ChangeNotifier) domain service owning the chat-scoped passage-of-time
-/// state machine: deterministic 6-turn clock, automatic LLM-vetoable advances
-/// (hold_time / new_day / posture side-effect), manual nudge (chevrons), OOC
-/// time-skip detection/language parsing, legacy startDayOfWeek resolution,
-/// narrative weekday computation, and all reset/seed/load/restore helpers.
+/// state — rewritten around a real datetime clock (design:
+/// docs/design/story-calendar.md). Canonical state is two DateTimes:
+/// [clock] (the story's current moment, minute granularity) and [startDate]
+/// (Day 1's date). The six-period `timeOfDay`, `dayCount`, and the narrative
+/// weekday are all pure derivations; every conversion/snap/synthesis lives in
+/// the [StoryClock] leaf.
 ///
-/// ChatService owns the instance via a private late final (declared after the
-/// other leaf services per plan) and delegates. Cross-state (pendingRealismMetadata
-/// for OOC/nudge delta chips, last-message realism_state snapshot patching for
-/// nudge survival across swipe/regen/reload, save/notify) is accessed exclusively
-/// via 4 granular callbacks supplied at construction. This keeps the extracted
-/// service testable, avoids cycles with realism_state / pending / messages, and
-/// is friendly to future extractions (prompt builders in step 8, etc.).
-/// (Granular callbacks chosen over a full parent interface ref for this leaf
-/// extraction per the Stage 3 precedent in needs/chaos/relationship/expression
-/// and updated plan guidance in docs/refactoring-guide.md.)
+/// Advancement is continuous and per-turn: the scene-time eval (which already
+/// fires every turn — it used to carry posture alone on non-eligible turns)
+/// reports `minutes_elapsed` for the latest exchange, hard-clamped by
+/// [StoryClock.maxMinutesPerTurn], with [StoryClock.failureDriftMinutes] as
+/// the deterministic floor on eval failure and a
+/// [StoryClock.stallBackstopTurns]-turn backstop that snaps to the next
+/// period so time can never freeze forever. The old 6-turn gate, its
+/// `hold_time` veto, and the eligible/not-eligible prompt branching are gone.
 ///
-/// Time is *chat-scoped* (shared across group members, not per-speaker like
-/// relationship/needs scalars). Group vs 1:1 parity is preserved: owner swaps
-/// the active speaker via _loadGroupRealismIntoScalars / impersonation before
-/// evals (time clock/advance sees the impersonated charName for prompts only;
-/// the _timeOfDay/_dayCount/_turns scalars are single per-chat). No per-speaker
-/// time storage existed originally.
+/// Time remains *chat-scoped* (shared across group members, not per-speaker).
+/// Cross-state (pending chip metadata, last-message realism_state patching
+/// for nudge/set survival across swipe/regen/reload, save/notify) is accessed
+/// exclusively via the granular callbacks supplied at construction — same
+/// extraction contract as the other chat/ leaves.
 ///
-/// Boundaries kept in god (per plan for step 5 / step 8):
-/// - Full time injection text builder is thin wrapper here (_getTimeInjection
-///   remains in ChatService for now; the real prompt_* builders move in step 8).
-/// - OOC feeding realism cross (pending metadata stamp) is manual via cb +
-///   integrations (no auto cross in leaf).
-/// - UI coordination for nudge chevrons (the public nudge entry + save/notify)
-///   stays thin in god.
-/// - Pre-turn time advance (the LLM hold eval inside physical) is delegated
-///   via evaluateTimeProgressAndPostureIfNeeded (called from existing
-///   _evaluatePhysicalStateCall); no new private methods added to god.
-///   (Time clock tick/hold/new_day only in normal physical path; oneShot paths
-///   bypass to posture + log only per pre-extract design + strict One-shot vs
-///   Normal Path Parity contract for time deltas.)
-/// - Capture/restore sites, drift save sites, and the ~10 "keep reset blocks
-///   in sync" sites call service helpers (reset/seed/load/restore) + tightened
-///   comments now list /time alongside needs/chaos/relationship/expression.
-///
-/// @Deprecated shims on ChatService (exactly 5): timeOfDay, dayCount,
-/// passageOfTimeEnabled, narrativeWeekday, setPassageOfTimeEnabled.
-///
-/// 0 new private methods added to ChatService as part of this step (thins +
-/// delegations + call-site updates only; deletions of moved code are mandatory
-/// part of the task). Reset helpers on service support the documented keep-sync
-/// sites without god privates or duplication.
-///
-/// time injection only thin wrapper here; full builders in step 8.
-/// OOC feeding realism cross only manual + integrations.
-/// aug exercising only passive/qualified (resets hit by pre-existing startNew/setActive etc).
-/// oneShot vs normal time parity: advance/hold only in normal physical (oneShot posture+log; dispatch preserved).
+/// Legacy wire formats (`timeOfDay`/`dayCount`/`startDayOfWeek` in session
+/// rows, realism_state snapshots, group blobs, and V2 card extensions) are
+/// written as derivations and read as seeds via [StoryClock.fromLegacy] — the
+/// single successor to the old per-consumer `resolveStartDayOfWeek` trick.
 class TimeService {
   final VoidCallback onNotify;
   final Future<void> Function() onSaveChat;
 
-  // Granular cbs for cross-state side effects without cycles or owning god state.
-  // onSetPendingRealismMetadata: used by OOC detect (and nudge survival path) to
-  // stamp 'time_skip_to' / 'time_nudged' into _pendingRealismMetadata for delta rows.
-  // onNudgePatchLastMessageRealismState: signals that time state changed via manual
-  // nudge; god receives the fresh (tod, day) and closes over _messages + _capture
-  // to patch the last msg's realism_state snapshot (swipe/regen survival).
-  // Values passed at call time to avoid textual self-ref in late final initializer.
+  // onSetPendingRealismMetadata: OOC skips stamp 'time_skip_to' for delta chips.
+  // onPatchLastMessageRealismState: manual nudge / calendar set changed time —
+  // god patches the last msg's realism_state snapshot (swipe/regen survival)
+  // with the derived period/day AND the canonical clock.
   final void Function(String key, dynamic value) onSetPendingRealismMetadata;
-  final void Function(String timeOfDay, int dayCount)
-  onNudgePatchLastMessageRealismState;
+  final void Function(String timeOfDay, int dayCount, String storyClockIso)
+  onPatchLastMessageRealismState;
 
-  // Owned state (moved verbatim from ChatService).
-  String _timeOfDay = 'morning';
-  int _dayCount = 1;
-  int _startDayOfWeek =
-      DateTime.now().weekday; // 1=Mon ... 7=Sun, set when session starts
-  int _turnsSinceLastTimeAdvance = 0; // deterministic pacing counter
-  bool _passageOfTimeEnabled = true; // toggle for automatic time advancement
+  // Owned state — the whole subsystem.
+  DateTime _clock = StoryClock.representativeTime(
+    StoryClock.todayAnchor(),
+    'morning',
+  );
+  DateTime _startDate = StoryClock.todayAnchor();
+  bool _passageOfTimeEnabled = true;
+  int _turnsSinceClockMoved = 0; // stall backstop counter (not a pacing gate)
 
-  /// How many AI turns must pass before time is eligible to advance.
-  /// 6 turns ≈ a meaningful scene chunk without forcing constant time-skips.
-  static const int turnsPerTimePeriod = 6;
-
-  // Tools transport for the scene-time/posture evals (nullable — tests and
-  // any host without the tools door stay on the text path; the god wires the
-  // same shared probe/door the other structured evals use).
+  // Tools transport for the scene-time/posture eval (nullable — tests and
+  // any host without the tools door stay on the text path).
   final Future<LlmToolResponse?> Function(
     String prompt,
     List<Map<String, dynamic>> tools,
@@ -117,11 +85,34 @@ class TimeService {
     required this.onNotify,
     required this.onSaveChat,
     required this.onSetPendingRealismMetadata,
-    required this.onNudgePatchLastMessageRealismState,
+    required this.onPatchLastMessageRealismState,
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,
   });
+
+  // ── Public surface ────────────────────────────────────────────────────────
+
+  DateTime get clock => _clock;
+  DateTime get startDate => _startDate;
+  String get timeOfDay => StoryClock.periodForHour(_clock.hour);
+  int get dayCount => StoryClock.dayCountFor(_clock, _startDate);
+  bool get passageOfTimeEnabled => _passageOfTimeEnabled;
+  String get narrativeWeekday => StoryClock.weekdayName(_clock);
+
+  /// Derived legacy anchor — still written to the session row / snapshots so
+  /// external readers (Character Card Forge, older apps via The Stoop) keep
+  /// seeing a consistent value.
+  int get startDayOfWeekAnchor => _startDate.weekday;
+
+  String get storyClockIso => StoryClock.serializeClock(_clock);
+  String get storyStartDateIso => StoryClock.serializeDate(_startDate);
+
+  /// "9:40 PM" / "Tue, Mar 3" / "Tuesday, March 3rd(, 1887)" for the UI.
+  String get displayClock => StoryClock.formatClock(_clock);
+  String get displayShortDate => StoryClock.formatShortDate(_clock);
+  String get displayDate =>
+      StoryClock.formatDate(_clock, realYear: StoryClock.todayAnchor().year);
 
   /// Fire one scene-time/posture eval through the shared tools-vs-text
   /// negotiation (or straight text when the tools door isn't wired).
@@ -148,101 +139,85 @@ class TimeService {
         )
       : fireLLMEval(buildPrompt(toolsMode: false), onChunk: onChunk);
 
-  // ── Public surface (for @Deprecated shims in ChatService + direct test/UI callers) ──────
-
-  String get timeOfDay => _timeOfDay;
-  int get dayCount => _dayCount;
-  bool get passageOfTimeEnabled => _passageOfTimeEnabled;
-
-  /// The current narrative day of the week (e.g. 'Monday'), computed from
-  /// the session's anchor weekday plus elapsed in-story days.
-  String get narrativeWeekday {
-    const days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    final idx = (_startDayOfWeek - 1 + (_dayCount - 1)) % 7;
-    return days[idx];
-  }
-
-  /// Internal anchor (persisted); exposed for captureRealismState snapshot only.
-  /// Not part of the public @Dep surface.
-  int get startDayOfWeekAnchor => _startDayOfWeek;
-
-  /// Anchor the narrative weekday to the real-world day when realism first turns on for this session
-  /// (only if not already anchored). Called from god's setRealismEnabled (keeps the toggle logic
-  /// thin; no new god private).
-  void ensureStartDayOfWeekAnchored() {
-    if (_startDayOfWeek < 1 || _startDayOfWeek > 7) {
-      _startDayOfWeek = DateTime.now().weekday;
-    }
-  }
-
-  /// Resolves the persisted startDayOfWeek (1-7) or computes a stable anchor for legacy rows (0).
-  /// For legacy sessions the computed anchor makes the *current* Day N display the real-world
-  /// weekday of the moment we first load it after the v28 migration. This keeps the narrative
-  /// weekday from jumping on the very next app restart and makes the transition seamless.
-  int resolveStartDayOfWeek(int persisted, int currentDayCount) {
-    if (persisted >= 1 && persisted <= 7) return persisted;
-
-    // Legacy or unset (0): anchor so that narrative weekday for the loaded dayCount matches "today".
-    // Formula: start = ((today-1 - (dayCount-1)) mod 7) + 1
-    final today = DateTime.now().weekday;
-    final delta = currentDayCount - 1;
-    final start = ((today - 1 - delta) % 7 + 7) % 7 + 1;
-    debugPrint(
-      '[TimeService] Legacy/ unset startDayOfWeek resolved: persisted=$persisted, dayCount=$currentDayCount '
-      '→ start=$start (so Day $currentDayCount will show weekday of today=$today)',
-    );
-    return start;
-  }
-
-  // ── Mutation for control / loads (side-effect free; wrapper in ChatService does save/notify) ──
+  // ── Mutation for control / loads (side-effect free; wrappers do save/notify) ──
 
   void setPassageOfTimeEnabled(bool enabled) {
     _passageOfTimeEnabled = enabled;
   }
 
-  // Direct scalar sets / load helpers for the documented "keep reset blocks in sync" sites
-  // (startNewChat, setActiveCharacter, setActiveGroup, _loadLastSession, ext-seed paths,
-  // delete flows, empty session, etc.). Callers apply global ceiling on passage before passing.
   void resetForFreshChat() {
-    _dayCount = 1;
-    _timeOfDay = 'morning';
-    _startDayOfWeek = DateTime.now().weekday;
-    _turnsSinceLastTimeAdvance = 0;
+    _startDate = StoryClock.todayAnchor();
+    _clock = StoryClock.representativeTime(_startDate, 'morning');
+    _turnsSinceClockMoved = 0;
     _passageOfTimeEnabled = true;
   }
 
+  /// Seed from a V2 card / ext-seed payload (design §3a). [storyStartDate]
+  /// null means "the story begins the day the chat starts" — what every
+  /// pre-calendar card implicitly meant; a fixed date carries its own era.
+  /// [storyStartTime] ("HH:MM") lets an author pin the exact opening clock;
+  /// otherwise the period's representative time applies.
   void seedFromV2OrExt({
     required int dayCount,
     required String timeOfDay,
     required bool passageOfTimeEnabled,
+    String? storyStartDate,
+    String? storyStartTime,
   }) {
-    _dayCount = dayCount.clamp(1, 9999);
-    _timeOfDay = timeOfDay;
-    _startDayOfWeek = DateTime.now()
-        .weekday; // anchor narrative weekday for the fresh session
+    final anchor = StoryClock.parse(storyStartDate);
+    final safeDay = dayCount.clamp(1, 9999);
+    // Fixed date: the story's Day N counts forward from ITS anchor. Relative
+    // (null): "Day N" means the chat opens N days into the story with the
+    // current scene TODAY — the pre-calendar meaning, preserved.
+    final DateTime current;
+    if (anchor != null) {
+      _startDate = StoryClock.dateOnly(anchor);
+      current = _startDate.add(Duration(days: safeDay - 1));
+    } else {
+      current = StoryClock.todayAnchor();
+      _startDate = current.subtract(Duration(days: safeDay - 1));
+    }
+    final hhmm = StoryClock.parseHHMM(storyStartTime);
+    _clock = hhmm != null
+        ? DateTime.utc(
+            current.year,
+            current.month,
+            current.day,
+            hhmm.$1,
+            hhmm.$2,
+          )
+        : StoryClock.representativeTime(current, timeOfDay);
     _passageOfTimeEnabled = passageOfTimeEnabled;
-    _turnsSinceLastTimeAdvance = 0;
+    _turnsSinceClockMoved = 0;
   }
 
+  /// Load from a session row. Canonical columns win; legacy rows synthesize
+  /// so the displayed weekday never jumps across the upgrade.
   void loadTimeScalars({
     required String timeOfDay,
     required int dayCount,
     required int startDayOfWeek,
     required bool passageOfTimeEnabled,
+    String? storyClock,
+    String? storyStartDate,
   }) {
-    _timeOfDay = timeOfDay;
-    _dayCount = dayCount;
-    _startDayOfWeek = resolveStartDayOfWeek(startDayOfWeek, dayCount);
-    _passageOfTimeEnabled = passageOfTimeEnabled;
-    // turns left as-is or 0 on fresh; loads preserve pacing from persisted state
+    final clock = StoryClock.parse(storyClock);
+    final anchor = StoryClock.parse(storyStartDate);
+    if (clock != null && anchor != null) {
+      _clock = clock;
+      _startDate = StoryClock.dateOnly(anchor);
+    } else {
+      final legacy = StoryClock.fromLegacy(
+        timeOfDay: timeOfDay,
+        dayCount: dayCount,
+        startDayOfWeek: startDayOfWeek,
+        today: StoryClock.todayAnchor(),
+      );
+      _clock = clock ?? legacy.clock;
+      _startDate = anchor != null
+          ? StoryClock.dateOnly(anchor)
+          : legacy.startDate;
+    }
   }
 
   // For swipe/regen paths that restore prior realism_state (respect nudge flag).
@@ -251,91 +226,97 @@ class TimeService {
     bool wasNudged = false,
   }) {
     if (_passageOfTimeEnabled && !wasNudged) {
-      _timeOfDay = previousState['timeOfDay'] as String? ?? _timeOfDay;
-      _dayCount = previousState['dayCount'] as int? ?? _dayCount;
+      restoreTimeFromRealismState(previousState);
     }
   }
 
-  // For _restoreRealismStateFromMessage + 1:1<->group conversion carry.
+  /// Restore from a realism_state snapshot (message metadata, 1:1<->group
+  /// conversion carry). Restores REGARDLESS of passage-of-time — a fixed
+  /// scene time is meaningful even with auto-advance off. Prefers the
+  /// canonical keys; legacy snapshots synthesize.
   void restoreTimeFromRealismState(Map<String, dynamic> state) {
-    // Restore the scene time REGARDLESS of passage-of-time. A fixed time-of-day
-    // (e.g. "evening, Day 1") is meaningful even with auto-advance OFF, and must
-    // survive 1:1<->group conversion + per-speaker state replay. The old
-    // `if (_passageOfTimeEnabled)` gate — combined with the carry restoring time
-    // BEFORE the passage flag is re-applied — reset a fixed time to the morning/
-    // Day 1 default on conversion. (Auto-advance is a separate behavior; not
-    // restoring here never advances time, it only kept the stale default.)
-    _timeOfDay = state['timeOfDay'] as String? ?? _timeOfDay;
-    _dayCount = state['dayCount'] as int? ?? _dayCount;
-    _startDayOfWeek = state['startDayOfWeek'] as int? ?? _startDayOfWeek;
-  }
-
-  // ── Nudge (manual chevron) ────────────────────────────────────────────────
-
-  /// Called by the sidebar chevron buttons (via thin god wrapper that does the
-  /// realism guard + save/notify). delta = +1 (forward) or -1 (back).
-  /// Mutates time state and signals god (via ctor cb) to patch the last msg
-  /// realism_state so that _restoreRealismStateFromMessage / swipe cannot revert it.
-  void nudgeTimePeriod(int delta) {
-    final validTimes = [
-      'dawn',
-      'morning',
-      'late_morning',
-      'afternoon',
-      'evening',
-      'night',
-    ];
-    int idx = validTimes.indexOf(_timeOfDay);
-    int next = idx + delta;
-    if (next < 0) {
-      next = validTimes.length - 1;
-      _dayCount = (_dayCount - 1).clamp(1, 9999);
-    } else if (next >= validTimes.length) {
-      next = 0;
-      _dayCount++;
+    final clock = StoryClock.parse(state['storyClock'] as String?);
+    final anchor = StoryClock.parse(state['storyStartDate'] as String?);
+    if (clock != null) {
+      _clock = clock;
+      if (anchor != null) _startDate = StoryClock.dateOnly(anchor);
+      return;
     }
-    _timeOfDay = validTimes[next];
-    _turnsSinceLastTimeAdvance = 0; // reset clock after manual nudge
-
-    onNudgePatchLastMessageRealismState(_timeOfDay, _dayCount);
+    final tod = state['timeOfDay'] as String?;
+    final dc = state['dayCount'] as int?;
+    if (tod == null && dc == null) return;
+    final legacy = StoryClock.fromLegacy(
+      timeOfDay: tod ?? timeOfDay,
+      dayCount: dc ?? dayCount,
+      startDayOfWeek: state['startDayOfWeek'] as int? ?? 0,
+      today: StoryClock.todayAnchor(),
+    );
+    _clock = legacy.clock;
+    _startDate = anchor != null
+        ? StoryClock.dateOnly(anchor)
+        : legacy.startDate;
   }
 
-  /// Advance the clock by [count] time periods (skip LLM eval).
+  // ── Manual control (chevrons + calendar dialog) ───────────────────────────
+
+  /// Sidebar chevrons: snap to the previous/next period's representative
+  /// time. delta = +1 (forward) or -1 (back). Signals god to patch the last
+  /// msg realism_state so swipe/regen cannot revert it.
+  void nudgeTimePeriod(int delta) {
+    _clock = delta >= 0
+        ? StoryClock.snapToNextPeriod(_clock)
+        : StoryClock.snapToPreviousPeriod(_clock);
+    if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
+    _turnsSinceClockMoved = 0;
+    onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
+  }
+
+  /// Calendar dialog: set the story's current moment directly. Pulls the
+  /// anchor back when the new moment predates Day 1 (the story now starts
+  /// earlier). Same swipe-survival patch as a nudge.
+  void setClockDirect(DateTime newClock) {
+    _clock = DateTime.utc(
+      newClock.year,
+      newClock.month,
+      newClock.day,
+      newClock.hour,
+      newClock.minute,
+    );
+    if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
+    _turnsSinceClockMoved = 0;
+    onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
+  }
+
+  /// Calendar dialog: re-anchor "story begins on…". Shifts the clock by the
+  /// same delta so elapsed days (and Day N) are preserved — the whole
+  /// timeline slides together (design §3).
+  void setStartDate(DateTime newStart) {
+    final anchored = StoryClock.dateOnly(newStart);
+    _clock = _clock.add(anchored.difference(_startDate));
+    _startDate = anchored;
+    _turnsSinceClockMoved = 0;
+    onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
+  }
+
+  /// Advance the clock by [count] period-steps (skip LLM eval).
   /// Used during AFK auto-response mode to simulate hours passing.
-  /// Respects the passageOfTimeEnabled toggle. Rolls over days naturally.
+  /// Respects the passageOfTimeEnabled toggle.
   void advanceTimePeriods(int count) {
     if (!_passageOfTimeEnabled) return;
-    if (count <= 0) return;
-
-    const validTimes = [
-      'dawn', 'morning', 'late_morning', 'afternoon', 'evening', 'night',
-    ];
-    int idx = validTimes.indexOf(_timeOfDay);
-    for (int i = 0; i < count; i++) {
-      idx++;
-      if (idx >= validTimes.length) {
-        idx = 0;
-        _dayCount++;
-      }
+    for (var i = 0; i < count; i++) {
+      _clock = StoryClock.snapToNextPeriod(_clock);
     }
-    _timeOfDay = validTimes[idx];
-    _turnsSinceLastTimeAdvance = 0;
+    if (count > 0) _turnsSinceClockMoved = 0;
   }
 
   // ── OOC Time-Skip Detector ────────────────────────────────────────────────
 
   /// Scans the user message for OOC/narrative time-skip language and advances
-  /// the clock by the inferred number of periods. Stamps the skip into
-  /// pending via cb (god wires to _pendingRealismMetadata) so it appears in
-  /// the next AI message's delta row.
-  ///
-  /// NOTE: Respects the global passageOfTimeEnabled setting. If disabled,
-  /// this function does nothing even if OOC markers are present.
-  ///
-  /// time injection only thin wrapper here; full in step8.
-  /// OOC feeding realism cross only manual + integrations.
+  /// the clock by the inferred real duration. Fires on explicit OOC markers
+  /// AND bare in-narrative skip phrasing ("we drive for several hours").
+  /// Stamps the destination into pending metadata for the next delta chip.
+  /// Respects the global passageOfTimeEnabled setting.
   void detectOocTimeSkip(String text) {
-    // Respect global passage of time setting
     if (!_passageOfTimeEnabled) {
       debugPrint(
         '[Realism:OOC] Time-skip requested but passageOfTimeEnabled=false, ignoring',
@@ -345,7 +326,6 @@ class TimeService {
 
     final lower = text.toLowerCase();
 
-    // Only fire on OOC-style markers or explicit timeskip language
     final hasOocMarker = RegExp(
       r'\(ooc[:\s]|\[ooc|\*ooc\b|ooc:',
     ).hasMatch(lower);
@@ -354,115 +334,100 @@ class TimeService {
       r'the next (morning|day|evening|afternoon|night|dawn)|'
       r'next (morning|day|evening|afternoon|night|dawn)|'
       r'hours? pass|time passes|the following (morning|day)|'
-      r'wake up the next|woke up|the next day)\b',
+      r'wake up the next|woke up|the next day|'
+      r'(a|one) week (later|passes)|next week|weeks? later|'
+      r'(a|one) month (later|passes)|next month)\b',
     ).hasMatch(lower);
 
     if (!hasOocMarker && !hasSkipPhrase) return;
 
-    // Estimate period count from duration language
-    int periods = 1;
-
+    // Most specific duration language first.
+    DateTime next;
     if (RegExp(
+      r'\b(a|one)? ?month (later|passes)|next month\b',
+    ).hasMatch(lower)) {
+      // The 1st of the following month, mid-morning (design §7).
+      next = DateTime.utc(_clock.year, _clock.month + 1, 1, 9);
+    } else if (RegExp(
+      r'\b((a|one) week (later|passes)|next week|weeks? later)\b',
+    ).hasMatch(lower)) {
+      next = _clock.add(const Duration(days: 7));
+    } else if (RegExp(
+      r'\b(next (morning|day)|the following (morning|day)|wake up|woke up|overnight|the next day)\b',
+    ).hasMatch(lower)) {
+      next = StoryClock.nextMorning(_clock);
+    } else if (RegExp(
       r'\b(all day|entire day|full day|day passes|the (whole|entire) day)\b',
     ).hasMatch(lower)) {
-      periods = 4;
-    } else if (RegExp(
-      r'\b(next (morning|day)|the following (morning|day)|wake up|woke up|overnight)\b',
-    ).hasMatch(lower)) {
-      _dayCount++;
-      _timeOfDay = 'dawn';
-      _turnsSinceLastTimeAdvance = 0;
-      onSetPendingRealismMetadata('time_skip_to', 'Dawn · Day $_dayCount');
-      onNotify();
-      debugPrint('[Realism:OOC] Next-day transition → Day $_dayCount, dawn');
-      return;
+      next = _clock.add(const Duration(hours: 8));
     } else if (RegExp(
       r'\b(several hours|many hours|a long time|hours? pass)\b',
     ).hasMatch(lower)) {
-      periods = 3;
+      next = _clock.add(const Duration(hours: 3));
     } else if (RegExp(
       r'\b(a few hours|couple.{0,5}hours|2.{0,5}hours|two hours)\b',
     ).hasMatch(lower)) {
-      periods = 2;
-    } else if (RegExp(
-      r'\b(an hour|1 hour|one hour|a while|some time)\b',
-    ).hasMatch(lower)) {
-      periods = 1;
-    } else if (hasOocMarker) {
-      periods = 1;
+      next = _clock.add(const Duration(hours: 2));
+    } else {
+      // "an hour", "a while", "some time", or a bare OOC marker.
+      next = _clock.add(const Duration(hours: 1));
     }
 
-    if (periods <= 0) return;
-
-    final validTimes = [
-      'dawn',
-      'morning',
-      'late_morning',
-      'afternoon',
-      'evening',
-      'night',
-    ];
-    int idx = validTimes.indexOf(_timeOfDay);
-    for (int i = 0; i < periods; i++) {
-      idx++;
-      if (idx >= validTimes.length) {
-        idx = 0;
-        _dayCount++;
-      }
-    }
-    _timeOfDay = validTimes[idx];
-    _turnsSinceLastTimeAdvance = 0;
-    onSetPendingRealismMetadata('time_skip_to', _displayTimeLabel(_timeOfDay));
+    _clock = next;
+    _turnsSinceClockMoved = 0;
+    onSetPendingRealismMetadata(
+      'time_skip_to',
+      '$displayShortDate · $displayClock',
+    );
     onNotify();
     debugPrint(
-      '[Realism:OOC] Time-skip: +$periods period(s) → $_timeOfDay (Day $_dayCount)',
+      '[Realism:OOC] Time-skip → $displayClock $displayShortDate (Day $dayCount)',
     );
   }
 
-  String _displayTimeLabel(String raw) {
-    return raw
-        .split('_')
-        .map((w) => w[0].toUpperCase() + w.substring(1))
-        .join(' ');
+  // ── Per-turn time advance (delegated from the physical / one-shot evals) ──
+
+  /// Apply one turn's elapsed time. [minutes] null means the eval failed —
+  /// deterministic drift applies. Returns whether the clock moved.
+  bool _applyElapsed({required int? minutes, required bool newDay}) {
+    var moved = false;
+    final m = (minutes ?? StoryClock.failureDriftMinutes).clamp(
+      0,
+      StoryClock.maxMinutesPerTurn,
+    );
+    if (m > 0) {
+      _clock = _clock.add(Duration(minutes: m));
+      moved = true;
+    }
+    // Explicit next-day transition — valid from evening onward (incl. the
+    // small hours past midnight, which ARE "that night" narratively).
+    if (newDay && (_clock.hour >= 17 || _clock.hour < 5)) {
+      _clock = StoryClock.nextMorning(_clock);
+      moved = true;
+    }
+    if (moved) {
+      _turnsSinceClockMoved = 0;
+    } else if (++_turnsSinceClockMoved >= StoryClock.stallBackstopTurns) {
+      _clock = StoryClock.snapToNextPeriod(_clock);
+      _turnsSinceClockMoved = 0;
+      moved = true;
+      debugPrint('[Realism:Time] Stall backstop — snapped to $timeOfDay');
+    }
+    return moved;
   }
 
-  // ── Prompt injection (thin; full builders move in step 8) ─────────────────
-
-  /// Returns the scene time injection block for the LLM prompt.
-  /// Thin wrapper only — the authoritative prompt_* builders live in step 8
-  /// prompt_injection/ subtree. Kept here so existing _getTimeInjection call
-  /// sites (and regen paths) continue to work with zero behavior change.
-  String buildTimeInjection() {
-    final timeLabel = _timeOfDay.replaceAll('_', ' ');
-    final cap =
-        timeLabel.substring(0, 1).toUpperCase() + timeLabel.substring(1);
-    // Compute narrative weekday from session start day + elapsed days
-    const days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    final narrativeDayIndex = (_startDayOfWeek - 1 + (_dayCount - 1)) % 7;
-    final weekdayName = days[narrativeDayIndex];
-    return '[Scene Time: $cap, $weekdayName (Day $_dayCount)\n'
-        ' Describe appropriate lighting, atmosphere, and environmental details.]\n';
+  static int? _extractMinutes(String text) {
+    final m = RegExp(r'"minutes_elapsed"\s*:\s*"?(-?\d+)').firstMatch(text);
+    return m == null ? null : int.tryParse(m.group(1)!);
   }
 
-  // ── Pre-turn time advance (delegated from physical eval) ──────────────────
-
-  /// Performs the deterministic time clock tick + (when eligible) the LLM
-  /// "hold_time / new_day / posture" eval that can advance _timeOfDay / _dayCount.
-  /// Also handles the non-eligible posture-only LLM path and the passage-disabled
-  /// posture-only path (so the god physical method can thin to a single delegation
-  /// point without new private methods).
-  ///
-  /// All LLM interaction, think stripping, JSON extraction, and spatial stance
-  /// side effects go through the provided callbacks (no direct god field access).
-  /// Verbatim logic from original _evaluatePhysicalStateCall time block.
+  /// Per-turn scene-time + posture evaluation (design §2). In the multi-call
+  /// path this fires ONE eval per turn asking minutes_elapsed / new_day /
+  /// posture — the same call that previously carried posture alone on
+  /// non-eligible turns. In oneShotMode the fused one-shot JSON (passed as
+  /// [oneShotText]) already carries all three fields, so no call fires here;
+  /// this method only applies the clock math (strict one-shot parity: same
+  /// clamp, floor, and backstop against the same clock).
   Future<void> evaluateTimeProgressAndPostureIfNeeded({
     required String charName,
     required String recent,
@@ -479,25 +444,29 @@ class TimeService {
     required String Function() getCurrentSpatialStance,
     required String Function() getCharacterEmotion,
     required String Function() getEmotionIntensity,
+    bool oneShotMode = false,
+    String? oneShotText,
   }) async {
-    // ── Time-based evaluation (only if passage of time is enabled) ───────────
+    final emotionCtx = getCharacterEmotion().isNotEmpty
+        ? '$charName is currently feeling ${getCharacterEmotion()} (${getEmotionIntensity()}). '
+        : '';
+    final postureCtx = getCurrentSpatialStance().isNotEmpty
+        ? 'Recent position reference: $charName was "${getCurrentSpatialStance()}". '
+        : '';
+
     if (!_passageOfTimeEnabled) {
-      // ── Passage of time disabled — only evaluate posture ───────────────────
-      final currentPostureCtx = getCurrentSpatialStance().isNotEmpty
-          ? 'Recent position reference: $charName was "${getCurrentSpatialStance()}". '
-          : '';
+      if (oneShotMode) return; // posture already set from the fused JSON
+      // Passage disabled — posture only, time untouched.
       String buildPosturePrompt({required bool toolsMode}) =>
-          '$currentPostureCtx'
-          'Current time: $_timeOfDay.\n\n'
+          '$emotionCtx$postureCtx'
+          'Current time: $displayClock.\n\n'
           'What is $charName\'s current physical position and stance? Use "none" if unclear.\n'
           '- Match the posture to the current scene context and emotional state.\n'
-          '- If the conversation implies a location or activity change, update accordingly.\n'
           '- Within the same scene, maintain natural continuity (don\'t jump locations).\n'
           '- Across scene breaks or time jumps, update to the new context.\n\n'
           'Recent conversation:\n$recent\n\n'
           '${toolsMode ? 'Report by calling the $kSceneTimeTool tool (only the "posture" field matters here). Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY valid JSON. Do NOT use markdown code blocks — return raw JSON only.\n'
-                'Example: {"posture": "standing by the window"} or {"posture": "none"}'}';
-
+                    'Example: {"posture": "standing by the window"} or {"posture": "none"}'}';
       try {
         final raw = await _fireSceneTimeEval(
           buildPosturePrompt,
@@ -511,165 +480,78 @@ class TimeService {
           final postureMatch = RegExp(
             r'"posture"\s*:\s*"([^"]+)"',
           ).firstMatch(text);
-          debugPrint(
-            '[Realism:Physical] Posture-only match: ${postureMatch?.group(0)}',
-          );
           if (postureMatch != null) {
-            final p = postureMatch.group(1)!.trim();
-            setSpatialStance(p);
+            setSpatialStance(postureMatch.group(1)!.trim());
           }
         }
       } catch (_) {}
       debugPrint(
-        '[Realism:Physical] Posture: ${getCurrentSpatialStance()} | Time: $_timeOfDay (Day $_dayCount) | Passage of time: disabled',
+        '[Realism:Physical] Posture: ${getCurrentSpatialStance()} | Time: $displayClock (Day $dayCount) | Passage of time: disabled',
       );
       return;
     }
 
-    final validTimes = [
-      'dawn',
-      'morning',
-      'late_morning',
-      'afternoon',
-      'evening',
-      'night',
-    ];
-    final currentIndex = validTimes.indexOf(_timeOfDay);
+    if (oneShotMode) {
+      // The fused JSON already carries minutes_elapsed/new_day (and posture,
+      // parsed by the one-shot applier). Clock math only — no LLM call.
+      final text = oneShotText ?? '';
+      _applyElapsed(
+        minutes: _extractMinutes(text),
+        newDay: extractJsonBool(text, 'new_day') ?? false,
+      );
+      debugPrint(
+        '[Realism:Time] One-shot elapsed applied → $displayClock (Day $dayCount)',
+      );
+      return;
+    }
 
-    // ── Deterministic Time Clock ───────────────────────────────────────────
-    // Increment every AI turn. Time only advances when the threshold is reached —
-    // the LLM can only veto (hold) the advance, never skip multiple periods.
-    _turnsSinceLastTimeAdvance++;
-    final bool timeEligible = _turnsSinceLastTimeAdvance >= turnsPerTimePeriod;
+    String buildPrompt({required bool toolsMode}) =>
+        'You are evaluating scene time and physical state for $charName.\n\n'
+        '$emotionCtx$postureCtx'
+        'Relationship tension: $shortTermTierName.\n'
+        'Current story time: $displayClock on $narrativeWeekday, Day $dayCount.\n\n'
+        '1. "minutes_elapsed": how many in-story minutes passed during the LATEST exchange below (integer, 0-${StoryClock.maxMinutesPerTurn}). '
+        'Most conversational exchanges take 2-15 minutes; activities (a meal, a walk, a task, travel) take longer. '
+        'Use 0 ONLY when the scene is a continuous instant (mid-action, mid-sentence).\n'
+        '2. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise.\n'
+        '3. "posture": $charName\'s current physical position and location (brief grounded phrase). Use "none" if unclear.\n'
+        '   - If the scene/location has changed (new setting, time passed, scene break), update to match the new context.\n'
+        '   - Maintain continuity only within the SAME scene — do NOT anchor them to a position from a previous scene.\n\n'
+        'Recent conversation:\n$recent\n\n'
+        '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "minutes_elapsed", "new_day", and "posture". Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "minutes_elapsed", "new_day", and "posture". '
+                  'Do NOT use markdown code blocks — return raw JSON only.'}';
 
-    if (timeEligible) {
-      final currentPostureCtx = getCurrentSpatialStance().isNotEmpty
-          ? 'Recent position reference: $charName was "${getCurrentSpatialStance()}".\n'
-          : '';
-      String buildHoldPrompt({required bool toolsMode}) =>
-          'You are evaluating physical state for $charName.\n\n'
-          '$currentPostureCtx'
-          'Current time: $_timeOfDay (Day $_dayCount). Time is advancing to the next period.\n'
-          'Enough turns have passed that time should advance from "$_timeOfDay" to the next period.\n'
-          '1. "hold_time": true ONLY if the scene is visibly mid-action (e.g. mid-fight, actively doing something). false otherwise — let time advance normally.\n'
-          '2. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). Only valid when current time is "night".\n'
-          '3. "posture": $charName\'s current physical position and location (brief grounded phrase). Use "none" if unclear.\n'
-          '   - If the scene/location has changed (new setting, time passed, scene break), update to match the new context.\n'
-          '   - If time advanced significantly or a new day started, characters naturally shift positions.\n'
-          '   - Maintain continuity only within the SAME scene — do NOT anchor them to a position from a previous scene.\n'
-          '   - Avoid sudden jumps without setup, but DO update when the narrative context clearly shifted.\n\n'
-          'Recent conversation:\n$recent\n\n'
-          '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "hold_time", "new_day", and "posture". Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "hold_time", "new_day", and "posture". '
-                'Do NOT use markdown code blocks — return raw JSON only.'}';
-      try {
-        final raw = await _fireSceneTimeEval(
-          buildHoldPrompt,
-          fireLLMEval: fireLLMEval,
-          onChunk: onChunk,
+    try {
+      final raw = await _fireSceneTimeEval(
+        buildPrompt,
+        fireLLMEval: fireLLMEval,
+        onChunk: onChunk,
+      );
+      if (raw != null) {
+        final text = stripThinkBlocks(raw).isNotEmpty
+            ? stripThinkBlocks(raw)
+            : raw;
+        _applyElapsed(
+          minutes: _extractMinutes(text),
+          newDay: extractJsonBool(text, 'new_day') ?? false,
         );
-        if (raw != null) {
-          final text = stripThinkBlocks(raw).isNotEmpty
-              ? stripThinkBlocks(raw)
-              : raw;
-          final shouldHold = extractJsonBool(text, 'hold_time') ?? false;
-
-          if (!shouldHold) {
-            if (currentIndex < validTimes.length - 1) {
-              _timeOfDay = validTimes[currentIndex + 1];
-            } else {
-              _timeOfDay = validTimes[0];
-              _dayCount++;
-              debugPrint('[Realism:Time] Day rolled over! Day $_dayCount');
-            }
-            _turnsSinceLastTimeAdvance = 0;
-            debugPrint(
-              '[Realism:Time] Advanced to $_timeOfDay (Day $_dayCount)',
-            );
-          } else {
-            debugPrint(
-              '[Realism:Time] Held — scene mid-action, time stays at $_timeOfDay',
-            );
-          }
-
-          // Explicit new-day override (e.g. woke up after night)
-          final isNewDay = extractJsonBool(text, 'new_day') ?? false;
-          if (isNewDay && _timeOfDay == 'night' && !shouldHold) {
-            // already handled by rollover above
-          } else if (isNewDay &&
-              currentIndex >= validTimes.indexOf('evening')) {
-            _dayCount++;
-            _timeOfDay = validTimes[0];
-            _turnsSinceLastTimeAdvance = 0;
-            debugPrint(
-              '[Realism:Time] Explicit new-day transition. Day $_dayCount',
-            );
-          }
-
-          final postureMatch = RegExp(
-            r'"posture"\s*:\s*"([^"]+)"',
-          ).firstMatch(text);
-          debugPrint(
-            '[Realism:Physical] Posture match: ${postureMatch?.group(0)}',
-          );
-          if (postureMatch != null) {
-            final p = postureMatch.group(1)!.trim();
-            setSpatialStance(p);
-          }
+        final postureMatch = RegExp(
+          r'"posture"\s*:\s*"([^"]+)"',
+        ).firstMatch(text);
+        if (postureMatch != null) {
+          setSpatialStance(postureMatch.group(1)!.trim());
         }
-      } catch (e) {
-        // Eval failed — still advance so time never freezes
-        if (currentIndex < validTimes.length - 1) {
-          _timeOfDay = validTimes[currentIndex + 1];
-        } else {
-          _timeOfDay = validTimes[0];
-          _dayCount++;
-        }
-        _turnsSinceLastTimeAdvance = 0;
-        debugPrint(
-          '[Realism:Time] Eval error, auto-advanced to $_timeOfDay: $e',
-        );
+      } else {
+        _applyElapsed(minutes: null, newDay: false);
       }
-    } else {
-      // Not yet eligible — grab posture only
-      final emotionCtx = getCharacterEmotion().isNotEmpty
-          ? '$charName is currently feeling ${getCharacterEmotion()} (${getEmotionIntensity()}). '
-          : '';
-      final currentPostureCtx = getCurrentSpatialStance().isNotEmpty
-          ? 'Recent position reference: $charName was "${getCurrentSpatialStance()}". '
-          : '';
-      final posturePrompt =
-          '$emotionCtx${currentPostureCtx}Relationship tension: $shortTermTierName. Current time: $_timeOfDay.\n\n'
-          'What is $charName\'s current physical position and stance? Use "none" if unclear.\n'
-          '- Match the posture to the current scene context and emotional state.\n'
-          '- If the conversation implies a location or activity change, update accordingly.\n'
-          '- Within the same scene, maintain natural continuity (don\'t jump locations).\n'
-          '- Across scene breaks or time jumps, update to the new context.\n\n'
-          'Recent conversation:\n$recent\n\n'
-          'Respond with ONLY valid JSON. Do NOT use markdown code blocks — return raw JSON only.\n'
-          'Example: {"posture": "standing by the window"} or {"posture": "none"}';
-
-      try {
-        final raw = await fireLLMEval(posturePrompt, onChunk: onChunk);
-        if (raw != null) {
-          final text = stripThinkBlocks(raw).isNotEmpty
-              ? stripThinkBlocks(raw)
-              : raw;
-          final postureMatch = RegExp(
-            r'"posture"\s*:\s*"([^"]+)"',
-          ).firstMatch(text);
-          debugPrint(
-            '[Realism:Physical] ELSE branch posture match: ${postureMatch?.group(0)}',
-          );
-          if (postureMatch != null) {
-            final p = postureMatch.group(1)!.trim();
-            setSpatialStance(p);
-          }
-        }
-      } catch (_) {}
+    } catch (e) {
+      // Eval failed — deterministic drift so time never freezes.
+      _applyElapsed(minutes: null, newDay: false);
+      debugPrint('[Realism:Time] Eval error, drifted to $displayClock: $e');
     }
 
     debugPrint(
-      '[Realism:Physical] Posture: ${getCurrentSpatialStance()} | Time: $_timeOfDay (Day $_dayCount) | TurnsToNext: ${turnsPerTimePeriod - _turnsSinceLastTimeAdvance}',
+      '[Realism:Physical] Posture: ${getCurrentSpatialStance()} | Time: $displayClock $displayShortDate (Day $dayCount)',
     );
   }
 }

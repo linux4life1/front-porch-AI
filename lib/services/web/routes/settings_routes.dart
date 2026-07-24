@@ -28,6 +28,16 @@ class WebSettingsRoutes {
   WebSettingsRoutes(this._facade, Router router) {
     router.get('/api/settings', _get);
     router.post('/api/settings', _post);
+    // Legacy-engine model cleanup (desktop parity: Reclaim Disk Space).
+    router.get(
+      '/api/legacy-models',
+      (shelf.Request r) async => JsonResponse.ok(await _facade.legacyModels()),
+    );
+    router.post(
+      '/api/legacy-models/reclaim',
+      (shelf.Request r) async =>
+          JsonResponse.ok({'freedBytes': await _facade.reclaimLegacyModels()}),
+    );
   }
 
   final SettingsFacade _facade;

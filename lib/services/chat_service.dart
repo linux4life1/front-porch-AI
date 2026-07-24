@@ -19,6 +19,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -26,6 +27,8 @@ import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/capability/vision_support_resolver.dart';
+import 'package:front_porch_ai/services/caption/local_caption_service.dart';
+import 'package:front_porch_ai/services/vision_eval.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 
@@ -35,9 +38,11 @@ import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/avatar_gallery.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_generation_settings.dart';
+import 'package:front_porch_ai/models/chat_theme_overrides.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/models/chat_participant.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
@@ -59,9 +64,13 @@ import 'package:front_porch_ai/services/chat/cast_detector.dart';
 import 'package:front_porch_ai/services/chat/scene_guest_director.dart';
 import 'package:front_porch_ai/services/chat/scene_guest_factory.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
+import 'package:front_porch_ai/services/chat/prompt_plan.dart';
+import 'package:front_porch_ai/services/chat/stop_sequences.dart';
+import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/chat/needs_impact_evaluator.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
+import 'package:front_porch_ai/services/chat/relationship_milestones.dart';
 import 'package:front_porch_ai/services/chat/expression_classifier.dart'; // leaf for ExpressionService (post-extraction)
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
@@ -74,6 +83,16 @@ import 'package:front_porch_ai/services/chat/prompt_injection/relationship_injec
 import 'package:front_porch_ai/services/chat/prompt_injection/emotion_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/behavioral_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/time_injection.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/weather_injection.dart';
+import 'package:front_porch_ai/services/chat/absence_tracker.dart';
+import 'package:front_porch_ai/services/chat/afk_flavor.dart';
+import 'package:front_porch_ai/services/chat/ambition_service.dart';
+import 'package:front_porch_ai/services/chat/dream_service.dart';
+import 'package:front_porch_ai/services/chat/promise_debt_service.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/ambition_injection.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/promise_debt_injection.dart';
+import 'package:front_porch_ai/services/chat/milestone_feed.dart';
+import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/nsfw_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/chaos_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/needs_injection.dart';
@@ -123,6 +142,12 @@ part 'chat/chat_service_session_manage.dart';
 part 'chat/chat_service_generation.dart';
 part 'chat/chat_service_cast.dart';
 part 'chat/chat_service_images.dart';
+part 'chat/chat_service_photo.dart';
+part 'chat/chat_service_idle_autonomous.dart';
+part 'chat/chat_service_greeting.dart';
+part 'chat/chat_service_prompt_blocks.dart';
+part 'chat/chat_service_scene_guest.dart';
+part 'chat/chat_service_controls.dart';
 
 // Internal flag to signal a cancellation request for realism evaluation.
 // This is a file-scope flag to avoid needing to thread state through the
@@ -163,6 +188,20 @@ class ChatService extends ChangeNotifier {
 
   // Objective/quest system
   List<Objective> _activeObjectives = [];
+
+  // Sidebar task-generation prefs, hoisted from ObjectivePanel widget state:
+  // the panel's State is recreated on sidebar rebuilds (every realism turn),
+  // which reset the NSFW toggle each message (field report). Session-held on
+  // purpose — NOT persisted, so NSFW tasks default OFF on a fresh launch.
+  bool objectiveNsfwTasks = false;
+  int objectiveTaskCount = 5;
+
+  /// Armed only while the TURN-path completion check runs (see
+  /// _maybeCheckTaskCompletionSync try/finally): check-driven objective
+  /// mutations record regen turn-ops only when armed, so the UI's manual
+  /// "Check now" (forceCheckCompletion) never records — a regen must not
+  /// undo a user-triggered check. Scoped by try/finally; no reset needed.
+  bool _objectiveTurnOpsArmed = false;
   int _messagesSinceLastCheck = 0;
   bool _isCheckingCompletion =
       false; // god-side secondary runtime flag for objective_proposal leaf's get/setIsChecking (early guard in check); must be defensively zeroed on *all* reset/new-chat/0-session/group/setActive/load/delete paths (like _activeObjectives + _messagesSinceLastCheck) to prevent permanent skip of future task checks after in-flight reset; see CLAUDE.md "keep reset blocks in sync" + "incomplete zeroing..." (leaves incl fact/evo/verif + needs_impact etc) + " ; no extra mutable scalar; live read from frontPorch under impersonation)" + "needsSimulation. (reason support kept for Director chips) ; cleared via sim initializeFresh/clearVector/resetBuffers on all paths; now complete)").
@@ -279,6 +318,21 @@ class ChatService extends ChangeNotifier {
 
   /// True while a Scene Guest is being created/entered (input is disabled).
   bool get isGuestBusy => _guestBusy;
+
+  /// True while forked-in character entrances are still playing. Exposed so the
+  /// composer can mirror sendMessage's `_entrancesInFlight` early-return and
+  /// avoid consuming (saving/clearing) an attached photo for a turn that
+  /// sendMessage would silently drop. See _sendCurrentMessage.
+  bool get entrancesInFlight => _entrancesInFlight;
+
+  /// True from the start of a photo turn's captioning through the end of its
+  /// send flow. Because the offline caption await (and the post-gen vision
+  /// caption) run while `_isGenerating` is false, this is the guard that keeps
+  /// a second sendMessage from interleaving during those windows — the UI and
+  /// sendMessage entry both check it. Photo turns only; text turns are
+  /// unaffected (they are covered by `_isGenerating`).
+  bool get isPhotoTurnInFlight => _photoTurnInFlight;
+  bool _photoTurnInFlight = false;
 
   /// A guest card image path whose cache the UI should evict (then call
   /// [consumeGuestAvatarEvict]); null when there is nothing to refresh.
@@ -966,252 +1020,6 @@ class ChatService extends ChangeNotifier {
   bool _resolvingSceneGuests = false;
   bool _sceneGuestsResolvePending = false;
 
-  /// Resolve the Scene Guest card that authored message [m], or null when [m] is
-  /// a host / group / system / user message. Used by regenerate + swipe so a
-  /// guest message stays a parity-safe GUEST turn (no Realism/Needs, spoken as
-  /// the guest) instead of being regenerated as the host. Guests are 1:1-only,
-  /// so this is always null in group mode.
-  /// True when [m] was authored by a Scene Guest rather than the host — decided
-  /// by the stable characterId stamped at guest-turn time, NOT by live scene
-  /// membership or sender name. Stays correct after the guest has `/exit`-ed and
-  /// when a guest shares the host's display name (the name fallback previously
-  /// here could misclassify a host message as a guest's). Host/user/system/group
-  /// messages → false.
-  bool _isGuestAuthoredMessage(ChatMessage m) {
-    if (_activeGroup != null || m.isUser || m.sender == 'System') return false;
-    final cid = m.characterId;
-    if (cid == null || cid.isEmpty) return false; // legacy / host-authored
-    final hostId = _activeCharacter != null
-        ? _getCharacterIdFromCard(_activeCharacter!)
-        : null;
-    return cid != hostId;
-  }
-
-  /// The PRESENT Scene Guest card that authored [m] (to regenerate/swipe as), or
-  /// null when [m] is host-authored OR the authoring guest has left the scene.
-  /// Use [_isGuestAuthoredMessage] to tell "host" apart from "departed guest".
-  CharacterCard? _sceneGuestForMessage(ChatMessage m) {
-    if (!_isGuestAuthoredMessage(m)) return null;
-    final cid = m.characterId;
-    for (final g in _sceneGuestCards) {
-      if (_getCharacterIdFromCard(g) == cid) return g;
-    }
-    return null; // authored by a guest who is no longer present
-  }
-
-  /// Generate a turn spoken by a Scene Guest (Lite NPC) inside a 1:1 chat.
-  ///
-  /// Reuses the normal generation engine with the guest as the speaker. Carries
-  /// NO Realism Engine / Needs work (the guest turn is parity-safe — see the
-  /// `guestSpeaker == null` guards in `_generateResponse`). Guest growth rides
-  /// the shared growth pass (resolvePassOwners includes 1:1 guests who spoke
-  /// in the window) — there is no per-guest trigger.
-  ///
-  /// Common Scene Guest "enter" tail: register the guest's dbId, re-resolve the
-  /// resolved-card list, persist the session, then have the guest speak its
-  /// entrance via the parity-safe guest-turn path. Shared by `/create`,
-  /// `/join`, and the cast-detection accept flow so there is exactly ONE enter
-  /// path (no duplicated add/resolve/save/generate logic).
-  Future<void> _enterSceneGuest(CharacterCard guest) async {
-    if (guest.dbId != null) _sceneGuestIds.add(guest.dbId!);
-    await _resolveSceneGuestCards();
-    await _saveChat();
-    await generateGuestTurn(guest);
-  }
-
-  /// Update the transient Scene Guest status line (the inline banner). [sticky]
-  /// keeps it shown until the next update (for in-progress steps); otherwise it
-  /// auto-clears after a few seconds (errors linger a little longer).
-  void _setGuestStatus(
-    String? msg, {
-    bool isError = false,
-    bool sticky = false,
-  }) {
-    _guestStatusClearTimer?.cancel();
-    _guestStatusClearTimer = null;
-    _guestActivityStatus = msg;
-    _guestActivityIsError = isError;
-    notifyListeners();
-    if (msg != null && !sticky) {
-      _guestStatusClearTimer = Timer(Duration(seconds: isError ? 6 : 3), () {
-        _guestActivityStatus = null;
-        _guestActivityIsError = false;
-        notifyListeners();
-      });
-    }
-  }
-
-  /// Clear the transient Scene Guest banner/busy/evict state. Called at every
-  /// scene-guest reset site (context switch / new chat / group) and on dispose
-  /// so nothing leaks across chats. Does not notify (callers already do).
-  void _resetGuestActivityState() {
-    _guestStatusClearTimer?.cancel();
-    _guestStatusClearTimer = null;
-    _guestActivityStatus = null;
-    _guestActivityIsError = false;
-    _guestBusy = false;
-    _guestAvatarEvictPath = null;
-    _clearExitUndo();
-  }
-
-  /// Single entry point for adding a Scene Guest with a busy guard + one live,
-  /// in-place status line (no saved 'System' chat-message litter). Used by
-  /// `/create`, `/join`, the picker, and cast-detection accept. [existing] joins
-  /// a library card directly; otherwise [mint] generates one first. A background
-  /// portrait kicks off after the guest enters.
-  Future<void> _addGuestWithStatus({
-    required String displayName,
-    CharacterCard? existing,
-    Future<GuestMintResult> Function(void Function(String step) onStatus)? mint,
-  }) async {
-    // Don't race another creation OR an in-flight turn (the mint runs a separate
-    // LLM call that doesn't set _isGenerating).
-    if (_guestBusy || _isGenerating) {
-      _setGuestStatus('Busy — try again in a moment.', isError: true);
-      return;
-    }
-    // Reject a duplicate name when MINTING a new guest (join already excludes
-    // anyone present). Two same-named guests make /exit, chime-in targeting, and
-    // the host "do not voice: X, X" injection ambiguous.
-    if (existing == null) {
-      final wanted = displayName.trim().toLowerCase();
-      if (_sceneGuestCards.any((g) => g.name.trim().toLowerCase() == wanted)) {
-        _setGuestStatus(
-          '"$displayName" is already in the scene.',
-          isError: true,
-        );
-        return;
-      }
-    }
-    final token = _currentSessionId;
-    _guestBusy = true;
-    notifyListeners();
-    try {
-      CharacterCard card;
-      if (existing != null) {
-        card = existing;
-        _setGuestStatus('${card.name} is joining the scene…', sticky: true);
-      } else {
-        _setGuestStatus('Creating "$displayName"…', sticky: true);
-        // Surface each generation sub-step ("$name · Running interview…") so the
-        // banner reflects progress instead of one static spinner.
-        final result = await mint!((step) {
-          if (_sceneChanged(token)) return; // don't paint into another chat
-          _setGuestStatus('$displayName · $step', sticky: true);
-        });
-        if (_sceneChanged(token)) return; // user switched chats mid-generation
-        if (!result.ok) {
-          _setGuestStatus(
-            'Couldn’t create "$displayName": ${result.error}',
-            isError: true,
-          );
-          return;
-        }
-        card = result.card!;
-      }
-      _setGuestStatus('${card.name} is making an entrance…', sticky: true);
-      await _enterSceneGuest(card);
-      if (_sceneChanged(token)) return; // switched during the entrance turn
-      _setGuestStatus('${card.name} joined the scene'); // auto-clears
-      _maybeGenerateGuestPortrait(
-        card,
-      ); // background; never blocks the entrance
-    } finally {
-      // Only clear busy if we still own this scene — a context switch already
-      // reset it (and may have started new work we must not clobber).
-      if (!_sceneChanged(token)) {
-        _guestBusy = false;
-        notifyListeners();
-      }
-    }
-  }
-
-  /// Background portrait for a freshly-added guest: if an image backend is
-  /// configured, generate art from the card's description and write it onto the
-  /// guest's card PNG, then signal the UI to refresh that avatar. Fire-and-forget
-  /// — the guest is already in the scene with an initials avatar; this just fills
-  /// the art in when ready. ZERO Realism/Needs. No-op without an image backend.
-  void _maybeGenerateGuestPortrait(CharacterCard card) {
-    final igs = _imageGenService;
-    final cardPath = card.imagePath;
-    final desc = card.description.trim();
-    if (igs == null || !igs.isConfigured) return;
-    if (cardPath == null || cardPath.isEmpty || desc.isEmpty) return;
-    final prompt = desc.length > 500 ? desc.substring(0, 500) : desc;
-    final token = _currentSessionId;
-    final dbId = card.dbId;
-    unawaited(() async {
-      String? tmpPath;
-      try {
-        final bytes = await igs.generateImage(prompt: prompt, isPortrait: true);
-        if (bytes == null || bytes.isEmpty) return;
-        // Image gen is slow: don't bake art for a guest that has since left the
-        // scene / had its card deleted, or into a chat the user already left.
-        if (_sceneChanged(token)) return;
-        if (dbId != null && !_sceneGuestIds.contains(dbId)) return;
-        // saveCardAsPng takes a SOURCE IMAGE PATH (not bytes), so stage the
-        // generated art to a per-invocation temp file (unique so two portrait
-        // generations can't corrupt each other mid-write), then bake it in.
-        tmpPath = path.join(
-          Directory.systemTemp.path,
-          'fp_guest_portrait_${dbId ?? card.name.hashCode}_'
-          '${DateTime.now().microsecondsSinceEpoch}.png',
-        );
-        await File(tmpPath).writeAsBytes(bytes);
-        await V2CardService().saveCardAsPng(card, cardPath, tmpPath);
-        if (_sceneChanged(token)) return; // re-check after the slow write
-        _guestAvatarEvictPath = cardPath; // UI evicts the stale cached image
-        notifyListeners();
-      } catch (e) {
-        debugPrint('[SceneGuest] portrait generation failed: $e');
-      } finally {
-        if (tmpPath != null) {
-          try {
-            final f = File(tmpPath);
-            if (f.existsSync()) await f.delete();
-          } catch (_) {}
-        }
-      }
-    }());
-  }
-
-  /// Force a present Scene Guest to take a turn NOW (the `/speak` macro),
-  /// bypassing the auto chime-in heuristic + LLM gate. Parity-safe — it runs the
-  /// same `generateGuestTurn` (zero Realism/Needs). Busy-guarded like the create
-  /// flow so it can't race a user turn / another guest creation, and
-  /// context-guarded so a chat switch mid-turn can't leave `_guestBusy` stuck.
-  Future<void> speakGuestNow(CharacterCard guest) async {
-    if (_activeGroup != null) return;
-    if (_isGenerating || _guestBusy) {
-      _setGuestStatus('Busy — try again in a moment.', isError: true);
-      return;
-    }
-    final token = _currentSessionId;
-    _guestBusy = true;
-    notifyListeners();
-    try {
-      await generateGuestTurn(guest);
-    } finally {
-      if (!_sceneChanged(token)) {
-        _guestBusy = false;
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> generateGuestTurn(CharacterCard guest) async {
-    await _generateResponse(GenerationMode.normal, guestSpeaker: guest);
-    // Guest growth rides the shared growth pass (resolvePassOwners includes
-    // 1:1 guests who spoke in the window) — no per-guest trigger needed.
-    // Phase 4: give the guest EPISODIC MEMORY. The host's embed stays gated
-    // behind `guestSpeaker == null` in `_generateResponse`; here we embed the
-    // just-finished exchange under the GUEST's own id (the same id the guest
-    // retrieves under in `_getMemorySourceIds`) by REUSING the host embed path.
-    // Fire-and-forget; ZERO Realism/Needs. So a later guest turn — even in a
-    // different chat — recalls what happened.
-    _maybeEmbedMessages(characterIdOverride: _getCharacterIdFromCard(guest));
-  }
-
   final List<ChatMessage> _messages = [];
   Future<void> _saveChain = Future.value();
   Map<String, dynamic>?
@@ -1228,6 +1036,14 @@ class ChatService extends ChangeNotifier {
   int _generationEpoch = 0;
   String? _currentSessionId;
   double _generationProgress = 0.0;
+
+  // ── Real-absence awareness (Living Time §2) ──
+  // Computed in-memory at session load from the last saved message's
+  // updatedAt; nothing is stored or transmitted (privacy-by-design contract
+  // in absence_tracker.dart). Story clock untouched.
+  Duration _absenceGap = Duration.zero;
+  bool _absenceAckPending = false;
+  bool _absenceAckConsumed = false;
   int _tokensGenerated = 0;
   int _maxTokens = 0;
   DateTime? _generationStartTime;
@@ -1365,7 +1181,7 @@ class ChatService extends ChangeNotifier {
 
   // RAG settings for the active group (stored in the hidden checkpoint, no DB schema change)
   bool _groupRagEnabled = true;
-  int _groupRetrievalCount = 8;
+  int _groupRetrievalCount = 4;
   double _groupMemoryBudgetPercent = 10.0;
   Map<String, double> _groupCharacterRAGPriorities = {};
 
@@ -1374,6 +1190,13 @@ class ChatService extends ChangeNotifier {
   // ── Author's Note ──
   String _authorNote = '';
   int _authorNoteStrength = 4;
+
+  // ── Per-chat avatar gallery ("looks") selection ──
+  // {characterId: selectedLookAvatarId} for THIS session, decoded from the
+  // session's selectedLookAvatarId column on load. A map (not one id) so a group
+  // chat remembers a look per participant; 1:1 is just a one-entry map. Reset
+  // per session in loadSession; empty when no session.
+  Map<String, String> _selectedLooks = {};
 
   // ── Chat Summary ──
   String _summary = '';
@@ -1471,7 +1294,7 @@ class ChatService extends ChangeNotifier {
       _pendingRealismMetadata ??= {};
       _pendingRealismMetadata![key] = value;
     },
-    onNudgePatchLastMessageRealismState: (tod, dc) {
+    onPatchLastMessageRealismState: (tod, dc, clockIso) {
       if (_messages.isNotEmpty) {
         final lastMsg = _messages.last;
         lastMsg.activeMetadata ??= {};
@@ -1479,6 +1302,7 @@ class ChatService extends ChangeNotifier {
         if (existingState is Map<String, dynamic>) {
           existingState['timeOfDay'] = tod;
           existingState['dayCount'] = dc;
+          existingState['storyClock'] = clockIso;
           existingState['time_nudged'] = true;
         } else {
           lastMsg.activeMetadata!['realism_state'] = _captureRealismState();
@@ -1722,6 +1546,7 @@ class ChatService extends ChangeNotifier {
     getEnjoysLowHygiene: () => enjoysLowHygiene,
     getNeedsSimEnabled: () => _needsSimEnabled,
     getCustomDecayRates: () => _activeDecayRates(),
+    getWeather: () => currentWeather,
   );
 
   late final _relationshipService = RelationshipService(
@@ -1802,6 +1627,32 @@ class ChatService extends ChangeNotifier {
     },
     setGroupInterCharacterRelationships: (charId, rels) =>
         _setGroupRealismValue(charId, 'relationships', rels),
+    getGroupCounter: (charId, key, {int defaultValue = 0}) =>
+        (_groupRealism[charId]?[key] as num?)?.toInt() ?? defaultValue,
+    setGroupCounter: (charId, key, v) => _setGroupRealismValue(charId, key, v),
+    // Living Time §7 v1.5: bond/trust tier crossings → "Our Story" cards.
+    // Fire-and-forget; plant never throws into the eval path. Diary owner is
+    // the current speaker (1:1 host or group speaker whose scalars just moved).
+    onTierCrossing: (crossing) {
+      final sessionId = _currentSessionId;
+      if (sessionId == null) return;
+      final charId = _getCurrentSpeakerIdForRealism();
+      if (charId.isEmpty) return;
+      unawaited(
+        RelationshipMilestones.plant(
+          store: _journalStore,
+          sessionId: sessionId,
+          characterId: charId,
+          crossing: crossing,
+          sourcePositions: _messages.isEmpty
+              ? const <int>[]
+              : <int>[_messages.length - 1],
+          storyDay: _timeService.dayCount,
+          storyClock: _timeService.storyClockIso,
+          maxCards: _storageService.memorySettings.journalMaxCards,
+        ),
+      );
+    },
   );
 
   // ── Expression label selection / manual / avatar resolve / reclass / ONNX (extracted) ────
@@ -1842,14 +1693,12 @@ class ChatService extends ChangeNotifier {
     setRealismEvalCancelled: (v) => _realismEvalCancelled = v,
     setIsEvaluatingRealism: (v) => _isEvaluatingRealism = v,
     onHandleRealismEvalCancelledDuringOnnx: () async {
-      _messages.add(
-        ChatMessage(
-          text: 'Realism evaluation interrupted, regenerate response to retry',
-          sender: 'Interruption',
-          isUser: false,
-        ),
-      );
-      await _saveChat();
+      // Transient banner only — never a persisted chat message. (The old
+      // 'Interruption' line rode chat history, prompts, RAG, and journal
+      // windows forever; same fix as cancelRealismEval.) This fires during
+      // post-generation ONNX avatar classification, so the reply already
+      // exists — consuming the flag here is correct (nothing to abort).
+      _setGuestStatus('Realism classification interrupted.');
       _realismEvalCancelled = false;
       _isEvaluatingRealism = false;
       notifyListeners();
@@ -1883,9 +1732,6 @@ class ChatService extends ChangeNotifier {
     getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
     getGroupCharacters: () => _groupCharacters,
     getActiveCharacter: () => _activeCharacter,
-    getShortTermTierName: () => _relationshipService.shortTermTierName,
-    getLongTermTierName: () => _relationshipService.longTermTierName,
-    getMoodLabel: () => moodLabel,
     getShouldTrackInterCharacterRelationships: () =>
         _shouldTrackInterCharacterRelationships,
     getGroupInt: _getGroupInt,
@@ -1896,27 +1742,153 @@ class ChatService extends ChangeNotifier {
 
   late final _emotionInjection = EmotionInjection(
     getRealismEnabled: () => _realismEnabled,
-    getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
-    getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
-    getGroupCharacters: () => _groupCharacters,
-    getActiveCharacter: () => _activeCharacter,
     getCharacterEmotion: () => _characterEmotion,
     getEmotionIntensity: () => _emotionIntensity,
-    getCharacterIdFromCard: _getCharacterIdFromCard,
   );
 
   late final _behavioralInjection = BehavioralInjection(
     relationshipService: _relationshipService,
     getRealismEnabled: () => _realismEnabled,
-    getActiveCharacter: () => _activeCharacter,
   );
 
-  late final _timeInjection = TimeInjection(timeService: _timeService);
+  late final _timeInjection = TimeInjection(
+    timeService: _timeService,
+    // One-shot, opt-in (default OFF), coarse-worded, speculation-forbidding —
+    // living-time-features.md §2 "Privacy by design".
+    getAbsenceNote: () {
+      if (!_storageService.absenceAckEnabled || !_absenceAckPending) {
+        return null;
+      }
+      final phrase = absencePhrase;
+      return phrase == null ? null : AbsenceTracker.ackNote(phrase);
+    },
+  );
+
+  /// Coarse absence bucket ("a few days"), or null under the threshold /
+  /// fresh chat. Words only — never digits (see AbsenceTracker).
+  String? get absencePhrase => AbsenceTracker.bucketPhrase(
+    _absenceGap,
+    thresholdHours: _storageService.absenceThresholdHours,
+  );
+
+  /// [absencePhrase] gated by the welcome-back-banner setting — the ONE gate
+  /// both the desktop banner and the web facade read, so they can't drift.
+  String? get absenceBannerPhrase =>
+      _storageService.absenceBannerEnabled ? absencePhrase : null;
+
+  /// Today's story weather, or null when off (living-time-features.md §3).
+  /// Pure recompute from existing state — nothing stored, so save/load and
+  /// group re-entry agree for free. Gate: realism + passage-of-time + the
+  /// global toggle. Consumed by the injection leaf, the needs decay
+  /// modifiers, the sidebar TimeStrip, and the web facade — one source.
+  DailyWeather? get currentWeather {
+    if (!_realismEnabled ||
+        !_timeService.passageOfTimeEnabled ||
+        !_storageService.weatherEnabled) {
+      return null;
+    }
+    final seed = _currentSessionId;
+    if (seed == null) return null;
+    return WeatherEngine.weatherFor(
+      sessionSeed: seed,
+      dayCount: _timeService.dayCount,
+      date: _timeService.clock,
+    );
+  }
+
+  late final _weatherInjection = WeatherInjection(
+    getWeather: () => currentWeather,
+  );
+
+  // ── Ambitions (Living Time §6) ──
+  late final _ambitionService = AmbitionService(
+    journalStore: _journalStore,
+    growthStore: _growthStore,
+    fireEval: (prompt) async {
+      final raw = await _llmEvalEngine.fireLLMEval(prompt);
+      return raw == null ? null : _llmEvalEngine.stripThinkBlocks(raw);
+    },
+    getMaxCards: () => _storageService.memorySettings.journalMaxCards,
+    onWaypoint: () {
+      _journalMaintenance.eventKickPending = true;
+      _growthService.eventKickPending = true;
+    },
+    onCacheWarmed: () {
+      if (!_disposed) notifyListeners();
+    },
+  );
+
+  /// Sidebar/web read surface (Living Time §6): [card]'s ambitions with
+  /// live progress — triggers the lazy cache warm, so first render may show
+  /// "just beginning" and correct itself one notify later. The ONE merge of
+  /// card-authored definitions + per-chat progress; desktop and web both
+  /// read through it so they can't drift.
+  List<({String text, int progress})> ambitionsFor(CharacterCard card) {
+    final sessionId = _currentSessionId;
+    final list = card.frontPorchExtensions?.ambitions ?? const [];
+    if (sessionId == null || list.isEmpty) return const [];
+    final cid = _getCharacterIdFromCard(card);
+    _ambitionService.ensureCacheWarm(sessionId, cid);
+    final progress =
+        _ambitionService.cachedProgress(sessionId, cid) ?? const {};
+    return [for (final a in list) (text: a, progress: progress[a] ?? 0)];
+  }
+
+  late final _ambitionInjection = AmbitionInjection(
+    ambitionService: _ambitionService,
+    getSessionId: () => _currentSessionId,
+    getActiveCharacter: () => _activeCharacter,
+    getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+    getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
+    getGroupCharacters: () => _groupCharacters,
+    getCharacterIdFromCard: _getCharacterIdFromCard,
+  );
+
+  // ── Promise & debt ledger (Train B) ──
+  late final _promiseDebtService = PromiseDebtService(
+    journalStore: _journalStore,
+    fireEval: (prompt) async {
+      final raw = await _llmEvalEngine.fireLLMEval(prompt);
+      return raw == null ? null : _llmEvalEngine.stripThinkBlocks(raw);
+    },
+    getMaxCards: () => _storageService.memorySettings.journalMaxCards,
+    applyTrustDelta: (d) => _relationshipService.applyTrustDelta(d),
+    applyBondDelta: (d) => _relationshipService.applyScoreDelta(d),
+    onSalienceKick: () {
+      _journalMaintenance.eventKickPending = true;
+      _growthService.eventKickPending = true;
+    },
+    onCacheWarmed: () {
+      if (!_disposed) notifyListeners();
+    },
+  );
+
+  late final _promiseDebtInjection = PromiseDebtInjection(
+    promiseDebtService: _promiseDebtService,
+    getSessionId: () => _currentSessionId,
+    getActiveCharacter: () => _activeCharacter,
+    getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+    getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
+    getGroupCharacters: () => _groupCharacters,
+    getCharacterIdFromCard: _getCharacterIdFromCard,
+    getUserName: () => _userPersonaService.persona.name,
+  );
+
+  // ── Dreams (Living Time §1) ──
+  late final _dreamService = DreamService(
+    fireEval: (prompt) async {
+      final raw = await _llmEvalEngine.fireLLMEval(prompt);
+      return raw == null ? null : _llmEvalEngine.stripThinkBlocks(raw);
+    },
+    isEnabled: () =>
+        _realismEnabled &&
+        _timeService.passageOfTimeEnabled &&
+        _storageService.journalEnabled &&
+        _storageService.dreamsEnabled,
+  );
 
   late final _nsfwInjection = NsfwInjection(
     nsfwService: _nsfwService,
-    needsSimulation: _needsSimulation,
-    relationshipService: _relationshipService,
     getRealismEnabled: () => _realismEnabled,
     getActiveCharacter: () => _activeCharacter,
     getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
@@ -1932,13 +1904,11 @@ class ChatService extends ChangeNotifier {
 
   late final _needsInjection = NeedsInjection(
     needsSimulation: _needsSimulation,
-    nsfwService: _nsfwService,
     getNeedsSimEnabled: () => _needsSimEnabled,
     getRealismEnabled: () => _realismEnabled,
     getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
     getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
     getGroupCharacters: () => _groupCharacters,
-    getActiveCharacter: () => _activeCharacter,
     getEnjoysLowHygiene: () => enjoysLowHygiene,
     getGroupNeeds: _getGroupNeeds,
     getCharacterIdFromCard: _getCharacterIdFromCard,
@@ -1952,13 +1922,12 @@ class ChatService extends ChangeNotifier {
     relationshipInjection: _relationshipInjection,
     emotionInjection: _emotionInjection,
     timeInjection: _timeInjection,
+    weatherInjection: _weatherInjection,
+    ambitionInjection: _ambitionInjection,
+    promiseDebtInjection: _promiseDebtInjection,
     behavioralInjection: _behavioralInjection,
     nsfwInjection: _nsfwInjection,
     needsInjection: _needsInjection,
-    needsSimulation: _needsSimulation,
-    relationshipService: _relationshipService,
-    timeService: _timeService,
-    nsfwService: _nsfwService,
     getRealismEnabled: () => _realismEnabled,
     getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
     getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
@@ -2003,8 +1972,6 @@ class ChatService extends ChangeNotifier {
     getIsLocal: () => testLlmServiceOverride != null
         ? testIsLocalOverride
         : (_llmProvider?.isLocal ?? false),
-    getKoboldThinkingModel: () =>
-        _storageService.backendSettings.koboldThinkingModel,
     getKoboldService: () => _llmProvider?.koboldService,
     reconnectIfAlive: () async {
       final k = _llmProvider?.koboldService;
@@ -2174,6 +2141,10 @@ class ChatService extends ChangeNotifier {
           text,
           isPrimary: isPrimary,
           autoGenerateTasks: autoGenerateTasks,
+          // Eval-proposed objectives belong to the turn being generated —
+          // record them so regen can roll them back (turn-ops; the UI's
+          // direct setObjective calls stay unrecorded).
+          recordTurnOps: true,
         ),
     verifyRealismOutput: _realismVerifier.verify,
   );
@@ -2218,6 +2189,13 @@ class ChatService extends ChangeNotifier {
       );
     },
     deactivateObjective: (id) async {
+      // Only the completion check retires through this cb (the UI's
+      // clearObjective has its own db call) — record the turn-op so regen
+      // can reactivate a quest the invalidated turn retired. Armed-gated:
+      // manual "Check now" retirements are user actions, not turn ops.
+      if (_objectiveTurnOpsArmed) {
+        _recordObjectiveTurnOp({'op': 'deactivated', 'id': id});
+      }
       await _db.updateObjective(
         ObjectivesCompanion(
           id: drift.Value(id),
@@ -2235,6 +2213,35 @@ class ChatService extends ChangeNotifier {
     onObjectiveCompleted: () {
       _journalMaintenance.eventKickPending = true;
       _growthService.eventKickPending = true;
+    },
+    // Ambitions (Living Time §6): a whole quest finishing is the ONE moment
+    // ambition progress can move. Fire-and-forget; owner resolved from the
+    // objective row's characterId (per-character in groups by construction).
+    onQuestAchieved: (obj) {
+      final sessionId = _currentSessionId;
+      if (sessionId == null) return;
+      final card =
+          _groupCharacters
+              .where((c) => _getCharacterIdFromCard(c) == obj.characterId)
+              .firstOrNull ??
+          (_activeCharacter != null &&
+                  _getCharacterIdFromCard(_activeCharacter!) ==
+                      obj.characterId
+              ? _activeCharacter
+              : null);
+      final ambitions = card?.frontPorchExtensions?.ambitions ?? const [];
+      if (card == null || ambitions.isEmpty) return;
+      unawaited(
+        _ambitionService.onQuestAchieved(
+          sessionId: sessionId,
+          characterId: obj.characterId,
+          characterName: card.name,
+          objectiveText: obj.objective,
+          ambitions: ambitions,
+          storyDay: _timeService.dayCount,
+          storyClock: _timeService.storyClockIso,
+        ),
+      );
     },
   );
 
@@ -2279,10 +2286,11 @@ class ChatService extends ChangeNotifier {
   Future<LlmToolResponse?> _fireToolEval(
     String prompt,
     List<Map<String, dynamic>> tools,
-  ) {
+  ) async {
     final service =
         testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
-    return service.generateWithTools(
+    try {
+      return await service.generateWithTools(
       GenerationParams(
         prompt: prompt,
         maxLength: 4000,
@@ -2302,7 +2310,23 @@ class ChatService extends ChangeNotifier {
         stopSequences: const [],
       ),
       tools,
-    );
+        // Whole-call deadline: a backend that accepts the request and never
+        // answers (cold model reload after an idle unload, dead server queue,
+        // or the call queued behind a long generation like character
+        // creation) must not park a journal/realism pass forever. The timeout
+        // THROWS — isToolTransportFailure classifies it so verdict sites fall
+        // back to text for the round without branding the backend XML-only.
+      ).timeout(kEvalToolCallTimeout);
+    } on TimeoutException {
+      // The deadline abandoned an in-flight call. On the single-slot local
+      // backend that orphan holds the shared idle slot (_pendingRequest), so
+      // waitForIdle callers — text evals, the Scene Guest mint — would hang
+      // behind it indefinitely; tear it down. (If the server is hung on the
+      // orphan, the server-side abort also frees anything queued behind it.)
+      // Remote backends don't serialize on the slot — nothing to release.
+      if (service is KoboldService) service.abortGeneration();
+      rethrow;
+    }
   }
 
   /// Backend+model identity key for the tools probe. Remote model name AND
@@ -2323,7 +2347,9 @@ class ChatService extends ChangeNotifier {
     fireToolEval: _fireToolEval,
     getBackendIdentity: () => _evalBackendIdentity,
     isBackendReady: () =>
-        (testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService)
+        (testLlmServiceOverride ??
+                _llmProvider?.activeService ??
+                _koboldService)
             .isReady,
     isBusy: () => _isGenerating,
     onNotify: notifyListeners,
@@ -2375,6 +2401,8 @@ class ChatService extends ChangeNotifier {
     getMaxCards: () => _storageService.memorySettings.journalMaxCards,
     onNotify: notifyListeners,
     onSaveChat: _saveChat,
+    getCurrentStoryDay: () => _timeService.dayCount,
+    getCurrentStoryClockIso: () => _timeService.storyClockIso,
   );
 
   /// Public door for the Journal UI (phase 3): the sidebar panel and the
@@ -2385,13 +2413,24 @@ class ChatService extends ChangeNotifier {
   /// override it via `implements` (see isGrowthPassRunning precedent).
   JournalStore get journalStore => _journalStore;
 
+  /// "Our Story" timeline read-model (Living Time §7) — pure aggregation
+  /// over data already persisted; the journal dialog's timeline tab and the
+  /// web facade both read through this one instance.
+  late final MilestoneFeed milestoneFeed = MilestoneFeed(getDb: () => _db);
+
   late final _journalInjection = JournalInjection(
     store: _journalStore,
     getSessionId: () => _currentSessionId,
+    // Two-tier memory: receipts → live verbatim lines (positions are the
+    // stable indices cards already store).
+    getMessageAt: (p) =>
+        p >= 0 && p < _messages.length ? _messages[p] : null,
     // Same scalar EmotionInjection reads — in group non-obs the pre-gen
     // load-into-scalars dance has set it to the upcoming speaker's emotion
     // by assembly time, so mood-congruent recall is per-speaker (parity).
     getCurrentEmotion: () => _realismEnabled ? _characterEmotion : '',
+    getCurrentStoryDay: () => _timeService.dayCount,
+    getStoryStartDate: () => _timeService.startDate,
   );
 
   // ── Growth Rings (docs/design/growth-rings.md) ──
@@ -2520,6 +2559,9 @@ class ChatService extends ChangeNotifier {
   // ── Per-session generation overrides ──
   ChatGenerationSettings _sessionGenSettings = ChatGenerationSettings();
 
+  // ── Per-chat theme ──
+  ChatThemeOverrides _sessionThemeOverrides = ChatThemeOverrides();
+
   // ── Chat Branching ──
   String? _parentSessionId;
   int? _forkIndex;
@@ -2618,6 +2660,34 @@ class ChatService extends ChangeNotifier {
   bool get isGenerating => _isGenerating;
   bool get isLoadingSession => _isLoadingSession;
   String? get currentSessionId => _currentSessionId;
+
+  /// The per-chat gallery look selected for [characterId] in the active session,
+  /// or null (no look chosen → the character's library face shows). Keyed by the
+  /// character's library id so the same character shares one selection across a
+  /// group cast.
+  String? selectedLookFor(String characterId) => _selectedLooks[characterId];
+
+  /// Set (or clear, when [lookId] is null) the per-chat gallery look for
+  /// [characterId] in the active session, persist the whole map to the session's
+  /// selected-look column, and repaint. Never touches `imagePath` — the library
+  /// face is independent of which look shows in a given chat.
+  Future<void> setLookForCharacter(String characterId, String? lookId) async {
+    final sid = _currentSessionId;
+    if (sid == null || characterId.isEmpty) return; // never key by a blank id
+    // decodeSelectedLooks also drops empty keys, so a blank would silently fail
+    // to round-trip; refuse it here so the caller notices instead.
+    if (lookId == null) {
+      _selectedLooks.remove(characterId);
+    } else {
+      _selectedLooks[characterId] = lookId;
+    }
+    notifyListeners();
+    await _db.setSelectedLookForSession(
+      sid,
+      encodeSelectedLooks(_selectedLooks),
+    );
+  }
+
   double get generationProgress => _generationProgress;
   int get tokensGenerated => _tokensGenerated;
   int get maxTokens => _maxTokens;
@@ -2631,6 +2701,13 @@ class ChatService extends ChangeNotifier {
 
   /// Cached KoboldCPP performance data from last /api/extra/perf poll.
   Map<String, dynamic>? get lastPerfData => _lastPerfData;
+
+  /// The active backend's live generation progress (truthful status bar):
+  /// Kobold console counts, oMLX admin-stats poll, or LM Studio's runtime
+  /// log — null for plain remote APIs, which expose no prefill data. Thin
+  /// delegation; source selection lives in LLMProvider.activeLiveProgress.
+  LiveGenProgress? get activeLiveProgress =>
+      _llmProvider?.activeLiveProgress ?? _koboldService.liveProgress;
 
   /// Estimated prompt token count for the current generation (for progress display).
   int get prefillPromptTokens => _prefillPromptTokens;
@@ -2745,6 +2822,20 @@ class ChatService extends ChangeNotifier {
   set sessionGenSettings(ChatGenerationSettings value) {
     _sessionGenSettings = value;
     _saveChat();
+    notifyListeners();
+  }
+
+  /// Per-chat theme overrides (preset + customized colors/font/background/border).
+  ChatThemeOverrides get sessionThemeOverrides => _sessionThemeOverrides;
+  set sessionThemeOverrides(ChatThemeOverrides value) {
+    _sessionThemeOverrides = value;
+    // Persist only when a chat is actually open. The web facade already guards
+    // this, but a bare `_currentSessionId!` would crash any other caller that
+    // sets the theme with no active session (session close mid-save, tests).
+    final sid = _currentSessionId;
+    if (sid != null) {
+      _db.setThemeOverrides(sid, value.toJsonString());
+    }
     notifyListeners();
   }
 
@@ -2938,26 +3029,6 @@ class ChatService extends ChangeNotifier {
   /// using [EmotionLabels.nuancedToStandard].
   // (currentExpressionLabel / resolveExpressionAvatar / setManualExpression @Dep shims excised; use expressionService; main wiring note: update main if using the removed setExpressionClassifierService shim)
 
-  void setAuthorNote(String note, {int? strength}) {
-    _authorNote = note;
-    if (strength != null) _authorNoteStrength = strength;
-    _saveChat();
-    notifyListeners();
-  }
-
-  /// Build the Author's Note block with strength-modulated wrapper text.
-  /// Strength 1–3: subtle suggestion, 4–7: standard, 8–10: urgent directive.
-  String _buildAuthorNoteBlock() {
-    if (_authorNote.isEmpty) return '';
-    if (_authorNoteStrength <= 3) {
-      return '[Author\'s Note (gentle suggestion): $_authorNote]\n';
-    } else if (_authorNoteStrength <= 7) {
-      return '[Author\'s Note: $_authorNote]\n';
-    } else {
-      return '[Author\'s Note (IMPORTANT — apply immediately): $_authorNote]\n';
-    }
-  }
-
   /// Set the CharacterRepository so group mode can look up characters.
   void setCharacterRepository(CharacterRepository repo) {
     if (identical(_characterRepository, repo)) return;
@@ -2989,38 +3060,6 @@ class ChatService extends ChangeNotifier {
   /// (creation, home taps, fork, etc.) without every caller having to pass the repo.
   void setGroupChatRepository(GroupChatRepository repo) {
     _groupChatRepository = repo;
-  }
-
-  /// Build the user persona block for the generation prompt.
-  /// The user's self-description is ground truth. (What the character has
-  /// *learned* about the user now lives in her per-chat Journal cards —
-  /// injected separately via journal_injection — not here.)
-  Future<String> _buildUserPersonaBlock(String userName) async {
-    final persona = _userPersonaService.persona;
-    final personaText = persona.persona.trim();
-    final safeUserName = userName.replaceAll(RegExp(r'[\n\r"]'), ' ').trim();
-
-    final buf = StringBuffer();
-    // ALWAYS establish the user's identity by NAME — even with no persona text.
-    // Otherwise the model only sees "$userName:" history labels and invents a
-    // generic descriptor ("the boy"/"the girl") for the human. (Previously this
-    // returned '' entirely when the persona had no description.)
-    if (personaText.isNotEmpty) {
-      final safePersonaText = personaText
-          .replaceAll(RegExp(r'[\n\r"]'), ' ')
-          .trim();
-      buf.writeln("$safeUserName's Persona: $safePersonaText");
-    } else {
-      buf.writeln('$safeUserName is the human you are talking with.');
-    }
-    // The model HAS the name above — nudge it to actually use it instead of
-    // reaching for a generic epithet for the human.
-    buf.writeln(
-      'Always refer to $safeUserName by name; never substitute a generic '
-      'descriptor like "the boy", "the girl", or "the user".',
-    );
-    buf.writeln();
-    return buf.toString();
   }
 
   /// Set the LLMProvider after construction (to break circular dependency in provider tree).
@@ -3111,320 +3150,15 @@ class ChatService extends ChangeNotifier {
     return {};
   }
 
-  /// Evaluates emotion + relationship baseline from the greeting message only.
-  /// Runs once per new session, silently in the background.
-  Future<void> _runPostGreetingEval() async {
-    if (!_realismEnabled || _activeCharacter == null) return;
-    _greetingEvalPending = false; // consume the pending flag
-    debugPrint('[Realism] Running post-greeting baseline eval...');
-    _isProcessingGreeting = true;
-    notifyListeners();
-    try {
-      await Future.wait([
-        // delegates to _llmEvalEngine (step 9 thins; full bodies excised)
-        _evaluateEmotionalStateCall(),
-        Future.delayed(
-          _kEvalDispatchStagger,
-          () => _evaluateRelationshipCall(),
-        ),
-      ]);
-
-      if (_realismEvalCancelled) {
-        debugPrint('[Realism] Post-greeting eval cancelled');
-        _realismEvalCancelled = false;
-        return;
-      }
-
-      // Check for cancellation after each eval
-      if (_realismEvalCancelled) {
-        debugPrint('[Realism] Post-greeting eval cancelled');
-        _realismEvalCancelled =
-            false; // Reset the flag so future messages can proceed
-        return;
-      }
-
-      // Store initial emotion in metadata on the greeting message itself
-      if (_messages.isNotEmpty) {
-        _messages.first.activeMetadata ??= {};
-        if (_characterEmotion.isNotEmpty) {
-          _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
-          _messages.first.activeMetadata!['realism_state'] =
-              _captureRealismState();
-        }
-      }
-      await _saveChat();
-      notifyListeners();
-      debugPrint(
-        '[Realism] Post-greeting baseline: emotion=$_characterEmotion, bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}',
-      );
-    } catch (e) {
-      debugPrint('[Realism] Post-greeting eval failed: $e');
-    } finally {
-      _isProcessingGreeting = false;
-      notifyListeners();
-    }
-  }
-
-  /// Retroactive baseline eval — fires when Realism is enabled mid-conversation
-  /// with no prior state captured. Evaluates the full visible message history
-  /// so the engine catches up on emotion, bond, and scene state.
-  Future<void> _runRetroactiveBaselineEval() async {
-    if (!_realismEnabled || _activeCharacter == null) return;
-    debugPrint(
-      '[Realism] Running retroactive baseline scan (${_messages.length} messages)...',
-    );
-    _isProcessingGreeting = true; // reuse the greeting overlay
-    notifyListeners();
-    try {
-      if (_storageService.realismSettings.realismOneShotEval) {
-        await _evaluateOneShotCall(); // step 10 thin (full in realism_evals)
-
-        // Check for cancellation after one-shot eval
-        if (_realismEvalCancelled) {
-          debugPrint('[Realism] Retroactive scan cancelled');
-          _realismEvalCancelled =
-              false; // Reset the flag so future messages can proceed
-          return;
-        }
-      } else {
-        await Future.wait([
-          _evaluateRelationshipCall(),
-          Future.delayed(
-            _kEvalDispatchStagger,
-            () => _evaluateEmotionalStateCall(),
-          ),
-          Future.delayed(
-            _kEvalDispatchStagger * 2,
-            () => _evaluatePhysicalStateCall(),
-          ),
-          Future.delayed(
-            _kEvalDispatchStagger * 3,
-            () => _evaluateNarrativeCall(),
-          ),
-        ]);
-
-        if (_realismEvalCancelled) {
-          debugPrint('[Realism] Retroactive scan cancelled');
-          _realismEvalCancelled = false;
-          return;
-        }
-      }
-
-      // Stamp the baseline on the most recent message so it persists
-      if (_messages.isNotEmpty) {
-        _messages.last.activeMetadata ??= {};
-        _messages.last.activeMetadata!['emotion_label'] = _characterEmotion;
-        _messages.last.activeMetadata!['realism_state'] =
-            _captureRealismState();
-      }
-      await _saveChat();
-      notifyListeners();
-      debugPrint(
-        '[Realism] Retroactive scan complete: emotion=$_characterEmotion, bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}',
-      );
-    } catch (e) {
-      debugPrint('[Realism] Retroactive baseline scan failed: $e');
-    } finally {
-      _isProcessingGreeting = false;
-      notifyListeners();
-    }
-  }
-
-  /// Cycle the first message through alternate greetings
-  Future<void> cycleGreeting(int direction) async {
-    if (_activeCharacter == null || _messages.isEmpty) return;
-    final allGreetings = _activeCharacter!.allGreetings;
-    if (allGreetings.length <= 1) return;
-
-    _greetingIndex = (_greetingIndex + direction) % allGreetings.length;
-    if (_greetingIndex < 0) _greetingIndex += allGreetings.length;
-
-    // Replace the first message text
-    final greeting = allGreetings[_greetingIndex];
-    _messages[0] = ChatMessage(
-      text: _buildFirstMessage(_activeCharacter!, greetingText: greeting),
-      sender: _activeCharacter!.name,
-      isUser: false,
-    );
-
-    await _saveChat();
-    notifyListeners();
-
-    // Re-run baseline eval for the new greeting (skip pre-seeded V2.5 cards)
-    if (_realismActiveThisMode &&
-        _activeCharacter!.frontPorchExtensions == null) {
-      _runPostGreetingEval();
-    }
-  }
-
-  String _buildFirstMessage(CharacterCard character, {String? greetingText}) {
-    String msg = greetingText ?? character.firstMessage;
-    return _macroResolver.resolve(
-      msg,
-      MacroContext(
-        userName: _userPersonaService.persona.name,
-        characterName: character.name,
-      ),
-      section: 'firstMessage',
-    );
-  }
-
-  // ── Dynamic Responses timer management ────────────────────────────────
-  /// Called when the user leaves the chat page.
-  void pauseDynamicResponses() {
-    _cancelIdleTimer();
-  }
-
-  /// Called when the user re-enters the chat page.
-  void resumeDynamicResponses() {
-    if (!_storageService.generationSettings.dynamicResponses) return;
-    if (!_hasCompletedExchange) return;
-    if (_disposed) return;
-    _resetIdleTimer();
-  }
-
-  void _resetIdleTimer() {
-    _idleTimer?.cancel();
-    _idleTimer = null;
-    if (!_storageService.generationSettings.dynamicResponses) return;
-    if (!_hasCompletedExchange) return;
-    if (_autoResponseInProgress) {
-      final cooldown =
-          _storageService.generationSettings.dynamicResponseInterval * 2;
-      _idleTimer = Timer(Duration(seconds: cooldown), _onIdleTimerFired);
-      return;
-    }
-    final interval = _storageService.generationSettings.dynamicResponseInterval;
-    _idleTimer = Timer(Duration(seconds: interval), _onIdleTimerFired);
-  }
-
-  void _cancelIdleTimer() {
-    _idleTimer?.cancel();
-    _idleTimer = null;
-    _pendingIdleCue = null;
-    _autoResponseInProgress = false;
-    _consecutiveAutoResponses = 0;
-  }
-
-  void _onIdleTimerFired() {
-    if (_disposed) return;
-    if (_isGenerating) {
-      _resetIdleTimer();
-      return;
-    }
-    if (_ttsService != null && _ttsService!.isSpeaking) {
-      _resetIdleTimer();
-      return;
-    }
-    final llm = _llmProvider?.activeService ?? _koboldService;
-    if (!llm.isReady) {
-      _resetIdleTimer();
-      return;
-    }
-    if (_consecutiveAutoResponses >=
-        _storageService.generationSettings.dynamicResponseMaxMessages) {
-      return;
-    }
-
-    // Capture pre-AFK needs vector so the needs delta chip has a baseline
-    if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
-      _pendingRealismMetadata ??= {};
-      _pendingRealismMetadata!['needs_pre_turn_vector'] = Map<String, int>.from(
-        _needsSimulation.vector,
-      );
-    }
-
-    // Advance narrative time for the elapsed period.
-    // Needs are NOT decayed automatically during AFK — the evaluator is the
-    // sole source of need changes, so the character isn't stuck firefighting
-    // survival needs and has room for varied activities.
-    if (_realismEnabled) {
-      _timeService.advanceTimePeriods(1);
-    }
-
-    _pendingIdleCue = _buildAutonomousCue();
-    _autoResponseInProgress = true;
-    _consecutiveAutoResponses++;
-
-    _generateResponse(GenerationMode.normal)
-        .then((_) {
-          _pendingIdleCue = null;
-          _resetIdleTimer();
-          _autoResponseInProgress = false;
-        })
-        .catchError((_) {
-          _pendingIdleCue = null;
-          _autoResponseInProgress = false;
-          _resetIdleTimer();
-        });
-  }
-
-  String _buildAutonomousCue() {
-    final charName = _activeCharacter?.name ?? '{{char}}';
-    // Only announce elapsed time when the clock actually moved this cycle. Time
-    // advances iff Realism is on (the guard in _onIdleTimerFired) AND passage of
-    // time is enabled (the guard inside TimeService.advanceTimePeriods). If we
-    // announced "a few hours have passed" while the clock was frozen — e.g.
-    // Realism off but passage-of-time still defaulted on — the cue would
-    // contradict the unchanging time on every AFK turn.
-    final timeAdvancing = _realismEnabled && _timeService.passageOfTimeEnabled;
-    final timeStr = timeAdvancing
-        ? '${_timeService.timeOfDay} (Day ${_timeService.dayCount})'
-        : '';
-
-    if (!_needsSimEnabled || _needsSimulation.vector.isEmpty) {
-      final preamble = timeAdvancing
-          ? '*A few hours have passed. It is now $timeStr.\n\n'
-          : '*A while has passed.\n\n';
-      return '$preamble'
-          'Describe a quiet snapshot from part of $charName\'s day '
-          '\u2014 something they have been doing, a moment of rest, '
-          'a personal routine. Reference what they have been up to '
-          'naturally, so the scene feels like part of a lived-in day.\n\n'
-          'Write ONLY narrative action and internal thought \u2014 '
-          'NO dialogue, do NOT address or refer to the user, '
-          'do NOT have $charName notice the user. '
-          'This is a solitary scene observed from outside the chat.*';
-    }
-
-    // Full autonomous cue with needs data
-    final lowNeeds = _needsSimulation.getLowNeedsForInjection(
-      _needsSimulation.vector,
-    );
-    String needsStr = '';
-    if (lowNeeds.isNotEmpty) {
-      needsStr = lowNeeds
-          .map((n) {
-            final desc = n.value <= 20
-                ? 'low'
-                : n.value <= 35
-                ? 'getting low'
-                : 'noticeable';
-            return '${n.key} is $desc (${n.value}/100)';
-          })
-          .join(', ');
-    }
-
-    final preamble = timeAdvancing
-        ? '*A few hours have passed. It is now $timeStr.\n\n'
-        : '*A while has passed.\n\n';
-    return '$preamble'
-        'While you were away, $charName has been going about their day '
-        '\u2014 handling meals, rest, and personal needs as life went on.'
-        '${needsStr.isNotEmpty ? "\n\n$charName\'s current state \u2014 $needsStr." : ""}\n\n'
-        'Describe a quiet snapshot from $charName\'s day, touching on '
-        'some of what they have been up to (a meal, bathroom, rest, bath, '
-        'or similar daily routines) so the scene feels like part of a '
-        'lived-in day.\n\n'
-        'IMPORTANT: Write ONLY narrative action and internal thought \u2014 '
-        'NO dialogue, do NOT address or refer to the user, '
-        'do NOT have $charName notice the user. '
-        'This is a solitary scene observed from outside the chat.*';
-  }
-
-  Future<void> sendMessage(String text) async {
+  /// [imageBytes] optionally attaches a photo (already downscaled+PNG-encoded
+  /// by the composer) to this user turn. The bytes are saved to disk HERE,
+  /// after all guards pass, so a guard bail can never orphan a file. The photo
+  /// renders inline in the bubble, rides along as pixels on this turn's
+  /// generation when the model can see (see [buildTurnImages]), and is
+  /// described in the flattened history for later turns.
+  Future<void> sendMessage(String text, {Uint8List? imageBytes}) async {
     if ((_activeCharacter == null && _activeGroup == null) ||
-        text.trim().isEmpty) {
+        (text.trim().isEmpty && imageBytes == null)) {
       return;
     }
     // Don't let a user turn start while forked-in entrances are still playing —
@@ -3433,6 +3167,24 @@ class ChatService extends ChangeNotifier {
     // Likewise, don't race an in-flight Scene Guest creation/entrance (the mint
     // runs a separate LLM call that doesn't set _isGenerating).
     if (_guestBusy) return;
+    // A photo turn's captioning windows run while _isGenerating is false; this
+    // guard stops a second send from interleaving them (see isPhotoTurnInFlight).
+    if (_photoTurnInFlight) return;
+    // One-shot absence acknowledgment: pending survives exactly the first
+    // user turn after load (all of that turn's prompt builds see it); the
+    // second turn clears it for good.
+    if (_absenceAckPending) {
+      if (_absenceAckConsumed) {
+        _absenceAckPending = false;
+      } else {
+        _absenceAckConsumed = true;
+      }
+    }
+    // Start-of-turn clear: cancelRealismEval only sets this while an eval is
+    // live, and each turn's consumers clear it — but this guarantees a stray
+    // set flag can never bleed into THIS turn and abort a reply the user did
+    // not cancel.
+    _realismEvalCancelled = false;
     clearSuggestions();
 
     // A new message while an /image prompt review is parked cancels it —
@@ -3443,8 +3195,13 @@ class ChatService extends ChangeNotifier {
     _pendingIdleCue = null;
 
     // ── Slash Command Handling (delegated to leaf) ──────────────────────
+    // Skipped when a photo is attached: an attach makes the intent "send a
+    // message" unambiguous, and consuming the text as a command would drop
+    // the attachment silently.
     final trimmed = text.trim();
-    if (trimmed.startsWith('/') && _characterRepository != null) {
+    if (imageBytes == null &&
+        trimmed.startsWith('/') &&
+        _characterRepository != null) {
       final handled = await _ensureCommandHandler().handle(trimmed);
       if (handled) return;
       // Unknown command — fall through and send as a normal message.
@@ -3462,10 +3219,131 @@ class ChatService extends ChangeNotifier {
     await _commitPendingMemberExit();
     _clearExitUndo();
 
+    // Save the attachment to disk only now that every guard has passed — the
+    // composer passes bytes, not a path, so a guard bail above can't orphan a
+    // file. Null when there are no bytes / the image service isn't wired.
+    final imagePath = await _persistTurnImage(imageBytes);
+
     final senderName = _userPersonaService.persona.name;
-    _messages.add(ChatMessage(text: text, sender: senderName, isUser: true));
+    final userMsg = ChatMessage(
+      text: text,
+      sender: senderName,
+      isUser: true,
+      metadata: imagePath != null
+          ? {'is_user_image': true, 'image_path': imagePath}
+          : null,
+    );
+    // Session token for the caption writes below — captured NOW so a chat
+    // switch anywhere during the (long) turn voids the stamp+save.
+    final sessionToken = _currentSessionId;
+    _messages.add(userMsg);
     await _saveChat();
     notifyListeners();
+
+    // ── Dreams (Living Time §1) — a night passed since the last turn, so the
+    // dream surfaces before this morning's exchange. Owner = the character
+    // who ended the previous day (last assistant speaker): ONE rule for 1:1
+    // and group, so parity holds by construction. Any failure skips silently
+    // (the local-model floor: a bad dream is worse than no dream).
+    _dreamService.checkRollover(
+      sessionId: _currentSessionId,
+      dayCount: _timeService.dayCount,
+    );
+    if (_dreamService.pending && _currentSessionId != null) {
+      _dreamService.clear();
+      try {
+        String? lastCharId;
+        var lastSpeakerFound = false;
+        for (final m in _messages.reversed) {
+          if (!m.isUser &&
+              m.sender != 'System' &&
+              m.activeMetadata?['is_dream'] != true) {
+            lastCharId = m.characterId;
+            lastSpeakerFound = true;
+            break;
+          }
+        }
+        final ownerCard = !lastSpeakerFound
+            ? null
+            : lastCharId == null
+            ? _activeCharacter
+            : (_groupCharacters
+                      .where((c) => _getCharacterIdFromCard(c) == lastCharId)
+                      .firstOrNull ??
+                  _activeCharacter);
+        if (ownerCard != null) {
+          final ownerId = _getCharacterIdFromCard(ownerCard);
+          final cards = await _journalStore.cardsFor(
+            _currentSessionId!,
+            ownerId,
+          );
+          final sorted = [...cards]
+            ..sort(
+              (a, b) => JournalPhysics.cooledHeat(
+                b,
+              ).compareTo(JournalPhysics.cooledHeat(a)),
+            );
+          final dream = await _dreamService.generateDream(
+            characterName: ownerCard.name,
+            memoryFragments: [for (final c in sorted.take(5)) c.content],
+            fixation: _relationshipService.activeFixation,
+            emotion: _characterEmotion,
+            recap: _summary.length > 300
+                ? _summary.substring(0, 300)
+                : _summary,
+            weatherLine: switch (currentWeather) {
+              null => null,
+              final w => WeatherEngine.prose(w),
+            },
+            ambitions: ownerCard.frontPorchExtensions?.ambitions ?? const [],
+          );
+          if (dream != null) {
+            _messages.insert(
+              _messages.length - 1,
+              ChatMessage(
+                text: dream,
+                sender: ownerCard.name,
+                isUser: false,
+                characterId: lastCharId,
+                metadata: {'is_dream': true},
+              ),
+            );
+            notifyListeners();
+            await _journalStore.addCard(
+              sessionId: _currentSessionId!,
+              characterId: ownerId,
+              content: dream,
+              category: 'moment',
+              kind: 'dream',
+              emotionLabel: _characterEmotion.isEmpty
+                  ? null
+                  : _characterEmotion,
+              storyDay: _timeService.dayCount,
+              storyClock: _timeService.storyClockIso,
+              maxCards: _storageService.memorySettings.journalMaxCards,
+            );
+            await _saveChat();
+          }
+        }
+      } catch (e) {
+        debugPrint('[Dreams] skipped: $e');
+      }
+    }
+
+    // ── Blind-model photo fallback: caption BEFORE generating ───────────────
+    // Vision-capable models return true immediately (their pixels ride along
+    // and their caption runs post-turn); blind models run the offline
+    // captioner so this turn's history already carries the gist. Returns false
+    // when the scene changed during the (multi-second) caption await — abort
+    // rather than run decay/realism/generation against a newly loaded chat.
+    if (imagePath != null) {
+      final stillHere = await runBlindPhotoCaption(
+        userMsg,
+        imagePath,
+        sessionToken,
+      );
+      if (!stillHere) return;
+    }
 
     // Reset the idle timer — user is interacting
     _cancelIdleTimer();
@@ -3536,7 +3414,14 @@ class ChatService extends ChangeNotifier {
         _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
       }
 
-      _applyMoodDecay();
+      // Short-term bond decay: 1:1 host only. In group mode the speaker isn't
+      // picked yet — the old call here fell back to the FIRST member under
+      // random turn order, so member #1 absorbed everyone's decay. The group
+      // tick now lives per-speaker inside _evaluateRealismForUpcomingSpeaker,
+      // on the pinned speaker's own cadence counter (mirrors needs + nsfw).
+      if (_activeGroup == null) {
+        _applyMoodDecay();
+      }
       // Needs decay for 1:1 always here. For group non-observer, speaker-specific decay
       // (respecting the actual picked speaker for random turn order) is applied inside
       // _evaluateRealismForUpcomingSpeaker after _pickNextGroupCharacter has run.
@@ -3608,7 +3493,17 @@ class ChatService extends ChangeNotifier {
     // The primary 1:1 turn is now 100% finalized (response + chip/realism block
     // above). Let the director decide which guest(s) speak next. Shared with
     // regenerateMainCharacter() so the re-chime gate is identical after a regen.
-    await _maybeRunSceneGuestChimeIns(userText: text);
+    // promptText (not raw text) so a photo-only turn feeds the director a
+    // "[shared a photo]" marker instead of an empty user message.
+    await _maybeRunSceneGuestChimeIns(userText: userMsg.promptText);
+
+    // ── Auto-caption the attached photo for future-turn history ─────────────
+    // Vision path only (blind models were captioned pre-gen). Runs LAST so the
+    // eval never delays the response or guest turns; this turn already saw the
+    // pixels, so the caption just lets later turns' history describe the photo.
+    if (imagePath != null) {
+      await runVisionPhotoCaption(userMsg, imagePath, sessionToken);
+    }
   }
 
   /// Run the Scene Guest director's chime-in gate after a finalized primary/host
@@ -3732,6 +3627,9 @@ class ChatService extends ChangeNotifier {
       if (newIndex >= 0) {
         msg.swipeIndex = newIndex;
         if (!isGuestMsg) _syncRealismStateForSwipe(msg, oldIndex, newIndex);
+        // Timeline integrity: the active variant at this position changed —
+        // cards journaled from the other swipe are now phantom.
+        _invalidateJournalFrom(messageIndex);
         await _saveChat();
         notifyListeners();
       }
@@ -3743,6 +3641,8 @@ class ChatService extends ChangeNotifier {
       // Navigate to existing swipe
       msg.swipeIndex = newIndex;
       if (!isGuestMsg) _syncRealismStateForSwipe(msg, oldIndex, newIndex);
+      // Timeline integrity — same as the left-swipe branch above.
+      _invalidateJournalFrom(messageIndex);
       await _saveChat();
       notifyListeners();
     } else if (messageIndex == _messages.length - 1 && !_isGenerating) {
@@ -3754,8 +3654,9 @@ class ChatService extends ChangeNotifier {
   void _syncRealismStateForSwipe(ChatMessage msg, int oldIndex, int newIndex) {
     if (!_realismEnabled) return;
 
-    // Natively restore the frozen runtime variables for the selected alternate timeline
-    _restoreRealismStateFromMessage(msg);
+    // Natively restore the frozen runtime variables for the selected alternate
+    // timeline — in groups, into the swiped speaker's own _groupRealism entry.
+    _restoreRealismStateForSpeaker(msg);
   }
 
   Future<void> continueGeneration() async {
@@ -3848,15 +3749,53 @@ class ChatService extends ChangeNotifier {
 
   void deleteMessage(int index) async {
     if (index >= 0 && index < _messages.length) {
+      final deleted = _messages[index];
       _messages.removeAt(index);
+
+      // Timeline integrity: the delete rewrites history from [index] on
+      // (later positions shift down), so cards citing that region and the
+      // pass cursor both roll back — replaces the old cursor-decrement drift
+      // fix, which kept phantom cards alive (smoke-test bug 2026-07-21).
+      // (Growth uses a DB-backed per-session cursor; it re-reads its stored
+      // index on the next pass.)
+      _invalidateJournalFrom(index);
 
       // Time-travel rollback for realism when deleting a character message.
       // Restore from the new last message if it has a snapshot, regardless
       // of whether this was the last message. This ensures needs state
-      // (and all realism fields) reset to their previous saved values.
+      // (and all realism fields) reset to their previous saved values — in
+      // groups, inside the NEW LAST speaker's own _groupRealism entry.
       if (_messages.isNotEmpty) {
         final newLast = _messages.last;
-        _restoreRealismStateFromMessage(newLast);
+        _restoreRealismStateForSpeaker(newLast);
+      }
+
+      // Group: also roll back the DELETED speaker's OWN _groupRealism entry to
+      // their previous stamped turn — otherwise that member's bond/trust/needs
+      // deltas from the removed message stand forever (the state machine only
+      // rewinds whoever is now last). Guards:
+      //   • the deleted message must itself carry a realism_state — otherwise
+      //     it applied no deltas and rewinding would INVENT older history;
+      //   • the sender name must be unambiguous in the roster — restore resolves
+      //     by name (_restoreRealismStateForSpeaker), so with two same-named
+      //     members it could rewind the wrong one; skip that rare case rather
+      //     than corrupt state;
+      //   • skip when the deleted speaker is already the new-last (handled
+      //     above) or has no earlier stamped turn.
+      if (_activeGroup != null &&
+          !deleted.isUser &&
+          deleted.sender != 'System' &&
+          deleted.activeMetadata?['realism_state'] is Map &&
+          _groupCharacters.where((c) => c.name == deleted.sender).length == 1 &&
+          (_messages.isEmpty || _messages.last.sender != deleted.sender)) {
+        for (int i = _messages.length - 1; i >= 0; i--) {
+          final m = _messages[i];
+          if (m.sender == deleted.sender &&
+              m.activeMetadata?['realism_state'] is Map) {
+            _restoreRealismStateForSpeaker(m);
+            break;
+          }
+        }
       }
 
       await _saveChat();
@@ -3890,9 +3829,41 @@ class ChatService extends ChangeNotifier {
       // while preserving all realism metadata, swipes, swipeMetadata, durations, etc.
       // This prevents chips (needs_deltas, bond/trust deltas, emotion, etc.) from disappearing on edit.
       msg.text = newText;
+      // Timeline integrity: an edit at a journaled position rewrites what
+      // the diary already read (smoke-test bug 2026-07-21).
+      _invalidateJournalFrom(index);
       await _saveChat();
       notifyListeners();
     }
+  }
+
+  /// Timeline-integrity invalidation (Journal): content at [position] was
+  /// rewritten — regen, swipe navigation, edit, or delete. Cards citing
+  /// positions ≥ [position] describe events that no longer happened, so they
+  /// are removed (all diary owners), the pass cursor rolls back so the next
+  /// pass re-reads the rewritten window, and a salience kick refreshes the
+  /// recap soon. Cheap no-op when the pass never consumed the region: cards
+  /// only ever cite positions below the cursor. The recap TEXT may still
+  /// carry a stale sentence until the next pass rewrites it — a full recap
+  /// rewind is deliberately out of scope (documented, not silent).
+  void _invalidateJournalFrom(int position) {
+    final sessionId = _currentSessionId;
+    if (sessionId == null || position >= _summaryLastIndex) return;
+    _summaryLastIndex = position;
+    unawaited(
+      _journalStore.invalidateCardsCitingFrom(sessionId, position).then((
+        removed,
+      ) {
+        if (removed > 0 && !_disposed) {
+          _journalMaintenance.eventKickPending = true;
+          debugPrint(
+            '[Journal] Timeline rewrite at $position — removed $removed '
+            'card(s) citing the discarded region',
+          );
+          notifyListeners();
+        }
+      }),
+    );
   }
 
   // ── The Journal recap ("Where we are") ──────────────────────────────
@@ -3923,6 +3894,49 @@ class ChatService extends ChangeNotifier {
     await _journalMaintenance.runMaintenancePass(force: true);
   }
 
+  /// Train B — promise/debt ledger pass (fire-and-forget). Runs after a
+  /// normal generation when realism + journal are on. Detects new
+  /// commitments or kept/broken resolutions for the current speaker's diary.
+  void _maybeRunPromiseDebtPass() {
+    if (!_realismEnabled) return;
+    if (!_storageService.memorySettings.journalEnabled) return;
+    final sessionId = _currentSessionId;
+    if (sessionId == null) return;
+    final charId = _getCurrentSpeakerIdForRealism();
+    if (charId.isEmpty) return;
+
+    String characterName = _activeCharacter?.name ?? 'the character';
+    if (_activeGroup != null && !_observerMode) {
+      final card = _groupCharacters
+          .where((c) => _getCharacterIdFromCard(c) == charId)
+          .firstOrNull;
+      if (card != null) characterName = card.name;
+    }
+
+    final recent = _messages.length < 2
+        ? (_messages.isEmpty ? '' : _messages.last.displayText)
+        : _messages.reversed
+              .take(4)
+              .toList()
+              .reversed
+              .map((m) => '${m.sender}: ${m.displayText}')
+              .join('\n');
+    if (recent.trim().isEmpty) return;
+
+    unawaited(
+      _promiseDebtService.evaluateTurn(
+        sessionId: sessionId,
+        characterId: charId,
+        characterName: characterName,
+        userName: _userPersonaService.persona.name,
+        recentExchange: recent,
+        receiptPosition: _messages.isEmpty ? null : _messages.length - 1,
+        storyDay: _timeService.dayCount,
+        storyClock: _timeService.storyClockIso,
+      ),
+    );
+  }
+
   /// Check if a Journal maintenance pass is due and trigger it non-blockingly.
   /// Cadence (design §4.2): user messages since the _summaryLastIndex cursor
   /// vs the journalInterval setting, PLUS an immediate pass when the window
@@ -3951,8 +3965,9 @@ class ChatService extends ChangeNotifier {
         JournalPhysics.hasSalientEvent(_messages.sublist(windowStart));
 
     if (due || eventKick) {
-      _journalMaintenance.eventKickPending = false;
-      // Fire and forget — don't await
+      // Fire and forget — don't await. The pass consumes eventKickPending
+      // itself once it actually starts, so a parked review batch (or an
+      // already-running pass) can't silently eat the kick.
       _journalMaintenance.runMaintenancePass();
     }
   }
@@ -4151,18 +4166,13 @@ class ChatService extends ChangeNotifier {
     _realismEvalCancelled = true;
     notifyListeners();
 
-    // Immediately show interruption message in UI
-    final senderName = _activeCharacter?.name ?? 'Interruption';
-    _messages.add(
-      ChatMessage(
-        text: 'Realism evaluation interrupted, regenerate response to retry',
-        sender: senderName,
-        isUser: false,
-      ),
+    // Transient banner only — NEVER a chat message. The old code appended an
+    // "evaluation interrupted" line attributed to the character, which then
+    // permanently rode chat history, prompts, RAG, and journal windows.
+    _setGuestStatus(
+      'Realism evaluation cancelled — no reply was generated. '
+      'Regenerate (or send again) to retry.',
     );
-    notifyListeners();
-    // Save in background - don't await
-    Future.microtask(() => _saveChat());
 
     final llmService =
         testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
@@ -4190,8 +4200,8 @@ class ChatService extends ChangeNotifier {
   // ── Prompt Injection Builders (thins only; full in lib/services/chat/prompt_injection/* step 8) ──
 
   // The individual _get* thins for relationship/emotion/time/behavioral/nsfw are no longer used
-  // for main prompt assembly — the new _realismStateInjection composer owns the full
-  // grouped "Speaker Internal State" output (see realism_state_injection.dart).
+  // for main prompt assembly — the _realismStateInjection composer owns the words-only
+  // "[How <Name> is right now: …]" block (see realism_state_injection.dart + design doc).
   // The sub-builders themselves are still instantiated and passed to the composer.
   // Chance Time remains separate (it is not part of the per-turn realism state bundle).
 
@@ -4212,290 +4222,6 @@ class ChatService extends ChangeNotifier {
       debugPrint('[Objective] Failed to load for ${character.name}: $e');
       return const [];
     }
-  }
-
-  // ── Public Toggle Methods ──
-
-  Future<void> setRealismEnabled(bool enabled) async {
-    _realismEnabled = enabled;
-    // Anchor the narrative weekday to the real-world day when realism first turns on for this session.
-    // Only set if not already anchored (0 = legacy/unset). This prevents re-anchoring on toggle-off/on
-    // for long-running sessions, keeping Day N stable across restarts.
-    if (enabled) {
-      _timeService.ensureStartDayOfWeekAnchored();
-    }
-
-    if (enabled && _activeGroup == null && _activeCharacter != null) {
-      // ── Solution 1: Pending greeting flag ────────────────────────────
-      // The greeting was placed while realism was off. Fire the baseline
-      // eval now that the user has explicitly enabled it.
-      if (_greetingEvalPending && !_hasRealismBaseline) {
-        debugPrint(
-          '[Realism] Consuming pending greeting eval (user enabled realism after load).',
-        );
-        _runPostGreetingEval();
-      }
-      // ── Solution 3: Retroactive scan on enable ────────────────────────
-      // Realism was enabled mid-conversation with no baseline captured yet
-      // (emotion is blank, affection is zero, multiple messages exist).
-      // Run a full retrospective eval against all visible messages.
-      else if (!_hasRealismBaseline && _messages.length > 1) {
-        debugPrint(
-          '[Realism] No baseline detected — running retroactive scan on enable.',
-        );
-        _runRetroactiveBaselineEval();
-      }
-    }
-
-    if (!enabled) {
-      // IMPORTANT: Do NOT zero out realism state when disabling!
-      // Just stop using it. State persists in memory/DB so re-enabling restores it.
-      // Old behavior was destructive - it deleted all character building progress.
-      debugPrint(
-        '[Realism] Disabled (preserving state: bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}, emotion=$_characterEmotion)',
-      );
-    }
-    await _saveChat();
-    notifyListeners();
-  }
-
-  Future<void> setNsfwCooldownEnabled(bool enabled) async {
-    _nsfwService.setNsfwCooldownEnabled(enabled);
-    // In a group the flag is PER-CHARACTER (each speaker's eval reloads it via
-    // loadNsfwScalarsForSpeaker), so the chat-wide toggle must be written into
-    // EVERY member's _groupRealism entry — otherwise members keep their stale
-    // (off) per-char flag and arousal is never evaluated for them. (1:1 just uses
-    // the scalar above; this loop is a no-op there.)
-    if (_activeGroup != null) {
-      for (final c in _groupCharacters) {
-        final id = _getCharacterIdFromCard(c);
-        final entry = _groupRealism[id] ??= <String, dynamic>{};
-        entry['nsfwCooldownEnabled'] = enabled;
-        // Parity with 1:1: NsfwService.setNsfwCooldownEnabled(false) zeroes
-        // the scalar arousal + cooldowns, so disabling must clear each
-        // member's persisted values too — otherwise re-enabling resumed
-        // members from stale arousal/cooldowns while a 1:1 chat restarted
-        // fresh. (Also the documented escape hatch: toggling off and on
-        // resets a chat's lust state to neutral in BOTH modes.)
-        if (!enabled) {
-          entry['arousal'] = 0;
-          entry['cooldownTurnsRemaining'] = 0;
-          entry['cooldownTurnsTotal'] = 0;
-        }
-      }
-    }
-    await _saveChat();
-    notifyListeners();
-  }
-
-  Future<void> setPassageOfTimeEnabled(bool enabled) async {
-    _timeService.setPassageOfTimeEnabled(enabled);
-    await _saveChat();
-    notifyListeners();
-  }
-
-  /// Toggles the Needs Simulation for the current session.
-  ///
-  /// - `true`: initializes the default need vector (if empty) then begins tracking.
-  /// - `false`: clears the in-memory vector (levels are discarded for this session).
-  ///
-  /// The change is persisted with the session and broadcast via [notifyListeners].
-  /// Matches the side-effect style of [setNsfwCooldownEnabled] and [setChaosModeEnabled].
-  Future<void> setNeedsSimEnabled(bool enabled) async {
-    _needsSimEnabled = enabled;
-    // Enabling mid-chat: the needs vector is only seeded at chat start (see
-    // chat_entry/group_entry), so a toggle-on after a needs-off start leaves it
-    // empty and the sidebar shows no scores. Seed it now from the active
-    // character/group baselines, mirroring the chat-start init so 1:1 and group
-    // behave identically.
-    if (enabled && _needsSimulation.vector.isEmpty) {
-      if (_activeGroup != null) {
-        _needsSimulation.initializeFreshWithDefaults(const {
-          'hunger': 80,
-          'bladder': 80,
-          'energy': 80,
-          'social': 80,
-          'fun': 80,
-          'hygiene': 80,
-          'comfort': 80,
-        });
-      } else {
-        final ext = _activeCharacter?.frontPorchExtensions;
-        if (ext != null) {
-          _needsSimulation.initializeFreshWithDefaults({
-            'hunger': ext.needsBaselineHunger,
-            'bladder': ext.needsBaselineBladder,
-            'energy': ext.needsBaselineEnergy,
-            'social': ext.needsBaselineSocial,
-            'fun': ext.needsBaselineFun,
-            'hygiene': ext.needsBaselineHygiene,
-            'comfort': ext.needsBaselineComfort,
-          });
-        } else {
-          _needsSimulation.initializeFresh();
-        }
-      }
-    }
-    await _saveChat();
-    notifyListeners();
-  }
-
-  // ── Manual Time Nudge ────────────────────────────────────────────────────
-
-  /// Called by the sidebar chevron buttons. delta = +1 (forward) or -1 (back).
-  /// Thin delegation to TimeService (core logic + cb-driven patch). Save/notify
-  /// + realism guard kept in god wrapper (UI coordination).
-  Future<void> nudgeTimePeriod(int delta) async {
-    if (!_realismEnabled) return;
-    _timeService.nudgeTimePeriod(delta);
-    await _saveChat();
-    notifyListeners();
-  }
-
-  // ── Chaos Mode / Chance Time (thin delegation to extracted service) ──────
-  // Control sets delegate fully (like needsSimEnabled precedent). Actions thin to
-  // handle the UI-coordination flags (pendingEvent, completer) that stay in god.
-  // All impl (pressure math, pools, roll, apply core, etc.) deleted from here.
-
-  Future<void> setChaosModeEnabled(bool enabled) async {
-    _chaosModeService.setModeEnabled(enabled);
-    await _saveChat();
-    notifyListeners();
-  }
-
-  Future<void> setChaosNsfwEnabled(bool enabled) async {
-    _chaosModeService.setNsfwEnabled(enabled);
-    await _saveChat();
-    notifyListeners();
-  }
-
-  /// Clear the pending event after the UI has consumed it.
-  void clearChanceTimeEvent() {
-    _pendingChanceTimeEvent = null;
-    // no notifyListeners — avoids rebuild storms; UI already consumed it
-  }
-
-  /// Returns 8 randomly-sampled events for the wheel UI to display.
-  List<String> spinWheelEvents() {
-    return _chaosModeService.spinWheelEvents();
-  }
-
-  /// Called by the wheel overlay once the animation lands on an event.
-  /// Thin wrapper: compute display ({{char}} replace), set UI flag, delegate core
-  /// (pressure/injection/metadata/save/notify) to service, then complete completer.
-  Future<void> applyChanceTimeResult(String event, String charName) async {
-    // One shared ChatService serves both the desktop wheel and any web clients,
-    // so either surface may resolve the same parked completer. Whoever lands
-    // first wins; a late second accept is a no-op instead of completing an
-    // already-completed completer (which would throw a StateError).
-    final completer = _chanceTimeCompleter;
-    if (completer == null || completer.isCompleted) return;
-    final display = event.replaceAll('{{char}}', charName);
-    _pendingChanceTimeEvent = display;
-    await _chaosModeService.applyPreparedEvent(display);
-    // Resume the paused sendMessage flow (UI coordination stays in god).
-    // Re-check: applyPreparedEvent awaited above, so the other surface could
-    // have completed it in the gap.
-    if (!completer.isCompleted) completer.complete();
-  }
-
-  /// Per-turn auto-trigger check. Delegates to service (verbatim roll/pressure logic).
-  bool checkAndTickChaosPressure() {
-    return _chaosModeService.checkAndTickChaosPressure();
-  }
-
-  // (Chance Time pools moved verbatim to ChaosModeService; deletion complete.)
-
-  // ── Central dispose guard (rec 2 from PR #47) ─────────────────────────────────
-  // Overrides protect every notifyListeners() call (many direct + after async DB/repo
-  // work) from post-dispose use. Placed here (not a new void _ private) to obey god
-  // rules (void _ count must stay exactly 15 live grep after every edit + final).
-  // Deletion of the now-redundant per-site try/catch guard in _loadActiveObjectives
-  // (and its comment) is part of this task (see that site for the removed code).
-  /// Update a group member's needs decay rate. With [memberId] null this targets
-  /// every member (legacy "apply to all"); with a [memberId] it targets that one
-  /// member — the per-character path the Group Settings UI now uses so each
-  /// member decays at its own rate. Persists to the member card ext + PNG + the
-  /// GroupMembers row, which is exactly what runtime `_activeDecayRates()` reads.
-  Future<void> setGroupNeedsDecayRate(
-    String key,
-    int value, {
-    String? memberId,
-  }) async {
-    if (_activeGroup == null) return;
-    // The legacy shared map only has meaning for the "apply to all" call; a
-    // per-member edit writes straight to that member's card ext below.
-    if (memberId == null) _groupDecayRates[key] = value;
-
-    if (_characterRepository != null) {
-      final v2Service = V2CardService();
-      final db = await AppDatabase.instance();
-
-      final targets = memberId == null
-          ? _groupCharacters
-          : _groupCharacters.where(
-              (c) => _getCharacterIdFromCard(c) == memberId,
-            );
-      for (final char in targets) {
-        final ext = char.frontPorchExtensions ?? FrontPorchExtensions();
-        final newExt = ext.copyWith(
-          needsDecayHunger: key == 'hunger' ? value : null,
-          needsDecayBladder: key == 'bladder' ? value : null,
-          needsDecayEnergy: key == 'energy' ? value : null,
-          needsDecaySocial: key == 'social' ? value : null,
-          needsDecayFun: key == 'fun' ? value : null,
-          needsDecayHygiene: key == 'hygiene' ? value : null,
-          needsDecayComfort: key == 'comfort' ? value : null,
-        );
-        newExt.ensureStableId();
-        char.frontPorchExtensions = newExt;
-
-        if (char.imagePath != null) {
-          final file = File(char.imagePath!);
-          if (await file.exists()) {
-            await v2Service.saveCardAsPng(
-              char,
-              char.imagePath!,
-              char.imagePath!,
-            );
-          }
-        }
-
-        if (char.dbId != null) {
-          await db.updateGroupMember(
-            GroupMembersCompanion(
-              id: drift.Value(char.dbId!),
-              frontPorchExtensions: drift.Value(jsonEncode(newExt.toJson())),
-            ),
-          );
-        }
-      }
-    }
-
-    await _saveChat();
-    notifyListeners();
-  }
-
-  /// Update a decay rate for the active 1:1 character
-  Future<void> setNeedsDecayRate(String key, int value) async {
-    if (_activeCharacter == null || _characterRepository == null) return;
-
-    final ext =
-        _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
-    final newExt = ext.copyWith(
-      needsDecayHunger: key == 'hunger' ? value : null,
-      needsDecayBladder: key == 'bladder' ? value : null,
-      needsDecayEnergy: key == 'energy' ? value : null,
-      needsDecaySocial: key == 'social' ? value : null,
-      needsDecayFun: key == 'fun' ? value : null,
-      needsDecayHygiene: key == 'hygiene' ? value : null,
-      needsDecayComfort: key == 'comfort' ? value : null,
-    );
-    newExt.ensureStableId();
-    _activeCharacter!.frontPorchExtensions = newExt;
-
-    await _characterRepository!.updateCharacter(_activeCharacter!);
-    notifyListeners();
   }
 
   @override

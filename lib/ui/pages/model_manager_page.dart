@@ -240,7 +240,7 @@ class _ModelManagerPageState extends State<ModelManagerPage>
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.blueAccent),
+            icon: const Icon(Icons.refresh, color: AppColors.formMasterAccent),
             onPressed: () => modelManager.refreshModels(),
             tooltip: 'Scan for new models',
           ),

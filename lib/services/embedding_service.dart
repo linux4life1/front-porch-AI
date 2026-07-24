@@ -16,73 +16,196 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:front_porch_ai/services/embedding_sidecar.dart';
+import 'package:path/path.dart' as p;
+import 'package:front_porch_ai/services/embedding/native_embedding_engine.dart';
+import 'package:front_porch_ai/services/engine_health.dart';
+import 'package:front_porch_ai/services/model_fetch.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Service that generates text embeddings (numerical vectors) for RAG memory retrieval.
 ///
-/// Uses a local ONNX sidecar running nomic-embed-text-v1.5 on CPU (localhost:5055).
-/// The sidecar is auto-managed — it starts when RAG is enabled and stops when the app closes.
+/// Runs nomic-embed-text-v1.5 fully in-process via onnxruntime (phase 5 of
+/// docs/design/sidecar-retirement.md — the Rust embed_server is gone,
+/// completing the retirement: the app spawns no helper processes at all).
+/// The engine is golden-pinned to the retired server's exact vectors, so
+/// every embedding already stored in users' memory databases keeps
+/// comparing correctly. Existing installs reuse the fastembed model cache
+/// the server downloaded; fresh installs download the model here
+/// ([runSetup], driven by the RAG consent dialog).
 class EmbeddingService extends ChangeNotifier {
-  final EmbeddingSidecar? _sidecar;
+  final StorageService _storage;
+  final NativeEmbeddingEngine _native = NativeEmbeddingEngine();
+  ({String model, String vocab})? _files;
 
   bool _available = false;
   int _dimensions = 0;
-  static const String _baseUrl = 'http://localhost:5055';
+  String? _lastEngineError;
+
+  static const String _hfBase =
+      'https://huggingface.co/nomic-ai/nomic-embed-text-v1.5/resolve/main';
 
   bool get isAvailable => _available;
   String get activeSource => _available ? 'onnx' : 'none';
   int get dimensions => _dimensions;
 
-  EmbeddingService(this._sidecar);
+  /// Whether the model files exist on disk (fastembed cache or the
+  /// app-managed download dir) — drives the sidebar status line.
+  bool get modelOnDisk =>
+      (_files ??= NativeEmbeddingEngine.resolveModelFiles(
+        _storage.rootPath,
+      )) !=
+      null;
 
-  /// Check if embeddings are available by verifying the sidecar is running.
-  /// Starts the sidecar automatically if it's not already running.
+  EmbeddingService(this._storage);
+
+  // ---- Setup / download state (consumed by RagSetupDialog) ----
+
+  bool _settingUp = false;
+  String _setupStatus = '';
+  double _setupProgress = -1; // -1 = indeterminate
+  String? _setupError;
+
+  bool get isSettingUp => _settingUp;
+  String get setupStatus => _setupStatus;
+  double get setupProgress => _setupProgress;
+  String? get setupError => _setupError;
+
+  void clearSetupError() {
+    _setupError = null;
+    notifyListeners();
+  }
+
+  /// Downloads the model if it isn't on disk, then loads + verifies the
+  /// engine. Progress/status/error surface through the getters above.
+  /// Returns true when embeddings are ready.
+  Future<bool> runSetup() async {
+    if (_settingUp) return false;
+    _settingUp = true;
+    _setupError = null;
+    _setupProgress = -1;
+    _setupStatus = 'Checking for the embedding model...';
+    notifyListeners();
+
+    try {
+      _files = NativeEmbeddingEngine.resolveModelFiles(_storage.rootPath);
+      if (_files == null) {
+        final root = _storage.rootPath;
+        if (root == null) {
+          throw StateError('storage not initialized');
+        }
+        final dir = Directory(
+          p.join(root, 'models', 'embeddings', 'nomic-v1_5'),
+        );
+        await dir.create(recursive: true);
+        _setupStatus = 'Downloading embedding model (~550 MB, one time)...';
+        _setupProgress = 0;
+        notifyListeners();
+        await ModelFetch.fetch(
+          '$_hfBase/tokenizer.json',
+          File(p.join(dir.path, 'tokenizer.json')),
+        );
+        await ModelFetch.fetch(
+          '$_hfBase/onnx/model.onnx',
+          File(p.join(dir.path, 'model.onnx')),
+          onProgress: (done, total) {
+            if (total > 0) {
+              _setupProgress = done / total;
+              _setupStatus =
+                  'Downloading embedding model... '
+                  '${(done / (1024 * 1024)).round()} / '
+                  '${(total / (1024 * 1024)).round()} MB';
+              notifyListeners();
+            }
+          },
+        );
+        _files = NativeEmbeddingEngine.resolveModelFiles(_storage.rootPath);
+        if (_files == null) {
+          throw StateError('download finished but the model files failed '
+              'verification');
+        }
+      }
+
+      _setupStatus = 'Loading the model (first run takes a moment)...';
+      _setupProgress = -1;
+      notifyListeners();
+      await checkAvailability();
+      if (!_available) {
+        // Surface the engine's actual failure — a bare "self-test failed"
+        // gives the user (and us) nothing to act on.
+        throw StateError(
+          'the engine failed its self-test'
+          '${_lastEngineError == null ? '' : ' — $_lastEngineError'}',
+        );
+      }
+      _setupStatus = 'Memory is ready.';
+      return true;
+    } catch (e) {
+      _setupError = '$e';
+      _setupStatus = 'Setup failed.';
+      EngineHealth.instance.reportFailure(
+        EngineHealth.embeddings,
+        'setup failed: $e',
+      );
+      return false;
+    } finally {
+      _settingUp = false;
+      notifyListeners();
+    }
+  }
+
+  /// Aborts setup from the dialog's Cancel: releases the (possibly
+  /// half-warmed) session. A partial download is left as a .part file that
+  /// the next attempt resumes past.
+  void cancelSetup() {
+    _native.shutdown();
+  }
+
+  /// Kicks availability in the background if embeddings aren't live yet —
+  /// the sidebar toggle calls this when RAG turns on with consent already
+  /// given.
+  void ensureReady() {
+    if (_available || _settingUp) return;
+    unawaited(checkAvailability());
+  }
+
+  /// Loads the engine (if the model is on disk) and verifies it end to end
+  /// with a real embed, which also warms the session so the first
+  /// user-visible embed isn't the one paying the model load.
   Future<void> checkAvailability() async {
     debugPrint('[RAG:Embed] ── Checking embedding availability ──');
 
-    // Auto-start sidecar if available but not running
-    if (_sidecar != null && _sidecar.isUsable && !_sidecar.isRunning) {
-      debugPrint('[RAG:Embed] Auto-starting ONNX embedding sidecar...');
-      await _sidecar.startServer();
+    _files = NativeEmbeddingEngine.resolveModelFiles(_storage.rootPath);
+    if (_files == null) {
+      _available = false;
+      debugPrint(
+        '[RAG:Embed] ⚠ No embedding model on disk — run RAG setup to '
+        'download it',
+      );
+      notifyListeners();
+      return;
     }
 
-    // Wait for model to be ready (whether we just started or it was already running)
-    if (_sidecar != null && _sidecar.isRunning && !_sidecar.modelReady) {
-      debugPrint('[RAG:Embed] Waiting for model to finish loading...');
-      final ready = await _sidecar.waitForModelReady();
-      if (!ready) {
-        debugPrint(
-          '[RAG:Embed] Sidecar running but model not ready: ${_sidecar.error}',
-        );
-        _available = false;
-        notifyListeners();
-        return;
-      }
-    }
-
-    // Test the endpoint
     try {
-      final result = await _embed('test');
-      if (result != null && result.isNotEmpty) {
-        _dimensions = result.length;
-        _available = true;
-        debugPrint(
-          '[RAG:Embed] ✅ Local ONNX embeddings available (${_dimensions}d vectors)',
-        );
-        notifyListeners();
-        return;
-      }
+      final result = await _nativeEmbed('test');
+      _dimensions = result.length;
+      _available = true;
+      _lastEngineError = null;
+      debugPrint(
+        '[RAG:Embed] ✅ In-process embeddings available '
+        '(${_dimensions}d vectors)',
+      );
     } catch (e) {
-      debugPrint('[RAG:Embed] ONNX server check failed: $e');
+      _available = false;
+      _lastEngineError = '$e';
+      debugPrint('[RAG:Embed] ✗ In-process engine failed: $e');
+      EngineHealth.instance.reportFailure(
+        EngineHealth.embeddings,
+        'engine self-test failed: $e',
+      );
     }
-
-    _available = false;
-    debugPrint(
-      '[RAG:Embed] ⚠ Embedding sidecar not available — RAG retrieval will be inactive',
-    );
     notifyListeners();
   }
 
@@ -94,20 +217,21 @@ class EmbeddingService extends ChangeNotifier {
     final sw = Stopwatch()..start();
 
     try {
-      final result = await _embed(text);
+      final result = await _nativeEmbed(text);
       sw.stop();
-      if (result != null) {
-        debugPrint(
-          '[RAG:Embed] ✅ ${result.length}d vector in ${sw.elapsedMilliseconds}ms ← "$preview"',
-        );
-      } else {
-        debugPrint('[RAG:Embed] ✗ Got null result for "$preview"');
-      }
+      EngineHealth.instance.reportNative(EngineHealth.embeddings);
+      debugPrint(
+        '[RAG:Embed] ✅ ${result.length}d vector in ${sw.elapsedMilliseconds}ms ← "$preview"',
+      );
       return result;
     } catch (e) {
       sw.stop();
       debugPrint(
         '[RAG:Embed] ✗ Embedding failed (${sw.elapsedMilliseconds}ms): $e',
+      );
+      EngineHealth.instance.reportFailure(
+        EngineHealth.embeddings,
+        'embed failed: $e',
       );
     }
     return null;
@@ -120,43 +244,19 @@ class EmbeddingService extends ChangeNotifier {
     final results = <List<double>?>[];
     for (final text in texts) {
       results.add(await embed(text));
-      // Small delay to avoid hammering the server
-      if (texts.length > 5) {
-        await Future.delayed(const Duration(milliseconds: 50));
-      }
     }
     return results;
   }
 
-  /// Send text to the local ONNX embedding server (OpenAI-compatible format).
-  Future<List<double>?> _embed(String text) async {
-    final url = '$_baseUrl/v1/embeddings';
-    final uri = Uri.parse(url);
-    final client = http.Client();
-    try {
-      final response = await client
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'model': 'nomic-embed-text-v1.5', 'input': text}),
-          )
-          .timeout(const Duration(seconds: 30));
+  Future<List<double>> _nativeEmbed(String text) => _native.embed(
+    modelPath: _files!.model,
+    vocabPath: _files!.vocab,
+    text: text,
+  );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final dataList = data['data'];
-        if (dataList is List && dataList.isNotEmpty) {
-          final embedding = dataList[0]['embedding'];
-          if (embedding is List) {
-            return embedding.map((e) => (e as num).toDouble()).toList();
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('[RAG:Embed] ONNX server error: $e');
-    } finally {
-      client.close();
-    }
-    return null;
+  @override
+  void dispose() {
+    _native.shutdown();
+    super.dispose();
   }
 }

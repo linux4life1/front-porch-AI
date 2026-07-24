@@ -10,7 +10,7 @@ import { api } from '../api/client';
 import { ChatLorebookModal } from './ChatLorebookModal';
 import { ChatTools } from './ChatTools';
 import { type CastMember } from './CastBar';
-import { Portrait } from './ChatAvatar';
+import { LookSwiper } from './ChatAvatar';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
 
 /**
@@ -175,13 +175,18 @@ export function ChatInsight({
           broken image. Hidden on phones too via CSS ([data-layout="phone"]
           .portrait-wrap). Self-hides if its image fails. */}
       {isGroup ? null : focusedIsHost ? (
-        <Portrait
-          primary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
-          fallback={`/api/characters/${characterId}/avatar`}
+        <LookSwiper
+          characterId={characterId}
+          basePrimary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
+          baseFallback={`/api/characters/${characterId}/avatar`}
           mood={realism.mood || realism.emotion}
         />
       ) : focusedAvatarUrl ? (
-        <Portrait primary={focusedAvatarUrl} mood={realism.mood || realism.emotion} />
+        <LookSwiper
+          characterId={characterId}
+          basePrimary={focusedAvatarUrl}
+          mood={realism.mood || realism.emotion}
+        />
       ) : null}
 
       {/* Author's note sits near the top (matches the desktop sidebar order). */}

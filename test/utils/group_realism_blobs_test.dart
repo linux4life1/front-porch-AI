@@ -147,6 +147,60 @@ void main() {
     });
   });
 
+  group('parseGroupTimeSeed — the fresh-session clock seed (story calendar)', () {
+    test('reads the canonical top-level keys buildGroupRealismBlobs writes', () {
+      final blobs = buildGroupRealismBlobs(
+        seeds: sampleSeeds(),
+        needsEnabled: true,
+        timeOfDay: 'evening',
+        dayCount: 3,
+        storyStartDate: '1887-06-01',
+        storyStartTime: '23:47',
+      );
+      final seed = parseGroupTimeSeed(
+        blobs.defaultMemberJson,
+        blobs.baselineJson,
+      );
+      expect(seed, isNotNull);
+      expect(seed!.timeOfDay, 'evening');
+      expect(seed.dayCount, 3);
+      expect(seed.storyStartDate, '1887-06-01');
+      expect(seed.storyStartTime, '23:47');
+    });
+
+    test('falls back to the first baseline entry for pre-fix groups '
+        '(where the wizard stored its only copy)', () {
+      // A pre-calendar group: no top-level time on defaultMember, per-member
+      // baseline entries carry the wizard's seed.
+      const defaultMember = '{"perChar":{"alice":{"affection":10}}}';
+      const baseline =
+          '{"alice":{"affection":10,"timeOfDay":"night","dayCount":7}}';
+      final seed = parseGroupTimeSeed(defaultMember, baseline);
+      expect(seed, isNotNull);
+      expect(seed!.timeOfDay, 'night');
+      expect(seed.dayCount, 7);
+      expect(seed.storyStartDate, isNull);
+      expect(seed.storyStartTime, isNull);
+    });
+
+    test('settings-dialog-style top-level keys win over baseline', () {
+      // The group settings dialog writes top-level keys directly.
+      const defaultMember =
+          '{"perChar":{},"timeOfDay":"afternoon","dayCount":2}';
+      const baseline = '{"alice":{"timeOfDay":"night","dayCount":9}}';
+      final seed = parseGroupTimeSeed(defaultMember, baseline);
+      expect(seed!.timeOfDay, 'afternoon');
+      expect(seed.dayCount, 2);
+    });
+
+    test('realism-off / blank / garbage blobs yield null', () {
+      expect(parseGroupTimeSeed('{}', '{}'), isNull);
+      expect(parseGroupTimeSeed('', ''), isNull);
+      expect(parseGroupTimeSeed('not json', 'also not json'), isNull);
+      expect(parseGroupTimeSeed('{"perChar":{}}', '{}'), isNull);
+    });
+  });
+
   group('remapSeedsToMemberIds — source library id → runtime member id (mid)', () {
     test('re-keys member entries AND relationship targets to the mid', () {
       final seeds = sampleSeeds(); // keyed by 'alice' / 'bob' (source ids)

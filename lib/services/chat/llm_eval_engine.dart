@@ -30,6 +30,20 @@ import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 
+/// Hang guard for eval streams: the maximum gap between streamed chunks
+/// before the attempt is treated as dead (covers the first token too, so a
+/// backend stalling on a cold model reload — or holding a request in a queue
+/// forever — can't park an eval and its spinner indefinitely). Generous on
+/// purpose: slow local prefill on a big journal window must still fit.
+const Duration kEvalStreamChunkTimeout = Duration(seconds: 180);
+
+/// Hang guard for the non-streaming tools-transport call (the journal/
+/// realism tool calls and the one-shot capability probe). Whole-call
+/// deadline, so it must cover a full slow-hardware generation — a timed-out
+/// PROBE merely marks the backend XML-only for the run (text path floor,
+/// which carries its own chunk timeout).
+const Duration kEvalToolCallTimeout = Duration(minutes: 6);
+
 /// Plain (non-ChangeNotifier) domain service owning the central LLM eval
 /// firing (_fireLLMEval with full streaming + retry loop + cancel support,
 /// fixed params maxLength:4000 / temp 0.1 / reasoningEnabled:false / stop: []),
@@ -171,7 +185,6 @@ class LlmEvalEngine {
   // LLM readiness + cancel (honors test overrides via live closure in god)
   final LLMService Function() getLlmService;
   final bool Function() getIsLocal;
-  final bool Function() getKoboldThinkingModel;
   final KoboldService? Function() getKoboldService;
   final Future<void> Function() reconnectIfAlive;
   final Future<void> Function() ensureServerIdle;
@@ -199,6 +212,10 @@ class LlmEvalEngine {
   // onNotify remains declared for now but will be audited; if unused after,
   // further hygiene in later.)
 
+  /// Between-chunk hang guard for [fireLLMEval] streams. Injectable so tests
+  /// can prove the guard without waiting out the production value.
+  final Duration streamChunkTimeout;
+
   LlmEvalEngine({
     required this.getActiveCharacter,
     required this.getActiveGroup,
@@ -209,9 +226,9 @@ class LlmEvalEngine {
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,
+    this.streamChunkTimeout = kEvalStreamChunkTimeout,
     required this.getLlmService,
     required this.getIsLocal,
-    required this.getKoboldThinkingModel,
     required this.getKoboldService,
     required this.reconnectIfAlive,
     required this.ensureServerIdle,
@@ -353,9 +370,30 @@ class LlmEvalEngine {
         return null;
       }
       try {
-        // Streaming loop with cancellation support
+        // Streaming loop with cancellation support. The between-chunk
+        // timeout is the hang guard: a backend that accepts the request but
+        // never streams (e.g. a server stalling on a cold model reload after
+        // an idle unload — the oMLX "spinner forever" report) used to park
+        // the eval — and its spinner — indefinitely, because retries only
+        // trigger on thrown errors or completed-but-empty streams. A gap
+        // longer than [kEvalStreamChunkTimeout] now throws into the existing
+        // retry/give-up path instead, so a hung eval degrades to the same
+        // silent fail-and-retry-next-interval the passes were designed for.
         bool cancelledDuringStream = false;
-        await for (final chunk in llm.generateStream(params)) {
+        await for (final chunk in llm
+            .generateStream(params)
+            .timeout(
+              streamChunkTimeout,
+              onTimeout: (sink) {
+                sink.addError(
+                  TimeoutException(
+                    'eval stream: no chunk within '
+                    '${streamChunkTimeout.inSeconds}s',
+                  ),
+                );
+                sink.close();
+              },
+            )) {
           // If a cancellation has been requested, terminate streaming gracefully.
           if (getIsCancellingRealismEval()) {
             debugPrint('[Realism] streaming terminated via cancel');

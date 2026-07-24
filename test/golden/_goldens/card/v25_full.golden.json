@@ -10,6 +10,7 @@
         "action_color": null,
         "ai_bubble_color": null,
         "ai_text_color": null,
+        "ambitions": [],
         "avatar_locked": false,
         "chaos_mode_enabled": false,
         "character_emotion": "curiosity",

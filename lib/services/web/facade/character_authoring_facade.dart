@@ -22,6 +22,7 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/avatar_image.dart';
+import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
@@ -44,38 +45,94 @@ class CharacterAuthoringFacade {
     return true;
   }
 
-  /// List a character's avatars as JSON (id, label, displayOrder, isPrime).
+  /// List a character's avatars as JSON. `isLook` partitions gallery looks
+  /// (`looks/`) from expression images (`avatars/`); `isFavorite` marks the ★
+  /// (the export cover + default opening face, from `favoriteAvatarId`).
   Future<List<Map<String, dynamic>>> avatars(String id) async {
     final card = await _repo.getCharacterCardById(id);
     if (card == null) return const [];
     final images = await _repo.getAvatarImages(id);
+    final favoriteId = card.frontPorchExtensions?.favoriteAvatarId;
     return images
         .map((a) => {
               'id': a.id,
-              'label': a.label ?? '',
+              // A look's label is the internal '__look__' sentinel — never show
+              // it as a user-facing caption (isLook already marks looks).
+              'label': a.isLook ? '' : (a.label ?? ''),
               'displayOrder': a.displayOrder,
               'isPrime': a.displayOrder + 1 == card.primeAvatarIndex,
+              'isLook': a.isLook,
+              'isFavorite': a.id == favoriteId,
             })
         .toList();
   }
 
-  /// Add an avatar from uploaded bytes. Returns false if the character is gone.
+  /// Add an EXPRESSION avatar from uploaded bytes (goes to `avatars/`, labeled).
+  /// Returns false if the character is gone.
   Future<bool> addAvatar(String id, List<int> bytes, String? label) async {
     final card = await _repo.getCharacterCardById(id);
     if (card == null) return false;
-    await _repo.addAvatar(
-      id,
-      card.name,
-      Uint8List.fromList(bytes),
-      (label != null && label.trim().isEmpty) ? null : label,
-    );
+    // Reject the internal look sentinel as an expression label — an upload with
+    // ?label=__look__ would write the file to avatars/ but mark the row a look
+    // (AvatarImage.isLook), so it resolves/deletes from the wrong folder: a
+    // broken tile + an orphaned PNG. Treat it as unlabeled.
+    final clean = (label == null ||
+            label.trim().isEmpty ||
+            label.trim() == AvatarImage.lookLabel)
+        ? null
+        : label;
+    await _repo.addAvatar(id, card.name, Uint8List.fromList(bytes), clean);
+    return true;
+  }
+
+  /// Add a gallery LOOK from uploaded bytes (goes to `looks/`, look-labeled —
+  /// never touches `imagePath`). Mirrors desktop `addLook`. False if gone.
+  Future<bool> addLook(String id, List<int> bytes) async {
+    final card = await _repo.getCharacterCardById(id);
+    if (card == null) return false;
+    await _repo.addLook(id, card.name, Uint8List.fromList(bytes));
+    return true;
+  }
+
+  /// Web mirror of the desktop portrait delete: promotes the ★ (else first)
+  /// gallery look into the portrait via the shared portrait_promotion leaf.
+  /// False when the card is missing or has no looks — the UI hides the
+  /// button then, but a stale client may still call.
+  Future<bool> deletePortrait(String id) async {
+    final card = await _repo.getCharacterCardById(id);
+    if (card == null) return false;
+    card.avatarImages = await _repo.getAvatarImages(id);
+    if (!card.avatarImages!.any((a) => a.isLook)) return false;
+    await _repo.deletePortraitPromotingLook(card);
     return true;
   }
 
   Future<bool> removeAvatar(String id, String avatarId) async {
     final card = await _repo.getCharacterCardById(id);
     if (card == null) return false;
+    // Cascade to match desktop (avatar_gallery_controller.remove): capture
+    // whether this avatar was the ★ favorite (export cover / default face)
+    // and/or the prime BEFORE deleting, then heal both pointers after — the
+    // web path previously left a dangling favorite id and a prime index still
+    // pointing at the deleted expression.
+    final wasFavorite = card.frontPorchExtensions?.favoriteAvatarId == avatarId;
+    final before = await _repo.getAvatarImages(id);
+    final removed = before.where((a) => a.id == avatarId).firstOrNull;
+    final removedPrimeIdx = removed != null ? removed.displayOrder + 1 : -1;
+
     await _repo.removeAvatar(id, avatarId);
+
+    if (wasFavorite) await setFavorite(id, null); // → portrait
+    if (card.primeAvatarIndex == removedPrimeIdx) {
+      final remaining =
+          (await _repo.getAvatarImages(id)).where((a) => !a.isLook).toList()
+            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final newPrime = remaining.isNotEmpty
+          ? remaining.first.displayOrder + 1
+          : 1;
+      await _repo.setPrimeAvatar(id, newPrime);
+      card.primeAvatarIndex = newPrime;
+    }
     return true;
   }
 
@@ -116,8 +173,26 @@ class CharacterAuthoringFacade {
     final safeName = card.name
         .replaceAll(RegExp(r'[^\w\s\-]'), '')
         .replaceAll(' ', '_');
-    final dir = p.join(_storage.charactersDir.path, safeName, 'avatars');
-    final file = target.file(dir);
+    // Look-aware: resolveFile joins <base>/<subfolder>/<filename>, so a look
+    // serves from looks/ and an expression from avatars/ (the old avatars-only
+    // path couldn't serve a look at all).
+    final characterBaseDir = p.join(_storage.charactersDir.path, safeName);
+    final file = target.resolveFile(characterBaseDir);
     return file.existsSync() ? file : null;
+  }
+
+  /// Set (or clear) the ★ favorite avatar — the export cover + default opening
+  /// face. Pass the avatar id, or null/'' to clear back to the portrait. Pointer
+  /// only: never mutates `imagePath`. Persists via the card's PNG extensions.
+  Future<bool> setFavorite(String id, String? avatarId) async {
+    final card = await _repo.getCharacterCardById(id);
+    if (card == null) return false;
+    final ext = card.frontPorchExtensions ?? FrontPorchExtensions();
+    ext.favoriteAvatarId = (avatarId == null || avatarId.trim().isEmpty)
+        ? null
+        : avatarId;
+    card.frontPorchExtensions = ext;
+    await _repo.updateCharacter(card);
+    return true;
   }
 }

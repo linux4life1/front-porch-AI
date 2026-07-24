@@ -87,9 +87,22 @@ extension ChatServiceImages on ChatService {
             request.kind == ImageCommandKind.character,
       ),
       saveImage: (bytes) => _imageGenService!.saveImageToDisk(bytes),
-      attachToChat: (path, prompt, request) {
+      snapshotSession: () => _currentSessionId,
+      attachToChat: (path, prompt, request, launchToken) async {
+        // The gen is slow (1-10 min locally); if the user switched chats
+        // meanwhile, DON'T append this image to the now-active chat — it was
+        // crafted from the ORIGINAL chat's scene and would land on the wrong
+        // character. Surface a status and report "not attached".
+        if (_sceneChanged(launchToken as String?)) {
+          _setGuestStatus(
+            '🎨 Image is ready, but you left the chat it was made for — '
+            'open that chat and use /image again to add it.',
+            isError: true,
+          );
+          return false;
+        }
         final speaker = _resolveImageCommandCharacter(request);
-        return addGeneratedImageMessage(
+        await addGeneratedImageMessage(
           path,
           prompt,
           senderName: speaker?.name,
@@ -97,6 +110,7 @@ extension ChatServiceImages on ChatService {
               ? _getCharacterIdFromCard(speaker)
               : null,
         );
+        return true;
       },
       notifyRunStateChanged: notifyListeners,
     );

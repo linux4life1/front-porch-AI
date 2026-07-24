@@ -25,6 +25,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'comfy_workflow.dart';
+import 'image/comfy_edit_workflow.dart';
 
 /// ComfyUI backend client (plain HTTP — no sidecar). The novice contract:
 /// ComfyUI runs on http://127.0.0.1:8188 out of the box, everything the UI
@@ -157,6 +158,24 @@ class ComfyUiService {
     }
   }
 
+  /// Best-effort memory nudge (POST /free): ask the server to drop its loaded
+  /// models before a model swap — e.g. the creator pack's create→edit switch,
+  /// so the edit workflow doesn't fight the txt2img checkpoint for VRAM.
+  /// Fire-and-forget: failure just means the swap costs a little more time.
+  Future<void> freeMemory() async {
+    try {
+      await http
+          .post(
+            Uri.parse('$_root/free'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'unload_models': true, 'free_memory': true}),
+          )
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('ComfyUI: freeMemory nudge failed (ignored): $e');
+    }
+  }
+
   /// One /object_info fetch shared by the model/LoRA/sampler listings.
   Future<Map<String, dynamic>?> _objectInfo() async {
     try {
@@ -282,6 +301,64 @@ class ComfyUiService {
             loraWeight: loraWeight,
           );
 
+    return _runWorkflow(workflow, onProgress);
+  }
+
+  /// Probe: the subset of [requiredNodes] this ComfyUI does NOT have. Empty = all
+  /// present (ready). `null` = couldn't tell (server/`/object_info` unreachable),
+  /// which the UI shows as "can't check" rather than a false "missing". Used to
+  /// gate a bundled edit preset before the user can run it.
+  Future<List<String>?> missingEditNodes(List<String> requiredNodes) async {
+    final info = await _objectInfo();
+    if (info == null) return null;
+    return requiredNodes.where((n) => !info.containsKey(n)).toList();
+  }
+
+  /// The model files this ComfyUI offers for a loader slot (e.g.
+  /// `UNETLoader.unet_name`) — feeds the Edit tab's "pick your model" dropdowns.
+  Future<List<String>> fetchModelFilesFor(
+    String loaderClass,
+    String inputName,
+  ) async {
+    final info = await _objectInfo();
+    if (info == null) return const [];
+    return optionsFromObjectInfo(info, loaderClass, inputName);
+  }
+
+  /// Run an EDIT: upload the reference image, splice it (as `%IMAGE%`) plus the
+  /// caller's [tokenValues] into the token-placeholdered [workflowTemplate] (a
+  /// bundled preset OR an uploaded graph — same machinery), then run it through
+  /// the exact same submit/poll/download as [generateImage]. Throws with a
+  /// readable message if any placeholder is still unfilled (e.g. a model slot).
+  Future<Uint8List> generateImageEdit({
+    required Uint8List referenceImageBytes,
+    required Map<String, dynamic> workflowTemplate,
+    required Map<String, Object?> tokenValues,
+    void Function(double? progress, Uint8List? preview)? onProgress,
+  }) async {
+    final imageName = await uploadImage(referenceImageBytes);
+    final graph = substituteComfyWorkflow(workflowTemplate, {
+      ...tokenValues,
+      ComfyEditTokens.image: imageName,
+    });
+    final leftover = unresolvedComfyTokens(graph);
+    if (leftover.isNotEmpty) {
+      throw Exception(
+        'This edit workflow still has unfilled placeholders '
+        '(${leftover.join(', ')}). Pick a model for each slot, or fix the '
+        'uploaded workflow.',
+      );
+    }
+    return _runWorkflow(graph, onProgress);
+  }
+
+  /// Submit [workflow], stream best-effort progress over ComfyUI's WebSocket,
+  /// poll /history until it finishes, then download the first output image via
+  /// /view. Shared by [generateImage] (txt2img/img2img) and [generateImageEdit].
+  Future<Uint8List> _runWorkflow(
+    Map<String, dynamic> workflow,
+    void Function(double? progress, Uint8List? preview)? onProgress,
+  ) async {
     final clientId =
         'frontporch-${DateTime.now().microsecondsSinceEpoch.toRadixString(16)}';
     final submit = await http

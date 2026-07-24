@@ -39,13 +39,28 @@ class GroupRealismBlobs {
 /// Serialize [seeds] (memberId → seed map) into the two group realism blobs,
 /// exactly as the group creator does. When [needsEnabled] is false the `needs`
 /// map is stripped from every member (both blobs) — relationships are always kept.
+///
+/// Group-wide scene time is written to TOP-LEVEL keys of the defaultMember
+/// blob (`timeOfDay`/`dayCount` + the Story Calendar's `storyStartDate`/
+/// `storyStartTime`) — the same spot the group settings dialog already wrote,
+/// now the canonical one [parseGroupTimeSeed] reads to seed a fresh group
+/// session's clock. The per-member baseline copies stay for older app
+/// versions reading exported group cards.
 GroupRealismBlobs buildGroupRealismBlobs({
   required Map<String, Map<String, dynamic>> seeds,
   required bool needsEnabled,
   required String timeOfDay,
   required int dayCount,
+  String? storyStartDate,
+  String? storyStartTime,
 }) {
-  final defaultMember = <String, dynamic>{'perChar': <String, dynamic>{}};
+  final defaultMember = <String, dynamic>{
+    'perChar': <String, dynamic>{},
+    'timeOfDay': timeOfDay,
+    'dayCount': dayCount,
+    'storyStartDate': ?storyStartDate,
+    'storyStartTime': ?storyStartTime,
+  };
   final baseline = <String, dynamic>{};
 
   seeds.forEach((id, rawSeed) {
@@ -160,5 +175,47 @@ Map<String, Map<String, dynamic>> parseGroupRealismSeeds(
   if (perChar is! Map) return {};
   return perChar.map(
     (k, v) => MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)),
+  );
+}
+
+/// The group-wide scene-time seed for a FRESH group session's clock
+/// (story-calendar.md "As built": before this existed, the group creator's
+/// time seed was editor-carried state that never reached the runtime clock).
+///
+/// Reads the canonical top-level keys of `defaultMemberRealismState` first
+/// (what [buildGroupRealismBlobs] and the group settings dialog write), then
+/// falls back to the first per-member baseline entry — where the pre-fix
+/// wizard stored its only copy — so existing groups' authored time finally
+/// applies too. Null when neither blob carries a time (realism-off groups).
+({int dayCount, String timeOfDay, String? storyStartDate, String? storyStartTime})?
+parseGroupTimeSeed(String defaultMemberJson, String baselineJson) {
+  Map<String, dynamic>? source;
+  try {
+    if (defaultMemberJson.isNotEmpty && defaultMemberJson != '{}') {
+      final decoded = jsonDecode(defaultMemberJson);
+      if (decoded is Map && decoded['timeOfDay'] is String) {
+        source = Map<String, dynamic>.from(decoded);
+      }
+    }
+    if (source == null && baselineJson.isNotEmpty && baselineJson != '{}') {
+      final decoded = jsonDecode(baselineJson);
+      if (decoded is Map &&
+          decoded.isNotEmpty &&
+          decoded.values.first is Map) {
+        final first = decoded.values.first as Map;
+        if (first['timeOfDay'] is String) {
+          source = Map<String, dynamic>.from(first);
+        }
+      }
+    }
+  } catch (_) {
+    return null;
+  }
+  if (source == null) return null;
+  return (
+    dayCount: (source['dayCount'] as num?)?.toInt() ?? 1,
+    timeOfDay: source['timeOfDay'] as String,
+    storyStartDate: source['storyStartDate'] as String?,
+    storyStartTime: source['storyStartTime'] as String?,
   );
 }

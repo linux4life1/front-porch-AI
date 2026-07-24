@@ -18,6 +18,7 @@
 
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/services/legacy_model_cleanup.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
@@ -32,12 +33,7 @@ class SettingsFacade {
   final StorageService _storage;
   final LLMProvider _llm;
 
-  static const List<String> backends = [
-    'kobold',
-    'pseudoRemote',
-    'openRouter',
-    'omlx',
-  ];
+  static const List<String> backends = ['kobold', 'openRouter', 'omlx'];
 
   Map<String, dynamic> read() {
     final g = _storage.generationSettings;
@@ -72,6 +68,8 @@ class SettingsFacade {
         'dynamicResponses': g.dynamicResponses,
         'dynamicResponseInterval': g.dynamicResponseInterval,
         'dynamicResponseMaxMessages': g.dynamicResponseMaxMessages,
+        // Away pace (Living Time) — additive.
+        'dynamicResponsePacePeriods': g.dynamicResponsePacePeriods,
       },
     };
   }
@@ -150,6 +148,8 @@ class SettingsFacade {
       if (dri is num) await g.setDynamicResponseInterval(dri.toInt());
       final drm = gen['dynamicResponseMaxMessages'];
       if (drm is num) await g.setDynamicResponseMaxMessages(drm.toInt());
+      final drp = gen['dynamicResponsePacePeriods'];
+      if (drp is num) await g.setDynamicResponsePacePeriods(drp.toInt());
     }
   }
 
@@ -166,16 +166,38 @@ class SettingsFacade {
 
   static String _name(BackendType t) => switch (t) {
         BackendType.kobold => 'kobold',
-        BackendType.pseudoRemote => 'pseudoRemote',
         BackendType.openRouter => 'openRouter',
         BackendType.omlx => 'omlx',
       };
 
   static BackendType? _parse(String s) => switch (s) {
         'kobold' => BackendType.kobold,
-        'pseudoRemote' => BackendType.pseudoRemote,
+        // Legacy 'pseudoRemote' now maps to the local Kobold backend.
+        'pseudoRemote' => BackendType.kobold,
         'openRouter' => BackendType.openRouter,
         'omlx' => BackendType.omlx,
         _ => null,
       };
+
+  /// Legacy-engine model files still on the host's disk (sidecar
+  /// retirement cleanup — desktop parity: the Reclaim Disk Space card).
+  Future<Map<String, dynamic>> legacyModels() async {
+    final root = _storage.rootPath;
+    if (root == null) return {'groups': const [], 'totalBytes': 0};
+    final groups = await LegacyModelCleanup.scan(root);
+    return {
+      'groups': [
+        for (final g in groups) {'label': g.label, 'bytes': g.bytes},
+      ],
+      'totalBytes': groups.fold(0, (sum, g) => sum + g.bytes),
+    };
+  }
+
+  /// Deletes the scanned legacy files (the scan reruns server-side — the
+  /// client never supplies paths). Returns bytes freed.
+  Future<int> reclaimLegacyModels() async {
+    final root = _storage.rootPath;
+    if (root == null) return 0;
+    return LegacyModelCleanup.reclaim(root);
+  }
 }

@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
@@ -26,13 +25,13 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/character_gen_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/lore_extraction_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
+import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 
 /// The real generation + save engine for the AI character creator, restored
@@ -56,30 +55,14 @@ extension CreatorEngine on CreatorState {
     required LLMProvider llmProvider,
     required StorageService storage,
     required UserPersonaService personaService,
-    required ImageGenService imageService,
   }) {
     switch (creatorMode) {
       case CreatorMode.quick:
-        return _generateQuick(
-          llmProvider,
-          storage,
-          personaService,
-          imageService,
-        );
+        return _generateQuick(llmProvider, storage, personaService);
       case CreatorMode.guided:
-        return _generateGuided(
-          llmProvider,
-          storage,
-          personaService,
-          imageService,
-        );
+        return _generateGuided(llmProvider, storage, personaService);
       case CreatorMode.automated:
-        return _generateAutomated(
-          llmProvider,
-          storage,
-          personaService,
-          imageService,
-        );
+        return _generateAutomated(llmProvider, storage, personaService);
     }
   }
 
@@ -111,6 +94,8 @@ extension CreatorEngine on CreatorState {
         trustLevel: realismTrustLevel,
         dayCount: realismDayCount,
         timeOfDay: realismTimeOfDay,
+        storyStartDate: realismStoryStartDate,
+        storyStartTime: realismStoryStartTime,
         characterEmotion: realismEmotion,
         emotionIntensity: realismEmotionIntensity,
         nsfwCooldownEnabled: realismNsfwCooldown,
@@ -137,6 +122,14 @@ extension CreatorEngine on CreatorState {
         needsDecayHygiene: needsDecayHygiene,
         needsDecayComfort: needsDecayComfort,
       );
+      // Save is MULTI-SHOT now (the Portrait & Avatars panel persists before
+      // it generates; Save & Finish updates the same card), so identity
+      // fields the wizard doesn't own MUST carry over — rebuilding without
+      // them would mint a fresh stableId on every save and silently break
+      // export/re-import identity (Grok review finding, 2026-07-17).
+      final prior = card.frontPorchExtensions;
+      fpExt.stableId = prior?.stableId;
+      fpExt.favoriteAvatarId = prior?.favoriteAvatarId;
       // Stable tracking UUID: ensures later realism/needs edits update this
       // character in place instead of decoupling it from its DB row.
       fpExt.ensureStableId();
@@ -152,8 +145,11 @@ extension CreatorEngine on CreatorState {
         card.lorebook = Lorebook(entries: filtered);
       }
 
-      // Write the avatar image; the repo handles V2 PNG embedding.
-      if (generatedAvatar != null) {
+      if (card.dbId == null) {
+        // First save. Always give the card its V2 PNG (placeholder pixels —
+        // the Portrait & Avatars panel overwrites them IN PLACE post-save),
+        // so the extensions survive restarts and later updates have a file
+        // to re-embed into. Mirrors create_character_page's save.
         final charDir = storage.charactersDir;
         if (!charDir.existsSync()) charDir.createSync(recursive: true);
         final epoch = DateTime.now().millisecondsSinceEpoch;
@@ -161,11 +157,14 @@ extension CreatorEngine on CreatorState {
             .replaceAll(RegExp(r'[^\w\s]'), '')
             .replaceAll(' ', '_');
         final imagePath = p.join(charDir.path, '${safeName}_$epoch.png');
-        await File(imagePath).writeAsBytes(generatedAvatar!);
         card.imagePath = imagePath;
+        await V2CardService().saveCardAsPng(card, imagePath, null);
+        await repo.addCharacter(card);
+      } else {
+        // Already persisted (the Portrait & Avatars panel saves before it
+        // generates) — Save & Finish just updates the same card in place.
+        await repo.updateCharacter(card);
       }
-
-      await repo.addCharacter(card);
       await clearSavedFormPrefsAfterSave();
       return true;
     } catch (e, st) {
@@ -176,92 +175,68 @@ extension CreatorEngine on CreatorState {
     }
   }
 
-  /// Generate the avatar image from the dedicated image prompt (or a fallback
-  /// built from known details). Uses the configured Image Studio image backend
-  /// (Draw Things / A1111 / remote API) — independent of the LLM backend, so it
-  /// works whether the active LLM is local KoboldCpp or a remote provider.
-  Future<void> generateAvatar({required ImageGenService imageService}) async {
-    if (isGeneratingAvatar) return;
-
-    String prompt = imagePromptController.text.trim();
-    if (prompt.isEmpty) {
-      final llmPrompt = imagePrompt;
-      if (llmPrompt != null && llmPrompt.isNotEmpty) {
-        // Strip the character name out of the LLM-authored prompt.
-        String clean = llmPrompt;
-        final charName = nameController.text.trim();
-        if (charName.isNotEmpty) {
-          clean = clean
-              .replaceAll(
-                RegExp(RegExp.escape(charName), caseSensitive: false),
-                '',
-              )
-              .trim();
-          for (final part in charName.split(RegExp(r'\s+'))) {
-            if (part.length > 2) {
-              clean = clean
-                  .replaceAll(
-                    RegExp(
-                      '\\b${RegExp.escape(part)}\\b',
-                      caseSensitive: false,
-                    ),
-                    '',
-                  )
-                  .trim();
-            }
+  /// The Portrait & Avatars panel's prompt SEED: the LLM-authored image
+  /// prompt (name stripped — it means nothing to a diffusion model) when the
+  /// generation produced one, else visual tags assembled from the filled
+  /// fields. The panel's prompt field stays fully editable — this only
+  /// pre-fills it.
+  String buildPortraitPromptSeed() {
+    final llmPrompt = imagePrompt;
+    if (llmPrompt != null && llmPrompt.isNotEmpty) {
+      // Strip the character name out of the LLM-authored prompt.
+      String clean = llmPrompt;
+      final charName = nameController.text.trim();
+      if (charName.isNotEmpty) {
+        clean = clean
+            .replaceAll(
+              RegExp(RegExp.escape(charName), caseSensitive: false),
+              '',
+            )
+            .trim();
+        for (final part in charName.split(RegExp(r'\s+'))) {
+          if (part.length > 2) {
+            clean = clean
+                .replaceAll(
+                  RegExp(
+                    '\\b${RegExp.escape(part)}\\b',
+                    caseSensitive: false,
+                  ),
+                  '',
+                )
+                .trim();
           }
-          clean = clean
-              .replaceAll(RegExp(r',\s*,'), ',')
-              .replaceAll(RegExp(r'\s{2,}'), ' ')
-              .trim();
-          if (clean.startsWith(',')) clean = clean.substring(1).trim();
         }
-        prompt = '$clean, $artStyle style';
-      } else {
-        // Fallback: assemble visual tags from whatever the user provided.
-        final tags = <String>['character portrait', '$artStyle style'];
-        final sex = sexController.text.trim();
-        final age = ageController.text.trim();
-        if (sex.isNotEmpty) tags.add(sex.toLowerCase());
-        if (age.isNotEmpty) tags.add('$age years old');
-        if (guidedAppearanceController.text.trim().isNotEmpty) {
-          tags.add(guidedAppearanceController.text.trim());
-        }
-        if (guidedHairController.text.trim().isNotEmpty) {
-          tags.add(guidedHairController.text.trim());
-        }
-        if (guidedFeaturesController.text.trim().isNotEmpty) {
-          tags.add(guidedFeaturesController.text.trim());
-        }
-        if (guidedRaceController.text.trim().isNotEmpty) {
-          tags.add(guidedRaceController.text.trim());
-        }
-        if (tags.length <= 4 && descController.text.trim().isNotEmpty) {
-          final snippet = descController.text.trim();
-          tags.add(snippet.length > 150 ? snippet.substring(0, 150) : snippet);
-        }
-        prompt = tags.join(', ');
+        clean = clean
+            .replaceAll(RegExp(r',\s*,'), ',')
+            .replaceAll(RegExp(r'\s{2,}'), ' ')
+            .trim();
+        if (clean.startsWith(',')) clean = clean.substring(1).trim();
       }
-      imagePromptController.text = prompt;
+      return '$clean, $artStyle style';
     }
-
-    isGeneratingAvatar = true;
-    notify();
-    try {
-      // No hardcoded size: use the configured size, oriented portrait, and the
-      // configured default negative (via generateImage's defaults). The old
-      // fixed 512x512 both capped quality on local backends and made remote
-      // models that reject small sizes (e.g. DALL·E 3) fail outright.
-      final bytes = await imageService.generateImage(
-        prompt: prompt,
-        isPortrait: true,
-      );
-      if (bytes != null) generatedAvatar = bytes;
-    } catch (e) {
-      debugPrint('CharacterCreator: avatar gen failed: $e');
+    // Fallback: assemble visual tags from whatever the user provided.
+    final tags = <String>['character portrait', '$artStyle style'];
+    final sex = sexController.text.trim();
+    final age = ageController.text.trim();
+    if (sex.isNotEmpty) tags.add(sex.toLowerCase());
+    if (age.isNotEmpty) tags.add('$age years old');
+    if (guidedAppearanceController.text.trim().isNotEmpty) {
+      tags.add(guidedAppearanceController.text.trim());
     }
-    isGeneratingAvatar = false;
-    notify();
+    if (guidedHairController.text.trim().isNotEmpty) {
+      tags.add(guidedHairController.text.trim());
+    }
+    if (guidedFeaturesController.text.trim().isNotEmpty) {
+      tags.add(guidedFeaturesController.text.trim());
+    }
+    if (guidedRaceController.text.trim().isNotEmpty) {
+      tags.add(guidedRaceController.text.trim());
+    }
+    if (tags.length <= 4 && descController.text.trim().isNotEmpty) {
+      final snippet = descController.text.trim();
+      tags.add(snippet.length > 150 ? snippet.substring(0, 150) : snippet);
+    }
+    return tags.join(', ');
   }
 
   /// (Guided) Expand all filled fields into a cohesive description. Returns the
@@ -515,7 +490,6 @@ extension CreatorEngine on CreatorState {
     LLMProvider llmProvider,
     StorageService storage,
     UserPersonaService personaService,
-    ImageGenService imageService,
   ) {
     // Quick mode owns a separate NSFW toggle; sync it into the main flag so the
     // review step and prompts reflect it.
@@ -531,7 +505,6 @@ extension CreatorEngine on CreatorState {
       llmProvider: llmProvider,
       storage: storage,
       personaService: personaService,
-      imageService: imageService,
       build: (gen, worldLore, persona) => gen.generateCharacter(
         name: nameController.text.trim(),
         concept: quickConcept,
@@ -543,6 +516,7 @@ extension CreatorEngine on CreatorState {
         generateLorebook: true,
         loreCategories: const [],
         loreDepth: 'Standard',
+        includeDynamicMacros: includeDynamicMacros,
         descriptionDetail: '2-3 paragraphs',
         age: '',
         sex: '',
@@ -567,7 +541,6 @@ extension CreatorEngine on CreatorState {
     LLMProvider llmProvider,
     StorageService storage,
     UserPersonaService personaService,
-    ImageGenService imageService,
   ) {
     final vision = guidedVisionController.text.trim();
     final parts = <String>[vision];
@@ -631,7 +604,6 @@ extension CreatorEngine on CreatorState {
       llmProvider: llmProvider,
       storage: storage,
       personaService: personaService,
-      imageService: imageService,
       build: (gen, worldLore, persona) => gen.generateCharacter(
         name: nameController.text.trim(),
         concept: parts.join('. '),
@@ -643,6 +615,7 @@ extension CreatorEngine on CreatorState {
         generateLorebook: generateLorebook,
         loreCategories: selectedLoreCategories.toList(),
         loreDepth: loreDepth,
+        includeDynamicMacros: includeDynamicMacros,
         descriptionDetail:
             CreatorState.generationDetailOptions[generationDetail] ??
             '2-3 paragraphs',
@@ -675,7 +648,6 @@ extension CreatorEngine on CreatorState {
     LLMProvider llmProvider,
     StorageService storage,
     UserPersonaService personaService,
-    ImageGenService imageService,
   ) {
     final concept = conceptController.text.trim();
     final keywords = keywordsController.text.trim();
@@ -733,7 +705,6 @@ extension CreatorEngine on CreatorState {
       llmProvider: llmProvider,
       storage: storage,
       personaService: personaService,
-      imageService: imageService,
       build: (gen, worldLore, persona) async {
         final card = await gen.generateCharacter(
           name: nameController.text.trim(),
@@ -746,6 +717,7 @@ extension CreatorEngine on CreatorState {
           generateLorebook: generateLorebook,
           loreCategories: selectedLoreCategories.toList(),
           loreDepth: loreDepth,
+          includeDynamicMacros: includeDynamicMacros,
           descriptionDetail:
               CreatorState.generationDetailOptions[generationDetail] ??
               '2-3 paragraphs',
@@ -799,7 +771,6 @@ extension CreatorEngine on CreatorState {
     required LLMProvider llmProvider,
     required StorageService storage,
     required UserPersonaService personaService,
-    required ImageGenService imageService,
     required Future<CharacterCard?> Function(
       CharacterGenService gen,
       String? worldLore,
@@ -857,14 +828,6 @@ extension CreatorEngine on CreatorState {
       activeGenService = null;
       setStep(4); // → Realism Engine step
       notify();
-
-      // Auto-start avatar generation when an image backend is configured.
-      // Avatar generation uses the Image Studio image backend (Draw Things /
-      // A1111 / a remote API), which is independent of the LLM backend — so
-      // this no longer depends on whether the active LLM is KoboldCpp.
-      if (imageService.isConfigured) {
-        generateAvatar(imageService: imageService);
-      }
     } else {
       generatedCard = null;
       isGenerating = false;
@@ -936,10 +899,8 @@ extension CreatorEngine on CreatorState {
 
     final estimatedTokens = worldLore.length ~/ 4;
     int freeContextLimit;
-    if ((provider.activeBackend == BackendType.kobold &&
-            provider.koboldService.isReady) ||
-        (provider.activeBackend == BackendType.pseudoRemote &&
-            provider.pseudoRemoteService.isReady)) {
+    if (provider.activeBackend == BackendType.kobold &&
+        provider.koboldService.isReady) {
       freeContextLimit = storage.contextSize - 3000; // leave 3K for generation
     } else {
       freeContextLimit = 120000;

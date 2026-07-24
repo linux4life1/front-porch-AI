@@ -26,15 +26,14 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/widgets/styled_text_controller.dart';
 import 'external_image_widget.dart';
 
-/// Applies a Google Font to a base TextStyle dynamically. (moved from chat_page god file; only used by styled messages)
+/// Applies a font family to a base TextStyle dynamically.
+/// Uses Google Fonts for web-hosted fonts, otherwise applies system fonts directly.
 TextStyle _applyGoogleFont(String? fontFamily, TextStyle baseStyle) {
   if (fontFamily == null || fontFamily.isEmpty) return baseStyle;
 
   switch (fontFamily) {
     case 'Roboto':
-      return GoogleFonts.roboto(
-        textStyle: baseStyle,
-      ); // note: assumes import below
+      return GoogleFonts.roboto(textStyle: baseStyle);
     case 'Open Sans':
       return GoogleFonts.openSans(textStyle: baseStyle);
     case 'Lato':
@@ -67,8 +66,17 @@ TextStyle _applyGoogleFont(String? fontFamily, TextStyle baseStyle) {
       return GoogleFonts.robotoMono(textStyle: baseStyle);
     case 'Fira Code':
       return GoogleFonts.firaCode(textStyle: baseStyle);
+    case 'Source Code Pro':
+      return GoogleFonts.sourceCodePro(textStyle: baseStyle);
+    // System fonts — apply as named fontFamily directly
+    case 'serif':
+      return baseStyle.copyWith(fontFamily: 'Times New Roman');
+    case 'sans-serif':
+      return baseStyle.copyWith(fontFamily: 'Arial');
+    case 'monospace':
+      return baseStyle.copyWith(fontFamily: 'Courier New');
     default:
-      return baseStyle;
+      return baseStyle.copyWith(fontFamily: fontFamily);
   }
 }
 
@@ -82,6 +90,8 @@ class StyledChatMessage extends StatelessWidget {
   final bool? externalImagesAllowed;
   final Future<bool> Function()? onRequestImagePermission;
   final CharacterCard? character;
+  final ChatThemePreset? themePreset;
+  final ChatThemeOverrides? themeOverrides;
 
   const StyledChatMessage({
     super.key,
@@ -90,6 +100,8 @@ class StyledChatMessage extends StatelessWidget {
     this.externalImagesAllowed,
     this.onRequestImagePermission,
     this.character,
+    this.themePreset,
+    this.themeOverrides,
   });
 
   @override
@@ -101,7 +113,10 @@ class StyledChatMessage extends StatelessWidget {
     final imageMatches = _markdownImageRegex.allMatches(text).toList();
     if (imageMatches.isEmpty) {
       // No images — use existing fast path
-      return _buildStyledText(context, text, scaledSize, character);
+      return _buildStyledText(
+        context, text, scaledSize, character,
+        themePreset: themePreset, themeOverrides: themeOverrides,
+      );
     }
 
     // Split text into segments: [text, image, text, image, text]
@@ -114,7 +129,10 @@ class StyledChatMessage extends StatelessWidget {
         final textBefore = text.substring(lastEnd, match.start).trim();
         if (textBefore.isNotEmpty) {
           widgets.add(
-            _buildStyledText(context, textBefore, scaledSize, character),
+            _buildStyledText(
+              context, textBefore, scaledSize, character,
+              themePreset: themePreset, themeOverrides: themeOverrides,
+            ),
           );
         }
       }
@@ -140,7 +158,10 @@ class StyledChatMessage extends StatelessWidget {
       final textAfter = text.substring(lastEnd).trim();
       if (textAfter.isNotEmpty) {
         widgets.add(
-          _buildStyledText(context, textAfter, scaledSize, character),
+          _buildStyledText(
+            context, textAfter, scaledSize, character,
+            themePreset: themePreset, themeOverrides: themeOverrides,
+          ),
         );
       }
     }
@@ -155,13 +176,21 @@ class StyledChatMessage extends StatelessWidget {
     BuildContext context,
     String segment,
     double scaledSize,
-    CharacterCard? character,
-  ) {
+    CharacterCard? character, {
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  }) {
     final storageService = Provider.of<StorageService>(context);
-    final fontFamily = storageService.getChatFontFamily(character);
+    final fontFamily = storageService.getChatFontFamily(
+      character, themePreset, themeOverrides,
+    );
     final textColor = isUser
-        ? storageService.getUserTextColor(character)
-        : storageService.getAiTextColor(character);
+        ? storageService.getUserTextColor(
+            character, themePreset, themeOverrides,
+          )
+        : storageService.getAiTextColor(
+            character, themePreset, themeOverrides,
+          );
     final plainStyle = _applyGoogleFont(
       fontFamily,
       TextStyle(color: textColor, fontSize: scaledSize),
@@ -169,7 +198,11 @@ class StyledChatMessage extends StatelessWidget {
     final dialogueStyle = _applyGoogleFont(
       fontFamily,
       TextStyle(
-        color: storageService.getDialogueColor(character),
+        color: storageService.getDialogueColor(
+          character,
+          themePreset,
+          themeOverrides,
+        ),
         fontWeight: FontWeight.w500,
         fontSize: scaledSize,
       ),
@@ -177,7 +210,11 @@ class StyledChatMessage extends StatelessWidget {
     final actionStyle = _applyGoogleFont(
       fontFamily,
       TextStyle(
-        color: storageService.getActionColor(character),
+        color: storageService.getActionColor(
+          character,
+          themePreset,
+          themeOverrides,
+        ),
         fontSize: scaledSize,
       ),
     );

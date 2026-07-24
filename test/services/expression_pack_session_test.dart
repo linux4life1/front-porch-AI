@@ -10,6 +10,35 @@ import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 
 void main() {
   group('ExpressionPackSession', () {
+    test('editMode switches the positive prompt from img2img tags to an '
+        'EDIT INSTRUCTION (customPrompt still wins in both modes, since it is '
+        'checked first)', () {
+      ExpressionPackSession make(bool editMode) => ExpressionPackSession(
+        emotions: const ['joy'],
+        basePrompt: 'a portrait of luna',
+        negativePrompt: 'np',
+        denoise: 0.7,
+        editMode: editMode,
+        generate:
+            ({
+              required String prompt,
+              required String negativePrompt,
+              required int seed,
+              required double denoise,
+            }) async => null,
+      );
+      // img2img: geometry modifier leads, base composition trails.
+      final img2img = make(false).effectivePromptFor(0);
+      expect(img2img, contains(kExpressionModifiers['joy']!));
+      expect(img2img, contains('a portrait of luna'));
+      expect(img2img, isNot(contains('Change only')));
+      // edit: an instruction off the base portrait, no base-composition prompt.
+      final edit = make(true).effectivePromptFor(0);
+      expect(edit, expressionEditInstruction('joy'));
+      expect(edit, contains('Change only the facial expression'));
+      expect(edit, isNot(contains('a portrait of luna')));
+    });
+
     test('run() drives all slots pending → done with ONE shared seed '
         'and emotion-first prompts', () async {
       final seeds = <int>[];

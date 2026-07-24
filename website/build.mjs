@@ -39,7 +39,7 @@ function stamp(file) {
   }
   return stampCache.get(file);
 }
-const STABLE_VERSION = 'v0.9.9.1.3';
+const STABLE_VERSION = 'v1.0.0';
 
 /** The docs that make up the site, in reading order. */
 const DOCS = [

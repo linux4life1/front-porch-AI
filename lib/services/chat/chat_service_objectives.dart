@@ -85,6 +85,7 @@ extension ChatServiceObjectives on ChatService {
     bool isPrimary = true,
     CharacterCard? targetCharacter,
     bool autoGenerateTasks = false,
+    bool recordTurnOps = false,
   }) async {
     if (goal.trim().isEmpty) return;
     if (_currentSessionId == null) return;
@@ -128,6 +129,14 @@ extension ChatServiceObjectives on ChatService {
               isPrimary: const drift.Value(false),
             ),
           );
+          if (recordTurnOps) {
+            // charId enables the invert's primary-reconciliation guard.
+            _recordObjectiveTurnOp({
+              'op': 'demoted',
+              'id': obj.id,
+              'charId': charId,
+            });
+          }
         }
       }
     } else {
@@ -140,6 +149,12 @@ extension ChatServiceObjectives on ChatService {
               active: const drift.Value(false),
             ),
           );
+          if (recordTurnOps) {
+            _recordObjectiveTurnOp({
+              'op': 'evicted',
+              'id': currentSecondaries[i].id,
+            });
+          }
         }
       }
     }
@@ -155,6 +170,9 @@ extension ChatServiceObjectives on ChatService {
         isPrimary: drift.Value(isPrimary),
       ),
     );
+    if (recordTurnOps) {
+      _recordObjectiveTurnOp({'op': 'created', 'id': newId, 'charId': charId});
+    }
 
     await _loadActiveObjectives();
     _messagesSinceLastCheck = 0;
@@ -237,6 +255,16 @@ extension ChatServiceObjectives on ChatService {
       (t) => (t['description'] as String) == taskDesc && t['completed'] != true,
     );
     if (idx < 0) return;
+    // Turn-op for regen rollback: obj.tasks is still the pre-mutation JSON here,
+    // so the inverse is a plain write-back of that string. Armed-gated: manual
+    // "Check now" completions are user actions, not turn ops.
+    if (_objectiveTurnOpsArmed) {
+      _recordObjectiveTurnOp({
+        'op': 'tasks_changed',
+        'id': obj.id,
+        'prev': obj.tasks,
+      });
+    }
     tasks[idx]['completed'] = true;
     await _db.updateObjective(
       ObjectivesCompanion(
@@ -368,7 +396,15 @@ extension ChatServiceObjectives on ChatService {
     if (_messagesSinceLastCheck < freq) return;
     _messagesSinceLastCheck = 0;
 
-    await _checkTaskCompletionInBackground(); // step 11 thin (full in objective_proposal)
+    // Arm turn-op recording only for THIS turn-path check (see field doc):
+    // its completions/retirements belong to the turn being generated and must
+    // roll back on regen; manual "Check now" runs the same check unarmed.
+    _objectiveTurnOpsArmed = true;
+    try {
+      await _checkTaskCompletionInBackground(); // step 11 thin (full in objective_proposal)
+    } finally {
+      _objectiveTurnOpsArmed = false;
+    }
   }
 
   // Thin delegation (full _checkTaskCompletionInBackground + 2000 budget + central strip in
@@ -377,4 +413,113 @@ extension ChatServiceObjectives on ChatService {
   // proposal in step 11").
   Future<void> _checkTaskCompletionInBackground() =>
       _objectiveProposal.checkTaskCompletionInBackground();
+
+  // ── Objective turn-ops: regen rollback (mirrors the realism delta-revert) ──
+  //
+  // Objective mutations attributable to a turn (eval-proposed creations with
+  // their demotion/eviction side effects, check-driven task completions and
+  // quest retirements) are recorded here and ride
+  // _pendingRealismMetadata['objective_turn_ops'], so they attach to the bot
+  // message the turn produced via the exact flush/reset machinery the realism
+  // metadata already uses. regenerateLastMessage inverts them (reversed, by
+  // objective id — character-agnostic, so 1:1 and group behave identically)
+  // before replaying the evals, which may then legitimately re-propose for the
+  // new turn. Nothing user-initiated ever records: panel setObjective,
+  // toggleTask, clearObjective have no recording path, and the check-driven
+  // sites are gated on _objectiveTurnOpsArmed, which only the turn-path
+  // check in _maybeCheckTaskCompletionSync arms — so a manual "Check now"
+  // (forceCheckCompletion) runs the same check unrecorded and regen can
+  // never undo a user action.
+  //
+  // Known follow-up (deliberate, reviewed): swiping BACK to a rejected swipe
+  // does not re-apply its inverted ops (faithful 'created' re-apply is
+  // impossible from this op log — auto task-gen fills tasks async after the
+  // metadata flush). Accepting an old swipe and continuing self-heals at the
+  // next turn's check/eval, which re-derives completions and can re-propose;
+  // until that turn the panel reflects the newest swipe's objective state.
+
+  /// Append one turn op to the pending realism metadata (created on demand;
+  /// leaves always start from getPendingRealismMetadata(), so the list
+  /// survives their read-mutate-set pattern).
+  void _recordObjectiveTurnOp(Map<String, dynamic> op) {
+    _pendingRealismMetadata ??= {};
+    final list =
+        (_pendingRealismMetadata!['objective_turn_ops'] ??= <dynamic>[])
+            as List;
+    list.add(op);
+  }
+
+  /// Invert the rejected message's recorded objective ops (reverse order):
+  /// created → deleted, tasks_changed → pre-mutation JSON restored,
+  /// deactivated/evicted → reactivated, demoted → primary restored. Blind
+  /// id-addressed updates: a row deleted since (e.g. chat cleanup) no-ops.
+  Future<void> _revertObjectiveTurnOps(ChatMessage rejectedMsg) async {
+    final raw = rejectedMsg.activeMetadata?['objective_turn_ops'];
+    if (raw is! List || raw.isEmpty) return;
+    for (final entry in raw.reversed) {
+      if (entry is! Map) continue;
+      final id = entry['id'] as String?;
+      if (id == null || id.isEmpty) continue;
+      try {
+        switch (entry['op']) {
+          case 'created':
+            await _db.deleteObjective(id);
+          case 'tasks_changed':
+            final prev = entry['prev'];
+            if (prev is String) {
+              await _db.updateObjective(
+                ObjectivesCompanion(
+                  id: drift.Value(id),
+                  tasks: drift.Value(prev),
+                ),
+              );
+            }
+          case 'deactivated' || 'evicted':
+            await _db.updateObjective(
+              ObjectivesCompanion(
+                id: drift.Value(id),
+                active: const drift.Value(true),
+              ),
+            );
+          case 'demoted':
+            // Reconciliation guard (review finding): if the user promoted a
+            // DIFFERENT objective to primary between the turn and this regen,
+            // blindly restoring this one would leave two active primaries.
+            // The user's later choice wins — skip the restore then.
+            final charId = entry['charId'] as String?;
+            var otherPrimaryExists = false;
+            if (charId != null && charId.isNotEmpty) {
+              final current = await _db.getObjectivesForCharacter(
+                charId,
+                chatId: _currentSessionId,
+              );
+              otherPrimaryExists = current.any(
+                (o) => o.active && o.isPrimary && o.id != id,
+              );
+            }
+            if (!otherPrimaryExists) {
+              await _db.updateObjective(
+                ObjectivesCompanion(
+                  id: drift.Value(id),
+                  isPrimary: const drift.Value(true),
+                ),
+              );
+            }
+        }
+      } catch (e) {
+        debugPrint('[Objective] Regen revert op failed (${entry['op']}): $e');
+      }
+    }
+    debugPrint(
+      '[Objective] Regen reverted ${raw.length} turn op(s) from rejected message',
+    );
+    // Refresh the in-memory list the UI/injection reads. In group mode the
+    // turn manager has already been forced back to the rejected speaker, so
+    // the speaker loader targets the right member.
+    if (_activeGroup != null) {
+      await _loadObjectivesForCurrentSpeaker();
+    } else {
+      await _loadActiveObjectives();
+    }
+  }
 }

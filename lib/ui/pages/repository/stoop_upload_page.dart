@@ -198,15 +198,23 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
       return;
     }
     final card = _selected;
-    if (card == null || card.imagePath == null) return;
+    if (card == null) return;
+    // Cover = the ★ starred avatar (a look/expression) when set, else the
+    // library portrait. Gate on the resolved cover (not imagePath) so a
+    // portrait-less card that has a starred look can still upload.
+    final cover = context.read<CharacterRepository>().coverImageFileFor(card);
+    if (cover == null || !cover.existsSync()) {
+      setState(() => _error = 'This character has no avatar to upload.');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     final auth = context.read<AuthState>();
     try {
-      final bytes = await File(card.imagePath!).readAsBytes();
-      final ext = card.imagePath!.split('.').last.toLowerCase();
+      final bytes = await cover.readAsBytes();
+      final ext = cover.path.split('.').last.toLowerCase();
       // Content is edited in the full character editor before this step (update
       // flow), so the card is already current — publish it as-is.
       final payload = {

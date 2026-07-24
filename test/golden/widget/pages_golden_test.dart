@@ -24,7 +24,7 @@ library;
 // service fakes were ready.
 //
 // Pages:
-//   CreateCharacterPage  — 6-step manual wizard; step 0 (Identity) shown at rest.
+//   CreateCharacterPage  — 7-step manual wizard; step 0 (Identity) shown at rest.
 //                          All Provider.of calls are inside onPressed lambdas so
 //                          no providers are required for a static golden.
 //   UserPersonaPage      — empty persona list; renders the "Add your first

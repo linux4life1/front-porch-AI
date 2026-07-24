@@ -16,6 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chargen/char_macro.dart';
@@ -26,7 +29,7 @@ import 'package:front_porch_ai/services/llm_service.dart';
 ///
 /// Rides the same OpenAI-compatible chat transports as every other eval:
 /// [GenerationParams.images] renders the user message as a multimodal
-/// content array (KoboldCpp with an mmproj, PseudoRemote, OpenRouter,
+/// content array (KoboldCpp with an mmproj, OpenRouter,
 /// Nano-GPT, vLLM, LM Studio, oMLX all accept it). Uses the standard eval
 /// posture — temp 0.1, reasoning explicitly off so hybrid remotes don't
 /// think through an image check — then drains the stream the way the
@@ -66,4 +69,35 @@ Future<String?> fireVisionEval({
   }
   final cleaned = stripThinkBlocks(response);
   return cleaned.isEmpty ? null : cleaned;
+}
+
+/// Caption a user-attached chat photo so LATER turns' flattened history can
+/// still say what it showed (the actual pixels only ride along on the turn
+/// the photo was sent). One short objective description via [fireVisionEval];
+/// callers must gate on a vision-capable model first — a blind model would
+/// happily hallucinate a caption. Returns null when the file is unreadable
+/// or the eval fails; the history marker then stays the generic
+/// "[attaches a photo]".
+Future<String?> captionChatImage({
+  required LLMService llm,
+  required String imagePath,
+}) async {
+  final List<int> bytes;
+  try {
+    bytes = await File(imagePath).readAsBytes();
+  } catch (e) {
+    debugPrint('[VisionEval] caption: cannot read $imagePath: $e');
+    return null;
+  }
+  final caption = await fireVisionEval(
+    llm: llm,
+    prompt:
+        'Describe this photo in one or two objective sentences — subjects, '
+        'setting, notable details. Reply with the description only, no '
+        'preamble.',
+    imagesB64: [base64Encode(bytes)],
+    maxLength: 160,
+  );
+  // Single history line: collapse whitespace/newlines the model may emit.
+  return caption?.replaceAll(RegExp(r'\s+'), ' ').trim();
 }

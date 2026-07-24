@@ -327,6 +327,15 @@ List<GrowthOp> parseGrowthToolCalls(List<LlmToolCall> calls) {
     return null;
   }
 
+  // Tolerant string read: `as String?` throws on a non-null non-String
+  // (models send numbers/objects where text belongs), aborting the whole
+  // pass. Coerce instead — same as journal_ops/realismToolCallToJson.
+  String? strArg(Map<String, dynamic> args, String key) {
+    final v = args[key];
+    if (v == null) return null;
+    return v is String ? v : '$v';
+  }
+
   List<int> positions(dynamic v) {
     if (v is List) {
       return v
@@ -341,7 +350,7 @@ List<GrowthOp> parseGrowthToolCalls(List<LlmToolCall> calls) {
     final args = call.arguments;
     switch (call.name) {
       case 'add_ring':
-        var text = (args['content'] as String? ?? '').trim();
+        var text = (strArg(args, 'content') ?? '').trim();
         if (text.isEmpty) continue;
         if (text.length > GrowthPhysics.kRingMaxChars) {
           text = text.substring(0, GrowthPhysics.kRingMaxChars).trim();
@@ -349,7 +358,7 @@ List<GrowthOp> parseGrowthToolCalls(List<LlmToolCall> calls) {
         ops.add(
           GrowthOp(
             action: GrowthOpAction.add,
-            category: normalizeGrowthCategory(args['category'] as String?),
+            category: normalizeGrowthCategory(strArg(args, 'category')),
             sourcePositions: positions(args['src']),
             text: text,
           ),
@@ -368,7 +377,7 @@ List<GrowthOp> parseGrowthToolCalls(List<LlmToolCall> calls) {
         break;
       case 'revise_ring':
         final handle = intArg(args, 'id');
-        var text = (args['content'] as String? ?? '').trim();
+        var text = (strArg(args, 'content') ?? '').trim();
         if (handle == null || text.isEmpty) continue;
         if (text.length > GrowthPhysics.kRingMaxChars) {
           text = text.substring(0, GrowthPhysics.kRingMaxChars).trim();

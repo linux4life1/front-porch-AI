@@ -29,6 +29,7 @@ import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/folder_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/hardware_service.dart';
+import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
@@ -72,6 +73,7 @@ class WebServerHost extends ChangeNotifier {
   ModelManager? _modelManager;
   HardwareService? _hardwareService;
   ImageGenService? _imageGenService;
+  KoboldService? _koboldService;
   TtsService? _ttsService;
   SttService? _sttService;
   StoryRepository? _storyRepository;
@@ -96,6 +98,18 @@ class WebServerHost extends ChangeNotifier {
   VoidCallback? _imageProgressListener;
   bool _wasImageGenerating = false;
   DateTime _lastImageProgressSent = DateTime.fromMillisecondsSinceEpoch(0);
+
+  // Truthful generation-status relay (parity with the desktop status bar):
+  // live prompt-reading progress parsed from the managed KoboldCpp console +
+  // which background pass is holding the single local slot. Listens on BOTH
+  // the ChatService (phase flips) and the KoboldService (live counts), plus
+  // a 1s heartbeat timer: console lines arrive only once per BATCH, so
+  // between them no notifier fires and the interpolated fraction would
+  // freeze on web without the tick.
+  VoidCallback? _genStatusListener;
+  Timer? _genStatusTicker;
+  bool _wasBroadcastingGenStatus = false;
+  DateTime _lastGenStatusSent = DateTime.fromMillisecondsSinceEpoch(0);
 
   // Near-instant library live-sync: one debounced listener attached to the
   // CharacterRepository, FolderService and GroupChatRepository (all
@@ -159,6 +173,7 @@ class WebServerHost extends ChangeNotifier {
       _hardwareService = service;
   void setImageGenService(ImageGenService service) =>
       _imageGenService = service;
+  void setKoboldService(KoboldService service) => _koboldService = service;
   void setTtsService(TtsService service) => _ttsService = service;
   void setSttService(SttService service) => _sttService = service;
   void setStoryRepository(StoryRepository repo) => _storyRepository = repo;
@@ -271,6 +286,74 @@ class WebServerHost extends ChangeNotifier {
       chatService.addListener(onProcessing);
     }
 
+    // Truthful generation status → web clients (parity with the desktop
+    // status bar): live prompt-reading counts from the ACTIVE backend's
+    // source (Kobold console, oMLX admin-stats poll, LM Studio runtime log
+    // — resolved by chatService.activeLiveProgress), plus which background
+    // pass (journal/growth) or queued request is holding the slot.
+    // Throttled to ~2.5/s; one final {active:false} dismisses the line.
+    // Plain remote backends never have fresh live counts, so clients fall
+    // back to their plain indicator.
+    final kobold = _koboldService;
+    if (streamHub != null && chatService != null) {
+      void onGenStatus() {
+        final generating = chatService.isGenerating;
+        if (!generating) {
+          if (_wasBroadcastingGenStatus) {
+            _wasBroadcastingGenStatus = false;
+            streamHub.broadcast({'event': 'gen_status', 'active': false});
+          }
+          return;
+        }
+        final now = DateTime.now();
+        if (now.difference(_lastGenStatusSent).inMilliseconds < 400) return;
+        _lastGenStatusSent = now;
+        _wasBroadcastingGenStatus = true;
+        final live = chatService.activeLiveProgress;
+        final fresh = live != null && live.isFresh;
+        // Server-side interpolation between per-batch updates (same math as
+        // the desktop bar) so web clients get a moving fraction without
+        // doing their own estimation.
+        final perfSpeed = chatService.lastPerfData?['last_process_speed'];
+        final estFraction = fresh
+            ? live.estimatedPromptFraction(
+                tokensPerSecond: (perfSpeed is num && perfSpeed > 0)
+                    ? perfSpeed.toDouble()
+                    : null,
+              )
+            : null;
+        streamHub.broadcast({
+          'event': 'gen_status',
+          'active': true,
+          'phase': chatService.generationPhase.name,
+          'busyWith': chatService.isSummaryGenerating
+              ? 'journal'
+              : (chatService.isGrowthPassRunning ? 'growth' : null),
+          // Backend-reported queue depth — NOT attributable (may be someone
+          // waiting on us), so clients state it neutrally (review finding).
+          'queued': fresh ? live.waitingCount : 0,
+          'promptCur': fresh ? live.promptCurrent : null,
+          'promptTotal': fresh ? live.promptTotal : null,
+          'promptDone': fresh && (live.promptFraction() ?? 0) >= 1.0,
+          'estFraction': estFraction,
+          'genCur': fresh ? live.genCurrent : null,
+          'genTotal': fresh ? live.genTotal : null,
+        });
+      }
+
+      _genStatusListener = onGenStatus;
+      chatService.addListener(onGenStatus);
+      // Kobold pushes console updates through notifyListeners; the polled
+      // sources (oMLX / LM Studio) ride the 1s heartbeat below instead.
+      kobold?.addListener(onGenStatus);
+      // Heartbeat: keeps the interpolated fraction moving between console
+      // lines. Cheap no-op whenever nothing is generating.
+      _genStatusTicker = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => onGenStatus(),
+      );
+    }
+
     // Image generation live progress → web clients: percent + (when the
     // backend streams one) the in-progress preview frame, so the web chat
     // shows the image coming to life like the desktop bubble. Preview frames
@@ -380,7 +463,13 @@ class WebServerHost extends ChangeNotifier {
         : null;
 
     final chatToolsFacade = chatService != null
-        ? ChatToolsFacade(chatService, _storage, streamHub)
+        ? ChatToolsFacade(
+            chatService,
+            _storage,
+            streamHub,
+            storyRepo: _storyRepository,
+            personas: _userPersonaService,
+          )
         : null;
 
     final groupFacade = _groupChatRepository != null
@@ -543,6 +632,14 @@ class WebServerHost extends ChangeNotifier {
       _realismListener = null;
     }
     _wasEvaluatingRealism = false;
+    if (_genStatusListener != null) {
+      _chatService?.removeListener(_genStatusListener!);
+      _koboldService?.removeListener(_genStatusListener!);
+      _genStatusListener = null;
+    }
+    _genStatusTicker?.cancel();
+    _genStatusTicker = null;
+    _wasBroadcastingGenStatus = false;
     if (_imageProgressListener != null) {
       _imageGenService?.removeListener(_imageProgressListener!);
       _imageProgressListener = null;

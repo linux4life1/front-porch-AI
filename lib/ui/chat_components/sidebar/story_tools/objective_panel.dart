@@ -38,8 +38,6 @@ class ObjectivePanel extends StatefulWidget {
 
 class _ObjectivePanelState extends State<ObjectivePanel> {
   bool _generatingTasks = false;
-  bool _nsfw = false;
-  int _taskCount = 5;
   final _goalController = TextEditingController();
   final _manualTaskController = TextEditingController();
 
@@ -190,9 +188,10 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                   SizedBox(
                     height: 24,
                     child: Switch(
-                      value: _nsfw,
+                      value: chatService.objectiveNsfwTasks,
                       activeThumbColor: AppColors.lustAccentOf(context),
-                      onChanged: (v) => setState(() => _nsfw = v),
+                      onChanged: (v) =>
+                          setState(() => chatService.objectiveNsfwTasks = v),
                     ),
                   ),
                 ],
@@ -210,8 +209,8 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                                 setState(() => _generatingTasks = true);
                                 await chatService.generateObjectiveTasks(
                                   pObj,
-                                  taskCount: _taskCount,
-                                  nsfw: _nsfw,
+                                  taskCount: chatService.objectiveTaskCount,
+                                  nsfw: chatService.objectiveNsfwTasks,
                                 );
                                 if (mounted) {
                                   setState(() => _generatingTasks = false);
@@ -247,7 +246,7 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: DropdownButton<int>(
-                        value: _taskCount,
+                        value: chatService.objectiveTaskCount,
                         underline: const SizedBox.shrink(),
                         dropdownColor: AppColors.surfaceContainerOf(context),
                         style: TextStyle(
@@ -263,7 +262,8 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                               ),
                             )
                             .toList(),
-                        onChanged: (v) => setState(() => _taskCount = v ?? 5),
+                        onChanged: (v) =>
+                            setState(() => chatService.objectiveTaskCount = v ?? 5),
                       ),
                     ),
                   ],

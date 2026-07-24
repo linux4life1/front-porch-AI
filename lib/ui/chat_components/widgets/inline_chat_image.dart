@@ -29,16 +29,42 @@ import 'package:front_porch_ai/utils/picker_prefs.dart';
 /// Studio's "Send to chat"). Left-click opens a zoomable full-size viewer;
 /// right-click opens a context menu with Save image as… / Show in folder /
 /// Copy prompt (the same showMenu-at-cursor pattern as the home grid cards).
-class InlineChatImage extends StatelessWidget {
+class InlineChatImage extends StatefulWidget {
   final String path;
   final String? prompt;
 
   const InlineChatImage({super.key, required this.path, this.prompt});
 
   @override
+  State<InlineChatImage> createState() => _InlineChatImageState();
+}
+
+class _InlineChatImageState extends State<InlineChatImage> {
+  // Statted ONCE per element lifetime, not per build: this widget lives
+  // inside message bubbles, which rebuild on every streaming token batch —
+  // a per-build existsSync here is the exact bug class of the 20260716
+  // sluggishness regression (see the io-lint CI gate).
+  late bool _exists;
+
+  @override
+  void initState() {
+    super.initState();
+    _exists = File(widget.path).existsSync(); // io-ok: once per element, not per build
+  }
+
+  @override
+  void didUpdateWidget(covariant InlineChatImage old) {
+    super.didUpdateWidget(old);
+    if (old.path != widget.path) {
+      _exists = File(widget.path).existsSync(); // io-ok: only on path change
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final path = widget.path;
     final file = File(path);
-    if (!file.existsSync()) {
+    if (!_exists) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
@@ -109,7 +135,7 @@ class InlineChatImage extends StatelessWidget {
     TapUpDetails details,
   ) async {
     final position = details.globalPosition;
-    final hasPrompt = (prompt ?? '').trim().isNotEmpty;
+    final hasPrompt = (widget.prompt ?? '').trim().isNotEmpty;
     final choice = await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -123,7 +149,7 @@ class InlineChatImage extends StatelessWidget {
       items: [
         _item(context, 'save', Icons.save_alt, 'Save image as…'),
         _item(context, 'folder', Icons.folder_open, 'Show in folder'),
-        if (hasPrompt) _item(context, 'prompt', Icons.copy, 'Copy prompt'),
+        if (hasPrompt) _item(context, 'widget.prompt', Icons.copy, 'Copy widget.prompt'),
       ],
     );
     if (choice == null || !context.mounted) return;
@@ -132,8 +158,8 @@ class InlineChatImage extends StatelessWidget {
         await _saveAs(context);
       case 'folder':
         await _revealInFolder();
-      case 'prompt':
-        await Clipboard.setData(ClipboardData(text: prompt!.trim()));
+      case 'widget.prompt':
+        await Clipboard.setData(ClipboardData(text: widget.prompt!.trim()));
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Prompt copied to clipboard')),
@@ -166,14 +192,14 @@ class InlineChatImage extends StatelessWidget {
     final target = await PickerPrefs.saveFile(
       category: PickerPrefs.catExport,
       dialogTitle: 'Save image',
-      fileName: p.basename(path),
+      fileName: p.basename(widget.path),
       type: FileType.image,
     );
     if (target == null) return;
     var out = target;
     if (!out.toLowerCase().endsWith('.png')) out += '.png';
     try {
-      await File(path).copy(out);
+      await File(widget.path).copy(out);
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
@@ -193,11 +219,11 @@ class InlineChatImage extends StatelessWidget {
   Future<void> _revealInFolder() async {
     try {
       if (Platform.isWindows) {
-        await Process.run('explorer', ['/select,', path]);
+        await Process.run('explorer', ['/select,', widget.path]);
       } else if (Platform.isMacOS) {
-        await Process.run('open', ['-R', path]);
+        await Process.run('open', ['-R', widget.path]);
       } else {
-        await Process.run('xdg-open', [p.dirname(path)]);
+        await Process.run('xdg-open', [p.dirname(widget.path)]);
       }
     } catch (e) {
       debugPrint('InlineChatImage: reveal in folder failed: $e');

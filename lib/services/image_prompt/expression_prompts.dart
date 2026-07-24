@@ -149,3 +149,17 @@ const Map<String, String> kExpressionNegatives = {
 /// Framing suffix appended once to the base prompt by the pack launcher.
 const String kExpressionFraming =
     'close-up portrait, head and shoulders, looking at viewer';
+
+/// The EDIT-path instruction for an emotion — used when an instruction-edit model
+/// is loaded (Qwen-Image-Edit / Flux Kontext) instead of the img2img path. It
+/// REUSES the field-tested geometry description from [kExpressionModifiers] but
+/// frames it as an edit of the base portrait: the model changes only the
+/// expression and keeps identity, so no character/framing prompt is needed (the
+/// reference image supplies both). Deriving from the one table (rather than a
+/// hand-written second one) means the img2img and edit paths can never drift.
+String expressionEditInstruction(String emotion) {
+  final desc = kExpressionModifiers[emotion] ?? emotion;
+  return 'Change only the facial expression to: $desc. '
+      'Keep the same person, hairstyle, outfit, pose, camera framing, and '
+      'background exactly as they are.';
+}

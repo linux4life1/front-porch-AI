@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_section_card.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/dynamic_macros_toggle.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/lore_input_section.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/reasoning_toggle.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -242,6 +243,16 @@ class QuickConfigStep extends StatelessWidget {
                       while (state.quickSelectedTones.length > maxTones) {
                         state.quickSelectedTones.removeLast();
                       }
+                      state.saveState();
+                      state.notify();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DynamicMacrosToggle(
+                    value: state.includeDynamicMacros,
+                    accentColor: quickAccent,
+                    onChanged: (v) {
+                      state.includeDynamicMacros = v;
                       state.saveState();
                       state.notify();
                     },

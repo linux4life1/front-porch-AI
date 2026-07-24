@@ -168,16 +168,19 @@ label input { margin-top: 6px; }
   font-size: 0.95rem; color: var(--muted);
 }
 .side-nav .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
-.side-nav .nav-item.active { background: rgba(59, 130, 246, 0.14); color: var(--accent); font-weight: 700; }
+.side-nav .nav-item.active { background: rgba(244, 162, 89, 0.14); color: var(--accent); font-weight: 700; }
 .side-nav .nav-icon { font-size: 1.2rem; }
 .side-footer {
-  margin-top: auto; display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; padding: 10px 6px 4px;
+  margin-top: auto; display: flex; flex-direction: column; align-items: stretch;
+  gap: 2px; padding: 10px 6px 4px;
 }
-.side-social-link {
-  width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
-  background: var(--surface-2); text-decoration: none; font-size: 1rem;
+/* Full-width labeled row, mirroring the desktop sidebar's Discord item. */
+.side-discord-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px; border-radius: 8px;
+  text-decoration: none; color: var(--muted); font-size: 0.95rem;
 }
+.side-discord-btn:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
 .side-logout { text-align: left; padding: 8px 10px; }
 .app-main { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
@@ -229,7 +232,7 @@ button.ghost { background: transparent; border-color: var(--border); }
 .card-head h3 { margin: 0; }
 .badge {
   font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
-  background: rgba(59, 130, 246, 0.18); color: var(--accent);
+  background: rgba(244, 162, 89, 0.18); color: var(--accent);
   padding: 2px 8px; border-radius: 999px;
 }
 .steps { margin: 8px 0 12px; padding-left: 18px; color: var(--muted); font-size: 0.9rem; }
@@ -239,6 +242,8 @@ button.ghost { background: transparent; border-color: var(--border); }
   padding: 10px 14px; margin-top: 4px;
 }
 .btn-link.primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.about-links .btn-link { border: 1px solid var(--border); color: var(--accent); }
 .help-link { display: inline-block; margin-top: 6px; color: var(--accent); font-size: 0.8rem; }
 .tunnel-result { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .tunnel-url-row { display: flex; align-items: center; gap: 8px; width: 100%; }
@@ -293,7 +298,22 @@ button.ghost { background: transparent; border-color: var(--border); }
 .char-meta { font-size: 0.7rem; color: var(--muted); }
 
 /* ── Chat ─────────────────────────────────────────────────────── */
-.chat-view { display: flex; flex-direction: column; height: 100%; position: relative; }
+.chat-view { display: flex; flex-direction: column; height: 100%; position: relative; font-family: var(--chat-font, inherit); }
+/* Per-chat theme background scene (desktop parity). The veil matches the desktop
+   0.45 black overlay so message text stays readable over any image. Only shown
+   when a theme supplies a background (ChatPage toggles .has-theme-bg). */
+.chat-view.has-theme-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)),
+    var(--chat-bg-image);
+  background-size: cover;
+  background-position: center;
+}
+.chat-view.has-theme-bg > * { position: relative; z-index: 1; }
 .chat-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--border);
@@ -324,6 +344,23 @@ button.ghost { background: transparent; border-color: var(--border); }
    shows in the Mood stat row), and the Chat insight drawer goes full-screen. */
 [data-layout="phone"] .portrait-wrap { display: none; }
 [data-layout="phone"] .stats-drawer { width: 100%; max-width: none; }
+/* Look swiper: chevrons over the sidebar portrait to flip between uploaded looks */
+.portrait-swiper { position: relative; align-self: center; width: 100%; max-width: 240px; }
+.portrait-chevron {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 26px; height: 44px; border: none; border-radius: 8px; cursor: pointer;
+  background: rgba(15, 23, 42, 0.5); color: #fff; font-size: 1.3rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center; opacity: 0.8;
+}
+.portrait-chevron.left { left: 5px; }
+.portrait-chevron.right { right: 5px; }
+.portrait-chevron:hover { opacity: 1; background: rgba(15, 23, 42, 0.72); }
+.portrait-dots {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  font-size: 0.64rem; padding: 1px 8px; border-radius: 999px;
+  background: rgba(15, 23, 42, 0.6); color: #fff;
+}
+[data-layout="phone"] .portrait-swiper { display: none; }
 
 /* ── Unified cast bar ─────────────────────────────────────────── */
 .cast-bar { border-bottom: 1px solid var(--border); background: var(--surface); padding: 6px 10px; }
@@ -450,7 +487,7 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
   cursor: pointer; font: inherit;
 }
 .mp-option:hover { background: var(--surface-2); }
-.mp-option.selected { background: rgba(59, 130, 246, 0.14); }
+.mp-option.selected { background: rgba(244, 162, 89, 0.14); }
 .mp-name { font-size: 0.85rem; }
 .mp-meta { font-size: 0.7rem; }
 .mp-inline-error { color: var(--danger); font-size: 0.75rem; margin: 4px 0 0; }
@@ -556,10 +593,29 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 .bubble {
   max-width: 85%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap;
   line-height: 1.4; word-break: break-word;
+  /* Decorative theme border (approximated from the desktop painters). Unset when
+     no theme is active → no border, unchanged look. */
+  border: var(--chat-bubble-border, none);
+  box-shadow: var(--chat-bubble-shadow, none);
 }
 .bubble.user { align-self: flex-end; background: var(--chat-user-bubble); color: var(--chat-user-text); border-bottom-right-radius: 4px; }
 .bubble.ai { align-self: flex-start; background: var(--chat-ai-bubble); color: var(--chat-ai-text); border-bottom-right-radius: 16px; border-bottom-left-radius: 4px; }
 .bubble.streaming { opacity: 0.85; }
+/* Truthful pre-token generation status (desktop status-bar parity): real
+   prompt-reading progress instead of a silent wait. Porch-amber track. */
+.bubble.gen-status { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
+.gen-status-track {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  overflow: hidden;
+}
+.gen-status-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 300ms ease;
+}
 /* RP text coloring (parity with desktop AppColors.dialogue / action): "quoted
    dialogue" → amber, *actions* → italic blue, **emphasis** → bold blue. Applied
    to BOTH bubbles (desktop colors user + AI alike); the user can recolor the user
@@ -633,6 +689,13 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 }
 .sessions-drawer {
   width: min(360px, 88%); height: 100%; background: var(--surface);
+  border-left: 1px solid var(--border); padding: 16px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.settings-drawer {
+  width: min(440px, 92%); height: 100%; background: var(--surface);
   border-left: 1px solid var(--border); padding: 16px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 12px;
   padding-top: calc(16px + env(safe-area-inset-top));
@@ -849,6 +912,15 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .avatar-tile:hover .avatar-actions { opacity: 1; }
 @media (hover: none) { .avatar-actions { opacity: 1; } }
 .avatar-actions .icon-btn { background: rgba(15, 23, 42, 0.7); color: #fff; }
+/* Avatar gallery: looks + expressions sections + the ★ favorite (default face) */
+.gallery-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-top: 4px;
+}
+.gallery-section-head .tool-row { flex: 0 1 auto; max-width: 260px; }
+.gallery-empty { font-size: 0.8rem; margin: 0 0 4px; }
+.avatar-tile.favorite { border-color: var(--porch-honey); }
+.avatar-tile.favorite .avatar-badge { background: var(--porch-honey); color: #241a0f; }
 .review .review-val { max-width: 60%; text-align: right; word-break: break-word; }
 
 /* ── Accessibility: visible keyboard focus ────────────────────── */
@@ -1013,7 +1085,7 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .rec-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .rec-chip {
   font-size: 0.72rem; padding: 4px 10px; border-radius: 999px; cursor: pointer;
-  background: rgba(59, 130, 246, 0.14); color: var(--accent); border: 1px solid var(--border);
+  background: rgba(244, 162, 89, 0.14); color: var(--accent); border: 1px solid var(--border);
 }
 .rec-chip:hover { filter: brightness(1.2); }
 .mono-path { font-family: var(--mono, ui-monospace, monospace); overflow-wrap: anywhere; }
@@ -1134,6 +1206,33 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 }
 .color-preview { padding: 12px; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
 @media (max-width: 768px) { .color-rows { grid-template-columns: 1fr; } }
+
+/* ── Chat theme settings (per-chat theme presets + customization) ────────── */
+.theme-settings { margin-bottom: 16px; }
+.theme-presets {
+  display: flex; gap: 8px; overflow-x: auto; padding: 8px 0 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.theme-preset-card {
+  flex-shrink: 0; width: 72px; display: flex; flex-direction: column;
+  align-items: center; gap: 4px; padding: 10px 6px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer; color: var(--text);
+  font-size: 0.75rem; text-align: center;
+}
+.theme-preset-card:hover { border-color: var(--accent); }
+.theme-preset-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.theme-preset-swatches { display: flex; gap: 3px; }
+.theme-swatch { width: 16px; height: 16px; border-radius: 3px; display: inline-block; }
+.theme-preset-none { font-size: 1.2rem; line-height: 16px; color: var(--muted); }
+.theme-preset-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.theme-preset-style { font-size: 0.65rem; color: var(--muted); }
+.theme-select {
+  width: 100%; padding: 8px 10px; margin: 4px 0 12px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-size: 0.85rem;
+}
+.theme-actions { display: flex; gap: 8px; margin-top: 12px; }
 
 /* ── Image-gen settings two-up rows ────────────────────────────────────── */
 .img-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
@@ -1682,4 +1781,227 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
   opacity: 0.4;
   cursor: not-allowed;
   background: none;
+}
+
+/* ── Story Calendar (story-calendar.md §6) ─────────────────────────────────
+   Web twin of the desktop StoryCalendarDialog: month grid, amber current
+   day, memory dots, day-detail list, anchor inputs. Phone goes full-screen
+   via the shared [data-layout="phone"] modal override below. */
+.story-calendar-modal { width: min(420px, 94vw); }
+.story-cal-open { align-self: flex-start; }
+.story-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 6px 0 4px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.story-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.story-cal-head {
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.story-cal-day {
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 3px 0 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-size: 0.72rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.story-cal-day:disabled { cursor: default; }
+.story-cal-day.outside { color: var(--muted); opacity: 0.45; }
+.story-cal-day.current {
+  background: var(--porch-amber);
+  color: #1a1200; /* onChaosAccent ink — white-on-amber is unreadable */
+  font-weight: 700;
+}
+.story-cal-day.selected:not(.current) {
+  background: color-mix(in srgb, var(--porch-amber) 18%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--porch-amber) 60%, transparent);
+}
+.story-cal-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: transparent;
+}
+.story-cal-dot.on { background: var(--porch-amber); }
+.story-cal-day.current .story-cal-dot.on { background: #1a1200; }
+.story-cal-owner select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+}
+.story-cal-detail { margin-top: 6px; max-height: 180px; overflow-y: auto; }
+.story-cal-detail-head {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  color: var(--porch-honey);
+  margin: 4px 0;
+}
+.story-cal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 9px;
+  margin-bottom: 5px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.story-cal-anchors {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.story-cal-anchors label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.story-cal-anchors input {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 0.75rem;
+  color-scheme: dark;
+}
+[data-layout="phone"] .story-calendar-modal {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  overflow-y: auto;
+}
+
+/* ── Living Time §2: welcome-back ("Previously on…") banner ─────────────── */
+/* App-voice, dismissible; warm-porch accent border like desktop's banner.  */
+.absence-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 8px 12px 0;
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 10px;
+}
+.absence-banner-icon {
+  font-size: 15px;
+  line-height: 1.3;
+}
+.absence-banner-body {
+  flex: 1;
+  min-width: 0;
+}
+.absence-banner-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+.absence-banner-recap {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted, #94a3b8);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.absence-banner-close {
+  background: none;
+  border: none;
+  color: var(--muted, #94a3b8);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
+}
+
+/* ── Living Time §1: dream narration banner (desktop parity) ────────────── */
+.dream-banner {
+  margin: 8px 32px;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--porch-honey);
+  background: color-mix(in srgb, var(--porch-honey) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--porch-honey) 35%, transparent);
+  border-radius: 12px;
+}
+
+/* ── Living Time §7: "Our Story" milestones timeline ────────────────────── */
+.milestone-day {
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.milestone-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 2px;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.milestone-icon { flex: none; }
+.milestone-text { flex: 1; min-width: 0; }
+.milestone-emotion {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.milestones-empty { font-size: 12px; }
+
+/* ── Living Time §6: Ambitions rows (chat tools) ────────────────────────── */
+.ambition-row { margin-bottom: 8px; }
+.ambition-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  min-width: 0;
+}
+.ambition-line > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ambition-stage {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.ambition-bar {
+  margin-top: 3px;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--border) 60%, transparent);
+  overflow: hidden;
+}
+.ambition-bar-fill {
+  height: 100%;
+  background: var(--accent);
 }

@@ -43,7 +43,6 @@ class ChatGenerationSettings {
   List<String>? bannedPhrases;
   bool? reasoningEnabled;
   String? reasoningEffort;
-  String? remoteModelName;
 
   ChatGenerationSettings({
     this.temperature,
@@ -64,7 +63,6 @@ class ChatGenerationSettings {
     this.bannedPhrases,
     this.reasoningEnabled,
     this.reasoningEffort,
-    this.remoteModelName,
   });
 
   /// Whether any field has a non-null override.
@@ -86,8 +84,7 @@ class ChatGenerationSettings {
       stopSequences != null ||
       bannedPhrases != null ||
       reasoningEnabled != null ||
-      reasoningEffort != null ||
-      remoteModelName != null;
+      reasoningEffort != null;
 
   // ── Resolved getters ────────────────────────────────────────────────────
   // Each returns the per-session override if set, otherwise the global value.
@@ -125,8 +122,6 @@ class ChatGenerationSettings {
       reasoningEnabled ?? s.backendSettings.reasoningEnabled;
   String resolveReasoningEffort(StorageService s) =>
       reasoningEffort ?? s.backendSettings.reasoningEffort;
-  String resolveRemoteModelName(StorageService s) =>
-      remoteModelName ?? s.backendSettings.remoteModelName;
 
   // ── JSON serialisation ──────────────────────────────────────────────────
 
@@ -155,7 +150,6 @@ class ChatGenerationSettings {
     if (bannedPhrases != null) map['banned_phrases'] = bannedPhrases;
     if (reasoningEnabled != null) map['reasoning_enabled'] = reasoningEnabled;
     if (reasoningEffort != null) map['reasoning_effort'] = reasoningEffort;
-    if (remoteModelName != null) map['remote_model_name'] = remoteModelName;
     return map;
   }
 
@@ -186,7 +180,6 @@ class ChatGenerationSettings {
       bannedPhrases: (json['banned_phrases'] as List?)?.cast<String>(),
       reasoningEnabled: json['reasoning_enabled'] as bool?,
       reasoningEffort: json['reasoning_effort'] as String?,
-      remoteModelName: json['remote_model_name'] as String?,
     );
   }
 

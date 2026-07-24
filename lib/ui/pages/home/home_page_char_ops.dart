@@ -23,7 +23,6 @@ part of '../home_page.dart';
 /// Split out of the _HomePageState god file as a private extension
 /// (part of the same library, so it keeps full access to page state).
 extension _HomePageCharOps on _HomePageState {
-
   Future<void> _folderImportCharacters(BuildContext context) async {
     final dirPath = await PickerPrefs.getDirectoryPath(
       category: PickerPrefs.catDirectory,
@@ -65,7 +64,7 @@ extension _HomePageCharOps on _HomePageState {
     // unexpectedly — the user sees exactly what's there and picks.
     final sel = await _confirmFolderImport(context, pngFiles, byafFiles);
     if (sel == null || !context.mounted) return;
-    final (importPng, importByaf, importChats) = sel;
+    final (importPng, importByaf, importChats, applySettings) = sel;
 
     final pngs = importPng ? pngFiles : <File>[];
     final byafs = importByaf
@@ -95,6 +94,7 @@ extension _HomePageCharOps on _HomePageState {
             context,
             byafs,
             importChats,
+            applySettings: applySettings,
             onProgress: (current, _, name, error) =>
                 onProgress(done + current, total, name, error),
             isCancelled: isCancelled,
@@ -107,7 +107,7 @@ extension _HomePageCharOps on _HomePageState {
   /// Per-type confirm for folder import. Shows the breakdown (PNG vs BYAF) with
   /// independent checkboxes so a mixed folder is a conscious choice, not a
   /// surprise. Returns (importPng, importByaf, importChats), or null on cancel.
-  Future<(bool, bool, bool)?> _confirmFolderImport(
+  Future<(bool, bool, bool, bool)?> _confirmFolderImport(
     BuildContext context,
     List<File> pngFiles,
     List<File> byafFiles,
@@ -115,8 +115,9 @@ extension _HomePageCharOps on _HomePageState {
     bool importPng = pngFiles.isNotEmpty;
     bool importByaf = byafFiles.isNotEmpty;
     bool importChats = true;
+    bool applySettings = true;
     final accent = AppColors.porchHoneyOf(context);
-    return showDialog<(bool, bool, bool)>(
+    return showDialog<(bool, bool, bool, bool)>(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setLocal) {
@@ -196,6 +197,27 @@ extension _HomePageCharOps on _HomePageState {
                       ),
                     ),
                   ),
+                if (byafFiles.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 24),
+                    child: CheckboxListTile(
+                      value: applySettings && importByaf,
+                      onChanged: importByaf
+                          ? (v) => setLocal(() => applySettings = v ?? true)
+                          : null,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(
+                        'apply their Backyard model settings',
+                        style: TextStyle(
+                          color: importByaf
+                              ? AppColors.textSecondary(ctx)
+                              : AppColors.textTertiary(ctx),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
             actions: [
@@ -213,6 +235,7 @@ extension _HomePageCharOps on _HomePageState {
                         importPng,
                         importByaf,
                         importChats,
+                        applySettings,
                       )),
                 child: Text('Import $count'),
               ),
@@ -311,10 +334,7 @@ extension _HomePageCharOps on _HomePageState {
               ),
               title: Row(
                 children: [
-                  Icon(
-                    Icons.library_add,
-                    color: AppColors.porchHoneyOf(ctx),
-                  ),
+                  Icon(Icons.library_add, color: AppColors.porchHoneyOf(ctx)),
                   const SizedBox(width: 12),
                   Text(
                     title,

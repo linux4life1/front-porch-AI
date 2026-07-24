@@ -112,7 +112,7 @@ Widget _grid({
       onSearchScopeChanged: (_) {},
       onSearchQueryChanged: (_) {},
       // No characters have imagePath set → this callback is never invoked.
-      onResolveCharImage: (path) => File(path),
+      onResolveCharImage: (c) => File(c.imagePath ?? ''),
       onDeleteGroup: (_) {},
       onAfterNavigateBack: () {},
     ),

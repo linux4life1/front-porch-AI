@@ -32,6 +32,8 @@ export interface Message {
   hasThinking?: boolean;
   thinkingContent?: string;
   characterId?: string;
+  /** Living Time §1 dream narration (additive — absent on older facades). */
+  isDream?: boolean;
   /** Generated-image message: saved basename, served at /api/image/saved/<image>. */
   image?: string;
   /** The prompt that produced the image (tooltip / alt text). */
@@ -72,3 +74,35 @@ export const NEED_LABELS: Record<string, string> = {
   hygiene: 'Hygiene',
   comfort: 'Comfort',
 };
+
+/** Per-chat theme overrides (mirrors ChatThemeOverrides model). Null = use preset default. */
+export interface ChatThemeOverrides {
+  themeId?: string | null;
+  fontFamily?: string | null;
+  userBubbleColor?: string | null;
+  userTextColor?: string | null;
+  aiBubbleColor?: string | null;
+  aiTextColor?: string | null;
+  dialogueColor?: string | null;
+  actionColor?: string | null;
+  backgroundKey?: string | null;
+  borderStyle?: string | null;
+  borderColor?: string | null;
+}
+
+/** A theme preset as returned by the desktop (mirrors ChatThemePreset). */
+export interface ChatThemePreset {
+  id: string;
+  displayName: string;
+  description: string;
+  defaultUserBubbleColor: number;
+  defaultUserTextColor: number;
+  defaultAiBubbleColor: number;
+  defaultAiTextColor: number;
+  defaultDialogueColor: number;
+  defaultActionColor: number;
+  defaultBorderColor?: number;
+  defaultFontFamily: string;
+  defaultBackgroundKey: string;
+  defaultBorderStyle: string;
+}

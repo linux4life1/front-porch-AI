@@ -24,6 +24,7 @@ export interface ChargenForm {
   generateLorebook: boolean;
   loreCategories: string[];
   loreDepth: string;
+  includeDynamicMacros: boolean;
   generationDetail: string; // label key into GENERATION_DETAIL
   // Quick
   quickConcept: string;
@@ -92,6 +93,7 @@ export const DEFAULT_FORM: ChargenForm = {
   generateLorebook: true,
   loreCategories: [],
   loreDepth: 'Standard',
+  includeDynamicMacros: false,
   generationDetail: 'Standard',
   quickConcept: '',
   quickKeywords: '',
@@ -231,6 +233,7 @@ function outputSettings(f: ChargenForm): Record<string, unknown> {
     generateLorebook: f.generateLorebook,
     loreCategories: f.generateLorebook ? f.loreCategories : [],
     loreDepth: f.loreDepth,
+    includeDynamicMacros: f.includeDynamicMacros,
     descriptionDetail: GENERATION_DETAIL[f.generationDetail] ?? '2-3 paragraphs',
   };
 }

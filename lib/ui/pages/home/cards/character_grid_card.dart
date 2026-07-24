@@ -53,7 +53,7 @@ class CharacterGridCard extends StatelessWidget {
   final void Function(CharacterCard character) onToggleSelect;
   final void Function(String action, CharacterCard character)
   onContextMenuAction;
-  final File Function(String imagePath) onResolveCharImage;
+  final File Function(CharacterCard card) onResolveCharImage;
 
   /// Delegates to the canonical stable group ID.
   String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
@@ -75,7 +75,7 @@ class CharacterGridCard extends StatelessWidget {
             ),
             child: character.imagePath != null
                 ? Image.file(
-                    onResolveCharImage(character.imagePath!),
+                    onResolveCharImage(character),
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
                     errorBuilder: (_, _, _) => Container(
@@ -173,7 +173,7 @@ class CharacterGridCard extends StatelessWidget {
                     children: [
                       character.imagePath != null
                           ? Image.file(
-                              onResolveCharImage(character.imagePath!),
+                              onResolveCharImage(character),
                               fit: BoxFit.cover,
                               alignment: Alignment.topCenter,
                               errorBuilder: (_, _, _) => Container(
@@ -239,7 +239,7 @@ class CharacterGridCard extends StatelessWidget {
                       flex: isCompact ? 4 : 3,
                       child: character.imagePath != null
                           ? Image.file(
-                              onResolveCharImage(character.imagePath!),
+                              onResolveCharImage(character),
                               fit: BoxFit.cover,
                               alignment: Alignment.topCenter,
                               errorBuilder: (_, _, _) => Container(
@@ -434,6 +434,24 @@ class CharacterGridCard extends StatelessWidget {
                           ),
                           title: Text(
                             'Edit Character',
+                            style: TextStyle(
+                              color: AppColors.textPrimary(context),
+                            ),
+                          ),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'avatar_gallery',
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.photo_library_outlined,
+                            color: AppColors.iconSecondary(context),
+                            size: 20,
+                          ),
+                          title: Text(
+                            'Avatar Gallery',
                             style: TextStyle(
                               color: AppColors.textPrimary(context),
                             ),

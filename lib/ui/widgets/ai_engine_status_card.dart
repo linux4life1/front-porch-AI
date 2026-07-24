@@ -66,9 +66,8 @@ class AiEngineStatusCard extends StatelessWidget {
       );
     } else if (llm.hasManagedProcess) {
       final k = llm.koboldService;
-      final pr = llm.pseudoRemoteService;
-      final starting = k.isStarting || pr.isStarting;
-      final loading = (k.isRunning && !k.modelReady) || pr.isRunning;
+      final starting = k.isStarting;
+      final loading = k.isRunning && !k.modelReady;
       busy = starting || loading;
       stateLabel = starting
           ? 'Starting…'
@@ -88,14 +87,15 @@ class AiEngineStatusCard extends StatelessWidget {
     switch (llm.activeBackend) {
       case BackendType.kobold:
         final path = storage.lastUsedModelPath;
-        modelLabel = (path == null || path.isEmpty)
-            ? 'No model selected'
-            : p.basename(path);
-      case BackendType.pseudoRemote:
-        final preset = storage.activeKcppsPath;
-        modelLabel = (preset == null || preset.isEmpty)
-            ? 'No preset selected'
-            : p.basename(preset);
+        if (path != null && path.isNotEmpty) {
+          modelLabel = p.basename(path);
+        } else {
+          // A .kcpps preset can own the model instead of a picker selection.
+          final preset = storage.activeKcppsPath;
+          modelLabel = (preset == null || preset.isEmpty)
+              ? 'No model selected'
+              : p.basename(preset);
+        }
       case BackendType.openRouter:
       case BackendType.omlx:
         modelLabel = storage.remoteModelName.isEmpty

@@ -22,7 +22,8 @@ import 'package:front_porch_ai/services/chat/growth_review.dart';
 import 'package:front_porch_ai/services/chat/growth_service.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
-import 'package:front_porch_ai/services/llm_service.dart' show LlmToolCall;
+import 'package:front_porch_ai/services/llm_service.dart'
+    show LlmToolCall, LlmToolResponse;
 import 'package:drift/drift.dart' show Value;
 
 GrowthRingData _ring({
@@ -424,7 +425,12 @@ Some prose the model wrote.
     var reviewFirst = false;
     String? xmlReply;
 
-    GrowthService makeService({List<ChatMessage> messages = const []}) {
+    GrowthService makeService({
+      List<ChatMessage> messages = const [],
+      ToolTransportProbe? probe,
+      Future<LlmToolResponse?> Function(String, List<Map<String, dynamic>>)?
+      fireToolEval,
+    }) {
       review = GrowthReview(
         store: store,
         getSessionId: () => 's1',
@@ -435,9 +441,10 @@ Some prose the model wrote.
       return GrowthService(
         store: store,
         review: review,
-        probe: ToolTransportProbe()..markXmlOnly('fake'), // XML path directly
+        probe:
+            probe ?? (ToolTransportProbe()..markXmlOnly('fake')), // XML direct
         fireLLMEval: (prompt) async => xmlReply,
-        fireToolEval: (p, t) async => null,
+        fireToolEval: fireToolEval ?? (p, t) async => null,
         stripThinkBlocks: (t) => t,
         getBackendIdentity: () => 'fake',
         getSessionId: () => 's1',
@@ -501,6 +508,33 @@ Some prose the model wrote.
           contains('Lately, Mira has stopped testing You'),
         ),
       );
+    });
+
+    test('tools transport failure → XML this round, probe left untested',
+        () async {
+      xmlReply = '<ring action="add">Grew through the glitch</ring>';
+      var toolAttempts = 0;
+      final probe = ToolTransportProbe(); // untested — tools path armed
+      final svc = makeService(
+        messages: chatty,
+        probe: probe,
+        fireToolEval: (p, t) async {
+          toolAttempts++;
+          // Connection torn down mid-call (e.g. character creation fired an
+          // app-wide abortGeneration): a network event, not a capability
+          // verdict.
+          throw Exception('SocketException: Connection reset by peer');
+        },
+      );
+      await svc.runGrowthPass();
+      expect(toolAttempts, 1);
+      // The round still landed over the XML fallback…
+      expect(
+        (await store.ringsFor('s1', 'mira')).single.content,
+        'Grew through the glitch',
+      );
+      // …but the backend was NOT branded XML-only for the run.
+      expect(probe.isXmlOnly('fake'), isFalse);
     });
 
     test('empty window (cursor caught up) does not fire; force does', () async {

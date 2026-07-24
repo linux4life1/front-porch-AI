@@ -20,8 +20,12 @@
 @TestOn('linux')
 library;
 
-// Widget pixel goldens for steps 1–6 of CreateCharacterPage (manual creator).
-// Step 0 (Identity) is already covered in pages_golden_test.dart.
+// Widget pixel goldens for steps 1–5 of CreateCharacterPage (manual creator).
+// Step 0 (Identity) is already covered in pages_golden_test.dart. Step 6
+// (Portrait & Avatars, phase #12) is deliberately NOT goldened here: it only
+// renders after a real save (repository + storage + image-gen providers), so
+// its layout is locked by the AI creator's review golden hosting the same
+// shared AvatarGenerationPanel instead.
 //
 // Navigation strategy: each test pumps the full CreateCharacterPage, then
 // uses afterPump to:
@@ -34,7 +38,7 @@ library;
 // cleanly for each capture.
 //
 // Provider tree: none needed — all Provider.of calls in CreateCharacterPage
-// are inside onPressed callbacks and _saveCharacter(); never at build time.
+// are inside onPressed callbacks and _createAndAdvance(); never at build time.
 //
 // All tests use settle: false — StyledTextControllers create debounce Timers
 // and cursor tickers that prevent pumpAndSettle from returning.
@@ -44,10 +48,9 @@ library;
 //   2 — Dialogue   (first message, alt greetings, example dialogues)
 //   3 — Lorebook   (empty list → "no entries" empty state)
 //   4 — Realism Engine (initial-state form)
-//   5 — Expression Images (empty sprite list)
-//   6 — Review & Save (character summary + save button)
+//   5 — Review & Create (character summary + create button)
 //
-// Light + dark for each (12 PNGs total).
+// Light + dark for each (10 PNGs total).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -65,8 +68,7 @@ Future<void> _navigateTo(WidgetTester tester, int targetStep) async {
     'Dialogue',
     'Lorebook',
     'Realism Engine',
-    'Expression Images',
-    'Review & Save',
+    'Review & Create',
   ];
   // Enter name — required for the step 0 → 1 guard check.
   await tester.enterText(find.byType(TextFormField).first, 'Aria Vale');
@@ -131,27 +133,15 @@ void main() {
     );
   });
 
-  testWidgets('CreateCharacterPage — step 5 Expression Images', (tester) async {
+  testWidgets('CreateCharacterPage — step 5 Review & Create', (tester) async {
     await expectThemedGoldens(
       tester,
       childBuilder: () => CreateCharacterPage(key: UniqueKey()),
       group: 'manual_creator',
-      name: 'step_5_expressions',
+      name: 'step_5_review',
       surface: const Size(1280, 900),
       settle: false,
       afterPump: (tester) => _navigateTo(tester, 5),
-    );
-  });
-
-  testWidgets('CreateCharacterPage — step 6 Review & Save', (tester) async {
-    await expectThemedGoldens(
-      tester,
-      childBuilder: () => CreateCharacterPage(key: UniqueKey()),
-      group: 'manual_creator',
-      name: 'step_6_review',
-      surface: const Size(1280, 900),
-      settle: false,
-      afterPump: (tester) => _navigateTo(tester, 6),
     );
   });
 }

@@ -36,15 +36,6 @@ void main() {
     expectGoldenJson(table, group: 'needs', name: 'need_steps');
   });
 
-  test('urgency prefix per effective step (0..5)', () {
-    final sim = createTestSim();
-    final lines = [
-      for (var step = 0; step <= 5; step++)
-        'step $step: ${sim.getUrgencyPrefixForStep(step)}',
-    ].join('\n');
-    expectGolden(lines, group: 'needs', name: 'urgency_prefixes');
-  });
-
   test('hygiene step inverts when the character enjoys low hygiene', () {
     final normal = createTestSim();
     final inverted = createTestSim(enjoysFn: () => true);

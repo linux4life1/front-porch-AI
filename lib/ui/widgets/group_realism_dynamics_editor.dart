@@ -8,7 +8,6 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -16,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_realism_editor.dart';
 import 'package:front_porch_ai/ui/widgets/relationship_scale.dart';
+import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
 /// A group member as this editor needs it: the RUNTIME id the realism engine
@@ -74,6 +74,9 @@ class _GroupRealismDynamicsEditorState
   bool _needsEnabled = true;
   String _timeOfDay = 'morning';
   int _dayCount = 1;
+  // Story Calendar authoring (story-calendar.md §3a).
+  String? _storyStartDate;
+  String? _storyStartTime;
 
   static const _timeOptions = [
     'dawn',
@@ -119,20 +122,20 @@ class _GroupRealismDynamicsEditorState
       _seedsByMid[m.mid] = seed;
     }
 
-    // Global scene time/day live on every baseline entry (identical across
-    // members); read them off the first entry. baselineRealismState =
-    // { mid: {affection, trust, ..., timeOfDay, dayCount} }.
-    try {
-      final b = widget.initialBaselineJson;
-      if (b.isNotEmpty && b != '{}') {
-        final decoded = jsonDecode(b);
-        if (decoded is Map && decoded.isNotEmpty && decoded.values.first is Map) {
-          final first = decoded.values.first as Map;
-          _timeOfDay = (first['timeOfDay'] as String?) ?? _timeOfDay;
-          _dayCount = (first['dayCount'] as num?)?.toInt() ?? _dayCount;
-        }
-      }
-    } catch (_) {}
+    // Global scene time: the canonical top-level keys of the defaultMember
+    // blob, falling back to the first baseline entry for pre-calendar groups
+    // — the exact read parseGroupTimeSeed does at runtime, so the editor
+    // always shows what a fresh session would actually seed.
+    final seed = parseGroupTimeSeed(
+      widget.initialDefaultMemberJson,
+      widget.initialBaselineJson,
+    );
+    if (seed != null) {
+      _timeOfDay = seed.timeOfDay;
+      _dayCount = seed.dayCount;
+      _storyStartDate = seed.storyStartDate;
+      _storyStartTime = seed.storyStartTime;
+    }
   }
 
   void _emit() {
@@ -145,6 +148,8 @@ class _GroupRealismDynamicsEditorState
       needsEnabled: _needsEnabled,
       timeOfDay: _timeOfDay,
       dayCount: _dayCount,
+      storyStartDate: _storyStartDate,
+      storyStartTime: _storyStartTime,
     );
     widget.onChanged(blobs.defaultMemberJson, blobs.baselineJson);
   }
@@ -300,6 +305,19 @@ class _GroupRealismDynamicsEditorState
                 ],
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          StoryBeginsRow(
+            storyStartDate: _storyStartDate,
+            onStoryStartDateChanged: (v) {
+              setState(() => _storyStartDate = v);
+              _emit();
+            },
+            storyStartTime: _storyStartTime,
+            onStoryStartTimeChanged: (v) {
+              setState(() => _storyStartTime = v);
+              _emit();
+            },
           ),
         ],
       ),

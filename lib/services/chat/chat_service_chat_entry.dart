@@ -51,7 +51,7 @@ extension ChatServiceChatEntry on ChatService {
     _groupAuthorNoteStrengths = {};
     _groupCharacterSystemPrompts = {};
     _groupRagEnabled = true;
-    _groupRetrievalCount = 8;
+    _groupRetrievalCount = 4;
     _groupMemoryBudgetPercent = 10.0;
     _groupCharacterRAGPriorities = {};
 
@@ -70,8 +70,8 @@ extension ChatServiceChatEntry on ChatService {
 
     _activeCharacter = character;
 
-    // Auto-start local backend (Kobold or Pseudo-Remote) when entering a chat
-    // so the user never has to manually start it just to talk.
+    // Auto-start the local Kobold backend (native or a .kcpps preset) when
+    // entering a chat so the user never has to manually start it just to talk.
     _llmProvider?.ensureManagedBackendIsRunning();
 
     // If extensions are missing (e.g., app was restarted after DB load that
@@ -105,6 +105,8 @@ extension ChatServiceChatEntry on ChatService {
     _currentSessionId = null;
     _summary = '';
     _summaryLastIndex = 0;
+    _selectedLooks
+        .clear(); // fresh 1:1: drop prior chat's per-chat look selection (keep reset blocks in sync)
     _summaryPaused =
         false; // explicit secondary zero for _summaryPaused (symmetric to _isSummaryGenerating; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
     _isSummaryGenerating =
@@ -173,7 +175,15 @@ extension ChatServiceChatEntry on ChatService {
         // Seed Realism Engine state from V2.5 card extensions (new conversations only)
         if (_activeCharacter!.frontPorchExtensions != null) {
           final ext = _activeCharacter!.frontPorchExtensions!;
-          _realismEnabled = ext.realismEnabled;
+          // Global "Enable Realism Mode" default is an OR override (not a gate
+          // like passage-of-time): its whole purpose is to force realism ON for
+          // imported cards (Chub/V2 PNG/BYAF) that carry no realism setup, so
+          // the engine reads the room + generates baselines without the user
+          // editing every card. Defaults false, so card behavior is unchanged
+          // until the user opts in globally.
+          _realismEnabled =
+              ext.realismEnabled ||
+              _storageService.realismSettings.realismDefault;
           // Card-seed bypass (rec 1 from PR #47): use seedFromCardV2OrExt (plain .clamp only,
           // no _migrate*) because V2.5 cards + creator UI author shortTermBond/longTermBond on the
           // *current* ±300 scale (see models/character_card.dart:31-32 + FrontPorchExtensions).
@@ -193,6 +203,8 @@ extension ChatServiceChatEntry on ChatService {
           _timeService.seedFromV2OrExt(
             dayCount: ext.dayCount.clamp(1, 9999),
             timeOfDay: ext.timeOfDay,
+            storyStartDate: ext.storyStartDate,
+            storyStartTime: ext.storyStartTime,
             passageOfTimeEnabled:
                 ext.passageOfTimeEnabled &&
                 _storageService.realismSettings.passageOfTimeDefault,
@@ -200,7 +212,11 @@ extension ChatServiceChatEntry on ChatService {
           _characterEmotion = ext.characterEmotion;
           _emotionIntensity = ext.emotionIntensity;
           _nsfwService.seedFromV2OrExt(
-            nsfwCooldownEnabled: ext.nsfwCooldownEnabled,
+            // Same OR-override rationale as realism above: a globally-enabled
+            // NSFW cooldown applies to imported cards too.
+            nsfwCooldownEnabled:
+                ext.nsfwCooldownEnabled ||
+                _storageService.realismSettings.nsfwCooldownDefault,
           );
           _chaosModeService.seedFromGroupOrExt(ext.chaosModeEnabled, false);
           _needsSimEnabled = ext.needsSimEnabled;

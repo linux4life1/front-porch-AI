@@ -19,6 +19,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/story_project.dart';
+import 'package:front_porch_ai/services/story/faithful_mode.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
@@ -784,6 +785,12 @@ ${_jsonInstruction(tier)}''';
         final sessions = await _db.getSessionsForCharacter(charId);
         if (sessions.isEmpty) continue;
         for (final session in sessions) {
+          // Living Time §4: same session scoping as the distiller (keep in
+          // sync — both are "the chat history" for a project).
+          if (project.chatHistorySessionIds.isNotEmpty &&
+              !project.chatHistorySessionIds.contains(session.id)) {
+            continue;
+          }
           final messages = await _db.getMessagesForSession(session.id);
           for (final msg in messages) {
             try {
@@ -843,6 +850,12 @@ ${_jsonInstruction(tier)}''';
           '[StoryPipeline] Found ${sessions.length} sessions for "$charId"',
         );
         for (final session in sessions) {
+          // Living Time §4: session-scoped distill ("turn THIS chat into a
+          // story") — empty list keeps the historical all-sessions behavior.
+          if (project.chatHistorySessionIds.isNotEmpty &&
+              !project.chatHistorySessionIds.contains(session.id)) {
+            continue;
+          }
           final msgs = await _db.getMessagesForSession(session.id);
           debugPrint(
             '[StoryPipeline] Session ${session.id}: ${msgs.length} messages',
@@ -1025,7 +1038,9 @@ Output the merged, deduplicated, chronologically ordered timeline. Output ONLY t
     try {
       final chatContext = await _getChatHistoryContext(project);
       final charContext = _getCharacterCardContext(project);
-      final systemPrompt = _getStoryArchitectPrompt(project);
+      final systemPrompt =
+          _getStoryArchitectPrompt(project) +
+          (project.faithfulMode ? faithfulArchitectDirective : '');
 
       final prompt =
           '''$systemPrompt
@@ -1155,7 +1170,9 @@ Threads: ${jsonEncode(project.threads.map((t) => t.toJson()).toList())}''';
 
     try {
       final act = project.acts[actIndex];
-      final systemPrompt = _getSceneWeaverPrompt(actNum, project.promptTier);
+      final systemPrompt =
+          _getSceneWeaverPrompt(actNum, project.promptTier) +
+          (project.faithfulMode ? faithfulSceneDirective : '');
       final previousContext = _getPreviousActsContext(project, actIndex);
       final chatContext = await _getChatHistoryContext(project);
       final prompt =

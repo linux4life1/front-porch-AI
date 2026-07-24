@@ -63,9 +63,29 @@ class JournalStore {
     return db.getJournalCards(sessionId, characterId);
   }
 
+  /// Decode a card's story-date stamp from the metadata pouch
+  /// (design: story-calendar.md §4). Returns (storyDay, storyClock) — either
+  /// may be null (pre-calendar cards, legacy source messages).
+  static (int?, DateTime?) stampOf(JournalMemoryData card) {
+    final raw = card.metadata;
+    if (raw == null || raw.isEmpty) return (null, null);
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return (null, null);
+      final day = (decoded['storyDay'] as num?)?.toInt();
+      final clockRaw = decoded['storyClock'] as String?;
+      final clock = clockRaw == null ? null : DateTime.tryParse(clockRaw);
+      return (day, clock?.toUtc());
+    } catch (_) {
+      return (null, null);
+    }
+  }
+
   /// Insert a new memory. Enforces the per-owner cap by retiring the coldest
   /// unpinned card (lowest heat; oldest wins the tie — design §4.4). The raw
   /// transcript stays in RAG, so a trimmed card is a demotion, not a loss.
+  /// [storyDay]/[storyClock] stamp WHEN the memory happened (story-calendar
+  /// §4) into the metadata pouch — deterministic, never model-supplied.
   Future<void> addCard({
     required String sessionId,
     required String characterId,
@@ -74,6 +94,13 @@ class JournalStore {
     String? emotionLabel,
     String? emotionIntensity,
     List<int> sourcePositions = const [],
+    int? storyDay,
+    String? storyClock,
+
+    /// Optional card kind rider in the metadata JSON (e.g. 'dream',
+    /// 'milestone' — Living Time). Readers parse metadata forgivingly, so
+    /// this is additive-safe for every existing card and consumer.
+    String? kind,
     required int maxCards,
   }) async {
     final db = getDb();
@@ -82,10 +109,12 @@ class JournalStore {
     if (existing.length >= maxCards) {
       // getJournalCards orders pinned DESC then createdAt ASC, so scanning in
       // order and keeping strict `<` makes the oldest lowest-heat unpinned
-      // card the victim.
+      // card the victim. Ledger cards (milestones, promises) never cool and
+      // are cap-protected like pinned — otherwise threshold / commitment
+      // history would evaporate on long diaries.
       JournalMemoryData? coldest;
       for (final card in existing) {
-        if (card.pinned) continue;
+        if (card.pinned || JournalPhysics.isLedgerCard(card)) continue;
         if (coldest == null || card.heat < coldest.heat) coldest = card;
       }
       if (coldest != null) await db.deleteJournalCard(coldest.id);
@@ -101,6 +130,15 @@ class JournalStore {
         emotionIntensity: Value(emotionIntensity),
         sourceMessageIds: Value(
           sourcePositions.isEmpty ? null : jsonEncode(sourcePositions),
+        ),
+        metadata: Value(
+          storyDay == null && storyClock == null && kind == null
+              ? null
+              : jsonEncode({
+                  'storyDay': ?storyDay,
+                  'storyClock': ?storyClock,
+                  'kind': ?kind,
+                }),
         ),
       ),
     );
@@ -140,6 +178,65 @@ class JournalStore {
 
   Future<void> retireCard(String id) async {
     await getDb()?.deleteJournalCard(id);
+  }
+
+  /// Timeline-integrity invalidation: content at/after [fromPosition] was
+  /// rewritten (regen, swipe, edit, delete), so every card CITING that
+  /// region describes events that no longer happened — delete them, pinned
+  /// included (a pin can't keep a phantom true). Cards with no receipts
+  /// (manual plants, dreams, ambitions, milestones) are never touched.
+  /// Sweeps ALL diary owners for the session. Returns the removal count.
+  Future<int> invalidateCardsCitingFrom(
+    String sessionId,
+    int fromPosition,
+  ) async {
+    final db = getDb();
+    if (db == null) return 0;
+    var removed = 0;
+    for (final card in await db.getJournalCardsForSession(sessionId)) {
+      final raw = card.sourceMessageIds;
+      if (raw == null || raw.isEmpty) continue;
+      List<dynamic> positions;
+      try {
+        positions = jsonDecode(raw) as List<dynamic>;
+      } catch (_) {
+        continue;
+      }
+      final cites = positions.whereType<num>().any(
+        (p) => p.toInt() >= fromPosition,
+      );
+      if (cites) {
+        await db.deleteJournalCard(card.id);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
+  /// Merge keys into a card's metadata JSON (Living Time §6 ambition
+  /// progress). Additive-only merge over the forgiving metadata blob —
+  /// existing keys (storyDay/storyClock/kind) survive untouched.
+  Future<void> updateCardMetadata(
+    JournalMemoryData card,
+    Map<String, dynamic> merge,
+  ) async {
+    final db = getDb();
+    if (db == null) return;
+    Map<String, dynamic> meta;
+    try {
+      final d = card.metadata == null ? null : jsonDecode(card.metadata!);
+      meta = d is Map<String, dynamic> ? d : <String, dynamic>{};
+    } catch (_) {
+      meta = <String, dynamic>{};
+    }
+    meta.addAll(merge);
+    await db.updateJournalCard(
+      card.id,
+      JournalMemoriesCompanion(
+        metadata: Value(jsonEncode(meta)),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   Future<void> setPinned(String id, bool pinned) async {

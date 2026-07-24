@@ -111,7 +111,6 @@ Voice features (text-to-speech and voice input) are bundled with official builds
 ## Common Install Problems
 
 - **AMD graphics on Linux:** if the app can't see your GPU, make sure your user account is in the `render` and `video` groups, then log out and back in.
-- **Character browser won't open (Linux):** the built-in Chub.ai browser needs the WPE WebKit engine. It's bundled in the AppImage; on manual installs, install your distro's `wpewebkit` package.
 - **UI flicker on Linux (Wayland):** try launching with `GDK_BACKEND=x11`.
 - **Anything else:** the [Troubleshooting guide](troubleshooting.md) covers a lot more, and [Discord](https://discord.gg/e4tET6rpdv) is there for the rest.
 
@@ -124,25 +123,25 @@ Everything below is for people who want to hack on the app. Regular users can st
 **Prerequisites**
 
 - [Flutter SDK](https://docs.flutter.dev/get-started/install) 3.10.8 or later
-- [Rust toolchain](https://rustup.rs/) — builds the memory (RAG) embedding server
-- Python 3.8+ — only needed to run the voice sidecars in dev mode
 - Git
+
+That's the whole list — every AI engine (voice, speech-to-text, character expressions, memory embeddings) runs **in-process** via libraries that ship with the app's packages. No Rust, no Python, no helper programs.
 
 **Linux build dependencies**
 
 Ubuntu/Debian:
 ```bash
-sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libwpewebkit-1.0-dev
+sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 ```
 
 Fedora:
 ```bash
-sudo dnf install clang cmake ninja-build pkgconf-pkg-config gtk3-devel xz-devel libstdc++-devel wpewebkit-devel
+sudo dnf install clang cmake ninja-build pkgconf-pkg-config gtk3-devel xz-devel libsecret-devel gstreamer1-devel gstreamer1-plugins-base-devel libstdc++-devel
 ```
 
 Arch:
 ```bash
-sudo pacman -S clang cmake ninja pkgconf gtk3 xz wpewebkit
+sudo pacman -S clang cmake ninja pkgconf gtk3 xz libsecret gstreamer gst-plugins-base
 ```
 
 **Clone and run**
@@ -157,23 +156,10 @@ flutter run
 **Release builds**
 
 ```bash
-# The embedding server (needed for memory/RAG)
-cargo build --release --manifest-path tools/embed_server/Cargo.toml
-
-# Then the app
-flutter build windows   # or: flutter build linux
-./scripts/build-macos.sh   # macOS — bundles the embedding server for you
+flutter build windows   # or: flutter build linux, flutter build macos
 ```
 
-On Windows and Linux, copy the built `embed_server` binary next to the app executable (under `embed_server/`) so memory features work.
-
-**Voice features in dev mode** run through Python directly, so install their packages:
-
-```bash
-pip install kokoro-onnx soundfile faster-whisper
-```
-
-(Official release builds bundle these — end users never need Python.)
+That's it — the built bundle is self-contained.
 
 ---
 

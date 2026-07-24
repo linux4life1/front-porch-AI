@@ -35,6 +35,10 @@ class ResultView extends StatelessWidget {
   final VoidCallback onEditRegen;
   final VoidCallback? onSendToChat;
 
+  /// Save the result to the character's Avatar Gallery (a gallery look). Null
+  /// when there's no character context (persona / group-shot).
+  final VoidCallback? onSaveToGallery;
+
   const ResultView({
     super.key,
     required this.imageBytes,
@@ -46,6 +50,7 @@ class ResultView extends StatelessWidget {
     required this.onVariations,
     required this.onEditRegen,
     this.onSendToChat,
+    this.onSaveToGallery,
   });
 
   @override
@@ -115,6 +120,20 @@ class ResultView extends StatelessWidget {
                   onPressed: isSaving ? null : onSendToChat,
                   icon: const Icon(Icons.chat_bubble_outline, size: 16),
                   label: const Text('Send to chat'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.surfaceContainerOf(context),
+                    foregroundColor: AppColors.textPrimary(context),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+              if (onSaveToGallery != null)
+                ElevatedButton.icon(
+                  onPressed: isSaving ? null : onSaveToGallery,
+                  icon: const Icon(Icons.photo_library_outlined, size: 16),
+                  label: const Text('Save to gallery'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.surfaceContainerOf(context),
                     foregroundColor: AppColors.textPrimary(context),

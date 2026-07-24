@@ -134,8 +134,8 @@ class _BackupsPageState extends State<BackupsPage> {
                   icon: const Icon(Icons.backup, size: 18),
                   label: const Text('Create Backup Now'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.blueAccent,
-                    side: const BorderSide(color: Colors.blueAccent),
+                    foregroundColor: AppColors.formMasterAccent,
+                    side: const BorderSide(color: AppColors.formMasterAccent),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -186,7 +186,11 @@ class _BackupsPageState extends State<BackupsPage> {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.storage, size: 20, color: Colors.blueAccent),
+      leading: const Icon(
+        Icons.storage,
+        size: 20,
+        color: AppColors.formMasterAccent,
+      ),
       title: Text(
         timeStr,
         style: theme.textTheme.bodyMedium?.copyWith(
@@ -222,7 +226,10 @@ class _BackupsPageState extends State<BackupsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          path != null ? 'Backup created successfully' : 'No database to back up',
+          path != null
+              ? 'Backup created successfully'
+              : 'Backup could not be created — the database may be busy or '
+                    'the disk full. Try again in a moment.',
         ),
       ),
     );

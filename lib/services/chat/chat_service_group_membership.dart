@@ -167,6 +167,8 @@ extension ChatServiceGroupMembership on ChatService {
         fixationLifespan: drift.Value(_relationshipService.fixationLifespan),
         spatialStance: drift.Value(_relationshipService.spatialStance),
         startDayOfWeek: drift.Value(_timeService.startDayOfWeekAnchor),
+        storyClock: drift.Value(_timeService.storyClockIso),
+        storyStartDate: drift.Value(_timeService.storyStartDateIso),
         createdAt: drift.Value(DateTime.now()),
         updatedAt: drift.Value(DateTime.now()),
       ),

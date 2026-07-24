@@ -635,7 +635,7 @@ class RealismEvals {
         .take(recentCount)
         .toList()
         .reversed
-        .map((m) => '${m.sender}: ${m.displayText}')
+        .map((m) => '${m.sender}: ${m.promptText}')
         .join('\n');
 
     if (getActiveCharacter() == null) {
@@ -735,7 +735,7 @@ class RealismEvals {
         .take(recentCount)
         .toList()
         .reversed
-        .map((m) => '${m.sender}: ${m.displayText}')
+        .map((m) => '${m.sender}: ${m.promptText}')
         .join('\n');
     if (getActiveCharacter() == null) {
       // Group chat or other mode — relationship evals not supported in this path yet
@@ -847,7 +847,7 @@ class RealismEvals {
         .take(recentCount)
         .toList()
         .reversed
-        .map((m) => '${m.sender}: ${m.displayText}')
+        .map((m) => '${m.sender}: ${m.promptText}')
         .join('\n');
     if (getActiveCharacter() == null) {
       // Group chat or other mode — relationship evals not supported in this path yet.
@@ -885,7 +885,7 @@ class RealismEvals {
         .take(recentCount)
         .toList()
         .reversed
-        .map((m) => '${m.sender}: ${m.displayText}')
+        .map((m) => '${m.sender}: ${m.promptText}')
         .join('\n');
     if (getActiveCharacter() == null) {
       // This path requires an active character (the group per-speaker path
@@ -966,7 +966,7 @@ class RealismEvals {
         .take(recentCount)
         .toList()
         .reversed
-        .map((m) => '${m.sender}: ${m.displayText}')
+        .map((m) => '${m.sender}: ${m.promptText}')
         .join('\n');
 
     if (getActiveCharacter() == null) {
@@ -1060,9 +1060,12 @@ class RealismEvals {
       _parseAndApplyRelationshipDeltas(textForOneShot);
 
       // ── Autonomous Objective ──
+      // (All parses below use textForOneShot — the Director-corrected text.
+      // Parsing the raw pre-verification text silently discarded corrections
+      // for everything except the relationship deltas.)
       final objectiveMatch = RegExp(
         r'"proposed_objective"\s*:\s*"([^"]+)"',
-      ).firstMatch(text);
+      ).firstMatch(textForOneShot);
       if (objectiveMatch != null) {
         final newObj = objectiveMatch.group(1)!.trim();
         if (newObj.toLowerCase() != 'none' && newObj.isNotEmpty) {
@@ -1096,21 +1099,21 @@ class RealismEvals {
       // ── Scene fields ──
       final emotionMatch = RegExp(
         r'"emotion"\s*:\s*"([^"]+)"',
-      ).firstMatch(text);
+      ).firstMatch(textForOneShot);
       if (emotionMatch != null) {
         setCharacterEmotion(emotionMatch.group(1)!.toLowerCase().trim());
       }
 
       final intensityMatch = RegExp(
         r'"emotion_intensity"\s*:\s*"([^"]+)"',
-      ).firstMatch(text);
+      ).firstMatch(textForOneShot);
       if (intensityMatch != null) {
         setEmotionIntensity(intensityMatch.group(1)!.toLowerCase().trim());
       }
 
       final postureMatch = RegExp(
         r'"posture"\s*:\s*"([^"]+)"',
-      ).firstMatch(text);
+      ).firstMatch(textForOneShot);
       if (postureMatch != null) {
         final p = postureMatch.group(1)!.trim();
         relationshipService.setSpatialStance(p);
@@ -1119,12 +1122,34 @@ class RealismEvals {
       relationshipService.updateFixationFromEvalResult(
         (RegExp(
               r'"fixation_topic"\s*:\s*"([^"]+)"',
-            ).firstMatch(text)?.group(1) ??
+            ).firstMatch(textForOneShot)?.group(1) ??
             ''),
         isOneShot: true,
       );
 
-      final reasonMatch = RegExp(r'"reason"\s*:\s*"([^"]*)"').firstMatch(text);
+      // ── Story clock (parity with the multi-call path) ──
+      // The fused JSON above already carries minutes_elapsed/new_day (and
+      // posture); this applies the same clamp/floor/backstop clock math the
+      // dedicated per-turn scene-time eval uses — no extra LLM call.
+      await timeService.evaluateTimeProgressAndPostureIfNeeded(
+        charName: charName,
+        recent: recent,
+        shortTermTierName: relationshipService.shortTermTierName,
+        onChunk: onChunk,
+        fireLLMEval: fireLLMEval,
+        stripThinkBlocks: stripThinkBlocks,
+        extractJsonBool: extractJsonBool,
+        setSpatialStance: relationshipService.setSpatialStance,
+        getCurrentSpatialStance: () => relationshipService.spatialStance,
+        getCharacterEmotion: getCharacterEmotion,
+        getEmotionIntensity: getEmotionIntensity,
+        oneShotMode: true,
+        oneShotText: textForOneShot,
+      );
+
+      final reasonMatch = RegExp(
+        r'"reason"\s*:\s*"([^"]*)"',
+      ).firstMatch(textForOneShot);
       debugPrint(
         '[Realism:OneShot] Done — Emotion: ${getCharacterEmotion()} (${getEmotionIntensity()}), '
         'Time: ${timeService.timeOfDay}, Reason: ${reasonMatch?.group(1) ?? 'unknown'}',

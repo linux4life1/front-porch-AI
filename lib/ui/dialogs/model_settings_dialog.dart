@@ -241,7 +241,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
 
     storage.setLastUsedModelPath(_selectedModelPath);
     storage.setGpuLayers(int.tryParse(_gpuLayersController.text) ?? 0);
-    storage.setContextSize(int.tryParse(_contextSizeController.text) ?? 8192);
+    storage.setContextSize(int.tryParse(_contextSizeController.text) ?? 16384);
     storage.setUseCublas(_useCublas);
     storage.setUseVulkan(_useVulkan);
     storage.setUseMetal(_useMetal);
@@ -268,7 +268,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
           ? storage.mmprojForModel(_selectedModelPath!)
           : null,
       gpuLayers: int.tryParse(_gpuLayersController.text) ?? 0,
-      contextSize: int.tryParse(_contextSizeController.text) ?? 8192,
+      contextSize: int.tryParse(_contextSizeController.text) ?? 16384,
       useVulkan: _useVulkan,
       useCublas: _useCublas,
       useMetal: _useMetal,
@@ -306,13 +306,13 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     final apiUrl = llmProvider.activeBackend == BackendType.omlx
         ? 'http://localhost:8000/v1'
         : _apiUrlController.text.trim();
-    // Ensure the service has the latest config
-    openRouter.configure(
+    // Override form — NEVER configure() the live service just to probe
+    // (that silently re-routes active chat traffic; see the service's own
+    // fetchAvailableModels doc note).
+    final result = await openRouter.testConnection(
       apiUrl: apiUrl,
       apiKey: _apiKeyController.text.trim(),
-      modelName: _modelNameController.text.trim(),
     );
-    final result = await openRouter.testConnection();
     if (mounted) {
       setState(() {
         _isTesting = false;
@@ -322,18 +322,18 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   }
 
   Future<void> _showModelPicker() async {
-    // Ensure the service has the latest config before fetching.
-    // Force localhost:8000/v1 when oMLX backend is selected (model picker is used for oMLX too).
+    // Resolve the target from the backend selected AT TAP TIME — after an
+    // oMLX ↔ Remote toggle the picker must ask the NEWLY selected provider
+    // (maintainer bug: it choked asking the remote provider with the stale
+    // pre-toggle configuration). Uses the override-form fetch so the live
+    // service config is never mutated by a mere list browse (the old
+    // configure()-then-fetch pattern silently re-routed active chat traffic
+    // AND carried the previous backend's model name into the new provider).
     final openRouter = Provider.of<OpenRouterService>(context, listen: false);
     final llmProvider = Provider.of<LLMProvider>(context, listen: false);
     final apiUrl = llmProvider.activeBackend == BackendType.omlx
         ? 'http://localhost:8000/v1'
         : _apiUrlController.text.trim();
-    openRouter.configure(
-      apiUrl: apiUrl,
-      apiKey: _apiKeyController.text.trim(),
-      modelName: _modelNameController.text.trim(),
-    );
 
     // Show loading dialog
     if (!mounted) return;
@@ -345,7 +345,10 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
 
     List<RemoteModelInfo> models;
     try {
-      models = await openRouter.fetchAvailableModels();
+      models = await openRouter.fetchAvailableModels(
+        apiUrl: apiUrl,
+        apiKey: _apiKeyController.text.trim(),
+      );
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // dismiss loading
@@ -465,7 +468,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
                               model.id,
                               style: TextStyle(
                                 color: isSelected
-                                    ? Colors.blueAccent
+                                    ? AppColors.formMasterAccent
                                     : AppColors.textPrimary(context),
                                 fontSize: 13,
                                 fontWeight: isSelected
@@ -513,7 +516,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
                             trailing: isSelected
                                 ? const Icon(
                                     Icons.check_circle,
-                                    color: Colors.blueAccent,
+                                    color: AppColors.formMasterAccent,
                                     size: 18,
                                   )
                                 : null,
@@ -602,16 +605,6 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
                   ),
                   Expanded(
                     child: _buildToggleButton(
-                      label: 'Pseudo-Remote',
-                      icon: Icons.laptop,
-                      isSelected: backend == BackendType.pseudoRemote,
-                      onTap: () => llmProvider.setActiveBackend(
-                        BackendType.pseudoRemote,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildToggleButton(
                       label: 'Remote API',
                       icon: Icons.cloud,
                       isSelected: backend == BackendType.openRouter,
@@ -639,8 +632,6 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
               child: SingleChildScrollView(
                 child: backend == BackendType.kobold
                     ? _buildLocalSettings()
-                    : backend == BackendType.pseudoRemote
-                    ? _buildPseudoRemoteSettings()
                     : _buildRemoteSettings(isOmLx: backend == BackendType.omlx),
               ),
             ),
@@ -661,7 +652,9 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blueAccent : Colors.transparent,
+          color: isSelected
+              ? AppColors.formMasterAccent
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -671,7 +664,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
               icon,
               size: 14,
               color: isSelected
-                  ? Colors.white
+                  ? AppColors.onChaosAccent
                   : AppColors.textSecondary(context),
             ),
             const SizedBox(width: 4),
@@ -679,7 +672,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
               label,
               style: TextStyle(
                 color: isSelected
-                    ? Colors.white
+                    ? AppColors.onChaosAccent
                     : AppColors.textSecondary(context),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 12,
@@ -1030,8 +1023,8 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
                         : 'Start Backend'),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.formMasterAccent,
+              foregroundColor: AppColors.onChaosAccent,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
           ),
@@ -1051,18 +1044,27 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
             padding: const EdgeInsets.all(10),
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.12),
+              color: AppColors.formMasterAccent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: AppColors.formMasterAccent.withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.apple, color: Colors.blueAccent, size: 16),
+                const Icon(
+                  Icons.apple,
+                  color: AppColors.formMasterAccent,
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'oMLX mode on Apple Silicon. URL fixed to http://localhost:8000/v1. oMLX must be running (`omlx serve`). Model name below is used for generation.',
-                    style: TextStyle(fontSize: 11, color: Colors.blueAccent),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.formMasterAccent,
+                    ),
                   ),
                 ),
               ],
@@ -1168,14 +1170,14 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppColors.onChaosAccent,
                         ),
                       )
                     : const Icon(Icons.wifi_tethering),
                 label: Text(_isTesting ? 'Testing...' : 'Test Connection'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.formMasterAccent,
+                  foregroundColor: AppColors.onChaosAccent,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
@@ -1196,163 +1198,6 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildPseudoRemoteSettings() {
-    final pseudoRemote = Provider.of<PseudoRemoteService>(context);
-    final llmProvider = Provider.of<LLMProvider>(context);
-    final anyRunning = llmProvider.hasAnyManagedProcessRunning;
-    final storage = Provider.of<StorageService>(context);
-    final modelManager = Provider.of<ModelManager>(context);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Configuration Preset (.kcpps)',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary(context),
-          ),
-        ),
-        const SizedBox(height: 8),
-        KcppsSelector(
-          storage: storage,
-          localPresets: _localPresets,
-          hint: 'Required — select a .kcpps preset',
-          onChanged: (val) {
-            storage.setActiveKcppsPath(val);
-            if (val != null &&
-                storage.kcppsHasModel &&
-                storage.kcppsModelFileExists) {
-              setState(() {
-                _selectedModelPath = null;
-              });
-            }
-          },
-          onExternalClear: () {
-            storage.setActiveKcppsPath(null);
-          },
-          onBrowsePicked: (_) {
-            if (storage.kcppsHasModel && storage.kcppsModelFileExists) {
-              setState(() {
-                _selectedModelPath = null;
-              });
-            }
-          },
-          onModelStatusChanged: (_) {
-            setState(() {});
-          },
-        ),
-        const SizedBox(height: 16),
-
-        ModelSelector(
-          models: modelManager.models,
-          selectedModelPath: _selectedModelPath,
-          showManagedByKcpps:
-              storage.kcppsHasModel && storage.kcppsModelFileExists,
-          onChanged: (val) {
-            if (val == null) {
-              setState(() {
-                _selectedModelPath = null;
-              });
-            } else {
-              setState(() {
-                _selectedModelPath = val;
-              });
-              storage.setLastUsedModelPath(val);
-              final savedPreset = storage.modelPresetMap[val];
-              if (savedPreset != null &&
-                  savedPreset.isNotEmpty &&
-                  File(savedPreset).existsSync()) {
-                storage.setActiveKcppsPath(savedPreset);
-              } else {
-                storage.setActiveKcppsPath(null);
-              }
-              _applyAutoConfiguration();
-            }
-          },
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: anyRunning
-                ? () => _stopManagedBackend(context)
-                : (storage.activeKcppsPath == null ||
-                      storage.activeKcppsPath!.isEmpty ||
-                      !(storage.kcppsHasModel &&
-                              storage.kcppsModelFileExists) &&
-                          _selectedModelPath == null)
-                ? null
-                : () => _startPseudoRemote(context),
-            icon: Icon(anyRunning ? Icons.stop : Icons.play_arrow),
-            label: Text(anyRunning ? 'Stop Backend' : 'Start Pseudo-Remote'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: anyRunning
-                  ? Colors.redAccent
-                  : Colors.greenAccent,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Process Logs',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary(context),
-          ),
-        ),
-        const SizedBox(height: 8),
-        LogView(logs: pseudoRemote.logs),
-      ],
-    );
-  }
-
-  void _stopManagedBackend(BuildContext context) {
-    Provider.of<LLMProvider>(context, listen: false).stopAllManagedProcesses();
-  }
-
-  Future<void> _startPseudoRemote(BuildContext context) async {
-    final storage = Provider.of<StorageService>(context, listen: false);
-    final backendManager = Provider.of<BackendManager>(context, listen: false);
-    final pseudoRemote = Provider.of<PseudoRemoteService>(
-      context,
-      listen: false,
-    );
-
-    if (backendManager.backendPath == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Backend not found.')));
-      return;
-    }
-    if (storage.activeKcppsPath == null || storage.activeKcppsPath!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a .kcpps preset first.')),
-      );
-      return;
-    }
-
-    // If the preset has no valid model, the user must have selected one manually
-    final overrideModel =
-        (storage.kcppsHasModel && storage.kcppsModelFileExists)
-        ? null
-        : _selectedModelPath;
-
-    await pseudoRemote.start(
-      executablePath: backendManager.backendPath!,
-      kcppsPath: storage.activeKcppsPath!,
-      modelPath: overrideModel,
-      // Only the manually-overridden model has a Flutter-side path to key the
-      // mmproj on; when the preset owns the model there is nothing to look up.
-      mmprojPath: overrideModel != null
-          ? storage.mmprojForModel(overrideModel)
-          : null,
     );
   }
 

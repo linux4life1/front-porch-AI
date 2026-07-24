@@ -270,6 +270,15 @@ class RealismPromptBuilder {
       '  Match the current scene and emotional state; keep natural continuity within a scene (no location '
       'jumps); update on scene breaks, time jumps, or when the narrative context clearly shifted.\n';
 
+  // Scene-time fields ride the fused one-shot call (strict one-shot vs
+  // normal parity — the dedicated per-turn scene-time eval asks the same).
+  static String _sceneTimeSection() =>
+      '- "minutes_elapsed": in-story minutes the LATEST exchange took (integer, 0-180). Most conversational '
+      'exchanges take 2-15 minutes; activities (a meal, a walk, a task, travel) take longer. Use 0 ONLY '
+      'when the scene is a continuous instant (mid-action, mid-sentence).\n'
+      '- "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, '
+      'scene break). false otherwise.\n';
+
   static String _objectiveSection(
     String charName,
     String userName,
@@ -398,6 +407,7 @@ class RealismPromptBuilder {
       '${_trustSection(charName, userName)}'
       '${_emotionSection(charName, allowedEmotionLabels)}'
       '${_postureSection(charName)}'
+      '${_sceneTimeSection()}'
       '${arousalEnabled ? _arousalSection(charName, userName, arousalLevel, refractoryTurnsLeft) : ''}'
       '${_objectiveSection(charName, userName, primaryObjective)}'
       '${_fixationSection(charName)}'
@@ -412,6 +422,8 @@ class RealismPromptBuilder {
         'emotion',
         'emotion_intensity',
         'posture',
+        'minutes_elapsed',
+        'new_day',
         if (arousalEnabled) 'arousal_delta',
         'proposed_objective',
         'fixation_topic',

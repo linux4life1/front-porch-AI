@@ -40,7 +40,15 @@ extension GenLlm on CharacterGenService {
       bool repetitionDetected = false;
       try {
         if (_llmService is KoboldService) {
-          await _llmService.ensureServerIdle();
+          // Wizard runs force the server idle (aborting a stuck/runaway
+          // generation from a previous run). Background runs (Scene Guest
+          // mint) WAIT instead — the server-side abort would kill a
+          // background pass's eval mid-request, and a tools call cut down
+          // that way returns an empty 200 that reads as "model can't speak
+          // tools" (see generateCharacter's abortInFlight doc).
+          _abortInFlight
+              ? await _llmService.ensureServerIdle()
+              : await _llmService.waitForIdle();
         }
         if (_aborted || _generationEpoch != myEpoch) return null;
 
@@ -60,6 +68,16 @@ extension GenLlm on CharacterGenService {
             minP: 0.05,
             topP: isJsonMode ? 0.90 : 0.95,
             reasoningEnabled: _reasoningEnabled,
+            // When reasoning is OFF, also pin the budget to 0. On oMLX/OpenRouter/
+            // Nano-GPT the `reasoning:{enabled:false}` signal is only emitted when a
+            // max_tokens is present (see OpenRouterService's payload guard); without
+            // this, hybrid thinking models (Qwen3, DeepSeek, Kimi:thinking) fall back
+            // to thinking-on and dump a <think> block into the output — which was
+            // leaking straight into the portrait-prompt seed. Matches the convention
+            // every other suppress path uses (evals, Continue, call mode). When the
+            // user turns reasoning ON for generation, leave it null so the model
+            // reasons normally.
+            reasoningMaxTokens: _reasoningEnabled ? null : 0,
             stopSequences: stops,
           ),
         )) {

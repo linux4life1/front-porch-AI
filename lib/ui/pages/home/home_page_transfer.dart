@@ -40,10 +40,16 @@ extension _HomePageTransfer on _HomePageState {
 
       try {
         final v2Service = V2CardService();
+        // Bake the ★ starred avatar (a look/expression) as the card cover when
+        // set; else the library portrait.
+        final cover = Provider.of<CharacterRepository>(
+          context,
+          listen: false,
+        ).coverImageFileFor(character);
         await v2Service.saveCardAsPng(
           character,
           outputFile,
-          character.imagePath,
+          cover?.path ?? character.imagePath,
         );
 
         if (context.mounted) {

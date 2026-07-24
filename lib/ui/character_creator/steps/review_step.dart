@@ -17,24 +17,29 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/ui/avatar_creation/avatar_generation_panel.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/character_creator/widgets/review_avatar_panel.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state_engine.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/review_lorebook_section.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
 
-/// Review & edit step: avatar/left-rail panel + editable card fields + lorebook
-/// cherry-pick. The wizard shell owns Save & Finish / reset / nav, so this step
-/// only restores the review surface. Faithful restoration of the pre-refactor
-/// `_buildReviewStep` (god-file lines 6558–7174), minus the Save/New buttons.
+/// Review & edit step: the shared Portrait & Avatars panel in the left rail
+/// (phase #12 — it replaced the bespoke avatar generation controls) + editable
+/// card fields + lorebook cherry-pick. The wizard shell owns Save & Finish /
+/// reset / nav. The panel saves the card FIRST when the user generates or
+/// uploads (Save & Finish then updates the same card in place), so a failed
+/// engine can never cost the generated writing.
 class ReviewStep extends StatelessWidget {
   final CreatorState state;
 
   const ReviewStep({super.key, required this.state});
 
-  Color _accent(BuildContext context) =>
-      AppColors.resolve(context, Colors.blueAccent, Colors.blue.shade700);
+  Color _accent(BuildContext context) => AppColors.porchAmberOf(context);
 
   @override
   Widget build(BuildContext context) {
@@ -78,14 +83,74 @@ class ReviewStep extends StatelessWidget {
       );
     }
 
+    final card = state.generatedCard!;
     return SingleChildScrollView(
       key: const ValueKey('review'),
       padding: const EdgeInsets.all(32),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left rail — avatar, image prompt, name, tags.
-          ReviewAvatarPanel(state: state),
+          // Left rail — the SHARED Portrait & Avatars panel + name + tags.
+          SizedBox(
+            width: 360,
+            child: Column(
+              children: [
+                AvatarGenerationPanel(
+                  ensureCardSaved: () async {
+                    // Persist the card before any image lands; a later
+                    // Save & Finish updates this same card in place.
+                    if (!context.mounted) return null;
+                    final ok = await state.saveCharacter(
+                      repo: Provider.of<CharacterRepository>(
+                        context,
+                        listen: false,
+                      ),
+                      storage: Provider.of<StorageService>(
+                        context,
+                        listen: false,
+                      ),
+                    );
+                    return ok ? state.generatedCard : null;
+                  },
+                  initialPrompt: state.buildPortraitPromptSeed(),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  card.name,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary(context),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                if (card.tags.isNotEmpty)
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.center,
+                    children: card.tags
+                        .map(
+                          (tag) => Chip(
+                            label: Text(
+                              tag,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary(context),
+                              ),
+                            ),
+                            backgroundColor:
+                                AppColors.surfaceContainerOf(context),
+                            side: BorderSide.none,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        )
+                        .toList(),
+                  ),
+              ],
+            ),
+          ),
           const SizedBox(width: 32),
           // Right column — editable fields + lorebook cherry-pick.
           Expanded(

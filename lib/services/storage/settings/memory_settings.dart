@@ -22,9 +22,12 @@ import 'settings_base.dart';
 /// (The old summary_* / auto_persona_* keys were replaced by the Journal —
 /// docs/design/journal-memory.md; stale prefs entries are harmless.)
 class MemorySettings with SettingsBase {
-  // RAG
+  // RAG. Retrieval default is deliberately small: each retrieved window is
+  // ~5 messages of verbatim old transcript, and injecting many of them makes
+  // models replay old events as if current (the "parroting" reports). Users
+  // who want more can raise the "Memories per turn" slider (0 = All).
   bool _ragEnabled = false;
-  int _ragRetrievalCount = 10;
+  int _ragRetrievalCount = 4;
   int _ragWindowSize = 5;
   String _ragEmbeddingSource = 'auto';
   String _ragEmbeddingModel = 'text-embedding-3-small';
@@ -63,7 +66,7 @@ class MemorySettings with SettingsBase {
 
   void load() {
     _ragEnabled = prefs?.getBool(k('rag_enabled')) ?? false;
-    _ragRetrievalCount = prefs?.getInt(k('rag_retrieval_count')) ?? 5;
+    _ragRetrievalCount = prefs?.getInt(k('rag_retrieval_count')) ?? 4;
     _ragWindowSize = prefs?.getInt(k('rag_window_size')) ?? 5;
     _ragEmbeddingSource = prefs?.getString(k('rag_embedding_source')) ?? 'auto';
     _ragEmbeddingModel =

@@ -41,7 +41,6 @@ When something goes wrong, this page is the fastest route back to chatting. Find
 - [Missing character images](#missing-character-images)
 
 ### Platform Notes
-- [Linux: character site browser won't open](#linux-character-site-browser-wont-open)
 - [Linux: flickering or visual glitches](#linux-flickering-or-visual-glitches)
 - [Linux: AMD GPU not being used](#linux-amd-gpu-not-being-used)
 - [macOS: "damaged" warning, and Intel Macs](#macos-damaged-warning-and-intel-macs)
@@ -75,8 +74,8 @@ When something goes wrong, this page is the fastest route back to chatting. Find
 
 - **Leftover processes from a previous run.** If the app was force-quit, the AI engine can be left running and block the next launch. Clean up:
   - Windows: Task Manager → end any `koboldcpp` or `front_porch` processes.
-  - macOS/Linux: `pkill -f koboldcpp` and `pkill -f embed_server`
-- **Linux — missing system libraries.** Run it from a terminal; if it complains about a missing `.so` file, install the library it names (the in-app browser needs WPE WebKit — see [the Linux note](#linux-character-site-browser-wont-open)). The **AppImage** bundles everything and is the easy way out.
+  - macOS/Linux: `pkill -f koboldcpp`
+- **Linux — missing system libraries.** Run it from a terminal; if it complains about a missing `.so` file, install the library it names (commonly GTK 3, libsecret, or GStreamer). The **AppImage** bundles everything and is the easy way out.
 - **macOS — blocked by Gatekeeper.** See the [macOS note](#macos-damaged-warning-and-intel-macs).
 - **Broken download/install.** Re-download the release and reinstall. Your data is safe — it lives in your Documents folder, not the install folder.
 
@@ -183,11 +182,11 @@ The conversation itself keeps working even when evaluations fail — you just lo
 
 ### Memory / RAG isn't working
 
-Long-term memory ("the character remembered something from last week!") runs on a small local helper program that converts text to searchable meaning. No internet, no Python, nothing to install — but a few things can trip it:
+Long-term memory ("the character remembered something from last week!") converts text to searchable meaning right inside the app — no internet, no helper programs, nothing extra to install. A few things can still trip it:
 
-- **Check its status** in Settings → Memory. It should say running/ready.
+- **Check its status** in Settings → Memory. It should say ready.
 - **First use downloads a small model** — give it a moment to finish.
-- **Helper stuck?** Toggle it off in Settings, run `pkill -f embed_server` (macOS/Linux) or end the process in Task Manager (Windows), then toggle it back on.
+- **Stuck?** Toggle memory off and back on in Settings; if it stays stuck, restart the app.
 - **Memories exist but aren't recalled:** memory retrieval needs *meaningful* content to match on — one-word messages don't give it much. Look for the re-index option in the memory settings to rebuild the index if it seems out of date.
 
 ---
@@ -200,7 +199,6 @@ Long-term memory ("the character remembered something from last week!") runs on 
 - **Check the engine and voice** in Settings → Voice. Cloud engines (ElevenLabs, OpenAI) need a valid API key and internet.
 - **Character voice mismatch:** if you switched engines (say Kokoro → Piper), a voice assigned to a character under the old engine won't play — the voice picker flags incompatible ones. Re-assign or use the global default.
 - **Linux audio:** if nothing in the app plays sound, your system may be missing GStreamer plugins — install your distro's `gstreamer` "good/base" plugin packages.
-- **Building from source?** Dev-mode voice features need Python packages: `pip install kokoro-onnx soundfile faster-whisper`. Normal downloads bundle everything — no Python required.
 
 ### Microphone / speech-to-text not working
 
@@ -267,10 +265,6 @@ If a character's portrait shows a placeholder silhouette, the image file moved o
 ---
 
 ## Platform Notes
-
-### Linux: character site browser won't open
-
-The in-app browser (for chub.ai and aicharactercards.com imports) needs **WPE WebKit**. If the browser fails to open, install your distro's `wpewebkit` package — or use the **AppImage**, which bundles it. You can always download cards in a normal browser and import the files instead.
 
 ### Linux: flickering or visual glitches
 

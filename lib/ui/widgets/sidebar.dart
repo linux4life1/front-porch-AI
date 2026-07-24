@@ -288,6 +288,42 @@ class Sidebar extends StatelessWidget {
                       vertical: 4.0,
                     ),
                     child: InkWell(
+                      onTap: () =>
+                          launchUrl(Uri.parse('https://discord.gg/e4tET6rpdv')),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12.0,
+                          horizontal: 12.0,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.discord,
+                              color: Color(0xFF5865F2), // Discord brand blurple
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                'Join the Discord',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0,
+                      vertical: 4.0,
+                    ),
+                    child: InkWell(
                       onTap: () => launchUrl(
                         Uri.parse('https://ko-fi.com/sosukeaizen37411'),
                       ),
@@ -321,29 +357,6 @@ class Sidebar extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Tooltip(
-                  message: 'Join our Discord Server',
-                  child: GestureDetector(
-                    onTap: () =>
-                        launchUrl(Uri.parse('https://discord.gg/e4tET6rpdv')),
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Icon(
-                        Icons.discord,
-                        size: 20,
-                        color: AppColors.textSecondary(context),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
           Padding(

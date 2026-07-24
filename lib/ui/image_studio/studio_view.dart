@@ -82,7 +82,11 @@ class StudioView extends StatelessWidget {
     required this.onVariations,
     required this.onEditRegen,
     required this.onSendToChat,
+    this.onSaveToGallery,
     required this.onRestore,
+    this.modeTabs,
+    this.editBody,
+    this.showEdit = false,
   });
 
   final ImageGenMode activeMode;
@@ -128,7 +132,17 @@ class StudioView extends StatelessWidget {
   final VoidCallback onVariations;
   final VoidCallback onEditRegen;
   final VoidCallback? onSendToChat;
+  final VoidCallback? onSaveToGallery;
   final ValueChanged<({String prompt, Uint8List bytes, String style})> onRestore;
+
+  /// The Create | Edit tab bar, rendered under the header (null = no tabs).
+  final Widget? modeTabs;
+
+  /// The Edit tab's body, kept alive alongside Create via an IndexedStack.
+  final Widget? editBody;
+
+  /// True when the Edit tab is active.
+  final bool showEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -151,8 +165,12 @@ class StudioView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _header(context),
+            ?modeTabs,
             Flexible(
-              child: SingleChildScrollView(
+              child: IndexedStack(
+                index: showEdit ? 1 : 0,
+                children: [
+                  SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,6 +275,7 @@ class StudioView extends StatelessWidget {
                               onVariations: onVariations,
                               onEditRegen: onEditRegen,
                               onSendToChat: onSendToChat,
+                              onSaveToGallery: onSaveToGallery,
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -266,6 +285,9 @@ class StudioView extends StatelessWidget {
                     ],
                   ],
                 ),
+              ),
+                  editBody ?? const SizedBox.shrink(),
+                ],
               ),
             ),
           ],

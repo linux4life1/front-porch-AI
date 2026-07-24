@@ -19,10 +19,13 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/dialogs/story_calendar_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'weather_chip.dart';
 
-/// THE one scene-time widget: time-of-day emoji + label, narrative
-/// weekday/day, manual nudge chevrons, and the six period dots.
+/// THE one scene-time widget: time-of-day emoji + label + story clock,
+/// tappable date (opens the Story Calendar), manual nudge chevrons, and the
+/// six period dots.
 ///
 /// Absorbs the old group-only SceneTimeSection and the byte-similar inline
 /// copy that lived inside realism_section (1:1) — both modes now render this
@@ -37,7 +40,6 @@ class TimeStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final time = chat.timeService.timeOfDay;
     final day = chat.timeService.dayCount;
-    final weekday = chat.timeService.narrativeWeekday;
     final canNudge = chat.realismEnabled && !chat.isGenerating;
     final activeDot = AppColors.timeDayAccentOf(context);
 
@@ -49,7 +51,7 @@ class TimeStrip extends StatelessWidget {
             Text(timeEmoji(time), style: const TextStyle(fontSize: 13)),
             const SizedBox(width: 5),
             Text(
-              timeLabel(time),
+              '${timeLabel(time)} · ${chat.timeService.displayClock}',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary(context),
@@ -68,12 +70,18 @@ class TimeStrip extends StatelessWidget {
                   ),
                 ),
               ),
-            Text(
-              '${weekday.substring(0, 3)} · Day $day',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary(context),
+            GestureDetector(
+              onTap: () =>
+                  StoryCalendarDialog.show(context, chatService: chat),
+              child: Text(
+                '${chat.timeService.displayShortDate} · Day $day',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary(context),
+                  decoration: TextDecoration.underline,
+                  decorationColor: AppColors.borderOf(context),
+                ),
               ),
             ),
             if (canNudge)
@@ -90,6 +98,16 @@ class TimeStrip extends StatelessWidget {
               ),
           ],
         ),
+        // Story weather (Living Time §3) — absent entirely when the feature
+        // is gated off, so the strip is byte-identical for weather-off users.
+        if (chat.currentWeather != null) ...[
+          const SizedBox(height: 4),
+          WeatherChip(
+            sessionSeed: chat.currentSessionId ?? '',
+            dayCount: chat.timeService.dayCount,
+            date: chat.timeService.clock,
+          ),
+        ],
         const SizedBox(height: 4),
         // Time period dots
         Row(

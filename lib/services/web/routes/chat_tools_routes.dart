@@ -31,6 +31,9 @@ class WebChatToolsRoutes {
     router.post('/api/chat/tools/settings', _settings);
     router.post('/api/chat/tools/toggle', _toggle);
     router.post('/api/chat/tools/time', _time);
+    router.get('/api/chat/tools/calendar', _calendar);
+    router.get('/api/chat/tools/timeline', _timeline);
+    router.post('/api/chat/tools/to-story', _toStory);
     router.post('/api/chat/tools/summary', _summary);
     router.post('/api/chat/tools/objective', _objective);
     router.post('/api/chat/tools/task', _task);
@@ -89,15 +92,66 @@ class WebChatToolsRoutes {
     return JsonResponse.ok(_snapshot(request));
   }
 
-  /// Nudge the scene clock by `delta` periods (+1 / -1).
+  /// Scene-clock writes. Accepts `{delta: ±1}` (period nudge — the original
+  /// contract, unchanged), or the additive Story Calendar forms
+  /// `{setClock: ISO-datetime}` / `{setStartDate: 'YYYY-MM-DD'}`.
   Future<shelf.Response> _time(shelf.Request request) async {
     final body = await _json(request);
+    final setClock = DateTime.tryParse(body['setClock']?.toString() ?? '');
+    final setStartDate = DateTime.tryParse(
+      body['setStartDate']?.toString() ?? '',
+    );
+    if (setClock != null) {
+      await _facade.setStoryClock(
+        DateTime.utc(
+          setClock.year,
+          setClock.month,
+          setClock.day,
+          setClock.hour,
+          setClock.minute,
+        ),
+      );
+      return JsonResponse.ok(_snapshot(request));
+    }
+    if (setStartDate != null) {
+      await _facade.setStoryStartDate(
+        DateTime.utc(setStartDate.year, setStartDate.month, setStartDate.day),
+      );
+      return JsonResponse.ok(_snapshot(request));
+    }
     final delta = body['delta'];
     if (delta is! int) {
-      return JsonResponse.badRequest('delta (int) is required');
+      return JsonResponse.badRequest(
+        'delta (int), setClock, or setStartDate is required',
+      );
     }
     await _facade.nudgeTime(delta);
     return JsonResponse.ok(_snapshot(request));
+  }
+
+  /// Story Calendar read payload (memory days for one diary owner).
+  Future<shelf.Response> _calendar(shelf.Request request) async {
+    final owner = request.url.queryParameters['owner'];
+    return JsonResponse.ok(await _facade.calendar(owner));
+  }
+
+  /// "Our Story" milestones timeline (Living Time §7) for one diary owner.
+  Future<shelf.Response> _timeline(shelf.Request request) async {
+    final owner = request.url.queryParameters['owner'];
+    return JsonResponse.ok(await _facade.timeline(owner));
+  }
+
+  /// Living Time §4: create the pre-configured "this chat as a story" project.
+  Future<shelf.Response> _toStory(shelf.Request request) async {
+    final body = await _json(request);
+    final result = await _facade.toStory(
+      faithful: body['faithful'] as bool? ?? true,
+      length: body['length'] as String? ?? 'Novella',
+      pov: body['pov'] as String? ?? 'Third Person Limited',
+    );
+    return result.containsKey('error')
+        ? JsonResponse.badRequest(result['error'] as String)
+        : JsonResponse.ok(result);
   }
 
   /// Summary actions: regenerate, or set the summary text directly.

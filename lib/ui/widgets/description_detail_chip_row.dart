@@ -27,7 +27,7 @@ class DescriptionDetailChipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = accentColor ?? Colors.blueAccent;
+    final accent = accentColor ?? AppColors.formMasterAccent;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

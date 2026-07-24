@@ -21,7 +21,9 @@ add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
 # Suppress dev-mode policy warnings (e.g. CMP0175 about add_custom_command
 # DEPENDS) coming from third-party plugin CMakeLists.txt files.
 # This is a noisy but non-fatal warning from the plugins themselves.
-cmake_policy(SET CMP0175 OLD)
+if(POLICY CMP0175)
+  cmake_policy(SET CMP0175 OLD)
+endif()
 
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)

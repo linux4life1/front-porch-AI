@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -69,6 +70,27 @@ class JournalPhysics {
   /// Max cold cards resurfaced per turn.
   static const int kColdRetrievalLimit = 3;
 
+  // ── Expand-memory (two-tier memory: the card is the feeling, the
+  //    receipts hold the exact words — "remember our wedding vows?") ──
+
+  /// Minimum query-similarity for a card to expand into its verbatim source
+  /// lines. Deliberately stricter than resurfacing: verbatim costs tokens,
+  /// so only a card the conversation is clearly REACHING FOR expands.
+  static const double kMinExpandSimilarity = 0.45;
+
+  /// At most one card expands per turn (the moment being asked about).
+  static const int kMaxExpandedCards = 1;
+
+  /// Per-source-message and total character budgets for the excerpt.
+  static const int kExpandPerMessageChars = 400;
+  static const int kExpandTotalChars = 1000;
+
+  /// Only receipts at least this many messages old expand — younger lines
+  /// are still in (or near) the visible transcript, and quoting them back
+  /// would duplicate context. In the thousand-message chats this feature
+  /// exists for, the wedding is ancient history.
+  static const int kExpandMinAgeMessages = 30;
+
   /// Engine-stamped deltas at or above these magnitudes count as a
   /// significant event and trigger an immediate maintenance pass.
   static const int kEventBondSwing = 12;
@@ -78,9 +100,39 @@ class JournalPhysics {
   /// many trailing messages on its first pass.
   static const int kFirstPassCap = 50;
 
+  /// Optional `metadata.kind` rider (Living Time: dream / ambition / milestone).
+  /// Forgiving parse — missing or garbage metadata → null.
+  static String? cardKind(JournalMemoryData card) {
+    final raw = card.metadata;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map ? decoded['kind'] as String? : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Relationship / ambition waypoint milestones (Living Time §7 v1.5): never
+  /// cool, protected from cap-trim, timeline-salient. Not always-injected
+  /// (would crowd the hot set on long chats); they still resurface via cold
+  /// retrieval and always appear in Our Story.
+  static bool isMilestone(JournalMemoryData card) =>
+      cardKind(card) == 'milestone';
+
+  /// Promise/debt ledger cards (Train B): open commitments must not fade out
+  /// of the diary or get cap-trimmed; closed kept/broken still stay on the
+  /// timeline via kind salience. Not always-injected — a dedicated injection
+  /// line carries open items into the state block.
+  static bool isPromise(JournalMemoryData card) => cardKind(card) == 'promise';
+
+  /// Ledger-class cards that never cool and skip hot-set injection.
+  static bool isLedgerCard(JournalMemoryData card) =>
+      isMilestone(card) || isPromise(card);
+
   /// One card's heat after one maintenance pass of cooling.
   static double cooledHeat(JournalMemoryData card) {
-    if (card.pinned) return card.heat;
+    if (card.pinned || isLedgerCard(card)) return card.heat;
     final factor = switch (card.emotionIntensity) {
       'strong' => kStrongDecayFactor,
       'moderate' => kModerateDecayFactor,
@@ -90,8 +142,11 @@ class JournalPhysics {
   }
 
   /// Whether a card belongs to the always-injected hot set.
-  static bool isHot(JournalMemoryData card) =>
-      card.pinned || card.heat >= kColdThreshold;
+  /// Ledger cards (milestones, promises) are timeline/injection-line only.
+  static bool isHot(JournalMemoryData card) {
+    if (isLedgerCard(card)) return false;
+    return card.pinned || card.heat >= kColdThreshold;
+  }
 
   /// Standard emotion family for a (possibly nuanced) label — 'wistful' and
   /// 'melancholy' both land on 'sadness'. Unknown labels are their own family.

@@ -51,11 +51,8 @@ class RealismStep extends StatelessWidget {
               icon: const Icon(Icons.arrow_back),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.resolve(
-                  context,
-                  Colors.blueAccent,
-                  Colors.blue.shade700,
-                ),
+                backgroundColor: AppColors.formMasterAccent,
+                foregroundColor: AppColors.onChaosAccent,
               ),
             ),
           ],
@@ -105,6 +102,16 @@ class RealismStep extends StatelessWidget {
                 dayCount: state.realismDayCount,
                 onDayCountChanged: (v) {
                   state.realismDayCount = v;
+                  state.notify();
+                },
+                storyStartDate: state.realismStoryStartDate,
+                onStoryStartDateChanged: (v) {
+                  state.realismStoryStartDate = v;
+                  state.notify();
+                },
+                storyStartTime: state.realismStoryStartTime,
+                onStoryStartTimeChanged: (v) {
+                  state.realismStoryStartTime = v;
                   state.notify();
                 },
                 shortTermBond: state.realismShortTermBond,

@@ -41,7 +41,6 @@ and flip the row to ✅.
   ImageGenSettingsDialog (imageGenEnabled/Model/Size/Style/PromptParadigm/
   NegativePrompt/Backend/Seed/drawThingsGrpcHost/Port/localImageGenUrl).
 - ✅ `support/fakes_services.dart` — `FakeKoboldService` (logs/isRunning/isReady/isStarting),
-  `FakePseudoRemoteService` (logs/isRunning/isProcessRunning/isReady/backendName/modelName),
   `FakeVoiceManager` (catalog=[]/isLoadingCatalog/fetchCatalog no-op/listInstalledVoices=>[]),
   `FakeImageGenService` (fetchImageModels async=>[]).
 - ⬜ `support/fixtures.dart` — canonical deterministic CharacterCard / chat / group / needs / lorebook
@@ -143,8 +142,8 @@ The June-6 "Stage 4" refactor shipped a *functionally dead* creator to stable
 - ✅ `group_objectives_dialog.dart` — 2 characters (Aria Vale + Dex Marlowe), empty
   objectives list; `FakeChatService` injected directly. `settle: false` (_goalController).
   Pre-existing 6px layout overflow suppressed via `FlutterError.onError`. Surface 640×700.
-- ✅ `kobold_log_dialog.dart` — kobold backend stopped; FakeLLMProvider + FakeKoboldService +
-  FakePseudoRemoteService (`dialogs_remaining_golden_test.dart`)
+- ✅ `kobold_log_dialog.dart` — kobold backend stopped; FakeLLMProvider + FakeKoboldService
+  (`dialogs_remaining_golden_test.dart`)
 - ✅ `model_settings_dialog.dart` — openRouter backend renders _buildRemoteSettings() only
   (avoids ModelManager/KoboldService/HardwareService); FakeLLMProvider + FakeStorageService
 - ✅ `user_persona_dialog.dart` — empty persona list; FakeUserPersonaService

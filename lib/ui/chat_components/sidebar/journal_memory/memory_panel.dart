@@ -21,7 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/embedding_sidecar.dart';
+import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/data_bank_dialog.dart';
 import 'package:front_porch_ai/ui/chat_components/overlays/rag_setup_dialog.dart';
@@ -108,10 +108,10 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   if (consented) {
                     // Already consented — just enable
                     storage.setRagEnabled(true);
-                    Provider.of<EmbeddingSidecar>(
+                    Provider.of<EmbeddingService>(
                       context,
                       listen: false,
-                    ).ensureRunning();
+                    ).ensureReady();
                     return;
                   }
                   // First time — show consent + setup dialog
@@ -125,10 +125,10 @@ class _MemoryPanelState extends State<MemoryPanel> {
                     await prefs.setBool('rag_setup_consented', true);
                     storage.setRagEnabled(true);
                     if (context.mounted) {
-                      Provider.of<EmbeddingSidecar>(
+                      Provider.of<EmbeddingService>(
                         context,
                         listen: false,
-                      ).ensureRunning();
+                      ).ensureReady();
                     }
                   }
                 },
@@ -155,15 +155,15 @@ class _MemoryPanelState extends State<MemoryPanel> {
           // Status indicator
           Builder(
             builder: (context) {
-              final sidecar = Provider.of<EmbeddingSidecar>(context);
-              final statusColor = sidecar.modelReady
+              final embeddings = Provider.of<EmbeddingService>(context);
+              final statusColor = embeddings.isAvailable
                   ? AppColors.bondHighOf(context)
                   : AppColors.porchAmberOf(context);
-              final statusText = sidecar.modelReady
-                  ? 'Embedding engine ready'
-                  : sidecar.isRunning
+              final statusText = embeddings.isAvailable
+                  ? 'Memory engine ready'
+                  : embeddings.modelOnDisk
                   ? 'Starting...'
-                  : 'Engine not running';
+                  : 'Model not downloaded';
               return Row(
                 children: [
                   Container(

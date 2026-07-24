@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Tests for ExpressionClassifierService, ONNXExpressionClassifier, and
+// Tests for ExpressionClassifierService, LLMExpressionClassifier, and
 // OnnxDownloadProgress. Validates the ONNX classification routing, download
 // progress tracking, and emotion result parsing.
 
@@ -217,39 +217,6 @@ void main() {
         reclassify: (e) async => 'neutral',
       );
       expect(await classifier.isAvailable(), isTrue);
-    });
-  });
-
-  group('ONNXExpressionClassifier', () {
-    test('classify returns neutral when script is not found', () async {
-      final originalCwd = Directory.current;
-      final tempNoScript = Directory.systemTemp.createTempSync('fpai_no_script_');
-      try {
-        Directory.current = tempNoScript; // ensure devScript check and relative fallback won't find sentiment_classifier.py
-        final storage = await createStorageService();
-        final classifier = ONNXExpressionClassifier(storage: storage);
-        final result = await classifier.classify('I am happy');
-        expect(result.emotion, equals('neutral'));
-        expect(result.confidence, equals(0.0));
-      } finally {
-        Directory.current = originalCwd;
-        if (tempNoScript.existsSync()) {
-          tempNoScript.deleteSync(recursive: true);
-        }
-      }
-    });
-
-    test('onProgress callback is captured when provided', () async {
-      final storage = await createStorageService();
-      final classifier = ONNXExpressionClassifier(
-        storage: storage,
-        onProgress: (progress) {
-          // callback wired (test only verifies construction, not firing in this env)
-        },
-      );
-      // Script may exist but Python deps missing — classify() returns neutral.
-      // The onProgress callback is wired so it would fire during a real run.
-      expect(classifier, isNotNull);
     });
   });
 

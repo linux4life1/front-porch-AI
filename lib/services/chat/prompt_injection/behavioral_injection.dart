@@ -16,53 +16,58 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
 
-/// Plain behavioral mechanics injection builder (_getBehavioralMechanicsInjection).
-/// Trust mapping, fixation, spatial stance (via rel service + active char cb).
-/// Step 8 extraction.
+/// Fixation + spatial-stance fragments for the words-only state block
+/// (docs/design/prompt-state-injection.md §3). Both are free-text fields (may
+/// legitimately contain digits); both are salience-gated to silence.
+///
+/// GROUP-SAFETY CONTRACT: this leaf reads RelationshipService SCALARS, which
+/// are per-speaker-valid at assembly time because `_loadGroupRealismIntoScalars`
+/// (chat_service_realism_dance.dart) calls
+/// `loadRelationshipScalarsForSpeaker(charId)` — which copies activeFixation,
+/// fixationLifespan, AND spatialStance for the upcoming speaker — before any
+/// prompt is built. If that dance ever stops covering these fields, this
+/// fragment must switch to defensive group-map reads like
+/// relationship_injection's tiers.
+///
+/// The old BLIND TRUST / MISTRUST "Behavioral Anchor" blocks are DELETED:
+/// they fired on raw trustLevel thresholds (±100 scale) that map to only
+/// moderate tiers, directly contradicting the trust-calibration ladder
+/// rendered beside them ("absolute, unconditional trust" at a level the
+/// ladder calls "genuinely trusts"). The calibration ladder in
+/// relationship_injection.dart is now the single trust voice.
 class BehavioralInjection {
   final RelationshipService relationshipService;
   final bool Function() getRealismEnabled;
-  final CharacterCard? Function() getActiveCharacter;
 
   BehavioralInjection({
     required this.relationshipService,
     required this.getRealismEnabled,
-    required this.getActiveCharacter,
   });
 
   String buildBehavioralMechanicsInjection() {
     if (!getRealismEnabled()) return '';
+    final lines = <String>[];
 
-    String block = '';
-
-    // 1. Trust mapping (-100 to 100)
-    if (relationshipService.trustLevel <= -20) {
-      block +=
-          '[Behavioral Anchor (MISTRUST): You deeply distrust the user right now. You are paranoid, evasive, and highly questioning of their motives. Even if your bond is high, you do not trust them.]\n';
-    } else if (relationshipService.trustLevel >= 50) {
-      block +=
-          '[Behavioral Anchor (BLIND TRUST): You place absolute, unconditional trust in the user. You will readily share secrets and assume the absolute best of their intentions.]\n';
-    }
-
-    // 2. Fixation Mapping
     if (relationshipService.activeFixation.isNotEmpty &&
         relationshipService.fixationLifespan > 0) {
-      final charName = getActiveCharacter()?.name ?? 'the character';
-      block +=
-          '[Background Thought: $charName has a thought that stays with them about "${relationshipService.activeFixation}". '
-          'This might surface as a subtle mood shift, a moment of reflection, or colored reactions. '
-          'It does NOT override their personality or current focus, and only surfaces overtly if conversation naturally touches the topic.]\n';
+      lines.add(
+        'On the mind lately: "${relationshipService.activeFixation}" — a '
+        'background thought that colors mood and reactions; it never '
+        'overrides the scene, surfacing openly only if conversation '
+        'naturally touches it.',
+      );
     }
 
-    // 3. Spatial Stance Mapping
     if (relationshipService.spatialStance.isNotEmpty) {
-      block +=
-          '[Spatial Awareness: You are currently physically "${relationshipService.spatialStance}". Let this naturally ground your actions, but you are free to move and change positions as the scene demands.]\n';
+      lines.add(
+        'Position: ${relationshipService.spatialStance} — ground actions in '
+        'this, but moving and changing position is fine as the scene '
+        'demands.',
+      );
     }
 
-    return block;
+    return lines.join('\n');
   }
 }

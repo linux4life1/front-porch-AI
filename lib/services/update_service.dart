@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/app_version.dart';
+import 'package:front_porch_ai/utils/native_exit.dart';
 
 // Note: app_version.dart was already imported — UpdateService already used
 // appVersion for _currentVersion. The isPreRelease getter now also guards
@@ -208,42 +209,7 @@ class UpdateService extends ChangeNotifier {
       final List<dynamic> allReleases = jsonDecode(response.body);
       if (allReleases.isEmpty) return false;
 
-      Map<String, dynamic>? targetRelease;
-
-      for (final release in allReleases) {
-        final tagName = (release['tag_name'] as String? ?? '').replaceFirst(
-          RegExp(r'^[vV]'),
-          '',
-        );
-        final isPrerelease = release['prerelease'] as bool? ?? false;
-        final tagLower = tagName.toLowerCase();
-
-        // Manual check for beta strings if the flag isn't set.
-        // Use contains('rawhide') (no leading -) so it catches both "nightly-rawhide..."
-        // tags and raw "rawhide.YYYY..." versions.
-        final hasBetaString =
-            tagLower.contains('beta') ||
-            tagLower.contains('alpha') ||
-            tagLower.contains('-rc') ||
-            tagLower.contains('-dev') ||
-            tagLower.contains('nightly') ||
-            tagLower.contains('rawhide');
-
-        final effectivelyBeta = isPrerelease || hasBetaString;
-
-        // Channel matching logic:
-        // We enforce strict isolation because Stable and Beta use different
-        // installation paths and database folders. Cross-updating would
-        // lead to data loss or duplicate "ghost" installations.
-        if (isPreRelease != effectivelyBeta) {
-          continue;
-        }
-
-        // We found our candidate (the list is sorted by date by default)
-        targetRelease = release;
-        break;
-      }
-
+      final targetRelease = selectTargetRelease(allReleases, isPreRelease);
       if (targetRelease == null) return false;
 
       final originalTag = (targetRelease['tag_name'] as String? ?? '');
@@ -386,7 +352,9 @@ class UpdateService extends ChangeNotifier {
       } else {
         await _launchWindowsInstaller(_pendingInstallerPath!);
       }
-      exit(0);
+      // macOS must skip C++ finalizers or the install-and-relaunch gets
+      // logged as an "Abort trap: 6" crash (see exitWithoutNativeFinalizers).
+      Platform.isMacOS ? exitWithoutNativeFinalizers(0) : exit(0);
     } catch (e) {
       debugPrint('Install now failed: $e');
       rethrow;
@@ -665,6 +633,67 @@ open -n '$escDest'
   Future<void> _relaunchMacApp() async {
     // Relaunch (for DMG path) or user/Installer action (for PKG path) is handled
     // by the update shell script. Nothing to do here.
+  }
+
+  /// Picks the release this build's channel should be offered, out of the
+  /// full GitHub `/releases` list.
+  ///
+  /// Two invariants, both learned from field bugs:
+  ///  * **Channel isolation.** Stable and Beta/Nightly install to different
+  ///    paths and data dirs, so a stable build must never be handed a
+  ///    pre-release and vice-versa (`wantPrerelease` is this build's channel).
+  ///  * **"Newest" cannot depend on GitHub's list order OR on the Rawhide
+  ///    version string.** GitHub's `/releases` ordering is not reliably
+  ///    newest-published-first, and `rawhide.YYYYMMDD.<sha>` has no orderable
+  ///    field below the day — the trailing short SHA is a commit hash, not a
+  ///    monotonic build counter. The old code took the FIRST channel match and
+  ///    stopped, so a newer same-day manual build that GitHub listed *below* an
+  ///    older release was invisible (you couldn't distinguish or rank them by
+  ///    the tag, and index 0 was never revisited). We instead scan every
+  ///    channel match and keep the one with the newest publish timestamp, which
+  ///    is a true monotonic recency signal the version string can't provide.
+  @visibleForTesting
+  static Map<String, dynamic>? selectTargetRelease(
+    List<dynamic> releases,
+    bool wantPrerelease,
+  ) {
+    Map<String, dynamic>? best;
+    DateTime? bestStamp;
+    for (final release in releases) {
+      if (release is! Map<String, dynamic>) continue;
+
+      final tagLower = (release['tag_name'] as String? ?? '')
+          .replaceFirst(RegExp(r'^[vV]'), '')
+          .toLowerCase();
+      final isPrerelease = release['prerelease'] as bool? ?? false;
+      // Manual string check catches pre-releases whose `prerelease` flag was
+      // never set. contains('rawhide') (no leading -) matches both
+      // "nightly-rawhide..." tags and raw "rawhide.YYYY..." versions.
+      final hasBetaString =
+          tagLower.contains('beta') ||
+          tagLower.contains('alpha') ||
+          tagLower.contains('-rc') ||
+          tagLower.contains('-dev') ||
+          tagLower.contains('nightly') ||
+          tagLower.contains('rawhide');
+      final effectivelyBeta = isPrerelease || hasBetaString;
+      if (wantPrerelease != effectivelyBeta) continue;
+
+      // published_at is the real publication time; created_at (the tag's
+      // commit date) is the fallback for the rare release with a null
+      // published_at. An unparseable/missing pair sinks to the epoch so a
+      // dated release always outranks it.
+      final stamp =
+          DateTime.tryParse(
+            (release['published_at'] ?? release['created_at'] ?? '') as String,
+          ) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      if (best == null || stamp.isAfter(bestStamp!)) {
+        best = release;
+        bestStamp = stamp;
+      }
+    }
+    return best;
   }
 
   /// Normalizes a version/tag string for comparison and display:

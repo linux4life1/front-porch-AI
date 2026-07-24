@@ -129,6 +129,11 @@ Use {{char}} for character name and {{user}} for user name. Respond with ONLY th
         ? '\n[ESTABLISHED WORLD LORE]:\n$worldLore\n\n(IMPORTANT: Prioritize writing entries for specific factions, locations, names, and magic systems mentioned in the established lore text over inventing new ones.)\n'
         : '';
 
+    // Opt-in dynamic-macro rule (rule 9) — only when the creator's toggle is on.
+    final macroRule = _includeDynamicMacros
+        ? '\n10. LIVING DETAIL (optional, sparing): in "custom" or "location" entries ONLY — never premise/faction/history — you MAY drop in ONE {{pick:...}} macro for a small detail that should vary each visit, so the world feels alive. EXACT syntax, double braces: {{pick:option one, option two, option three}}. Example content: "The tavern board today reads {{pick:mutton stew, fish pie, spiced wine}}." At most one per entry, only where a rotating detail is natural; most entries need none. (A {{roll:d6}} for a small random count is also allowed.)'
+        : '';
+
     final prompt =
         '''Generate WORLD-BUILDING lorebook entries for a roleplay setting. Output ONLY a JSON object with a single key "lorebook" containing an array of $countRange entry objects.$categoryHint
 
@@ -145,8 +150,20 @@ CRITICAL RULES:
 4. Keys should be common words/phrases a user would naturally type during roleplay (e.g. "tavern, inn, drink" not "The Gilded Chalice Tavern")
 5. Content should be 1-2 paragraphs of rich, descriptive world lore — specific and evocative, not generic
 6. If the interview mentioned specific places, customs, or factions, make entries for those first
+7. Include EXACTLY ONE entry with "category":"premise" — a 1-2 paragraph portrait of the world's core setting, tone, and what makes it distinct. It is the always-present backdrop, so write it to read well on its own; set its "key" to a few broad theme words.
+8. "secondary" (OPTIONAL context keywords): for faction/location/figure/history/item entries you MAY add words that must appear ALONGSIDE a main key for the entry to surface — this keeps it out of unrelated scenes (e.g. a sea-captain entry fires only when "captain" AND "ship" or "crew" come up). Use "" when the entry should fire on its main keys alone. The premise entry never needs it. Put interchangeable ambient flavor — rumors, gossip, minor local events — in "custom" with broad scene keys; only one will surface at a time.
+9. INTERCONNECT the lore: when one entry naturally relates to another (a faction and the ritual it guards, a location and the figure who rules it, an item and where it came from), NAME that other entry — using its key word — inside this entry's content. Bringing up one then naturally surfaces the other, so the world reads as connected lore rather than a list of isolated facts.$macroRule
 
-Each entry format: {"name": "title", "key": "trigger,keywords", "content": "1-2 paragraphs of world lore"}
+CATEGORY — tag EVERY entry with exactly one of:
+- premise  : the world's core setting/tone/backdrop (EXACTLY ONE entry)
+- faction  : groups, orders, powers, organizations
+- location : specific places
+- figure   : notable NPCs / named individuals in the world
+- history  : past events, wars, cataclysms
+- item     : notable objects, artifacts, technologies
+- custom   : customs, rumors, ambient flavor
+
+Each entry format: {"name": "short title", "category": "premise|faction|location|figure|history|item|custom", "key": "trigger,keywords", "secondary": "context,words", "content": "1-2 paragraphs of world lore"}
 
 Output ONLY the JSON:''';
 
@@ -169,23 +186,29 @@ Output ONLY the JSON:''';
 
       final lorebookData = data['lorebook'];
       if (lorebookData is List && lorebookData.isNotEmpty) {
-        final entries = <LorebookEntry>[];
+        final generated = <GeneratedLoreEntry>[];
         for (final entry in lorebookData) {
           if (entry is Map<String, dynamic>) {
-            entries.add(
-              LorebookEntry(
+            generated.add(
+              GeneratedLoreEntry(
                 name: entry['name']?.toString() ?? '',
                 key: entry['key']?.toString() ?? '',
                 content: entry['content']?.toString() ?? '',
-                enabled: true,
+                category: entry['category']?.toString() ?? '',
+                secondary: entry['secondary']?.toString() ?? '',
               ),
             );
           }
         }
-        if (entries.isNotEmpty) {
-          card.lorebook = Lorebook(entries: entries);
+        // The model wrote prose + a category; the engine mechanics (premise
+        // anchor, priority tiers, contextual firing, variety, interconnection)
+        // are assigned deterministically here. See lorebook_mechanics.dart.
+        final lorebook = buildSmartLorebook(generated);
+        if (lorebook != null) {
+          card.lorebook = lorebook;
           debugPrint(
-            'CharacterGen: Separate lorebook generated ${entries.length} entries',
+            'CharacterGen: Separate lorebook generated '
+            '${lorebook.entries.length} entries',
           );
         }
       }
@@ -231,7 +254,11 @@ Begin:''';
     );
     if (output == null) return null;
 
-    // Clean string just in case
-    return output.trim().replaceAll(RegExp(r'^"|"$'), '').trim();
+    // Strip any reasoning the model still emitted (a hybrid thinking model can
+    // ignore the reasoning-off signal), THEN trim wrapping quotes. Every other
+    // CharacterGen consumer strips <think>; without it here the raw reasoning
+    // block leaked into the portrait-prompt seed shown in the creator.
+    final cleaned = stripThinkBlocks(output);
+    return cleaned.replaceAll(RegExp(r'^"|"$'), '').trim();
   }
 }

@@ -20,7 +20,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/embedding_sidecar.dart';
+import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 class RagSetupDialog extends StatefulWidget {
@@ -36,7 +36,7 @@ class RagSetupDialogState extends State<RagSetupDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final sidecar = Provider.of<EmbeddingSidecar>(context);
+    final embeddings = Provider.of<EmbeddingService>(context);
 
     return Dialog(
       backgroundColor: AppColors.cardOf(context),
@@ -45,7 +45,9 @@ class RagSetupDialogState extends State<RagSetupDialog> {
         constraints: const BoxConstraints(maxWidth: 440),
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: _isSettingUp ? _buildSetupView(sidecar) : _buildConsentView(),
+          child: _isSettingUp
+              ? _buildSetupView(embeddings)
+              : _buildConsentView(),
         ),
       ),
     );
@@ -113,14 +115,15 @@ class RagSetupDialogState extends State<RagSetupDialog> {
             children: [
               InfoRow(
                 icon: Icons.download,
-                color: Colors.blueAccent,
-                text: 'Downloads a ~270 MB AI embedding model on first setup',
+                color: AppColors.formMasterAccent,
+                text: 'Downloads a ~550 MB AI embedding model on first setup',
               ),
               SizedBox(height: 8),
               InfoRow(
                 icon: Icons.memory,
                 color: Colors.tealAccent,
-                text: 'Runs locally on your CPU — no data leaves your machine',
+                text:
+                    'Runs inside the app on your CPU — no data leaves your machine',
               ),
               SizedBox(height: 8),
               InfoRow(
@@ -128,13 +131,6 @@ class RagSetupDialogState extends State<RagSetupDialog> {
                 color: Colors.purpleAccent,
                 text:
                     'Searches past messages for relevant context to include in prompts',
-              ),
-              SizedBox(height: 8),
-              InfoRow(
-                icon: Icons.swap_horiz,
-                color: Colors.amberAccent,
-                text:
-                    'You can switch to API-based embeddings later in Settings',
               ),
             ],
           ),
@@ -174,9 +170,9 @@ class RagSetupDialogState extends State<RagSetupDialog> {
     );
   }
 
-  Widget _buildSetupView(EmbeddingSidecar sidecar) {
-    final hasError = sidecar.error != null;
-    final progress = sidecar.downloadProgress;
+  Widget _buildSetupView(EmbeddingService embeddings) {
+    final hasError = embeddings.setupError != null;
+    final progress = embeddings.setupProgress;
     final showProgress = progress >= 0 && progress <= 1.0;
 
     return Column(
@@ -243,7 +239,7 @@ class RagSetupDialogState extends State<RagSetupDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                sidecar.statusMessage,
+                embeddings.setupStatus,
                 style: TextStyle(
                   color: hasError
                       ? Colors.redAccent
@@ -292,10 +288,10 @@ class RagSetupDialogState extends State<RagSetupDialog> {
             ],
           ),
         ),
-        if (hasError && sidecar.error != null) ...[
+        if (hasError && embeddings.setupError != null) ...[
           const SizedBox(height: 8),
           Text(
-            sidecar.error!,
+            embeddings.setupError!,
             style: const TextStyle(color: Colors.redAccent, fontSize: 11),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -334,9 +330,10 @@ class RagSetupDialogState extends State<RagSetupDialog> {
                   ],
                 ),
                 SizedBox(height: 6),
-                if (sidecar.error!.contains('retrieve') ||
-                    sidecar.error!.contains('download') ||
-                    sidecar.error!.contains('network')) ...[
+                if (embeddings.setupError!.contains('retrieve') ||
+                    embeddings.setupError!.contains('download') ||
+                    embeddings.setupError!.contains('HTTP') ||
+                    embeddings.setupError!.contains('network')) ...[
                   Text(
                     '• Check your internet connection',
                     style: TextStyle(
@@ -360,7 +357,7 @@ class RagSetupDialogState extends State<RagSetupDialog> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    '• If this persists, try clearing the cache:',
+                    '• If this persists, try clearing the model folder:',
                     style: TextStyle(
                       color: AppColors.textTertiary(context),
                       fontSize: 11,
@@ -378,8 +375,8 @@ class RagSetupDialogState extends State<RagSetupDialog> {
                       fontFamily: 'monospace',
                     ),
                   ),
-                ] else if (sidecar.error!.contains('onnxruntime') ||
-                    sidecar.error!.contains('.dll')) ...[
+                ] else if (embeddings.setupError!.contains('onnxruntime') ||
+                    embeddings.setupError!.contains('.dll')) ...[
                   Text(
                     '• A conflicting ONNX Runtime library may be installed',
                     style: TextStyle(
@@ -396,22 +393,6 @@ class RagSetupDialogState extends State<RagSetupDialog> {
                   ),
                   Text(
                     '• Remove or rename the conflicting file and retry',
-                    style: TextStyle(
-                      color: AppColors.textTertiary(context),
-                      fontSize: 11,
-                    ),
-                  ),
-                ] else if (sidecar.error!.contains('bind') ||
-                    sidecar.error!.contains('port')) ...[
-                  Text(
-                    '• Port 5055 may be in use by another application',
-                    style: TextStyle(
-                      color: AppColors.textTertiary(context),
-                      fontSize: 11,
-                    ),
-                  ),
-                  Text(
-                    '• Close other applications using that port and retry',
                     style: TextStyle(
                       color: AppColors.textTertiary(context),
                       fontSize: 11,
@@ -466,7 +447,7 @@ class RagSetupDialogState extends State<RagSetupDialog> {
               const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () {
-                  sidecar.clearError();
+                  embeddings.clearSetupError();
                   _startSetup();
                 },
                 icon: Icon(Icons.refresh, size: 16),
@@ -482,8 +463,9 @@ class RagSetupDialogState extends State<RagSetupDialog> {
             ] else
               TextButton(
                 onPressed: () {
-                  // Cancel the setup — stop sidecar
-                  sidecar.stopServer();
+                  // Cancel the setup — release the (possibly half-warmed)
+                  // session; a partial download resumes on the next try.
+                  embeddings.cancelSetup();
                   Navigator.of(context).pop(false);
                 },
                 child: Text(
@@ -498,20 +480,16 @@ class RagSetupDialogState extends State<RagSetupDialog> {
   }
 
   Future<void> _startSetup() async {
-    final sidecar = Provider.of<EmbeddingSidecar>(context, listen: false);
+    final embeddings = Provider.of<EmbeddingService>(context, listen: false);
 
-    // Start server (will also trigger model download if needed)
-    await sidecar.startServer();
-    if (sidecar.error != null) return; // Error state shown in UI
-
-    // Wait for model to be ready
-    final ready = await sidecar.waitForModelReady();
+    // Downloads the model if needed, then loads + self-tests the engine.
+    final ready = await embeddings.runSetup();
     if (!mounted) return;
 
     if (ready) {
       setState(() => _isDone = true);
     }
-    // If not ready, error state is shown via sidecar.error
+    // If not ready, the error state shows via embeddings.setupError.
   }
 }
 

@@ -59,13 +59,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const footer = (
     <div className="side-footer">
       <a
-        className="side-social-link"
+        className="side-discord-btn"
         href="https://discord.gg/e4tET6rpdv"
         target="_blank"
         rel="noopener noreferrer"
-        title="Discord"
       >
-        <span aria-hidden>💬</span>
+        <span aria-hidden>💬</span> Join the Discord
       </a>
       <button className="side-logout link-btn" onClick={logout}>Log out</button>
     </div>

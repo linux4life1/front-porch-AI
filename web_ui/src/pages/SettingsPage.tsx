@@ -13,7 +13,7 @@ import { isEmotionalVoiceEnabled, setEmotionalVoiceEnabled } from '../audio/emot
 // providers are first-class so the user chooses "where generation happens" once.
 // `url` (when present) is the fixed API base for that provider — selecting it
 // fills remoteApiUrl. `kind` drives which controls show:
-//   local — host subprocess (KoboldCpp / Pseudo-Remote): managed on the host.
+//   local — host subprocess (KoboldCpp, optionally from a .kcpps preset): managed on the host.
 //   api   — connect to an OpenAI-compatible server (model picker + maybe key).
 interface BackendOption {
   id: string;
@@ -24,7 +24,6 @@ interface BackendOption {
 }
 const BACKEND_OPTIONS: BackendOption[] = [
   { id: 'kobold', label: 'KoboldCpp (local)', backend: 'kobold', kind: 'local' },
-  { id: 'pseudoRemote', label: 'Pseudo-Remote (local server)', backend: 'pseudoRemote', kind: 'local' },
   { id: 'omlx', label: 'oMLX (local API)', backend: 'omlx', url: 'http://localhost:8000/v1', kind: 'api' },
   { id: 'nanogpt', label: 'Nano-GPT', backend: 'openRouter', url: 'https://nano-gpt.com/api/v1', kind: 'api' },
   { id: 'openrouter', label: 'OpenRouter', backend: 'openRouter', url: 'https://openrouter.ai/api/v1', kind: 'api' },
@@ -43,6 +42,8 @@ interface Gen {
   dynamicTempEnabled: boolean;
   dynamicResponses: boolean;
   dynamicResponseInterval: number;
+  /** Away pace (Living Time, additive): story periods per AFK scene. */
+  dynamicResponsePacePeriods?: number;
 }
 interface Settings {
   backend: string;
@@ -58,6 +59,16 @@ interface Settings {
   generation: Gen;
 }
 
+// Legacy-engine model files still on the host (desktop parity: the Reclaim
+// Disk Space card in Settings → Voice & Media). Absent/empty → no section.
+interface LegacyModels {
+  groups: { label: string; bytes: number }[];
+  totalBytes: number;
+}
+
+const fmtBytes = (b: number) =>
+  b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.round(b / 1024 ** 2)} MB`;
+
 export function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
   const [apiKey, setApiKey] = useState('');
@@ -68,10 +79,36 @@ export function SettingsPage() {
   const [testMsg, setTestMsg] = useState('');
   const [emotionalVoice, setEmotionalVoice] = useState(isEmotionalVoiceEnabled);
 
+  const [legacy, setLegacy] = useState<LegacyModels | null>(null);
+  const [reclaiming, setReclaiming] = useState(false);
+
   const load = () => api.get<Settings>('/api/settings').then(setS).catch(() => {});
+  const loadLegacy = () =>
+    api.get<LegacyModels>('/api/legacy-models').then(setLegacy).catch(() => {});
   useEffect(() => {
     void load();
+    void loadLegacy();
   }, []);
+
+  const reclaim = async () => {
+    if (
+      !window.confirm(
+        'Permanently delete the old speech engines’ model files? ' +
+          'Your voices and settings are unaffected — the new engines ' +
+          'have their own models.',
+      )
+    )
+      return;
+    setReclaiming(true);
+    try {
+      await api.post('/api/legacy-models/reclaim');
+      await loadLegacy();
+    } catch {
+      /* surfaced by the section simply not shrinking */
+    } finally {
+      setReclaiming(false);
+    }
+  };
 
   if (!s) return <div className="centered"><div className="spinner" /></div>;
 
@@ -148,7 +185,7 @@ export function SettingsPage() {
   // the API ones connect to an OpenAI-compatible server.
   const selectedId = currentBackendId();
   const isApi = s.backend === 'openRouter' || s.backend === 'omlx';
-  const isManagedLocal = s.backend === 'kobold' || s.backend === 'pseudoRemote';
+  const isManagedLocal = s.backend === 'kobold';
   const showUrlField = selectedId === 'custom'; // named providers + oMLX have fixed URLs
   const showKeyField = s.backend === 'openRouter'; // oMLX is local — no key
 
@@ -233,12 +270,16 @@ export function SettingsPage() {
           onChange={(v) => patchGen({ minP: v })} />
         <SliderField label="Repeat penalty" value={s.generation.repeatPenalty} min={1} max={3} step={0.01}
           onChange={(v) => patchGen({ repeatPenalty: v })} />
-        <SliderField label="Rep pen tokens" value={s.generation.repeatPenaltyTokens} min={0} max={512} step={1}
+        <SliderField label="Rep pen tokens" value={s.generation.repeatPenaltyTokens} min={0} max={2048} step={8}
           onChange={(v) => patchGen({ repeatPenaltyTokens: Math.round(v) })} />
+        {/* XTC is a llama.cpp sampler — only the KoboldCpp backend honors it,
+            so it is hidden entirely on oMLX/remote (desktop parity). */}
+        {s.backend === 'kobold' && (<>
         <SliderField label="XTC threshold" value={s.generation.xtcThreshold} min={0} max={0.5} step={0.01}
           onChange={(v) => patchGen({ xtcThreshold: v })} />
         <SliderField label="XTC probability" value={s.generation.xtcProbability} min={0} max={1} step={0.05}
           onChange={(v) => patchGen({ xtcProbability: v })} />
+        </>)}
         <SliderField label="Max output tokens" value={s.generation.maxLength} min={16} max={16384} step={16}
           onChange={(v) => patchGen({ maxLength: Math.round(v) })} />
         <SliderField label="Min output tokens" value={s.generation.minLength} min={0} max={512} step={1}
@@ -287,6 +328,19 @@ export function SettingsPage() {
           <>
             <SliderField label="Idle timeout (s)" value={s.generation.dynamicResponseInterval} min={30} max={300} step={10}
               onChange={(v) => patchGen({ dynamicResponseInterval: Math.round(v) })} />
+            <label className="field">
+              <span>Story time per away scene</span>
+              <select
+                value={s.generation.dynamicResponsePacePeriods ?? 1}
+                onChange={(e) =>
+                  patchGen({ dynamicResponsePacePeriods: Number(e.target.value) })
+                }
+              >
+                <option value={1}>a few hours</option>
+                <option value={3}>half the day</option>
+                <option value={6}>a full day</option>
+              </select>
+            </label>
           </>
         )}
       </section>
@@ -309,10 +363,58 @@ export function SettingsPage() {
         </p>
       </section>
 
+      {legacy && legacy.totalBytes > 0 && (
+        <section className="card">
+          <h3>Reclaim disk space</h3>
+          <p className="muted small">
+            The new built-in speech engines use their own models. These files
+            from the old engines are no longer used:
+          </p>
+          {legacy.groups.map((g) => (
+            <p key={g.label} className="muted small" style={{ margin: '4px 0' }}>
+              • {g.label} — {fmtBytes(g.bytes)}
+            </p>
+          ))}
+          <button className="ghost" onClick={() => void reclaim()} disabled={reclaiming}>
+            {reclaiming ? 'Reclaiming…' : `Reclaim ${fmtBytes(legacy.totalBytes)}`}
+          </button>
+        </section>
+      )}
+
       {error && <p className="error">{error}</p>}
       <button className="primary" onClick={save} disabled={saving}>
         {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save settings'}
       </button>
+
+      <section className="card">
+        <h2>About &amp; License</h2>
+        <p className="muted small" style={{ lineHeight: 1.5 }}>
+          Front Porch AI is free, open-source software © 2026 Front Porch AI,
+          licensed under the GNU Affero General Public License v3.0. You are
+          free to use, study, modify, and redistribute it under the AGPL. The
+          complete source code is available below; if you received this app
+          without that source, or as part of a closed-source product, that is a
+          license violation.
+        </p>
+        <div className="about-links">
+          <a
+            className="btn-link"
+            href="https://github.com/linux4life1/front-porch-ai"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Source code
+          </a>
+          <a
+            className="btn-link"
+            href="https://github.com/linux4life1/front-porch-ai/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Report a license violation
+          </a>
+        </div>
+      </section>
     </div>
   );
 }

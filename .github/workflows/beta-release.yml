@@ -90,241 +90,61 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Disable inappwebview Linux plugin (uses external browser fallback)
-        if: matrix.platform == 'linux'
-        run: |
-          echo "" >> pubspec.yaml
-          echo "dependency_overrides:" >> pubspec.yaml
-          echo "  flutter_inappwebview_linux:" >> pubspec.yaml
-          echo "    path: ci/flutter_inappwebview_linux_stub" >> pubspec.yaml
-          flutter pub get
-
-      - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust build artifacts (embed_server + ort prebuilts)
-        uses: Swatinem/rust-cache@v2
+      - name: Setup Node (for the WebUI bundle)
+        uses: actions/setup-node@v4
         with:
-          workspaces: "tools/embed_server"
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: web_ui/package-lock.json
 
-      - name: Setup Python (with pip cache)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Cache ML Engines (Kokoro TTS, Piper TTS, Whisper STT, etc.)
-        id: ml-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ml-engines-cache
-          key: ml-engines-${{ matrix.platform }}-${{ hashFiles('kokoro_tts.py', 'piper_entry.py', 'whisper_stt.py', 'sentiment_classifier.py', 'tools/embed_server/Cargo.toml', 'tools/embed_server/Cargo.lock', 'tools/dt-grpc-python/**') }}
-          restore-keys: |
-            ml-engines-${{ matrix.platform }}-
+      # Regenerate assets/web_app from web_ui/src so the Flutter build bundles a
+      # fresh WebUI (never a stale committed bundle). Must run before flutter build.
+      - name: Build WebUI bundle
+        run: npm ci && npm run build
+        working-directory: web_ui
 
       - name: Build Application
+        if: matrix.platform != 'linux'
         run: flutter build ${{ matrix.platform }} --release
 
-      - name: Bundle ML Engines (Kokoro TTS, Piper TTS, Whisper STT, ONNX Embeddings)
+      - name: Build Application (Linux)
+        if: matrix.platform == 'linux'
+        env:
+          CXXFLAGS: "-Wno-unknown-warning-option"
+        run: flutter build linux --release
+
+      - name: Bundle libfpzip for the native Draw Things client (macOS)
+        if: matrix.platform == 'macos'
         shell: bash
         run: |
-          CACHE_HIT="${{ steps.ml-cache.outputs.cache-hit }}"
-          CACHE_DIR="ml-engines-cache/${{ matrix.platform }}"
-
-          if [ "$CACHE_HIT" == "true" ] && [ -d "$CACHE_DIR" ]; then
-            echo "ML engines cache hit — skipping PyInstaller builds"
-            mkdir -p "${{ matrix.build_path }}"
-            cp -r "$CACHE_DIR/"* "${{ matrix.build_path }}/" || true
-          else
-            echo "ML engines cache miss — building from source"
-            DEST="${{ matrix.build_path }}/piper"
-            mkdir -p "$DEST"
-
-            # Install TTS dependencies + PyInstaller
-            pip install pyinstaller kokoro-onnx soundfile piper_tts pathvalidate faster-whisper numpy onnxruntime transformers huggingface_hub
-
-          # Build Kokoro TTS as a standalone directory bundle
-          echo "Building Kokoro TTS binary..."
-          pyinstaller kokoro_tts.py \
-            --onedir \
-            --name kokoro_tts \
-            --collect-all kokoro_onnx \
-            --collect-all soundfile \
-            --collect-all language_tags \
-            --collect-all csvw \
-            --collect-all segments \
-            --collect-all phonemizer \
-            --collect-all espeakng_loader \
-            --hidden-import kokoro_onnx \
-            --hidden-import soundfile \
-            --hidden-import numpy \
-            --hidden-import onnxruntime \
-            --distpath "$DEST" \
-            --workpath ./build_tmp/kokoro \
-            --specpath ./build_tmp/kokoro \
-            --clean \
-            --exclude-module torch \
-            --exclude-module torchvision \
-            --exclude-module torchaudio \
-            --noconfirm
-          echo "Kokoro built at: $DEST/kokoro_tts/"
-
-          # Build Piper TTS as a standalone directory bundle
-          echo "Building Piper TTS binary..."
-          pyinstaller piper_entry.py \
-            --onedir \
-            --name piper \
-            --collect-all piper \
-            --hidden-import piper \
-            --hidden-import pathvalidate \
-            --hidden-import piper_phonemize \
-            --hidden-import onnxruntime \
-            --distpath "$DEST" \
-            --workpath ./build_tmp/piper \
-            --specpath ./build_tmp/piper \
-            --clean \
-            --exclude-module torch \
-            --exclude-module torchvision \
-            --exclude-module torchaudio \
-            --noconfirm
-          echo "Piper built at: $DEST/piper/"
-
-          # Build Whisper STT as a standalone directory bundle
-          echo "Building Whisper STT binary..."
-          STT_DEST="${{ matrix.build_path }}"
-          pyinstaller whisper_stt.py \
-            --onedir \
-            --name whisper_stt \
-            --collect-all faster_whisper \
-            --hidden-import faster_whisper \
-            --hidden-import ctranslate2 \
-            --hidden-import huggingface_hub \
-            --hidden-import tokenizers \
-            --distpath "$STT_DEST" \
-            --workpath ./build_tmp/whisper \
-            --specpath ./build_tmp/whisper \
-            --clean \
-            --exclude-module torch \
-            --exclude-module torchvision \
-            --exclude-module torchaudio \
-            --noconfirm
-          echo "Whisper STT built at: $STT_DEST/whisper_stt/"
-
-          # Build Embedding Server (Rust binary)
-          # NOTE: ort-sys downloads static ONNX from parcel.pyke.io (can be flaky on Windows).
-          # rust-cache + ML cache + retries protect beta builds.
-          echo "Building Embedding Server (Rust)..."
-          cd tools/embed_server
-          for attempt in 1 2 3; do
-            if cargo build --release; then
-              echo "cargo build succeeded on attempt $attempt"
-              break
-            else
-              echo "cargo build attempt $attempt failed"
-              if [ $attempt -lt 3 ]; then
-                echo "Retrying in 15s..."
-                sleep 15
-              else
-                echo "ERROR: cargo build failed after 3 attempts"
-                exit 1
-              fi
-            fi
-          done
-          cd ../.. 
-          EMBED_BINARY="tools/embed_server/target/release/embed_server"
-          if [ "${{ matrix.platform }}" = "windows" ]; then
-            EMBED_BINARY="tools/embed_server/target/release/embed_server.exe"
+          # The pure-Dart Draw Things client decodes generated images through
+          # a tiny fpzip FFI dylib (dt_fpzip.dart looks in Contents/Frameworks/).
+          # Without it, Draw Things generation fails with a clear
+          # libfpzip-missing error (no fallback exists — the sidecars are
+          # gone). Built fresh (LLNL fpzip 1.3.0, universal arm64+x86_64)
+          # and signed by the codesign pass below like every other
+          # Frameworks dylib. Draw Things is macOS-only software, so no
+          # Windows/Linux counterpart exists.
+          ./scripts/build-fpzip-macos.sh
+          APP_PATH=$(find build/macos/Build/Products/Release -maxdepth 1 -name "*.app" | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found for libfpzip bundling" >&2
+            exit 1
           fi
-          mkdir -p "$STT_DEST/embed_server"
-          cp "$EMBED_BINARY" "$STT_DEST/embed_server/"
-          echo "Embedding server built at: $STT_DEST/embed_server/"
-
-          # Build Sentiment Classifier (expression images ONNX)
-          echo "Building Sentiment Classifier binary..."
-          pyinstaller sentiment_classifier.py \
-            --onedir \
-            --name sentiment_classifier \
-            --collect-all huggingface_hub \
-            --collect-all transformers \
-            --collect-all numpy \
-            --collect-all onnxruntime \
-            --hidden-import huggingface_hub \
-            --hidden-import transformers \
-            --hidden-import numpy \
-            --hidden-import onnxruntime \
-            --distpath "$STT_DEST" \
-            --workpath ./build_tmp/sentiment \
-            --specpath ./build_tmp/sentiment \
-            --clean \
-            --exclude-module torch \
-            --exclude-module torchvision \
-            --exclude-module torchaudio \
-            --noconfirm
-          echo "Sentiment classifier built at: $STT_DEST/sentiment_classifier/"
-          # Copy Draw Things gRPC Client (macOS only)
-          if [ "${{ matrix.platform }}" = "macos" ]; then
-            mkdir -p "$STT_DEST/dt-grpc-python"
-            cp -R "tools/dt-grpc-python/"* "$STT_DEST/dt-grpc-python/"
-            echo "Draw Things client copied to: $STT_DEST/dt-grpc-python/"
-          fi
-
-          # For macOS, copy into the app bundle Resources
-          if [ "${{ matrix.platform }}" = "macos" ]; then
-            APP_NAME=$(ls -d ${{ matrix.build_path }}/*.app 2>/dev/null | head -1)
-            if [ -n "$APP_NAME" ]; then
-              RESOURCES="$APP_NAME/Contents/Resources/piper"
-              mkdir -p "$RESOURCES"
-              cp -R "$DEST/kokoro_tts" "$RESOURCES/kokoro_tts"
-              cp -R "$DEST/piper" "$RESOURCES/piper"
-              chmod +x "$RESOURCES/kokoro_tts/kokoro_tts"
-              chmod +x "$RESOURCES/piper/piper"
-
-              STT_RESOURCES="$APP_NAME/Contents/Resources/whisper_stt"
-              mkdir -p "$STT_RESOURCES"
-              cp -R "$STT_DEST/whisper_stt/"* "$STT_RESOURCES/"
-              chmod +x "$STT_RESOURCES/whisper_stt"
-
-              EMBED_RESOURCES="$APP_NAME/Contents/Resources/embed_server"
-              mkdir -p "$EMBED_RESOURCES"
-              cp -R "$STT_DEST/embed_server/"* "$EMBED_RESOURCES/"
-              chmod +x "$EMBED_RESOURCES/embed_server"
-
-              SENTIMENT_RESOURCES="$APP_NAME/Contents/Resources/sentiment_classifier"
-              mkdir -p "$SENTIMENT_RESOURCES"
-              cp -R "$STT_DEST/sentiment_classifier/"* "$SENTIMENT_RESOURCES/"
-              chmod +x "$SENTIMENT_RESOURCES/sentiment_classifier"
-
-              DT_RESOURCES="$APP_NAME/Contents/Resources/dt-grpc-python"
-              mkdir -p "$DT_RESOURCES"
-              cp -R "$STT_DEST/dt-grpc-python/"* "$DT_RESOURCES/"
-            fi
-          fi
-
-          echo "TTS engines bundled at: $DEST"
-          ls -la "$DEST"
-          echo "STT engine bundled at: $STT_DEST/whisper_stt/"
-          ls -la "$STT_DEST/whisper_stt/"
-          echo "Embedding server bundled at: $STT_DEST/embed_server/"
-          ls -la "$STT_DEST/embed_server/"
-
-          # Populate ML cache dir (beta was missing the save side; now matches nightly)
-          CACHE_DIR="ml-engines-cache/${{ matrix.platform }}"
-          mkdir -p "$CACHE_DIR"
-          cp -r "${{ matrix.build_path }}/"* "$CACHE_DIR/" || true
+          mkdir -p "$APP_PATH/Contents/Frameworks"
+          cp tools/fpzip/libfpzip.dylib "$APP_PATH/Contents/Frameworks/"
+          echo "Bundled libfpzip into $APP_PATH/Contents/Frameworks/"
 
       - name: Re-sign macOS App (ad-hoc with entitlements)
         if: matrix.platform == 'macos'
         run: |
           APP_NAME=$(ls -d ${{ matrix.build_path }}/*.app | head -1)
           ENTITLEMENTS="${{ github.workspace }}/macos/Runner/Release.entitlements"
-          echo "Re-signing $APP_NAME after ML engine bundling..."
+          echo "Re-signing $APP_NAME after libfpzip bundling..."
           echo "Using entitlements: $ENTITLEMENTS"
-          # Sign inner frameworks/helpers first (inside-out signing)
+          # Sign inner frameworks/dylibs first (inside-out signing; covers the
+          # freshly bundled libfpzip.dylib)
           find "$APP_NAME/Contents/Frameworks" -name "*.framework" -o -name "*.dylib" | while read f; do
-            codesign --force --sign - "$f" 2>/dev/null || true
-          done
-          find "$APP_NAME/Contents/Resources" -type f -perm +111 | while read f; do
             codesign --force --sign - "$f" 2>/dev/null || true
           done
           # Sign the main app with entitlements (preserves file picker, network, etc.)
@@ -528,6 +348,7 @@ jobs:
   publish-aur-beta:
     name: Update AUR Beta Package
     needs: release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - name: Update AUR Beta Package

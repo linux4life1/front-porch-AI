@@ -22,51 +22,28 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/capability/vision_support_resolver.dart';
+import 'package:front_porch_ai/services/capability/image_reference_resolver.dart';
+import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/expression_pack_qc.dart';
 import 'package:front_porch_ai/services/expression_pack_service.dart';
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
-import 'package:front_porch_ai/services/vision_eval.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'expression_pack_grid.dart';
 import 'expression_pack_setup.dart';
-
-/// Decode the crop output and re-emit it at a diffusion-friendly size that
-/// PRESERVES the source aspect ratio — a portrait avatar yields a portrait
-/// pack instead of being forced square. The long side lands on 768 and both
-/// dimensions snap to multiples of 64, because backends can't generate at
-/// arbitrary pixel sizes and ComfyUI's img2img inherits its output size from
-/// the reference image — the base must literally BE the generation size.
-/// Returns null when the bytes can't be decoded.
-({Uint8List bytes, int width, int height})? _normalizePackBase(Uint8List raw) {
-  final decoded = img.decodeImage(raw);
-  if (decoded == null) return null;
-  final isLandscape = decoded.width >= decoded.height;
-  final scale = 768 / (isLandscape ? decoded.width : decoded.height);
-  int snap(num v) => ((v / 64).round() * 64).clamp(320, 768).toInt();
-  final width = isLandscape ? 768 : snap(decoded.width * scale);
-  final height = isLandscape ? snap(decoded.height * scale) : 768;
-  final resized = img.copyResize(
-    decoded,
-    width: width,
-    height: height,
-    interpolation: img.Interpolation.cubic,
-  );
-  return (bytes: img.encodePng(resized), width: width, height: height);
-}
+import 'vision_gate.dart';
 
 /// The Expression-pack flow: turn one base portrait into a labeled set of
-/// expression avatars via img2img. [launch] runs the pre-flight (backend
-/// guard, base-image resolution, and automatic aspect-preserving size
-/// normalization — no crop step) and then shows this two-step dialog (setup,
-/// then the live generation grid).
+/// expression avatars — edit-first (instruction edits off the base) with an
+/// automatic img2img fallback where edit truly doesn't exist. [launch] runs
+/// the pre-flight (backend guard, base-image resolution, and automatic
+/// aspect-preserving size normalization — no crop step) and then shows this
+/// two-step dialog (setup, then the live generation grid).
 class ExpressionPackDialog extends StatefulWidget {
   const ExpressionPackDialog._({
     required this.characterDbId,
@@ -115,18 +92,24 @@ class ExpressionPackDialog extends StatefulWidget {
     final storage = Provider.of<StorageService>(context, listen: false);
     final imageGen = Provider.of<ImageGenService>(context, listen: false);
 
-    // img2img (which keeps the character recognizable across every emotion)
-    // only exists on the local backends — the remote APIs can't do packs.
+    // Remote APIs have no img2img here, so a remote pack runs entirely
+    // through the provider's image-EDIT endpoint — which needs an
+    // edit-capable model in the EDIT slot. Local backends always have the
+    // img2img floor, so they pass regardless.
     if (ImageGenBackend.fromKey(storage.imageGenSettings.imageGenBackend) ==
-        ImageGenBackend.remote) {
+            ImageGenBackend.remote &&
+        !ImageReferenceResolver.packEditMode(storage.imageGenSettings)) {
       await showWarmDialog(
         context,
-        title: 'Local backend needed',
+        title: 'Edit model needed',
         icon: Icons.theater_comedy,
         accent: AppColors.formMasterAccent,
         content: const WarmDialogText(
-          'Expression packs use img2img, which needs a local image backend — '
-          'A1111, ComfyUI, or Draw Things.',
+          'On a remote API the pack generates through the provider\'s '
+          'image-edit endpoint, so it needs an edit-capable model (e.g. '
+          'qwen-image-max-edit) in the Edit tab\'s model slot. Pick one '
+          'there — or switch to a local backend (A1111, ComfyUI, or Draw '
+          'Things), which can always fall back to img2img.',
         ),
         actions: [warmDialogCancel(context, label: 'Got it')],
       );
@@ -168,7 +151,7 @@ class ExpressionPackDialog extends StatefulWidget {
     // expressions look like the avatar the user already sees in the sidebar.
     // Anyone wanting different framing can pick a pre-cropped reference
     // image in the Studio first.
-    final normalized = _normalizePackBase(base);
+    final normalized = normalizePackBase(base);
     if (!context.mounted) return false;
     if (normalized == null) {
       await showWarmDialog(
@@ -281,47 +264,17 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
     super.dispose();
   }
 
-  /// Resolve whether the active text LLM can see images and hand back the
-  /// vision-eval closure, or explain why not (warm dialog) and return null.
-  /// Only ever called from an explicit user click: for generic
-  /// OpenAI-compatible remotes the resolver's first verdict costs a tiny
-  /// probe request, so this must never run automatically on dialog open.
-  Future<VisionEvalFn?> _resolveVisionFire() async {
-    final llmProvider = Provider.of<LLMProvider>(context, listen: false);
-    final support = await VisionSupportResolver.instance.resolveForActiveLlm(
-      backend: llmProvider.activeBackend,
-      storage: widget.storage,
-    );
-    if (!mounted) return null;
-    if (!support.supported) {
-      await showWarmDialog(
-        context,
-        title: 'No vision model',
-        icon: Icons.visibility_off_outlined,
-        accent: AppColors.formMasterAccent,
-        content: const WarmDialogText(
-          'Your current text model can\'t see images. Local models need a '
-          'vision-capable GGUF with its mmproj loaded (Model Settings → '
-          'Vision); for remote APIs pick a vision-capable model.',
-        ),
-        actions: [warmDialogCancel(context, label: 'Got it')],
-      );
-      return null;
-    }
-    final llm = llmProvider.activeService;
-    return ({required String prompt, required List<String> imagesB64}) =>
-        fireVisionEval(llm: llm, prompt: prompt, imagesB64: imagesB64);
-  }
-
   /// Grid "Vision check": QC every generated image against the base portrait.
-  /// Advisory only — badges and the explicit "Uncheck flagged" action.
+  /// Advisory only — badges and the explicit "Uncheck flagged" action. The
+  /// resolve-or-explain step is the shared [resolveVisionFireWithExplainer]
+  /// (click-time only, same gate as the creator panel).
   Future<void> _runVisionCheck() async {
     final session = _session;
     if (session == null || _resolvingVision || (_qc?.isRunning ?? false)) {
       return;
     }
     setState(() => _resolvingVision = true);
-    final fire = await _resolveVisionFire();
+    final fire = await resolveVisionFireWithExplainer(context);
     if (!mounted) return;
     setState(() => _resolvingVision = false);
     if (fire == null) return;
@@ -354,11 +307,21 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
               if (!widget.existingEmotions.contains(e)) e,
           ]
         : chosen;
+    // Edit-first: when the active backend + the EDIT-slot model can
+    // instruction-edit, drive each emotion through the EDIT path (identity
+    // pinned by the base portrait) instead of img2img. The decision is the
+    // ONE shared [ImageReferenceResolver.packEditMode] (also used by the
+    // creator's Portrait & Avatars panel) — resolver supportsEdit over the
+    // edit slot + the Edit tab's ComfyUI workflow-readiness gate.
+    final editMode = ImageReferenceResolver.packEditMode(
+      widget.storage.imageGenSettings,
+    );
     final session = ExpressionPackSession(
       emotions: emotions,
       basePrompt: '${widget.basePrompt}, $kExpressionFraming',
       negativePrompt: widget.negativePrompt,
       denoise: denoise,
+      editMode: editMode,
       generate:
           ({
             required String prompt,
@@ -372,6 +335,10 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
             referenceImage: widget.baseImage,
             seed: seed,
             denoise: denoise,
+            // Edit path when available: the reference is read as conditioning
+            // and the strength slider becomes the edit strength; else img2img.
+            intent: editMode ? StudioIntent.edit : StudioIntent.create,
+            editStrength: editMode ? denoise : null,
           ),
     );
     setState(() => _session = session);

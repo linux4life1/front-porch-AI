@@ -104,6 +104,17 @@ final Map<String, Map<String, dynamic>> _oneShotFields = {
   'posture': _strField(
     'Current physical position and location (brief phrase), or "none".',
   ),
+  // Scene-time fields ride the fused call so one-shot mode needs no separate
+  // per-turn time eval (strict one-shot vs normal parity — same fields, same
+  // clamp/floor/backstop applied by TimeService).
+  'minutes_elapsed': _intField(
+    'In-story minutes the latest exchange took (0-180; 0 only mid-action).',
+  ),
+  'new_day': {
+    'type': 'boolean',
+    'description':
+        'True ONLY if the conversation explicitly transitioned to the next day.',
+  },
   ..._narrativeFields,
   'reason': _strField(
     'One brief sentence naming the key relationship change, or "none".',
@@ -211,10 +222,9 @@ final List<Map<String, dynamic>> kNeedsImpactEvalTools = [
 ];
 
 final Map<String, Map<String, dynamic>> _sceneTimeFields = {
-  'hold_time': {
-    'type': 'boolean',
-    'description': 'True ONLY if the scene is visibly mid-action.',
-  },
+  'minutes_elapsed': _intField(
+    'In-story minutes the latest exchange took (0-180; 0 only mid-action).',
+  ),
   'new_day': {
     'type': 'boolean',
     'description':

@@ -19,10 +19,36 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+
+/// Decode a candidate pack base and re-emit it at a diffusion-friendly size
+/// that PRESERVES the source aspect ratio — a portrait avatar yields a
+/// portrait pack instead of being forced square. The long side lands on 768
+/// and both dimensions snap to multiples of 64, because backends can't
+/// generate at arbitrary pixel sizes and ComfyUI's img2img inherits its
+/// output size from the reference image — the base must literally BE the
+/// generation size. Shared by the Studio pack dialog and the creator's
+/// Portrait & Avatars panel. Returns null when the bytes can't be decoded.
+({Uint8List bytes, int width, int height})? normalizePackBase(Uint8List raw) {
+  final decoded = img.decodeImage(raw);
+  if (decoded == null) return null;
+  final isLandscape = decoded.width >= decoded.height;
+  final scale = 768 / (isLandscape ? decoded.width : decoded.height);
+  int snap(num v) => ((v / 64).round() * 64).clamp(320, 768).toInt();
+  final width = isLandscape ? 768 : snap(decoded.width * scale);
+  final height = isLandscape ? snap(decoded.height * scale) : 768;
+  final resized = img.copyResize(
+    decoded,
+    width: width,
+    height: height,
+    interpolation: img.Interpolation.cubic,
+  );
+  return (bytes: img.encodePng(resized), width: width, height: height);
+}
 
 /// Generates one image per emotion for an expression pack. The generator
 /// closure is injected so this class stays pure and unit-testable; the UI
@@ -118,10 +144,12 @@ class ExpressionPackSession extends ChangeNotifier {
     required double denoise,
     required PackSlotGenerator generate,
     int? seed, // fixed shared seed; default = random positive int
+    bool editMode = false,
   }) : _basePrompt = basePrompt,
        _negativePrompt = negativePrompt,
        _denoise = denoise,
        _generate = generate,
+       _editMode = editMode,
        // Must be a fixed POSITIVE value: ComfyUI randomizes -1 client-side and
        // A1111 server-side, so sharing a seed across slots requires pinning it.
        _seed = seed ?? Random().nextInt(1 << 31),
@@ -131,6 +159,11 @@ class ExpressionPackSession extends ChangeNotifier {
   final String _negativePrompt;
   final double _denoise;
   final PackSlotGenerator _generate;
+
+  /// When true an instruction-edit model is driving generation, so each slot's
+  /// positive prompt is an EDIT INSTRUCTION off the base portrait (identity kept
+  /// by the reference), not the img2img geometry-tags + base-composition prompt.
+  final bool _editMode;
   final int _seed;
   final List<ExpressionSlot> _slots;
 
@@ -185,6 +218,9 @@ class ExpressionPackSession extends ChangeNotifier {
   String _promptFor(ExpressionSlot slot) {
     final custom = slot.customPrompt;
     if (custom != null && custom.isNotEmpty) return custom;
+    // Edit path: an instruction off the base portrait (identity comes from the
+    // reference image, so no base-composition prompt).
+    if (_editMode) return expressionEditInstruction(slot.emotion);
     final modifier = kExpressionModifiers[slot.emotion] ?? slot.emotion;
     // Emotion first: front tokens get the most conditioning weight, and at
     // turbo-model CFG (~1) a tail phrase was too weak to change the face.
@@ -308,33 +344,63 @@ class ExpressionPackImporter {
         .toList();
     if (kept.isEmpty) return 0;
 
+    // Which existing same-label avatars a "replace" would supersede. Captured
+    // now but NOT deleted yet — see the write-then-delete ordering below.
+    var toRemove = const <String>[];
     if (replaceSameLabel) {
       final existing = await repository.getAvatarImages(characterDbId);
       final labels = kept.map((s) => s.emotion.toLowerCase()).toSet();
-      for (final avatar in existing) {
-        if (labels.contains(avatar.label?.toLowerCase())) {
-          await repository.removeAvatar(characterDbId, avatar.id);
-        }
+      toRemove = [
+        for (final a in existing)
+          if (labels.contains(a.label?.toLowerCase())) a.id,
+      ];
+    }
+
+    // Safe-replace ordering: write ALL new images FIRST, and only once every
+    // one has landed do we delete the old same-label ones. The old code
+    // deleted first, so an addAvatar failure mid-loop (disk full, permissions)
+    // destroyed the existing pack and left a half-written one. On failure now
+    // we roll back the partial new adds — the old pack stays fully intact.
+    // (Not a DB transaction: the failure mode shifts from "lost pack" to, at
+    // worst, a leftover duplicate-labelled old image if a delete below fails —
+    // a cosmetic dup, not data loss.)
+    final addedIds = <String>[];
+    try {
+      for (final slot in kept) {
+        // Strictly sequential awaits: addAvatar filenames are
+        // millisecond-stamped, so parallel adds could collide.
+        addedIds.add(
+          await repository.addAvatar(
+            characterDbId,
+            characterName,
+            slot.bytes!,
+            slot.emotion,
+          ),
+        );
       }
-      // No prime-index adjustment here on purpose: CharacterRepository's
-      // removeAvatar performs none, and the avatars dialog only clamps its
-      // local UI copy after a removal without persisting it — we match that
-      // existing behavior exactly.
+    } catch (_) {
+      for (final id in addedIds) {
+        try {
+          await repository.removeAvatar(characterDbId, id);
+        } catch (_) {}
+      }
+      rethrow;
     }
 
-    var imported = 0;
-    for (final slot in kept) {
-      // Strictly sequential awaits: addAvatar filenames are
-      // millisecond-stamped, so parallel adds could collide.
-      await repository.addAvatar(
-        characterDbId,
-        characterName,
-        slot.bytes!,
-        slot.emotion,
-      );
-      imported++;
+    // All new images are safely on disk — now remove the superseded old ones.
+    // Best-effort per id: a single failed delete must not abort the loop (that
+    // would strand MORE duplicates) — log and continue so we clear as many as
+    // possible. (No prime-index adjustment on purpose: removeAvatar performs
+    // none and the avatars dialog only clamps its local UI copy — match that.)
+    for (final id in toRemove) {
+      try {
+        await repository.removeAvatar(characterDbId, id);
+      } catch (e) {
+        debugPrint('[ExpressionPack] replace: failed to remove old $id: $e');
+      }
     }
 
+    final imported = addedIds.length;
     if (imported > 0 && !storage.expressionEnabled) {
       await storage.setExpressionEnabled(true);
     }

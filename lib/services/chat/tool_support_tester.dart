@@ -121,8 +121,9 @@ class ToolSupportTester {
       }
     } catch (e) {
       debugPrint('[ToolSupport] Probe failed: $e');
-      // Unreachable backend → leave untested (connectivity, not capability).
-      if (getBackendIdentity() == identity && !looksLikeBackendUnreachable(e)) {
+      // Transport failure (unreachable, torn-down client, timeout, busy
+      // server) → leave untested: connectivity, not capability.
+      if (getBackendIdentity() == identity && !isToolTransportFailure(e)) {
         probe.markXmlOnly(identity);
       }
     } finally {

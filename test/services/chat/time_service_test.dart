@@ -1,388 +1,356 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Tests for the extracted TimeService (plain class).
-// Covers: narrativeWeekday calc (start+daycount combos), legacy resolveStartDayOfWeek (persisted + 0/legacy cases),
-// nudge (deltas + day wrap + turns reset + metadata patch roundtrip via live cb + survival semantics),
-// passage toggle + effects (advance guard), resets/loads/roundtrips/seeds (fresh start-of-day, ext seed, load scalars with resolve),
-// OOC detect (markers, phrases, periods, next-day special, pending stamp via cb, disabled guard),
-// public surface (getters, buildTimeInjection thin, resolve exposed), explicit 1:1 vs group parity note
-// (time is chat-scoped not per-speaker; exercised via live owner mutation in integrations for group speaker impersonation).
-// Uses createTestTime factory (modeled exactly on expression_classifier_test.dart / relationship / chaos / needs).
-// Real owner dispatch: reset/seed/load sites passively via pre-existing startNew/setActive/_loadLast/group load in
-// key suites (realism_engine, group_realism, session); full nudge/OOC/advance/eval paths exercised in dedicated
-// (with fake fireLLM) + manual. (aug edits in key tests add only qualified header notes per review precedent:
-// "reset sites passively hit by pre-existing...; full time advance/nudge/OOC only in dedicated + manual").
-// No unit for full prompt builders (step8); time injection tested only as thin build here.
-// Callback contract exercised (patch cb for nudge, pending cb for OOC, onNotify/onSave).
-// 0 forcing of internal state; real dispatch for branches where unit feasible.
+// TimeService (story-clock rewrite) behavioral tests — the extracted leaf,
+// exercised without any LLM (the per-turn eval path is fed canned JSON via
+// oneShotMode / the injected fireLLMEval). Pure StoryClock math is covered
+// separately in story_clock_test.dart.
+// Design: docs/design/story-calendar.md.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 
-/// Test factory (modeled exactly on prior leaf tests).
-/// Supplies realistic defaults + live closures/maps for side-effect cbs (pending, nudge patch with full (tod,dc) payload capture for stronger asserts).
-/// emotionRef/group-swap not required for time (chat-scoped) but kept for parity sim pattern.
-TimeService createTestTime({
-  List<String>? notifies,
-  List<String>? saves,
-  List<MapEntry<String, dynamic>>? pendingStamps,
-  List<MapEntry<String, int>>?
-  patchPayloads, // enhanced to capture (tod, dc) payload for stronger nudge cb testing
-  bool initialPassage = true,
-  int initialDay = 1,
-  String initialTime = 'morning',
-  int initialStartDow = 1,
-  int initialTurns = 0,
-}) {
-  final n = notifies ?? <String>[];
-  final s = saves ?? <String>[];
-  final p = pendingStamps ?? <MapEntry<String, dynamic>>[];
-  final patches = patchPayloads ?? <MapEntry<String, int>>[];
+TimeService makeService({
+  void Function(String, dynamic)? onPending,
+  void Function(String, int, String)? onPatch,
+}) => TimeService(
+  onNotify: () {},
+  onSaveChat: () async {},
+  onSetPendingRealismMetadata: onPending ?? (_, _) {},
+  onPatchLastMessageRealismState: onPatch ?? (_, _, _) {},
+);
 
-  // Live map to simulate god's _pendingRealismMetadata for OOC/nudge stamps
-  final pending = <String, dynamic>{};
+/// Seed to a fixed, deterministic moment: Day 3 (Thu 2026-07-02).
+void seedFixed(TimeService t, {String timeOfDay = 'evening'}) =>
+    t.seedFromV2OrExt(
+      dayCount: 3,
+      timeOfDay: timeOfDay,
+      passageOfTimeEnabled: true,
+      storyStartDate: '2026-06-30', // a Tuesday
+    );
 
-  final svc = TimeService(
-    onNotify: () => n.add('notify'),
-    onSaveChat: () async => s.add('save'),
-    onSetPendingRealismMetadata: (k, v) {
-      pending[k] = v;
-      p.add(MapEntry(k, v));
-    },
-    onNudgePatchLastMessageRealismState: (tod, dc) =>
-        patches.add(MapEntry(tod, dc)),
-  );
-
-  // Seed initial via public load (real path, no internal force)
-  svc.loadTimeScalars(
-    timeOfDay: initialTime,
-    dayCount: initialDay,
-    startDayOfWeek: initialStartDow,
-    passageOfTimeEnabled: initialPassage,
-  );
-  // turns not exposed for direct set; nudge/advance paths exercise it
-  return svc;
-}
+Future<void> runEval(
+  TimeService t, {
+  String? oneShotText,
+  Future<String?> Function(String)? fire,
+}) => t.evaluateTimeProgressAndPostureIfNeeded(
+  charName: 'Nia',
+  recent: 'User: hi\nNia: hello',
+  shortTermTierName: 'Warm',
+  onChunk: null,
+  fireLLMEval: (p, {onChunk}) async => fire == null ? null : await fire(p),
+  stripThinkBlocks: (s) => s,
+  extractJsonBool: (text, key) {
+    final m = RegExp('"$key"\\s*:\\s*(true|false)').firstMatch(text);
+    return m == null ? null : m.group(1) == 'true';
+  },
+  setSpatialStance: (_) {},
+  getCurrentSpatialStance: () => '',
+  getCharacterEmotion: () => '',
+  getEmotionIntensity: () => '',
+  oneShotMode: oneShotText != null,
+  oneShotText: oneShotText,
+);
 
 void main() {
-  group('TimeService (extracted leaf)', () {
-    test(
-      'narrativeWeekday computes correctly from start + dayCount (Mon anchor, various days)',
-      () {
-        final svc = createTestTime(
-          initialStartDow: 1,
-          initialDay: 1,
-        ); // Day 1 = Mon
-        expect(svc.narrativeWeekday, 'Monday');
-        final svc2 = createTestTime(initialStartDow: 1, initialDay: 2);
-        expect(svc2.narrativeWeekday, 'Tuesday');
-        final svc7 = createTestTime(initialStartDow: 1, initialDay: 7);
-        expect(svc7.narrativeWeekday, 'Sunday');
-        final svc8 = createTestTime(initialStartDow: 1, initialDay: 8);
-        expect(svc8.narrativeWeekday, 'Monday');
-      },
-    );
-
-    test(
-      'resolveStartDayOfWeek returns persisted when valid 1-7, computes legacy anchor for 0',
-      () {
-        final svc = createTestTime();
-        expect(svc.resolveStartDayOfWeek(3, 5), 3); // valid
-        // legacy 0: formula produces stable anchor (we don't assert exact today-dependent value,
-        // but it must be 1-7 and not crash)
-        final legacy = svc.resolveStartDayOfWeek(0, 10);
-        expect(legacy, inInclusiveRange(1, 7));
-        final legacy2 = svc.resolveStartDayOfWeek(0, 1);
-        expect(legacy2, inInclusiveRange(1, 7));
-      },
-    );
-
-    test(
-      'nudgeTimePeriod +1/-1 mutates time/turns/day, calls patch cb (roundtrip)',
-      () {
-        final patches = <MapEntry<String, int>>[];
-        final svc = createTestTime(
-          initialTime: 'morning',
-          initialDay: 5,
-          patchPayloads: patches,
-        );
-        svc.nudgeTimePeriod(1);
-        expect(svc.timeOfDay, 'late_morning');
-        expect(svc.dayCount, 5);
-        expect(patches.length, 1);
-        expect(patches.last.key, 'late_morning');
-        expect(patches.last.value, 5);
-
-        svc.nudgeTimePeriod(-1);
-        expect(svc.timeOfDay, 'morning');
-        expect(patches.length, 2);
-        expect(patches.last.key, 'morning');
-        expect(patches.last.value, 5);
-
-        // wrap forward past night -> day++
-        final svcWrapFwd = createTestTime(
-          initialTime: 'night',
-          initialDay: 10,
-          patchPayloads: patches,
-        );
-        svcWrapFwd.nudgeTimePeriod(1);
-        expect(svcWrapFwd.timeOfDay, 'dawn');
-        expect(svcWrapFwd.dayCount, 11);
-        expect(patches.length, 3);
-        expect(patches.last.key, 'dawn');
-        expect(patches.last.value, 11);
-
-        // wrap backward past dawn -> day--
-        final svcWrapBack = createTestTime(
-          initialTime: 'dawn',
-          initialDay: 10,
-          patchPayloads: patches,
-        );
-        svcWrapBack.nudgeTimePeriod(-1);
-        expect(svcWrapBack.timeOfDay, 'night');
-        expect(svcWrapBack.dayCount, 9);
-        expect(patches.last.key, 'night');
-        expect(patches.last.value, 9);
-      },
-    );
-
-    test('passageOfTimeEnabled toggle affects advance guard and OOC', () {
-      final svc = createTestTime(initialPassage: false);
-      expect(svc.passageOfTimeEnabled, false);
-      svc.setPassageOfTimeEnabled(true);
-      expect(svc.passageOfTimeEnabled, true);
+  group('TimeService seeding + derivation', () {
+    test('fixed-date seed derives period/day/weekday from the clock', () {
+      final t = makeService();
+      seedFixed(t);
+      expect(t.timeOfDay, 'evening');
+      expect(t.dayCount, 3);
+      expect(t.narrativeWeekday, 'Thursday');
+      expect(t.clock, DateTime.utc(2026, 7, 2, 18, 30));
+      expect(t.storyStartDateIso, '2026-06-30');
+      expect(t.startDayOfWeekAnchor, 2); // Tuesday
     });
 
-    test(
-      'resetForFreshChat sets start-of-day + anchor + passage true + turns 0',
-      () {
-        final svc = createTestTime(
-          initialDay: 42,
-          initialTime: 'night',
-          initialPassage: false,
-        );
-        svc.resetForFreshChat();
-        expect(svc.dayCount, 1);
-        expect(svc.timeOfDay, 'morning');
-        expect(svc.passageOfTimeEnabled, true);
-        expect(svc.narrativeWeekday, isNot('')); // anchor set
-      },
-    );
-
-    test('seedFromV2OrExt applies clamped day/time/passage (anchor set)', () {
-      final svc = createTestTime();
-      svc.seedFromV2OrExt(
-        dayCount: 123,
-        timeOfDay: 'evening',
-        passageOfTimeEnabled: false,
+    test('exact opening time (storyStartTime) beats the period default', () {
+      final t = makeService();
+      t.seedFromV2OrExt(
+        dayCount: 1,
+        timeOfDay: 'night',
+        passageOfTimeEnabled: true,
+        storyStartDate: '1887-06-01',
+        storyStartTime: '23:47',
       );
-      expect(svc.dayCount, 123);
-      expect(svc.timeOfDay, 'evening');
-      expect(svc.passageOfTimeEnabled, false);
+      expect(t.clock, DateTime.utc(1887, 6, 1, 23, 47));
+      expect(t.timeOfDay, 'night');
+      // Period-era year always renders in the long date.
+      expect(t.displayDate, contains('1887'));
     });
 
-    test('loadTimeScalars roundtrips + resolve for start', () {
-      final svc = createTestTime();
-      svc.loadTimeScalars(
-        timeOfDay: 'afternoon',
-        dayCount: 7,
-        startDayOfWeek: 4,
+    test('legacy-only seed anchors on today (Day N = today)', () {
+      final t = makeService();
+      t.seedFromV2OrExt(
+        dayCount: 5,
+        timeOfDay: 'morning',
         passageOfTimeEnabled: true,
       );
-      expect(svc.timeOfDay, 'afternoon');
-      expect(svc.dayCount, 7);
-      expect(svc.passageOfTimeEnabled, true);
+      expect(t.dayCount, 5);
+      expect(StoryClock.dateOnly(t.clock), StoryClock.todayAnchor());
     });
 
-    test(
-      'restoreTimeForSwipeOrRegen respects !nudged + passage, ignores when nudged',
-      () {
-        final svc = createTestTime(
-          initialTime: 'dawn',
-          initialDay: 2,
-          initialPassage: true,
-        );
-        svc.restoreTimeForSwipeOrRegen({
-          'timeOfDay': 'night',
-          'dayCount': 5,
-        }, wasNudged: false);
-        expect(svc.timeOfDay, 'night');
-        expect(svc.dayCount, 5);
-
-        svc.restoreTimeForSwipeOrRegen({
-          'timeOfDay': 'morning',
-          'dayCount': 99,
-        }, wasNudged: true);
-        expect(svc.timeOfDay, 'night'); // unchanged
-      },
-    );
-
-    test(
-      'restoreTimeFromRealismState applies when passage, copies start anchor',
-      () {
-        final svc = createTestTime(initialPassage: true);
-        svc.restoreTimeFromRealismState({
-          'timeOfDay': 'late_morning',
-          'dayCount': 9,
-          'startDayOfWeek': 2,
-        });
-        expect(svc.timeOfDay, 'late_morning');
-        expect(svc.dayCount, 9);
-      },
-    );
-
-    test(
-      'detectOocTimeSkip (with OOC marker) advances and stamps pending via cb',
-      () {
-        final stamps = <MapEntry<String, dynamic>>[];
-        final notifies = <String>[];
-        final svc = createTestTime(
-          initialTime: 'morning',
-          initialDay: 3,
-          pendingStamps: stamps,
-          notifies: notifies,
-        );
-        svc.detectOocTimeSkip('(ooc: time skip a few hours)');
-        expect(svc.timeOfDay, isNot('morning'));
-        expect(stamps.any((e) => e.key == 'time_skip_to'), true);
-        expect(notifies.isNotEmpty, true);
-      },
-    );
-
-    test('detectOocTimeSkip next-day special advances day + stamps Dawn', () {
-      final stamps = <MapEntry<String, dynamic>>[];
-      final svc = createTestTime(
-        initialTime: 'night',
-        initialDay: 10,
-        pendingStamps: stamps,
+    test('loadTimeScalars prefers canonical columns over legacy', () {
+      final t = makeService();
+      t.loadTimeScalars(
+        timeOfDay: 'morning', // stale derived value — must lose
+        dayCount: 1,
+        startDayOfWeek: 1,
+        passageOfTimeEnabled: true,
+        storyClock: '2026-07-02T21:40:00.000Z',
+        storyStartDate: '2026-06-30',
       );
-      svc.detectOocTimeSkip('ooc: woke up the next day');
-      expect(svc.dayCount, 11);
-      expect(svc.timeOfDay, 'dawn');
-      expect(stamps.last.value, 'Dawn · Day 11');
+      expect(t.clock, DateTime.utc(2026, 7, 2, 21, 40));
+      expect(t.timeOfDay, 'night');
+      expect(t.dayCount, 3);
     });
 
-    test('detectOocTimeSkip does nothing when passage disabled', () {
-      final svc = createTestTime(initialPassage: false, initialTime: 'morning');
-      svc.detectOocTimeSkip('ooc: skip to next day');
-      expect(svc.timeOfDay, 'morning');
-      expect(svc.dayCount, 1);
+    test('legacy row synthesis preserves the displayed weekday', () {
+      final t = makeService();
+      // startDayOfWeek=1 (Mon), Day 5 → the old modulo-7 math showed Friday.
+      t.loadTimeScalars(
+        timeOfDay: 'morning',
+        dayCount: 5,
+        startDayOfWeek: 1,
+        passageOfTimeEnabled: true,
+      );
+      expect(t.narrativeWeekday, 'Friday');
+      expect(t.dayCount, 5);
+      expect(t.timeOfDay, 'morning');
+    });
+  });
+
+  group('TimeService manual control', () {
+    test('nudge forward/back snaps periods and rolls days', () {
+      String? patchedIso;
+      final t = makeService(onPatch: (_, _, iso) => patchedIso = iso);
+      seedFixed(t, timeOfDay: 'night'); // Thu 22:30
+      t.nudgeTimePeriod(1);
+      expect(t.timeOfDay, 'dawn');
+      expect(t.dayCount, 4); // rolled into Friday
+      expect(patchedIso, t.storyClockIso);
+      t.nudgeTimePeriod(-1);
+      expect(t.timeOfDay, 'night');
+      expect(t.dayCount, 3);
+    });
+
+    test('setStartDate slides the whole timeline (Day N preserved)', () {
+      final t = makeService();
+      seedFixed(t); // Day 3, Thu 2026-07-02 18:30
+      t.setStartDate(DateTime.utc(1887, 6, 1));
+      expect(t.dayCount, 3);
+      expect(t.clock, DateTime.utc(1887, 6, 3, 18, 30));
+      expect(t.storyStartDateIso, '1887-06-01');
+    });
+
+    test('setClockDirect before Day 1 pulls the anchor back', () {
+      final t = makeService();
+      seedFixed(t);
+      t.setClockDirect(DateTime.utc(2026, 6, 20, 9, 0));
+      expect(t.dayCount, 1);
+      expect(t.storyStartDateIso, '2026-06-20');
+    });
+
+    test('advanceTimePeriods respects the passage toggle', () {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      t.advanceTimePeriods(2); // morning → late_morning → afternoon
+      expect(t.timeOfDay, 'afternoon');
+      t.setPassageOfTimeEnabled(false);
+      t.advanceTimePeriods(3);
+      expect(t.timeOfDay, 'afternoon'); // unchanged
+    });
+  });
+
+  group('TimeService OOC time-skip detector', () {
+    test('in-narrative "we drive for several hours" advances 3 hours', () {
+      final pending = <String, dynamic>{};
+      final t = makeService(onPending: (k, v) => pending[k] = v);
+      seedFixed(t, timeOfDay: 'morning'); // 09:00
+      t.detectOocTimeSkip('we drive for several hours');
+      expect(t.clock, DateTime.utc(2026, 7, 2, 12, 0));
+      expect(pending['time_skip_to'], contains('12:00 PM'));
+    });
+
+    test('"a few hours later" is +2h; bare OOC marker is +1h', () {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      t.detectOocTimeSkip('a few hours later, they arrive');
+      expect(t.clock, DateTime.utc(2026, 7, 2, 11, 0));
+      t.detectOocTimeSkip('(ooc: skip ahead a bit)');
+      expect(t.clock, DateTime.utc(2026, 7, 2, 12, 0));
+    });
+
+    test('"the next morning" jumps to 08:00 the following day', () {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'night'); // Thu 22:30
+      t.detectOocTimeSkip('the next morning, sunlight woke them');
+      expect(t.clock, DateTime.utc(2026, 7, 3, 8, 0));
+      expect(t.dayCount, 4);
+    });
+
+    test('small-hours "next morning" stays the same calendar day', () {
+      final t = makeService();
+      seedFixed(t);
+      t.setClockDirect(DateTime.utc(2026, 7, 2, 1, 30));
+      t.detectOocTimeSkip('they wake up the next morning');
+      expect(t.clock, DateTime.utc(2026, 7, 2, 8, 0));
     });
 
     test(
-      'buildTimeInjection returns thin scene time block (step8 note: full builders later)',
+      '"a week later" and "next month" — the jumps the old model lacked',
       () {
-        final svc = createTestTime(
-          initialTime: 'afternoon',
-          initialDay: 4,
-          initialStartDow: 1,
-        );
-        final inj = svc.buildTimeInjection();
-        expect(inj, contains('Scene Time: Afternoon'));
-        expect(inj, contains('Day 4'));
-        expect(inj, contains('Thursday')); // (start=1 + day4-1 = idx3)
+        final t = makeService();
+        seedFixed(t); // Thu Jul 2, 18:30
+        t.detectOocTimeSkip('(ooc: a week later)');
+        expect(t.clock, DateTime.utc(2026, 7, 9, 18, 30));
+        t.detectOocTimeSkip('ooc: next month they meet again');
+        expect(t.clock, DateTime.utc(2026, 8, 1, 9, 0));
       },
     );
 
-    test(
-      'public surface + evaluateTimeProgress (eligible advance path via fake fireLLM)',
-      () async {
-        final svc = createTestTime(initialTime: 'morning', initialDay: 1);
-        // Make eligible by faking internal turns (no direct setter; use multiple no-op calls or test via the method)
-        // For unit, directly exercise the eligible branch with a fake that returns hold=false.
-        bool calledFire = false;
-        Future<String?> fakeFire(
-          String prompt, {
-          void Function(String)? onChunk,
-        }) async {
-          calledFire = true;
-          return '{"hold_time": false, "new_day": false, "posture": "sitting by the fire"}';
-        }
+    test('does nothing when passage is disabled or no trigger present', () {
+      final t = makeService();
+      seedFixed(t);
+      final before = t.clock;
+      t.detectOocTimeSkip('just a normal message about fun');
+      expect(t.clock, before);
+      t.setPassageOfTimeEnabled(false);
+      t.detectOocTimeSkip('(ooc: timeskip several hours)');
+      expect(t.clock, before);
+    });
+  });
 
-        // Call 6 times to reach eligible (real ++ inside each evaluate; 6th parses hold=false + advances).
-        // No internal force; real dispatch in evaluateTimeProgressAndPostureIfNeeded.
-        for (int i = 0; i < 6; i++) {
-          await svc.evaluateTimeProgressAndPostureIfNeeded(
-            charName: 'Test',
-            recent: 'user: hi\nTest: hello',
-            shortTermTierName: 'Neutral',
-            onChunk: null,
-            fireLLMEval: fakeFire,
-            stripThinkBlocks: (s) => s,
-            extractJsonBool: (t, k) {
-              if (k == 'hold_time') return false;
-              if (k == 'new_day') return false;
-              return null;
-            },
-            setSpatialStance: (_) {},
-            getCurrentSpatialStance: () => 'standing',
-            getCharacterEmotion: () => '',
-            getEmotionIntensity: () => '',
+  group('TimeService restore paths', () {
+    test('restore prefers canonical storyClock; legacy keys synthesize', () {
+      final t = makeService();
+      seedFixed(t);
+      t.restoreTimeFromRealismState({
+        'timeOfDay': 'morning',
+        'dayCount': 9,
+        'storyClock': '2026-07-04T06:10:00.000Z',
+        'storyStartDate': '2026-06-30',
+      });
+      expect(t.clock, DateTime.utc(2026, 7, 4, 6, 10));
+      expect(t.dayCount, 5);
+
+      // Legacy-only snapshot (old message): synthesized, day preserved.
+      t.restoreTimeFromRealismState({'timeOfDay': 'evening', 'dayCount': 2});
+      expect(t.timeOfDay, 'evening');
+      expect(t.dayCount, 2);
+    });
+
+    test('swipe restore respects the nudge flag and passage gate', () {
+      final t = makeService();
+      seedFixed(t);
+      final before = t.clock;
+      t.restoreTimeForSwipeOrRegen({
+        'storyClock': '2026-07-01T09:00:00.000Z',
+        'storyStartDate': '2026-06-30',
+      }, wasNudged: true);
+      expect(t.clock, before); // nudged time survives the swipe
+      t.restoreTimeForSwipeOrRegen({
+        'storyClock': '2026-07-01T09:00:00.000Z',
+        'storyStartDate': '2026-06-30',
+      });
+      expect(t.clock, DateTime.utc(2026, 7, 1, 9, 0));
+    });
+  });
+
+  group('TimeService per-turn advancement', () {
+    test(
+      'one-shot text applies minutes_elapsed (clamped) with no LLM call',
+      () async {
+        final t = makeService();
+        seedFixed(t, timeOfDay: 'morning'); // 09:00
+        await runEval(
+          t,
+          oneShotText: '{"minutes_elapsed": 25, "new_day": false}',
+        );
+        expect(t.clock, DateTime.utc(2026, 7, 2, 9, 25));
+
+        // A teleport attempt is clamped to the per-turn maximum.
+        await runEval(
+          t,
+          oneShotText: '{"minutes_elapsed": 4000, "new_day": false}',
+        );
+        expect(
+          t.clock,
+          DateTime.utc(
+            2026,
+            7,
+            2,
+            9,
+            25,
+          ).add(const Duration(minutes: StoryClock.maxMinutesPerTurn)),
+        );
+      },
+    );
+
+    test('new_day from evening onward jumps to 08:00 next day', () async {
+      final t = makeService();
+      seedFixed(t); // evening 18:30
+      await runEval(t, oneShotText: '{"minutes_elapsed": 0, "new_day": true}');
+      expect(t.clock, DateTime.utc(2026, 7, 3, 8, 0));
+
+      // new_day mid-afternoon is ignored (not a valid transition).
+      t.setClockDirect(DateTime.utc(2026, 7, 3, 14, 0));
+      await runEval(t, oneShotText: '{"minutes_elapsed": 0, "new_day": true}');
+      expect(t.clock.hour, 14);
+    });
+
+    test(
+      'multi-call eval failure drifts deterministically, never freezes',
+      () async {
+        final t = makeService();
+        seedFixed(t, timeOfDay: 'morning');
+        await runEval(t, fire: (_) async => throw Exception('backend down'));
+        expect(
+          t.clock,
+          DateTime.utc(2026, 7, 2, 9, StoryClock.failureDriftMinutes),
+        );
+      },
+    );
+
+    test('multi-call eval parses minutes + posture from flat JSON', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      await runEval(
+        t,
+        fire: (_) async =>
+            '{"minutes_elapsed": 45, "new_day": false, "posture": "by the window"}',
+      );
+      expect(t.clock, DateTime.utc(2026, 7, 2, 9, 45));
+    });
+
+    test(
+      'stall backstop snaps to the next period after enough 0-minute turns',
+      () async {
+        final t = makeService();
+        seedFixed(t, timeOfDay: 'morning'); // 09:00
+        for (var i = 0; i < StoryClock.stallBackstopTurns; i++) {
+          await runEval(
+            t,
+            oneShotText: '{"minutes_elapsed": 0, "new_day": false}',
           );
         }
-        expect(calledFire, true);
-        // time should have advanced from morning on the 6th (eligible) call
-        expect(svc.timeOfDay, isNot('morning'));
+        // The final stalled turn triggered the snap (morning → late_morning).
+        expect(t.clock, DateTime.utc(2026, 7, 2, 11, 30));
       },
     );
 
-    test(
-      '1:1 vs group parity note (time chat-scoped; owner swap via loadGroupRealism in god exercised in aug)',
-      () {
-        // Time has no per-speaker state (unlike rel/needs). Group uses same scalars.
-        // Live mutation test: load different "speaker" context does not fork time.
-        final svc = createTestTime(initialDay: 5, initialTime: 'evening');
-        // Simulate owner "swap" by loading scalars (as god does for group speaker)
-        svc.loadTimeScalars(
-          timeOfDay: 'evening',
-          dayCount: 5,
-          startDayOfWeek: 3,
-          passageOfTimeEnabled: true,
-        );
-        expect(svc.dayCount, 5); // shared
-        expect(svc.timeOfDay, 'evening');
-        // nudge affects the one chat time
-        svc.nudgeTimePeriod(1);
-        expect(svc.timeOfDay, 'night');
-      },
-    );
-
-    test('OOC periods estimation + multi-period wrap (several hours = +3)', () {
-      final stamps = <MapEntry<String, dynamic>>[];
-      final svc = createTestTime(
-        initialTime: 'dawn',
-        initialDay: 1,
-        pendingStamps: stamps,
+    test('passage disabled: one-shot is a no-op for the clock', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      t.setPassageOfTimeEnabled(false);
+      final before = t.clock;
+      await runEval(
+        t,
+        oneShotText: '{"minutes_elapsed": 120, "new_day": true}',
       );
-      svc.detectOocTimeSkip('ooc: several hours pass');
-      // dawn +3 -> afternoon
-      expect(svc.timeOfDay, 'afternoon');
-      expect(stamps.isNotEmpty, true);
+      expect(t.clock, before);
     });
-
-    test(
-      'fresh group time init (resetForFreshChat sim for setActiveGroup / _loadLast empty group path) sets start-of-day, passage true, anchored weekday',
-      () {
-        // Simulates the zeroing now called in setActiveGroup defensive + _loadLastSession empty branch for groups (cross-check vs prior needs reset hygiene).
-        // Prevents stale advanced time/passage/anchor bleed from prior 1:1 into fresh group creation / 0-session.
-        final svc = createTestTime(
-          initialDay: 99,
-          initialTime: 'night',
-          initialPassage: false,
-          initialStartDow: 0, // legacy/unset
-        );
-        svc.resetForFreshChat();
-        expect(svc.dayCount, 1);
-        expect(svc.timeOfDay, 'morning');
-        expect(svc.passageOfTimeEnabled, true);
-        expect(
-          svc.narrativeWeekday,
-          isNotEmpty,
-        ); // anchored to today via resolve
-        final resolved = svc.resolveStartDayOfWeek(0, 1);
-        expect(resolved, inInclusiveRange(1, 7));
-      },
-    );
   });
 }

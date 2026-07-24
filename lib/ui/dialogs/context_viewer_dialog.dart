@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Dialog showing token budget breakdown of the last assembled prompt.
 class ContextViewerDialog extends StatelessWidget {
@@ -69,7 +70,7 @@ class ContextViewerDialog extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.analytics_outlined,
-                    color: Colors.blueAccent,
+                    color: AppColors.formMasterAccent,
                     size: 22,
                   ),
                   const SizedBox(width: 10),

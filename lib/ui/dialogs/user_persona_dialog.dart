@@ -20,6 +20,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/persona_colors.dart';
 import 'package:front_porch_ai/utils/picker_prefs.dart';
 
@@ -167,11 +168,11 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? Colors.blueAccent.withValues(alpha: 0.1)
+                          ? AppColors.formMasterAccent.withValues(alpha: 0.1)
                           : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
                       border: isActive
-                          ? Border.all(color: Colors.blueAccent)
+                          ? Border.all(color: AppColors.formMasterAccent)
                           : null,
                     ),
                     child: ListTile(
@@ -242,7 +243,8 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                 icon: const Icon(Icons.add),
                 label: const Text('Add New Persona'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
+                  backgroundColor: AppColors.formMasterAccent,
+                  foregroundColor: AppColors.onChaosAccent,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -368,7 +370,7 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.blueAccent.withValues(
+                                  color: AppColors.formMasterAccent.withValues(
                                     alpha: 0.15,
                                   ),
                                   borderRadius: BorderRadius.circular(6),
@@ -376,7 +378,7 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                                 child: const Icon(
                                   Icons.open_in_full,
                                   size: 16,
-                                  color: Colors.blueAccent,
+                                  color: AppColors.formMasterAccent,
                                 ),
                               ),
                             ),
@@ -404,7 +406,8 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
               ElevatedButton(
                 onPressed: _savePersona,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
+                  backgroundColor: AppColors.formMasterAccent,
+                  foregroundColor: AppColors.onChaosAccent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,
@@ -483,7 +486,8 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                       Navigator.of(dialogContext).pop();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
+                      backgroundColor: AppColors.formMasterAccent,
+                      foregroundColor: AppColors.onChaosAccent,
                     ),
                     child: const Text('Save'),
                   ),

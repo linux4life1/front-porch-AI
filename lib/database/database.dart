@@ -131,7 +131,11 @@ class Sessions extends Table {
       integer().withDefault(const Constant(1))(); // starts at Day 1
   IntColumn get startDayOfWeek => integer().withDefault(
     const Constant(0),
-  )(); // 1=Mon..7=Sun anchor for narrativeWeekday; 0=legacy/unset (compute on first load)
+  )(); // 1=Mon..7=Sun; legacy anchor, now WRITTEN as weekday(storyStartDate) so external readers stay consistent
+  TextColumn get storyClock =>
+      text().nullable()(); // ISO-8601 story datetime — canonical clock (design: story-calendar.md)
+  TextColumn get storyStartDate =>
+      text().nullable()(); // ISO-8601 date of Day 1 — canonical anchor; null = legacy row (synthesized on load)
   BoolColumn get nsfwCooldownEnabled =>
       boolean().withDefault(const Constant(false))(); // sub-toggle
   BoolColumn get passageOfTimeEnabled => boolean().withDefault(
@@ -188,6 +192,12 @@ class Sessions extends Table {
 
   // User persona linked to this session (v25)
   TextColumn get userPersonaId => text().nullable()();
+
+  /// The gallery "look" (avatar) selected for THIS chat, or null → show the
+  /// character's library face (`imagePath`). Per-chat selection over the global
+  /// look collection. Nullable + additive; the external card tool (Character
+  /// Card Forge) simply omits it (NULL).
+  TextColumn get selectedLookAvatarId => text().nullable()();
 
   /// Live per-character realism/needs state for group sessions.
   /// JSON map: { charId: { emotion, needs, affection, trust, fixation, relationships, ... } }
@@ -709,41 +719,53 @@ class AppDatabase extends _$AppDatabase {
     // The copy is gated by the import dialog — it only happens after the
     // user has seen the dialog and chosen Import (or skipped the dialog
     // entirely for non-pre-release builds).
+    // Best-effort: a failed copy (disk full, permissions, a second instance
+    // holding the file) must NOT abort startup with no window — fall through
+    // and open whatever DB exists; the import dialog can retry the copy later.
     if (isPreRelease && !file.existsSync()) {
-      final prefs = await SharedPreferences.getInstance();
-      final shown = prefs.getBool('beta_stable_import_shown') ?? false;
-      if (shown) {
-        // Dialog has been shown — respect the user's choice
-        final skipped = prefs.getBool('beta_stable_import_skipped') ?? false;
-        if (!skipped) {
-          final prodFile = File(p.join(dbDir, 'front_porch.db'));
-          if (prodFile.existsSync()) {
-            debugPrint(
-              '[DB] Pre-release build — copying production DB to beta DB',
-            );
-            await prodFile.copy(file.path);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final shown = prefs.getBool('beta_stable_import_shown') ?? false;
+        if (shown) {
+          // Dialog has been shown — respect the user's choice
+          final skipped = prefs.getBool('beta_stable_import_skipped') ?? false;
+          if (!skipped) {
+            final prodFile = File(p.join(dbDir, 'front_porch.db'));
+            if (prodFile.existsSync()) {
+              debugPrint(
+                '[DB] Pre-release build — copying production DB to beta DB',
+              );
+              await prodFile.copy(file.path);
+            }
           }
+        } else {
+          // Dialog not yet shown — defer to the import dialog which will
+          // show after the first frame and trigger the copy manually.
+          debugPrint(
+            '[DB] Pre-release build — import dialog pending, skipping copy',
+          );
         }
-      } else {
-        // Dialog not yet shown — defer to the import dialog which will
-        // show after the first frame and trigger the copy manually.
-        debugPrint(
-          '[DB] Pre-release build — import dialog pending, skipping copy',
-        );
+      } catch (e) {
+        debugPrint('[DB] Beta DB seed copy failed (non-fatal): $e');
       }
     }
 
     // For stable builds: reunify beta DB into production if both exist.
     // This is a one-time operation on the first 0.9.0 stable launch.
     // Steps 1-2 run here (backup + promote). Steps 3-5 (diff + import)
-    // run later in main.dart with a UI overlay.
-    if (!isPreRelease &&
-        await DbReunificationService.needsReunification(dbDir)) {
-      debugPrint(
-        '[DB] Reunification needed — backing up and promoting beta DB',
-      );
-      await DbReunificationService.createBackups(dbDir);
-      await DbReunificationService.promoteBetaDb(dbDir);
+    // run later in main.dart with a UI overlay. Guarded: a reunification I/O
+    // failure must not brick launch — retry next start on whatever DB opens.
+    try {
+      if (!isPreRelease &&
+          await DbReunificationService.needsReunification(dbDir)) {
+        debugPrint(
+          '[DB] Reunification needed — backing up and promoting beta DB',
+        );
+        await DbReunificationService.createBackups(dbDir);
+        await DbReunificationService.promoteBetaDb(dbDir);
+      }
+    } catch (e) {
+      debugPrint('[DB] Reunification failed (non-fatal, will retry): $e');
     }
 
     _dbPath = file.path;
@@ -776,12 +798,6 @@ class AppDatabase extends _$AppDatabase {
 
   /// The directory containing the database files.
   static String? get dbDirPath => _dbDir;
-
-  /// Flush WAL (Write-Ahead Log) to the main database file.
-  /// Call this before uploading the .db file to ensure it's self-contained.
-  Future<void> checkpoint() async {
-    await customStatement('PRAGMA wal_checkpoint(TRUNCATE)');
-  }
 
   /// Run a fast integrity check on the database.
   /// Returns `true` if the database is healthy, `false` if corruption is detected.
@@ -867,6 +883,12 @@ class AppDatabase extends _$AppDatabase {
         'nsfw_cooldown_enabled INTEGER NOT NULL DEFAULT 0',
         'cooldown_turns_remaining INTEGER NOT NULL DEFAULT 0',
         'cooldown_turns_total INTEGER NOT NULL DEFAULT 0',
+        // v37 — per-chat avatar-gallery look selection. The onUpgrade ALTER is
+        // silent-catch (duplicate-column on rollback/dual-run), so this list is
+        // what guarantees the column exists if that first ALTER ever failed.
+        'selected_look_avatar_id TEXT',
+        // Per-chat theme overrides (theme preset + font/color/border/background overrides).
+        'theme_overrides TEXT',
       ],
       'group_members': [
         // Per current GroupMembers Dart definition + created_at (to match the repair-path CREATE TABLE).
@@ -1116,7 +1138,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 36;
+  int get schemaVersion => 38;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1753,6 +1775,37 @@ class AppDatabase extends _$AppDatabase {
           )
         ''');
       }
+      if (from < 37) {
+        // v36→v37: per-chat avatar-gallery look selection. Nullable, additive,
+        // no default — the external card tool (Character Card Forge) simply
+        // omits it (NULL). Guarded because drift rewrites user_version even
+        // when an OLDER binary opens a newer DB (rollback / dual-run), so this
+        // step can legally re-run against a DB that already has the column —
+        // unguarded, that throws "duplicate column" on every launch.
+        try {
+          await customStatement(
+            'ALTER TABLE sessions ADD COLUMN selected_look_avatar_id TEXT',
+          );
+        } catch (_) {}
+      }
+      if (from < 38) {
+        // v37→v38: the Story Calendar (docs/design/story-calendar.md).
+        // Canonical minute-level clock + Day 1 anchor, both nullable additive
+        // (maintainer-approved sessions change, 2026-07-20) — legacy rows stay
+        // NULL and synthesize on first load; Character Card Forge's raw SQL
+        // keeps working (timeOfDay/dayCount/startDayOfWeek are still written,
+        // now derived from the clock). Guarded like v37 (rollback re-runs).
+        try {
+          await customStatement(
+            'ALTER TABLE sessions ADD COLUMN story_clock TEXT',
+          );
+        } catch (_) {}
+        try {
+          await customStatement(
+            'ALTER TABLE sessions ADD COLUMN story_start_date TEXT',
+          );
+        } catch (_) {}
+      }
     },
   );
 
@@ -2043,10 +2096,23 @@ class AppDatabase extends _$AppDatabase {
   Future<Character> getCharacterById(String id) =>
       (select(characters)..where((c) => c.id.equals(id))).getSingle();
 
-  Future<Character?> getCharacterByImagePath(String path) =>
-      (select(characters)
-            ..where((c) => c.imagePath.equals(path) & c.deletedAt.isNull()))
-          .getSingleOrNull();
+  Future<Character?> getCharacterByImagePath(String path) async {
+    // getSingleOrNull() THROWS when two rows share an imagePath — possible for
+    // legacy data, and it aborted the whole JSON migration and wedged the app
+    // on the migration overlay. Tolerate duplicates, but pick DETERMINISTICALLY
+    // (oldest createdAt, then id) rather than a plan-dependent "first" row, so
+    // a duplicate never links chat sessions to a random twin across runs.
+    final rows =
+        await (select(characters)
+              ..where((c) => c.imagePath.equals(path) & c.deletedAt.isNull())
+              ..orderBy([
+                (c) => OrderingTerm(expression: c.createdAt),
+                (c) => OrderingTerm(expression: c.id),
+              ])
+              ..limit(1))
+            .get();
+    return rows.isEmpty ? null : rows.first;
+  }
 
   Future<int> insertCharacter(CharactersCompanion character) async {
     // Ensure UUID is set
@@ -2282,6 +2348,57 @@ class AppDatabase extends _$AppDatabase {
     )..where((s) => s.id.equals(session.id.value))).write(session);
     await bumpSyncVersion();
     return rows > 0;
+  }
+
+  /// Set (or clear, with null) the per-chat avatar-gallery look for a session.
+  /// Partial write — touches only [Sessions.selectedLookAvatarId].
+  Future<void> setSelectedLookForSession(String sessionId, String? avatarId) =>
+      patchSession(
+        SessionsCompanion(
+          id: Value(sessionId),
+          selectedLookAvatarId: Value(avatarId),
+        ),
+      );
+
+  /// Save per-chat theme overrides JSON for a session — raw SQL so no
+  /// build_runner regeneration is needed.
+  Future<void> setThemeOverrides(
+    String sessionId,
+    String? themeOverridesJson,
+  ) async {
+    await customUpdate(
+      'UPDATE sessions SET theme_overrides = ? WHERE id = ?',
+      variables: [Variable(themeOverridesJson), Variable(sessionId)],
+      updates: {sessions},
+    );
+    await bumpSyncVersion();
+  }
+
+  /// Load per-chat theme overrides JSON for a session.
+  Future<String?> getThemeOverrides(String sessionId) async {
+    final rows = await customSelect(
+      'SELECT theme_overrides FROM sessions WHERE id = ?',
+      variables: [Variable(sessionId)],
+    ).get();
+    return rows.isNotEmpty ? rows.first.read<String?>('theme_overrides') : null;
+  }
+
+  /// Get the theme_overrides from the most recent non-deleted session for a
+  /// given character or group. Used by startNewChat to inherit the previous
+  /// chat's theme when starting a fresh session.
+  Future<String?> getLastSessionThemeOverrides({
+    String? characterId,
+    String? groupId,
+  }) async {
+    final column = characterId != null ? 'character_id' : 'group_id';
+    final id = characterId ?? groupId;
+    if (id == null) return null;
+    final rows = await customSelect(
+      'SELECT theme_overrides FROM sessions WHERE $column = ? '
+      'AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
+      variables: [Variable(id)],
+    ).get();
+    return rows.isNotEmpty ? rows.first.read<String?>('theme_overrides') : null;
   }
 
   Future<int> deleteSessionById(String id) async {
@@ -2608,6 +2725,15 @@ class AppDatabase extends _$AppDatabase {
 
   /// All cards for one diary owner in one chat — pinned first, then oldest
   /// first (stable reading order for prompt handles and the UI).
+  /// Every diary owner's cards for one session — the timeline-integrity
+  /// invalidation sweep (regen/edit/delete) must cover owners no longer in
+  /// the cast, so it cannot iterate the live participant list.
+  Future<List<JournalMemoryData>> getJournalCardsForSession(
+    String sessionId,
+  ) => (select(
+    journalMemories,
+  )..where((j) => j.sessionId.equals(sessionId))).get();
+
   Future<List<JournalMemoryData>> getJournalCards(
     String sessionId,
     String characterId,

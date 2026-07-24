@@ -135,7 +135,7 @@ extension ChatServiceSessionState on ChatService {
           }
           if (map.containsKey('retrievalCount')) {
             _groupRetrievalCount =
-                (map['retrievalCount'] as num?)?.toInt() ?? 8;
+                (map['retrievalCount'] as num?)?.toInt() ?? 4;
           }
           if (map.containsKey('memoryBudgetPercent')) {
             _groupMemoryBudgetPercent =
@@ -178,7 +178,13 @@ extension ChatServiceSessionState on ChatService {
   }
 
   Future<void> _saveChat() async {
-    _saveChain = _saveChain.then((_) => _doSaveChat());
+    // catchError keeps the chain alive: without it, one _doSaveChat throw
+    // (SQLite busy from an external writer, session nulled mid-save, …) turns
+    // _saveChain into an errored future, and every later save chained onto it
+    // silently never runs again for the rest of the app session.
+    _saveChain = _saveChain.then((_) => _doSaveChat()).catchError((Object e) {
+      debugPrint('[ChatService] ⚠ _doSaveChat failed — save skipped: $e');
+    });
     await _saveChain;
   }
 
@@ -220,6 +226,15 @@ extension ChatServiceSessionState on ChatService {
       );
       return;
     }
+
+    // Capture the session identity ONCE. Everything below — especially code
+    // that runs after an await — must use this local, never _currentSessionId:
+    // loadSession/setActiveCharacter flip the live field synchronously, so a
+    // re-read after an await once deleted the NEW session's messages and
+    // replaced them with this (old) snapshot — cross-chat data loss. The
+    // per-session gen settings are captured for the same reason.
+    final sessionId = _currentSessionId!;
+    final genSettingsJson = _sessionGenSettings.toJsonString();
 
     // v30: For group chats, serialize current per-character realism state into the
     // new group_realism_state column (clean replacement for hidden checkpoint).
@@ -290,13 +305,13 @@ extension ChatServiceSessionState on ChatService {
     }
 
     // Upsert session (INSERT OR REPLACE to avoid UNIQUE constraint errors)
-    final timestamp = int.tryParse(_currentSessionId!) ?? 0;
+    final timestamp = int.tryParse(sessionId) ?? 0;
     final createdAt = timestamp > 0
         ? DateTime.fromMillisecondsSinceEpoch(timestamp)
         : DateTime.now();
     await _db.upsertSession(
       SessionsCompanion.insert(
-        id: _currentSessionId!,
+        id: sessionId,
         characterId: drift.Value(characterDbId),
         groupId: drift.Value(groupDbId),
         name: drift.Value(_sessionName),
@@ -327,6 +342,8 @@ extension ChatServiceSessionState on ChatService {
         timeOfDay: drift.Value(_timeService.timeOfDay),
         dayCount: drift.Value(_timeService.dayCount),
         startDayOfWeek: drift.Value(_timeService.startDayOfWeekAnchor),
+        storyClock: drift.Value(_timeService.storyClockIso),
+        storyStartDate: drift.Value(_timeService.storyStartDateIso),
         passageOfTimeEnabled: drift.Value(_timeService.passageOfTimeEnabled),
         nsfwCooldownEnabled: drift.Value(_nsfwService.nsfwCooldownEnabled),
         needsSimEnabled: drift.Value(_needsSimEnabled),
@@ -358,23 +375,29 @@ extension ChatServiceSessionState on ChatService {
     await _db.customUpdate(
       'UPDATE sessions SET generation_settings = ? WHERE id = ?',
       variables: [
-        drift.Variable(_sessionGenSettings.toJsonString()),
-        drift.Variable(_currentSessionId!),
+        drift.Variable(genSettingsJson),
+        drift.Variable(sessionId),
       ],
       updates: {_db.sessions},
+    );
+
+    // Per-chat theme overrides — saved via raw SQL (no build_runner needed).
+    await _db.setThemeOverrides(
+      sessionId,
+      _sessionThemeOverrides.toJsonString(),
     );
 
     // Replace all messages for this session using the snapshot.
     // Use a transaction for the delete+insert to keep the replace atomic even
     // if other writers (cloud sync, external tools) touch the DB concurrently.
     await _db.transaction(() async {
-      await _db.deleteMessagesForSession(_currentSessionId!);
+      await _db.deleteMessagesForSession(sessionId);
       final messageBatch = <MessagesCompanion>[];
       for (int i = 0; i < snapshot.length; i++) {
         final m = snapshot[i];
         messageBatch.add(
           MessagesCompanion(
-            sessionId: drift.Value(_currentSessionId!),
+            sessionId: drift.Value(sessionId),
             position: drift.Value(i),
             sender: drift.Value(m.sender),
             isUser: drift.Value(m.isUser),

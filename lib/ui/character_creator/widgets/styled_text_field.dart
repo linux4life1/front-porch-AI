@@ -74,11 +74,7 @@ class StyledTextField extends StatelessWidget {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(
-                color: AppColors.resolve(
-                  context,
-                  Colors.blueAccent,
-                  Colors.blue.shade700,
-                ),
+                color: AppColors.porchAmberOf(context),
                 width: 1.5,
               ),
             ),

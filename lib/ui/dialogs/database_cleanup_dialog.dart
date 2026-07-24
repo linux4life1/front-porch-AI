@@ -136,7 +136,7 @@ class _DatabaseCleanupDialogState extends State<DatabaseCleanupDialog> {
         children: [
           const Icon(
             Icons.cleaning_services,
-            color: Colors.blueAccent,
+            color: AppColors.formMasterAccent,
             size: 22,
           ),
           const SizedBox(width: 10),
@@ -228,8 +228,8 @@ class _DatabaseCleanupDialogState extends State<DatabaseCleanupDialog> {
               label: Text('Clean All ($total item${total == 1 ? '' : 's'})'),
               onPressed: (!_cleaning && total > 0) ? _runCleanAll : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.formMasterAccent,
+                foregroundColor: AppColors.onChaosAccent,
                 disabledBackgroundColor: Colors.white10,
                 disabledForegroundColor: Colors.white24,
                 padding: const EdgeInsets.symmetric(vertical: 12),

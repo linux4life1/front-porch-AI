@@ -102,12 +102,15 @@ extension ChatServiceSessionManage on ChatService {
     _messages.clear();
     _messages.addAll(forkedMessages);
     _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    _computeAbsenceGap(const []); // fresh session — no real-world gap (Living Time §2)
     _parentSessionId = oldSessionId;
     _forkIndex = messageIndex;
     _sessionGenSettings = _sessionGenSettings
         .copy(); // inherit parent's overrides
     _summary = '';
     _summaryLastIndex = 0;
+    _selectedLooks
+        .clear(); // fork starts with no per-chat look selection (keep reset blocks in sync)
     _summaryPaused =
         false; // explicit secondary zero for _summaryPaused (symmetric to generating; fork hygiene + incomplete zeroing now complete)
     _isSummaryGenerating =
@@ -238,6 +241,8 @@ extension ChatServiceSessionManage on ChatService {
     _offeredOrIgnoredGuestNames.clear();
     _summary = '';
     _summaryLastIndex = 0;
+    _selectedLooks
+        .clear(); // fresh 1:1: drop prior chat's per-chat look selection (keep reset blocks in sync)
     _summaryPaused =
         false; // explicit secondary zero for _summaryPaused (symmetric; startNew 1:1/ext-seed branch + incomplete zeroing ... now complete)
     _isSummaryGenerating =
@@ -272,6 +277,7 @@ extension ChatServiceSessionManage on ChatService {
 
     // Create new session ID for the new chat
     _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    _computeAbsenceGap(const []); // fresh session — no real-world gap (Living Time §2)
 
     // Clear memory sources to prevent old memories from being retrieved
     // Cross-character memory can still be re-selected by user after new chat starts
@@ -295,7 +301,13 @@ extension ChatServiceSessionManage on ChatService {
       final extSeed =
           _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
 
-      _realismEnabled = extSeed.realismEnabled;
+      // Global "Enable Realism Mode" default is an OR override so imported
+      // cards (no realism setup) get realism + baseline generation without the
+      // user editing each card. Defaults false → no change until opted in.
+      // Mirrors the setActiveCharacter fresh-seed path (chat_entry).
+      _realismEnabled =
+          extSeed.realismEnabled ||
+          _storageService.realismSettings.realismDefault;
       // Card-seed bypass (rec 1 from PR #47; keeps startNewChat parity with setActive ext seed):
       // use seedFromCardV2OrExt (plain .clamp only, no _migrate*) because V2.5 cards + creator
       // author on current ±300 scale. (The old "Migration + seed" comment + call was the source
@@ -333,6 +345,8 @@ extension ChatServiceSessionManage on ChatService {
       _timeService.seedFromV2OrExt(
         dayCount: extSeed.dayCount.clamp(1, 9999),
         timeOfDay: extSeed.timeOfDay,
+        storyStartDate: extSeed.storyStartDate,
+        storyStartTime: extSeed.storyStartTime,
         passageOfTimeEnabled:
             extSeed.passageOfTimeEnabled &&
             _storageService.realismSettings.passageOfTimeDefault,
@@ -340,7 +354,10 @@ extension ChatServiceSessionManage on ChatService {
       _characterEmotion = extSeed.characterEmotion;
       _emotionIntensity = extSeed.emotionIntensity;
       _nsfwService.seedFromV2OrExt(
-        nsfwCooldownEnabled: extSeed.nsfwCooldownEnabled,
+        // OR-override for consistency with realism above (imported cards).
+        nsfwCooldownEnabled:
+            extSeed.nsfwCooldownEnabled ||
+            _storageService.realismSettings.nsfwCooldownDefault,
       );
       _chaosModeService.seedFromGroupOrExt(extSeed.chaosModeEnabled, false);
       _needsSimEnabled = extSeed.needsSimEnabled;
@@ -412,6 +429,25 @@ extension ChatServiceSessionManage on ChatService {
         _relationshipService.resetForFreshChat();
         _expressionService.resetForFreshChat();
         _timeService.resetForFreshChat();
+        // Fresh GROUP chat: apply the group's authored scene-time seed on top
+        // of the reset (story-calendar "As built" gap fix). Keep in sync with
+        // the _loadLastSession 0-session branch.
+        if (_activeGroup != null) {
+          final timeSeed = parseGroupTimeSeed(
+            _activeGroup!.defaultMemberRealismState,
+            _activeGroup!.baselineRealismState,
+          );
+          if (timeSeed != null) {
+            _timeService.seedFromV2OrExt(
+              dayCount: timeSeed.dayCount,
+              timeOfDay: timeSeed.timeOfDay,
+              storyStartDate: timeSeed.storyStartDate,
+              storyStartTime: timeSeed.storyStartTime,
+              passageOfTimeEnabled:
+                  _storageService.realismSettings.passageOfTimeDefault,
+            );
+          }
+        }
         _nsfwService.resetForFreshChat();
         // Lorebook trigger reset via extracted service (keeps reset blocks in sync with setActiveCharacter:1572 / _loadLast empty / setActiveGroup / startNew ext-seed; see "incomplete zeroing of secondary ... on 0-session/new-character/group" + startNew 1:1+group now complete + full list in keep-sync comments incl llm_eval_engine). (cross-ref setActiveCharacter:1572 etc)
         // See "keep reset blocks in sync" comments (setActiveGroup, startNewChat, load* , setActive* all must hit this; now includes needs/chaos/... + leaves (see CLAUDE.md for full; incomplete zeroing now complete) + " )" for group/0-session/new-chat hygiene; incomplete zeroing now complete).
@@ -515,6 +551,22 @@ extension ChatServiceSessionManage on ChatService {
     }
 
     _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    _computeAbsenceGap(const []); // fresh session — no real-world gap (Living Time §2)
+
+    // Inherit theme from the most recent prior session with this character/group.
+    _sessionThemeOverrides = ChatThemeOverrides();
+    try {
+      final lastThemeJson = await _db.getLastSessionThemeOverrides(
+        characterId: _activeCharacter?.dbId,
+        groupId: _activeGroup?.id,
+      );
+      if (lastThemeJson != null) {
+        _sessionThemeOverrides =
+            ChatThemeOverrides.fromJsonString(lastThemeJson);
+      }
+    } catch (_) {
+      _sessionThemeOverrides = ChatThemeOverrides();
+    }
     debugPrint(
       '[startNewChat] BEFORE SAVE: arousal=${_nsfwService.arousalLevel}, fixation=${_relationshipService.activeFixation}/${_relationshipService.fixationLifespan}',
     );

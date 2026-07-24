@@ -473,9 +473,9 @@ class NeedsImpactEvaluator {
     final strength = getNeedsSimStrength();
 
     try {
-      debugPrint(
-        '[Realism:Needs] Running manual reprocess impact eval (via engine)...',
-      );
+      // No debugPrint here — the engine logs the same "Running manual
+      // reprocess impact eval" line itself; printing in both places made one
+      // eval read as a double-fire in the console.
       String? text = await evaluateNeedsImpactCall(
         responseText,
         strength: strength,

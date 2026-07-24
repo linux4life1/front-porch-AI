@@ -221,7 +221,13 @@ class AppColors {
   static Color trustHighOf(BuildContext context) =>
       resolve(context, trustHigh, trustHighLight);
 
-  static const Color formMasterAccent = Colors.blueAccent;
+  /// Generic "primary accent" for forms, dialogs, Image Studio, and the
+  /// avatar gallery (icons, badges, borders, primary buttons). Warm-porch:
+  /// this is now porch amber (was Colors.blueAccent) so the ~30 files that key
+  /// off it warm up in one place. It is a single const (not brightness-aware);
+  /// on an amber button background use [onChaosAccent] for the foreground so
+  /// text stays readable in dark mode (white-on-amber is too low-contrast).
+  static const Color formMasterAccent = porchAmber;
 
   static const Color relationshipAccent = Colors.pinkAccent;
   static const Color relationshipAccentLight = Color(0xFFC2185B);

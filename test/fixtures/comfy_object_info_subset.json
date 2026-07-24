@@ -1,0 +1,121 @@
+{
+  "CFGNorm": {
+    "inputs": [
+      "model",
+      "strength",
+      "pre_cfg"
+    ]
+  },
+  "CLIPLoader": {
+    "inputs": [
+      "clip_name",
+      "type",
+      "device"
+    ]
+  },
+  "CLIPTextEncode": {
+    "inputs": [
+      "text",
+      "clip"
+    ]
+  },
+  "ConditioningZeroOut": {
+    "inputs": [
+      "conditioning"
+    ]
+  },
+  "DualCLIPLoader": {
+    "inputs": [
+      "clip_name1",
+      "clip_name2",
+      "type",
+      "device"
+    ]
+  },
+  "FluxGuidance": {
+    "inputs": [
+      "conditioning",
+      "guidance"
+    ]
+  },
+  "FluxKontextImageScale": {
+    "inputs": [
+      "image"
+    ]
+  },
+  "KSampler": {
+    "inputs": [
+      "model",
+      "seed",
+      "steps",
+      "cfg",
+      "sampler_name",
+      "scheduler",
+      "positive",
+      "negative",
+      "latent_image",
+      "denoise"
+    ]
+  },
+  "LoadImage": {
+    "inputs": [
+      "image"
+    ]
+  },
+  "ModelSamplingAuraFlow": {
+    "inputs": [
+      "model",
+      "shift"
+    ]
+  },
+  "ReferenceLatent": {
+    "inputs": [
+      "conditioning",
+      "latent"
+    ]
+  },
+  "SaveImage": {
+    "inputs": [
+      "images",
+      "filename_prefix"
+    ]
+  },
+  "TextEncodeQwenImageEditPlus": {
+    "inputs": [
+      "clip",
+      "prompt",
+      "vae",
+      "image1",
+      "image2",
+      "image3"
+    ]
+  },
+  "UNETLoader": {
+    "inputs": [
+      "unet_name",
+      "weight_dtype"
+    ]
+  },
+  "VAEDecode": {
+    "inputs": [
+      "samples",
+      "vae"
+    ]
+  },
+  "VAEEncode": {
+    "inputs": [
+      "pixels",
+      "vae"
+    ]
+  },
+  "VAELoader": {
+    "inputs": [
+      "vae_name"
+    ]
+  },
+  "__note__": {
+    "inputs": [
+      "Trimmed /object_info snapshot (input names only) captured from a live ComfyUI on 2026-07-11 to validate the bundled edit presets offline. Regenerate from /object_info if a preset adds a node."
+    ]
+  }
+}

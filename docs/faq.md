@@ -81,7 +81,7 @@ See the [Installation Guide](install.md) for step-by-step instructions.
 
 Only for the initial setup: downloading the app, the AI engine, and a model. After that, everything core works fully offline — chatting, memory, local voices, image generation with a local backend, all of it.
 
-You need to be online for: remote AI APIs, cloud voices, The Stoop, downloading new models, and the built-in character site browsers.
+You need to be online for: remote AI APIs, cloud voices, The Stoop, and downloading new models.
 
 ### What's the difference between Stable and Nightly builds?
 
@@ -150,7 +150,7 @@ Usually fixable with settings:
 ### Where can I find characters?
 
 - **The Stoop** — the community hub built right into the app (currently in nightly builds): browse, follow creators, and download with one tap.
-- **The built-in browsers** — the app has embedded browsers for chub.ai and aicharactercards.com; download a card and it lands straight in your library.
+- **Import a card file** — download a card (PNG or JSON) from any character site in your normal browser, then use the **Import** button and it lands straight in your library.
 - **Anywhere character cards are shared** — Front Porch AI reads standard V2/V2.5 character card files (PNG or JSON), the same format the whole community uses.
 - **Make your own** — the AI Character Creator builds a complete character from a one-line concept, or use the step-by-step manual creator.
 - **The Discord** — people share cards and ideas in the [community Discord](https://discord.gg/e4tET6rpdv).
@@ -204,7 +204,6 @@ Never collected: your conversations, your characters (unless you upload them), o
 - **First use downloads voice files.** The default local engine (Kokoro) fetches its voice models (~300 MB) the first time you use it. Give it a minute and watch for the progress indicator.
 - **Wrong engine selected** — check Settings → Voice. Kokoro is the local default; ElevenLabs and OpenAI need an API key and internet.
 - **A character has a voice from a different engine.** If you switched engines, a character's assigned voice may no longer match — the voice picker warns you about incompatible ones. Re-assign or choose the default.
-- **Running from source code?** Only developers building from source need Python packages (`pip install kokoro-onnx soundfile faster-whisper`). The normal downloads bundle everything.
 
 More fixes in [Troubleshooting → Voice](troubleshooting.md#tts-not-producing-sound).
 

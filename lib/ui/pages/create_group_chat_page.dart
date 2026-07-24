@@ -29,6 +29,7 @@ import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
+import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/ui/widgets/styled_text_controller.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
@@ -109,6 +110,10 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
   // Global time/day for the whole group (not per-character — prevents footgun)
   String _globalTimeOfDay = 'morning';
   int _globalDayCount = 1;
+  // Story Calendar authoring (story-calendar.md §3a): null start date =
+  // "the day the chat starts"; null time = period default.
+  String? _globalStoryStartDate;
+  String? _globalStoryStartTime;
 
   // Search / filter for Members browser
   final _memberSearchController = TextEditingController();
@@ -847,6 +852,8 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         needsEnabled: _needsSimEnabled,
         timeOfDay: _globalTimeOfDay,
         dayCount: _globalDayCount,
+        storyStartDate: _globalStoryStartDate,
+        storyStartTime: _globalStoryStartTime,
       );
       defaultMemberJson = blobs.defaultMemberJson;
       baselineJson = blobs.baselineJson;
@@ -1324,11 +1331,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                   children: [
                     Icon(
                       Icons.chat_bubble_outline,
-                      color: AppColors.resolve(
-                        context,
-                        Colors.blueAccent,
-                        Colors.blue.shade700,
-                      ),
+                      color: AppColors.porchAmberOf(context),
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -1337,11 +1340,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.resolve(
-                          context,
-                          Colors.blueAccent,
-                          Colors.blue.shade700,
-                        ),
+                        color: AppColors.porchAmberOf(context),
                       ),
                     ),
                   ],
@@ -2242,6 +2241,15 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 12),
+            StoryBeginsRow(
+              storyStartDate: _globalStoryStartDate,
+              onStoryStartDateChanged: (v) =>
+                  setState(() => _globalStoryStartDate = v),
+              storyStartTime: _globalStoryStartTime,
+              onStoryStartTimeChanged: (v) =>
+                  setState(() => _globalStoryStartTime = v),
             ),
             const SizedBox(height: 24),
           ],

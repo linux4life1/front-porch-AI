@@ -37,11 +37,33 @@ class AvatarImage {
     required this.createdAt,
   });
 
+  /// Sentinel [label] marking a gallery "look" (a plain alternate avatar the
+  /// user picks — a different outfit, a scene) as opposed to an expression image
+  /// (which carries an emotion label). Looks are kept OUT of the emotion pipeline
+  /// and stored in a separate `looks/` folder, so the two never mix.
+  static const String lookLabel = '__look__';
+
+  /// True when this is a gallery look, not an expression image.
+  bool get isLook => label == lookLabel;
+
+  /// The character subfolder this image lives in: `looks/` for gallery looks,
+  /// `avatars/` for expression images.
+  String get subfolder => isLook ? 'looks' : 'avatars';
+
   /// Resolve this avatar to a [File] given the character's **avatars** directory path.
   /// The [avatarsDirPath] should be the path to the `avatars` subdirectory,
-  /// e.g. `.../Characters/Carly/avatars/`.
+  /// e.g. `.../Characters/Carly/avatars/`. (Expression images only — for looks
+  /// use [resolveFile], which picks the right subfolder.)
   File file(String avatarsDirPath) {
     return File('$avatarsDirPath/$filename');
+  }
+
+  /// Resolve this avatar to a [File] against the character's BASE folder
+  /// (e.g. `.../Characters/Carly/`), automatically choosing `looks/` vs
+  /// `avatars/`. The single look-aware resolver — new look-reading code should
+  /// use this rather than joining a hard-coded `avatars/` path.
+  File resolveFile(String characterBaseDirPath) {
+    return File('$characterBaseDirPath/$subfolder/$filename');
   }
 
   AvatarImage copyWith({

@@ -62,6 +62,11 @@ class WebCharacterRoutes {
     // Avatar management (specific sub-paths before the bare '<id>' POST).
     router.get('/api/characters/<id>/avatars', _avatars);
     router.post('/api/characters/<id>/avatars', _addAvatar);
+    // Gallery LOOK upload (writes to looks/, look-labeled; never the portrait).
+    router.post('/api/characters/<id>/looks', _addLook);
+    // The ★ favorite avatar (?avatarId=…, empty clears to the portrait).
+    router.post('/api/characters/<id>/favorite', _setFavorite);
+    router.post('/api/characters/<id>/portrait/delete', _deletePortrait);
     router.get('/api/characters/<id>/avatars/<avatarId>/image', _avatarImage);
     router.post('/api/characters/<id>/avatars/<avatarId>/prime', _setPrime);
     router.post(
@@ -80,8 +85,17 @@ class WebCharacterRoutes {
   final CharacterLibraryFacade? _library;
 
   /// Import an uploaded character card (raw bytes; `?filename=` gives the type).
+  ///
+  /// Query params (desktop parity for issue #161):
+  /// - `collision=keepBoth` (default) — always insert on name clash
+  /// - `collision=ask` — return 409 + existing list when name clashes without
+  ///   a stableId match (single-file UI prompt)
+  /// - `collision=replace&replaceId=` — update that library card in place
   Future<shelf.Response> _import(shelf.Request request) async {
     final filename = request.url.queryParameters['filename'] ?? 'card.png';
+    final collision =
+        request.url.queryParameters['collision'] ?? 'keepBoth';
+    final replaceId = request.url.queryParameters['replaceId'];
     final List<int> bytes;
     try {
       bytes = await RequestBody.readBytes(
@@ -92,9 +106,21 @@ class WebCharacterRoutes {
       return JsonResponse.error(413, 'File too large');
     }
     if (bytes.isEmpty) return JsonResponse.badRequest('Empty upload');
-    final result = await _facade.importBytes(bytes, filename);
+    final result = await _facade.importBytes(
+      bytes,
+      filename,
+      collision: collision,
+      replaceId: replaceId,
+    );
     if (result == null) {
       return JsonResponse.error(422, 'Could not read that character card');
+    }
+    if (result['status'] == 'name_collision') {
+      return JsonResponse.error(
+        409,
+        'name_collision',
+        extra: result,
+      );
     }
     return JsonResponse.ok(result);
   }
@@ -339,6 +365,21 @@ class WebCharacterRoutes {
     return JsonResponse.ok({'avatars': await auth.avatars(id)});
   }
 
+  /// Delete the portrait — a gallery look is promoted in its place
+  /// (desktop parity; shared promotion logic).
+  Future<shelf.Response> _deletePortrait(
+    shelf.Request request,
+    String id,
+  ) async {
+    final auth = _authoring;
+    if (auth == null) return JsonResponse.error(503, 'Unavailable');
+    final ok = await auth.deletePortrait(id);
+    if (!ok) {
+      return JsonResponse.error(409, 'No gallery avatar to promote');
+    }
+    return JsonResponse.ok({'avatars': await auth.avatars(id)});
+  }
+
   /// Upload a new avatar image (raw bytes; `?label=` is optional).
   Future<shelf.Response> _addAvatar(shelf.Request request, String id) async {
     final auth = _authoring;
@@ -357,6 +398,38 @@ class WebCharacterRoutes {
       id,
       bytes,
       request.url.queryParameters['label'],
+    );
+    if (!ok) return JsonResponse.error(404, 'Character not found');
+    return JsonResponse.ok({'avatars': await auth.avatars(id)});
+  }
+
+  /// Upload a new gallery LOOK image (raw bytes; goes to looks/, look-labeled).
+  Future<shelf.Response> _addLook(shelf.Request request, String id) async {
+    final auth = _authoring;
+    if (auth == null) return JsonResponse.error(503, 'Unavailable');
+    final List<int> bytes;
+    try {
+      bytes = await RequestBody.readBytes(
+        request,
+        maxBytes: RequestBody.uploadMaxBytes,
+      );
+    } catch (_) {
+      return JsonResponse.error(413, 'File too large');
+    }
+    if (bytes.isEmpty) return JsonResponse.badRequest('Empty upload');
+    final ok = await auth.addLook(id, bytes);
+    if (!ok) return JsonResponse.error(404, 'Character not found');
+    return JsonResponse.ok({'avatars': await auth.avatars(id)});
+  }
+
+  /// Set (or clear) the ★ favorite avatar. `?avatarId=<id>`; empty clears to
+  /// the portrait. Pointer only — never mutates the character's imagePath.
+  Future<shelf.Response> _setFavorite(shelf.Request request, String id) async {
+    final auth = _authoring;
+    if (auth == null) return JsonResponse.error(503, 'Unavailable');
+    final ok = await auth.setFavorite(
+      id,
+      request.url.queryParameters['avatarId'],
     );
     if (!ok) return JsonResponse.error(404, 'Character not found');
     return JsonResponse.ok({'avatars': await auth.avatars(id)});

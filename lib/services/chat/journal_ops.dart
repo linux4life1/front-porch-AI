@@ -327,11 +327,21 @@ const List<Map<String, dynamic>> kJournalTools = [
     return null;
   }
 
+  // Tolerant string read: a local model can put a number/object where text
+  // belongs, and `as String?` THROWS on a non-null non-String — aborting the
+  // whole multi-owner pass. Coerce instead (realismToolCallToJson does the
+  // same).
+  String? strArg(Map<String, dynamic> args, String key) {
+    final v = args[key];
+    if (v == null) return null;
+    return v is String ? v : '$v';
+  }
+
   for (final call in calls) {
     final args = call.arguments;
     switch (call.name) {
       case 'add_memory':
-        var text = (args['content'] as String? ?? '').trim();
+        var text = (strArg(args, 'content') ?? '').trim();
         if (text.isEmpty) continue;
         if (text.length > kJournalMemoryMaxChars) {
           text = text.substring(0, kJournalMemoryMaxChars).trim();
@@ -340,7 +350,7 @@ const List<Map<String, dynamic>> kJournalTools = [
         ops.add(
           JournalOp(
             action: JournalOpAction.add,
-            category: _normalizeCategory(args['category'] as String?),
+            category: _normalizeCategory(strArg(args, 'category')),
             sourcePositions: msgs is List
                 ? msgs
                       .map((m) => m is int ? m : int.tryParse('$m'))
@@ -353,12 +363,12 @@ const List<Map<String, dynamic>> kJournalTools = [
         break;
       case 'revise_memory':
         final handle = intArg(args, 'id');
-        var text = (args['content'] as String? ?? '').trim();
+        var text = (strArg(args, 'content') ?? '').trim();
         if (handle == null || text.isEmpty) continue;
         if (text.length > kJournalMemoryMaxChars) {
           text = text.substring(0, kJournalMemoryMaxChars).trim();
         }
-        final feeling = (args['feeling'] as String? ?? '').trim().toLowerCase();
+        final feeling = (strArg(args, 'feeling') ?? '').trim().toLowerCase();
         ops.add(
           JournalOp(
             action: JournalOpAction.revise,
@@ -382,7 +392,7 @@ const List<Map<String, dynamic>> kJournalTools = [
         );
         break;
       case 'write_recap':
-        final text = (args['text'] as String? ?? '').trim();
+        final text = (strArg(args, 'text') ?? '').trim();
         if (text.isNotEmpty) recap = text;
         break;
       default:

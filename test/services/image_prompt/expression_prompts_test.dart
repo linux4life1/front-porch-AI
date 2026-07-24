@@ -80,4 +80,23 @@ void main() {
       expect(entry.value.trim(), isNotEmpty, reason: entry.key);
     }
   });
+
+  group('expressionEditInstruction (edit-path prompt)', () {
+    test('reuses the geometry description and adds an identity-preserving '
+        'instruction, for every full-set emotion', () {
+      for (final e in kFullExpressionSet) {
+        final ins = expressionEditInstruction(e);
+        // Derived from the ONE modifier table (no drift between the two paths).
+        expect(ins, contains(kExpressionModifiers[e]!), reason: e);
+        expect(ins, contains('Change only the facial expression'), reason: e);
+        // Keeps identity/composition (the reference image supplies those).
+        expect(ins.toLowerCase(), contains('keep the same person'), reason: e);
+      }
+    });
+
+    test('an unknown emotion falls back to the label itself', () {
+      final ins = expressionEditInstruction('smug');
+      expect(ins, contains('smug'));
+    });
+  });
 }

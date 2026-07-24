@@ -21,6 +21,7 @@ import 'dart:async';
 // `Size`. `hide` (not `show`) keeps the `lookupFunction` extension in scope.
 import 'dart:ffi' hide Size;
 import 'dart:io';
+import 'dart:ui' show AppExitResponse;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
@@ -28,6 +29,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 
 import 'package:window_manager/window_manager.dart';
 // screen_retriever is a transitive dep of window_manager (used here to validate
@@ -36,9 +38,11 @@ import 'package:window_manager/window_manager.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/providers/auth_state.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart'; // Keep original import for MainLayout
 import 'package:front_porch_ai/app_version.dart';
+import 'package:front_porch_ai/utils/native_exit.dart';
 import 'package:front_porch_ai/database/database.dart';
 // ignore: unused_import — used in the commented-out auto-cleanup block below
 import 'package:front_porch_ai/database/database_cleanup.dart';
@@ -54,7 +58,6 @@ import 'package:front_porch_ai/services/download_manager.dart';
 import 'package:front_porch_ai/services/setup_service.dart';
 import 'package:front_porch_ai/services/db_reunification_service.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
-import 'package:front_porch_ai/services/embedding_sidecar.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/audiobook_generator_service.dart';
 import 'package:front_porch_ai/services/file_consolidation_service.dart';
@@ -132,6 +135,67 @@ void _ignoreSigpipe() {
   }
 }
 
+/// Last-resort screen shown when the database can't be opened at startup (disk
+/// full, no write permission, or another copy of the app holding the file).
+/// Deliberately self-contained — it runs before the theme/AppColors exist, so
+/// it hardcodes a dark bootstrap palette rather than depend on any provider.
+class _DbInitErrorApp extends StatelessWidget {
+  const _DbInitErrorApp({required this.details});
+
+  final String details;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF0F172A),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.storage_rounded,
+                  color: Colors.orangeAccent,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "Front Porch AI couldn't open its database",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'This is usually a full disk, missing write permission, or '
+                  'another copy of Front Porch AI already running. Free up '
+                  'space, close any other copies, then reopen the app.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  details,
+                  textAlign: TextAlign.center,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
@@ -140,14 +204,17 @@ void main(List<String> args) async {
   // the Flutter engine from doing an unclean teardown that triggers:
   //   "FlutterEngineRemoveView returned kInvalidArguments"
   //   "Segmentation fault (core dumped)"
+  // On macOS the exit must also skip C++ finalizers (see
+  // exitWithoutNativeFinalizers) or the abort-in-destructor crash fires here
+  // too and the signal-quit gets logged as "Abort trap: 6".
   if (!Platform.isWindows) {
     ProcessSignal.sigint.watch().listen((_) {
       debugPrint('Caught SIGINT — exiting immediately.');
-      exit(0);
+      Platform.isMacOS ? exitWithoutNativeFinalizers(0) : exit(0);
     });
     ProcessSignal.sigterm.watch().listen((_) {
       debugPrint('Caught SIGTERM — exiting immediately.');
-      exit(0);
+      Platform.isMacOS ? exitWithoutNativeFinalizers(0) : exit(0);
     });
   }
   // Ignore SIGPIPE at the C level. A write to a socket/pipe whose peer has
@@ -168,12 +235,25 @@ void main(List<String> args) async {
     debugPrint('Fatal error during file consolidation: $e');
   }
 
-  // Initialize database
-  final db = await AppDatabase.instance();
-  final needsMigration = !await DataMigrationService.isMigrated();
-
-  // Run integrity check before anything else touches the DB
-  final dbHealthy = await db.integrityCheck();
+  // Initialize database. This is the last thing that can die BEFORE any window
+  // exists — a disk-full/permissions failure, or a second copy of the app
+  // holding the file (the documented dual-run case), would otherwise exit the
+  // process silently ("app won't launch, no message"). Guard it and, on a
+  // hard failure, show a minimal error window instead of nothing.
+  // (NativeDatabase.createInBackground opens lazily, so a bad/locked file
+  // surfaces at the first query — integrityCheck — not at instance().)
+  final AppDatabase db;
+  final bool needsMigration;
+  final bool dbHealthy;
+  try {
+    db = await AppDatabase.instance();
+    needsMigration = !await DataMigrationService.isMigrated();
+    dbHealthy = await db.integrityCheck();
+  } catch (e, st) {
+    debugPrint('[DB] FATAL: could not open the database: $e\n$st');
+    runApp(_DbInitErrorApp(details: e.toString()));
+    return;
+  }
   _MyAppState._dbHealthy = dbHealthy;
 
   // Purge rows that were soft-deleted more than 30 days ago
@@ -269,7 +349,12 @@ void main(List<String> args) async {
     await windowManager.setPreventClose(true);
   });
   runApp(
-    MultiProvider(
+    // ProviderScope: Riverpod root for new-code state (CLAUDE.md Riverpod
+    // migration; first consumer: Living Time weather). Wraps the existing
+    // Provider tree without touching service init order — legacy providers
+    // below are unchanged.
+    riverpod.ProviderScope(
+      child: MultiProvider(
       providers: [
         Provider<AppDatabase>.value(value: db),
         Provider<bool>.value(value: needsMigration), // migration flag
@@ -359,10 +444,9 @@ void main(List<String> args) async {
             return newRepo;
           },
         ),
-        ChangeNotifierProvider(create: (_) => EmbeddingSidecar()),
         ChangeNotifierProvider<EmbeddingService>(
           create: (context) => EmbeddingService(
-            Provider.of<EmbeddingSidecar>(context, listen: false),
+            Provider.of<StorageService>(context, listen: false),
           ),
         ),
         ChangeNotifierProxyProvider<StorageService, BackendManager>(
@@ -385,11 +469,9 @@ void main(List<String> args) async {
               previous ?? ModelManager(storage, downloadManager),
         ),
         ChangeNotifierProvider(create: (_) => OpenRouterService()),
-        ChangeNotifierProvider(create: (_) => PseudoRemoteService()),
-        ChangeNotifierProxyProvider5<
+        ChangeNotifierProxyProvider4<
           KoboldService,
           OpenRouterService,
-          PseudoRemoteService,
           StorageService,
           BackendManager,
           LLMProvider
@@ -397,28 +479,11 @@ void main(List<String> args) async {
           create: (context) => LLMProvider(
             Provider.of<KoboldService>(context, listen: false),
             Provider.of<OpenRouterService>(context, listen: false),
-            Provider.of<PseudoRemoteService>(context, listen: false),
             Provider.of<StorageService>(context, listen: false),
             Provider.of<BackendManager>(context, listen: false),
           ),
-          update:
-              (
-                context,
-                kobold,
-                openRouter,
-                pseudoRemote,
-                storage,
-                backend,
-                previous,
-              ) =>
-                  previous ??
-                  LLMProvider(
-                    kobold,
-                    openRouter,
-                    pseudoRemote,
-                    storage,
-                    backend,
-                  ),
+          update: (context, kobold, openRouter, storage, backend, previous) =>
+              previous ?? LLMProvider(kobold, openRouter, storage, backend),
         ),
         ChangeNotifierProxyProvider4<
           KoboldService,
@@ -436,9 +501,15 @@ void main(List<String> args) async {
             );
             // Wire LLMProvider and CharacterRepository immediately at creation time
             chatService.setDatabase(db);
-            chatService.setLLMProvider(
-              Provider.of<LLMProvider>(context, listen: false),
+            final llmProviderForChat = Provider.of<LLMProvider>(
+              context,
+              listen: false,
             );
+            chatService.setLLMProvider(llmProviderForChat);
+            // Lets the live-status sources (oMLX poller) gate their polling
+            // on an actual generation being in flight.
+            llmProviderForChat.isGenerationActive = () =>
+                chatService.isGenerating;
             chatService.setCharacterRepository(
               Provider.of<CharacterRepository>(context, listen: false),
             );
@@ -448,14 +519,13 @@ void main(List<String> args) async {
             );
             // Wire MemoryService for RAG
             try {
-              final sidecar = Provider.of<EmbeddingSidecar>(
+              final storage = Provider.of<StorageService>(
                 context,
                 listen: false,
               );
-              final embeddingService = EmbeddingService(sidecar);
               final memoryService = MemoryService(
-                embeddingService,
-                Provider.of<StorageService>(context, listen: false),
+                EmbeddingService(storage),
+                storage,
                 db,
               );
               chatService.setMemoryService(memoryService);
@@ -464,9 +534,13 @@ void main(List<String> args) async {
           },
           update: (context, kobold, persona, storage, worldRepo, previous) {
             if (previous != null) {
-              previous.setLLMProvider(
-                Provider.of<LLMProvider>(context, listen: false),
+              final llmProviderForChat = Provider.of<LLMProvider>(
+                context,
+                listen: false,
               );
+              previous.setLLMProvider(llmProviderForChat);
+              llmProviderForChat.isGenerationActive = () =>
+                  previous.isGenerating;
               previous.setCharacterRepository(
                 Provider.of<CharacterRepository>(context, listen: false),
               );
@@ -487,9 +561,13 @@ void main(List<String> args) async {
               worldRepo,
             );
             chatService.setDatabase(db);
-            chatService.setLLMProvider(
-              Provider.of<LLMProvider>(context, listen: false),
+            final llmProviderLate = Provider.of<LLMProvider>(
+              context,
+              listen: false,
             );
+            chatService.setLLMProvider(llmProviderLate);
+            llmProviderLate.isGenerationActive = () =>
+                chatService.isGenerating;
             chatService.setCharacterRepository(
               Provider.of<CharacterRepository>(context, listen: false),
             );
@@ -509,21 +587,19 @@ void main(List<String> args) async {
           update: (context, storage, previous) =>
               previous ?? ExpressionClassifierService(storage),
         ),
-        ChangeNotifierProxyProvider4<
+        ChangeNotifierProxyProvider3<
           StorageService,
           BackendManager,
           KoboldService,
-          PseudoRemoteService,
           SetupService
         >(
           create: (context) => SetupService(
             Provider.of<StorageService>(context, listen: false),
             Provider.of<BackendManager>(context, listen: false),
             Provider.of<KoboldService>(context, listen: false),
-            Provider.of<PseudoRemoteService>(context, listen: false),
           ),
-          update: (context, storage, backend, kobold, pseudoRemote, previous) =>
-              previous ?? SetupService(storage, backend, kobold, pseudoRemote),
+          update: (context, storage, backend, kobold, previous) =>
+              previous ?? SetupService(storage, backend, kobold),
         ),
         ChangeNotifierProvider(create: (_) => UpdateService()),
         ChangeNotifierProxyProvider<StorageService, VoiceManager>(
@@ -556,13 +632,8 @@ void main(List<String> args) async {
           create: (context) =>
               SttService(Provider.of<StorageService>(context, listen: false)),
           update: (context, storage, previous) {
-            if (previous != null) {
-              try {
-                previous.setTtsService(
-                  Provider.of<TtsService>(context, listen: false),
-                );
-              } catch (_) {}
-            }
+            // Call-mode TTS awareness is wired by the call overlay itself
+            // (CallSession.attachTtsBusyProbe) — no TTS ref needed here.
             return previous ?? SttService(storage);
           },
         ),
@@ -594,13 +665,12 @@ void main(List<String> args) async {
               context,
               listen: false,
             );
-            final sidecar = Provider.of<EmbeddingSidecar>(
-              context,
-              listen: false,
-            );
             final storage = Provider.of<StorageService>(context, listen: false);
-            final embeddingService = EmbeddingService(sidecar);
-            final memoryService = MemoryService(embeddingService, storage, db);
+            final memoryService = MemoryService(
+              EmbeddingService(storage),
+              storage,
+              db,
+            );
             final repo = Provider.of<StoryRepository>(context, listen: false);
             return StoryPipelineService(
               repo,
@@ -610,12 +680,11 @@ void main(List<String> args) async {
             );
           },
           update: (context, llmProvider, storage, previous) {
-            final sidecar = Provider.of<EmbeddingSidecar>(
-              context,
-              listen: false,
+            final memoryService = MemoryService(
+              EmbeddingService(storage),
+              storage,
+              db,
             );
-            final embeddingService = EmbeddingService(sidecar);
-            final memoryService = MemoryService(embeddingService, storage, db);
             final repo = Provider.of<StoryRepository>(context, listen: false);
             return StoryPipelineService(
               repo,
@@ -637,6 +706,9 @@ void main(List<String> args) async {
             host.setDatabase(db);
             host.setChatService(
               Provider.of<ChatService>(context, listen: false),
+            );
+            host.setKoboldService(
+              Provider.of<KoboldService>(context, listen: false),
             );
             host.setCharacterRepository(
               Provider.of<CharacterRepository>(context, listen: false),
@@ -682,6 +754,7 @@ void main(List<String> args) async {
         ),
       ],
       child: const MyApp(),
+      ),
     ),
   );
 }
@@ -718,10 +791,18 @@ class _MyAppState extends State<MyApp> with WindowListener {
   double? _normalX;
   double? _normalY;
 
+  /// macOS-only hook for Cmd+Q / Dock-quit — see [_onAppExitRequested].
+  AppLifecycleListener? _appExitListener;
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    if (Platform.isMacOS) {
+      _appExitListener = AppLifecycleListener(
+        onExitRequested: _onAppExitRequested,
+      );
+    }
     // Run migration after first frame, then reunification if needed
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Capture initial window bounds after restore so tracking is correct
@@ -784,8 +865,12 @@ class _MyAppState extends State<MyApp> with WindowListener {
     await _reinitializeAfterImport();
   }
 
-  Future<void> _reinitializeAfterImport() async {
-    if (!mounted) return;
+  /// Rebinds every DB-holding service to a fresh AppDatabase instance and
+  /// reloads them. Returns false when the rebind could not run/complete —
+  /// callers that just closed the old instance (import, restore) must treat
+  /// false as "the app needs a restart", not as success.
+  Future<bool> _reinitializeAfterImport() async {
+    if (!mounted) return false;
 
     try {
       final oldDb = Provider.of<AppDatabase>(context, listen: false);
@@ -812,6 +897,14 @@ class _MyAppState extends State<MyApp> with WindowListener {
       groupRepo.updateDatabase(newDb);
       worldRepo.updateDatabase(newDb);
       Provider.of<ChatService>(context, listen: false).updateDatabase(newDb);
+      // Rebind the web server + Porch Stories too (same gap the storage-path
+      // move had) — otherwise after an import/restore they keep the closed DB
+      // and web logins / story queries fail until an app restart.
+      Provider.of<StoryRepository>(
+        context,
+        listen: false,
+      ).updateDatabase(newDb);
+      Provider.of<WebServerHost>(context, listen: false).setDatabase(newDb);
 
       await charRepo.loadCharacters();
       await charRepo.cleanOrphanedPngs();
@@ -819,13 +912,16 @@ class _MyAppState extends State<MyApp> with WindowListener {
       await personaService.reload();
       await groupRepo.reload();
       await worldRepo.loadWorlds();
+      return true;
     } catch (e) {
       debugPrint('[DB] Reinitialize after import failed: $e');
+      return false;
     }
   }
 
   @override
   void dispose() {
+    _appExitListener?.dispose();
     windowManager.removeListener(this);
     super.dispose();
   }
@@ -871,7 +967,33 @@ class _MyAppState extends State<MyApp> with WindowListener {
   }
 
   @override
-  void onWindowClose() async {
+  void onWindowClose() {
+    _saveStateAndShutdown();
+  }
+
+  /// Cmd+Q / Dock "Quit" (macOS): AppKit asks the framework for a cancelable
+  /// app exit BEFORE terminating. Without this hook the default answer lets
+  /// [NSApp terminate:] proceed straight into libc exit() and the native-
+  /// finalizer abort — so quitting via Cmd+Q kept producing crash reports
+  /// even with the red-button path fixed. Run the same cleanup instead; it
+  /// ends in exitWithoutNativeFinalizers, so the response is never sent.
+  Future<AppExitResponse> _onAppExitRequested() async {
+    if (_shutdownStarted) {
+      // A close is already in flight and will _exit when done — refuse this
+      // termination so the engine can't race our cleanup with its teardown.
+      return AppExitResponse.cancel;
+    }
+    await _saveStateAndShutdown();
+    return AppExitResponse.exit; // unreachable on macOS
+  }
+
+  /// True once a shutdown path has started — makes close requests
+  /// idempotent (red button + Cmd+Q can both fire in one quit).
+  bool _shutdownStarted = false;
+
+  Future<void> _saveStateAndShutdown() async {
+    if (_shutdownStarted) return;
+    _shutdownStarted = true;
     // Save window state (size, position, maximized) before cleanup.
     // Must happen early while the window is still alive and queryable.
     try {
@@ -943,8 +1065,8 @@ class _MyAppState extends State<MyApp> with WindowListener {
       debugPrint('AG_DEBUG: Error flushing chat save on window close: $e');
     }
 
-    // Stop managed backends (KoboldCPP + PseudoRemote) BEFORE destroying
-    // the window. This prevents orphaned processes when the app closes.
+    // Stop the managed KoboldCPP backend BEFORE destroying the window. This
+    // prevents an orphaned process when the app closes.
     try {
       final koboldService = Provider.of<KoboldService>(context, listen: false);
       if (koboldService.isRunning) {
@@ -952,17 +1074,6 @@ class _MyAppState extends State<MyApp> with WindowListener {
       }
     } catch (e) {
       debugPrint('AG_DEBUG: Error stopping Kobold on window close: $e');
-    }
-    try {
-      final pseudoRemote = Provider.of<PseudoRemoteService>(
-        context,
-        listen: false,
-      );
-      if (pseudoRemote.isRunning) {
-        await pseudoRemote.stop();
-      }
-    } catch (e) {
-      debugPrint('AG_DEBUG: Error stopping PseudoRemote on window close: $e');
     }
 
     // Run pending installer if user deferred the update
@@ -983,15 +1094,6 @@ class _MyAppState extends State<MyApp> with WindowListener {
       debugPrint('AG_DEBUG: Error stopping web server on close: $e');
     }
 
-    // Stop embedding sidecar
-    try {
-      final sidecar = Provider.of<EmbeddingSidecar>(context, listen: false);
-      if (sidecar.isRunning) {
-        await sidecar.stopServer();
-      }
-    } catch (e) {
-      debugPrint('AG_DEBUG: Error stopping embedding sidecar on close: $e');
-    }
 
     // On Linux and Windows, windowManager.destroy() can trigger a Flutter engine bug:
     //   "FlutterEngineRemoveView returned kInvalidArguments"
@@ -1000,7 +1102,18 @@ class _MyAppState extends State<MyApp> with WindowListener {
     if (Platform.isLinux || Platform.isWindows) {
       exit(0);
     } else {
-      await windowManager.destroy();
+      // macOS: end the process WITHOUT running C++ static destructors.
+      // destroy() → [NSApp terminate:] → libc exit() → __cxa_finalize runs
+      // the bundled native libraries' global destructors — and onnxruntime's
+      // (in-process expression/embedding engines; its worker pool holds ~16
+      // parked threads at quit) aborts there via std::terminate. Every
+      // red-button close produced an "Abort trap: 6" crash report in
+      // ~/Library/Logs/DiagnosticReports even though the quit was clean.
+      // Dart's exit(0) would hit the same finalize pass, so end the process
+      // with no finalizers instead. Safe: everything above was awaited
+      // (prefs written, chat saves flushed, KoboldCpp stopped, web server
+      // stopped), and SQLite's committed WAL data is crash-safe by design.
+      exitWithoutNativeFinalizers(0);
     }
   }
 
@@ -1017,11 +1130,28 @@ class _MyAppState extends State<MyApp> with WindowListener {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             brightness: isDark ? Brightness.dark : Brightness.light,
-            primarySwatch: Colors.blue,
+            // Warm-porch app-wide accent: seed the Material 3 color scheme from
+            // porch amber (was primarySwatch: Colors.blue) so every default
+            // control — switches, sliders, buttons, progress bars, the text
+            // cursor, tab indicators — warms up to match the chat sidebar and
+            // the web UI (whose --accent is already porch amber). The scheme's
+            // surfaces are pinned back to the app's existing slate/warm-paper
+            // grounds so only the ACCENT roles change, not the backgrounds.
+            colorScheme:
+                ColorScheme.fromSeed(
+                  seedColor: AppColors.porchAmber,
+                  brightness: isDark ? Brightness.dark : Brightness.light,
+                ).copyWith(
+                  primary: isDark
+                      ? AppColors.porchAmber
+                      : AppColors.porchAmberLight,
+                  onPrimary: isDark ? AppColors.onChaosAccent : Colors.white,
+                  surface: isDark ? AppColors.surface : AppColors.lightSurface,
+                ),
             scaffoldBackgroundColor: isDark
-                ? const Color(0xFF0F172A)
-                : const Color(0xFFF8F4ED), // warmer paper
-            cardColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                ? AppColors.background
+                : AppColors.lightBackground, // warmer paper
+            cardColor: isDark ? AppColors.card : AppColors.lightCard,
             textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
                 .apply(
                   bodyColor: isDark ? Colors.white : Colors.black87,
@@ -1090,25 +1220,11 @@ class _MyAppState extends State<MyApp> with WindowListener {
                         if (kobold.isRunning) await kobold.stopKobold();
                       } catch (_) {}
                       try {
-                        final pseudo = Provider.of<PseudoRemoteService>(
-                          context,
-                          listen: false,
-                        );
-                        if (pseudo.isRunning) await pseudo.stop();
-                      } catch (_) {}
-                      try {
                         final webServer = Provider.of<WebServerHost>(
                           context,
                           listen: false,
                         );
                         if (webServer.isRunning) await webServer.stop();
-                      } catch (_) {}
-                      try {
-                        final sidecar = Provider.of<EmbeddingSidecar>(
-                          context,
-                          listen: false,
-                        );
-                        if (sidecar.isRunning) await sidecar.stopServer();
                       } catch (_) {}
                     });
                   } catch (_) {}
@@ -1284,7 +1400,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                                       Icon(
                                         Icons.restore,
                                         size: 18,
-                                        color: Colors.blueAccent.shade100,
+                                        color: AppColors.porchAmber,
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
@@ -1391,18 +1507,37 @@ class _MyAppState extends State<MyApp> with WindowListener {
         });
       }
 
-      // Re-open the database
-      await AppDatabase.instance();
+      // Re-open AND rebind: restoreBackup closed the old AppDatabase, but every
+      // repository/service captured that instance at startup. Without the same
+      // rebind+reload the import flow uses, the app dismisses this overlay and
+      // then throws "database was closed" on every action until a restart.
+      final rebound = await _reinitializeAfterImport();
 
       if (mounted) {
-        setState(() => _isMigrating = false);
+        if (rebound) {
+          setState(() => _isMigrating = false);
+        } else {
+          // The backup IS safely on disk — only the live rewiring failed.
+          // Never dismiss as success: every DB action would fail confusingly.
+          setState(() {
+            _migrationStep =
+                'Backup restored. Please close and reopen Front Porch AI '
+                'to finish.';
+          });
+        }
       }
 
       debugPrint('[DB] Backup restored successfully from: ${backup.path}');
     } catch (e) {
       debugPrint('[DB] Backup restore failed: $e');
+      // The old DB may already be closed — dismissing the overlay would leave
+      // a half-dead app that looks fine. Keep it up with an honest message.
       if (mounted) {
-        setState(() => _isMigrating = false);
+        setState(() {
+          _migrationStep =
+              'Restore failed. Please close and reopen Front Porch AI, '
+              'then try another backup.';
+        });
       }
     }
   }
@@ -1417,18 +1552,28 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
     final db = Provider.of<AppDatabase>(context, listen: false);
     final migration = DataMigrationService(db);
-    await migration.migrate(
-      onProgress: (step, current, total) {
-        if (mounted) {
-          setState(() {
-            _migrationStep = step;
-            _migrationCurrent = current;
-            _migrationTotal = total;
-          });
-        }
-        debugPrint('DB Migration [$current/$total]: $step');
-      },
-    );
+    try {
+      await migration.migrate(
+        onProgress: (step, current, total) {
+          if (mounted) {
+            setState(() {
+              _migrationStep = step;
+              _migrationCurrent = current;
+              _migrationTotal = total;
+            });
+          }
+          debugPrint('DB Migration [$current/$total]: $step');
+        },
+      );
+    } catch (e) {
+      // A migration throw must NOT leave _isMigrating true forever (a
+      // full-screen overlay = unusable app) and must NOT re-run every launch
+      // (each retry re-imports characters, worsening the very duplicate-path
+      // condition that can cause the throw). Log, drop the overlay, and let
+      // the app open on whatever migrated so far — the legacy JSON is left in
+      // place, so a fixed future build can retry.
+      debugPrint('[DB Migration] Failed — continuing without it: $e');
+    }
 
     if (mounted) {
       setState(() => _isMigrating = false);
@@ -1451,14 +1596,14 @@ class _MyAppState extends State<MyApp> with WindowListener {
                   height: 80,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.blueAccent.shade700, Colors.purpleAccent],
+                      colors: [AppColors.porchAmberLight, AppColors.porchAmber],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blueAccent.withValues(alpha: 0.3),
+                        color: AppColors.formMasterAccent.withValues(alpha: 0.3),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),
@@ -1495,7 +1640,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                 Text(
                   _migrationStep,
                   style: TextStyle(
-                    color: Colors.blueAccent.shade100,
+                    color: AppColors.porchAmber,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1511,7 +1656,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     minHeight: 8,
                     backgroundColor: Colors.white.withValues(alpha: 0.1),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.blueAccent.shade200,
+                      AppColors.formMasterAccent,
                     ),
                   ),
                 ),
@@ -1737,8 +1882,8 @@ class _MyAppState extends State<MyApp> with WindowListener {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.blueAccent.shade700,
-                        Colors.cyanAccent.shade400,
+                        AppColors.porchAmberLight,
+                        AppColors.porchAmber,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -1746,7 +1891,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blueAccent.withValues(alpha: 0.3),
+                        color: AppColors.formMasterAccent.withValues(alpha: 0.3),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),
@@ -1788,7 +1933,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                       color: const Color(0xFF1E293B),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.blueAccent.withValues(alpha: 0.3),
+                        color: AppColors.formMasterAccent.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Column(
@@ -1822,7 +1967,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                                 const Text(
                                   '• ',
                                   style: TextStyle(
-                                    color: Colors.blueAccent,
+                                    color: AppColors.formMasterAccent,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -1869,8 +2014,8 @@ class _MyAppState extends State<MyApp> with WindowListener {
                               ),
                               label: const Text('Import'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blueAccent,
-                                foregroundColor: Colors.white,
+                                backgroundColor: AppColors.formMasterAccent,
+                                foregroundColor: AppColors.onChaosAccent,
                               ),
                             ),
                           ],
@@ -1883,7 +2028,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                   Text(
                     _reunifyStep,
                     style: TextStyle(
-                      color: Colors.blueAccent.shade100,
+                      color: AppColors.porchAmber,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1899,7 +2044,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
                       minHeight: 8,
                       backgroundColor: Colors.white.withValues(alpha: 0.1),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.blueAccent.shade200,
+                        AppColors.formMasterAccent,
                       ),
                     ),
                   ),

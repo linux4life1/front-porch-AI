@@ -46,6 +46,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/chat_theme_overrides.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -124,16 +125,44 @@ void main() {
       (tester) async {
     final storage = FakeStorageService();
     addTearDown(storage.dispose);
+    final chat = FakeChatService();
+    addTearDown(chat.dispose);
 
     await expectThemedGoldens(
       tester,
-      child: ChangeNotifierProvider<StorageService>.value(
-        value: storage,
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
         child: const UiSettingsDialog(),
       ),
       group: 'dialogs_more',
       name: 'ui_settings',
-      surface: const Size(580, 960),
+      surface: const Size(580, 1200),
+    );
+  });
+
+  testWidgets('UiSettingsDialog — fantasy theme active', (tester) async {
+    final storage = FakeStorageService();
+    addTearDown(storage.dispose);
+    final chat = FakeChatService();
+    chat.sessionThemeOverrides =
+        ChatThemeOverrides(themeId: 'fantasy');
+    addTearDown(chat.dispose);
+
+    await expectThemedGoldens(
+      tester,
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: const UiSettingsDialog(),
+      ),
+      group: 'dialogs_more',
+      name: 'ui_settings_theme',
+      surface: const Size(580, 1200),
     );
   });
 
@@ -158,7 +187,7 @@ void main() {
       ),
       group: 'dialogs_more',
       name: 'chat_settings',
-      surface: const Size(580, 1020),
+      surface: const Size(580, 800),
       // didChangeDependencies creates TextEditingControllers for stop-sequences
       // and banned-phrases — cursor tickers block pumpAndSettle.
       settle: false,

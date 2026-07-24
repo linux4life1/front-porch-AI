@@ -138,8 +138,8 @@ class ReferenceImagePicker extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Generation will start from this image and vary it by '
-                        'the denoise amount below.',
+                        'This photo is a starting point — the slider below sets '
+                        'how far the result can drift from it.',
                         style: TextStyle(
                           color: AppColors.textTertiary(context),
                           fontSize: 10,
@@ -193,7 +193,7 @@ class _DenoiseSlider extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Denoise (how much to change): ${display.toStringAsFixed(2)}',
+          'How different from the photo?',
           style: TextStyle(
             color: AppColors.textSecondary(context),
             fontSize: 11,
@@ -212,7 +212,7 @@ class _DenoiseSlider extends StatelessWidget {
               : (v) => context.read<StorageService>().setImageGenDenoise(v),
         ),
         Text(
-          'Lower keeps the reference close; higher lets the prompt take over.',
+          'Left keeps it close to your photo; right lets the prompt take over.',
           style: TextStyle(
             color: AppColors.textTertiary(context),
             fontSize: 10,

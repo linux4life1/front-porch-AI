@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/chat/journal_physics.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'journal_card_editor.dart';
+import 'journal_timeline_tab.dart';
 
 /// The Journal — the full diary reader (docs/design/journal-memory.md §8
 /// phase 3). One character's memory cards for THIS chat, grouped by category,
@@ -171,12 +172,50 @@ class _JournalDialogState extends State<JournalDialog> {
               ),
             ),
             const SizedBox(height: 12),
+            // Diary | Our Story (Living Time §7) — the timeline tab lives in
+            // its own file (journal_timeline_tab.dart); only the scaffolding
+            // is here so this dialog doesn't regrow.
             Expanded(
-              child: _loading
-                  ? Center(child: CircularProgressIndicator(color: accent))
-                  : _cards.isEmpty
-                  ? _emptyState(context)
-                  : _cardList(context, userName),
+              child: DefaultTabController(
+                length: 2,
+                child: Column(
+                  children: [
+                    TabBar(
+                      labelColor: accent,
+                      unselectedLabelColor: AppColors.textTertiary(context),
+                      indicatorColor: accent,
+                      labelStyle: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      tabs: const [
+                        Tab(height: 34, text: 'Diary'),
+                        Tab(height: 34, text: 'Our Story'),
+                      ],
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          _loading
+                              ? Center(
+                                  child: CircularProgressIndicator(
+                                    color: accent,
+                                  ),
+                                )
+                              : _cards.isEmpty
+                              ? _emptyState(context)
+                              : _cardList(context, userName),
+                          JournalTimelineTab(
+                            chat: _chat,
+                            ownerId: _ownerId,
+                            onJumpToMessage: widget.onJumpToMessage,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -270,6 +309,7 @@ class _JournalDialogState extends State<JournalDialog> {
             padding: const EdgeInsets.only(bottom: 6),
             child: _JournalCardTile(
               card: card,
+              when: journalWhenLine(card, _chat.timeService.startDate),
               onPinToggle: () async {
                 await _chat.journalStore.setPinned(card.id, !card.pinned);
                 await _load();
@@ -300,6 +340,8 @@ class _JournalDialogState extends State<JournalDialog> {
       content: draft.content,
       category: draft.category,
       emotionLabel: draft.feeling,
+      storyDay: _chat.timeService.dayCount,
+      storyClock: _chat.timeService.storyClockIso,
       maxCards: storage.journalMaxCards,
     );
     await _load();
@@ -474,6 +516,9 @@ class _JournalDialogState extends State<JournalDialog> {
 /// pinned/faded state. Pin is one tap; edit/receipts/retire live in the menu.
 class _JournalCardTile extends StatelessWidget {
   final JournalMemoryData card;
+
+  /// "Day 5 · Tue, Mar 3" (story-calendar §4); null for pre-calendar cards.
+  final String? when;
   final VoidCallback onPinToggle;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -481,6 +526,7 @@ class _JournalCardTile extends StatelessWidget {
 
   const _JournalCardTile({
     required this.card,
+    this.when,
     required this.onPinToggle,
     required this.onEdit,
     required this.onDelete,
@@ -490,7 +536,12 @@ class _JournalCardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final faded = !JournalPhysics.isHot(card);
-    final feeling = journalFeelingLine(card);
+    final feelingLine = journalFeelingLine(card);
+    final feeling = feelingLine == null
+        ? when
+        : when == null
+        ? feelingLine
+        : '$feelingLine · $when';
     final hasReceipts =
         card.sourceMessageIds != null && card.sourceMessageIds!.isNotEmpty;
 

@@ -16,71 +16,35 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/models/character_card.dart';
-
-/// Plain (non-ChangeNotifier) prompt injection builder for the current
-/// emotional state text (_getEmotionInjection).
+/// Mood fragment for the words-only state block
+/// (docs/design/prompt-state-injection.md §3): one line, salience-gated.
+/// Neutral or unset emotion emits NOTHING — the neutral state is the absence
+/// of a mood note, not a "Mood: neutral" line the model would dutifully act
+/// on. The composer wraps; no per-fragment brackets.
 ///
-/// Extracted step 8. Verbatim group (per-speaker from _groupRealism via god cbs)
-/// + 1:1 (scalar _characterEmotion) branches.
-///
-/// ChatService owns late final + thin. 0 shims. 0 new god _ privates.
-///
-/// aug passive only (no prompt aug edits); full in dedicated.
+/// Group parity rides the same mechanism as before: by assembly time the
+/// per-speaker load-into-scalars dance has already set the emotion scalar the
+/// [getCharacterEmotion] cb reads, so this fragment is per-speaker in groups
+/// without any group branch of its own.
 class EmotionInjection {
   final bool Function() getRealismEnabled;
-  final bool Function() getIsGroupNonObserverMode;
-  final String Function() getCurrentSpeakerIdForRealism;
-  final List<CharacterCard> Function() getGroupCharacters;
-  final CharacterCard? Function() getActiveCharacter;
   final String Function() getCharacterEmotion;
   final String Function() getEmotionIntensity;
-  final String Function(CharacterCard) getCharacterIdFromCard;
 
   EmotionInjection({
     required this.getRealismEnabled,
-    required this.getIsGroupNonObserverMode,
-    required this.getCurrentSpeakerIdForRealism,
-    required this.getGroupCharacters,
-    required this.getActiveCharacter,
     required this.getCharacterEmotion,
     required this.getEmotionIntensity,
-    required this.getCharacterIdFromCard,
   });
 
   String buildEmotionInjection() {
     if (!getRealismEnabled()) return '';
-
-    // In group mode (non-director), use the per-char state for the current speaker
-    if (getIsGroupNonObserverMode()) {
-      final speakerId = getCurrentSpeakerIdForRealism();
-      // Note: in real god the per-char emotion is in _groupRealism[speakerId]['emotion']
-      // For builder we use the god's load-into-scalars path; the cb getCharacterEmotion
-      // will reflect the impersonated scalar after load (see god _loadGroupRealismIntoScalars).
-      // For dedicated tests we simulate by providing a map-backed cb if needed.
-      final emo = getCharacterEmotion();
-      if (emo.isEmpty) return '';
-      final intensity = getEmotionIntensity();
-      final cap = emo.substring(0, 1).toUpperCase() + emo.substring(1);
-      final name = getGroupCharacters()
-          .firstWhere(
-            (c) => getCharacterIdFromCard(c) == speakerId,
-            orElse: () => getGroupCharacters().isNotEmpty
-                ? getGroupCharacters().first
-                : CharacterCard(name: 'the character'),
-          )
-          .name;
-      return '[$name\'s Current Emotional State: $cap ($intensity)\n'
-          ' This should subtly influence $name\'s tone, body language, and word choice.]\n';
-    }
-
-    // 1:1 path (or director groups)
-    final emo = getCharacterEmotion();
-    if (emo.isEmpty) return '';
-    final charName = getActiveCharacter()?.name ?? 'the character';
-    final cap = emo.substring(0, 1).toUpperCase() + emo.substring(1);
-    final intensity = getEmotionIntensity();
-    return '[$charName\'s Current Emotional State: $cap ($intensity)\n'
-        ' This should subtly influence $charName\'s tone, body language, and word choice.]\n';
+    final emo = getCharacterEmotion().trim();
+    if (emo.isEmpty || emo.toLowerCase() == 'neutral') return '';
+    final intensity = getEmotionIntensity().trim();
+    final cap = emo[0].toUpperCase() + emo.substring(1);
+    final suffix = intensity.isEmpty ? '' : ', $intensity';
+    return 'Mood: $cap$suffix — let it subtly color tone, body language, and '
+        'word choice.';
   }
 }

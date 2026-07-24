@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 
 /// Shared Realism Engine configuration form.
 ///
@@ -31,6 +32,15 @@ class RealismFormSection extends StatelessWidget {
   final ValueChanged<String> onTimeOfDayChanged;
   final int dayCount;
   final ValueChanged<int> onDayCountChanged;
+
+  // Story Calendar authoring (story-calendar.md §3a). Null callbacks hide the
+  // block (surfaces that only expose the friendly period+day pickers).
+  // storyStartDate: ISO date, null = "the day the chat starts".
+  // storyStartTime: "HH:MM" exact opening clock, null = period default.
+  final String? storyStartDate;
+  final ValueChanged<String?>? onStoryStartDateChanged;
+  final String? storyStartTime;
+  final ValueChanged<String?>? onStoryStartTimeChanged;
   final int shortTermBond;
   final ValueChanged<int> onShortTermBondChanged;
   final int longTermBond;
@@ -108,6 +118,10 @@ class RealismFormSection extends StatelessWidget {
     this.showChaosToggle = true,
     this.showTimeAndDay = true,
     this.showMasterEnabledToggle = true,
+    this.storyStartDate,
+    this.onStoryStartDateChanged,
+    this.storyStartTime,
+    this.onStoryStartTimeChanged,
   });
 
   static const _timeOptions = [
@@ -380,6 +394,15 @@ class RealismFormSection extends StatelessWidget {
                 ],
               ),
             ),
+            if (onStoryStartDateChanged != null) ...[
+              const SizedBox(height: 8),
+              StoryBeginsRow(
+                storyStartDate: storyStartDate,
+                onStoryStartDateChanged: onStoryStartDateChanged!,
+                storyStartTime: storyStartTime,
+                onStoryStartTimeChanged: onStoryStartTimeChanged,
+              ),
+            ],
           ], // end showTimeAndDay
           const SizedBox(height: 20),
 

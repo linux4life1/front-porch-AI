@@ -45,7 +45,6 @@ export 'llm_service.dart';
 export 'kobold_service.dart';
 export 'chat_service.dart';
 export 'backend_manager.dart';
-export 'pseudo_remote_service.dart';
 export 'open_router_service.dart';
 
 // Chat domain leaves (curated high-freq per extraction policy; needs impact evaluator

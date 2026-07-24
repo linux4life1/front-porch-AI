@@ -41,6 +41,27 @@ class RetrievedMemory {
     required this.positionEnd,
     required this.score,
   });
+
+  /// Two-tier memory dedupe (living-time-features.md §8): drop retrievals
+  /// whose span overlaps positions the Journal already expanded verbatim
+  /// this turn — the exact lines are in the prompt once; twice is budget
+  /// spent teaching the model to repeat itself. Pure; current-session only
+  /// (cross-session sources use a different position space).
+  static List<RetrievedMemory> excludingPositions(
+    List<RetrievedMemory> memories,
+    Set<int> positions, {
+    required String currentSessionId,
+  }) {
+    if (positions.isEmpty) return memories;
+    return [
+      for (final m in memories)
+        if (m.sessionId != currentSessionId ||
+            !positions.any(
+              (p) => p >= m.positionStart && p <= m.positionEnd,
+            ))
+          m,
+    ];
+  }
 }
 
 /// Orchestrates RAG memory: embedding message windows and retrieving relevant
@@ -49,6 +70,47 @@ class RetrievedMemory {
 /// Works with [EmbeddingService] for vector generation and [AppDatabase] for
 /// vector storage. Only activates when RAG is enabled and embeddings are available.
 class MemoryService extends ChangeNotifier {
+  /// Minimum retrieval similarity. Nomic cosine scores have a high floor —
+  /// UNRELATED text still lands around 0.4–0.6 — so the old 0.3 admitted
+  /// essentially everything and retrieval degenerated to "top-N by rank"
+  /// (the "parrots back prior events that don't fit the scene" report).
+  /// 0.45 matches the Journal's verbatim-expansion bar (journal_physics
+  /// kMinExpandSimilarity), the in-repo calibration for "the conversation is
+  /// clearly reaching for this" in this embedding space.
+  static const double kRagMinScore = 0.45;
+
+  /// Current-session windows must END at least this many messages before the
+  /// visible-context boundary to be retrievable. The windows just below the
+  /// boundary are near-duplicates of the ongoing scene — they were trimmed
+  /// this turn or a few turns ago, score highest of ALL candidates against a
+  /// recent-messages query, and re-injecting them drags the model backward
+  /// (repeating itself / reviving events the chat moved past). They become
+  /// eligible naturally as the story advances. Cross-session and Data Bank
+  /// sources are genuinely old and are never age-gated.
+  static const int kRagMinAgeMessages = 20;
+
+  /// Whether a stored window is old enough (relative to the visible-context
+  /// boundary) to be offered for retrieval. Pure — the unit-tested core of
+  /// [retrieve]'s candidate loop; cross-session isolation stays in the loop
+  /// (it needs the session-scoped characterId set).
+  ///
+  /// Current-session windows must be strictly OLDER than the visible context
+  /// by [kRagMinAgeMessages]. Comparing the window END (not start) also
+  /// closes the boundary-overlap bug: a window straddling the trim point
+  /// (start < boundary <= end) used to pass the old start-only check and got
+  /// injected while its tail lines were still sitting in the visible
+  /// transcript — literal self-repetition. Other-session and Data Bank
+  /// content is never age-gated.
+  static bool isWindowEligible({
+    required String candidateSessionId,
+    required String currentSessionId,
+    required int positionEnd,
+    required int inContextStart,
+  }) {
+    return candidateSessionId != currentSessionId ||
+        positionEnd < inContextStart - kRagMinAgeMessages;
+  }
+
   final EmbeddingService _embeddingService;
   final StorageService _storageService;
   AppDatabase _db;
@@ -255,7 +317,7 @@ class MemoryService extends ChangeNotifier {
     required String currentSessionId,
     int inContextStart = 0,
     int limit = 5,
-    double minScore = 0.3,
+    double minScore = kRagMinScore,
     Map<String, double>? characterPriorities,
     Set<String> sessionScopedCharacterIds = const {},
   }) async {
@@ -338,21 +400,24 @@ class MemoryService extends ChangeNotifier {
       int belowThreshold = 0;
 
       for (final candidate in candidates) {
-        // Session isolation: the speaker's OWN memories must never cross chats.
-        // For a session-scoped character (self/current speaker), only
-        // current-session embeddings are eligible — this is the fix for stale
-        // locations/storylines leaking in from a previous chat with the same
-        // character. Explicit cross-character sources are intentionally NOT in
-        // this set, so their opt-in cross-session recall still works.
+        // Session isolation: the speaker's OWN memories must never cross chats
+        // (stale locations/storylines from a previous chat with the same
+        // character). Explicit cross-character sources are intentionally NOT
+        // session-scoped, so their opt-in cross-session recall still works.
         if (sessionScopedCharacterIds.contains(candidate.characterId) &&
             candidate.sessionId != currentSessionId) {
           skippedCrossSession++;
           continue;
         }
 
-        // Skip embeddings from the current session that are still in context
-        if (candidate.sessionId == currentSessionId &&
-            candidate.positionStart >= inContextStart) {
+        // Current-session windows still in (or too close to) the visible
+        // context — see isWindowEligible for the overlap + min-age rules.
+        if (!isWindowEligible(
+          candidateSessionId: candidate.sessionId,
+          currentSessionId: currentSessionId,
+          positionEnd: candidate.positionEnd,
+          inContextStart: inContextStart,
+        )) {
           skippedInContext++;
           continue;
         }

@@ -20,8 +20,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/ui/dialogs/character_avatars_dialog.dart';
-import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:path/path.dart' as p;
@@ -45,7 +43,7 @@ const _bgDeep = Color(0xFF0F172A);
 const _bgSurface = Color(0xFF1E293B);
 const _bgInput = Color(0xFF0F172A);
 const _borderSubtle = Color(0x14FFFFFF); // white 8%
-const _borderFocus = Colors.blueAccent;
+const _borderFocus = AppColors.formMasterAccent;
 
 class EditCharacterPage extends StatefulWidget {
   final CharacterCard character;
@@ -104,14 +102,21 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   List<StyledTextController> _altGreetingControllers = [];
   List<String> _tags = [];
   final _tagController = TextEditingController();
+
+  /// Long-term ambitions (Living Time §6), one per line. Identity — travels
+  /// with the card; per-chat progress lives in the Journal.
+  final _ambitionsController = TextEditingController();
   final ValueNotifier<int> _tokenNotifier = ValueNotifier<int>(0);
-  String? _newAvatarPath;
 
   // ── Realism Engine state ──
   bool _realismEnabled = false;
   bool _realismSettingsModified = false;
   String _realismTimeOfDay = 'morning';
   int _realismDayCount = 1;
+  // Story Calendar authoring (story-calendar.md §3a): null start date =
+  // "the day the chat starts"; null time = period default.
+  String? _realismStoryStartDate;
+  String? _realismStoryStartTime;
   int _realismShortTermBond = 0;
   int _realismLongTermBond = 0;
   int _realismTrustLevel = 0;
@@ -201,6 +206,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _realismEnabled = ext.realismEnabled;
       _realismTimeOfDay = ext.timeOfDay;
       _realismDayCount = ext.dayCount;
+      _realismStoryStartDate = ext.storyStartDate;
+      _realismStoryStartTime = ext.storyStartTime;
       _realismShortTermBond = ext.shortTermBond;
       _realismLongTermBond = ext.longTermBond;
       _realismTrustLevel = ext.trustLevel;
@@ -234,6 +241,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _needsDecayHygiene = ext.needsDecayHygiene;
       _needsDecayComfort = ext.needsDecayComfort;
     }
+    _ambitionsController.text =
+        (widget.character.frontPorchExtensions?.ambitions ?? const [])
+            .join('\n');
 
     _tabController = TabController(length: 4, vsync: this);
 
@@ -270,6 +280,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       c.dispose();
     }
     _tagController.dispose();
+    _ambitionsController.dispose();
     _tokenNotifier.dispose();
     _tabController.dispose();
     super.dispose();
@@ -300,52 +311,11 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   // ═══════════════════════════════════════════════════════════════
 
   File? get _avatarFile {
-    if (_newAvatarPath != null) return File(_newAvatarPath!);
     final img = widget.character.imagePath;
     if (img == null || img.isEmpty) return null;
     if (p.isAbsolute(img)) return File(img);
     final storage = Provider.of<StorageService>(context, listen: false);
     return File(p.join(storage.charactersDir.path, img));
-  }
-
-  Future<void> _pickAvatar() async {
-    final result = await PickerPrefs.pickFiles(
-      category: PickerPrefs.catImage,
-      type: FileType.image,
-      allowMultiple: false,
-    );
-    if (result == null || result.files.isEmpty) return;
-    final pickedPath = result.files.single.path;
-    if (pickedPath == null) return;
-
-    final imageBytes = await File(pickedPath).readAsBytes();
-    if (!mounted) return;
-
-    final croppedBytes = await ImageCropDialog.show(
-      context,
-      imageBytes: imageBytes,
-    );
-    if (croppedBytes == null || !mounted) return;
-
-    final storage = Provider.of<StorageService>(context, listen: false);
-    final charDir = storage.charactersDir;
-    await charDir.create(recursive: true);
-
-    final safeName = _nameController.text.trim().isNotEmpty
-        ? _nameController.text
-              .trim()
-              .replaceAll(RegExp(r'[^\w\s-]'), '')
-              .replaceAll(RegExp(r'\s+'), '_')
-        : 'avatar';
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final destFilename = '${safeName}_$timestamp.png';
-    final destPath = p.join(charDir.path, destFilename);
-
-    await File(destPath).writeAsBytes(croppedBytes);
-
-    setState(() {
-      _newAvatarPath = destPath;
-    });
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -399,6 +369,10 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         chaosModeEnabled: _realismChaosMode,
         needsSimEnabled: _realismNeedsSim,
         enjoysLowHygiene: _realismEnjoysLowHygiene,
+        ambitions: [
+          for (final line in _ambitionsController.text.split('\n'))
+            if (line.trim().isNotEmpty) line.trim(),
+        ],
         currentTask: _realismCurrentTask,
         realismVerificationEnabled: _realismVerificationEnabled,
         realismVerificationMaxReprocesses: _realismVerificationMaxReprocesses,
@@ -420,25 +394,21 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         needsDecayHygiene: _needsDecayHygiene,
         needsDecayComfort: _needsDecayComfort,
       );
+      // Direct assignment (not copyWith): its `?? this.x` pattern cannot
+      // CLEAR a nullable field, and "clear the fixed start date back to 'the
+      // day the chat starts'" is a real edit.
+      widget.character.frontPorchExtensions!
+        ..storyStartDate = _realismStoryStartDate
+        ..storyStartTime = _realismStoryStartTime;
       widget.character.frontPorchExtensions!.ensureStableId();
     }
 
-    // Update avatar if changed — store the *full* absolute path in the
-    // in-memory model (the documented convention). The repository will
-    // extract the basename only when writing to the database for
-    // cross-platform portability. Storing only the basename here used to
-    // cause updateCharacter() to attempt a relative write into the CWD,
-    // which is read-only inside packaged macOS .app bundles (and can be
-    // surprising on other platforms).
-    if (_newAvatarPath != null) {
-      widget.character.imagePath = _newAvatarPath!;
-    }
-
-    // Always embed V2 card data into the PNG to preserve extensions
+    // The portrait is no longer changed from this page (managed in the Avatar
+    // Gallery) — re-embed the V2 card data into the current imagePath PNG to
+    // preserve the edited extensions/fields.
     final storage = Provider.of<StorageService>(context, listen: false);
-    String? targetPngPath = _newAvatarPath;
-    if (targetPngPath == null &&
-        widget.character.imagePath != null &&
+    String? targetPngPath;
+    if (widget.character.imagePath != null &&
         widget.character.imagePath!.isNotEmpty) {
       final img = widget.character.imagePath!;
       targetPngPath = p.isAbsolute(img)
@@ -668,7 +638,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         ),
         title: Row(
           children: [
-            const Icon(Icons.edit_note, color: Colors.blueAccent, size: 22),
+            const Icon(Icons.edit_note, color: AppColors.formMasterAccent, size: 22),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -696,8 +666,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
               ),
               label: Text(widget.saveLabel),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.formMasterAccent,
+                foregroundColor: AppColors.onChaosAccent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -711,9 +681,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.blueAccent,
+          labelColor: AppColors.formMasterAccent,
           unselectedLabelColor: Colors.white38,
-          indicatorColor: Colors.blueAccent,
+          indicatorColor: AppColors.formMasterAccent,
           indicatorWeight: 3,
           tabs: const [
             Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Details'),
@@ -760,7 +730,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         ? Colors.redAccent
         : estimatedTokens > 2000
         ? Colors.orangeAccent
-        : Colors.blueAccent;
+        : AppColors.formMasterAccent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -806,119 +776,44 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Avatar Section ──
+              // ── Avatar (read-only). Portrait + expression images are managed
+              //    in the Avatar Gallery (right-click a character on the home
+              //    grid, or the chat sidebar) — no destructive change here.
               Center(
-                child: GestureDetector(
-                  // Group members keep their group-path avatar in this pass.
-                  onTap: widget.allowAvatarChange ? _pickAvatar : null,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: 160,
-                          height: 160,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: _bgSurface,
-                            border: Border.all(color: _borderSubtle),
-                            image:
-                                _avatarFile != null && _avatarFile!.existsSync()
-                                ? DecorationImage(
-                                    image: FileImage(_avatarFile!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                          ),
-                          child:
-                              (_avatarFile == null ||
-                                  !_avatarFile!.existsSync())
-                              ? Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.person,
-                                      size: 56,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const Text(
-                                      'No avatar',
-                                      style: TextStyle(
-                                        color: Colors.white24,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : null,
-                        ),
-                        Positioned(
-                          bottom: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.blueAccent,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: _bgDeep, width: 2),
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: _bgSurface,
+                    border: Border.all(color: _borderSubtle),
+                    image: _avatarFile != null && _avatarFile!.existsSync()
+                        ? DecorationImage(
+                            image: FileImage(_avatarFile!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: (_avatarFile == null || !_avatarFile!.existsSync())
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.person,
+                              size: 56,
+                              color: Colors.white.withValues(alpha: 0.15),
                             ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              size: 16,
-                              color: Colors.white,
+                            const SizedBox(height: 4),
+                            const Text(
+                              'No avatar',
+                              style: TextStyle(
+                                color: Colors.white24,
+                                fontSize: 11,
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  'Tap to change avatar',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final storage = Provider.of<StorageService>(
-                      context,
-                      listen: false,
-                    );
-                    final repo = Provider.of<CharacterRepository>(
-                      context,
-                      listen: false,
-                    );
-                    final result = await CharacterAvatarsDialog.show(
-                      context: context,
-                      character: widget.character,
-                      repository: repo,
-                      storage: storage,
-                    );
-                    if (result == true) {
-                      setState(() {});
-                    }
-                  },
-                  icon: const Icon(Icons.mood, size: 18),
-                  label: const Text('Expression Images'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: const BorderSide(color: Colors.white24),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                  ),
+                          ],
+                        )
+                      : null,
                 ),
               ),
               const SizedBox(height: 20),
@@ -927,7 +822,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
               _sectionCard(
                 icon: Icons.badge_outlined,
                 title: 'Identity',
-                color: Colors.blueAccent,
+                color: AppColors.formMasterAccent,
                 children: [
                   _styledField(controller: _nameController, label: 'Name'),
                   const SizedBox(height: 16),
@@ -992,7 +887,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                       IconButton(
                         icon: const Icon(
                           Icons.add_circle,
-                          color: Colors.blueAccent,
+                          color: AppColors.formMasterAccent,
                         ),
                         tooltip: 'Add tag',
                         onPressed: () {
@@ -1072,6 +967,19 @@ class _EditCharacterPageState extends State<EditCharacterPage>
               ),
               const SizedBox(height: 20),
 
+              // ── Ambitions (Living Time §6) ──
+              _styledField(
+                controller: _ambitionsController,
+                label: 'Long-term Ambitions (one per line)',
+                maxLines: 3,
+                hint:
+                    'e.g. Open my own bakery\nThe character works toward '
+                    'these across the whole story — progress moves when '
+                    'their objectives complete, and lands in the Journal '
+                    'and "Our Story" timeline.',
+              ),
+              const SizedBox(height: 20),
+
               // ── Realism Engine Summary ── (hidden for group members, whose
               // realism/needs are group state edited in Group Settings)
               if (widget.showRealismTab) _buildRealismSection(),
@@ -1101,7 +1009,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
               _sectionCard(
                 icon: Icons.chat_bubble_outline,
                 title: 'First Message',
-                color: Colors.blueAccent,
+                color: AppColors.formMasterAccent,
                 children: [
                   _styledField(
                     controller: _firstMessageController,
@@ -1131,7 +1039,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add'),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.blueAccent,
+                    foregroundColor: AppColors.formMasterAccent,
                   ),
                 ),
                 children: [
@@ -1275,8 +1183,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Add Entry'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.formMasterAccent,
+                      foregroundColor: AppColors.onChaosAccent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -1343,7 +1251,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           color: entry.constant
               ? Colors.amberAccent.withValues(alpha: 0.3)
               : entry.enabled
-              ? Colors.blueAccent.withValues(alpha: 0.15)
+              ? AppColors.formMasterAccent.withValues(alpha: 0.15)
               : AppColors.borderOf(context).withValues(alpha: 0.5),
         ),
       ),
@@ -1358,7 +1266,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                 color: entry.constant
                     ? Colors.amberAccent
                     : entry.enabled
-                    ? Colors.blueAccent
+                    ? AppColors.formMasterAccent
                     : Colors.white38,
               ),
               const SizedBox(width: 6),
@@ -1400,13 +1308,13 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blueAccent.withValues(alpha: 0.1),
+                    color: AppColors.formMasterAccent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     'Depth ${entry.stickyDepth}',
                     style: const TextStyle(
-                      color: Colors.blueAccent,
+                      color: AppColors.formMasterAccent,
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1424,8 +1332,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                       entry.enabled = val;
                     });
                   },
-                  activeTrackColor: Colors.blueAccent.withValues(alpha: 0.5),
-                  activeThumbColor: Colors.blueAccent,
+                  activeTrackColor: AppColors.formMasterAccent.withValues(alpha: 0.5),
+                  activeThumbColor: AppColors.formMasterAccent,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
@@ -1564,7 +1472,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isLinked
-                                ? Colors.blueAccent.withValues(alpha: 0.4)
+                                ? AppColors.formMasterAccent.withValues(alpha: 0.4)
                                 : _borderSubtle,
                           ),
                         ),
@@ -1574,7 +1482,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                             height: 36,
                             decoration: BoxDecoration(
                               color: isLinked
-                                  ? Colors.blueAccent.withValues(alpha: 0.2)
+                                  ? AppColors.formMasterAccent.withValues(alpha: 0.2)
                                   : Colors.white.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -1582,7 +1490,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                               Icons.public,
                               size: 20,
                               color: isLinked
-                                  ? Colors.blueAccent
+                                  ? AppColors.formMasterAccent
                                   : Colors.white38,
                             ),
                           ),
@@ -1617,10 +1525,10 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                                 }
                               });
                             },
-                            activeTrackColor: Colors.blueAccent.withValues(
+                            activeTrackColor: AppColors.formMasterAccent.withValues(
                               alpha: 0.5,
                             ),
-                            activeThumbColor: Colors.blueAccent,
+                            activeThumbColor: AppColors.formMasterAccent,
                           ),
                         ),
                       );
@@ -1648,9 +1556,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.blueAccent.withValues(alpha: 0.08),
+            color: AppColors.formMasterAccent.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.2)),
+            border: Border.all(color: AppColors.formMasterAccent.withValues(alpha: 0.2)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1662,7 +1570,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                   'These settings only affect new conversations with this character — '
                   'your existing chats won\'t be changed. No cheating with the relationship values!',
                   style: TextStyle(
-                    color: Colors.blueAccent.withValues(alpha: 0.8),
+                    color: AppColors.formMasterAccent.withValues(alpha: 0.8),
                     fontSize: 12,
                     height: 1.4,
                   ),
@@ -1688,6 +1596,16 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           dayCount: _realismDayCount,
           onDayCountChanged: (v) => setState(() {
             _realismDayCount = v;
+            _realismSettingsModified = true;
+          }),
+          storyStartDate: _realismStoryStartDate,
+          onStoryStartDateChanged: (v) => setState(() {
+            _realismStoryStartDate = v;
+            _realismSettingsModified = true;
+          }),
+          storyStartTime: _realismStoryStartTime,
+          onStoryStartTimeChanged: (v) => setState(() {
+            _realismStoryStartTime = v;
             _realismSettingsModified = true;
           }),
           shortTermBond: _realismShortTermBond,

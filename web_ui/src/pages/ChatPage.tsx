@@ -9,14 +9,15 @@ import { CastBar, type CastMember } from '../components/CastBar';
 import { CharacterPicker } from '../components/CharacterPicker';
 import { ProcessingOverlay, NO_PROCESSING, type Processing } from '../components/ProcessingOverlay';
 import { SmartImg } from '../components/ChatAvatar';
-import { ChatMessageList } from '../components/ChatMessageList';
+import { ChatMessageList, type GenStatus } from '../components/ChatMessageList';
 import { ChatComposer } from '../components/ChatComposer';
 import { ChatInsight } from '../components/ChatInsight';
 import { ConversationsDrawer, type SessionSummary } from '../components/ConversationsDrawer';
 import { ReprocessNeedsModal } from '../components/ReprocessNeedsModal';
 import { ChanceTimeModal } from '../components/ChanceTimeModal';
 import { ImagePromptReviewModal } from '../components/ImagePromptReviewModal';
-import { type Message, type Realism, type LoreEntry } from '../components/chatTypes';
+import { type Message, type Realism, type LoreEntry, type ChatThemeOverrides } from '../components/chatTypes';
+import { ChatThemeSettings, resolveThemeColors } from '../components/ChatThemeSettings';
 
 interface ChatState {
   character: { name: string; id: string } | null;
@@ -41,6 +42,10 @@ interface ChatState {
   greetingIndex?: number;
   totalGreetings?: number;
   expressionLabel?: string;
+  // Living Time §2 welcome-back banner (additive — absent on older facades;
+  // null when off/under threshold). Coarse words only.
+  absencePhrase?: string | null;
+  summary?: string;
   cast?: CastMember[];
   guestActivity?: { status: string | null; isError: boolean; busy: boolean };
   pendingDetection?: string | null;
@@ -53,12 +58,16 @@ interface ChatState {
   // Current model's tool-calling verdict (desktop sidebar pill parity);
   // retest via POST /api/chat/tool-test.
   toolSupport?: { state: string; testing: boolean };
+  // Per-chat theme overrides (preset + font/color/background/border).
+  themeOverrides?: ChatThemeOverrides;
 }
 
 export function ChatPage() {
   const navigate = useNavigate();
   const [state, setState] = useState<ChatState | null>(null);
   const [streaming, setStreaming] = useState('');
+  // Living Time §2: sessions whose welcome-back banner was dismissed (ephemeral).
+  const [absenceDismissed, setAbsenceDismissed] = useState<Set<string>>(new Set());
   // Composer draft mirror — powers the lorebook "would trigger next" preview.
   const [draft, setDraft] = useState('');
   // Chaos "Chance Time" reveal modal. Opened by the `chance_time` WS event (or a
@@ -69,6 +78,7 @@ export function ChatPage() {
   // (null = indeterminate) + the latest preview frame data URL when the
   // backend streams one. Null = no image generating.
   const [imageProg, setImageProg] = useState<{ progress: number | null; preview: string | null } | null>(null);
+  const [genStatus, setGenStatus] = useState<GenStatus | null>(null);
   // Realism/Objective engine overlay, driven by the `processing` WS event.
   const [processing, setProcessing] = useState<Processing>(NO_PROCESSING);
   // Resizable insight sidebar (desktop) — width persists across sessions.
@@ -79,6 +89,7 @@ export function ChatPage() {
   });
   const [showSessions, setShowSessions] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showTheme, setShowTheme] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
@@ -176,7 +187,26 @@ export function ChatPage() {
         // two are identical text, so it swaps seamlessly with no flash/gap (the
         // old order cleared the bubble, leaving the message blank until the GET
         // returned ~100-300ms later).
+        setGenStatus(null);
         void refresh().finally(() => setStreaming(''));
+      } else if (e.event === 'gen_status') {
+        // Truthful generation status (desktop status-bar parity): live
+        // prompt-reading progress + which background pass holds the slot.
+        setGenStatus(
+          e.active
+            ? {
+                phase: e.phase ?? '',
+                busyWith: e.busyWith ?? null,
+                queued: e.queued ?? 0,
+                promptCur: e.promptCur ?? null,
+                promptTotal: e.promptTotal ?? null,
+                promptDone: !!e.promptDone,
+                estFraction: e.estFraction ?? null,
+                genCur: e.genCur ?? null,
+                genTotal: e.genTotal ?? null,
+              }
+            : null,
+        );
       } else if (e.event === 'processing') {
         setProcessing(
           e.active
@@ -209,6 +239,18 @@ export function ChatPage() {
         );
       } else if (e.event === 'chat_updated' || e.event === 'generating') {
         scheduleRefresh();
+      } else if (e.event === 'connected') {
+        // (Re)connected. The socket may have been down (phone sleep, network
+        // blip) while the desktop finished a generation or edited the chat, so
+        // events were missed — refetch to heal. Also drop any stale partial
+        // streaming buffer: if a `done` was missed, the leftover partial would
+        // render as a ghost bubble AND the next generation would append onto
+        // it (setStreaming(prev => prev + …)), garbling the live reply.
+        // Same for the gen-status bubble — a missed {active:false} would
+        // strand it forever.
+        setStreaming('');
+        setGenStatus(null);
+        void refresh();
       }
     });
     socket.connect();
@@ -239,6 +281,20 @@ export function ChatPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [editIndex, showStats, showSessions]);
+
+  // Apply per-chat theme overrides as CSS custom properties on the chat container.
+  useEffect(() => {
+    const vars = resolveThemeColors(state?.themeOverrides ?? null);
+    const el = document.querySelector('.chat-view') as HTMLElement | null;
+    if (!el) return;
+    Object.entries(vars).forEach(([k, v]) => el.style.setProperty(k, v));
+    // Only veil the chat when a theme actually supplies a background scene.
+    el.classList.toggle('has-theme-bg', '--chat-bg-image' in vars);
+    return () => {
+      Object.keys(vars).forEach((k) => el.style.removeProperty(k));
+      el.classList.remove('has-theme-bg');
+    };
+  }, [state?.themeOverrides]);
 
   // Drag the insight sidebar's left edge to resize it (clamped 260–560px),
   // persisting the chosen width. Dragging left widens (handle is on the left).
@@ -308,6 +364,11 @@ export function ChatPage() {
   };
   const saveAuthorNote = async (note: string, strength: number) => {
     await api.post('/api/chat/author-note', { authorNote: note, strength });
+    await refresh();
+  };
+  const saveTheme = async (overrides: ChatThemeOverrides) => {
+    await api.post('/api/chat/theme-overrides', overrides);
+    setShowTheme(false);
     await refresh();
   };
 
@@ -439,6 +500,9 @@ export function ChatPage() {
                 Stats ▾
               </button>
             )}
+            <button className="link-btn" onClick={() => setShowTheme(true)}>
+              Theme
+            </button>
             <button className="link-btn conversations-btn" onClick={openSessions}>
               Conversations ▾
             </button>
@@ -457,6 +521,28 @@ export function ChatPage() {
           onCommand={sendMessage}
         />
 
+        {state.absencePhrase && state.sessionId && !absenceDismissed.has(state.sessionId) && (
+          <div className="absence-banner">
+            <span className="absence-banner-icon">🕰️</span>
+            <div className="absence-banner-body">
+              <div className="absence-banner-title">
+                It's been {state.absencePhrase} — where we left off:
+              </div>
+              {state.summary?.trim() ? (
+                <div className="absence-banner-recap">{state.summary.trim()}</div>
+              ) : null}
+            </div>
+            <button
+              className="absence-banner-close"
+              aria-label="Dismiss"
+              onClick={() =>
+                setAbsenceDismissed((prev) => new Set(prev).add(state.sessionId!))
+              }
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <ChatMessageList
           messages={state.messages}
           castById={castById}
@@ -464,6 +550,7 @@ export function ChatPage() {
           lastIndex={lastIndex}
           busy={state.isGenerating}
           streaming={streaming}
+          genStatus={state.isGenerating ? genStatus : null}
           scrollRef={scrollRef}
           canSpeak={!!voice?.ttsEnabled}
           editIndex={editIndex}
@@ -576,6 +663,21 @@ export function ChatPage() {
           onNew={newChat}
           onClose={() => setShowSessions(false)}
         />
+      )}
+
+      {showTheme && (
+        <div className="drawer-backdrop" onClick={() => setShowTheme(false)}>
+          <div className="settings-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-head">
+              <span>Chat theme</span>
+              <button className="link-btn" onClick={() => setShowTheme(false)}>Close</button>
+            </div>
+            <ChatThemeSettings
+              overrides={state.themeOverrides ?? null}
+              onSave={saveTheme}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -81,3 +81,22 @@ String stripThinkBlocks(String raw) {
       .replaceAll(RegExp('$open[\\s\\S]*\$', caseSensitive: false), '')
       .trim();
 }
+
+/// A SINGLE-brace `{roll…}` / `{pick…}` / `{random…}` / `{dice…}` that is NOT
+/// already double-braced (negative look-around) and contains no nested braces.
+final RegExp _singleBraceDynamicMacro = RegExp(
+  r'(?<!\{)\{(roll|pick|random|dice)\b([^{}]*)\}(?!\})',
+  caseSensitive: false,
+);
+
+/// Repair the one macro mistake weak local models reliably make in generated
+/// content — emitting a dynamic macro with SINGLE braces (`{pick:a,b,c}`)
+/// instead of the double braces the runtime resolver needs (`{{pick:a,b,c}}`),
+/// so the "living detail" actually rotates instead of rendering as literal text.
+/// Only these four macro names are touched, and only when not already doubled,
+/// so genuine single braces in prose (and correct `{{…}}` macros) are left as-is.
+/// Used for both generated lorebook entries and generated greetings.
+String fixDynamicMacroBraces(String content) => content.replaceAllMapped(
+      _singleBraceDynamicMacro,
+      (m) => '{{${m[1]!.toLowerCase()}${m[2]}}}',
+    );

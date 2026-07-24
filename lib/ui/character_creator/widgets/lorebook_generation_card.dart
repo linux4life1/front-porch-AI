@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/dynamic_macros_toggle.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Blue-bordered "Auto-generate World Lore" card: a master switch, lore depth
@@ -166,6 +167,15 @@ class LorebookGenerationCard extends StatelessWidget {
               }).toList(),
             ),
           ],
+          const SizedBox(height: 16),
+          DynamicMacrosToggle(
+            value: state.includeDynamicMacros,
+            accentColor: accent,
+            onChanged: (val) {
+              state.includeDynamicMacros = val;
+              _save();
+            },
+          ),
         ],
       ),
     );

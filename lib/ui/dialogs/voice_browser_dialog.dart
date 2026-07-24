@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/voice_manager.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Dialog for browsing, downloading, and managing Piper TTS voice models.
 class VoiceBrowserDialog extends StatefulWidget {
@@ -40,7 +41,10 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // fetchCatalog notifies its listeners immediately; deferred past the
+    // first frame so the notify never lands mid-build (field-reported
+    // "setState() or markNeedsBuild() called during build" crash).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
   Future<void> _loadData() async {
@@ -96,7 +100,7 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.record_voice_over, color: Colors.blueAccent),
+          const Icon(Icons.record_voice_over, color: AppColors.formMasterAccent),
           const SizedBox(width: 12),
           const Text(
             'Voice Model Browser',
@@ -327,10 +331,12 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
                 leading: CircleAvatar(
                   backgroundColor: isInstalled
                       ? Colors.green.withValues(alpha: 0.2)
-                      : Colors.blueAccent.withValues(alpha: 0.2),
+                      : AppColors.formMasterAccent.withValues(alpha: 0.2),
                   child: Icon(
                     isInstalled ? Icons.check_circle : Icons.record_voice_over,
-                    color: isInstalled ? Colors.greenAccent : Colors.blueAccent,
+                    color: isInstalled
+                        ? Colors.greenAccent
+                        : AppColors.formMasterAccent,
                     size: 20,
                   ),
                 ),
@@ -377,7 +383,9 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
               child: LinearProgressIndicator(
                 value: progress,
                 backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation(Colors.blueAccent),
+                valueColor: const AlwaysStoppedAnimation(
+                  AppColors.formMasterAccent,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -446,8 +454,8 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
             icon: const Icon(Icons.download, size: 16),
             label: const Text('Download'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.formMasterAccent,
+              foregroundColor: AppColors.onChaosAccent,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               textStyle: const TextStyle(fontSize: 13),
             ),

@@ -21,6 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/journal_ops.dart';
 import 'package:front_porch_ai/services/chat/journal_physics.dart';
+import 'package:front_porch_ai/services/chat/journal_store.dart';
+import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
 import 'package:front_porch_ai/utils/emotion_labels.dart';
@@ -64,6 +66,18 @@ String? journalFeelingLine(JournalMemoryData card) {
     _ => '',
   };
   return 'felt $emotion$intensity';
+}
+
+/// "Day 5 · Tue, Mar 3" — WHEN the memory happened (story-calendar §4), or
+/// null for pre-calendar cards. The date re-derives live from the story's
+/// Day 1 anchor, so a calendar re-anchor retro-dates every memory.
+String? journalWhenLine(JournalMemoryData card, DateTime storyStartDate) {
+  final (day, _) = JournalStore.stampOf(card);
+  if (day == null) return null;
+  final date = StoryClock.dateOnly(
+    storyStartDate,
+  ).add(Duration(days: day - 1));
+  return 'Day $day · ${StoryClock.formatShortDate(date)}';
 }
 
 /// Modal editor for one memory card. Returns null on cancel, otherwise the

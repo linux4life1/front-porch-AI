@@ -62,10 +62,13 @@ class KcppsGeneratorService {
 
     if (hw.hasCuda) {
       return {'usecublas': ['normal', 0]};
-    } else if (hw.hasRocm) {
-      return {'usehipblas': [0]};
     } else if (hw.hasMetal) {
       return {}; // Metal is automatic, no flag needed
+    } else if (hw.vendor == 'AMD' || hw.vendor == 'Intel') {
+      // Vulkan, never hipblas: exported .kcpps files run against the
+      // MAINLINE koboldcpp builds, which on Windows have no hipblas at
+      // all (the old hasRocm branch emitted a flag the exe rejects).
+      return {'usevulkan': []};
     }
 
     // For unknown/Intel GPUs on Windows, try Vulkan if available

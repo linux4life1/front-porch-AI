@@ -95,6 +95,7 @@ Respond with ONLY the JSON:''';
     required CharacterCard card,
     required String name,
     bool nsfwEnabled = false,
+    String relationship = '',
     void Function(String)? onStatus,
     void Function(String)? onProgress,
     String? worldLore,
@@ -106,13 +107,33 @@ Respond with ONLY the JSON:''';
         'Your personality: ${card.personality.length > 400 ? card.personality.substring(0, 400) : card.personality}\n'
         'Your scenario: ${card.scenario.length > 200 ? card.scenario.substring(0, 200) : card.scenario}\n\n'
         '${worldLore != null && worldLore.trim().isNotEmpty ? "You exist in the following established world. Use its terminology, locations, and facts:\n$worldLore\n\n" : ""}'
-        'Answer each question in first person, fully in-character. '
-        'Be specific, vivid, and emotionally honest. Respond as $name would speak — '
-        'use their vocabulary, cadence, and emotional register.';
+        'Answer each question in first person, fully in-character. Be specific, '
+        'vivid, and emotionally honest — but keep each answer TIGHT: a few sharp '
+        'sentences, under ~150 words. Depth over length; do not ramble. Respond '
+        'as $name would speak — use their vocabulary, cadence, and emotional '
+        'register.';
 
-    final questions = [
-      ..._interviewQuestions,
+    // Skip the relationship question for strangers/one-shots — inventing shared
+    // history (what they want from {{user}}, unspoken tension) actively hurts a
+    // "you just met" card. Empty OR a stranger-like preset counts as no relationship.
+    final relLower = relationship.trim().toLowerCase();
+    final hasRelationship = relLower.isNotEmpty &&
+        relLower != 'stranger' &&
+        relLower != 'strangers' &&
+        relLower != 'none';
+
+    // Voice → motive → wound → (relationship) → social → pressure → joy →
+    // (NSFW) → appearance. See the question constants for the rationale.
+    final questions = <String>[
+      _qVoice,
+      _qWho,
+      _qWound,
+      if (hasRelationship) _relationshipQuestion(relationship),
+      _qSocial,
+      _qPressure,
+      _qJoy,
       if (nsfwEnabled) _nsfwInterviewQuestion,
+      _qAppearance,
     ];
 
     for (int i = 0; i < questions.length; i++) {
@@ -126,10 +147,13 @@ Respond with ONLY the JSON:''';
           'Question: $q\n\n'
           '$name: ';
 
+      // Tight cap: interview answers used to run to ~1200 tokens each, ballooning
+      // the cumulative prompt to ~12k by the last question (slow on local models).
+      // A few sharp sentences is all the enrichment/voice steps need.
       final answer = await _callLLM(
         prompt,
-        maxLen: 1200,
-        minLen: 80,
+        maxLen: 350,
+        minLen: 50,
         onProgress: onProgress,
       );
       if (answer == null || answer.trim().isEmpty) {
@@ -159,20 +183,22 @@ Respond with ONLY the JSON:''';
     return transcript.toString().trim();
   }
 
-  /// Use the completed interview transcript to rewrite description and personality
-  /// with richer, voice-consistent prose grounded in the character's own words.
-  /// Example dialogue is generated in a separate dedicated step for reliability.
+  /// Use the completed interview transcript to rewrite description, personality,
+  /// AND scenario with richer, voice-consistent prose grounded in the character's
+  /// own words (the scenario keeps its setup but gains the revealed stakes +
+  /// relationship texture). Example dialogue is a separate dedicated step.
   Future<void> _enrichCardFromInterview({
     required CharacterCard card,
     required String name,
     required String interviewTranscript,
+    bool preserveUserScenario = false,
     void Function(String)? onProgress,
   }) async {
     final prompt =
         '''
 You have just completed an in-character interview with $name.
-Using the interview answers below as your source of truth, rewrite these two fields
-for this character card. Output ONLY a JSON object with exactly two keys.
+Using the interview answers below as your source of truth, rewrite these three fields
+for this character card. Output ONLY a JSON object with exactly three keys.
 No markdown. No explanation. Just raw JSON.
 
 INTERVIEW TRANSCRIPT:
@@ -183,6 +209,9 @@ ${card.description}
 
 CURRENT PERSONALITY (inner traits):
 ${card.personality}
+
+CURRENT SCENARIO (the opening situation — keep its setup):
+${card.scenario}
 
 Rewrite these fields using the specific details, voice, and texture revealed in the interview:
 
@@ -195,6 +224,7 @@ Rewrite these fields using the specific details, voice, and texture revealed in 
   * Defense mechanisms — how they protect themselves emotionally
   * A distinctive behavioral quirk or habit that makes them memorable
   Ground every trait in what the character actually revealed in the interview. Do NOT repeat physical appearance or scenario.
+- "scenario": (string) Keep the SAME situation, place, and time as the CURRENT SCENARIO above — do NOT relocate or restart the story. Sharpen it with what the interview revealed: the immediate stakes and tension, and (when a relationship exists) what {{char}} wants from {{user}} right now and what is unspoken between them. This is stage-direction for the opening moment — end on a clear dramatic question that gives {{user}} a reason to respond. 2-4 sentences. Do NOT restate personality or physical appearance.
 
 Use {{char}} for the character name and {{user}} for the user throughout.
 
@@ -240,6 +270,17 @@ Respond with ONLY the JSON:''';
       card.personality = newPers;
       debugPrint(
         'CharacterGen: Personality enriched (${newPers.length} chars)',
+      );
+    }
+    // Scenario is intentionally CONCISE (2-4 sentences) so it can be shorter
+    // than the base — use an absolute floor, not the 0.5x ratio, to accept a
+    // tight rewrite while still rejecting an empty/garbage response. Never touch
+    // a scenario the USER wrote verbatim (a local model would drift it).
+    final newScenario = (data['scenario']?.toString() ?? '').trim();
+    if (!preserveUserScenario && newScenario.length >= 60) {
+      card.scenario = newScenario;
+      debugPrint(
+        'CharacterGen: Scenario enriched (${newScenario.length} chars)',
       );
     }
   }

@@ -20,6 +20,25 @@ part of '../chat_service.dart';
 
 /// Session load + listing — _loadLastSession, getSessionsForId, getSessions, loadSession. Extracted verbatim (zero behaviour change) to shrink the god file.
 extension ChatServiceSessionLoad on ChatService {
+  /// Real-absence gap (Living Time §2) from the freshly loaded DB rows —
+  /// computed BEFORE any save this session can refresh their updatedAt, so
+  /// the anchor is genuinely "when this chat last had activity". Shared by
+  /// both load paths (keep them in sync). Fresh/empty chats stay at zero.
+  void _computeAbsenceGap(List<Message> dbMessages) {
+    _absenceGap = Duration.zero;
+    _absenceAckPending = false;
+    _absenceAckConsumed = false;
+    DateTime? last;
+    for (final m in dbMessages) {
+      if (last == null || m.updatedAt.isAfter(last)) last = m.updatedAt;
+    }
+    if (last == null) return;
+    final gap = DateTime.now().difference(last);
+    if (gap.isNegative) return;
+    _absenceGap = gap;
+    _absenceAckPending = absencePhrase != null;
+  }
+
   Future<void> _loadLastSession() async {
     if (_activeCharacter == null && _activeGroup == null) return;
 
@@ -47,6 +66,26 @@ extension ChatServiceSessionLoad on ChatService {
       // See "keep reset blocks in sync" (setActiveGroup, startNewChat 1:1+group (now explicit in both), load* , setActive* all must hit this; now includes needs/chaos/... + leaves (see CLAUDE.md for full; incomplete zeroing now complete) + " ; now complete in all group/0-session/new-chat hygiene)" ; incomplete zeroing now complete).
       // (cross-ref setActiveCharacter:1572)
       _timeService.resetForFreshChat();
+      // Fresh GROUP session: apply the group's authored scene-time seed on
+      // top of the reset (story-calendar "As built" gap fix — the wizard's
+      // time seed used to be editor-carried only and never reached the
+      // clock). Keep in sync with the startNewChat group branch.
+      if (_activeGroup != null) {
+        final timeSeed = parseGroupTimeSeed(
+          _activeGroup!.defaultMemberRealismState,
+          _activeGroup!.baselineRealismState,
+        );
+        if (timeSeed != null) {
+          _timeService.seedFromV2OrExt(
+            dayCount: timeSeed.dayCount,
+            timeOfDay: timeSeed.timeOfDay,
+            storyStartDate: timeSeed.storyStartDate,
+            storyStartTime: timeSeed.storyStartTime,
+            passageOfTimeEnabled:
+                _storageService.realismSettings.passageOfTimeDefault,
+          );
+        }
+      }
       _nsfwService.resetForFreshChat();
       _lorebookScanner.resetLorebookTriggerState();
       _activeObjectives = [];
@@ -60,11 +99,19 @@ extension ChatServiceSessionLoad on ChatService {
       _isGrowthPassRunning =
           false; // growth-pass flag zero in _loadLast empty early return (0-session path hygiene; keep reset blocks in sync)
       _growthStore.invalidate(); // no session — nothing to inject
+      _selectedLooks
+          .clear(); // 0-session: no per-chat look selection (keep reset blocks in sync)
       return;
     }
 
-    // Sessions are already sorted descending by createdAt
-    final lastSession = sessions.first;
+    // Auto-load the most recently ACTIVE session (loadSession bumps updatedAt
+    // when a chat is opened). The shared session queries deliberately order by
+    // createdAt (story-export, group/cast and the history list rely on that), so
+    // "last active" is derived here from updatedAt instead of the list order —
+    // keeping this feature isolated from those other callers.
+    final lastSession = sessions.reduce(
+      (a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b,
+    );
     _currentSessionId = lastSession.id;
     _authorNote = lastSession.authorNote;
     _authorNoteStrength = lastSession.authorNoteDepth;
@@ -72,6 +119,7 @@ extension ChatServiceSessionLoad on ChatService {
     _summaryLastIndex = lastSession.summaryLastIndex ?? 0;
     _sessionName = lastSession.name;
     _sessionDescription = lastSession.description;
+    _selectedLooks = decodeSelectedLooks(lastSession.selectedLookAvatarId);
     _parentSessionId = lastSession.parentSession;
     _forkIndex = lastSession.forkIndex;
     // Relationship scalars + migration/tier calc now via service (keeps load parity).
@@ -108,6 +156,8 @@ extension ChatServiceSessionLoad on ChatService {
       timeOfDay: lastSession.timeOfDay,
       dayCount: lastSession.dayCount,
       startDayOfWeek: lastSession.startDayOfWeek,
+      storyClock: lastSession.storyClock,
+      storyStartDate: lastSession.storyStartDate,
       passageOfTimeEnabled:
           lastSession.passageOfTimeEnabled &&
           _storageService.realismSettings.passageOfTimeDefault,
@@ -139,6 +189,15 @@ extension ChatServiceSessionLoad on ChatService {
     // "Enjoys low hygiene" on the character affects existing chats on next load.
     _enjoysLowHygiene =
         _activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ?? false;
+
+    // Load per-chat theme overrides.
+    try {
+      final themeJson = await _db.getThemeOverrides(_currentSessionId!);
+      _sessionThemeOverrides =
+          ChatThemeOverrides.fromJsonString(themeJson);
+    } catch (_) {
+      _sessionThemeOverrides = ChatThemeOverrides();
+    }
 
     _needsSimulation.resetBuffers();
     // trust/fixation/spatial/pending/affection/tiers already loaded via _relationshipService.loadScalars above.
@@ -190,6 +249,7 @@ extension ChatServiceSessionLoad on ChatService {
         false; // growth-pass flag zero in _loadLast loaded path (transient guard; keep reset blocks in sync)
     try {
       final dbMessages = await _db.getMessagesForSession(_currentSessionId!);
+      _computeAbsenceGap(dbMessages);
       debugPrint(
         '[ChatService] 🟢 _loadLastSession: loading ${dbMessages.length} '
         'messages for session $_currentSessionId',
@@ -332,6 +392,7 @@ extension ChatServiceSessionLoad on ChatService {
 
     try {
       final dbMessages = await _db.getMessagesForSession(sessionId);
+      _computeAbsenceGap(dbMessages);
       debugPrint(
         '[ChatService] 🟢 loadSession: loading ${dbMessages.length} '
         'messages for session $sessionId',
@@ -404,6 +465,12 @@ extension ChatServiceSessionLoad on ChatService {
       // (v30: _hydrateGroupRealismCheckpointIfPresent removed — state now loads from DB column)
 
       _currentSessionId = sessionId;
+      // Touch updatedAt so this session becomes the "last active" for the
+      // character/group — _loadLastSession sorts by updatedAt DESC.
+      _db.patchSession(SessionsCompanion(
+        id: drift.Value(sessionId),
+        updatedAt: drift.Value(DateTime.now()),
+      ));
       // Scene Guests are per-session. Without this, switching to a different
       // session via the history picker leaves the PREVIOUS session's guests
       // (and their evolution/detection state) in place — they keep chiming in
@@ -439,6 +506,7 @@ extension ChatServiceSessionLoad on ChatService {
       await _refreshGrowthCache(); // ring cache scoped to the newly loaded session
       _sessionName = session.name;
       _sessionDescription = session.description;
+      _selectedLooks = decodeSelectedLooks(session.selectedLookAvatarId);
       _parentSessionId = session.parentSession;
       _forkIndex = session.forkIndex;
       // Relationship load + tier calc + legacy migration via service.
@@ -467,6 +535,8 @@ extension ChatServiceSessionLoad on ChatService {
         timeOfDay: session.timeOfDay,
         dayCount: session.dayCount,
         startDayOfWeek: session.startDayOfWeek,
+        storyClock: session.storyClock,
+        storyStartDate: session.storyStartDate,
         passageOfTimeEnabled:
             session.passageOfTimeEnabled &&
             _storageService.realismSettings.passageOfTimeDefault,
@@ -520,6 +590,15 @@ extension ChatServiceSessionLoad on ChatService {
         _sessionGenSettings = ChatGenerationSettings.fromJsonString(genJson);
       } catch (_) {
         _sessionGenSettings = ChatGenerationSettings();
+      }
+
+      // Per-chat theme overrides.
+      try {
+        final themeJson = await _db.getThemeOverrides(sessionId);
+        _sessionThemeOverrides =
+            ChatThemeOverrides.fromJsonString(themeJson);
+      } catch (_) {
+        _sessionThemeOverrides = ChatThemeOverrides();
       }
 
       if (_messages.isNotEmpty) {

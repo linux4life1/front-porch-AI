@@ -27,6 +27,7 @@ import 'package:front_porch_ai/ui/theme/tier_colors.dart';
 import 'package:front_porch_ai/ui/widgets/realism_progress_row.dart';
 import 'package:front_porch_ai/ui/widgets/needs_bar.dart';
 import 'package:front_porch_ai/ui/widgets/fixation_chip.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/ambitions_row.dart';
 import 'package:front_porch_ai/utils/emotion_labels.dart';
 
 /// First-class representation of a group chat member in the sidebar.
@@ -422,6 +423,18 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                       ),
                     ),
                     NeedsGrid(needs: needs, mini: false, crossAxisCount: 2),
+                  ],
+
+                  // Ambitions (Living Time §6) — per-member, same widget as
+                  // the 1:1 Character State accordion (parity).
+                  if (widget.chatService
+                      .ambitionsFor(widget.character)
+                      .isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    AmbitionsRow(
+                      ambitions:
+                          widget.chatService.ambitionsFor(widget.character),
+                    ),
                   ],
 
                   // Objectives quick access

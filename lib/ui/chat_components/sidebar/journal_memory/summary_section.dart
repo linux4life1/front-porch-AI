@@ -96,10 +96,16 @@ class SummarySectionState extends State<SummarySection> {
               SizedBox(
                 height: 28,
                 child: FittedBox(
-                  child: Switch(
-                    value: enabled,
-                    onChanged: (val) => storage.setJournalEnabled(val),
-                    activeTrackColor: accent,
+                  child: Tooltip(
+                    message:
+                        'Turning the Journal off also stops long-term memory '
+                        'AND this "Where we are" recap — the character only '
+                        'remembers what still fits in the context window.',
+                    child: Switch(
+                      value: enabled,
+                      onChanged: (val) => storage.setJournalEnabled(val),
+                      activeTrackColor: accent,
+                    ),
                   ),
                 ),
               ),
@@ -111,9 +117,10 @@ class SummarySectionState extends State<SummarySection> {
           Padding(
             padding: const EdgeInsets.only(top: 4, left: 20),
             child: Text(
-              'The character keeps a journal of this chat — memories of '
-              'what happened and how it felt, plus this recap of where '
-              'things stand.',
+              'Journal is off: long-term memory and this recap are paused, '
+              'so the character only remembers what still fits in the '
+              'context window. Turn it back on to resume the diary of what '
+              'happened and how it felt.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textTertiary(context),

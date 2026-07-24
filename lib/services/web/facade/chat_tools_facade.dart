@@ -22,6 +22,12 @@ import 'package:front_porch_ai/models/chat_participant.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/chat/growth_physics.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
+import 'package:front_porch_ai/services/chat/journal_store.dart';
+import 'package:front_porch_ai/services/chat/ambition_service.dart';
+import 'package:front_porch_ai/services/chat/weather_engine.dart';
+import 'package:front_porch_ai/services/story/faithful_mode.dart';
+import 'package:front_porch_ai/services/story_repository.dart';
+import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
@@ -31,11 +37,23 @@ import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 /// [StorageService] methods the desktop sidebar calls, so 1:1↔group parity and
 /// the simulation behavior are inherited (never reimplemented here).
 class ChatToolsFacade {
-  ChatToolsFacade(this._chat, this._storage, this._hub);
+  ChatToolsFacade(
+    this._chat,
+    this._storage,
+    this._hub, {
+    StoryRepository? storyRepo,
+    UserPersonaService? personas,
+  }) : _storyRepo = storyRepo,
+       _personas = personas;
 
   final ChatService _chat;
   final StorageService _storage;
   final StreamHub? _hub;
+
+  /// Living Time §4 "turn this chat into a story" deps — optional so hosts
+  /// without Porch Stories wired keep working; the endpoint 400s without.
+  final StoryRepository? _storyRepo;
+  final UserPersonaService? _personas;
 
   /// Full tools snapshot mirroring the desktop sidebar sections. When
   /// [participantId] is given (a cast member's stableGroupId), the per-character
@@ -45,6 +63,7 @@ class ChatToolsFacade {
     final chaos = _chat.chaosModeService;
     final nsfw = _chat.nsfwService;
     final time = _chat.timeService;
+    final weather = _chat.currentWeather;
     final focused = _focusedParticipant(participantId);
     final focusedCard = focused?.card ?? _chat.activeCharacter;
     final focusedIsMember =
@@ -100,11 +119,41 @@ class ChatToolsFacade {
             : nsfw.arousalLevel,
         'arousalTier': focusedIsMember ? '' : nsfw.arousalTierName,
       },
+      // Ambitions (Living Time §6) for the focused participant — additive;
+      // same ChatService.ambitionsFor merge the desktop sidebar reads.
+      'ambitions': focusedCard == null || (focused?.isLite ?? false)
+          ? const []
+          : [
+              for (final a in _chat.ambitionsFor(focusedCard))
+                {
+                  'text': a.text,
+                  'progress': a.progress,
+                  'stage': AmbitionService.stageWord(a.progress),
+                },
+            ],
       'time': {
         'timeOfDay': time.timeOfDay,
         'dayCount': time.dayCount,
         'weekday': time.narrativeWeekday,
         'passageEnabled': time.passageOfTimeEnabled,
+        // Living Time story weather (living-time-features.md §3) — additive
+        // and nullable; older web bundles simply ignore it.
+        'weather': weather == null
+            ? null
+            : {
+                'condition': weather.condition.name,
+                'temp': weather.temp.name,
+                'season': weather.season,
+                'label': WeatherEngine.label(weather),
+                'emoji': WeatherEngine.emoji(weather.condition),
+              },
+        // Story Calendar (story-calendar.md) — additive; older web bundles
+        // simply ignore these.
+        'clock': time.displayClock,
+        'date': time.displayShortDate,
+        'dateLong': time.displayDate,
+        'storyClock': time.storyClockIso,
+        'storyStartDate': time.storyStartDateIso,
       },
       // Objectives are per-character; scope to the focused participant (lite
       // guests have none). getObjectivesForGroupCharacter returns the global
@@ -385,6 +434,122 @@ class ChatToolsFacade {
   void setDirectorMode(bool v) {
     _chat.setObserverMode(v);
     _notify();
+  }
+
+  /// Story Calendar writes (story-calendar.md §6): set the current story
+  /// moment / re-anchor Day 1. Mirrors the desktop dialog's two gear actions.
+  Future<void> setStoryClock(DateTime clock) async {
+    await _chat.setStoryClock(clock);
+    _notify();
+  }
+
+  Future<void> setStoryStartDate(DateTime date) async {
+    await _chat.setStoryStartDate(date);
+    _notify();
+  }
+
+  /// The calendar read payload: diary owners + every stamped memory grouped
+  /// by story day for [ownerId] (defaults to the first owner). One cardsFor
+  /// read per call — cards are capped per owner.
+  Future<Map<String, dynamic>> calendar(String? ownerId) async {
+    final sessionId = _chat.currentSessionId;
+    final time = _chat.timeService;
+    final owners = _chat.cast.where((p) => !p.isLite).toList();
+    final owner = owners.where((p) => p.id == ownerId).firstOrNull ??
+        owners.firstOrNull;
+    final days = <Map<String, dynamic>>[];
+    if (sessionId != null && owner != null) {
+      final cards = await _chat.journalStore.cardsFor(sessionId, owner.id);
+      final byDay = <int, List<Map<String, dynamic>>>{};
+      for (final card in cards) {
+        final (day, _) = JournalStore.stampOf(card);
+        if (day == null) continue;
+        byDay.putIfAbsent(day, () => []).add({
+          'content': card.content,
+          'category': card.category,
+          'feeling': card.emotionLabel,
+          'intensity': card.emotionIntensity,
+          'pinned': card.pinned,
+        });
+      }
+      for (final entry in byDay.entries) {
+        days.add({'day': entry.key, 'cards': entry.value});
+      }
+      days.sort((a, b) => (a['day'] as int).compareTo(b['day'] as int));
+    }
+    return {
+      'storyStartDate': time.storyStartDateIso,
+      'storyClock': time.storyClockIso,
+      'currentDay': time.dayCount,
+      'owner': owner?.id,
+      'owners': [
+        for (final p in owners) {'id': p.id, 'name': p.name},
+      ],
+      'days': days,
+    };
+  }
+
+  /// "Our Story" milestones timeline (Living Time §7) — the same read-model
+  /// the desktop journal dialog's timeline tab uses (ChatService.milestoneFeed),
+  /// so the two surfaces cannot drift. Additive endpoint; owner defaults to
+  /// the first diary owner like [calendar].
+  Future<Map<String, dynamic>> timeline(String? ownerId) async {
+    final sessionId = _chat.currentSessionId;
+    final owners = _chat.cast.where((p) => !p.isLite).toList();
+    final owner = owners.where((p) => p.id == ownerId).firstOrNull ??
+        owners.firstOrNull;
+    final entries = <Map<String, dynamic>>[];
+    if (sessionId != null && owner != null) {
+      for (final e in await _chat.milestoneFeed.entriesFor(
+        sessionId: sessionId,
+        characterId: owner.id,
+        messages: _chat.messages,
+      )) {
+        entries.add({
+          'kind': e.kind,
+          'text': e.text,
+          'day': ?e.storyDay,
+          'position': ?e.position,
+          'emotion': ?e.emotion,
+        });
+      }
+    }
+    return {
+      'owner': owner?.id,
+      'owners': [
+        for (final p in owners) {'id': p.id, 'name': p.name},
+      ],
+      'entries': entries,
+    };
+  }
+
+  /// Living Time §4: create the pre-configured "this chat as a story"
+  /// project — same shared builder as the desktop dialog (faithful_mode.dart)
+  /// so the entries cannot drift. Returns {id,title} or an {error}.
+  Future<Map<String, dynamic>> toStory({
+    required bool faithful,
+    required String length,
+    required String pov,
+  }) async {
+    final repo = _storyRepo;
+    final character = _chat.activeCharacter;
+    final sessionId = _chat.currentSessionId;
+    if (repo == null) return {'error': 'stories unavailable'};
+    if (character == null || sessionId == null || _chat.isGroupMode) {
+      return {'error': '1:1 chat with a character required'};
+    }
+    final project = buildChatStoryProject(
+      sessionId: sessionId,
+      character: character,
+      characterId: character.dbId ?? character.name,
+      userName: _personas?.persona.name ?? 'User',
+      recap: _chat.summary,
+      faithful: faithful,
+      length: length,
+      pov: pov,
+    );
+    await repo.saveProject(project);
+    return {'id': project.dbId, 'title': project.title};
   }
 
   /// Manually nudge the scene clock forward/back one period (desktop chevrons).

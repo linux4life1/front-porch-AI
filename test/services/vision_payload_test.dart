@@ -124,11 +124,51 @@ void main() {
       // Sampler + reasoning fields ride exactly as before.
       expect(r['temperature'], 0.85);
       expect(r['rep_pen'], 1.25);
-      expect(r['reasoning'], {
-        'enabled': false,
-        'max_tokens': 0,
-        'exclude': true,
-      });
+      // Local (KoboldCpp) reasoning uses Kobold-native fields, NOT the
+      // OpenRouter `reasoning` object (which Kobold ignores). reasoningMaxTokens
+      // == 0 is the "suppress thinking" signal (Continue / evals).
+      expect(r.containsKey('reasoning'), isFalse);
+      expect(r['chat_template_kwargs'], {'enable_thinking': false});
+      expect(r['reasoning_effort'], 'none');
+    });
+
+    test('reasoning OFF authoritatively disables thinking (not just omitted)',
+        () async {
+      // reasoningEnabled false, no suppress signal (maxTokens null): the toggle
+      // must still force thinking OFF so a thinking-model launch default can't
+      // keep thinking on despite the toggle.
+      final params = GenerationParams(prompt: 'hi', systemPrompt: 'be brief');
+      await streamOpenAiChat(
+        'http://127.0.0.1:${server.port}',
+        params,
+      ).drain<void>();
+      final r = lastRequest!;
+      expect(r.containsKey('reasoning'), isFalse);
+      expect(r['chat_template_kwargs'], {'enable_thinking': false});
+      expect(r['reasoning_effort'], 'none');
+      expect(r.containsKey('encapsulate_thinking'), isFalse);
+    });
+
+    test('reasoning enabled → Kobold-native thinking fields', () async {
+      final params = GenerationParams(
+        prompt: 'think about this',
+        systemPrompt: 'be brief',
+        reasoningEnabled: true,
+        reasoningEffort: 'high',
+      );
+      await streamOpenAiChat(
+        'http://127.0.0.1:${server.port}',
+        params,
+      ).drain<void>();
+
+      final r = lastRequest!;
+      expect(r.containsKey('reasoning'), isFalse); // no OpenRouter object
+      expect(r['chat_template_kwargs'], {'enable_thinking': true});
+      expect(r['reasoning_effort'], 'high');
+      // No encapsulate_thinking: in --jinja mode Kobold returns reasoning in the
+      // standard reasoning_content field (which streamOpenAiChat now consumes),
+      // so we no longer force thinking to stay inline in `content`.
+      expect(r.containsKey('encapsulate_thinking'), isFalse);
     });
   });
 

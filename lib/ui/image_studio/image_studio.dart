@@ -28,8 +28,10 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/utils/picker_prefs.dart';
 
+import 'edit_view.dart';
 import 'expression_pack_dialog.dart';
 import 'studio_helpers.dart';
+import 'studio_mode_tabs.dart';
 import 'studio_view.dart';
 
 part 'studio_prompt_craft.dart';
@@ -76,6 +78,10 @@ class ImageStudio extends StatefulWidget {
   /// Library id of the 1:1 character — the Expression-pack import target.
   final String? characterDbId;
 
+  /// The 1:1 character's current portrait path — pre-loaded as the Edit tab's
+  /// source so "change this portrait" starts from the existing avatar.
+  final String? characterImagePath;
+
   /// Fires after a pack import so the launcher refreshes the live card.
   final void Function(String characterDbId)? onExpressionsImported;
 
@@ -102,6 +108,7 @@ class ImageStudio extends StatefulWidget {
     this.isGroupNonObserver = false,
     this.currentSpeakerId,
     this.characterDbId,
+    this.characterImagePath,
     this.onExpressionsImported,
   });
 
@@ -113,6 +120,9 @@ class _ImageStudioState extends State<ImageStudio> {
   // Session state (owned here; no god proliferation).
   late String _selectedStyle;
   late String _paradigm;
+
+  /// 0 = Create, 1 = Edit (the intent tabs).
+  int _studioTab = 0;
 
   // Group-chat subject: the picked cast member, or a whole-cast "group shot".
   // Both null/false → fall back to the 1:1 character passed on the widget.
@@ -444,15 +454,16 @@ class _ImageStudioState extends State<ImageStudio> {
     }
   }
 
-  Future<void> _accept() async {
-    if (_currentImageBytes == null) return;
+  Future<void> _accept([Uint8List? bytesOverride]) async {
+    final bytes = bytesOverride ?? _currentImageBytes;
+    if (bytes == null) return;
     setState(() => _saving = true);
     final service = Provider.of<ImageGenService>(context, listen: false);
 
     // Accept only applies to portrait subjects → crop then save as an avatar.
     final croppedBytes = await ImageCropDialog.show(
       context,
-      imageBytes: _currentImageBytes!,
+      imageBytes: bytes,
     );
     if (croppedBytes == null) {
       if (mounted) setState(() => _saving = false);
@@ -476,6 +487,56 @@ class _ImageStudioState extends State<ImageStudio> {
     }
     widget.onAccept?.call(path);
     Navigator.pop(context);
+  }
+
+  /// The library (dbId, name) a saved LOOK targets: the picked group member's
+  /// origin, else the 1:1 character. Unlike [_packTargetDbId] it does NOT gate on
+  /// portrait mode — any generated image (a scene, an outfit) can be a look.
+  /// Null for a group shot / persona / no character → the button hides.
+  (String, String)? get _lookTarget {
+    if (_groupShot) return null;
+    final dbId = _pickedGroupName != null
+        ? _pickedGroupDbId
+        : widget.characterDbId;
+    final name = _pickedGroupName ?? widget.characterName;
+    if (dbId == null || name == null) return null;
+    return (dbId, name);
+  }
+
+  bool get _canSaveToGallery => _lookTarget != null;
+
+  /// Save the current result to the character's Avatar Gallery as a look
+  /// (no crop). Create passes no override (uses the Create result); Edit passes
+  /// its own bytes.
+  Future<void> _saveToGallery([Uint8List? bytesOverride]) async {
+    final bytes = bytesOverride ?? _currentImageBytes;
+    final target = _lookTarget;
+    if (bytes == null || target == null) return;
+    final (dbId, name) = target;
+    setState(() => _saving = true);
+    try {
+      await Provider.of<CharacterRepository>(
+        context,
+        listen: false,
+      ).addLook(dbId, name, bytes);
+      // A look is an avatar_images row too, so the existing library-avatars
+      // refresh pushes it onto the live card → the gallery + sidebar chevrons
+      // pick it up without reopening.
+      widget.onExpressionsImported?.call(dbId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Saved to Avatar Gallery')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Save to gallery failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   void _restoreFromHistory(
@@ -510,6 +571,11 @@ class _ImageStudioState extends State<ImageStudio> {
       context,
       listen: false,
     ).isConfigured;
+    // Any generation (Create OR Edit) flips the shared service busy; fold it in
+    // so the tabs lock and Create can't double-submit while Edit is running.
+    final genBusy = context.select<ImageGenService, bool>(
+      (s) => s.isGenerating,
+    );
 
     return StudioView(
       activeMode: _activeMode,
@@ -528,7 +594,7 @@ class _ImageStudioState extends State<ImageStudio> {
       isCrafting: _isCrafting,
       isGenerating: _isGenerating,
       saving: _saving,
-      isBusy: _isBusy,
+      isBusy: _isBusy || genBusy,
       llmAvailable: widget.llmService != null && widget.llmService!.isReady,
       configured: configured,
       builder: _builder,
@@ -550,7 +616,27 @@ class _ImageStudioState extends State<ImageStudio> {
       onVariations: _variations,
       onEditRegen: _editAndRegen,
       onSendToChat: _sendToChat,
+      onSaveToGallery: _canSaveToGallery ? _saveToGallery : null,
       onRestore: _restoreFromHistory,
+      showEdit: _studioTab == 1,
+      modeTabs: StudioModeTabs(
+        selected: _studioTab,
+        onChanged: (i) => setState(() => _studioTab = i),
+        enabled: !_isBusy && !genBusy,
+      ),
+      editBody: EditView(
+        onSendToChat: widget.onSendToChat,
+        onAcceptBytes: hasAcceptAction(_activeMode)
+            ? (bytes) => _accept(bytes)
+            : null,
+        onSaveToGalleryBytes: _canSaveToGallery
+            ? (bytes) => _saveToGallery(bytes)
+            : null,
+        acceptLabel: getAcceptLabel(_activeMode),
+        // Pre-load the current portrait as the edit source (the user can still
+        // swap in an unrelated photo via "Add photo").
+        initialSourcePath: widget.characterImagePath,
+      ),
     );
   }
 }

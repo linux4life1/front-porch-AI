@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/image_gen_service.dart';
+import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -411,6 +412,15 @@ class _TabFakeStorage extends ChangeNotifier implements StorageService {
 class _TabFakeImageGenSettings implements ImageGenSettings {
   @override
   String get imageGenPromptParadigm => 'natural';
+  // ModelSlotDropdown reads both slots during build (create/edit split).
+  @override
+  String get imageGenModel => '';
+  @override
+  String get imageGenEditModel => '';
+  @override
+  Future<void> setImageGenModel(String v) async {}
+  @override
+  Future<void> setImageGenEditModel(String v) async {}
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
@@ -469,6 +479,8 @@ class _TabFakeImageGenService extends ChangeNotifier
     bool isPortrait = false,
     int? seed,
     double? denoise,
+    StudioIntent intent = StudioIntent.create,
+    double? editStrength,
   }) async => null;
   @override
   Future<String> generateSmartPrompt({

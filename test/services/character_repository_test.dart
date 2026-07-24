@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart';
 
+import 'package:front_porch_ai/models/avatar_image.dart' as model;
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -473,7 +474,8 @@ void main() {
         final storage = StorageService();
         await storage.initialized;
 
-        // pre-create char with stable
+        // Seed via importCharacter so the library PNG + in-memory list both
+        // carry the stableId (name-only match is no longer a fallback).
         final preCard = CharacterCard(
           name: 'StableMatchTarget',
           description: 'target',
@@ -488,14 +490,13 @@ void main() {
         );
         final importPng = '${tmpDir.path}/reimport.png';
         await v2.saveCardAsPng(preCard, importPng, null);
-        await repo.addCharacter(preCard);
-        // use the added or reload
-        await repo.loadCharacters();
-        await _waitUntilNotLoading(repo);
-        final existing = repo.characters.firstWhere(
-          (c) => c.name == 'StableMatchTarget',
+        final existing = await repo.importCharacter(File(importPng));
+        expect(existing != null, true);
+        final preId = existing!.dbId!;
+        expect(
+          existing.frontPorchExtensions?.stableId,
+          'reimport-stable-uuid-abc',
         );
-        final preId = existing.dbId!;
 
         // create a session for the pre char to verify preservation (minimal)
         final sessId =
@@ -529,6 +530,7 @@ void main() {
           imported.frontPorchExtensions?.stableId,
           'reimport-stable-uuid-abc',
         );
+        expect(imported.description, 'target updated');
 
         // verify session count preserved for the (reused) dbId
         final postSessions = await db.getSessionsForCharacter(preId);
@@ -600,6 +602,166 @@ void main() {
           true,
         ); // injected
         expect(imported.frontPorchExtensions!.stableId!.isNotEmpty, true);
+
+        await tmpDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'same-name no-stableId imports keep both (issue #161 — no clobber)',
+      () async {
+        _setupPathProviderMock();
+        SharedPreferences.setMockInitialValues({});
+        final storage = StorageService();
+        await storage.initialized;
+
+        final v2 = V2CardService();
+        final tmpDir = Directory.systemTemp.createTempSync('same_name_keep_');
+
+        Future<File> writeVariant(String desc, String fileName) async {
+          final card = CharacterCard(
+            name: 'SharedName',
+            description: desc,
+            // No frontPorchExtensions / stableId — community / ST cards.
+          );
+          final png = '${tmpDir.path}/$fileName';
+          await v2.saveCardAsPng(card, png, null);
+          return File(png);
+        }
+
+        final a = await writeVariant('variant A', 'a.png');
+        final b = await writeVariant('variant B', 'b.png');
+        final c = await writeVariant('variant C', 'c.png');
+
+        final ia = await repo.importCharacter(a);
+        final ib = await repo.importCharacter(b);
+        final ic = await repo.importCharacter(c);
+
+        expect(ia != null && ib != null && ic != null, true);
+        final sameName =
+            repo.characters.where((c) => c.name == 'SharedName').toList();
+        expect(sameName.length, 3);
+        // Distinct library identities
+        final ids = sameName.map((c) => c.dbId).toSet();
+        expect(ids.length, 3);
+        final stables = sameName
+            .map((c) => c.frontPorchExtensions?.stableId)
+            .toSet();
+        expect(stables.length, 3);
+        // Content not clobbered to last-only
+        final descs = sameName.map((c) => c.description).toSet();
+        expect(descs, containsAll(['variant A', 'variant B', 'variant C']));
+
+        await tmpDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'forceReplaceTarget updates in place and preserves dbId (phase 2)',
+      () async {
+        _setupPathProviderMock();
+        SharedPreferences.setMockInitialValues({});
+        final storage = StorageService();
+        await storage.initialized;
+
+        final v2 = V2CardService();
+        final tmpDir = Directory.systemTemp.createTempSync('force_replace_');
+
+        final original = CharacterCard(
+          name: 'ReplaceMe',
+          description: 'original body',
+        );
+        final origPng = '${tmpDir.path}/orig.png';
+        await v2.saveCardAsPng(original, origPng, null);
+        final first = await repo.importCharacter(File(origPng));
+        expect(first != null, true);
+        final preId = first!.dbId!;
+
+        // Session on that character — must survive replace.
+        await db.insertSession(
+          SessionsCompanion(
+            id: Value('sess-replace-${DateTime.now().millisecondsSinceEpoch}'),
+            characterId: Value(preId),
+            name: const Value('history'),
+          ),
+        );
+
+        final incoming = CharacterCard(
+          name: 'ReplaceMe',
+          description: 'replacement body',
+        );
+        final newPng = '${tmpDir.path}/new.png';
+        await v2.saveCardAsPng(incoming, newPng, null);
+
+        final replaced = await repo.importCharacter(
+          File(newPng),
+          forceReplaceTarget: first,
+        );
+        expect(replaced != null, true);
+        expect(replaced!.dbId, preId);
+        expect(replaced.description, 'replacement body');
+        expect(
+          repo.characters.where((c) => c.name == 'ReplaceMe').length,
+          1,
+        );
+        final sessions = await db.getSessionsForCharacter(preId);
+        expect(sessions.length, 1);
+
+        await tmpDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'same-name peer with different stableId is not soft-deleted on reimport',
+      () async {
+        _setupPathProviderMock();
+        SharedPreferences.setMockInitialValues({});
+        final storage = StorageService();
+        await storage.initialized;
+
+        final v2 = V2CardService();
+        final tmpDir = Directory.systemTemp.createTempSync('peer_stable_');
+
+        final peerA = CharacterCard(
+          name: 'Twin',
+          description: 'A',
+          frontPorchExtensions: FrontPorchExtensions(
+            stableId: 'stable-peer-a',
+          ),
+        );
+        final peerB = CharacterCard(
+          name: 'Twin',
+          description: 'B',
+          frontPorchExtensions: FrontPorchExtensions(
+            stableId: 'stable-peer-b',
+          ),
+        );
+        final pathA = '${tmpDir.path}/a.png';
+        final pathB = '${tmpDir.path}/b.png';
+        await v2.saveCardAsPng(peerA, pathA, null);
+        await v2.saveCardAsPng(peerB, pathB, null);
+
+        final ia = await repo.importCharacter(File(pathA));
+        final ib = await repo.importCharacter(File(pathB));
+        expect(ia != null && ib != null, true);
+        expect(repo.characters.where((c) => c.name == 'Twin').length, 2);
+
+        // Reimport A (same stable) — B must remain.
+        final peerA2 = CharacterCard(
+          name: 'Twin',
+          description: 'A updated',
+          frontPorchExtensions: FrontPorchExtensions(
+            stableId: 'stable-peer-a',
+          ),
+        );
+        final pathA2 = '${tmpDir.path}/a2.png';
+        await v2.saveCardAsPng(peerA2, pathA2, null);
+        final re = await repo.importCharacter(File(pathA2));
+        expect(re!.dbId, ia!.dbId);
+        expect(re.description, 'A updated');
+        final twins = repo.characters.where((c) => c.name == 'Twin').toList();
+        expect(twins.length, 2);
+        expect(twins.any((c) => c.dbId == ib!.dbId), isTrue);
 
         await tmpDir.delete(recursive: true);
       },
@@ -694,6 +856,53 @@ void main() {
       final deleted = await repo.deleteCharacters(const []);
       expect(deleted, 0);
       expect(repo.characters.length, before);
+    });
+
+    // --- Cover-resolution cache (20260716 nightly sluggishness regression) ---
+    test('coverImageFileFor caches disk stats; mutations invalidate', () async {
+      _setupPathProviderMock();
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.initialized;
+      final testDb = AppDatabase.forTesting();
+      final testRepo = CharacterRepository(testDb, storage);
+      await Future<void>.delayed(Duration.zero);
+
+      // A starred avatar whose file really exists — the only branch that
+      // stats the disk.
+      final base = storage.characterBaseDir('CacheTest');
+      final avatarFile = File('${base.path}/avatars/star.png')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1, 2, 3]);
+      final card = CharacterCard(
+        name: 'CacheTest',
+        frontPorchExtensions: FrontPorchExtensions(favoriteAvatarId: 'a1'),
+      )..avatarImages = [
+          model.AvatarImage(
+            id: 'a1',
+            characterId: 'c1',
+            filename: 'star.png',
+            displayOrder: 0,
+            createdAt: DateTime(2026),
+          ),
+        ];
+
+      final first = testRepo.coverImageFileFor(card);
+      expect(first?.path, avatarFile.path);
+
+      // Delete the file on disk: a CACHED answer keeps returning the old
+      // File (no re-stat — this is the perf fix), until invalidation.
+      avatarFile.deleteSync();
+      expect(testRepo.coverImageFileFor(card)?.path, avatarFile.path);
+
+      // The gallery's deferred broadcast invalidates → fresh stat → the
+      // missing star now falls back (null: no portrait on this card).
+      testRepo.notifyCharactersChanged();
+      expect(testRepo.coverImageFileFor(card), equals(null));
+
+      // A ★ change self-invalidates via the key, no broadcast needed.
+      card.frontPorchExtensions!.favoriteAvatarId = 'a2';
+      expect(testRepo.coverImageFileFor(card), equals(null)); // a2
     });
   });
 }

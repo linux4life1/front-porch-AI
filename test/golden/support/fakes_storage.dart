@@ -43,6 +43,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/storage/settings/backend_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/generation_settings.dart';
+import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Minimal [StorageService] double. Implements only the getters that widget
@@ -157,6 +158,12 @@ class FakeStorageService extends ChangeNotifier implements StorageService {
   // FakeImageGenService) is triggered.
   @override
   String get imageGenBackend => 'remote';
+  // ImageGenSettingsDialog reads the imageGenSettings sub-object directly at
+  // build (not only the top-level delegators) — return a default instance so
+  // its build reads real values instead of crashing on noSuchMethod.
+  @override
+  ImageGenSettings get imageGenSettings => _imageGenSettings;
+  final _imageGenSettings = ImageGenSettings();
   @override
   bool get imageGenEnabled => false;
   @override

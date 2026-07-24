@@ -32,6 +32,22 @@ export type WsEvent = {
   // when the image backend streams one; `progress`/`generating` above carry
   // the percent and lifecycle.
   preview?: string;
+  // `gen_status` event (truthful generation status, desktop status-bar
+  // parity): live prompt-reading counts parsed from the managed KoboldCpp
+  // console (`active` above carries the lifecycle), plus which background
+  // pass (journal/growth) is holding the single local slot.
+  phase?: string;
+  busyWith?: string | null;
+  // Backend-reported queue depth (oMLX) — stated neutrally, never attributed.
+  queued?: number;
+  promptCur?: number | null;
+  promptTotal?: number | null;
+  // Console lines arrive per BATCH; the server interpolates between them
+  // (estFraction) and flags when the console confirmed completion.
+  promptDone?: boolean;
+  estFraction?: number | null;
+  genCur?: number | null;
+  genTotal?: number | null;
 };
 
 export class ChatSocket {

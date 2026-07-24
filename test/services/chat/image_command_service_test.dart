@@ -75,6 +75,9 @@ void main() {
     late List<String> crafted;
     late List<String> generated;
     late List<(String, String)> attached;
+    late List<Object?> attachTokens;
+    Object? sessionToken;
+    late bool attachEnabled;
     late bool configured;
     late bool busy;
     String? craftResult;
@@ -95,7 +98,13 @@ void main() {
           return generateResult;
         },
         saveImage: (bytes) async => saveResult,
-        attachToChat: (path, prompt, req) async => attached.add((path, prompt)),
+        snapshotSession: () => sessionToken,
+        attachToChat: (path, prompt, req, token) async {
+          attachTokens.add(token);
+          if (!attachEnabled) return false;
+          attached.add((path, prompt));
+          return true;
+        },
       );
     }
 
@@ -104,6 +113,9 @@ void main() {
       crafted = [];
       generated = [];
       attached = [];
+      attachTokens = [];
+      sessionToken = 'session-A';
+      attachEnabled = true;
       configured = true;
       busy = false;
       craftResult = 'a cozy porch at dusk';
@@ -189,13 +201,31 @@ void main() {
           () => Uint8List.fromList([9]),
         ),
         saveImage: (bytes) async => '/tmp/x.png',
-        attachToChat: (path, prompt, req) async => attached.add((path, prompt)),
+        attachToChat: (path, prompt, req, token) async {
+          attached.add((path, prompt));
+          return true;
+        },
       );
       final first = slow.handle('scene');
       await slow.handle('scene'); // overlaps → rejected with busy status
       expect(statuses.where((s) => s.startsWith('⚠')), hasLength(1));
       await first;
       expect(attached, hasLength(1));
+    });
+
+    test('attach carries the session token snapshotted at run start', () async {
+      sessionToken = 'session-A';
+      await build().handle('scene');
+      expect(attachTokens.single, 'session-A');
+      expect(attached, hasLength(1));
+    });
+
+    test('a dropped attach does NOT post the success status', () async {
+      attachEnabled = false; // simulate "user switched chats" → attach skipped
+      await build().handle('scene');
+      expect(attached, isEmpty);
+      // The false success line must not appear over the drop's own status.
+      expect(statuses.where((s) => s.contains('added to the chat')), isEmpty);
     });
   });
 }

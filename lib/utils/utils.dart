@@ -34,6 +34,7 @@ export 'group_realism_blobs.dart';
 export 'json_sanitizer.dart';
 export 'kobold_layer_solver.dart';
 export 'persona_colors.dart';
+export 'think_tags.dart';
 export 'vram_estimator.dart';
 export 'wav_utils.dart';
 export 'world_colors.dart';

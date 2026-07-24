@@ -105,6 +105,73 @@ export function ConfirmDialog({
   );
 }
 
+/** Same-name import choice — desktop parity for issue #161 (single-file only). */
+export function ImportNameCollisionDialog({
+  cardName,
+  existing,
+  onKeepBoth,
+  onReplace,
+  onClose,
+}: {
+  cardName: string;
+  existing: { id: string; name: string }[];
+  onKeepBoth: () => void;
+  onReplace: (id: string) => void;
+  onClose: () => void;
+}) {
+  const [selectedId, setSelectedId] = useState(existing[0]?.id ?? '');
+  const multi = existing.length > 1;
+  return (
+    <div className="drawer-backdrop center" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="drawer-head">
+          <span>Character already exists</span>
+          <button className="link-btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <p className="muted dialog-msg">
+          {multi
+            ? `You already have ${existing.length} characters named "${cardName}". Keep both (add another), or replace one — replacing keeps that card's chat history.`
+            : `You already have a character named "${cardName}". Keep both (add another copy), or replace the existing card and keep its chat history.`}
+        </p>
+        {multi && (
+          <div className="collision-pick" style={{ marginBottom: 12 }}>
+            {existing.map((e) => (
+              <label key={e.id} style={{ display: 'block', marginBottom: 6 }}>
+                <input
+                  type="radio"
+                  name="import-replace-target"
+                  checked={selectedId === e.id}
+                  onChange={() => setSelectedId(e.id)}
+                />{' '}
+                {e.name}
+                <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>
+                  …{e.id.slice(-8)}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+        <div className="modal-actions">
+          <button className="ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="ghost" onClick={onKeepBoth}>
+            Keep both
+          </button>
+          <button
+            className="primary"
+            onClick={() => onReplace(selectedId || existing[0]?.id)}
+          >
+            Replace existing
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The severe "type DELETE to confirm" gate for mass-destructive actions (bulk
  * character delete, delete-folder-with-characters) — web mirror of the desktop

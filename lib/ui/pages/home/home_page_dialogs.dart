@@ -23,7 +23,6 @@ part of '../home_page.dart';
 /// Split out of the _HomePageState god file as a private extension
 /// (part of the same library, so it keeps full access to page state).
 extension _HomePageDialogs on _HomePageState {
-
   void _confirmDeleteCharacter(BuildContext context, CharacterCard character) {
     showWarmDialog(
       context,
@@ -62,9 +61,7 @@ extension _HomePageDialogs on _HomePageState {
             );
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${character.name} has been deleted.'),
-                ),
+                SnackBar(content: Text('${character.name} has been deleted.')),
               );
             }
           },
@@ -241,9 +238,14 @@ extension _HomePageDialogs on _HomePageState {
           return;
         }
 
-        // Normal character card
+        // Normal character card — single-file: offer Keep both / Replace when
+        // the display name already exists and stableId does not match.
         final repo = Provider.of<CharacterRepository>(context, listen: false);
-        final card = await repo.importCharacter(file);
+        final card = await importCharacterWithNameCollision(
+          context,
+          repo,
+          file,
+        );
         if (context.mounted && card != null) {
           // Show tag dialog
           final tags = await TagDialog.show(context, card);
@@ -328,18 +330,29 @@ extension _HomePageDialogs on _HomePageState {
       final v2Service = V2CardService();
       await v2Service.saveCardAsPng(card, pngPath, preview.extractedImagePath);
 
-      // Import via CharacterRepository (reads PNG metadata + inserts into DB)
+      // Import via CharacterRepository (reads PNG metadata + inserts into DB).
+      // Single-file BYAF: same name-collision prompt as V2 PNG import.
       final repo = Provider.of<CharacterRepository>(context, listen: false);
-      final importedCard = await repo.importCharacter(
+      final importedCard = await importCharacterWithNameCollision(
+        context,
+        repo,
         File(pngPath),
       );
 
-      // Import chat history if requested
-      if (result2.importChatHistory &&
-          preview.messages.isNotEmpty &&
-          importedCard != null) {
+      // Create the imported session: chat history and/or Backyard sampler
+      // settings, per the dialog toggles.
+      if (importedCard != null) {
+        final genSettings = result2.applySettings
+            ? byafService.toGenerationSettings(preview)
+            : null;
         final db = await AppDatabase.instance();
-        await byafService.importChatHistory(db, preview, importedCard);
+        await byafService.importSession(
+          db,
+          preview,
+          importedCard,
+          includeMessages: result2.importChatHistory,
+          genSettings: genSettings,
+        );
       }
 
       if (context.mounted && importedCard != null) {
@@ -371,6 +384,7 @@ extension _HomePageDialogs on _HomePageState {
     List<String> paths,
   ) async {
     bool importChats = true;
+    bool applySettings = true;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
@@ -384,10 +398,7 @@ extension _HomePageDialogs on _HomePageState {
           ),
           title: Row(
             children: [
-              Icon(
-                Icons.library_add,
-                color: AppColors.porchHoneyOf(ctx),
-              ),
+              Icon(Icons.library_add, color: AppColors.porchHoneyOf(ctx)),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -420,6 +431,24 @@ extension _HomePageDialogs on _HomePageState {
                   style: TextStyle(color: AppColors.textPrimary(ctx)),
                 ),
               ),
+              CheckboxListTile(
+                value: applySettings,
+                onChanged: (v) => setLocal(() => applySettings = v ?? true),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(
+                  'Apply Backyard model settings',
+                  style: TextStyle(color: AppColors.textPrimary(ctx)),
+                ),
+                subtitle: Text(
+                  "Each import uses its archive's sampler values "
+                  '(temperature, min-p, …) for the imported chat',
+                  style: TextStyle(
+                    color: AppColors.textSecondary(ctx),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
             ],
           ),
           actions: [
@@ -450,6 +479,7 @@ extension _HomePageDialogs on _HomePageState {
             context,
             paths,
             importChats,
+            applySettings: applySettings,
             onProgress: onProgress,
             isCancelled: isCancelled,
           ),
@@ -463,6 +493,7 @@ extension _HomePageDialogs on _HomePageState {
     BuildContext context,
     List<String> paths,
     bool importChats, {
+    bool applySettings = false,
     required void Function(int current, int total, String name, String? error)
     onProgress,
     required bool Function() isCancelled,
@@ -487,12 +518,19 @@ extension _HomePageDialogs on _HomePageState {
           pngPath,
           preview.extractedImagePath,
         );
-        final imported = await repo.importCharacter(
-          File(pngPath),
-        );
-        if (importChats && preview.messages.isNotEmpty && imported != null) {
+        final imported = await repo.importCharacter(File(pngPath));
+        if (imported != null) {
+          final genSettings = applySettings
+              ? byafService.toGenerationSettings(preview)
+              : null;
           final db = await AppDatabase.instance();
-          await byafService.importChatHistory(db, preview, imported);
+          await byafService.importSession(
+            db,
+            preview,
+            imported,
+            includeMessages: importChats,
+            genSettings: genSettings,
+          );
         }
         onProgress(
           i + 1,

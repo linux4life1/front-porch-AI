@@ -18,6 +18,17 @@
 
 part of '../chat_service.dart';
 
+/// Once the context is full, evict oldest messages in CHUNKS of this many
+/// instead of one per turn (docs/design/prompt-state-injection.md Phase 3).
+/// Dropping exactly one oldest message every turn shifts the history's token
+/// prefix EVERY turn, so a local backend's prefix cache (KoboldCpp
+/// fast-forward) never matches and the whole transcript re-prefills each
+/// message. Rounding the drop point up to a chunk boundary wastes at most a
+/// chunk's worth of budget but keeps the prefix byte-stable for up to this
+/// many turns between evictions. Stateless: the boundary is derived from the
+/// drop index alone, so regen/swipe/reload all land on the same boundary.
+const int kHistoryTrimChunk = 8;
+
 /// Private prompt chat-history builders and token counting/budgeting. Pure
 /// formatting over `_messages` plus token accounting — no orchestration or
 /// engine logic — extracted verbatim from `chat_service.dart` (zero behaviour
@@ -28,10 +39,19 @@ extension ChatServiceHistory on ChatService {
   /// can never drift). Director notes get bracketed so the AI treats them as
   /// instructions; generated-image messages (empty text + image metadata from
   /// `/image` or the studio's Send to chat) are described briefly instead of
-  /// producing a bare "Sender:" line.
+  /// producing a bare "Sender:" line; user-attached photos are marked (with
+  /// the stored auto-caption once available) so turns after the pixels stop
+  /// riding along still know a photo was shared and what it showed.
   String _formatHistoryLine(ChatMessage m) {
     if (m.characterId == '__director__') {
       return '[Director: ${m.text}]';
+    }
+    if (m.activeMetadata?['is_user_image'] == true) {
+      final caption = (m.activeMetadata?['image_caption'] as String? ?? '')
+          .trim();
+      final attach = '[attaches a photo${caption.isEmpty ? '' : ': $caption'}]';
+      final text = m.text.trim();
+      return '${m.sender}: ${text.isEmpty ? attach : '$text $attach'}';
     }
     if (m.activeMetadata?['is_generated_image'] == true && m.text.isEmpty) {
       final prompt = (m.activeMetadata?['image_prompt'] as String? ?? '')
@@ -101,12 +121,14 @@ extension ChatServiceHistory on ChatService {
 
     // Walk from newest to oldest, accumulating messages that fit
     final included = <String>[];
+    final counted = List<int>.filled(formatted.length, 0);
     int usedTokens = 0;
     int droppedCount = 0;
 
     for (int i = formatted.length - 1; i >= 0; i--) {
       final msgText = formatted[i];
       final msgTokens = await _countTokens(msgText);
+      counted[i] = msgTokens;
       if (usedTokens + msgTokens > tokenBudget && included.isNotEmpty) {
         // This message would exceed budget — drop it and all older messages
         droppedCount = i + 1;
@@ -114,6 +136,25 @@ extension ChatServiceHistory on ChatService {
       }
       usedTokens += msgTokens;
       included.insert(0, msgText);
+    }
+
+    // Sticky trimming (kHistoryTrimChunk): quantize the drop point UP to the
+    // next chunk boundary so the surviving prefix stays identical for up to
+    // a chunk of turns — the prefix-cache win. Never evicts the newest
+    // message (clamp), and the freed margin is simply unused budget that
+    // refills before the next eviction.
+    if (droppedCount > 0) {
+      final quantized =
+          ((droppedCount + kHistoryTrimChunk - 1) ~/ kHistoryTrimChunk) *
+          kHistoryTrimChunk;
+      final capped = quantized.clamp(0, formatted.length - 1);
+      if (capped > droppedCount) {
+        for (int i = droppedCount; i < capped; i++) {
+          usedTokens -= counted[i];
+        }
+        included.removeRange(0, capped - droppedCount);
+        droppedCount = capped;
+      }
     }
 
     final spliced = _spliceDepthLore(included, depthLore);

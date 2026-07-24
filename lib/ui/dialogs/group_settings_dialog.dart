@@ -14,6 +14,7 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/world.dart';
+import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/app_text_field.dart';
 import 'package:front_porch_ai/ui/widgets/styled_text_controller.dart';
@@ -358,13 +359,13 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                 // ── Group System Prompt ─────────────────────────────────────
                 const Row(
                   children: [
-                    Icon(Icons.code, size: 16, color: Colors.blueAccent),
+                    Icon(Icons.code, size: 16, color: AppColors.formMasterAccent),
                     SizedBox(width: 6),
                     Text(
                       'Group System Prompt',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent,
+                        color: AppColors.formMasterAccent,
                         fontSize: 13,
                       ),
                     ),
@@ -406,7 +407,7 @@ class _PromptEngineeringTabState extends State<_PromptEngineeringTab> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.blueAccent),
+                      borderSide: const BorderSide(color: AppColors.formMasterAccent),
                     ),
                     contentPadding: const EdgeInsets.all(10),
                   ),
@@ -750,7 +751,7 @@ class _MemoryRAGTab extends StatefulWidget {
 
 class _MemoryRAGTabState extends State<_MemoryRAGTab> {
   bool _groupRagEnabled = true;
-  int _retrievalCount = 8;
+  int _retrievalCount = 4;
   double _memoryBudgetPercent = 10.0;
   Map<String, double> _charPriorities = {};
   List<CharacterCard> _chars = [];
@@ -776,23 +777,28 @@ class _MemoryRAGTabState extends State<_MemoryRAGTab> {
     _retrievalCount = widget.chatService.groupRetrievalCount;
     _memoryBudgetPercent = widget.chatService.groupMemoryBudgetPercent;
 
-    final savedPriorities = widget.chatService.currentGroupRAGPriorities;
+    // Read priorities per CARD — storage is keyed by stable character id,
+    // so the old name-keyed lookup always missed and showed 1.0.
     _charPriorities = {
-      for (final c in _chars) c.name: savedPriorities[c.name] ?? 1.0,
+      for (final c in _chars)
+        c.name: widget.chatService.ragPriorityForGroupCharacter(c),
     };
   }
 
-  void _updateCharPriority(String charName, double value) {
+  void _updateCharPriority(CharacterCard char, double value) {
     setState(() {
-      _charPriorities[charName] = value;
+      _charPriorities[char.name] = value;
     });
-    // Live application happens via the main Save or when dialog closes for now
+    // Live-apply like the sibling controls (budget %, enable toggle). These
+    // two setters used to only touch local state — the sliders were dead.
+    widget.chatService.setRAGPriorityForGroupCharacter(char, value);
   }
 
   void _updateRetrievalCount(int value) {
     setState(() {
       _retrievalCount = value;
     });
+    widget.chatService.setGroupRetrievalCount(value);
   }
 
   void _updateMemoryBudget(double value) {
@@ -812,10 +818,17 @@ class _MemoryRAGTabState extends State<_MemoryRAGTab> {
   void _resetToDefaults() {
     setState(() {
       _groupRagEnabled = true;
-      _retrievalCount = 8;
+      _retrievalCount = 4;
       _memoryBudgetPercent = 10.0;
       _charPriorities = {for (final c in _chars) c.name: 1.0};
     });
+    // Push the reset to the service too — it used to be display-only.
+    widget.chatService.setGroupRAGEnabled(true);
+    widget.chatService.setGroupRetrievalCount(4);
+    widget.chatService.setGroupMemoryBudgetPercent(10.0);
+    for (final c in _chars) {
+      widget.chatService.setRAGPriorityForGroupCharacter(c, 1.0);
+    }
   }
 
   @override
@@ -1022,7 +1035,7 @@ class _MemoryRAGTabState extends State<_MemoryRAGTab> {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: const Text(
-                    'Reset all to 1.0',
+                    'Reset to defaults',
                     style: TextStyle(fontSize: 11, color: Colors.white54),
                   ),
                 ),
@@ -1090,7 +1103,7 @@ class _MemoryRAGTabState extends State<_MemoryRAGTab> {
                             divisions: 20,
                             activeColor: Colors.purpleAccent,
                             inactiveColor: Colors.white12,
-                            onChanged: (v) => _updateCharPriority(char.name, v),
+                            onChanged: (v) => _updateCharPriority(char, v),
                           ),
                         ),
                       ),
@@ -1136,6 +1149,9 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
   // Group-wide Time & Day.
   String _groupTimeOfDay = 'morning';
   int _groupDayCount = 1;
+  // Story Calendar seed for fresh sessions (story-calendar.md §3a).
+  String? _groupStoryStartDate;
+  String? _groupStoryStartTime;
   late final TextEditingController _groupDayCountController;
 
   List<CharacterCard> _chars = [];
@@ -1193,6 +1209,8 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
         final map = (jsonDecode(gs) as Map<String, dynamic>?) ?? {};
         _groupTimeOfDay = (map['timeOfDay'] as String?) ?? 'morning';
         _groupDayCount = (map['dayCount'] as num?)?.toInt() ?? 1;
+        _groupStoryStartDate = map['storyStartDate'] as String?;
+        _groupStoryStartTime = map['storyStartTime'] as String?;
       }
     }
     _groupDayCountController = TextEditingController(
@@ -1533,6 +1551,16 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
           : <String, dynamic>{};
       map['timeOfDay'] = _groupTimeOfDay;
       map['dayCount'] = _groupDayCount;
+      if (_groupStoryStartDate != null) {
+        map['storyStartDate'] = _groupStoryStartDate;
+      } else {
+        map.remove('storyStartDate');
+      }
+      if (_groupStoryStartTime != null) {
+        map['storyStartTime'] = _groupStoryStartTime;
+      } else {
+        map.remove('storyStartTime');
+      }
       group.defaultMemberRealismState = jsonEncode(map);
     } catch (_) {
       // Non-fatal
@@ -1904,6 +1932,21 @@ class _RealismNeedsTabState extends State<_RealismNeedsTab> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Story Calendar seed for FRESH sessions (the live chat's
+                  // clock is set from the Story Calendar dialog instead).
+                  StoryBeginsRow(
+                    storyStartDate: _groupStoryStartDate,
+                    onStoryStartDateChanged: (v) {
+                      setState(() => _groupStoryStartDate = v);
+                      _persistGroupTimeDay();
+                    },
+                    storyStartTime: _groupStoryStartTime,
+                    onStoryStartTimeChanged: (v) {
+                      setState(() => _groupStoryStartTime = v);
+                      _persistGroupTimeDay();
+                    },
                   ),
 
                   const SizedBox(height: 14),

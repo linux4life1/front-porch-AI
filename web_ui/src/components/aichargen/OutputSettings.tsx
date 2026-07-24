@@ -71,6 +71,18 @@ export function OutputSettings({
           />
         </>
       )}
+
+      <label
+        className="cg-field cg-toggle"
+        title="Lets the AI add {{pick:…}} and {{roll:…}} macros to world lore and the opening message, so small details vary each playthrough — a tavern's daily special, a passing sound. Off by default: capable models use them well; smaller models may place them awkwardly or skip them."
+      >
+        <input
+          type="checkbox"
+          checked={form.includeDynamicMacros}
+          onChange={(e) => set({ includeDynamicMacros: e.target.checked })}
+        />
+        <span>Dynamic macros</span>
+      </label>
     </div>
   );
 }

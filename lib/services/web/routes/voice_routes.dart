@@ -61,10 +61,18 @@ class WebVoiceRoutes {
   }
 
   Future<shelf.Response> _transcribe(shelf.Request r) async {
-    final bytes = await RequestBody.readBytes(
-      r,
-      maxBytes: RequestBody.uploadMaxBytes,
-    );
+    final List<int> bytes;
+    try {
+      bytes = await RequestBody.readBytes(
+        r,
+        maxBytes: RequestBody.uploadMaxBytes,
+      );
+    } on BodyTooLarge {
+      // ONLY the oversize case → 413. Other read failures (truncated body,
+      // client disconnect) must not masquerade as "too large"; let them fall
+      // through to the generic 500 rather than mislead the caller.
+      return JsonResponse.error(413, 'Audio file too large');
+    }
     if (bytes.isEmpty) return JsonResponse.badRequest('audio body is required');
     final ext = r.url.queryParameters['ext'];
     final text = await _facade.transcribe(bytes, ext: ext);

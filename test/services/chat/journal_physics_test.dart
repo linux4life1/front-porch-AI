@@ -36,6 +36,7 @@ void main() {
       String? intensity,
       String? emotion,
       bool pinned = false,
+      String? kind,
     }) => JournalMemoryData(
       id: 'x',
       sessionId: 's1',
@@ -48,6 +49,7 @@ void main() {
       accessCount: 0,
       pinned: pinned,
       dimensions: 0,
+      metadata: kind == null ? null : '{"kind":"$kind"}',
       createdAt: DateTime(2026),
       lastAccessedAt: DateTime(2026),
       updatedAt: DateTime(2026),
@@ -63,6 +65,22 @@ void main() {
     test('pinned never decays and heat floors at zero', () {
       expect(JournalPhysics.cooledHeat(card(pinned: true)), 1.0);
       expect(JournalPhysics.cooledHeat(card(heat: 0.05)), 0.0);
+    });
+
+    test('milestone cards never cool but are not always-injected (Living Time v1.5)', () {
+      final m = card(kind: 'milestone', heat: 1.0, intensity: 'mild');
+      expect(JournalPhysics.isMilestone(m), isTrue);
+      expect(JournalPhysics.cooledHeat(m), 1.0);
+      expect(JournalPhysics.isHot(m), isFalse);
+      expect(JournalPhysics.cardKind(m), 'milestone');
+    });
+
+    test('promise cards are ledger-class (Train B)', () {
+      final p = card(kind: 'promise', heat: 1.0, intensity: 'mild');
+      expect(JournalPhysics.isPromise(p), isTrue);
+      expect(JournalPhysics.isLedgerCard(p), isTrue);
+      expect(JournalPhysics.cooledHeat(p), 1.0);
+      expect(JournalPhysics.isHot(p), isFalse);
     });
 
     test('hot/cold threshold, pinned always hot', () {
@@ -312,6 +330,8 @@ void main() {
       store: store,
       getSessionId: () => 's1',
       getCurrentEmotion: () => currentEmotion,
+      getCurrentStoryDay: () => 1,
+      getStoryStartDate: () => DateTime.utc(2026, 6, 30),
     );
 
     Future<JournalMemoryData> addOne(String content, {String? emotion}) async {
@@ -339,11 +359,11 @@ void main() {
         const JournalMemoriesCompanion(heat: Value(0.0), pinned: Value(true)),
       );
 
-      final block = await buildInjection().buildJournalBlock(
+      final block = (await buildInjection().buildJournalBlock(
         characterId: 'mara',
         characterName: 'Mara',
         userName: 'Sam',
-      );
+      )).text;
       expect(block, isNot(contains('gone cold')));
       expect(block, contains('pinned survivor'));
     });
@@ -358,22 +378,22 @@ void main() {
       await addOne('the joyful one', emotion: 'joyful'); // newer, heat 1.0
 
       currentEmotion = 'wistful'; // sadness family → boost the sad card
-      final block = await buildInjection().buildJournalBlock(
+      final block = (await buildInjection().buildJournalBlock(
         characterId: 'mara',
         characterName: 'Mara',
         userName: 'Sam',
-      );
+      )).text;
       expect(
         block.indexOf('the sad one'),
         lessThan(block.indexOf('the joyful one')),
       );
 
       currentEmotion = 'neutral'; // no boost → plain heat order wins
-      final unboosted = await buildInjection().buildJournalBlock(
+      final unboosted = (await buildInjection().buildJournalBlock(
         characterId: 'mara',
         characterName: 'Mara',
         userName: 'Sam',
-      );
+      )).text;
       expect(
         unboosted.indexOf('the joyful one'),
         lessThan(unboosted.indexOf('the sad one')),
@@ -392,12 +412,12 @@ void main() {
       );
       await addOne('still warm'); // keeps the block non-empty either way
 
-      final withQuery = await buildInjection().buildJournalBlock(
+      final withQuery = (await buildInjection().buildJournalBlock(
         characterId: 'mara',
         characterName: 'Mara',
         userName: 'Sam',
         queryText: 'remember the lighthouse?',
-      );
+      )).text;
       expect(withQuery, contains('the lighthouse trip'));
 
       final rewarmed = (await store.cardsFor('s1', 'mara'))
@@ -418,19 +438,19 @@ void main() {
       );
       await addOne('still warm');
 
-      final noQuery = await buildInjection().buildJournalBlock(
+      final noQuery = (await buildInjection().buildJournalBlock(
         characterId: 'mara',
         characterName: 'Mara',
         userName: 'Sam',
-      );
+      )).text;
       expect(noQuery, isNot(contains('unrelated memory')));
 
-      final dissimilar = await buildInjection().buildJournalBlock(
+      final dissimilar = (await buildInjection().buildJournalBlock(
         characterId: 'mara',
         characterName: 'Mara',
         userName: 'Sam',
         queryText: 'anything at all',
-      );
+      )).text;
       expect(dissimilar, isNot(contains('unrelated memory')));
       // And the buried card was never counted as accessed.
       final untouched = (await store.cardsFor('s1', 'mara'))

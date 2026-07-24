@@ -19,6 +19,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
@@ -28,6 +29,10 @@ import 'package:front_porch_ai/services/grpc/draw_things_grpc_service.dart';
 import 'package:front_porch_ai/services/image_prompt/image_gen_context.dart';
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
+import 'package:front_porch_ai/services/image/edit_profile.dart';
+import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
+import 'package:front_porch_ai/services/capability/image_reference_role.dart';
+import 'package:front_porch_ai/services/capability/image_reference_resolver.dart';
 import 'package:front_porch_ai/services/image_prompt/image_prompt_builder.dart';
 
 /// Available image generation subjects.
@@ -225,6 +230,17 @@ class ImageGenService extends ChangeNotifier {
 
   ImageGenService(this._storage);
 
+  /// Best-effort ComfyUI VRAM nudge before a create→edit model swap (the
+  /// creator pack's "Switching to edit model" stage). No-op on every other
+  /// backend — DT/remote load-unload per request on their own.
+  Future<void> nudgeComfyFree() async {
+    final backend = ImageGenBackend.fromKey(
+      _storage.imageGenSettings.imageGenBackend,
+    );
+    if (backend != ImageGenBackend.comfyUi) return;
+    await _ensureComfyUi.freeMemory();
+  }
+
   /// Build the images directory path.
   Directory get _imagesDir =>
       Directory(path.join(_storage.rootPath ?? '', 'KoboldManager', 'images'));
@@ -250,7 +266,28 @@ class ImageGenService extends ChangeNotifier {
     // Remote APIs ignore them (no seed/denoise support on those endpoints).
     int? seed,
     double? denoise,
+    // Which surface asked. Create (default) keeps every existing path
+    // byte-identical; Edit routes an edit-capable model to edit-conditioning
+    // and resolves the EDIT model slot. Passed by the Studio's Edit tab and
+    // by edit-first expression packs (Studio dialog + the creator panel).
+    StudioIntent intent = StudioIntent.create,
+    // Edit-only: how strongly the instruction changes the reference (higher =
+    // more change). Overrides the edit profile's default strength when set, so
+    // the Edit tab can offer a "how much should change" control. Ignored outside
+    // the edit path.
+    double? editStrength,
   }) async {
+    // Reentrancy guard: this service holds a SINGLE shared _isGenerating /
+    // _statusMessage / _genPreview / _genProgress. Two overlapping calls (the
+    // classic case: the WebUI image panel + the desktop Studio, or /image while
+    // a Studio gen runs) would clobber each other's status and progress, the
+    // first to finish would flip _isGenerating false and unlock the other
+    // mid-flight, and on Draw Things both would spawn CLI jobs against one GPU.
+    // Refuse the second start rather than corrupt the first.
+    if (_isGenerating) {
+      debugPrint('[ImageGen] generateImage refused — a generation is running.');
+      return null;
+    }
     _isGenerating = true;
     _statusMessage = 'Generating image...';
     _lastGeneratedImage = null;
@@ -282,6 +319,42 @@ class ImageGenService extends ChangeNotifier {
         _storage.imageGenSettings.imageGenBackend,
       );
 
+      // Resolve what the reference image MEANS for this backend + model (the
+      // single seam). Create keeps today's behavior; Edit routes an edit model
+      // to editConditioning, and refuses honestly when the backend can't edit.
+      //
+      // Model-slot split (phase #12): EDIT intent resolves against the edit
+      // slot, create against the create slot. One shared slot used to let an
+      // edit model left selected after an Edit session silently poison base
+      // generation (edit models can't txt2img). An explicit [model] wins
+      // (batch flows pass their own). ComfyUI's edit path ignores this — its
+      // models come from the comfyEdit* workflow slots.
+      final refModelName =
+          model ??
+          (intent == StudioIntent.edit
+              ? _storage.imageGenSettings.imageGenEditModel
+              : _storage.imageGenSettings.imageGenModel);
+      final refCapability = ImageReferenceResolver.resolveForBackend(
+        backend: backend,
+        modelName: refModelName,
+      );
+      final refCount = (referenceImage != null && referenceImage.isNotEmpty)
+          ? 1
+          : 0;
+      final refRole = routeReference(
+        intent: intent,
+        attachedRefCount: refCount,
+        cap: refCapability,
+      );
+      if (refRole == ImageReferenceRole.unsupported) {
+        _statusMessage =
+            refCapability.degradeReason ??
+            'This backend can’t edit from a photo. Try Create instead.';
+        _isGenerating = false;
+        notifyListeners();
+        return null;
+      }
+
       if (backend == ImageGenBackend.a1111 ||
           backend == ImageGenBackend.drawThings) {
         final isDrawThings =
@@ -292,8 +365,8 @@ class ImageGenService extends ChangeNotifier {
           _statusMessage = 'Connecting to Draw Things...';
           notifyListeners();
 
-          final modelCheckpoint =
-              model ?? _storage.imageGenSettings.imageGenModel;
+          // Slot-resolved above (edit intent → edit slot).
+          final modelCheckpoint = refModelName;
           // Relaxed .ckpt check: gRPC file list returns the actual filenames Draw Things knows about
           // (may be .ckpt, .safetensors, or bare names). Empty is allowed (uses current in DT).
           if (modelCheckpoint.isNotEmpty &&
@@ -326,6 +399,41 @@ class ImageGenService extends ChangeNotifier {
             final loraName = _storage.imageGenSettings.imageGenLora;
             final loraWeight = _storage.imageGenSettings.imageGenLoraWeight;
 
+            // Edit models (Qwen-Image-Edit / Flux Kontext) read the reference as
+            // conditioning. The Edit tab keeps its OWN edit-scoped copy of these
+            // knobs (steps/CFG/sampler/shift/seed-mode) so tuning an edit never
+            // clobbers Create's txt2img settings — see edit_profile.dart. This
+            // service is a DUMB PIPE for them: whatever the user set on the Edit
+            // tab is sent verbatim, no silent override.
+            var dtStrength = strength;
+            var dtSteps = steps;
+            var dtCfg = cfgScale;
+            var dtShift = shift;
+            var dtSampler = sampler;
+            var dtSeedMode = seedMode;
+            var dtLoras = loraName.isEmpty
+                ? const <Map<String, dynamic>>[]
+                : [
+                    {'file': loraName, 'weight': loraWeight},
+                  ];
+            if (refRole == ImageReferenceRole.editConditioning) {
+              // Every knob the user sees on the Edit tab, honored as-is (the
+              // edit-scoped store is seeded with the field-tested recipe so the
+              // FIRST edit already works — UniPC + moderate CFG — without
+              // clobbering Create). The "how much should change" slider provides
+              // the denoise strength; the user's LoRA rides along unchanged.
+              dtSteps = _storage.editSteps;
+              dtCfg = _storage.editCfgScale;
+              dtSampler = _storage.editSampler;
+              dtShift = _storage.editShift;
+              dtSeedMode = _storage.editSeedMode;
+              dtStrength = editStrength ?? kEditRecommendedStrength;
+              _statusMessage = refCapability.editKind == EditModelKind.kontext
+                  ? 'Editing with Flux Kontext...'
+                  : 'Editing with Qwen-Image-Edit...';
+              notifyListeners();
+            }
+
             imageBytes = await _generateViaDrawThingsGrpc(
               grpcService: grpcService,
               prompt: prompt,
@@ -333,33 +441,52 @@ class ImageGenService extends ChangeNotifier {
               model: modelCheckpoint,
               width: width,
               height: height,
-              steps: steps,
-              cfgScale: cfgScale,
+              steps: dtSteps,
+              cfgScale: dtCfg,
               seed: effectiveSeed,
-              strength: strength,
-              shift: shift,
-              sampler: sampler,
-              seedMode: seedMode,
+              strength: dtStrength,
+              shift: dtShift,
+              sampler: dtSampler,
+              seedMode: dtSeedMode,
               teaCache: teaCache,
               cfgZeroStar: cfgZeroStar,
-              loras: loraName.isEmpty
-                  ? const []
-                  : [
-                      {'file': loraName, 'weight': loraWeight},
-                    ],
+              loras: dtLoras,
               referenceImage: referenceImage,
               onProgress: (step, total) => _updateGenProgress(
                 total > 0 ? (step / total).clamp(0.0, 1.0) : null,
               ),
             );
           } catch (e) {
-            // Sanitize for user display (no full tracebacks, absolute paths, or raw CLI internals)
+            // A "Generation error from CLI: …" means the gRPC server WAS reached
+            // and the generation itself failed (bad LoRA, incompatible model,
+            // etc.) — the old code hid that behind a misleading "check the gRPC
+            // server" message, which made LoRA/edit failures undiagnosable.
+            // Surface the real Draw Things reason (first line, path/length
+            // trimmed); keep the connection hint only for actual connect errors.
             final msg = e.toString();
-            final safe = msg.contains('CLI') || msg.contains('Generation error')
-                ? 'Draw Things generation failed. Check that the gRPC server is enabled in Draw Things and the host/port are correct.'
-                : 'Draw Things connection or generation failed.';
+            const genMarker = 'Generation error from CLI: ';
+            final idx = msg.indexOf(genMarker);
+            String safe;
+            if (idx >= 0) {
+              var detail = msg.substring(idx + genMarker.length).trim();
+              detail = detail.split('\n').first.trim();
+              if (detail.isEmpty || detail == 'null') {
+                detail = 'the backend rejected the request '
+                    '(often an incompatible LoRA or model for editing).';
+              }
+              if (detail.length > 240) detail = '${detail.substring(0, 240)}…';
+              safe = 'Draw Things couldn’t generate: $detail';
+            } else if (msg.contains('CLI returned no parseable') ||
+                msg.contains('connect') ||
+                msg.contains('gRPC') ||
+                msg.contains('timed out')) {
+              safe =
+                  'Draw Things generation failed. Check that the gRPC server is enabled in Draw Things and the host/port are correct.';
+            } else {
+              safe = 'Draw Things connection or generation failed.';
+            }
             _statusMessage = safe;
-            debugPrint('ImageGen: Draw Things error (sanitized for user): $e');
+            debugPrint('ImageGen: Draw Things error: $e');
             _isGenerating = false;
             notifyListeners();
             return null;
@@ -374,8 +501,7 @@ class ImageGenService extends ChangeNotifier {
             return null;
           }
           final imageSize = size ?? _storage.imageGenSettings.imageGenSize;
-          final modelCheckpoint =
-              model ?? _storage.imageGenSettings.imageGenModel;
+          final modelCheckpoint = refModelName;
           imageBytes = await _generateViaA1111(
             baseUrl: localUrl,
             prompt: prompt,
@@ -415,26 +541,62 @@ class ImageGenService extends ChangeNotifier {
                   storedScheduler != 'Automatic')
               ? storedScheduler
               : ComfyUiService.schedulerFor(storedSampler);
-          imageBytes = await comfy.generateImage(
-            prompt: prompt,
-            negativePrompt: negativePrompt,
-            model: model ?? _storage.imageGenSettings.imageGenModel,
-            width: width,
-            height: height,
-            steps: _storage.imageGenSettings.imageGenSteps,
-            cfgScale: _storage.imageGenSettings.imageGenCfgScale,
-            seed: seed ?? _storage.imageGenSettings.imageGenSeed,
-            samplerName: ComfyUiService.normalizeSampler(
-              storedSampler,
-              available,
-            ),
-            scheduler: scheduler,
-            loraName: _storage.imageGenSettings.imageGenLora,
-            loraWeight: _storage.imageGenSettings.imageGenLoraWeight,
-            referenceImageBytes: referenceImage,
-            denoise: denoise ?? _storage.imageGenSettings.imageGenDenoise,
-            onProgress: _updateGenProgress,
-          );
+          if (refRole == ImageReferenceRole.editConditioning &&
+              referenceImage != null) {
+            // ComfyUI instruction-edit: run the SELECTED workflow (a bundled
+            // preset or the user's uploaded graph) via the token engine. The
+            // edit-scoped knobs supply steps/CFG/strength(→denoise)/shift; the
+            // sampler/scheduler use ComfyUI-friendly defaults (the DT sampler
+            // int doesn't map cleanly). Model slots come from the user's picks.
+            _statusMessage = 'Editing with ComfyUI...';
+            notifyListeners();
+            final storedSeed = seed ?? _storage.imageGenSettings.imageGenSeed;
+            final req = resolveComfyEditRequest(
+              workflowId: _storage.comfyEditWorkflowId,
+              uploadedWorkflowJson: _storage.comfyEditUploadedWorkflow,
+              modelChoices: _storage.comfyEditModelChoices,
+              prompt: prompt,
+              negative: negativePrompt,
+              seed: storedSeed == -1 ? Random().nextInt(1 << 31) : storedSeed,
+              steps: _storage.editSteps,
+              cfg: _storage.editCfgScale,
+              denoise: editStrength ?? kEditRecommendedStrength,
+              shift: _storage.editShift,
+            );
+            if (req == null) {
+              throw Exception(
+                'No ComfyUI edit workflow is set up. Pick a preset (and its '
+                'models) or upload a workflow in the Edit tab.',
+              );
+            }
+            imageBytes = await comfy.generateImageEdit(
+              referenceImageBytes: referenceImage,
+              workflowTemplate: req.template,
+              tokenValues: req.values,
+              onProgress: _updateGenProgress,
+            );
+          } else {
+            imageBytes = await comfy.generateImage(
+              prompt: prompt,
+              negativePrompt: negativePrompt,
+              model: refModelName,
+              width: width,
+              height: height,
+              steps: _storage.imageGenSettings.imageGenSteps,
+              cfgScale: _storage.imageGenSettings.imageGenCfgScale,
+              seed: seed ?? _storage.imageGenSettings.imageGenSeed,
+              samplerName: ComfyUiService.normalizeSampler(
+                storedSampler,
+                available,
+              ),
+              scheduler: scheduler,
+              loraName: _storage.imageGenSettings.imageGenLora,
+              loraWeight: _storage.imageGenSettings.imageGenLoraWeight,
+              referenceImageBytes: referenceImage,
+              denoise: denoise ?? _storage.imageGenSettings.imageGenDenoise,
+              onProgress: _updateGenProgress,
+            );
+          }
         } catch (e) {
           // Sanitize for user display (mirrors the Draw Things branch).
           final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
@@ -456,7 +618,7 @@ class ImageGenService extends ChangeNotifier {
           return null;
         }
 
-        final imageModel = model ?? _storage.imageGenSettings.imageGenModel;
+        final imageModel = refModelName;
         if (imageModel.isEmpty) {
           _statusMessage = 'No image model selected.';
           _isGenerating = false;
@@ -468,6 +630,17 @@ class ImageGenService extends ChangeNotifier {
         final apiUrl = _storage.backendSettings.remoteApiUrl;
         final apiKey = _storage.backendSettings.remoteApiKey;
 
+        // Remote EDIT when an edit model + a reference are in play: the
+        // instruction (`prompt`) + the reference image go to the provider's edit
+        // shape (OpenAI-compatible /images/edits, or OpenRouter's multimodal
+        // chat). Otherwise the existing txt2img path, untouched.
+        final remoteEdit =
+            refRole == ImageReferenceRole.editConditioning &&
+            referenceImage != null;
+        if (remoteEdit) {
+          _statusMessage = 'Editing with $imageModel...';
+          notifyListeners();
+        }
         if (_isOpenRouterStyle(apiUrl)) {
           imageBytes = await _generateViaOpenRouter(
             apiUrl: apiUrl,
@@ -475,6 +648,7 @@ class ImageGenService extends ChangeNotifier {
             model: imageModel,
             prompt: prompt,
             size: imageSize,
+            editImage: remoteEdit ? referenceImage : null,
           );
         } else {
           imageBytes = await _generateViaOpenAICompat(
@@ -484,6 +658,7 @@ class ImageGenService extends ChangeNotifier {
             prompt: prompt,
             negativePrompt: negativePrompt,
             size: imageSize,
+            editImage: remoteEdit ? referenceImage : null,
           );
         }
       }
@@ -1628,17 +1803,31 @@ class ImageGenService extends ChangeNotifier {
     required String prompt,
     String negativePrompt = '',
     String size = '1024x1024',
+    // When set, this is an EDIT: POST the reference (as a base64 data URI) +
+    // instruction to the OpenAI-compatible /images/edits endpoint instead of
+    // /images/generations. Verified against Nano-GPT (JSON imageDataUrl variant).
+    Uint8List? editImage,
   }) async {
-    final imageEndpoint = '$apiUrl/images/generations';
-    debugPrint('ImageGen: POST $imageEndpoint (model=$model)');
+    final isEdit = editImage != null;
+    final imageEndpoint = isEdit
+        ? '$apiUrl/images/edits'
+        : '$apiUrl/images/generations';
+    debugPrint('ImageGen: POST $imageEndpoint (model=$model, edit=$isEdit)');
     final uri = Uri.parse(imageEndpoint);
-    final payload = <String, dynamic>{
-      'model': model,
-      'prompt': prompt,
-      'n': 1,
-      'size': size,
-      'response_format': 'b64_json',
-    };
+    final payload = isEdit
+        ? <String, dynamic>{
+            'model': model,
+            'prompt': prompt,
+            'imageDataUrl':
+                'data:image/png;base64,${base64Encode(editImage)}',
+          }
+        : <String, dynamic>{
+            'model': model,
+            'prompt': prompt,
+            'n': 1,
+            'size': size,
+            'response_format': 'b64_json',
+          };
 
     final client = http.Client();
     try {
@@ -1660,12 +1849,15 @@ class ImageGenService extends ChangeNotifier {
         try {
           final errBody = jsonDecode(response.body);
           final error = errBody['error'];
-          // Handle both OpenAI format {"error":{"message":"..."}} and
-          // Nano-GPT format {"error":"...","code":"..."}
+          // Handle both OpenAI format {"error":{"message":"..."}} and Nano-GPT
+          // format {"error":"Insufficient balance","message":"Available X,
+          // required Y","code":"insufficient_balance"} — prefer the detailed
+          // top-level message so e.g. a low-balance edit says exactly how much.
           if (error is Map<String, dynamic>) {
             errorMsg = error['message'] as String? ?? errorMsg;
           } else if (error is String) {
-            errorMsg = error;
+            final detail = errBody['message'];
+            errorMsg = (detail is String && detail.isNotEmpty) ? detail : error;
           }
         } catch (_) {}
         throw Exception(errorMsg);
@@ -1697,18 +1889,36 @@ class ImageGenService extends ChangeNotifier {
   }
 
   /// Generate via OpenRouter's chat/completions endpoint with image modality.
+  ///
+  /// When [editImage] is set this is an EDIT: the reference rides as an
+  /// `image_url` content part (base64 data URI) alongside the instruction — the
+  /// only image-edit shape OpenRouter exposes (it has no /images/edits). Wired
+  /// from OpenRouter's documented multimodal image support but NOT verified
+  /// in-house (only Nano-GPT's /images/edits was); community-verified.
   Future<Uint8List> _generateViaOpenRouter({
     required String apiUrl,
     required String apiKey,
     required String model,
     required String prompt,
     String size = '1024x1024',
+    Uint8List? editImage,
   }) async {
     final uri = Uri.parse('$apiUrl/chat/completions');
+    final content = editImage == null
+        ? prompt
+        : [
+            {'type': 'text', 'text': prompt},
+            {
+              'type': 'image_url',
+              'image_url': {
+                'url': 'data:image/png;base64,${base64Encode(editImage)}',
+              },
+            },
+          ];
     final payload = <String, dynamic>{
       'model': model,
       'messages': [
-        {'role': 'user', 'content': prompt},
+        {'role': 'user', 'content': content},
       ],
       'modalities': ['image'],
       'max_tokens': 4096,
@@ -1748,35 +1958,36 @@ class ImageGenService extends ChangeNotifier {
       if (choices.isEmpty) throw Exception('No response choices');
 
       final message = choices[0]['message'] as Map<String, dynamic>;
-      final content = message['content'];
 
-      // OpenRouter may return content as a list with image parts
-      if (content is List) {
-        for (final part in content) {
-          if (part is Map<String, dynamic>) {
-            if (part['type'] == 'image_url') {
-              final imageUrl = part['image_url']?['url'] as String?;
-              if (imageUrl != null) {
-                if (imageUrl.startsWith('data:')) {
-                  // Base64 data URI
-                  final b64 = imageUrl.split(',').last;
-                  return base64Decode(b64);
-                } else {
-                  // Regular URL — download it
-                  final imgResp = await client
-                      .get(Uri.parse(imageUrl))
-                      .timeout(const Duration(seconds: 30));
-                  return imgResp.bodyBytes;
-                }
-              }
-            }
-          }
+      // OpenRouter returns the generated/edited image in message.images:
+      // [{type:'image_url', image_url:{url:'data:...'|'https://...'}}] — VERIFIED
+      // live against a real edit (2026-07). This is where the image actually is;
+      // the `content` shapes below are legacy/other-provider fallbacks.
+      final images = message['images'];
+      if (images is List) {
+        for (final im in images) {
+          if (im is! Map<String, dynamic>) continue;
+          final iu = im['image_url'];
+          final url = iu is Map<String, dynamic> ? iu['url'] as String? : null;
+          if (url != null) return _imageBytesFromUrl(client, url);
         }
       }
 
-      // Fallback: try to extract base64 from string content
+      final content = message['content'];
+      // Fallback: content as a list with image_url parts.
+      if (content is List) {
+        for (final part in content) {
+          if (part is! Map<String, dynamic> || part['type'] != 'image_url') {
+            continue;
+          }
+          final iu = part['image_url'];
+          final url = iu is Map<String, dynamic> ? iu['url'] as String? : null;
+          if (url != null) return _imageBytesFromUrl(client, url);
+        }
+      }
+
+      // Fallback: a bare base64 string in content.
       if (content is String && content.isNotEmpty) {
-        // Check if it's a base64 string
         try {
           return base64Decode(content);
         } catch (_) {
@@ -1788,5 +1999,15 @@ class ImageGenService extends ChangeNotifier {
     } finally {
       client.close();
     }
+  }
+
+  /// Decode an image reference from a chat image part — a `data:` base64 URI, or
+  /// an https URL to download. Shared by the OpenRouter images/content parsing.
+  Future<Uint8List> _imageBytesFromUrl(http.Client client, String url) async {
+    if (url.startsWith('data:')) return base64Decode(url.split(',').last);
+    final r = await client
+        .get(Uri.parse(url))
+        .timeout(const Duration(seconds: 30));
+    return r.bodyBytes;
   }
 }

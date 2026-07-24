@@ -37,6 +37,8 @@
 
 // ignore_for_file: unnecessary_underscores, must_call_super
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/character_card.dart';
@@ -90,6 +92,9 @@ LlmEvalEngine createTestLlmEvalEngine({
   List<ChatMessage> messages = const [],
   String Function()?
   getLlmJson, // returns the raw JSON string the "LLM" will stream
+  Stream<String> Function(GenerationParams)?
+  streamFactory, // full stream override (hang/timeout tests)
+  Duration? streamChunkTimeout,
   Map<String, dynamic>? pending,
   String emotion = '',
   String intensity = '',
@@ -134,13 +139,17 @@ LlmEvalEngine createTestLlmEvalEngine({
         getGroupInterCharacterRelationships: (id) => const <String, int>{},
         setGroupInterCharacterRelationships: (id, m) {},
       );
-  final fakeLlm = _FakeLlmService((params) {
-    final j =
-        getLlmJson?.call() ??
-        '{"relationship_delta":0,"trust_delta":0,"emotion":"neutral","emotion_intensity":"mild","proposed_objective":"none","fixation_topic":"none"}';
-    return Stream.value(j);
-  });
+  final fakeLlm = _FakeLlmService(
+    streamFactory ??
+        (params) {
+          final j =
+              getLlmJson?.call() ??
+              '{"relationship_delta":0,"trust_delta":0,"emotion":"neutral","emotion_intensity":"mild","proposed_objective":"none","fixation_topic":"none"}';
+          return Stream.value(j);
+        },
+  );
   return LlmEvalEngine(
+    streamChunkTimeout: streamChunkTimeout ?? kEvalStreamChunkTimeout,
     getActiveCharacter: () => activeChar,
     getActiveGroup: () => activeGroup,
     getIsObserverMode: () => observer,
@@ -149,7 +158,6 @@ LlmEvalEngine createTestLlmEvalEngine({
     getMessages: () => messages,
     getLlmService: () => fakeLlm,
     getIsLocal: () => false,
-    getKoboldThinkingModel: () => false,
     getKoboldService: () => null,
     reconnectIfAlive: () async {},
     ensureServerIdle: () async {},
@@ -169,6 +177,47 @@ LlmEvalEngine createTestLlmEvalEngine({
 }
 
 void main() {
+  group('LlmEvalEngine stream hang guard (story-calendar follow-up)', () {
+    test('a stream that never emits times out to null instead of hanging '
+        '(the oMLX "spinner forever" report)', () async {
+      final e = createTestLlmEvalEngine(
+        // Never emits, never closes — the cold-reload/dead-queue hang.
+        streamFactory: (_) => StreamController<String>().stream,
+        streamChunkTimeout: const Duration(milliseconds: 120),
+      );
+      final res = await e
+          .fireLLMEval('p')
+          // Backstop so a regression fails fast instead of hanging the suite.
+          .timeout(const Duration(seconds: 10));
+      expect(res, isNull); // both attempts timed out → silent give-up
+    });
+
+    test('a stream that stalls AFTER a first chunk also times out', () async {
+      final e = createTestLlmEvalEngine(
+        streamFactory: (_) {
+          final c = StreamController<String>();
+          c.add('{"partial":');
+          return c.stream; // first chunk arrives, then silence forever
+        },
+        streamChunkTimeout: const Duration(milliseconds: 120),
+      );
+      final res = await e.fireLLMEval('p').timeout(const Duration(seconds: 10));
+      expect(res, isNull);
+    });
+
+    test('a slow-but-alive stream is untouched by the guard', () async {
+      final e = createTestLlmEvalEngine(
+        streamFactory: (_) => Stream.periodic(
+          const Duration(milliseconds: 40),
+          (i) => i == 0 ? '{"emotion":' : '"calm"}',
+        ).take(2),
+        streamChunkTimeout: const Duration(milliseconds: 120),
+      );
+      final res = await e.fireLLMEval('p');
+      expect(res, contains('"calm"'));
+    });
+  });
+
   group('LlmEvalEngine (step 9)', () {
     test('strip completed + unclosed prefix + no-think', () {
       final e = createTestLlmEvalEngine();
@@ -215,7 +264,6 @@ void main() {
         getMessages: () => [],
         getLlmService: () => _FakeLlmService((p) => Stream.value('{}')),
         getIsLocal: () => false,
-        getKoboldThinkingModel: () => false,
         getKoboldService: () => null,
         reconnectIfAlive: () async {},
         ensureServerIdle: () async {},
@@ -292,7 +340,6 @@ void main() {
             return Stream.value('{"hunger_delta": 3}');
           }),
           getIsLocal: () => false,
-          getKoboldThinkingModel: () => false,
           getKoboldService: () => null,
           reconnectIfAlive: () async {},
           ensureServerIdle: () async {},
@@ -381,7 +428,6 @@ void main() {
             return Stream.value('{"hunger_delta":1}');
           }),
           getIsLocal: () => true,
-          getKoboldThinkingModel: () => true,
           getKoboldService: () => null,
           reconnectIfAlive: () async {},
           ensureServerIdle: () async {},

@@ -71,11 +71,16 @@ extension ChatServiceReprocess on ChatService {
     // Snapshot the *active* live state *before* any historical/target prepare (for strict historical meta-only)
     final Map<String, int> preOpLive;
     String? preOpActiveSid;
-    CharacterCard? preActiveChar;
+    // Captured in BOTH modes, because every restore below is unconditional.
+    // A group-only capture left this null for 1:1 chats, so the isLast
+    // success path nulled the active character on every successful 1:1
+    // reprocess: the chat page fell back to "No character selected." and the
+    // trailing _saveChat no-oped (its null-character guard), dropping the
+    // reprocess result. In a pure group this still correctly captures null.
+    final CharacterCard? preActiveChar = _activeCharacter;
     if (isGroupNonObs) {
       preOpActiveSid = _getCurrentSpeakerIdForRealism();
       preOpLive = Map<String, int>.from(_getGroupNeeds(preOpActiveSid));
-      preActiveChar = _activeCharacter;
     } else {
       preOpLive = Map<String, int>.from(_needsSimulation.vector);
     }
@@ -129,9 +134,9 @@ extension ChatServiceReprocess on ChatService {
       } else {
         _needsSimulation.restoreFromSnapshot({'vector': preOpLive});
       }
-      if (preActiveChar != null) {
-        _activeCharacter = preActiveChar;
-      }
+      // Unconditional: in a pure group the pre-op state IS null and the
+      // impersonation must be dropped even on failure.
+      _activeCharacter = preActiveChar;
       if (isLast) {
         _isVerifyingRealism = false;
         _pendingRealismMetadata = null;
@@ -188,6 +193,15 @@ extension ChatServiceReprocess on ChatService {
       if (isGroupNonObs && sid != null && sid.isNotEmpty) {
         _saveScalarsIntoGroupRealism(sid);
       }
+      // Drop the impersonation. The group per-character state is already saved
+      // to _groupRealism above; leaving _activeCharacter pointed at the
+      // impersonated speaker leaked their card into everything that reads
+      // _activeCharacter (verifier flags, needs strength, decay rates) until
+      // the next dance overwrote it. Unconditional (not `!= null`-guarded): in
+      // a pure group preActiveChar IS null and must be restored to null; for
+      // 1:1 the capture above grabbed the current character, so this is the
+      // no-op it always claimed to be.
+      _activeCharacter = preActiveChar;
       _isVerifyingRealism = false;
       _pendingRealismMetadata = null;
     } else {
@@ -200,9 +214,7 @@ extension ChatServiceReprocess on ChatService {
       } else if (!isGroupNonObs) {
         _needsSimulation.restoreFromSnapshot({'vector': preOpLive});
       }
-      if (preActiveChar != null) {
-        _activeCharacter = preActiveChar;
-      }
+      _activeCharacter = preActiveChar;
       _pendingRealismMetadata = null;
     }
     await _saveChat();
@@ -247,14 +259,14 @@ extension ChatServiceReprocess on ChatService {
       sid = _getCharacterIdFromCard(targetSpeakerCard);
     }
 
-    // Snapshot pre-op active for strict !isLast rollback (no live mutation)
-    CharacterCard? preActiveChar;
+    // Snapshot pre-op active for the restores below (both modes — see the
+    // matching capture note in manualReprocessNeeds).
+    final CharacterCard? preActiveChar = _activeCharacter;
     Map<String, int> preOpLive = {};
     String? preOpSid;
     if (isGroupNonObs) {
       preOpSid = _getCurrentSpeakerIdForRealism();
       preOpLive = Map<String, int>.from(_getGroupNeeds(preOpSid));
-      preActiveChar = _activeCharacter;
     } else {
       preOpLive = Map<String, int>.from(_needsSimulation.vector);
     }
@@ -303,6 +315,10 @@ extension ChatServiceReprocess on ChatService {
       if (isGroupNonObs && sid != null && sid.isNotEmpty) {
         _saveScalarsIntoGroupRealism(sid);
       }
+      // Drop the impersonation set by the dance above — same leak (and same
+      // fix) as manualReprocessNeeds' isLast path; this flow was missed when
+      // that one was fixed. No-op for 1:1 (no dance ran).
+      _activeCharacter = preActiveChar;
     } else {
       // Historical meta-only: rollback live + char, do not persist to group for this op
       if (isGroupNonObs && preOpSid != null && preOpSid.isNotEmpty) {
@@ -310,7 +326,7 @@ extension ChatServiceReprocess on ChatService {
       } else if (!isGroupNonObs) {
         _needsSimulation.restoreFromSnapshot({'vector': preOpLive});
       }
-      if (preActiveChar != null) _activeCharacter = preActiveChar;
+      _activeCharacter = preActiveChar;
     }
 
     await _saveChat();
@@ -378,6 +394,11 @@ extension ChatServiceReprocess on ChatService {
       // Instead of removing the message, we generate a new swipe
       // Temporarily remove the last message so the prompt doesn't include it
       final lastMsg = _messages.removeLast();
+      // Timeline integrity: the regen replaces this position's active
+      // content — journal cards citing it (or anything after) are phantom
+      // (smoke-test bug 2026-07-21). regenerateMainCharacter's guest-pop
+      // path is covered too: it delegates here with an even lower position.
+      _invalidateJournalFrom(_messages.length);
       // Is this a Scene Guest message? If so the whole regen must stay a
       // parity-safe GUEST turn: skip every Realism/Needs revert + re-eval below
       // and regenerate spoken as the guest (guestSpeaker), exactly like the
@@ -414,36 +435,93 @@ extension ChatServiceReprocess on ChatService {
       }
       notifyListeners();
 
+      // Resolve the rejected turn's speaker once (exact name match) — used to
+      // force the turn manager AND to target the realism revert below. If the
+      // member was renamed/removed, BOTH sites skip rather than fall back to
+      // the first member: forcing or reverting the wrong character corrupts
+      // that character's state and attribution.
+      CharacterCard? regenSpeakerCard;
+      String regenSpeakerSid = '';
+      if (_activeGroup != null && regenGuest == null) {
+        final idx = _groupCharacters.indexWhere(
+          (c) => c.name == lastMsg.sender,
+        );
+        if (idx >= 0) {
+          regenSpeakerCard = _groupCharacters[idx];
+          regenSpeakerSid = _getCharacterIdFromCard(regenSpeakerCard);
+        }
+      }
+
       // In group mode, force the turn manager to the *original* speaker of the
       // removed message before generation. This prevents regen from picking a
       // different character (the core of the "speaker changed after regen" bug).
-      if (_activeGroup != null) {
-        final originalSpeaker = _groupCharacters.firstWhere(
-          (c) => c.name == lastMsg.sender,
-          orElse: () => _groupCharacters.first,
-        );
-        _groupManager?.setNextSpeaker(originalSpeaker);
+      if (regenSpeakerCard != null) {
+        _groupManager?.setNextSpeaker(regenSpeakerCard);
       }
 
-      // Revert realism state from the rejected swipe and re-evaluate
-      // (host turns only — guest messages carry no Realism/Needs state).
-      if (_realismEnabled && _activeGroup == null && regenGuest == null) {
+      // Roll back objective mutations recorded for the rejected turn (eval
+      // proposals + completion-check side effects) BEFORE the eval replay, so
+      // the new turn re-derives objectives from a clean baseline instead of
+      // stacking on the invalidated turn's (and dedup can't suppress a fresh
+      // proposal because the rejected turn's copy still exists). Runs with or
+      // without realism (completion checks also run realism-off); id-addressed
+      // ops keep 1:1 and group identical. Guest turns never touch objectives.
+      if (regenGuest == null) {
+        await _revertObjectiveTurnOps(lastMsg);
+      }
+
+      // Revert realism state from the rejected swipe and re-evaluate.
+      // Guest messages carry no Realism/Needs state (regenGuest != null skips).
+      //
+      // GROUP parity: the revert must operate on the rejected SPEAKER's
+      // _groupRealism entry, not on whichever member's state happens to be in
+      // the scalar fields. Impersonate + load their map state (the same
+      // load/save dance _evaluateRealismForUpcomingSpeaker uses), run the SAME
+      // revert as 1:1, then persist the reverted scalars back to the map. The
+      // per-speaker eval inside _generateResponse then replays decay + eval
+      // from this clean baseline — previously nothing was reverted, so every
+      // group regen stacked the new turn's deltas on top of the rejected
+      // turn's, plus a second decay tick.
+      final isGroupHostRegen =
+          _activeGroup != null &&
+          regenGuest == null &&
+          regenSpeakerSid.isNotEmpty;
+      // In a group, an unresolvable speaker (renamed/removed member) skips the
+      // revert entirely — reverting the wrong member would corrupt THEIR state.
+      final canRevertRealism = _activeGroup == null || isGroupHostRegen;
+
+      CharacterCard? preRegenActiveCharacter;
+      if (_realismEnabled && regenGuest == null && canRevertRealism) {
+        if (isGroupHostRegen) {
+          preRegenActiveCharacter = _activeCharacter;
+          _activeCharacter = regenSpeakerCard;
+          _loadGroupRealismIntoScalars(regenSpeakerSid);
+        }
         // CRITICAL FIX: Find the baseline realism state from the previous accepted message.
         // We want to use the final state of the LAST ACCEPTED character message as our baseline,
         // not just blindly revert deltas and re-evaluate from scratch.
+        // 1:1: one character, one lookback. GROUP: the per-speaker fields must
+        // come from the rejected speaker's own last stamped message, while the
+        // session-level clock baseline comes from the most recent stamped bot
+        // message of ANY speaker (time is shared).
         Map<String, dynamic>? previousMessageState;
+        Map<String, dynamic>? previousSessionState;
         if (_messages.length >= 2) {
           // Look back through messages to find the last bot message before the one we're regenerating
           for (int i = _messages.length - 1; i >= 0; i--) {
             if (!_messages[i].isUser && _messages[i].sender != 'System') {
               final meta = _messages[i].activeMetadata;
               if (meta != null && meta.containsKey('realism_state')) {
-                previousMessageState =
-                    meta['realism_state'] as Map<String, dynamic>;
-                debugPrint(
-                  '[Realism:Regen] Found previous accepted message baseline state at message index $i',
-                );
-                break;
+                final state = meta['realism_state'] as Map<String, dynamic>;
+                previousSessionState ??= state;
+                if (!isGroupHostRegen ||
+                    _messages[i].sender == lastMsg.sender) {
+                  previousMessageState = state;
+                  debugPrint(
+                    '[Realism:Regen] Found previous accepted message baseline state at message index $i',
+                  );
+                  break;
+                }
               }
             }
           }
@@ -475,9 +553,19 @@ extension ChatServiceReprocess on ChatService {
               lastMsg.activeMetadata!['trust_delta'] as int? ?? 0;
 
           if (bondDelta != 0) {
-            _relationshipService.applyScoreDelta(-bondDelta);
+            // recordMilestone: false — undoing a rejected reply must not plant
+            // reverse "Bond cooled…" story beats in Our Story (Living Time v1.5).
+            _relationshipService.applyScoreDelta(
+              -bondDelta,
+              recordMilestone: false,
+            );
           }
-          if (moodDelta != 0) {
+          // Session-level mood cadence: 1:1 zeroes it here as an intermediate
+          // (the baseline restore below then sets the real value and the 1:1
+          // tail re-ticks). Group regen neither restores nor re-ticks the
+          // counter — the rejected turn's tick stands — so zeroing here would
+          // permanently reset the cadence. Leave it untouched for groups.
+          if (moodDelta != 0 && !isGroupHostRegen) {
             _moodDecayCounter = 0;
           }
           if (trustDelta != 0) {
@@ -528,20 +616,12 @@ extension ChatServiceReprocess on ChatService {
         // not from scratch which would produce wildly different realism values.
         if (previousMessageState != null) {
           _relationshipService.restoreFromMessageState(previousMessageState);
-          _moodDecayCounter =
-              previousMessageState['moodDecayCounter'] as int? ??
-              _moodDecayCounter;
           _characterEmotion =
               previousMessageState['characterEmotion'] as String? ??
               _characterEmotion;
           _emotionIntensity =
               previousMessageState['emotionIntensity'] as String? ??
               _emotionIntensity;
-
-          _timeService.restoreTimeForSwipeOrRegen(
-            previousMessageState,
-            wasNudged: wasNudged,
-          );
 
           _nsfwService.restoreNsfwFromMessageState(previousMessageState);
 
@@ -570,6 +650,38 @@ extension ChatServiceReprocess on ChatService {
             '[Realism:Regen] ⚠ No previous message baseline found, continuing with current reverted state',
           );
         }
+
+        // Session-level baseline (the shared clock + mood-decay cadence) comes
+        // from the most recent stamped bot message of ANY speaker — identical
+        // to previousMessageState in 1:1. Group regen skips the mood counter:
+        // groups tick mood decay in sendMessage (not replayed on regen), so
+        // the rejected turn's tick correctly stands for the replacement turn.
+        if (previousSessionState != null) {
+          if (!isGroupHostRegen) {
+            _moodDecayCounter =
+                previousSessionState['moodDecayCounter'] as int? ??
+                _moodDecayCounter;
+          }
+          _timeService.restoreTimeForSwipeOrRegen(
+            previousSessionState,
+            wasNudged: wasNudged,
+          );
+        }
+
+        if (isGroupHostRegen) {
+          // Persist the reverted baseline into the speaker's _groupRealism
+          // entry and drop the impersonation. Decay + re-eval for the regen
+          // turn happen inside _generateResponse via
+          // _evaluateRealismForUpcomingSpeaker (forced to this speaker above),
+          // exactly like the turn being replaced did.
+          _saveScalarsIntoGroupRealism(regenSpeakerSid);
+          _activeCharacter = preRegenActiveCharacter;
+        }
+      }
+
+      // 1:1 only: replay decay + the realism eval inline here (groups replay
+      // via the per-speaker dance inside _generateResponse).
+      if (_realismEnabled && _activeGroup == null && regenGuest == null) {
         // Set UI streaming state
         _isEvaluatingRealism = true;
         _realismEvalStreamText = '';
@@ -749,8 +861,9 @@ extension ChatServiceReprocess on ChatService {
         }
         _messages.add(lastMsg);
         // Host messages restore the active character's Realism/Needs from the
-        // accepted swipe; guest messages carry none, so leave host state intact.
-        if (regenGuest == null) _restoreRealismStateFromMessage(lastMsg);
+        // accepted swipe (in groups: the speaker's own _groupRealism entry);
+        // guest messages carry none, so leave host state intact.
+        if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg);
         await _saveChat();
         notifyListeners();
 

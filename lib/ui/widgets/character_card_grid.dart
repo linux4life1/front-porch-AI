@@ -110,7 +110,7 @@ class CharacterCardGrid extends StatelessWidget {
   final void Function(double scale)? onGridScaleChangeEnd;
   final void Function(SearchScope scope) onSearchScopeChanged;
   final void Function(String query) onSearchQueryChanged;
-  final File Function(String imagePath) onResolveCharImage;
+  final File Function(CharacterCard card) onResolveCharImage;
   final void Function(GroupChat group) onDeleteGroup;
   final VoidCallback onAfterNavigateBack;
 
@@ -304,7 +304,7 @@ class CharacterCardGrid extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.drive_file_move,
-                    color: Colors.blueAccent.withValues(alpha: 0.7),
+                    color: AppColors.formMasterAccent.withValues(alpha: 0.7),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -330,8 +330,8 @@ class CharacterCardGrid extends StatelessWidget {
                     icon: const Icon(Icons.drive_file_move, size: 18),
                     label: const Text('Move to Folder'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.formMasterAccent,
+                      foregroundColor: AppColors.onChaosAccent,
                       disabledBackgroundColor: AppColors.resolve(
                         context,
                         Colors.white10,

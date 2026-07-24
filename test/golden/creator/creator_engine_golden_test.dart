@@ -40,12 +40,10 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
-import 'package:front_porch_ai/services/pseudo_remote_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
@@ -80,8 +78,8 @@ class _ScriptedLlm extends LLMService {
 /// suite); we only override the three getters the engine consults.
 class _FakeLLMProvider extends LLMProvider {
   _FakeLLMProvider(this._svc, KoboldService k, OpenRouterService o,
-      PseudoRemoteService p, StorageService s, BackendManager b)
-      : super(k, o, p, s, b);
+      StorageService s, BackendManager b)
+      : super(k, o, s, b);
   final LLMService _svc;
 
   @override
@@ -97,7 +95,6 @@ _FakeLLMProvider _makeProvider(LLMService svc, StorageService storage) {
     svc,
     KoboldService(storage),
     OpenRouterService(),
-    PseudoRemoteService(),
     storage,
     BackendManager(storage),
   );
@@ -198,6 +195,35 @@ void main() {
       expectGoldenJson(_stabilize(saved.toJson()),
           group: 'creator', name: 'saved_card');
     });
+
+    test('save is idempotent: a second save UPDATES in place and keeps the '
+        'stableId (the panel saves first, Save & Finish saves again)',
+        () async {
+      final storage = await makeGoldenStorage();
+      final db = AppDatabase.forTesting();
+      final repo = CharacterRepository(db, storage);
+      addTearDown(() async => db.close());
+
+      final state = CreatorState();
+      addTearDown(state.dispose);
+      state.generatedCard = CharacterCard(name: 'Aria Vale');
+      state.descController.text = 'First draft.';
+
+      expect(await state.saveCharacter(repo: repo, storage: storage), isTrue);
+      final firstId = state.generatedCard!.frontPorchExtensions!.stableId;
+      expect(firstId, isNotNull);
+
+      // Edit + save again — the flow the Portrait & Avatars panel creates.
+      state.descController.text = 'Edited after the panel saved.';
+      expect(await state.saveCharacter(repo: repo, storage: storage), isTrue);
+
+      final rows = await db.getAllCharacters();
+      expect(rows.length, 1, reason: 'update in place — never a duplicate');
+      expect(state.generatedCard!.frontPorchExtensions!.stableId, firstId,
+          reason: 'identity must survive the multi-shot save');
+      expect(repo.characters.single.description,
+          'Edited after the panel saved.');
+    });
   });
 
   group('CreatorEngine.generateFromMode — drives the LLM', () {
@@ -232,8 +258,6 @@ void main() {
       addTearDown(() async => personaDb.close());
       final persona = UserPersonaService(personaDb);
       addTearDown(persona.dispose);
-      // Unused on the kobold path (avatar gen is skipped) but required by the API.
-      final imageService = ImageGenService(storage);
 
       final state = CreatorState();
       addTearDown(state.dispose);
@@ -245,7 +269,6 @@ void main() {
         llmProvider: provider,
         storage: storage,
         personaService: persona,
-        imageService: imageService,
       );
 
       // The decisive signal: the engine actually called the model. The dummy

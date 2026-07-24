@@ -169,6 +169,16 @@ class _RocmGuidanceDialogState extends State<_RocmGuidanceDialog> {
                   widget.instructions.note!,
                   style: const TextStyle(color: Colors.white38, fontSize: 11),
                 ),
+              const SizedBox(height: 12),
+              const Text(
+                'Consumer Radeon cards (RX 6000/7000/9000): ROCm\'s kernels '
+                'target workstation chips, so these cards need the '
+                'HSA_OVERRIDE_GFX_VERSION environment variable or KoboldCpp '
+                'crashes at launch. Front Porch AI detects your card and '
+                'sets this automatically when you enable ROCm — if you '
+                'export your own value, yours wins.',
+                style: TextStyle(color: Colors.white38, fontSize: 11),
+              ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(10),

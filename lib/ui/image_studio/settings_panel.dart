@@ -32,7 +32,16 @@ import 'generation_options_tab.dart';
 class StudioSettingsPanel extends StatelessWidget {
   final bool initiallyExpanded;
 
-  const StudioSettingsPanel({super.key, this.initiallyExpanded = false});
+  /// Forwarded to [GenerationOptionsTab]: when true the per-generation knobs
+  /// (Steps / CFG / DT Sampler / Shift / SeedMode) are edit-scoped so an edit
+  /// never clobbers the Create/txt2img settings. Used by the Edit tab.
+  final bool editScoped;
+
+  const StudioSettingsPanel({
+    super.key,
+    this.initiallyExpanded = false,
+    this.editScoped = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -68,10 +77,11 @@ class StudioSettingsPanel extends StatelessWidget {
           ),
           iconColor: AppColors.iconSecondary(context),
           collapsedIconColor: AppColors.iconSecondary(context),
-          children: const [
+          children: [
             GenerationOptionsTab(
               showEnableToggle: false,
               showStyleControls: false,
+              editScoped: editScoped,
             ),
           ],
         ),

@@ -73,7 +73,7 @@ class StoopFacade {
   final GroupChatRepository? _groups;
   final BackporchApi _api;
 
-  /// Upstream REST base, e.g. `https://api.dreamersai.art`.
+  /// Upstream REST base, e.g. `https://api.frontporchai.app`.
   String get baseUrl => _api.baseUrl;
 
   /// Upstream live-messaging WebSocket URL (token appended by the relay).

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
-import 'package:front_porch_ai/services/pseudo_remote_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 enum SetupStep {
@@ -17,7 +16,6 @@ class SetupService extends ChangeNotifier {
   final StorageService _storageService;
   final BackendManager _backendManager;
   final KoboldService _koboldService;
-  final PseudoRemoteService _pseudoRemoteService;
 
   SetupStep _currentStep = SetupStep.idle;
   String? _errorMessage;
@@ -29,7 +27,6 @@ class SetupService extends ChangeNotifier {
     this._storageService,
     this._backendManager,
     this._koboldService,
-    this._pseudoRemoteService,
   );
 
   Future<void> runAutoSetup() async {
@@ -72,47 +69,42 @@ class SetupService extends ChangeNotifier {
       // 4. Wait 5 seconds before attempting autostart (gives the app UI time to settle)
       await Future.delayed(const Duration(seconds: 5));
 
-      // 5. Autostart only for the backend that was last used
-      if (_storageService.backendType == 'pseudoRemote') {
-        if (_storageService.autostartPseudoRemote &&
-            _storageService.activeKcppsPath != null &&
-            _storageService.activeKcppsPath!.isNotEmpty) {
-          _currentStep = SetupStep.startingBackend;
-          notifyListeners();
+      // 5. Autostart the local Kobold backend when it was the last one used.
+      //    This covers both a plain model file (lastUsedModelPath) and a
+      //    .kcpps preset that owns the model — the preset used to be its own
+      //    "pseudoRemote" backend, but it is now just a launch option of the
+      //    local backend, so a single autostart branch handles both.
+      final backendType = _storageService.backendType;
+      final isLocalBackend =
+          backendType != 'openRouter' && backendType != 'omlx';
+      final modelPath = _storageService.lastUsedModelPath;
+      final presetOwnsModel =
+          _storageService.kcppsHasModel &&
+          _storageService.kcppsModelFileExists;
 
-          await _pseudoRemoteService.start(
-            executablePath: _backendManager.backendPath!,
-            kcppsPath: _storageService.activeKcppsPath!,
-          );
+      if (isLocalBackend &&
+          _storageService.autostartBackend &&
+          (modelPath != null || presetOwnsModel)) {
+        _currentStep = SetupStep.startingBackend;
+        notifyListeners();
 
-          _currentStep = SetupStep.complete;
-          notifyListeners();
-        }
-      } else if (_storageService.backendType != 'openRouter') {
-        // kobold local backend
-        if (_storageService.autostartBackend &&
-            _storageService.lastUsedModelPath != null) {
-          _currentStep = SetupStep.startingBackend;
-          notifyListeners();
+        await _koboldService.startKobold(
+          _backendManager.backendPath!,
+          modelPath ?? '',
+          kcppsPath: _storageService.activeKcppsPath,
+          mmprojPath: modelPath != null
+              ? _storageService.mmprojForModel(modelPath)
+              : null,
+          gpuLayers: _storageService.gpuLayers,
+          contextSize: _storageService.contextSize,
+          useVulkan: _storageService.useVulkan ?? false,
+          useCublas: _storageService.useCublas ?? false,
+          useMetal: _storageService.useMetal ?? false,
+          useRocm: _storageService.useRocm ?? false,
+        );
 
-          await _koboldService.startKobold(
-            _backendManager.backendPath!,
-            _storageService.lastUsedModelPath!,
-            kcppsPath: _storageService.activeKcppsPath,
-            mmprojPath: _storageService.mmprojForModel(
-              _storageService.lastUsedModelPath!,
-            ),
-            gpuLayers: _storageService.gpuLayers,
-            contextSize: _storageService.contextSize,
-            useVulkan: _storageService.useVulkan ?? false,
-            useCublas: _storageService.useCublas ?? false,
-            useMetal: _storageService.useMetal ?? false,
-            useRocm: _storageService.useRocm ?? false,
-          );
-
-          _currentStep = SetupStep.complete;
-          notifyListeners();
-        }
+        _currentStep = SetupStep.complete;
+        notifyListeners();
       }
     } catch (e) {
       _errorMessage = e.toString();

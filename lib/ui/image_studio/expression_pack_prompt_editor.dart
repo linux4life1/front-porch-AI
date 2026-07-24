@@ -152,7 +152,7 @@ Future<void> showPackRerollEditor(
             label: const Text('Re-roll'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onChaosAccent,
             ),
           ),
         ],

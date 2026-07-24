@@ -24,6 +24,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/chat_theme_preset.dart';
+import 'package:front_porch_ai/models/chat_theme_overrides.dart';
 
 // Stage 7: storage decomposition (directories + domain settings; final cleanup complete - shims excised; corrective COMPAT FLAT ACCESSORS bridge re-inserted at ~113 after incomplete 29bbf59d; see block comments + refactoring-guide.md "old API preserved via shim" for current state; long-term pure-dir + *Settings wiring intended). NOTE: file >500 LOC due to bridge (documented exception; do not grow per rule).
 import 'storage/directories.dart';
@@ -43,6 +45,13 @@ import 'storage/settings/preset_settings.dart';
 class StorageService extends ChangeNotifier {
   final Completer<void> _initCompleter = Completer<void>();
   Future<void> get initialized => _initCompleter.future;
+
+  /// True when the persisted data directory was unwritable at startup and we
+  /// fell back to the default root FOR THIS SESSION (the bad path is NOT
+  /// overwritten in prefs, so a re-plugged drive is retried next launch). The
+  /// UI reads this to warn "your data folder was unavailable" instead of the
+  /// user silently seeing an empty/relocated library.
+  bool rootUnavailableFellBack = false;
 
   SharedPreferences? _prefs;
   String? _rootPath;
@@ -89,6 +98,11 @@ class StorageService extends ChangeNotifier {
 
   Directory characterAvatarDir(String characterName) =>
       directories.characterAvatarDir(characterName);
+
+  /// The character's private base folder (`avatars/` + `looks/` live under it).
+  /// Used to resolve gallery-look files via [AvatarImage.resolveFile].
+  Directory characterBaseDir(String characterName) =>
+      directories.characterBaseDir(characterName);
 
   Directory get customBackgroundDir => directories.customBackgroundDir;
 
@@ -185,15 +199,76 @@ class StorageService extends ChangeNotifier {
   Future<void> setSortMode(String v) => uiSettings.setSortMode(v);
   double get gridScale => uiSettings.gridScale;
   Future<void> setGridScale(double v) => uiSettings.setGridScale(v);
-  Color getUserBubbleColor([CharacterCard? c]) =>
-      uiSettings.getUserBubbleColor(c);
-  Color getAiBubbleColor([CharacterCard? c]) => uiSettings.getAiBubbleColor(c);
-  Color getDialogueColor([CharacterCard? c]) => uiSettings.getDialogueColor(c);
-  Color getUserTextColor([CharacterCard? c]) => uiSettings.getUserTextColor(c);
-  Color getAiTextColor([CharacterCard? c]) => uiSettings.getAiTextColor(c);
-  String getChatFontFamily([CharacterCard? c]) =>
-      uiSettings.getChatFontFamily(c);
-  Color getActionColor([CharacterCard? c]) => uiSettings.getActionColor(c);
+  Color getUserBubbleColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getUserBubbleColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
+  Color getAiBubbleColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getAiBubbleColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
+  Color getDialogueColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getDialogueColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
+  Color getUserTextColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getUserTextColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
+  Color getAiTextColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getAiTextColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
+  String getChatFontFamily([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getChatFontFamily(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
+  Color getActionColor([
+    CharacterCard? c,
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  ]) =>
+      uiSettings.getActionColor(
+        c,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      );
   Future<void> setIsDark(bool v) => uiSettings.setIsDark(v);
 
   // Web server
@@ -372,6 +447,40 @@ class StorageService extends ChangeNotifier {
   Future<void> setDrawThingsCfgZeroStar(bool v) =>
       imageGenSettings.setDrawThingsCfgZeroStar(v);
 
+  // Edit-scoped generation knobs (Image Studio → Edit tab). Separate from the
+  // txt2img knobs so an edit's sampler/CFG/steps never clobber Create's.
+  int get editSteps => imageGenSettings.editSteps;
+  Future<void> setEditSteps(int v) => imageGenSettings.setEditSteps(v);
+  double get editCfgScale => imageGenSettings.editCfgScale;
+  Future<void> setEditCfgScale(double v) =>
+      imageGenSettings.setEditCfgScale(v);
+  int get editSampler => imageGenSettings.editSampler;
+  Future<void> setEditSampler(int v) => imageGenSettings.setEditSampler(v);
+  double get editShift => imageGenSettings.editShift;
+  Future<void> setEditShift(double v) => imageGenSettings.setEditShift(v);
+  int get editSeedMode => imageGenSettings.editSeedMode;
+  Future<void> setEditSeedMode(int v) => imageGenSettings.setEditSeedMode(v);
+  Future<void> resetEditKnobsToRecommended() =>
+      imageGenSettings.resetEditKnobsToRecommended();
+
+  // ComfyUI edit workflow selection + model-slot choices + uploaded workflow.
+  String get comfyEditWorkflowId => imageGenSettings.comfyEditWorkflowId;
+  Future<void> setComfyEditWorkflowId(String v) =>
+      imageGenSettings.setComfyEditWorkflowId(v);
+  Map<String, String> get comfyEditModelChoices =>
+      imageGenSettings.comfyEditModelChoices;
+  String? comfyEditModelChoice(String presetId, String token) =>
+      imageGenSettings.comfyEditModelChoice(presetId, token);
+  Future<void> setComfyEditModelChoice(
+    String presetId,
+    String token,
+    String file,
+  ) => imageGenSettings.setComfyEditModelChoice(presetId, token, file);
+  String get comfyEditUploadedWorkflow =>
+      imageGenSettings.comfyEditUploadedWorkflow;
+  Future<void> setComfyEditUploadedWorkflow(String json) =>
+      imageGenSettings.setComfyEditUploadedWorkflow(json);
+
   // Backend / kobold / remote / launch flags / kcpps (kv + callBuffer here per lift/compat needs; some also on tts/stt)
   String get backendType => backendSettings.backendType;
   Future<void> setBackendType(String v) => backendSettings.setBackendType(v);
@@ -398,6 +507,8 @@ class StorageService extends ChangeNotifier {
       backendSettings.setLastUsedModelPath(v);
   bool get kcppsHasModel => backendSettings.kcppsHasModel;
   bool get kcppsModelFileExists => backendSettings.kcppsModelFileExists;
+  String? get kcppsModelPath => backendSettings.kcppsModelPath;
+  String? get kcppsMmprojPath => backendSettings.kcppsMmprojPath;
   bool? get useCublas => backendSettings.useCublas;
   Future<void> setUseCublas(bool? v) => backendSettings.setUseCublas(v);
   bool? get useVulkan => backendSettings.useVulkan;
@@ -426,9 +537,6 @@ class StorageService extends ChangeNotifier {
   bool get autostartBackend => backendSettings.autostartBackend;
   Future<void> setAutostartBackend(bool v) =>
       backendSettings.setAutostartBackend(v);
-  bool get autostartPseudoRemote => backendSettings.autostartPseudoRemote;
-  Future<void> setAutostartPseudoRemote(bool v) =>
-      backendSettings.setAutostartPseudoRemote(v);
   bool get koboldThinkingModel => backendSettings.koboldThinkingModel;
   Future<void> setKoboldThinkingModel(bool v) =>
       backendSettings.setKoboldThinkingModel(v);
@@ -480,6 +588,10 @@ class StorageService extends ChangeNotifier {
       generationSettings.dynamicResponseMaxMessages;
   Future<void> setDynamicResponseMaxMessages(int v) =>
       generationSettings.setDynamicResponseMaxMessages(v);
+  int get dynamicResponsePacePeriods =>
+      generationSettings.dynamicResponsePacePeriods;
+  Future<void> setDynamicResponsePacePeriods(int v) =>
+      generationSettings.setDynamicResponsePacePeriods(v);
   int get maxLength => generationSettings.maxLength;
   Future<void> setMaxLength(int v) => generationSettings.setMaxLength(v);
   int get minLength => generationSettings.minLength;
@@ -542,6 +654,21 @@ class StorageService extends ChangeNotifier {
   Future<void> setNsfwCooldownDefault(bool v) =>
       realismSettings.setNsfwCooldownDefault(v);
   bool get passageOfTimeDefault => realismSettings.passageOfTimeDefault;
+  bool get weatherEnabled => realismSettings.weatherEnabled;
+  Future<void> setWeatherEnabled(bool v) =>
+      realismSettings.setWeatherEnabled(v);
+  bool get absenceBannerEnabled => realismSettings.absenceBannerEnabled;
+  Future<void> setAbsenceBannerEnabled(bool v) =>
+      realismSettings.setAbsenceBannerEnabled(v);
+  bool get absenceAckEnabled => realismSettings.absenceAckEnabled;
+  Future<void> setAbsenceAckEnabled(bool v) =>
+      realismSettings.setAbsenceAckEnabled(v);
+  int get absenceThresholdHours => realismSettings.absenceThresholdHours;
+  Future<void> setAbsenceThresholdHours(int v) =>
+      realismSettings.setAbsenceThresholdHours(v);
+  bool get dreamsEnabled => realismSettings.dreamsEnabled;
+  Future<void> setDreamsEnabled(bool v) =>
+      realismSettings.setDreamsEnabled(v);
   Future<void> setPassageOfTimeDefault(bool v) =>
       realismSettings.setPassageOfTimeDefault(v);
   List<String> get bannedPhrases => realismSettings.bannedPhrases;
@@ -642,13 +769,36 @@ class StorageService extends ChangeNotifier {
     }
     _binDir = Directory(path.join(_rootPath!, 'koboldcpp_bin'));
 
-    // Ensure directories exist
-    await chatsDir.create(recursive: true);
-    await modelsDir.create(recursive: true);
-    await worldsDir.create(recursive: true);
-    await charactersDir.create(recursive: true);
-    await groupsDir.create(recursive: true);
-    await customBackgroundDir.create(recursive: true);
+    // Ensure directories exist. A bad persisted root_path (unplugged external
+    // drive, revoked permission, a NAS that's offline) would throw here — and
+    // because _init is fire-and-forget, that left _initCompleter hanging
+    // FOREVER, so anything awaiting `initialized` (e.g. the web-server
+    // autostart) blocked and the app came up half-initialized. Fall back to the
+    // default root so a moved-away data dir can't wedge startup.
+    Future<void> makeDirs() async {
+      await chatsDir.create(recursive: true);
+      await modelsDir.create(recursive: true);
+      await worldsDir.create(recursive: true);
+      await charactersDir.create(recursive: true);
+      await groupsDir.create(recursive: true);
+      await customBackgroundDir.create(recursive: true);
+    }
+
+    try {
+      await makeDirs();
+    } catch (e) {
+      debugPrint('[Storage] ⚠ root "$_rootPath" is unwritable ($e) — falling '
+          'back to the default data directory for this session (the setting is '
+          'NOT overwritten; it retries next launch).');
+      rootUnavailableFellBack = true;
+      _rootPath = defaultRoot;
+      _binDir = Directory(path.join(_rootPath!, 'koboldcpp_bin'));
+      try {
+        await makeDirs();
+      } catch (e2) {
+        debugPrint('[Storage] default root also unwritable: $e2');
+      }
+    }
 
     // Stage 7: initialize domain settings (plain classes) + load (moved from god)
     // Single notify surface preserved (see plan "Why not multiple ChangeNotifiers").

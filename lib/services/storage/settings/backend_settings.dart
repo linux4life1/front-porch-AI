@@ -36,7 +36,6 @@ class BackendSettings with SettingsBase {
   bool _koboldThinkingModel = false;
 
   bool _autostartBackend = false;
-  bool _autostartPseudoRemote = false;
   String? _lastUsedModelPath;
   String? _activeKcppsPath;
   bool _kcppsHasModel = false;
@@ -51,7 +50,11 @@ class BackendSettings with SettingsBase {
   int _blasBatchSize = 512;
   int _gpuId = 0;
   int _gpuLayers = 0;
-  int _contextSize = 8192;
+  // 16384 (was 8192): modern models all serve 16k+, and the 2048-token
+  // generation reserve (generation_settings.dart) plus lorebooks/journal
+  // left an 8k window tight on chat history. Users with a saved value
+  // keep theirs; this only seeds fresh installs.
+  int _contextSize = 16384;
   int _kvQuantizationLevel = 0;
 
   String get backendType => _backendType;
@@ -62,26 +65,44 @@ class BackendSettings with SettingsBase {
   String get reasoningEffort => _reasoningEffort;
   bool get koboldThinkingModel => _koboldThinkingModel;
   bool get autostartBackend => _autostartBackend;
-  bool get autostartPseudoRemote => _autostartPseudoRemote;
   String? get lastUsedModelPath => _lastUsedModelPath;
   String? get activeKcppsPath => _activeKcppsPath;
   bool get kcppsHasModel => _kcppsHasModel;
 
-  /// Exact lift of original god kcppsModelFileExists (using moved static parse + existsSync).
+  /// Model path referenced by parsed .kcpps JSON — `model_param` preferred,
+  /// `model` fallback. Null when neither is a non-empty string. Single source
+  /// for the extraction that load(), setActiveKcppsPath(), and the getters
+  /// below all previously duplicated inline.
+  static String? _kcppsModelPathOf(Map<String, dynamic>? parsed) {
+    if (parsed == null) return null;
+    final param = parsed['model_param'];
+    if (param is String && param.trim().isNotEmpty) return param.trim();
+    final model = parsed['model'];
+    if (model is String && model.trim().isNotEmpty) return model.trim();
+    return null;
+  }
+
+  /// Model path referenced by the ACTIVE .kcpps preset, or null when no
+  /// preset is active / the preset carries no model key. Lets callers (e.g.
+  /// the vision-capability resolver) interrogate the GGUF a preset owns even
+  /// though lastUsedModelPath stays empty in preset mode.
+  String? get kcppsModelPath =>
+      _kcppsModelPathOf(PresetSettings.parseKcppsFile(_activeKcppsPath));
+
+  /// Vision projector (mmproj) path referenced by the ACTIVE .kcpps preset,
+  /// or null. KoboldCpp loads this itself from --config, so the app never
+  /// passes it on the command line — but capability detection must honor it.
+  String? get kcppsMmprojPath {
+    final parsed = PresetSettings.parseKcppsFile(_activeKcppsPath);
+    final v = parsed?['mmproj'];
+    return v is String && v.trim().isNotEmpty ? v.trim() : null;
+  }
+
   /// Returns whether the model file referenced in the active .kcpps preset exists on disk.
   /// When false the Flutter model picker should allow selection even if kcppsHasModel.
   bool get kcppsModelFileExists {
-    final parsed = PresetSettings.parseKcppsFile(_activeKcppsPath);
-    if (parsed == null) return false;
-    final modelPath =
-        parsed['model_param'] is String &&
-            (parsed['model_param'] as String).trim().isNotEmpty
-        ? (parsed['model_param'] as String).trim()
-        : parsed['model'] is String
-        ? (parsed['model'] as String).trim()
-        : null;
-    if (modelPath == null) return false;
-    return File(modelPath).existsSync();
+    final modelPath = kcppsModelPath;
+    return modelPath != null && File(modelPath).existsSync();
   }
 
   bool? get useCublas => _useCublas;
@@ -108,19 +129,28 @@ class BackendSettings with SettingsBase {
 
     _autostartBackend =
         prefs?.getBool(k('autostart_backend')) ?? _autostartBackend;
-    _autostartPseudoRemote =
-        prefs?.getBool(k('autostart_pseudo_remote')) ?? _autostartPseudoRemote;
+
+    // ── Migration: the removed 'pseudoRemote' backend is now the local Kobold
+    // backend launching a .kcpps preset. Rewrite the persisted value so nothing
+    // downstream ever sees the dead string, and carry the old
+    // autostart-pseudo-remote intent into the single autostart_backend flag,
+    // then drop the orphaned key.
+    if (_backendType == 'pseudoRemote') {
+      _backendType = 'kobold';
+      prefs?.setString(k('backend_type'), 'kobold');
+      if (prefs?.getBool(k('autostart_pseudo_remote')) ?? false) {
+        _autostartBackend = true;
+        prefs?.setBool(k('autostart_backend'), true);
+      }
+    }
+    prefs?.remove(k('autostart_pseudo_remote'));
+
     _lastUsedModelPath = prefs?.getString(k('last_used_model_path'));
     _activeKcppsPath = prefs?.getString(k('active_kcpps_path'));
 
     // Restore the kcppsHasModel flag and context size from the persisted preset path
     final parsed = PresetSettings.parseKcppsFile(_activeKcppsPath);
-    _kcppsHasModel =
-        parsed != null &&
-        ((parsed['model_param'] is String &&
-                (parsed['model_param'] as String).trim().isNotEmpty) ||
-            (parsed['model'] is String &&
-                (parsed['model'] as String).trim().isNotEmpty));
+    _kcppsHasModel = _kcppsModelPathOf(parsed) != null;
     if (parsed != null && parsed['contextsize'] is int) {
       _contextSize = parsed['contextsize'] as int;
     }
@@ -190,12 +220,6 @@ class BackendSettings with SettingsBase {
     notify();
   }
 
-  Future<void> setAutostartPseudoRemote(bool value) async {
-    _autostartPseudoRemote = value;
-    await prefs?.setBool(k('autostart_pseudo_remote'), value);
-    notify();
-  }
-
   Future<void> setLastUsedModelPath(String? value) async {
     _lastUsedModelPath = value;
     if (value != null) {
@@ -210,12 +234,7 @@ class BackendSettings with SettingsBase {
     _activeKcppsPath = value;
     // Parse synchronously so _kcppsHasModel and _contextSize are accurate in the same notifyListeners call.
     final parsed = PresetSettings.parseKcppsFile(value);
-    _kcppsHasModel =
-        parsed != null &&
-        ((parsed['model_param'] is String &&
-                (parsed['model_param'] as String).trim().isNotEmpty) ||
-            (parsed['model'] is String &&
-                (parsed['model'] as String).trim().isNotEmpty));
+    _kcppsHasModel = _kcppsModelPathOf(parsed) != null;
     if (parsed != null && parsed['contextsize'] is int) {
       _contextSize = parsed['contextsize'] as int;
       await prefs?.setInt(k('context_size'), _contextSize);

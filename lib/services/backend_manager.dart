@@ -125,21 +125,12 @@ class BackendManager extends ChangeNotifier {
         _hasCuda = false;
         print('AG_DEBUG: CUDA not found (nvidia-smi not available)');
       }
-      // Check for AMD/ROCm — user preference overrides auto-detection
-      final userRocmPref = _storageService.backendSettings.useRocm;
-      if (userRocmPref != null) {
-        _useRocm = userRocmPref;
-        print('AG_DEBUG: ROCm set by user preference: $_useRocm');
-      } else {
-        try {
-          final res = await Process.run('rocminfo', []);
-          _useRocm = res.exitCode == 0;
-          print('AG_DEBUG: ROCm auto-detected: $_useRocm');
-        } catch (_) {
-          _useRocm = false;
-          print('AG_DEBUG: ROCm not found (rocminfo not available)');
-        }
-      }
+      // ROCm is an explicit expert opt-in ONLY (see GpuBackendResolver's
+      // policy note) — rocminfo succeeding is not proof koboldcpp's hipblas
+      // kernels support the card, and auto-selecting it used to hand AMD
+      // users a broken binary while their launch flags said Vulkan.
+      _useRocm = _storageService.backendSettings.useRocm == true;
+      print('AG_DEBUG: ROCm binary (user opt-in): $_useRocm');
     }
     await checkBackendAvailability();
     if (_storageService.rootPath != null) {
@@ -219,9 +210,16 @@ class BackendManager extends ChangeNotifier {
     try {
       final client = http.Client();
       try {
+        // The Linux ROCm build lives under the rolling `rocm-rolling` tag
+        // (what koboldai.org/cpplinuxrocm serves), never in releases/latest
+        // — version-checking it against latest lied about what was
+        // installed.
+        final releasePath = (Platform.isLinux && _useRocm)
+            ? 'releases/tags/rocm-rolling'
+            : 'releases/latest';
         final response = await client
             .get(Uri.parse(
-                'https://api.github.com/repos/LostRuins/koboldcpp/releases/latest'))
+                'https://api.github.com/repos/LostRuins/koboldcpp/$releasePath'))
             .timeout(const Duration(seconds: 10));
         if (response.statusCode == 200) {
           final body = jsonDecode(response.body);
@@ -231,6 +229,12 @@ class BackendManager extends ChangeNotifier {
           for (final a in (body['assets'] as List?) ?? []) {
             if (a['name'] == exeName) {
               _remoteAssetSize = a['size'] as int?;
+              // A rolling tag never changes name — the asset's rebuild
+              // date is the real version identity.
+              final updated = a['updated_at'] as String?;
+              if (releasePath != 'releases/latest' && updated != null) {
+                _remoteVersion = '$tag (${updated.split('T').first})';
+              }
               break;
             }
           }

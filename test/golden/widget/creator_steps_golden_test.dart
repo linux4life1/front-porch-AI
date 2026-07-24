@@ -43,6 +43,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
+import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -147,12 +148,19 @@ void main() {
     addTearDown(llm.dispose);
     final imageService = ImageGenService(storage);
     addTearDown(imageService.dispose);
+    final repo = FakeCharacterRepository();
+    addTearDown(repo.dispose);
     await expectThemedGoldens(
       tester,
       child: MultiProvider(
         providers: [
           ChangeNotifierProvider<LLMProvider>.value(value: llm),
           ChangeNotifierProvider<ImageGenService>.value(value: imageService),
+          // The shared AvatarGenerationPanel (phase #12) additionally reads
+          // storage (engine strip/model slots) and the repository (gallery
+          // plumbing — only touched from user actions in a static render).
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
         ],
         child:
             SizedBox(width: 900, height: 1100, child: ReviewStep(state: state)),

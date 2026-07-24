@@ -8,9 +8,9 @@
 // services (FolderService / CharacterRepository / V2CardService / GroupCard*).
 // The page + components stay presentational so no file exceeds the size cap.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { ChatSocket } from '../api/ws';
 
 export interface LibChar {
@@ -152,6 +152,12 @@ export function useLibrary() {
       if (e.event === 'library_changed') {
         if (timer) clearTimeout(timer);
         timer = setTimeout(reload, 400);
+      } else if (e.event === 'connected') {
+        // (Re)connected — a `library_changed` may have fired while the socket
+        // was down (phone sleep, blip). Refetch immediately so the grid can't
+        // stay frozen on a stale snapshot until the next unrelated change.
+        if (timer) clearTimeout(timer);
+        reload();
       }
     });
     socket.connect();
@@ -346,19 +352,112 @@ export function useLibrary() {
   );
 
   // ── Import (multi-file + whole folder) ─────────────────────────────────────
+  // Single-file name collision: server returns 409 when collision=ask; we park
+  // a pending prompt so the page can render Keep both / Replace / Cancel.
+  type NameCollisionPending = {
+    name: string;
+    existing: { id: string; name: string }[];
+    resolve: (choice: 'keepBoth' | 'replace' | 'cancel', replaceId?: string) => void;
+  };
+  const [nameCollision, setNameCollision] = useState<{
+    name: string;
+    existing: { id: string; name: string }[];
+  } | null>(null);
+  const collisionWaiter = useRef<NameCollisionPending | null>(null);
+
+  const promptNameCollision = useCallback(
+    (name: string, existing: { id: string; name: string }[]) => {
+      return new Promise<{
+        choice: 'keepBoth' | 'replace' | 'cancel';
+        replaceId?: string;
+      }>((resolve) => {
+        const pending: NameCollisionPending = {
+          name,
+          existing,
+          resolve: (choice, replaceId) => {
+            collisionWaiter.current = null;
+            setNameCollision(null);
+            resolve({ choice, replaceId });
+          },
+        };
+        collisionWaiter.current = pending;
+        setNameCollision({ name, existing });
+      });
+    },
+    [],
+  );
+
+  const resolveNameCollision = useCallback(
+    (choice: 'keepBoth' | 'replace' | 'cancel', replaceId?: string) => {
+      collisionWaiter.current?.resolve(choice, replaceId);
+    },
+    [],
+  );
+
   const importFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
       setImporting(true);
       setError('');
+      const list = Array.from(files).filter((f) =>
+        /\.(png|byaf|json)$/i.test(f.name),
+      );
+      const single = list.length === 1;
       let ok = 0;
       let failed = 0;
-      for (const file of Array.from(files)) {
-        const lower = file.name.toLowerCase();
-        if (!/\.(png|byaf|json)$/.test(lower)) continue;
+      let cancelled = 0;
+      for (const file of list) {
         try {
-          await api.upload('/api/characters/import', file);
-          ok++;
+          if (single) {
+            // Probe with ask; handle 409 → dialog → retry with policy.
+            try {
+              await api.upload('/api/characters/import?collision=ask', file);
+              ok++;
+            } catch (e) {
+              if (
+                e instanceof ApiError &&
+                e.status === 409 &&
+                (e.payload.error === 'name_collision' ||
+                  e.payload.status === 'name_collision')
+              ) {
+                const name = String(e.payload.name ?? file.name);
+                const existing = (Array.isArray(e.payload.existing)
+                  ? e.payload.existing
+                  : []) as { id: string; name: string }[];
+                const { choice, replaceId } = await promptNameCollision(
+                  name,
+                  existing,
+                );
+                if (choice === 'cancel') {
+                  cancelled++;
+                  continue;
+                }
+                if (choice === 'keepBoth') {
+                  await api.upload(
+                    '/api/characters/import?collision=keepBoth',
+                    file,
+                  );
+                  ok++;
+                } else {
+                  const rid = replaceId || existing[0]?.id || '';
+                  await api.upload(
+                    `/api/characters/import?collision=replace&replaceId=${encodeURIComponent(rid)}`,
+                    file,
+                  );
+                  ok++;
+                }
+              } else {
+                failed++;
+              }
+            }
+          } else {
+            // Bulk: always keep both on name clash (issue #161).
+            await api.upload(
+              '/api/characters/import?collision=keepBoth',
+              file,
+            );
+            ok++;
+          }
         } catch {
           failed++;
         }
@@ -366,12 +465,14 @@ export function useLibrary() {
       setImporting(false);
       if (ok > 0) reload();
       if (failed > 0) {
-        setError(`Imported ${ok}, failed ${failed}. PNG (V2), .json and .byaf are supported.`);
-      } else if (ok === 0) {
+        setError(
+          `Imported ${ok}, failed ${failed}. PNG (V2), .json and .byaf are supported.`,
+        );
+      } else if (ok === 0 && cancelled === 0 && list.length === 0) {
         setError('No PNG (V2), .json or .byaf cards found to import.');
       }
     },
-    [reload],
+    [reload, promptNameCollision],
   );
 
   return {
@@ -422,5 +523,7 @@ export function useLibrary() {
     exportGroupPng,
     extractGroup,
     importFiles,
+    nameCollision,
+    resolveNameCollision,
   };
 }

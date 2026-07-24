@@ -29,8 +29,7 @@ class ReviewLorebookSection extends StatelessWidget {
 
   const ReviewLorebookSection({super.key, required this.state});
 
-  Color _accent(BuildContext context) =>
-      AppColors.resolve(context, Colors.blueAccent, Colors.blue.shade700);
+  Color _accent(BuildContext context) => AppColors.porchAmberOf(context);
 
   @override
   Widget build(BuildContext context) {
