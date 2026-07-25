@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 // Not in barrels (internal or low-frequency)
+import 'package:front_porch_ai/services/model_file_check.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
 import 'package:front_porch_ai/services/optimization_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -205,11 +206,23 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
         storage.kcppsHasModel && storage.kcppsModelFileExists;
 
     if (!presetOwnsModel) {
-      if (_selectedModelPath == null ||
-          !File(_selectedModelPath!).existsSync()) {
+      if (_selectedModelPath == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Valid model not selected.')),
         );
+        return;
+      }
+      // Same pre-flight KoboldService runs before spawning the process,
+      // surfaced here so the specific reason reaches a snackbar immediately
+      // instead of only the backend log. A bare existsSync() guarded this
+      // spot before, and that is exactly the check a OneDrive placeholder
+      // passes on its way to an unexplained exit 2 (issue #137).
+      final problem = await ModelFileCheck.validate(_selectedModelPath!);
+      if (problem != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(problem)));
         return;
       }
     }

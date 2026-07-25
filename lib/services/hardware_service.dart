@@ -596,32 +596,75 @@ class HardwareService extends ChangeNotifier {
         if (output.isNotEmpty) {
           var json = jsonDecode(output);
           if (json is! List) json = [json];
-          // Find the GPU that matches our detected name
-          for (var item in json) {
-            final name = item['Name'] ?? '';
-            if (name == gpuName || gpuName == 'Unknown GPU') {
-              // SharedSystemMemory / AdapterRAM are uint32 in WMI but ConvertTo-Json
-              // can occasionally emit them as strings on older PowerShell — coerce.
-              int toInt(dynamic v) {
-                if (v is int) return v;
-                if (v is String) return int.tryParse(v) ?? 0;
-                if (v is double) return v.round();
-                return 0;
-              }
 
-              final sharedMem = toInt(item['SharedSystemMemory']);
-              final dedicatedMem = toInt(item['AdapterRAM']);
-              final sharedMb = (sharedMem / (1024 * 1024)).round();
-              final dedicatedMb = (dedicatedMem / (1024 * 1024)).round();
-              // If shared memory is significantly larger than dedicated,
-              // this is an iGPU/APU that borrows from system RAM
-              if (sharedMb > dedicatedMb && sharedMb > 1024) {
-                isSharedMemory = true;
-                // Use dedicated + shared as the effective VRAM
-                vramMb = dedicatedMb + sharedMb;
-              }
-              break;
+          // SharedSystemMemory / AdapterRAM are uint32 in WMI but ConvertTo-Json
+          // can occasionally emit them as strings on older PowerShell — coerce.
+          int toInt(dynamic v) {
+            if (v is int) return v;
+            if (v is String) return int.tryParse(v) ?? 0;
+            if (v is double) return v.round();
+            return 0;
+          }
+
+          // Pick the adapter this machine actually renders on.
+          //
+          // This used to require WMI's Name to be string-equal to the name we
+          // resolved earlier from the registry / nvidia-smi. Those sources
+          // disagree constantly on AMD — the registry says "AMD Radeon(TM)
+          // 780M Graphics" where WMI says "AMD Radeon(TM) Graphics" — so on
+          // essentially every APU the match failed, isSharedMemory stayed
+          // false, and vramMb stayed 0. KoboldLayerSolver turns 0 VRAM into
+          // --gpulayers 0, i.e. a silent CPU-only launch: no error, just an
+          // app that feels slow for no visible reason. Second half of #137.
+          //
+          // Now: compare normalized token sets (so the vaguer name still
+          // matches the more specific one), and when nothing matches, fall
+          // back to whichever adapter reports the most shared memory — the
+          // APU signature. The fallback is gated on us having no VRAM figure
+          // yet (or no GPU name at all), so on a laptop with both an iGPU and
+          // a discrete card the iGPU's shared pool can never overwrite the
+          // discrete card's real VRAM.
+          Map<String, dynamic>? matched;
+          Map<String, dynamic>? mostShared;
+          int mostSharedMb = -1;
+
+          for (final item in json) {
+            if (item is! Map<String, dynamic>) continue;
+            final name = (item['Name'] ?? '').toString();
+            if (matched == null && gpuNamesMatch(name, gpuName)) {
+              matched = item;
+              continue;
             }
+            final sharedMb = (toInt(item['SharedSystemMemory']) / (1024 * 1024))
+                .round();
+            if (sharedMb > mostSharedMb) {
+              mostSharedMb = sharedMb;
+              mostShared = item;
+            }
+          }
+
+          final canFallBack = vramMb == 0 || gpuName == 'Unknown GPU';
+          final chosen = matched ?? (canFallBack ? mostShared : null);
+
+          if (chosen != null) {
+            final sharedMb = (toInt(chosen['SharedSystemMemory']) /
+                    (1024 * 1024))
+                .round();
+            final dedicatedMb = (toInt(chosen['AdapterRAM']) / (1024 * 1024))
+                .round();
+            // If shared memory is significantly larger than dedicated,
+            // this is an iGPU/APU that borrows from system RAM
+            if (sharedMb > dedicatedMb && sharedMb > 1024) {
+              isSharedMemory = true;
+              // Use dedicated + shared as the effective VRAM
+              vramMb = dedicatedMb + sharedMb;
+            }
+            debugPrint(
+              '[Hardware] shared-memory adapter: ${chosen['Name']} '
+              '(matched: ${matched != null}, shared: ${sharedMb}MB, '
+              'dedicated: ${dedicatedMb}MB) -> vram ${vramMb}MB, '
+              'isShared $isSharedMemory',
+            );
           }
         }
       }
@@ -693,6 +736,40 @@ class HardwareService extends ChangeNotifier {
     }
     return null;
   }
+
+  /// Whether two GPU names coming from different Windows sources describe the
+  /// same adapter.
+  ///
+  /// `Win32_VideoController.Name` (WMI), `DriverDesc` (registry) and
+  /// nvidia-smi's marketing name are all spelled differently for one card, and
+  /// on AMD one source routinely includes the model number where another drops
+  /// it ("AMD Radeon(TM) 780M Graphics" vs "AMD Radeon(TM) Graphics"). Exact
+  /// string comparison therefore fails on exactly the hardware that most needs
+  /// shared-memory detection.
+  ///
+  /// Compares normalized token sets and accepts a subset match, so the less
+  /// specific name matches the more specific one. Requires at least two shared
+  /// tokens, which keeps a discrete card from matching an iGPU purely because
+  /// both start with "AMD" — "AMD Radeon RX 7900 XTX" and "AMD Radeon(TM)
+  /// Graphics" stay distinct because "graphics" is absent from the former.
+  static bool gpuNamesMatch(String a, String b) {
+    final tokensA = _gpuNameTokens(a);
+    final tokensB = _gpuNameTokens(b);
+    if (tokensA.isEmpty || tokensB.isEmpty) return false;
+    final smaller = tokensA.length <= tokensB.length ? tokensA : tokensB;
+    final larger = identical(smaller, tokensA) ? tokensB : tokensA;
+    // A single shared token ("amd", "intel") is not evidence of anything.
+    if (smaller.length < 2) return false;
+    return smaller.every(larger.contains);
+  }
+
+  /// Lowercase alphanumeric tokens of a GPU name, with the vendor trademark
+  /// noise ("(tm)", "(r)") dropped so it never counts toward a match.
+  static Set<String> _gpuNameTokens(String name) => name
+      .toLowerCase()
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((t) => t.isNotEmpty && t != 'tm' && t != 'r')
+      .toSet();
 
   /// Parses `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,
   /// nounits` output into a name + VRAM-in-MB pair.

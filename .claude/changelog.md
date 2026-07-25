@@ -5559,3 +5559,46 @@ pass's designed failure mode), and the non-streaming tools call gets a
 whole-call deadline (a timed-out probe just marks the backend XML-only).
 Hardens ALL realism/needs/journal/growth evals, not just the Journal.
 Analyze clean; 2303 tests pass.
+
+## 2026-07-25 (UTC) — Issue #137: unexplained "exit code 2" on launch, and silent CPU-only on AMD APUs
+**Files:** `lib/services/model_file_check.dart` (NEW — GGUF pre-flight),
+`lib/services/kobold_service.dart` (pre-flight before Process.start; exit-2
+translation), `lib/services/hardware_service.dart` (gpuNamesMatch +
+_gpuNameTokens; shared-memory adapter selection rewritten),
+`lib/ui/pages/settings_page.controls.dart`, `lib/ui/pages/settings_page.dart`,
+`lib/ui/dialogs/model_settings_dialog.dart` (both weak existsSync launch gates
+now call the shared pre-flight so the snackbar carries the real reason),
+`test/services/model_file_check_test.dart` (9 tests),
+`test/services/hardware_gpu_name_match_test.dart` (9 tests).
+
+**Why (part 1 — the load failure):** Reporter's KoboldCpp printed "Cannot find
+text model file" and exited 2 for a .gguf that Front Porch could plainly see
+and had already existence-checked. Their whole data dir lives under
+`OneDrive\Documents\FrontPorchAI\`. `File.existsSync()` resolves through
+GetFileAttributesW, which answers for a cloud placeholder; KoboldCpp is frozen
+Python and resolves the same path through `os.stat`, which can fail on a cloud
+reparse point — so our check said yes and theirs said no. Two launch paths
+(LLMProvider.ensureManagedBackendIsRunning, SetupService autostart) did no
+check at all and would launch straight into the same silent exit 2. Fixed by
+actually opening the file and reading its GGUF magic (with a timeout, since a
+dehydrated file blocks while the sync client fetches it) at the one choke point
+every launch path goes through, plus translating a bare exit 2 into the same
+sentence when KoboldCpp rejects a file we could read.
+
+**Why (part 2 — the GPU layers):** Same log showed `--gpulayers 0` and
+"Unable to determine GPU Memory" on a Ryzen APU. Windows shared-memory
+detection compared WMI's `Win32_VideoController.Name` to the registry
+`DriverDesc` with `==`; on AMD those spellings differ ("AMD Radeon(TM) 780M
+Graphics" vs "AMD Radeon(TM) Graphics"), so the match failed on essentially
+every APU, isSharedMemory stayed false, vramMb stayed 0, and KoboldLayerSolver
+turned 0 VRAM into `--gpulayers 0` — a silent CPU-only launch presenting as
+"the app is slow" with no error anywhere. Now matches on normalized token sets
+(subset match, ≥2 shared tokens so a discrete card can't match an iGPU), and
+falls back to the highest-shared-memory adapter ONLY when no VRAM figure was
+found by any earlier method, so an iGPU can never overwrite a dGPU's real VRAM
+on a hybrid laptop.
+
+Analyze clean (3 pre-existing deprecation infos in untouched files, all from
+running a newer local Flutter). 18 new tests pass; whole non-golden suite
+passes. The 60 golden failures reproduce identically on unmodified
+origin/Rawhide with the same SDK — renderer version skew, not this change.

@@ -397,10 +397,17 @@ extension _SettingsLaunchControls on _SettingsPageState {
         ).showSnackBar(const SnackBar(content: Text('Please select a model.')));
         return;
       }
-      if (!File(_selectedModelPath!).existsSync()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Selected model file does not exist!')),
-        );
+      // Same validation KoboldService runs before spawning the process — used
+      // here purely so the reason lands in a snackbar the moment the user hits
+      // the button, instead of only in the backend log. A bare existsSync()
+      // used to guard this spot, which is exactly the check that says "yes"
+      // for a OneDrive placeholder KoboldCpp then cannot open (issue #137).
+      final problem = await ModelFileCheck.validate(_selectedModelPath!);
+      if (problem != null) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(problem)));
         return;
       }
     }

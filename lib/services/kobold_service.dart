@@ -24,6 +24,7 @@ import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
+import 'package:front_porch_ai/services/model_file_check.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/openai_chat_stream.dart';
@@ -251,6 +252,25 @@ class KoboldService extends ChangeNotifier
     }
     _isStarting = true;
 
+    // ── Model file pre-flight ────────────────────────────────────────────────
+    // Verify the .gguf is genuinely readable BEFORE spawning KoboldCpp, so a
+    // missing/placeholder/corrupt file produces a sentence the user can act on
+    // instead of a bare "Process exited with code 2" (issue #137). Skipped when
+    // modelPath is empty, which is preset mode — there the .kcpps owns the
+    // model and KoboldCpp resolves it itself.
+    //
+    // This is the single choke point for every launch path: two of them
+    // (LLMProvider.ensureManagedBackendIsRunning and the SetupService
+    // autostart) previously did no existence check at all and would launch
+    // straight into the same unexplained exit 2.
+    final modelProblem = await ModelFileCheck.validate(modelPath);
+    if (modelProblem != null) {
+      _addLog(modelProblem);
+      _isStarting = false;
+      notifyListeners();
+      return;
+    }
+
     // Store the executable path for cleanup
     _executablePath = executablePath;
 
@@ -465,6 +485,13 @@ class KoboldService extends ChangeNotifier
         _isRunning = false;
         _process = null;
         _addLog('Process exited with code $code');
+        // Exit 2 is KoboldCpp's "Cannot find text model file" path. The
+        // pre-flight above catches most causes, but KoboldCpp resolves the
+        // path through Python and can still reject a file we read fine, so
+        // translate the bare exit code rather than leaving the user guessing.
+        if (code == 2) {
+          _addLog(ModelFileCheck.explainExitCode2(modelPath));
+        }
         notifyListeners();
       });
     } catch (e, stack) {
