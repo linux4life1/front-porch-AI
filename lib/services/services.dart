@@ -72,3 +72,4 @@ export 'story_pipeline_service.dart';
 // Backup & generation tools (now used by web server + UI)
 export 'backup_service.dart';
 export 'character_gen_service.dart';
+export 'live_portrait/live_portrait.dart';

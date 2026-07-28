@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_linux
+  face_detection_tflite
   record_linux
   screen_retriever_linux
   url_launcher_linux
@@ -11,6 +12,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  flutter_litert
   onnxruntime_v2
   sherpa_onnx_linux
 )

@@ -84,6 +84,8 @@ dependencies:
   sherpa_onnx: ^1.13.4
   flutter_riverpod: ^3.0.0
   riverpod_annotation: ^4.0.0
+  flutter_shaders: ^0.1.3
+  face_detection_tflite: ^6.7.0
 
 dev_dependencies:
   flutter_test:
@@ -119,6 +121,9 @@ flutter:
     # non-recursive, so the Vite assets/ subdir is listed explicitly.
     - assets/web_app/
     - assets/web_app/assets/
+
+  shaders:
+    - assets/shaders/displacement.frag
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

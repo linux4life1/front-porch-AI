@@ -2967,29 +2967,11 @@ class _ChatPageState extends State<ChatPage> {
                 width: avatarSize,
                 child: Stack(
                   children: [
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      switchInCurve: Curves.easeInOut,
-                      switchOutCurve: Curves.easeInOut,
-                      child: Image.file(
-                        displayFile,
-                        key: ValueKey(expressionKey ?? 'default'),
-                        width: avatarSize,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                        errorBuilder: (_, _, _) => Container(
-                          color: AppColors.resolve(
-                            context,
-                            Colors.black26,
-                            Colors.black.withValues(alpha: 0.1),
-                          ),
-                          child: Icon(
-                            Icons.person,
-                            color: AppColors.iconSecondary(context),
-                            size: 64,
-                          ),
-                        ),
-                      ),
+                    LivePortraitAvatar(
+                      key: ValueKey(expressionKey ?? 'default'),
+                      imageFile: displayFile,
+                      size: avatarSize,
+                      fit: BoxFit.cover,
                     ),
                     // Emotion label badge
                     if (expressionEmoji != null)
