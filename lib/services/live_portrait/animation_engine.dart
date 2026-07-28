@@ -8,6 +8,7 @@ class AnimationParams {
   double headTurnAmount = 0.1;
   double mouthOffsetY = 0.0;
   bool enabled = true;
+  bool faceDetected = true;
 }
 
 class AnimationEngine {
@@ -74,6 +75,7 @@ class AnimationEngine {
   }
 
   void _updateBlink(double dt) {
+    if (!params.faceDetected) return;
     final freq = params.blinkFrequency;
     _blinkTimer += dt;
 
@@ -108,6 +110,7 @@ class AnimationEngine {
   }
 
   void _updateSaccades(double dt) {
+    if (!params.faceDetected) return;
     _saccadeTimer -= dt;
 
     if (_saccadeTimer <= 0) {

@@ -90,6 +90,9 @@ class _LivePortraitAvatarState extends State<LivePortraitAvatar> {
             landmarks.rightMouthCorner.dy / h,
           ),
         );
+        _engine.params.faceDetected = true;
+      } else {
+        _engine.params.faceDetected = false;
       }
 
       if (mounted) setState(() => _ready = true);
