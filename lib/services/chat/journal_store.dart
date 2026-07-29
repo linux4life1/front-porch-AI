@@ -128,7 +128,7 @@ class JournalStore {
       'storyDay': ?storyDay,
       'storyClock': ?storyClock,
       'kind': ?kind,
-      if (extraMetadata != null) ...extraMetadata,
+      ...?extraMetadata,
     };
     await db.insertJournalCard(
       // id deliberately absent — filled by insertJournalCard (UUID).

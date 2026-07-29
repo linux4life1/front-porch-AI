@@ -16,6 +16,7 @@ import { ConversationsDrawer, type SessionSummary } from '../components/Conversa
 import { ReprocessNeedsModal } from '../components/ReprocessNeedsModal';
 import { ChanceTimeModal } from '../components/ChanceTimeModal';
 import { ImagePromptReviewModal } from '../components/ImagePromptReviewModal';
+import { MessageEditModal } from '../components/MessageEditModal';
 import { type Message, type Realism, type LoreEntry, type ChatThemeOverrides } from '../components/chatTypes';
 import { ChatThemeSettings, resolveThemeColors } from '../components/ChatThemeSettings';
 
@@ -92,8 +93,8 @@ export function ChatPage() {
   const [showTheme, setShowTheme] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
-  const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState('');
+  // Fullscreen message editor — index + original text while the modal is open.
+  const [editTarget, setEditTarget] = useState<{ index: number; text: string } | null>(null);
   // Director-redo (reprocess Needs) — only the target message index lives here;
   // the modal owns its own critique/busy/error state.
   const [reprocessIndex, setReprocessIndex] = useState<number | null>(null);
@@ -270,17 +271,17 @@ export function ChatPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [state?.messages.length, streaming]);
 
-  // Esc closes the open drawer or cancels an in-progress edit (desktop expectation).
+  // Esc closes drawers (message edit owns its own Esc + dirty confirm).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (editIndex !== null) setEditIndex(null);
-      else if (showStats) setShowStats(false);
+      if (editTarget) return; // MessageEditModal handles Escape
+      if (showStats) setShowStats(false);
       else if (showSessions) setShowSessions(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editIndex, showStats, showSessions]);
+  }, [editTarget, showStats, showSessions]);
 
   // Apply per-chat theme overrides as CSS custom properties on the chat container.
   useEffect(() => {
@@ -352,14 +353,13 @@ export function ChatPage() {
     await refresh();
   };
   const beginEdit = (m: Message) => {
-    setEditIndex(m.index);
-    setEditDraft(m.text);
+    setEditTarget({ index: m.index, text: m.text });
   };
-  const saveEdit = async () => {
-    if (editIndex === null) return;
-    const index = editIndex;
-    setEditIndex(null);
-    await api.post('/api/chat/edit', { index, text: editDraft });
+  const saveEdit = async (text: string) => {
+    if (!editTarget) return;
+    const index = editTarget.index;
+    setEditTarget(null);
+    await api.post('/api/chat/edit', { index, text });
     await refresh();
   };
   const saveAuthorNote = async (note: string, strength: number) => {
@@ -553,11 +553,6 @@ export function ChatPage() {
           genStatus={state.isGenerating ? genStatus : null}
           scrollRef={scrollRef}
           canSpeak={!!voice?.ttsEnabled}
-          editIndex={editIndex}
-          editDraft={editDraft}
-          onEditDraftChange={setEditDraft}
-          onCancelEdit={() => setEditIndex(null)}
-          onSaveEdit={saveEdit}
           onBeginEdit={beginEdit}
           onSwipe={swipe}
           onRegenerate={regenerate}
@@ -566,6 +561,14 @@ export function ChatPage() {
           onReprocess={setReprocessIndex}
           onRevert={revertNeeds}
         />
+
+        {editTarget && (
+          <MessageEditModal
+            initialText={editTarget.text}
+            onCancel={() => setEditTarget(null)}
+            onSave={saveEdit}
+          />
+        )}
 
         <ProcessingOverlay p={processing} onCancel={cancelRealism} />
 
@@ -594,6 +597,7 @@ export function ChatPage() {
           isGenerating={state.isGenerating}
           canMic={canMic}
           onDraftChange={setDraft}
+          cast={cast}
         />
       </div>
 

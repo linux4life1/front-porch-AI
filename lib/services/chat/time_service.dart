@@ -70,6 +70,9 @@ class TimeService {
   DateTime _startDate = StoryClock.todayAnchor();
   bool _passageOfTimeEnabled = true;
   int _turnsSinceClockMoved = 0; // stall backstop counter (not a pacing gate)
+  // One clock authority per turn: set when detectOocTimeSkip moves the clock,
+  // consumed by the per-turn eval so it can't re-count the same exchange.
+  bool _oocSkipMovedClockThisTurn = false;
 
   // Tools transport for the scene-time/posture eval (nullable — tests and
   // any host without the tools door stay on the text path).
@@ -149,6 +152,7 @@ class TimeService {
     _startDate = StoryClock.todayAnchor();
     _clock = StoryClock.representativeTime(_startDate, 'morning');
     _turnsSinceClockMoved = 0;
+    _oocSkipMovedClockThisTurn = false;
     _passageOfTimeEnabled = true;
   }
 
@@ -341,6 +345,15 @@ class TimeService {
 
     if (!hasOocMarker && !hasSkipPhrase) return;
 
+    // An OOC marker alone is not a time skip. Without actual time language
+    // ("skip an hour", "a while later") the note is direction/flavor — a
+    // bare "(OOC: ...)" used to advance the clock a silent +1h per note.
+    final hasDurationHint = RegExp(
+      r'\b(an? hour|half an hour|\d+\s*(minutes?|hours?|days?|weeks?)|'
+      r'a while|some ?time|later|skip|fast.?forward|advance|pass(es|ing)?)\b',
+    ).hasMatch(lower);
+    if (!hasSkipPhrase && !hasDurationHint) return;
+
     // Most specific duration language first.
     DateTime next;
     if (RegExp(
@@ -375,6 +388,7 @@ class TimeService {
 
     _clock = next;
     _turnsSinceClockMoved = 0;
+    _oocSkipMovedClockThisTurn = true;
     onSetPendingRealismMetadata(
       'time_skip_to',
       '$displayShortDate · $displayClock',
@@ -420,6 +434,21 @@ class TimeService {
     final m = RegExp(r'"minutes_elapsed"\s*:\s*"?(-?\d+)').firstMatch(text);
     return m == null ? null : int.tryParse(m.group(1)!);
   }
+
+  /// Deterministic corroboration gate for the eval's `new_day` flag. The flag
+  /// bypasses [StoryClock.maxMinutesPerTurn] entirely (it's the only way the
+  /// clock can cross a night in one turn), and small eval models hallucinate
+  /// it — a scene full of "the beach where we met yesterday" talk produced
+  /// new_day=true at 6:30 PM and slammed the story to next morning. Honor the
+  /// flag only when the exchange actually contains sleep/wake/next-day
+  /// language; without it the turn still gets its clamped minutes_elapsed.
+  static final RegExp _newDayCorroboration = RegExp(
+    r'\b(sleep|slept|asleep|falls? asleep|wake|woke|waking|good.?night|'
+    r'next (morning|day)|the following (morning|day)|overnight|'
+    r'in the morning|calls? it a night|turn(s|ed|ing)? in for the night|'
+    r'sunrise|daybreak|dawn broke)\b',
+    caseSensitive: false,
+  );
 
   /// Per-turn scene-time + posture evaluation (design §2). In the multi-call
   /// path this fires ONE eval per turn asking minutes_elapsed / new_day /
@@ -491,13 +520,36 @@ class TimeService {
       return;
     }
 
+    final newDayCorroborated = _newDayCorroboration.hasMatch(recent);
+    void logSuppressedNewDay() => debugPrint(
+      '[Realism:Time] new_day=true suppressed — no sleep/wake language '
+      'in the recent exchange (hallucination guard)',
+    );
+
+    // One clock authority per turn (chip/clock parity): when an OOC or
+    // narrative skip already moved the clock for this exchange, this eval
+    // must not count the same exchange again — the double-advance is how a
+    // "Time skip: 11:50 PM" chip ended up under a 1:05 AM sidebar clock.
+    // Posture still evaluates; no minutes, no new_day, no failure drift.
+    final skipOwnsClock = _oocSkipMovedClockThisTurn;
+    _oocSkipMovedClockThisTurn = false;
+
     if (oneShotMode) {
       // The fused JSON already carries minutes_elapsed/new_day (and posture,
       // parsed by the one-shot applier). Clock math only — no LLM call.
+      if (skipOwnsClock) {
+        debugPrint(
+          '[Realism:Time] OOC skip owns this turn — one-shot clock '
+          'movement suppressed',
+        );
+        return;
+      }
       final text = oneShotText ?? '';
+      final saidNewDay = extractJsonBool(text, 'new_day') ?? false;
+      if (saidNewDay && !newDayCorroborated) logSuppressedNewDay();
       _applyElapsed(
         minutes: _extractMinutes(text),
-        newDay: extractJsonBool(text, 'new_day') ?? false,
+        newDay: saidNewDay && newDayCorroborated,
       );
       debugPrint(
         '[Realism:Time] One-shot elapsed applied → $displayClock (Day $dayCount)',
@@ -513,7 +565,8 @@ class TimeService {
         '1. "minutes_elapsed": how many in-story minutes passed during the LATEST exchange below (integer, 0-${StoryClock.maxMinutesPerTurn}). '
         'Most conversational exchanges take 2-15 minutes; activities (a meal, a walk, a task, travel) take longer. '
         'Use 0 ONLY when the scene is a continuous instant (mid-action, mid-sentence).\n'
-        '2. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise.\n'
+        '2. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise. '
+        'Merely MENTIONING yesterday, tomorrow, or another day does NOT count — the characters must actually cross a night.\n'
         '3. "posture": $charName\'s current physical position and location (brief grounded phrase). Use "none" if unclear.\n'
         '   - If the scene/location has changed (new setting, time passed, scene break), update to match the new context.\n'
         '   - Maintain continuity only within the SAME scene — do NOT anchor them to a position from a previous scene.\n\n'
@@ -531,22 +584,32 @@ class TimeService {
         final text = stripThinkBlocks(raw).isNotEmpty
             ? stripThinkBlocks(raw)
             : raw;
-        _applyElapsed(
-          minutes: _extractMinutes(text),
-          newDay: extractJsonBool(text, 'new_day') ?? false,
-        );
+        if (skipOwnsClock) {
+          debugPrint(
+            '[Realism:Time] OOC skip owns this turn — eval clock '
+            'movement suppressed',
+          );
+        } else {
+          final saidNewDay = extractJsonBool(text, 'new_day') ?? false;
+          if (saidNewDay && !newDayCorroborated) logSuppressedNewDay();
+          _applyElapsed(
+            minutes: _extractMinutes(text),
+            newDay: saidNewDay && newDayCorroborated,
+          );
+        }
         final postureMatch = RegExp(
           r'"posture"\s*:\s*"([^"]+)"',
         ).firstMatch(text);
         if (postureMatch != null) {
           setSpatialStance(postureMatch.group(1)!.trim());
         }
-      } else {
+      } else if (!skipOwnsClock) {
         _applyElapsed(minutes: null, newDay: false);
       }
     } catch (e) {
-      // Eval failed — deterministic drift so time never freezes.
-      _applyElapsed(minutes: null, newDay: false);
+      // Eval failed — deterministic drift so time never freezes (unless the
+      // OOC skip already moved this turn's clock).
+      if (!skipOwnsClock) _applyElapsed(minutes: null, newDay: false);
       debugPrint('[Realism:Time] Eval error, drifted to $displayClock: $e');
     }
 

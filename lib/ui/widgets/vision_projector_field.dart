@@ -114,7 +114,7 @@ class _VisionProjectorFieldState extends State<VisionProjectorField> {
   Future<void> _pickMmproj() async {
     final path = widget.modelPath;
     if (path == null) return;
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['gguf'],
       dialogTitle: 'Select vision projector (mmproj .gguf)',

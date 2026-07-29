@@ -16,7 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
@@ -347,15 +349,53 @@ class Personas extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// World/lorebook definitions.
+/// World/lorebook definitions (Living Worlds: portable places).
 class Worlds extends Table {
   TextColumn get id => text()();
   TextColumn get name => text().unique()();
   TextColumn get description => text().withDefault(const Constant(''))();
   TextColumn get lorebook => text().nullable()(); // JSON blob
   TextColumn get linkedCharacterName => text().nullable()();
+  // v40 — Living Worlds (docs/design/living-worlds.md)
+  TextColumn get coverImage => text().nullable()();
+  IntColumn get formatVersion => integer().withDefault(const Constant(1))();
+  TextColumn get sourceId => text().nullable()();
+  TextColumn get linkedCharacterId => text().nullable()();
+  /// Built-in biome id; null ⇒ temperate.
+  TextColumn get biomeId => text().nullable()();
+  /// Full custom biome JSON (phase 2); null when using a built-in.
+  TextColumn get biomeJson => text().nullable()();
+  /// Description injection opt-in; false for rows migrated from library labels.
+  BoolColumn get injectDescription =>
+      boolean().withDefault(const Constant(true))();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Per-chat world attachments (session id space for 1:1 and group chats).
+/// groups.world_ids remains a template applied at chat creation.
+class ChatWorlds extends Table {
+  TextColumn get id => text()();
+  TextColumn get chatId => text()();
+  TextColumn get worldId => text()();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Biome changeover spans — full biome snapshot, never a live pointer.
+/// effective_from_day is story dayCount when the span began.
+class ChatBiomeSpans extends Table {
+  TextColumn get id => text()();
+  TextColumn get chatId => text()();
+  IntColumn get effectiveFromDay => integer()();
+  TextColumn get biomeJson => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -667,6 +707,8 @@ class WebAuthSessions extends Table {
     Folders,
     Personas,
     Worlds,
+    ChatWorlds, // v40 — Living Worlds: per-chat world attachments
+    ChatBiomeSpans, // v40 — Living Worlds: biome changeover spans
     MessageEmbeddings,
     DataBankEntries,
     JournalMemories, // v35 — The Journal: per-chat, per-character memory cards
@@ -1139,7 +1181,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 39;
+  int get schemaVersion => 40;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1830,8 +1872,234 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[DB] v39 gen-overrides heal failed: $e');
         }
       }
+      if (from < 40) {
+        // v39→v40: Living Worlds (docs/design/living-worlds.md).
+        // Additive only — no sessions/groups rebuild. Pre-migration file
+        // backup via schema-repair path if columns missing; forced backup
+        // attempted here too for the data backfill.
+        await _migrateLivingWorldsV40();
+      }
     },
   );
+
+  /// Living Worlds schema + name→UUID backfill (phase 0) and biome span
+  /// table (phase 1).
+  ///
+  /// **Re-run policy:** schema pieces (ALTER + CREATE IF NOT EXISTS) are
+  /// tolerant of a second pass. **Data mutations are single-run** — they fire
+  /// only when [schemaVersion] advances past 39→40. Do not call this as a
+  /// generic repair: (1) `inject_description = 0` would clobber user toggles
+  /// on a second pass; (2) `groups.world_ids` is rewritten in place (original
+  /// name lists live only in the pre-migration backup — not preserved in the
+  /// live DB for re-run inspection); (3) chat_worlds inserts use
+  /// INSERT OR IGNORE so links are mostly idempotent, but the group rewrite
+  /// is not reversible without the backup.
+  Future<void> _migrateLivingWorldsV40() async {
+    try {
+      await _createPreRepairBackup();
+    } catch (e) {
+      debugPrint('[DB] v40: pre-migration backup skipped: $e');
+    }
+
+    // worlds columns (re-runnable)
+    for (final def in [
+      'cover_image TEXT',
+      'format_version INTEGER NOT NULL DEFAULT 1',
+      'source_id TEXT',
+      'linked_character_id TEXT',
+      'biome_id TEXT',
+      'biome_json TEXT',
+      'inject_description INTEGER NOT NULL DEFAULT 1',
+    ]) {
+      final col = def.split(' ').first;
+      try {
+        await customStatement('ALTER TABLE worlds ADD COLUMN $def');
+        debugPrint('[DB] v40: added worlds.$col');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
+
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS chat_worlds (
+        id TEXT NOT NULL PRIMARY KEY,
+        chat_id TEXT NOT NULL,
+        world_id TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
+      )
+    ''');
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_chat_worlds_chat ON chat_worlds(chat_id)',
+    );
+
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS chat_biome_spans (
+        id TEXT NOT NULL PRIMARY KEY,
+        chat_id TEXT NOT NULL,
+        effective_from_day INTEGER NOT NULL,
+        biome_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
+      )
+    ''');
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_chat_biome_spans_chat '
+      'ON chat_biome_spans(chat_id)',
+    );
+
+    // Migrated library worlds: descriptions were labels → don't inject.
+    // Single UPDATE (one-shot with schema 39→40 only — not re-run safe).
+    try {
+      await customStatement(
+        'UPDATE worlds SET inject_description = 0, format_version = 1',
+      );
+    } catch (e) {
+      debugPrint('[DB] v40: inject_description defaulting failed: $e');
+    }
+
+    // Backfill linked_character_id from linked_character_name.
+    try {
+      final worlds = await customSelect(
+        'SELECT id, linked_character_name FROM worlds '
+        'WHERE linked_character_name IS NOT NULL AND linked_character_name != \'\' '
+        'AND (linked_character_id IS NULL OR linked_character_id = \'\')',
+      ).get();
+      for (final row in worlds) {
+        final wId = row.data['id'] as String?;
+        final cName = row.data['linked_character_name'] as String?;
+        if (wId == null || cName == null) continue;
+        final chars = await customSelect(
+          'SELECT id FROM characters WHERE name = ? AND deleted_at IS NULL LIMIT 1',
+          variables: [Variable(cName)],
+        ).get();
+        if (chars.isEmpty) continue;
+        final cId = chars.first.data['id'] as String?;
+        if (cId == null) continue;
+        await customStatement(
+          'UPDATE worlds SET linked_character_id = ? WHERE id = ?',
+          [cId, wId],
+        );
+      }
+    } catch (e) {
+      debugPrint('[DB] v40: linked_character_id backfill failed: $e');
+    }
+
+    // Name→UUID for groups.world_ids + seed chat_worlds for existing sessions.
+    // Rewrites groups.world_ids in place — pre-migration name lists survive
+    // only in the forced backup file, not as a re-runnable live snapshot.
+    try {
+      final worldRows = await customSelect(
+        'SELECT id, name FROM worlds WHERE deleted_at IS NULL',
+      ).get();
+      final nameToId = <String, String>{};
+      final validIds = <String>{};
+      for (final r in worldRows) {
+        final id = r.data['id']?.toString();
+        final name = r.data['name']?.toString();
+        if (id == null) continue;
+        validIds.add(id);
+        if (name != null) nameToId[name] = id;
+      }
+
+      final groups = await customSelect(
+        'SELECT id, world_ids FROM groups WHERE deleted_at IS NULL',
+      ).get();
+      var unresolvedTotal = 0;
+      var groupsRewritten = 0;
+      var chatLinks = 0;
+
+      for (final g in groups) {
+        final gId = g.data['id']?.toString();
+        if (gId == null) continue;
+        final raw = g.data['world_ids']?.toString() ?? '[]';
+        List<String> refs = const [];
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is List) {
+            refs = [
+              for (final e in decoded)
+                if (e != null && e.toString().isNotEmpty) e.toString(),
+            ];
+          }
+        } catch (_) {
+          refs = const [];
+        }
+        final unresolved = <String>[];
+        final ids = <String>[];
+        final seen = <String>{};
+        for (final ref in refs) {
+          final id = validIds.contains(ref) ? ref : nameToId[ref];
+          if (id == null) {
+            unresolved.add(ref);
+            continue;
+          }
+          if (seen.add(id)) ids.add(id);
+        }
+        unresolvedTotal += unresolved.length;
+        if (unresolved.isNotEmpty) {
+          debugPrint(
+            '[DB] v40: group $gId dropped unresolved world refs: $unresolved',
+          );
+        }
+        final encoded = jsonEncode(ids);
+        if (encoded != raw) {
+          await customStatement(
+            'UPDATE groups SET world_ids = ? WHERE id = ?',
+            [encoded, gId],
+          );
+          groupsRewritten++;
+        }
+
+        // Sessions for this group → chat_worlds. Skip when the pair already
+        // exists (PK is only link id, so INSERT OR IGNORE alone would
+        // duplicate on a second pass).
+        final sessions = await customSelect(
+          'SELECT id FROM sessions WHERE group_id = ? AND deleted_at IS NULL',
+          variables: [Variable(gId)],
+        ).get();
+        for (final s in sessions) {
+          final sid = s.data['id']?.toString();
+          if (sid == null) continue;
+          var order = 0;
+          for (final wid in ids) {
+            try {
+              final exists = await customSelect(
+                'SELECT 1 AS o FROM chat_worlds '
+                'WHERE chat_id = ? AND world_id = ? LIMIT 1',
+                variables: [Variable(sid), Variable(wid)],
+              ).get();
+              if (exists.isNotEmpty) {
+                order++;
+                continue;
+              }
+              await customStatement(
+                'INSERT INTO chat_worlds '
+                '(id, chat_id, world_id, sort_order, created_at) '
+                'VALUES (?, ?, ?, ?, ?)',
+                [
+                  _uuid.v4(),
+                  sid,
+                  wid,
+                  order++,
+                  DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                ],
+              );
+              chatLinks++;
+            } catch (e) {
+              debugPrint('[DB] v40: chat_worlds insert failed: $e');
+            }
+          }
+        }
+      }
+      debugPrint(
+        '[DB] v40 Living Worlds: groups rewritten=$groupsRewritten, '
+        'chat_world links=$chatLinks, unresolved refs=$unresolvedTotal '
+        '(original name lists only in pre-migration backup)',
+      );
+    } catch (e, st) {
+      debugPrint('[DB] v40: world ref backfill failed: $e\n$st');
+    }
+  }
 
   /// Migrate all int-keyed tables to UUID text PKs.
   /// Creates new tables, copies data with generated UUIDs, drops old, renames.
@@ -2690,6 +2958,146 @@ class AppDatabase extends _$AppDatabase {
   Future<World?> getWorldByName(String name) =>
       (select(worlds)..where((w) => w.name.equals(name) & w.deletedAt.isNull()))
           .getSingleOrNull();
+
+  Future<World?> getWorldById(String id) =>
+      (select(worlds)..where((w) => w.id.equals(id) & w.deletedAt.isNull()))
+          .getSingleOrNull();
+
+  // ── Chat worlds / biome spans (Living Worlds) ───────────────────────
+
+  Future<List<String>> getWorldIdsForChat(String chatId) async {
+    final rows = await (select(chatWorlds)
+          ..where((t) => t.chatId.equals(chatId))
+          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+        .get();
+    return [for (final r in rows) r.worldId];
+  }
+
+  Future<void> setChatWorlds(String chatId, List<String> worldIds) async {
+    await transaction(() async {
+      await (delete(chatWorlds)..where((t) => t.chatId.equals(chatId))).go();
+      var order = 0;
+      for (final wid in worldIds) {
+        await into(chatWorlds).insert(
+          ChatWorldsCompanion.insert(
+            id: _uuid.v4(),
+            chatId: chatId,
+            worldId: wid,
+            sortOrder: Value(order++),
+          ),
+        );
+      }
+    });
+    await bumpSyncVersion();
+  }
+
+  Future<void> deleteChatWorldLinksForWorld(String worldId) async {
+    await (delete(chatWorlds)..where((t) => t.worldId.equals(worldId))).go();
+    await bumpSyncVersion();
+  }
+
+  /// Remove [ids] and [names] from every characters.world_names and
+  /// groups.world_ids JSON array (Living Worlds: purge character clones).
+  Future<int> stripWorldRefsFromCharactersAndGroups({
+    required Set<String> ids,
+    required Set<String> names,
+  }) async {
+    if (ids.isEmpty && names.isEmpty) return 0;
+    var touched = 0;
+    final charRows = await customSelect(
+      'SELECT id, world_names FROM characters WHERE deleted_at IS NULL',
+    ).get();
+    for (final row in charRows) {
+      final id = row.data['id']?.toString();
+      final raw = row.data['world_names']?.toString() ?? '[]';
+      final next = _filterWorldRefJson(raw, ids: ids, names: names);
+      if (next == null) continue;
+      await customStatement(
+        'UPDATE characters SET world_names = ? WHERE id = ?',
+        [next, id],
+      );
+      touched++;
+    }
+    final groupRows = await customSelect(
+      'SELECT id, world_ids FROM groups WHERE deleted_at IS NULL',
+    ).get();
+    for (final row in groupRows) {
+      final id = row.data['id']?.toString();
+      final raw = row.data['world_ids']?.toString() ?? '[]';
+      final next = _filterWorldRefJson(raw, ids: ids, names: names);
+      if (next == null) continue;
+      await customStatement(
+        'UPDATE groups SET world_ids = ? WHERE id = ?',
+        [next, id],
+      );
+      touched++;
+    }
+    if (touched > 0) await bumpSyncVersion();
+    return touched;
+  }
+
+  /// Returns new JSON array string if filtered, else null if unchanged.
+  String? _filterWorldRefJson(
+    String raw, {
+    required Set<String> ids,
+    required Set<String> names,
+  }) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return null;
+      final kept = <String>[];
+      var changed = false;
+      for (final e in decoded) {
+        final s = e?.toString() ?? '';
+        if (s.isEmpty) continue;
+        if (ids.contains(s) || names.contains(s)) {
+          changed = true;
+          continue;
+        }
+        kept.add(s);
+      }
+      if (!changed) return null;
+      return jsonEncode(kept);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Upsert semantics per (chat, day): switching climate twice on the same
+  /// story day REPLACES the earlier span instead of stacking a duplicate row
+  /// whose winner would depend on incidental row order (spans are read back
+  /// ordered by effective_from_day only). Transactional so a failure between
+  /// delete and insert can't silently drop the day's span.
+  Future<void> insertBiomeSpan({
+    required String chatId,
+    required int effectiveFromDay,
+    required String biomeJson,
+  }) async {
+    await transaction(() async {
+      await (delete(chatBiomeSpans)..where(
+            (t) =>
+                t.chatId.equals(chatId) &
+                t.effectiveFromDay.equals(effectiveFromDay),
+          ))
+          .go();
+      await into(chatBiomeSpans).insert(
+        ChatBiomeSpansCompanion.insert(
+          id: _uuid.v4(),
+          chatId: chatId,
+          effectiveFromDay: effectiveFromDay,
+          biomeJson: biomeJson,
+        ),
+      );
+      await bumpSyncVersion();
+    });
+  }
+
+  Future<List<ChatBiomeSpan>> getBiomeSpansForChat(String chatId) async {
+    return (select(chatBiomeSpans)
+          ..where((t) => t.chatId.equals(chatId))
+          ..orderBy([(t) => OrderingTerm.asc(t.effectiveFromDay)]))
+        .get();
+  }
 
   // ── Embedding Queries ──────────────────────────────────────────────
 

@@ -84,14 +84,136 @@ class SceneGuestDirector {
   /// but the flag defends against any future path that re-enters.
   bool _running = false;
 
+  /// The present guest the user's line DIRECTLY addresses — a leading vocative
+  /// ("Mara - …", "Mara, …", "@Mara …"), the bare name ("Mara?"), or a
+  /// trailing vocative ("…, Mara?") — or null when nobody (or the HOST) is
+  /// addressed that way. `sendMessage` uses this to route the whole turn to
+  /// the guest instead of the host, so a question asked TO a guest is answered
+  /// by the guest in their own bubble — not by the host answering in the
+  /// guest's voice AND the guest chiming in with a duplicate (the "responds
+  /// twice per message" report). Deliberately stricter than [_mentionsGuest]:
+  /// a mere mention anywhere in the line must not steal the host's turn.
+  CharacterCard? directlyAddressedGuest(String userText) {
+    if (!_isEnabled()) return null;
+    // Strip symmetric roleplay wrappers so `"Mara, help!"` still anchors.
+    final text = userText
+        .trim()
+        .replaceAll(RegExp(r'''^["'*_~“”]+|["'*_~“”]+$'''), '')
+        .trim();
+    if (text.isEmpty) return null;
+    // Explicit "@Name" outranks the vocative patterns and needs no
+    // punctuation or anchoring — the sigil marks deliberate addressing
+    // ("@Evelyn what did you mean"). Host wins ABSOLUTELY: an @ of the
+    // host's name anywhere keeps the whole turn with the host, including
+    // over a guest vocative later in the line ("@Host what do you think,
+    // Evelyn?" stays a host turn).
+    if (_atMentionHit(_getHostName(), text) != null) return null;
+    final at = atMentionedCard(_getSceneGuestCards(), text);
+    if (at != null) return at;
+    // The host outranks every guest: "Host, …" (or a shared first name)
+    // stays a normal host turn.
+    if (_isAddressed(_getHostName(), text)) return null;
+    for (final guest in _getSceneGuestCards()) {
+      if (_isAddressed(guest.name, text)) return guest;
+    }
+    return null;
+  }
+
+  /// The first card whose name (or first-name nickname) appears as an explicit
+  /// "@Name" mention in [text] — earliest @ in TEXT order wins when several
+  /// cards are mentioned. Static and pure on purpose: shared by the 1:1 guest
+  /// router above and the group @-routing in `sendMessage` (where the matched
+  /// member is forced as next speaker). The sigil marks deliberate addressing,
+  /// so no vocative punctuation is required and the mention may sit anywhere
+  /// in the line. Returns null when nothing matches.
+  static CharacterCard? atMentionedCard(
+    List<CharacterCard> cards,
+    String text,
+  ) {
+    CharacterCard? best;
+    (int, int)? bestHit; // (start, matchedLength)
+    for (final card in cards) {
+      final hit = _atMentionHit(card.name, text);
+      if (hit == null) continue;
+      // Earliest @ wins; on the SAME @, the longer variant wins — so
+      // "@Mara Vance" picks Mara Vance even when another card's "Mara"
+      // nickname also matches at that spot. (A bare "@Mara" shared by two
+      // cards stays list-order — genuinely ambiguous.)
+      if (bestHit == null ||
+          hit.$1 < bestHit.$1 ||
+          (hit.$1 == bestHit.$1 && hit.$2 > bestHit.$2)) {
+        bestHit = hit;
+        best = card;
+      }
+    }
+    return best;
+  }
+
+  /// The first "@Name" mention of [name] (any variant) in [text] as a
+  /// (startIndex, matchedLength) record, or null. The @ must not follow a
+  /// word char, dot, hyphen, or plus (so "me@evelyn.com" never matches, while
+  /// ",@Evelyn" / "[@Evelyn]" / curly quotes do), and the name must end at a
+  /// word boundary that also rejects hyphens (so "@Mara-Lynn" is not guest
+  /// "Mara").
+  static (int, int)? _atMentionHit(String name, String text) {
+    if (!text.contains('@')) return null;
+    (int, int)? best;
+    for (final n in _nameVariants(name)) {
+      final m = RegExp(
+        '(?<![\\w.\\-+])@${RegExp.escape(n)}(?![\\w\\-])',
+        caseSensitive: false,
+      ).firstMatch(text);
+      if (m == null) continue;
+      final len = m.end - m.start;
+      if (best == null ||
+          m.start < best.$1 ||
+          (m.start == best.$1 && len > best.$2)) {
+        best = (m.start, len);
+      }
+    }
+    return best;
+  }
+
+  /// True when [text] opens with, is exactly, or closes with a vocative of
+  /// [name] (full name or first-name nickname). Anchored on purpose — a name
+  /// mid-sentence ("I told Mara about it") is a mention, not an address. A
+  /// dash only counts as a vocative separator with whitespace next to it, so
+  /// a hyphenated OTHER name ("Mara-Lynn came by", "I met Anna-Mara.") never
+  /// steals the turn for guest "Mara".
+  bool _isAddressed(String name, String text) {
+    for (final n in _nameVariants(name)) {
+      final e = RegExp.escape(n);
+      final leading = RegExp(
+        '^@?$e(\\s*[,:;.!?…]|\\s+[\\-–—])',
+        caseSensitive: false,
+      );
+      final bare = RegExp('^@?$e[\\s.!?…]*\$', caseSensitive: false);
+      final trailing = RegExp(
+        '([,;:]|\\s[\\-–—])\\s*$e\\s*[.!?…]*\$',
+        caseSensitive: false,
+      );
+      if (leading.hasMatch(text) ||
+          bare.hasMatch(text) ||
+          trailing.hasMatch(text)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Decide which present guests speak and run their turns in order.
   ///
   /// [userText] is the user's just-sent line; [primaryResponse] is the primary
-  /// character's reply that just finished. Both feed the heuristic and the gate.
+  /// character's reply that just finished. Both feed the heuristic and the
+  /// gate. [exclude] is a guest who already spoke this turn (the direct-address
+  /// routed speaker) — their name saturates the transcript tail, so without
+  /// the exclusion the mention heuristic would immediately make them speak a
+  /// second time.
   Future<void> runChimeIns({
     required String userText,
     required String primaryResponse,
     bool Function()? isContextValid,
+    CharacterCard? exclude,
   }) async {
     if (!_isEnabled()) return;
     if (_running) return; // never re-enter (defensive; see _running docs)
@@ -110,6 +232,13 @@ class SceneGuestDirector {
       var tail = primaryResponse;
 
       for (final guest in guests) {
+        // The routed direct-address speaker already had their turn.
+        if (exclude != null &&
+            (exclude.dbId != null
+                ? guest.dbId == exclude.dbId
+                : guest.name == exclude.name)) {
+          continue;
+        }
         // The gate eval + each guest turn are slow LLM calls; bail if the chat
         // was switched / the service torn down between guests so we never append
         // a guest bubble to the wrong scene.
@@ -167,27 +296,36 @@ class SceneGuestDirector {
   /// Word-boundary, case-insensitive check for the character's full name or the
   /// first token of it (used as a nickname, e.g. "Dr. Mara Vance" → "Mara").
   bool _mentionsGuest(String name, String haystack) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty || haystack.isEmpty) return false;
-
-    bool hits(String needle) {
-      final n = needle.trim();
-      if (n.length < 2) return false; // avoid matching stray single letters
-      return RegExp(
+    if (haystack.isEmpty) return false;
+    for (final n in _nameVariants(name)) {
+      if (RegExp(
         r'\b' + RegExp.escape(n) + r'\b',
         caseSensitive: false,
-      ).hasMatch(haystack);
+      ).hasMatch(haystack)) {
+        return true;
+      }
     }
+    return false;
+  }
 
-    if (hits(trimmed)) return true;
-    // First-token nickname (e.g. "Mara Vance" → "Mara"), but NOT when the first
-    // token is a title/common word ("Major Tom" → "Major", "Old Greaves" → "Old")
-    // — those would force a chime-in on any line containing that everyday word.
+  /// The matchable variants of a character name: the full trimmed name plus
+  /// the first token as a nickname ("Mara Vance" → "Mara") — but NOT when the
+  /// first token is a title/common word ("Major Tom" → "Major", "Old Greaves"
+  /// → "Old"), which would match on any line containing that everyday word.
+  /// Variants shorter than 2 chars are dropped (stray single letters). Shared
+  /// by the mention heuristic, the direct-address router, and the @-mention
+  /// matcher (static because the @ matcher is).
+  static List<String> _nameVariants(String name) {
+    final trimmed = name.trim();
+    final out = <String>[];
+    if (trimmed.length >= 2) out.add(trimmed);
     final first = trimmed.split(RegExp(r'\s+')).first;
-    if (first == trimmed || _titleOrStopword.contains(first.toLowerCase())) {
-      return false;
+    if (first != trimmed &&
+        first.length >= 2 &&
+        !_titleOrStopword.contains(first.toLowerCase())) {
+      out.add(first);
     }
-    return hits(first);
+    return out;
   }
 
   /// First-name tokens that are really titles/common words, so they must not be

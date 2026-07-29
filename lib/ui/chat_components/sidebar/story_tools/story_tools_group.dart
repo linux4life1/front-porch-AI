@@ -26,13 +26,15 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import '../porch_accordion.dart';
 import 'afk_panel.dart';
 import 'chaos_panel.dart';
+import 'chat_places_panel.dart';
 import 'lorebook_chat_book.dart';
 import 'lorebook_panel.dart';
-import 'objective_panel.dart';
 
-/// 🎲 Story Tools accordion — author's note, objectives (1:1 full chats
-/// only), chaos mode, dynamic responses (AFK, 1:1 only), and lorebook
-/// triggers.
+/// 🎲 Story Tools accordion — chaos mode, dynamic responses (AFK, 1:1 only),
+/// places, and lorebook triggers.
+///
+/// Objectives live in their own SidebarBody accordion (collapsed by default)
+/// so they don't bury chaos / places / lore.
 ///
 /// [character] is the active 1:1 card the LorebookSection needs (unused in
 /// group mode).
@@ -73,13 +75,6 @@ class StoryToolsGroup extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // (Author's Note moved OUT of this group — it leads the sidebar as
-          // its own card in SidebarBody, per user feedback that it was
-          // buried here.)
-          if (!isGroup && !isLite) ...[
-            ObjectivePanel(chatService: chatService),
-            const SizedBox(height: 12),
-          ],
           Consumer<ChatService>(
             builder: (context, chat, _) =>
                 ChaosPanel(chat: chat, onSpinRequested: onSpinRequested),
@@ -91,6 +86,8 @@ class StoryToolsGroup extends StatelessWidget {
             AfkPanel(chat: chatService),
             const SizedBox(height: 12),
           ],
+          ChatPlacesPanel(chatService: chatService),
+          const SizedBox(height: 12),
           if (isGroup)
             GroupLorebookSection(chatService: chatService, draft: draft)
           else if (character != null)

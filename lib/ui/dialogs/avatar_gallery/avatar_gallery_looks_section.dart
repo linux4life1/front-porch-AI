@@ -62,7 +62,11 @@ class AvatarGalleryLooksSection extends StatelessWidget {
     if (portrait != null) {
       tiles.add(
         AvatarTile(
+          // Stable id + mediaGen: portrait path is reused when a look is
+          // promoted over it; without a versioned key the blank face sticks.
+          key: ValueKey('portrait-${controller.mediaGen}'),
           imageFile: portrait,
+          imageVersion: controller.mediaGen,
           caption: 'Portrait',
           starred: controller.favoriteId == null,
           onStar: () => controller.setFavorite(null),
@@ -81,13 +85,24 @@ class AvatarGalleryLooksSection extends StatelessWidget {
           badgeColor: AppColors.formMasterAccent,
         ),
       );
+    } else {
+      // No portrait yet — explicit Set portrait (crops + writes imagePath).
+      // Add avatar alone used to only create a look; without this tile users
+      // never found the path that fills Edit Character's card face (#171).
+      tiles.add(
+        GalleryAddTile(label: 'Set portrait', onTap: onReplacePortrait),
+      );
     }
 
     // Gallery avatars.
     for (final look in controller.looks) {
       tiles.add(
         AvatarTile(
+          // Key by id (not list index) so deleting one look does not leave
+          // the next tile's Element showing the deleted face.
+          key: ValueKey('look-${look.id}'),
           imageFile: controller.fileFor(look),
+          imageVersion: controller.mediaGen,
           starred: controller.favoriteId == look.id,
           onStar: () => controller.setFavorite(look.id),
           onDelete: () => onDelete(look.id),
@@ -108,8 +123,10 @@ class AvatarGalleryLooksSection extends StatelessWidget {
         AvatarGallerySectionHeader(
           title: 'Gallery avatars',
           subtitle: _inChat
-              ? 'Tap one to show it in this chat · ★ sets the default'
-              : 'Outfits, scenes, moods · ★ sets the default + card cover',
+              ? 'Tap one to show it in this chat · ★ sets the default face'
+              : portrait == null
+                  ? 'Set a portrait, or Add avatar · ★ is the card cover'
+                  : 'Outfits, scenes, moods · ★ sets the default + card cover',
         ),
         const SizedBox(height: 10),
         GridView.count(

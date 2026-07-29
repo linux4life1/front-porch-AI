@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { ChatLorebookModal } from './ChatLorebookModal';
+import { ChatPlacesSection } from './ChatPlacesSection';
 import { ChatTools } from './ChatTools';
 import { type CastMember } from './CastBar';
 import { LookSwiper } from './ChatAvatar';
@@ -240,6 +241,8 @@ export function ChatInsight({
       )}
 
       <ChatTools reloadKey={toolsKey} focusedId={focusedId} groupId={groupId} onCommand={onCommand} />
+
+      <ChatPlacesSection reloadKey={toolsKey} />
 
       <h4 className="section-label">Lorebook</h4>
       {typeof loreBudget === 'number' && loreBudget > 0 && (

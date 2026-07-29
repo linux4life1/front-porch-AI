@@ -50,8 +50,9 @@ void main() {
       await db.close();
     });
 
-    test('schema version is 39', () {
-      expect(db.schemaVersion, 39);
+    test('schema version is 40', () {
+      // Living Worlds v40 (worlds columns + chat_worlds + chat_biome_spans).
+      expect(db.schemaVersion, 40);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

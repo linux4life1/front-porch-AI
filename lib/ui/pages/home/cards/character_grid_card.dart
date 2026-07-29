@@ -41,6 +41,7 @@ class CharacterGridCard extends StatelessWidget {
     required this.onToggleSelect,
     required this.onContextMenuAction,
     required this.onResolveCharImage,
+    this.imageCacheEpoch = 0,
   });
 
   final CharacterCard character;
@@ -55,8 +56,32 @@ class CharacterGridCard extends StatelessWidget {
   onContextMenuAction;
   final File Function(CharacterCard card) onResolveCharImage;
 
+  /// From [CharacterRepository.coverEpoch] — forces [Image.file] to drop a
+  /// stale frame when the portrait is rewritten in place (same path).
+  final int imageCacheEpoch;
+
   /// Delegates to the canonical stable group ID.
   String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
+
+  Widget _coverImage(BuildContext context, File file, {required double size}) {
+    return Image.file(
+      file,
+      key: ValueKey(
+        '${character.dbId ?? character.name}|${file.path}|$imageCacheEpoch',
+      ),
+      fit: BoxFit.cover,
+      alignment: Alignment.topCenter,
+      gaplessPlayback: false,
+      errorBuilder: (_, _, _) => Container(
+        color: AppColors.surfaceContainerOf(context),
+        child: Icon(
+          Icons.person,
+          size: size,
+          color: AppColors.iconSecondary(context),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,18 +99,10 @@ class CharacterGridCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: character.imagePath != null
-                ? Image.file(
+                ? _coverImage(
+                    context,
                     onResolveCharImage(character),
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                    errorBuilder: (_, _, _) => Container(
-                      color: AppColors.surfaceContainerOf(context),
-                      child: Icon(
-                        Icons.person,
-                        color: AppColors.iconSecondary(context),
-                        size: 48,
-                      ),
-                    ),
+                    size: 48,
                   )
                 : Icon(
                     Icons.person,
@@ -172,18 +189,10 @@ class CharacterGridCard extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       character.imagePath != null
-                          ? Image.file(
+                          ? _coverImage(
+                              context,
                               onResolveCharImage(character),
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
-                              errorBuilder: (_, _, _) => Container(
-                                color: AppColors.surfaceContainerOf(context),
-                                child: Icon(
-                                  Icons.person,
-                                  size: 32,
-                                  color: AppColors.iconSecondary(context),
-                                ),
-                              ),
+                              size: 32,
                             )
                           : Container(
                               color: AppColors.surfaceContainerOf(context),
@@ -238,18 +247,10 @@ class CharacterGridCard extends StatelessWidget {
                     Expanded(
                       flex: isCompact ? 4 : 3,
                       child: character.imagePath != null
-                          ? Image.file(
+                          ? _coverImage(
+                              context,
                               onResolveCharImage(character),
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
-                              errorBuilder: (_, _, _) => Container(
-                                color: AppColors.surfaceContainerOf(context),
-                                child: Icon(
-                                  Icons.person,
-                                  size: isCompact ? 32 : 64,
-                                  color: AppColors.iconSecondary(context),
-                                ),
-                              ),
+                              size: isCompact ? 32 : 64,
                             )
                           : Container(
                               color: AppColors.surfaceContainerOf(context),

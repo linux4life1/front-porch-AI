@@ -24,6 +24,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/realism_verification.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/dialogs/message_edit_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -68,53 +69,60 @@ class _MessageBubbleState extends State<MessageBubble> {
   CharacterCard? get character => widget.character;
 
   /// The one centered narration banner (Chance Time 🎰, Dreams 🌙 — Living
-  /// Time §1). Warm-porch amber tints, italic center text.
+  /// Time §1). Warm-porch amber tints, italic center text. Long-press
+  /// deletes: banners return before the normal bubble's action row is ever
+  /// built, so without this they were the only messages that could never be
+  /// removed (the stuck-dream report, 2026-07-28).
   Widget _narrationBanner(
     BuildContext context, {
     required String emoji,
     required String text,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 32),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.resolve(
-            context,
-            const Color(0xFFFFD166).withValues(alpha: 0.12),
-            const Color(0xFFF59E0B).withValues(alpha: 0.18),
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPress: () => _showDeleteConfirmation(context, index),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 32),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
             color: AppColors.resolve(
               context,
-              const Color(0xFFFFD166).withValues(alpha: 0.35),
-              const Color(0xFFF59E0B).withValues(alpha: 0.4),
+              const Color(0xFFFFD166).withValues(alpha: 0.12),
+              const Color(0xFFF59E0B).withValues(alpha: 0.18),
             ),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                text,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.resolve(
-                    context,
-                    const Color(0xFFFFD166),
-                    const Color(0xFFB45309),
-                  ),
-                  fontStyle: FontStyle.italic,
-                ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.resolve(
+                context,
+                const Color(0xFFFFD166).withValues(alpha: 0.35),
+                const Color(0xFFF59E0B).withValues(alpha: 0.4),
               ),
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 16)),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.resolve(
+                      context,
+                      const Color(0xFFFFD166),
+                      const Color(0xFFB45309),
+                    ),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1010,9 +1018,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                     .firstOrNull;
                 if (persona?.avatarPath != null) {
                   return CircleAvatar(
-                    backgroundImage: FileImage(
-                      File(persona!.avatarPath!),
-                    ),
+                    backgroundImage: FileImage(File(persona!.avatarPath!)),
                     radius: 16,
                   );
                 }
@@ -1839,55 +1845,14 @@ class _MessageBubbleState extends State<MessageBubble> {
     );
   }
 
-  void _showEditDialog(BuildContext context, int index) {
+  Future<void> _showEditDialog(BuildContext context, int index) async {
     final chatService = Provider.of<ChatService>(context, listen: false);
-    final controller = TextEditingController(text: message.text);
-    showDialog(
+    final result = await showMessageEditDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        title: const Text('Edit Message'),
-        content: SizedBox(
-          width: 500,
-          child: AppTextField(
-            controller: controller,
-            maxLines: 10,
-            minLines: 3,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFF374151),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary(context)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              chatService.editMessage(index, controller.text);
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
-            ),
-            child: const Text(
-              'Save',
-              style: TextStyle(color: AppColors.onChaosAccent),
-            ),
-          ),
-        ],
-      ),
+      initialText: message.text,
     );
+    if (result != null) {
+      chatService.editMessage(index, result);
+    }
   }
 }

@@ -46,4 +46,5 @@ export 'lorebook_export.dart';
 export 'output_sanitizer_rule.dart';
 export 'story_project.dart';
 export 'world.dart';
+export 'fp_world_package.dart';
 export 'needs_impact.dart';

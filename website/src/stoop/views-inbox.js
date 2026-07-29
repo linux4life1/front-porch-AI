@@ -165,6 +165,35 @@
         .finally(function () { nameBtn.disabled = false; });
     } }, 'Save');
 
+    /* creator profile: bio + external links (shown on your public creator page) */
+    var bioIn = el('textarea', {
+      class: 'hub-textarea', rows: '3', maxlength: '300',
+      placeholder: 'A short bio for your public creator page (300 characters max).',
+    });
+    bioIn.value = u.bio || '';
+    var linkIns = [0, 1, 2, 3].map(function (i) {
+      var input = el('input', {
+        type: 'url', maxlength: '200',
+        placeholder: i === 0 ? 'https:// — link your chub / Backyard / socials' : 'https://…',
+      });
+      input.value = (u.profileLinks && u.profileLinks[i]) || '';
+      return input;
+    });
+    var profBtn = el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
+      var links = linkIns.map(function (i) { return i.value.trim(); }).filter(Boolean);
+      var bad = links.filter(function (l) { return !/^https?:\/\/.+/.test(l); });
+      if (bad.length) return ui.toast('Links must start with http:// or https://', 'err');
+      profBtn.disabled = true;
+      Api.updateProfile(bioIn.value.trim(), links)
+        .then(function () { ui.toast('Creator profile updated.'); })
+        .catch(function (e) { ui.toast(e.message, 'err'); })
+        .finally(function () { profBtn.disabled = false; });
+    } }, 'Save profile');
+    var profileRef = u.displayName && /^[\w-]{2,40}$/.test(u.displayName) ? u.displayName : u.id;
+    var profileView = u.id
+      ? el('a', { class: 'hub-linklike', href: '#/creator/' + profileRef }, 'View your public page →')
+      : null;
+
     /* nsfw */
     var nsfwIn = el('input', { type: 'checkbox' });
     nsfwIn.checked = !!u.nsfwEnabled;
@@ -250,6 +279,9 @@
       el('p', { class: 'hub-dim' }, ['Signed in as ', el('b', null, u.email || ''), ' — one account for the hub and the app.']),
       section('Profile', [
         el('div', { class: 'hub-acct-row' }, [nameIn, nameBtn]),
+        bioIn,
+        el('div', { class: 'hub-acct-links' }, linkIns),
+        el('div', { class: 'hub-acct-row' }, [profBtn, profileView]),
       ]),
       section('Content', [
         el('label', { class: 'hub-aup-check' }, [nsfwIn, el('span', null, 'Show NSFW cards (you confirmed you’re 18+ when you signed up)')]),

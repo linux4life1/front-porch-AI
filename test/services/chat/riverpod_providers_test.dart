@@ -53,11 +53,10 @@ void main() {
     // through AsyncValue with zero app bootstrap.
     final entries = await container.read(
       milestoneTimelineProvider(
-        feed: MilestoneFeed(getDb: () => null),
+        feed: MilestoneFeed(getDb: () => null, getMessages: () => const []),
         sessionId: 's',
         characterId: 'c',
         revision: 0,
-        messages: const [],
       ).future,
     );
     expect(entries, isEmpty);

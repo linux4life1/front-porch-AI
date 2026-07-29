@@ -401,6 +401,10 @@
   margin: 0; padding: 4px 18px 16px; white-space: pre-wrap; word-break: break-word;
   color: var(--cream-2); font-family: var(--font-body); font-size: 0.92rem; line-height: 1.6;
 }
+.hub-lore-entry { border-top: 1px solid var(--border); }
+.hub-lore-entry:first-child { border-top: 0; }
+.hub-lore-head { padding: 12px 18px 0; }
+.hub-lore-head strong { color: var(--cream); font-size: 0.92rem; }
 
 /* ---- creator ---- */
 .hub-creator-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 26px; }
@@ -512,3 +516,11 @@
 .hub-empty { text-align: center; padding: 54px 20px; color: var(--mute); }
 .hub-empty-ico { font-size: 2.2rem; margin-bottom: 10px; }
 .hub-empty h3 { color: var(--cream-2); margin-bottom: 6px; }
+
+/* ---- creator profile (bio + external links + account editor) ---- */
+.hub-creator-bio { color: var(--cream-2); max-width: 680px; margin: -10px 0 14px; white-space: pre-wrap; }
+.hub-creator-links { display: flex; gap: 14px; flex-wrap: wrap; margin: 0 0 22px; }
+.hub-creator-links a { color: var(--amber); font-size: 0.92rem; text-decoration: none; }
+.hub-creator-links a:hover { text-decoration: underline; }
+.hub-acct-links { display: grid; gap: 8px; }
+.hub-acct-links input { width: 100%; }

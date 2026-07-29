@@ -56,11 +56,17 @@ List<LoreEntryRef> collectLoreEntryRefs({
   required List<CharacterCard> characters,
   Lorebook? chatLorebook,
   Lorebook? groupLorebook,
+  /// Per-chat attached worlds (UUID preferred; name still accepted).
+  List<String> chatWorldIds = const [],
+  /// @Deprecated Prefer [chatWorldIds]. Group template names/ids used as
+  /// fallback when the chat has no chat_worlds rows yet.
   List<String> groupWorldNames = const [],
-  required World? Function(String name) resolveWorld,
+  /// Resolve by UUID or display name.
+  required World? Function(String idOrName) resolveWorld,
   bool inherit = true,
 }) {
   final refs = <LoreEntryRef>[];
+  final seenWorldIds = <String>{};
 
   // Chat-scoped book scans and enumerates FIRST (ST order: chat book first).
   if (chatLorebook != null) {
@@ -75,16 +81,25 @@ List<LoreEntryRef> collectLoreEntryRefs({
     }
   }
 
-  for (final worldName in groupWorldNames) {
-    final world = resolveWorld(worldName);
-    if (world == null) continue;
+  void addWorld(String ref) {
+    final world = resolveWorld(ref);
+    if (world == null) return;
+    final key = world.id.isNotEmpty ? world.id : world.name;
+    if (!seenWorldIds.add(key)) return;
     for (final e in world.lorebook.entries) {
       refs.add(LoreEntryRef(
         entry: e,
         book: world.lorebook,
-        sourceLabel: 'world:$worldName',
+        sourceLabel: 'world:${world.name}',
       ));
     }
+  }
+
+  // Chat attachments first (Living Worlds); fall back to group template list.
+  final worldRefs =
+      chatWorldIds.isNotEmpty ? chatWorldIds : groupWorldNames;
+  for (final ref in worldRefs) {
+    addWorld(ref);
   }
 
   if (inherit) {
@@ -96,15 +111,7 @@ List<LoreEntryRef> collectLoreEntryRefs({
         }
       }
       for (final worldName in ch.worldNames) {
-        final world = resolveWorld(worldName);
-        if (world == null) continue;
-        for (final e in world.lorebook.entries) {
-          refs.add(LoreEntryRef(
-            entry: e,
-            book: world.lorebook,
-            sourceLabel: 'world:$worldName',
-          ));
-        }
+        addWorld(worldName);
       }
     }
   }

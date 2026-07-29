@@ -27,11 +27,15 @@ import 'package:front_porch_ai/services/web/util/request_body.dart';
 class WebWorldRoutes {
   WebWorldRoutes(this._facade, Router router) {
     router.get('/api/worlds', _list);
+    router.get('/api/worlds/climates', _climates);
     router.post('/api/worlds', _save);
     // Static suffix; register before the '<name>' captures so 'import' is never
     // swallowed as a world name.
     router.post('/api/worlds/import', _import);
     router.post('/api/lorebook/import', _importLorebook);
+    router.get('/api/chat/places', _chatPlaces);
+    router.post('/api/chat/places', _setChatPlaces);
+    router.post('/api/chat/climate', _setChatClimate);
     // Encode the name in the path; names can contain spaces (URL-encoded).
     router.get('/api/worlds/<name>/detail', _detail);
     router.get('/api/worlds/<name>/export', _export);
@@ -42,6 +46,52 @@ class WebWorldRoutes {
 
   shelf.Response _list(shelf.Request request) =>
       JsonResponse.ok({'worlds': _facade.list()});
+
+  shelf.Response _climates(shelf.Request request) =>
+      JsonResponse.ok({'climates': _facade.climates()});
+
+  shelf.Response _chatPlaces(shelf.Request request) =>
+      JsonResponse.ok(_facade.chatPlaces());
+
+  Future<shelf.Response> _setChatPlaces(shelf.Request request) async {
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(request);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON body');
+    }
+    final raw = body['worldIds'];
+    final ids = raw is List
+        ? [for (final e in raw) e.toString()]
+        : <String>[];
+    final result = await _facade.setChatPlaces(ids);
+    if (result['ok'] != true) {
+      return JsonResponse.badRequest(
+        result['error']?.toString() ?? 'Could not update places',
+      );
+    }
+    return JsonResponse.ok(result);
+  }
+
+  Future<shelf.Response> _setChatClimate(shelf.Request request) async {
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(request);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON body');
+    }
+    final id = body['biomeId']?.toString() ?? body['climateId']?.toString();
+    if (id == null || id.isEmpty) {
+      return JsonResponse.badRequest('biomeId is required');
+    }
+    final result = await _facade.setChatClimate(id);
+    if (result['ok'] != true) {
+      return JsonResponse.badRequest(
+        result['error']?.toString() ?? 'Could not set climate',
+      );
+    }
+    return JsonResponse.ok(result);
+  }
 
   shelf.Response _detail(shelf.Request request, String name) {
     final detail = _facade.detail(Uri.decodeComponent(name));
@@ -95,12 +145,15 @@ class WebWorldRoutes {
     final decoded = Uri.decodeComponent(name);
     final world = _facade.exportWorld(decoded);
     if (world == null) return JsonResponse.error(404, 'World not found');
-    final safe = decoded.replaceAll(RegExp(r'[^A-Za-z0-9 _\-]'), '_').trim();
-    final filename = safe.isEmpty ? 'world' : safe;
+    final placeName = world['name']?.toString() ?? decoded;
+    final safe =
+        placeName.replaceAll(RegExp(r'[^A-Za-z0-9 _\-]'), '_').trim();
+    final filename = safe.isEmpty ? 'place' : safe;
     return JsonResponse.ok(
       world,
       extraHeaders: {
-        'Content-Disposition': 'attachment; filename="$filename.json"',
+        'Content-Disposition':
+            'attachment; filename="$filename.fpworld.json"',
       },
     );
   }

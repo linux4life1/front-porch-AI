@@ -16,16 +16,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/world.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
-import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/ui/pages/import_lorebook_page.dart';
 import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
-import 'package:front_porch_ai/utils/world_colors.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/pages/worlds/world_place_card.dart';
+import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
+import 'package:front_porch_ai/utils/world_cover.dart';
 import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 class WorldManagementPage extends StatefulWidget {
@@ -82,13 +85,13 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                         width: 3,
                         height: 18,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1),
+                          color: AppColors.formMasterAccent,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        'All Worlds (${repo.worlds.length})',
+                        'Places (${repo.placeWorlds.length})',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -112,9 +115,14 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                     mainAxisSpacing: 16,
                   ),
                   delegate: SliverChildBuilderDelegate((context, index) {
-                    final world = repo.worlds[index];
-                    return _buildWorldCard(context, world, repo);
-                  }, childCount: repo.worlds.length),
+                    final w = repo.placeWorlds[index];
+                    return WorldPlaceCard(
+                      world: w,
+                      onEdit: () => _showWorldDialog(context, repo, w),
+                      onExport: () => _exportWorld(context, repo, w),
+                      onDelete: () => _confirmDelete(context, repo, w),
+                    );
+                  }, childCount: repo.placeWorlds.length),
                 ),
               ),
             ],
@@ -127,9 +135,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
   // ── Hero Header ────────────────────────────────────────────────────────
 
   Widget _buildHeroHeader(BuildContext context, WorldRepository repo) {
-    final accentColor = const Color(
-      0xFF6366F1,
-    ); // Using same color as persona page
+    final accentColor = AppColors.formMasterAccent;
 
     return AnimatedBuilder(
       animation: _headerGlowAnimation,
@@ -246,7 +252,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.download, color: Colors.cyanAccent),
+                    icon: Icon(Icons.download, color: AppColors.formMasterAccent),
                     tooltip: 'Import Lorebook',
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -260,7 +266,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                     label: const Text('New World'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accentColor,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.onChaosAccent,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
@@ -336,29 +342,34 @@ class _WorldManagementPageState extends State<WorldManagementPage>
             _buildStatItem(
               context: context,
               icon: Icons.public,
-              value: repo.worlds.length.toString(),
-              label: 'Worlds',
-              color: const Color(0xFF6366F1),
+              value: repo.placeWorlds.length.toString(),
+              label: 'Places',
+              color: AppColors.formMasterAccent,
             ),
             _buildStatItem(
               context: context,
               icon: Icons.library_books,
-              value: repo.worlds
+              value: repo.placeWorlds
                   .expand((w) => w.lorebook.entries)
                   .length
                   .toString(),
               label: 'Lore Entries',
-              color: const Color(0xFF10B981),
+              color: AppColors.formMasterAccent,
             ),
             _buildStatItem(
               context: context,
-              icon: Icons.link,
-              value: repo.worlds
-                  .where((w) => w.linkedCharacterName != null)
+              icon: Icons.thermostat,
+              value: repo.placeWorlds
+                  .where(
+                    (w) =>
+                        w.biomeId != null &&
+                        w.biomeId!.isNotEmpty &&
+                        w.biomeId != 'temperate',
+                  )
                   .length
                   .toString(),
-              label: 'Linked Worlds',
-              color: const Color(0xFFF59E0B),
+              label: 'Custom climates',
+              color: AppColors.formMasterAccent,
             ),
           ],
         ),
@@ -404,240 +415,34 @@ class _WorldManagementPageState extends State<WorldManagementPage>
     );
   }
 
-  Widget _buildWorldCard(
-    BuildContext context,
-    World world,
-    WorldRepository repo,
-  ) {
-    final worldColor = WorldColors.getColorForWorld(world.name);
-
-    return Card(
-      margin: EdgeInsets.zero,
-      color: Colors.transparent,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.borderOf(context)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top row: avatar + actions
-            Row(
-              children: [
-                WorldColors.buildWorldAvatar(
-                  avatarPath: world.avatarPath,
-                  worldId: world.name,
-                  radius: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        world.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: AppColors.textPrimary(context),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (world.linkedCharacterName != null)
-                        Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: worldColor.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: worldColor.withValues(alpha: 0.4),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.link, size: 12, color: worldColor),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  world.linkedCharacterName!,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    color: worldColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                // Actions
-                PopupMenuButton<String>(
-                  icon: Icon(
-                    Icons.more_vert,
-                    size: 18,
-                    color: AppColors.iconSecondary(context),
-                  ),
-                  color: AppColors.surfaceContainerOf(context),
-                  onSelected: (action) {
-                    switch (action) {
-                      case 'edit':
-                        _showWorldDialog(context, repo, world);
-                        break;
-                      case 'export':
-                        _exportWorld(context, repo, world);
-                        break;
-                      case 'delete':
-                        _confirmDelete(context, repo, world);
-                        break;
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.edit,
-                            size: 16,
-                            color: AppColors.iconPrimary(context),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Edit',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textPrimary(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'export',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.upload,
-                            size: 16,
-                            color: Colors.cyanAccent,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Export JSON',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textPrimary(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, size: 16, color: Colors.redAccent),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Delete',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.redAccent,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Description
-            Expanded(
-              child: Text(
-                world.description.isEmpty
-                    ? 'No description'
-                    : world.description,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: world.description.isEmpty
-                      ? AppColors.textTertiary(context)
-                      : AppColors.textSecondary(context),
-                  height: 1.4,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Bottom stats
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: worldColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: worldColor.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Text(
-                    '${world.lorebook.entries.length} ${world.lorebook.entries.length == 1 ? 'entry' : 'entries'}',
-                    style: TextStyle(
-                      color: worldColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
   Future<void> _exportWorld(
     BuildContext context,
     WorldRepository repo,
     World world,
   ) async {
+    // Portable place package: lore + biome (Living Worlds .fpworld).
     String? outputFile = await PickerPrefs.saveFile(
       category: PickerPrefs.catExport,
-      dialogTitle: 'Export World JSON',
-      fileName: '${world.name}.json',
+      dialogTitle: 'Export World (.fpworld)',
+      fileName: '${world.name}.fpworld',
       type: FileType.custom,
-      allowedExtensions: ['json'],
+      allowedExtensions: ['fpworld', 'json'],
     );
 
     if (outputFile != null) {
-      if (!outputFile.endsWith('.json')) outputFile += '.json';
+      if (!outputFile.endsWith('.fpworld') && !outputFile.endsWith('.json')) {
+        outputFile += '.fpworld';
+      }
       try {
-        await repo.exportWorld(world, outputFile);
+        await repo.exportFpWorld(world, outputFile);
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Exported to $outputFile')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Exported place package to $outputFile',
+              ),
+            ),
+          );
         }
       } catch (e) {
         if (context.mounted) {
@@ -658,6 +463,10 @@ class _WorldManagementPageState extends State<WorldManagementPage>
     final descController = TextEditingController(
       text: world?.description ?? '',
     );
+    // Climate default for chats that attach this place (Living Worlds).
+    String? selectedBiomeId = world?.biomeId ?? Biome.temperate.id;
+    var injectDescription = world?.injectDescription ?? true;
+    String? coverImage = world?.coverImage;
 
     // Create a copy of the lorebook entries for editing
     // Full clones — the old 6-field copy stripped imported ST metadata
@@ -704,19 +513,17 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF6366F1,
-                              ).withValues(alpha: 0.1),
+                              color: AppColors.formMasterAccent
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: const Color(
-                                  0xFF6366F1,
-                                ).withValues(alpha: 0.2),
+                                color: AppColors.formMasterAccent
+                                    .withValues(alpha: 0.2),
                               ),
                             ),
                             child: const Icon(
                               Icons.language,
-                              color: Color(0xFF6366F1),
+                              color: AppColors.formMasterAccent,
                               size: 20,
                             ),
                           ),
@@ -776,7 +583,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                                   Icon(
                                     Icons.info_outline,
                                     size: 18,
-                                    color: const Color(0xFF6366F1),
+                                    color: AppColors.formMasterAccent,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
@@ -785,6 +592,106 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.textPrimary(ctx),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              // Optional place cover (thumbnail on the Worlds grid).
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: SizedBox(
+                                      width: 72,
+                                      height: 72,
+                                      child: _coverThumb(ctx, coverImage),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Cover image',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textSecondary(ctx),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Optional art for this place. Shown on the Worlds grid and packed into .fpworld.',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            color: AppColors.textTertiary(ctx),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 8,
+                                          children: [
+                                            TextButton.icon(
+                                              onPressed: () async {
+                                                final bytes =
+                                                    await pickImageBytes();
+                                                if (bytes == null) return;
+                                                // Decode+resize+JPEG of a
+                                                // multi-MB photo — off the UI
+                                                // thread or the app freezes.
+                                                final encoded = await compute(
+                                                  encodeWorldCoverDataUrl,
+                                                  bytes,
+                                                );
+                                                if (encoded == null) {
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                          'Could not use that image (unsupported or too large).',
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }
+                                                  return;
+                                                }
+                                                setDialogState(
+                                                  () => coverImage = encoded,
+                                                );
+                                              },
+                                              icon: const Icon(
+                                                Icons.image_outlined,
+                                                size: 16,
+                                              ),
+                                              label: const Text('Choose…'),
+                                              style: TextButton.styleFrom(
+                                                foregroundColor:
+                                                    AppColors.formMasterAccent,
+                                              ),
+                                            ),
+                                            if (coverImage != null &&
+                                                coverImage!.isNotEmpty)
+                                              TextButton(
+                                                onPressed: () => setDialogState(
+                                                  () => coverImage = null,
+                                                ),
+                                                child: Text(
+                                                  'Remove',
+                                                  style: TextStyle(
+                                                    color: AppColors
+                                                        .textTertiary(ctx),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -821,7 +728,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: const BorderSide(
-                                      color: Color(0xFF6366F1),
+                                      color: AppColors.formMasterAccent,
                                       width: 1.5,
                                     ),
                                   ),
@@ -836,11 +743,12 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                                 ),
                                 maxLines: 3,
                                 decoration: InputDecoration(
-                                  labelText: 'Description',
+                                  labelText: 'Description (place prose)',
                                   labelStyle: TextStyle(
                                     color: AppColors.textSecondary(ctx),
                                   ),
-                                  hintText: 'Brief description of this world',
+                                  hintText:
+                                      'What it feels like to be here — reaches the story when enabled',
                                   hintStyle: TextStyle(
                                     color: AppColors.textTertiary(ctx),
                                   ),
@@ -861,12 +769,216 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: const BorderSide(
-                                      color: Color(0xFF6366F1),
+                                      color: AppColors.formMasterAccent,
                                       width: 1.5,
                                     ),
                                   ),
                                   contentPadding: const EdgeInsets.all(16),
                                 ),
+                              ),
+                              const SizedBox(height: 16),
+                              // Climate picker — not jargon "biome"; show what
+                              // the weather will *feel* like in story.
+                              Text(
+                                'Climate',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary(ctx),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'How the weather behaves in this place — seasons, '
+                                'rain, heat, storms. Characters react to it in chat '
+                                'when weather is on.',
+                                style: TextStyle(
+                                  color: AppColors.textTertiary(ctx),
+                                  fontSize: 11,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              DropdownButtonFormField<String>(
+                                // ignore: deprecated_member_use
+                                value: selectedBiomeId ?? Biome.temperate.id,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: AppColors.surfaceContainerOf(ctx),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                ),
+                                dropdownColor: AppColors.surfaceOf(ctx),
+                                selectedItemBuilder: (context) => [
+                                  for (final b in Biome.builtIns)
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        b.displayName,
+                                        style: TextStyle(
+                                          color: AppColors.textPrimary(ctx),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                                items: [
+                                  for (final b in Biome.builtIns)
+                                    DropdownMenuItem(
+                                      value: b.id,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 6,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              b.displayName,
+                                              style: TextStyle(
+                                                color:
+                                                    AppColors.textPrimary(ctx),
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              b.description,
+                                              style: TextStyle(
+                                                color: AppColors.textSecondary(
+                                                  ctx,
+                                                ),
+                                                fontSize: 11,
+                                                height: 1.3,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                                onChanged: (v) => setDialogState(
+                                  () => selectedBiomeId = v,
+                                ),
+                              ),
+                              Builder(
+                                builder: (context) {
+                                  final biome = Biome.builtInById(
+                                        selectedBiomeId,
+                                      ) ??
+                                      Biome.temperate;
+                                  return Container(
+                                    margin: const EdgeInsets.only(top: 10),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.formMasterAccent
+                                          .withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: AppColors.formMasterAccent
+                                            .withValues(alpha: 0.22),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.thermostat,
+                                              size: 16,
+                                              color: AppColors.formMasterAccent,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'What it feels like',
+                                              style: TextStyle(
+                                                color:
+                                                    AppColors.formMasterAccent,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          biome.description,
+                                          style: TextStyle(
+                                            color: AppColors.textPrimary(ctx),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                        if (biome.feel.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            biome.feel,
+                                            style: TextStyle(
+                                              color: AppColors.textSecondary(
+                                                ctx,
+                                              ),
+                                              fontSize: 12,
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              // Row+Switch (not SwitchListTile): ListTile ink
+                              // paints on the nearest Material, and this
+                              // section sits inside a DecoratedBox fill.
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Inject description into story',
+                                          style: TextStyle(
+                                            color: AppColors.textPrimary(ctx),
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Place prose reaches the model each turn',
+                                          style: TextStyle(
+                                            color: AppColors.textTertiary(ctx),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: injectDescription,
+                                    activeThumbColor:
+                                        AppColors.formMasterAccent,
+                                    onChanged: (v) => setDialogState(
+                                      () => injectDescription = v,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -1214,19 +1326,11 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                                 lorebook: Lorebook(entries: []),
                               );
                           final newName = nameController.text.trim();
-                          // Renames must go through renameWorld so the row is
-                          // updated in place (no duplicate) and every
-                          // character/group attachment follows the new name.
+                          // Renames update the display name only — attachments
+                          // use stable world UUIDs (Living Worlds phase 0).
                           if (world != null && newName != world.name) {
                             try {
-                              await repo.renameWorld(
-                                world,
-                                newName,
-                                groupRepo: Provider.of<GroupChatRepository>(
-                                  context,
-                                  listen: false,
-                                ),
-                              );
+                              await repo.renameWorld(world, newName);
                             } on StateError catch (e) {
                               if (ctx.mounted) {
                                 ScaffoldMessenger.of(ctx).showSnackBar(
@@ -1239,6 +1343,9 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                             newWorld.name = newName;
                           }
                           newWorld.description = descController.text.trim();
+                          newWorld.biomeId = selectedBiomeId;
+                          newWorld.injectDescription = injectDescription;
+                          newWorld.coverImage = coverImage;
 
                           // Update lorebook entries
                           newWorld.lorebook.entries.clear();
@@ -1282,8 +1389,8 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                           world == null ? 'Create World' : 'Save Changes',
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6366F1),
-                          foregroundColor: Colors.white,
+                          backgroundColor: AppColors.formMasterAccent,
+                          foregroundColor: AppColors.onChaosAccent,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 12,
@@ -1300,6 +1407,29 @@ class _WorldManagementPageState extends State<WorldManagementPage>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _coverThumb(BuildContext context, String? coverImage) {
+    final bytes = decodeWorldCoverBytes(coverImage);
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _coverPlaceholder(context),
+      );
+    }
+    return _coverPlaceholder(context);
+  }
+
+  Widget _coverPlaceholder(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.formMasterAccent.withValues(alpha: 0.12),
+      child: Icon(
+        Icons.public,
+        color: AppColors.formMasterAccent.withValues(alpha: 0.7),
+        size: 28,
       ),
     );
   }

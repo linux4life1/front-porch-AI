@@ -32,13 +32,14 @@ import 'journal_memory/journal_memory_group.dart';
 import 'porch_accordion.dart';
 import 'sidebar_tokens.dart';
 import 'story_tools/author_note_section.dart';
+import 'story_tools/objective_panel.dart';
 import 'story_tools/story_tools_group.dart';
 import 'tool_calling_pill.dart';
 
 /// The scrolling body of the warm-porch chat sidebar: the lite-NPC banner
-/// plus the three accordion groups (🎭 Character State · 📖 Journal & Memory
-/// · 🎲 Story Tools). ALL 1:1 / group / lite-NPC branching lives here —
-/// replacing the old three-branch ListView in chat_page.
+/// plus accordion groups (Author's Note · Character State · Journal ·
+/// Objectives · Story Tools). ALL 1:1 / group / lite-NPC branching lives
+/// here — replacing the old three-branch ListView in chat_page.
 ///
 /// Composition-only: page-level concerns (chance-time overlay, avatar file
 /// resolution) arrive as callbacks; accordion expansion is persisted via
@@ -136,6 +137,27 @@ class SidebarBody extends StatelessWidget {
               onExpansionChanged: (v) =>
                   ui.setSidebarGroupExpanded('journal_memory', v),
             ),
+            // Objectives: own leaf, collapsed by default — runs in the
+            // background; expand when the user wants to steer the story.
+            // 1:1 full chats only (same gate as the old Story Tools embed).
+            if (!isGroup && !isLite)
+              PorchAccordion(
+                id: 'objectives',
+                emoji: '🎯',
+                title: 'Objectives',
+                subtitle: () {
+                  final goal = chat.primaryObjective?.objective.trim() ?? '';
+                  return goal.isNotEmpty ? goal : 'auto · expand to steer';
+                }(),
+                accent: AppColors.porchHoneyOf(context),
+                initiallyExpanded: ui.sidebarGroupExpanded(
+                  'objectives',
+                  fallback: false,
+                ),
+                onExpansionChanged: (v) =>
+                    ui.setSidebarGroupExpanded('objectives', v),
+                child: ObjectivePanel(chatService: chat),
+              ),
             StoryToolsGroup(
               draft: draft,
               chatService: chat,

@@ -63,6 +63,7 @@ void main() {
           text:
               'After early nightfall the yellow lamps would light up '
               'here and there.',
+          speed: 1.0,
           outputPath: out,
         );
         expect(wav.lengthSync(), greaterThan(50 * 1024));
@@ -87,5 +88,49 @@ void main() {
     skip: (piperReady && whisperDir != null)
         ? false
         : 'FP_TTS_TEST_ROOT / FP_STT_TEST_MODEL_DIR not set — skipping',
+  );
+
+  test(
+    'speed actually changes the audio (slider was a hardcoded no-op)',
+    () async {
+      // Regression for the Discord report: the worker hardcoded speed 1.0,
+      // so the Speech Rate slider did nothing for every Piper voice. A
+      // faster speaking rate must produce meaningfully shorter audio.
+      final engine = SherpaPiperEngine();
+      const text =
+          'After early nightfall the yellow lamps would light up here and '
+          'there the squalid quarter of the brothels.';
+      final outNormal = '${Directory.systemTemp.path}/piper_speed_1_0.wav';
+      final outFast = '${Directory.systemTemp.path}/piper_speed_1_6.wav';
+      try {
+        final normal = await engine.generate(
+          root: root!,
+          voiceKey: voice,
+          text: text,
+          speed: 1.0,
+          outputPath: outNormal,
+        );
+        final fast = await engine.generate(
+          root: root,
+          voiceKey: voice,
+          text: text,
+          speed: 1.6,
+          outputPath: outFast,
+        );
+        expect(
+          fast.lengthSync(),
+          lessThan((normal.lengthSync() * 0.85).round()),
+          reason: '1.6x speech must be substantially shorter than 1.0x',
+        );
+      } finally {
+        engine.shutdown();
+        for (final f in [outNormal, outFast]) {
+          try {
+            File(f).deleteSync();
+          } catch (_) {}
+        }
+      }
+    },
+    skip: piperReady ? false : 'FP_TTS_TEST_ROOT not set — skipping',
   );
 }

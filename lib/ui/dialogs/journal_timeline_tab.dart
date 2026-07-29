@@ -61,7 +61,6 @@ class JournalTimelineTab extends ConsumerWidget {
         sessionId: sessionId,
         characterId: ownerId,
         revision: chat.messages.length,
-        messages: chat.messages,
       ),
     );
     final accent = AppColors.porchAmberOf(context);

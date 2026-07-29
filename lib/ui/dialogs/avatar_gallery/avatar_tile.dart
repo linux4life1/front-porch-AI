@@ -49,10 +49,15 @@ class AvatarTile extends StatelessWidget {
     this.actionLabel,
     this.onAction,
     this.onCaptionTap,
+    this.imageVersion = 0,
   });
 
   /// The image to display (already resolved to its `looks/` or `avatars/` file).
   final File imageFile;
+
+  /// Bumped by the gallery when file bytes change under a stable path (portrait
+  /// overwrite). Keys the [Image.file] so Flutter does not keep a stale frame.
+  final int imageVersion;
 
   /// Bottom caption — a look name, "Portrait", or the emotion label.
   final String? caption;
@@ -116,10 +121,14 @@ class AvatarTile extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             // Image (or a graceful missing-file placeholder).
+            // Key includes [imageVersion] so in-place portrait overwrites
+            // (delete → promote look) drop the cached blank/old face.
             Image.file(
               imageFile,
+              key: ValueKey('${imageFile.path}#$imageVersion'),
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
+              gaplessPlayback: false,
               errorBuilder: (_, _, _) => Container(
                 color: AppColors.surfaceContainerOf(context),
                 child: Icon(

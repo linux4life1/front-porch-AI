@@ -66,7 +66,9 @@ class AvatarGalleryExpressionsSection extends StatelessWidget {
     final tiles = <Widget>[
       for (final e in controller.expressions)
         AvatarTile(
+          key: ValueKey('expr-${e.id}'),
           imageFile: controller.fileFor(e),
+          imageVersion: controller.mediaGen,
           caption: (controller.tempLabels[e.id] ?? '').isEmpty
               ? 'unlabelled'
               : controller.tempLabels[e.id],

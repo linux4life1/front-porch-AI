@@ -721,9 +721,117 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 .icon-btn:hover { color: var(--text); background: var(--surface-2); filter: none; }
 .swipe { display: inline-flex; align-items: center; gap: 2px; }
 .swipe-count { font-size: 0.72rem; color: var(--muted); min-width: 30px; text-align: center; }
-.msg-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; }
-.msg-edit textarea { resize: vertical; }
-.msg-edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
+/* Fullscreen message editor (desktop MessageEditDialog parity) */
+.msg-edit-backdrop { z-index: 80; }
+.msg-edit-modal {
+  width: min(920px, 96vw);
+  height: min(88vh, 900px);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 12px;
+}
+.msg-edit-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.msg-edit-modal-title { display: inline-flex; align-items: center; gap: 8px; font-size: 1.05rem; }
+.msg-edit-modal-actions { display: flex; gap: 8px; align-items: center; }
+.msg-edit-think-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 12px; color: var(--text); font-size: 0.88rem;
+  cursor: pointer; text-align: left;
+}
+.msg-edit-think-toggle:hover { border-color: var(--accent); }
+.msg-edit-think-badge {
+  font-size: 0.72rem; font-weight: 600; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 8px; padding: 2px 7px;
+}
+.msg-edit-thinking {
+  resize: vertical; min-height: 90px; max-height: 28vh;
+  font-style: italic; color: var(--muted); font-size: 0.9rem;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; width: 100%; box-sizing: border-box;
+}
+.msg-edit-body-label {
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em;
+  color: var(--muted); margin-top: 2px;
+}
+.msg-edit-body-area {
+  position: relative; flex: 1; min-height: 220px; display: flex;
+}
+.msg-edit-backdrop,
+.msg-edit-body {
+  margin: 0; width: 100%; height: 100%; box-sizing: border-box;
+  font-family: inherit; font-size: 15px; line-height: 1.55;
+  letter-spacing: normal; tab-size: 4;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;
+  scrollbar-gutter: stable;
+}
+.msg-edit-backdrop {
+  position: absolute; inset: 0; overflow: hidden;
+  color: var(--text); background: var(--bg);
+  border-color: transparent; pointer-events: none;
+}
+.msg-edit-backdrop .dlg { color: var(--dialogue); }
+.msg-edit-backdrop .act { color: var(--action); font-style: normal; }
+.msg-edit-backdrop .act.bold { font-weight: 700; }
+.msg-edit-body {
+  position: relative; resize: none; overflow: auto;
+  background: transparent; color: transparent; caret-color: var(--text);
+}
+.msg-edit-body::placeholder { color: var(--muted); }
+.msg-edit-modal-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding-top: 2px;
+}
+
+/* Living Worlds — climate feel + chat places */
+.climate-feel-card {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+.climate-feel-card strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+.climate-feel-card p { margin: 0 0 6px; }
+.climate-feel-card p:last-child { margin-bottom: 0; }
+.chat-places { margin: 10px 0 14px; }
+.chat-places-chips {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
+}
+.chat-place-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 4px 3px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 0.8rem;
+}
+@media (max-width: 640px) {
+  .msg-edit-modal {
+    width: 100vw; height: 100dvh; max-height: 100dvh;
+    border-radius: 0; min-height: 100dvh;
+  }
+  .msg-edit-body-area { min-height: 40vh; }
+}
 .thinking {
   align-self: flex-start; max-width: 85%; font-size: 0.82rem; color: var(--muted);
   background: var(--surface-2); border: 1px solid var(--border);

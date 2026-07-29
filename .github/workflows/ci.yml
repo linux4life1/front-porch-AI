@@ -25,7 +25,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.1'
+          flutter-version: '3.44.8'
           channel: 'stable'
           cache: true
 
@@ -70,7 +70,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.1'
+          flutter-version: '3.44.8'
           channel: 'stable'
           cache: true
 
@@ -91,7 +91,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.1'
+          flutter-version: '3.44.8'
           channel: 'stable'
           cache: true
 
@@ -112,6 +112,91 @@ jobs:
         # diff never masks a logic failure here and vice-versa.
         run: flutter test --concurrency=1 --reporter expanded --exclude-tags golden
         timeout-minutes: 20
+
+  # Full-array E2E smoke: boots the REAL desktop app (windowed, on the runner's
+  # display session) through a sandboxed two-turn chat against an in-process
+  # fake backend, asserting realism evals, needs sim, chaos pressure, objective
+  # proposal + task-gen, and a real journal maintenance pass. See
+  # integration_test/app_smoke_test.dart for the isolation contract.
+  # Runner notes: no human mouse and no real KoboldCpp exist here, so the two
+  # local-run hazards (hover-wedge, zombie-kill) don't apply. Build time
+  # dominates (~6-10 min); the test itself is ~7s.
+  # Every platform joins this matrix the same way: experimental
+  # (continue-on-error) until it has two consecutive green runs on record —
+  # so a new platform's shakedown can never red a contributor's PR — then it
+  # graduates to blocking. Windows and Linux both graduated on 2026-07-28,
+  # each having passed from its very first execution.
+  e2e-smoke:
+    name: E2E smoke (${{ matrix.device }})
+    needs: analyze
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            device: macos
+            experimental: false
+          - os: windows-latest
+            device: windows
+            experimental: false
+          - os: ubuntu-latest
+            device: linux
+            experimental: false
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: 'stable'
+          cache: true
+
+      # Linux desktop build deps + a virtual display for the windowed test.
+      # GStreamer is for audioplayers_linux; GTK for the shell itself.
+      - name: Install Linux desktop dependencies
+        if: matrix.device == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev xvfb \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run E2E smoke suite
+        if: matrix.device != 'linux'
+        run: flutter test integration_test/app_smoke_test.dart -d ${{ matrix.device }}
+
+      # Linux under xvfb has been observed to drop the device mid-boot and
+      # report "No tests were found" (exit 79) with no Dart stack — a true
+      # process death, not an assertion fail. One automatic retry absorbs the
+      # flake without masking a real regression (second failure still reds).
+      - name: Run E2E smoke suite (under xvfb)
+        if: matrix.device == 'linux'
+        run: |
+          set +e
+          for attempt in 1 2; do
+            echo "::group::E2E smoke attempt $attempt"
+            xvfb-run -a -s "-screen 0 1600x1000x24" \
+              flutter test integration_test/app_smoke_test.dart -d linux
+            status=$?
+            echo "::endgroup::"
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            echo "E2E smoke attempt $attempt failed (exit $status)"
+            if [ "$attempt" -eq 1 ]; then
+              echo "Retrying once..."
+              # Clear any half-built bundle state from a crashed device process.
+              rm -rf build/linux
+            fi
+          done
+          exit "$status"
 
   web-tests:
     name: WebUI tests (vitest)
@@ -245,7 +330,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.1'
+          flutter-version: '3.44.8'
           channel: 'stable'
           cache: true
 

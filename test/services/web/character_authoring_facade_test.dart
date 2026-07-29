@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -30,7 +31,14 @@ void _setupPathProviderMock() {
       });
 }
 
-final _png = Uint8List.fromList([1, 2, 3, 4]);
+/// Real PNG — addLook bootstraps a missing portrait then re-embeds via
+/// updateCharacter/saveCardAsPng, which must decode the bytes.
+Uint8List get _png {
+  final image = img.Image(width: 8, height: 8);
+  img.fill(image, color: img.ColorRgb8(40, 80, 120));
+  image.setPixelRgb(1, 1, 200, 50, 50); // not a solid placeholder
+  return Uint8List.fromList(img.encodePng(image));
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -80,11 +88,19 @@ void main() {
 
     test('addLook → looks/ (isLook); addAvatar → an expression (label, !isLook)',
         () async {
+      // First addLook on a portrait-less card fills the portrait only (no look
+      // row — avoids portrait+look dupe). Seed a real portrait, then addLook.
       expect(await facade.addLook(charId, _png), isTrue);
+      final afterPortrait = await facade.avatars(charId);
+      expect(afterPortrait.where((a) => a['isLook'] == true), isEmpty,
+          reason: 'first image is portrait-only when no prior face');
+
+      expect(await facade.addLook(charId, _png), isTrue); // now a gallery look
       expect(await facade.addAvatar(charId, _png, 'happy'), isTrue);
 
       final avatars = await facade.avatars(charId);
-      expect(avatars, hasLength(2));
+      expect(avatars.where((a) => a['isLook'] == true), hasLength(1));
+      expect(avatars.where((a) => a['isLook'] == false), hasLength(1));
       final look = avatars.firstWhere((a) => a['isLook'] == true);
       final expr = avatars.firstWhere((a) => a['isLook'] == false);
       expect(expr['label'], 'happy');
@@ -92,7 +108,8 @@ void main() {
     });
 
     test('avatarFile serves a LOOK from looks/ (was avatars/-only)', () async {
-      await facade.addLook(charId, _png);
+      await facade.addLook(charId, _png); // portrait bootstrap
+      await facade.addLook(charId, _png); // gallery look
       final lookId =
           (await facade.avatars(charId)).firstWhere((a) => a['isLook'] == true)['id']
               as String;
@@ -119,9 +136,11 @@ void main() {
 
     test('★ favorite round-trips through avatars().isFavorite (set + clear)',
         () async {
-      await facade.addLook(charId, _png);
+      await facade.addLook(charId, _png); // portrait
+      await facade.addLook(charId, _png); // gallery look to star
       final lookId =
-          (await facade.avatars(charId)).first['id'] as String;
+          (await facade.avatars(charId)).firstWhere((a) => a['isLook'] == true)['id']
+              as String;
 
       expect(await facade.setFavorite(charId, lookId), isTrue);
       var avatars = await facade.avatars(charId);

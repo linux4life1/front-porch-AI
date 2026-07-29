@@ -78,7 +78,8 @@ class PortraitSection extends StatelessWidget {
         if (c.source == PortraitSource.none) ...[
           const SizedBox(height: 10),
           Text(
-            'No portrait for now — the Avatar Gallery can add one any time.',
+            'No portrait for now — later, open Avatar Gallery and use '
+            'Set portrait (or Add avatar + ★) on the home screen.',
             style: TextStyle(
               color: AppColors.textTertiary(context),
               fontSize: 11.5,

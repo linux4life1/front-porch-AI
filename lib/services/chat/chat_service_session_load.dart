@@ -122,6 +122,7 @@ extension ChatServiceSessionLoad on ChatService {
       (a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b,
     );
     _currentSessionId = lastSession.id;
+    await _reloadChatWorldIds();
     await _hydrateSessionScalars(lastSession);
 
     // v30: Load live per-character group realism/needs (bond/trust/emotion/fixation/arousal/relationships/needs)
@@ -483,6 +484,7 @@ extension ChatServiceSessionLoad on ChatService {
       // (v30: _hydrateGroupRealismCheckpointIfPresent removed — state now loads from DB column)
 
       _currentSessionId = sessionId;
+      await _reloadChatWorldIds();
       // Touch updatedAt so this session becomes the "last active" for the
       // character/group — _loadLastSession sorts by updatedAt DESC.
       _db.patchSession(SessionsCompanion(

@@ -22,7 +22,7 @@ void main() {
       tokens = StreamController<String>.broadcast();
       hub = StreamHub(tokens.stream, () => false);
       final handler = webSocketHandler(
-        (WebSocketChannel ch) => hub.register(ch),
+        (WebSocketChannel ch, String? _) => hub.register(ch),
       );
       server = await shelf_io.serve(handler, 'localhost', 0);
       port = server.port as int;

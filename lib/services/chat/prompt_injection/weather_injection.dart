@@ -34,10 +34,15 @@ class WeatherInjection {
   final SegmentWeather? Function() getPreviousSegment;
   final DailyWeather? Function() getUpcoming;
 
+  /// When true, omit tomorrow's foreshadow (Living Worlds: first day of a
+  /// biome span — yesterday's prediction was under the old climate).
+  final bool Function()? suppressForeshadow;
+
   WeatherInjection({
     required this.getWeather,
     required this.getPreviousSegment,
     required this.getUpcoming,
+    this.suppressForeshadow,
   });
 
   String buildWeatherInjection() {
@@ -56,6 +61,10 @@ class WeatherInjection {
     // Foreshadow tomorrow only on notable transitions (incoming rain/storm/
     // snow/fog, a real clear-up, big temperature swings) so characters see
     // fronts coming instead of being ambushed — '' keeps the line unchanged.
+    // Suppress on the first day of a mid-chat climate switch (span start).
+    if (suppressForeshadow?.call() == true) {
+      return parts.join(' ');
+    }
     final next = getUpcoming();
     if (next != null) {
       final sign = WeatherEngine.foreshadow(w.day, next);

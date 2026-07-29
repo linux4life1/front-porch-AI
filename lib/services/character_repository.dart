@@ -692,6 +692,7 @@ class CharacterRepository extends ChangeNotifier {
   Future<void> updateCharacter(CharacterCard card, {bool notify = true}) async {
     if (card.imagePath == null) return;
     _clearCoverCache(); // avatar files may have changed under a stable key
+    _bumpCoverEpoch();
 
     if (notify) {
       _isLoading = true;
@@ -776,9 +777,14 @@ class CharacterRepository extends ChangeNotifier {
         }
       }
 
-      // Update the list entry
+      // Update the list entry. Prefer dbId (stable) so a first-time
+      // imagePath assignment still replaces the list row that was loaded
+      // with a null path — path-only match used to leave a stale null-path
+      // entry and made addLook think the card still had no portrait.
       final index = _characters.indexWhere(
-        (c) => c.imagePath == card.imagePath,
+        (c) =>
+            (card.dbId != null && c.dbId == card.dbId) ||
+            (card.imagePath != null && c.imagePath == card.imagePath),
       );
       if (index != -1) {
         _characters[index] = card;
@@ -799,6 +805,7 @@ class CharacterRepository extends ChangeNotifier {
   /// (updateCharacter notify: false) — fired when their dialog closes.
   void notifyCharactersChanged() {
     _clearCoverCache();
+    _bumpCoverEpoch();
     notifyListeners();
   }
 
@@ -1022,13 +1029,34 @@ class CharacterRepository extends ChangeNotifier {
   /// Add a gallery LOOK — a plain alternate avatar (a new outfit, a scene), NOT
   /// an expression image. Non-destructive: written to the character's SEPARATE
   /// `looks/` folder and tagged [AvatarImage.lookLabel] so it stays out of the
-  /// emotion pipeline. Returns the new avatar id. Deliberately never touches
-  /// `imagePath` — selecting a look (per chat) is the caller's job.
+  /// emotion pipeline. Returns the new avatar id, or `''` when the bytes were
+  /// applied as the **portrait only** (no gallery look row) because the card
+  /// had no face or only a solid-color placeholder. Selecting a look (per chat)
+  /// remains the caller's job when a real look id is returned.
   Future<String> addLook(
     String characterId,
     String characterName,
     Uint8List imageBytes,
   ) async {
+    // First real image on a missing/placeholder portrait becomes the portrait
+    // alone. Writing a look *and* overwriting the portrait produced a dupe
+    // (same face twice in the gallery) and left home stuck on the placeholder
+    // until a ★ click forced a different cover path.
+    final card = await getCharacterCardById(characterId);
+    if (card != null) {
+      final needsPortrait = !hasUsablePortrait(card, _storage) ||
+          await isPlaceholderPortrait(card, _storage);
+      if (needsPortrait) {
+        final wrote = await bootstrapPortraitIfMissing(
+          card: card,
+          storage: _storage,
+          bytes: imageBytes,
+          updateCharacter: (c) => updateCharacter(c, notify: false),
+        );
+        if (wrote) return '';
+      }
+    }
+
     final safeName = characterName
         .replaceAll(RegExp(r'[^\w\s\-]'), '')
         .replaceAll(' ', '_');
@@ -1264,11 +1292,18 @@ class CharacterRepository extends ChangeNotifier {
   /// files changing on disk under an unchanged key.
   final Map<String, File?> _coverCache = {};
 
+  /// Bumped whenever cover bytes may have changed under a stable path (in-place
+  /// portrait overwrite). Home grid [Image.file] keys include this so Done
+  /// after gallery bootstrap refreshes the face without needing a ★ re-click.
+  int coverEpoch = 0;
+
   void _clearCoverCache() => _coverCache.clear();
+
+  void _bumpCoverEpoch() => coverEpoch++;
 
   File? coverImageFileFor(CharacterCard card) {
     final favId = card.frontPorchExtensions?.favoriteAvatarId;
-    final key = '${card.name}|$favId|${card.imagePath}';
+    final key = '${card.name}|$favId|${card.imagePath}|$coverEpoch';
     if (_coverCache.containsKey(key)) return _coverCache[key];
     if (_coverCache.length > 512) _coverCache.clear();
 

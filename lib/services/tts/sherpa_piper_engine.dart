@@ -89,12 +89,15 @@ class SherpaPiperEngine {
   Future<void> _jobChain = Future.value();
 
   /// Generates [text] into a WAV at [outputPath] with the vits voice
-  /// [voiceKey] (worker respawns when the voice changes). Throws on
-  /// failure — the caller owns error reporting.
+  /// [voiceKey] (worker respawns when the voice changes) at [speed]
+  /// (sherpa speaking-rate multiplier, 1.0 = normal — maps to the VITS
+  /// length_scale internally). Throws on failure — the caller owns error
+  /// reporting.
   Future<File> generate({
     required String root,
     required String voiceKey,
     required String text,
+    required double speed,
     required String outputPath,
   }) {
     final result = _jobChain.then((_) async {
@@ -104,7 +107,7 @@ class SherpaPiperEngine {
         _loadedVoice = voiceKey;
       }
       final reply = ReceivePort();
-      _worker!.send([reply.sendPort, text, outputPath]);
+      _worker!.send([reply.sendPort, text, outputPath, speed]);
       final res = await reply.first;
       reply.close();
       if (res is String) throw StateError(res);
@@ -171,7 +174,13 @@ class SherpaPiperEngine {
       final job = msg as List<Object?>;
       final reply = job[0] as SendPort;
       try {
-        final audio = tts.generate(text: job[1] as String, sid: 0, speed: 1.0);
+        // Speed was hardcoded to 1.0 here for the feature's whole life —
+        // the settings slider was a silent no-op for every Piper voice.
+        final audio = tts.generate(
+          text: job[1] as String,
+          sid: 0,
+          speed: job[3] as double,
+        );
         if (audio.samples.isEmpty) throw StateError('empty audio');
         final ok = sherpa.writeWave(
           filename: job[2] as String,

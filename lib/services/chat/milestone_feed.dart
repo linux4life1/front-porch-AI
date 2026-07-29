@@ -57,7 +57,14 @@ class MilestoneEntry {
 class MilestoneFeed {
   final AppDatabase? Function() getDb;
 
-  MilestoneFeed({required this.getDb});
+  /// Live message list, read at fetch time (NOT stored): messages must
+  /// never be a Riverpod family key — ChatService.messages returns a fresh
+  /// List.unmodifiable copy per call, and identity-keyed caching on it
+  /// respawned the timeline provider on every rebuild (the eternal
+  /// 'Our Story' spinner on any busy session).
+  final List<ChatMessage> Function() getMessages;
+
+  MilestoneFeed({required this.getDb, required this.getMessages});
 
   static int? _maxPosition(String? sourceIdsJson) {
     if (sourceIdsJson == null || sourceIdsJson.isEmpty) return null;
@@ -87,8 +94,8 @@ class MilestoneFeed {
   Future<List<MilestoneEntry>> entriesFor({
     required String sessionId,
     required String characterId,
-    required List<ChatMessage> messages,
   }) async {
+    final messages = getMessages();
     final db = getDb();
     if (db == null) return const [];
 

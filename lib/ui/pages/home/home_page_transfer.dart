@@ -241,6 +241,7 @@ extension _HomePageTransfer on _HomePageState {
           groupRepo,
           storage,
           db,
+          Provider.of<WorldRepository>(context, listen: false),
         ).exportToFile(group, outputFile);
 
         if (context.mounted) {

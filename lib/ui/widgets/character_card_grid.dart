@@ -445,6 +445,7 @@ class CharacterCardGrid extends StatelessWidget {
             onToggleSelect: onToggleSelect,
             onContextMenuAction: onContextMenuAction,
             onResolveCharImage: onResolveCharImage,
+            imageCacheEpoch: repo.coverEpoch,
           );
         },
       ),

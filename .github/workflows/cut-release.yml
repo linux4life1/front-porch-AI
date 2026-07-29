@@ -1,0 +1,75 @@
+# Cut Release — create the tag + a titled release shell from a dispatch.
+#
+# WHY THIS EXISTS: Claude Code Remote sessions (and any environment behind the
+# session git proxy) can push branches but get HTTP 403 on refs/tags/* — tag
+# creation is a denied capability there. This dispatch-only helper creates the
+# tag and a release shell (with the human-chosen TITLE, e.g. "v1.1.0 — Weather
+# Report") using the repo's own GITHUB_TOKEN.
+#
+# IMPORTANT: tags created with GITHUB_TOKEN do NOT fire on:push workflows
+# (GitHub's recursion guard), so after this succeeds, dispatch release.yml ON
+# THE NEW TAG REF (`ref: vX.Y.Z`) — its publish job is tag-ref-gated but
+# event-agnostic, finds this shell by tag, uploads the built assets and the
+# generated notes, and leaves the title untouched.
+#
+# The tag itself must stay strict vX.Y.Z — it becomes the app version, the
+# installer metadata, and the APT/RPM package versions. Titles live ONLY in
+# the release name (display-only; the in-app updater never reads it).
+
+name: Cut Release (tag + titled shell)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create — strict vX.Y.Z (e.g. v1.1.0)'
+        required: true
+        type: string
+      target:
+        description: 'Branch or commit SHA the tag points at'
+        required: true
+        default: 'main'
+        type: string
+      title:
+        description: 'Release title (defaults to the tag), e.g. "v1.1.0 — Weather Report"'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  cut:
+    name: Create tag + titled release shell
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate tag shape (it becomes the version everywhere)
+        run: |
+          [[ "${{ inputs.tag }}" =~ ^[vV][0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || { echo "::error::tag '${{ inputs.tag }}' must be strict vX.Y.Z"; exit 1; }
+
+      - name: Create tag + release shell (or move an existing tag to the target tip)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view '${{ inputs.tag }}' --repo '${{ github.repository }}' >/dev/null 2>&1; then
+            # The release already exists: re-point the git tag at the target's
+            # current tip instead. Needed when release.yml itself had a bug —
+            # a re-dispatched run executes the workflow file AT THE TAG, so the
+            # tag must move over the fix commit before the re-run can pick it
+            # up. The release shell (title/notes/assets) is left untouched.
+            SHA=$(gh api 'repos/${{ github.repository }}/commits/${{ inputs.target }}' --jq .sha)
+            gh api -X PATCH 'repos/${{ github.repository }}/git/refs/tags/${{ inputs.tag }}' \
+              -f sha="$SHA" -F force=true >/dev/null
+            echo "Moved existing tag ${{ inputs.tag }} → $SHA (tip of ${{ inputs.target }}); release shell untouched"
+          else
+            TITLE='${{ inputs.title }}'
+            [ -n "$TITLE" ] || TITLE='${{ inputs.tag }}'
+            gh release create '${{ inputs.tag }}' \
+              --repo '${{ github.repository }}' \
+              --target '${{ inputs.target }}' \
+              --title "$TITLE" \
+              --notes 'Build in progress — installers and full release notes arrive when the release workflow finishes.'
+            echo "Created ${{ inputs.tag }} → \"$TITLE\" (target ${{ inputs.target }})"
+          fi
+          echo "Next: dispatch release.yml with ref='${{ inputs.tag }}' to build and publish."

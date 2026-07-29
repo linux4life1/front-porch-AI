@@ -28,12 +28,17 @@ import 'package:front_porch_ai/services/chat/milestone_feed.dart';
 void main() {
   late AppDatabase db;
   late MilestoneFeed feed;
+  List<ChatMessage> currentMessages = const [];
   const sid = 'session-1';
   const cid = 'char-1';
 
   setUp(() {
     db = AppDatabase.forTesting();
-    feed = MilestoneFeed(getDb: () => db);
+    currentMessages = const [];
+    feed = MilestoneFeed(
+      getDb: () => db,
+      getMessages: () => currentMessages,
+    );
   });
 
   tearDown(() async => db.close());
@@ -73,7 +78,6 @@ void main() {
     final entries = await feed.entriesFor(
       sessionId: sid,
       characterId: cid,
-      messages: const [],
     );
     expect(entries.map((e) => e.text), [
       'pinned one',
@@ -94,11 +98,8 @@ void main() {
         metadata: {'is_chance_time_narration': true},
       ),
     ];
-    final entries = await feed.entriesFor(
-      sessionId: sid,
-      characterId: cid,
-      messages: messages,
-    );
+    currentMessages = messages;
+    final entries = await feed.entriesFor(sessionId: sid, characterId: cid);
     expect(entries.single.kind, 'chance');
     expect(entries.single.text, 'A stranger knocks.');
     expect(entries.single.position, 1);
@@ -143,7 +144,6 @@ void main() {
     final entries = await feed.entriesFor(
       sessionId: sid,
       characterId: cid,
-      messages: const [],
     );
     expect(entries.map((e) => e.kind).toSet(), {'ring', 'objective'});
     expect(
@@ -178,11 +178,8 @@ void main() {
       isUser: false,
       metadata: {'is_chance_time_narration': true},
     );
-    final entries = await feed.entriesFor(
-      sessionId: sid,
-      characterId: cid,
-      messages: messages,
-    );
+    currentMessages = messages;
+    final entries = await feed.entriesFor(sessionId: sid, characterId: cid);
     expect(entries.map((e) => e.text), [
       'early moment',
       'Mid-story strike.',

@@ -29,6 +29,7 @@ import 'package:front_porch_ai/services/group_card_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
+import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
 import 'package:front_porch_ai/utils/group_stable_id.dart';
 
@@ -41,11 +42,12 @@ import 'package:front_porch_ai/utils/group_stable_id.dart';
 /// is always embedded — real avatar or a synthesized full-V2 placeholder — plus
 /// per-member objectives and the stable-id remap keys an importer needs).
 class GroupCardExporter {
-  GroupCardExporter(this._groups, this._storage, this._db);
+  GroupCardExporter(this._groups, this._storage, this._db, [this._worlds]);
 
   final GroupChatRepository _groups;
   final StorageService _storage;
   final AppDatabase _db;
+  final WorldRepository? _worlds;
 
   /// Assemble the portable [GroupCard] for [group]. Returns null when the group
   /// has no members (nothing to export). All members are included with embedded
@@ -154,6 +156,19 @@ class GroupCardExporter {
       rawMembersWithAvatars.add(raw);
     }
 
+    // Living Worlds dual-ref: UUIDs for modern importers + names for older ones.
+    final worldIds = group.worldIds;
+    final worldNames = <String>[];
+    final worlds = _worlds;
+    if (worlds != null) {
+      for (final ref in worldIds) {
+        final w = worlds.resolveWorld(ref);
+        if (w != null) {
+          worldNames.add(w.name);
+        }
+      }
+    }
+
     // For the realism snapshot we send the immutable baseline seed, not the
     // evolved state from chatting.
     return GroupCard(
@@ -170,7 +185,8 @@ class GroupCardExporter {
       chaosModeEnabled: group.chaosModeEnabled,
       chaosNsfwEnabled: group.chaosNsfwEnabled,
       groupLorebook: group.groupLorebook,
-      worldIds: group.worldIds,
+      worldIds: worldIds,
+      worldNames: worldNames,
       inheritCharacterLorebooks: group.inheritCharacterLorebooks,
       baselineRealismState: group.baselineRealismState,
       defaultMemberRealismState: group.defaultMemberRealismState,

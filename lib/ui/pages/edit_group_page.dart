@@ -681,7 +681,7 @@ class _EditGroupPageState extends State<EditGroupPage>
 
     Widget buildLoreWorldsTab() {
       final worldRepo = Provider.of<WorldRepository>(context);
-      final allWorlds = worldRepo.worlds;
+      final allWorlds = worldRepo.placeWorlds;
 
       return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -938,11 +938,19 @@ class _EditGroupPageState extends State<EditGroupPage>
 
             const SizedBox(height: 20),
             Text(
-              'Linked Worlds',
+              'Linked Places',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary(context),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Template for new chats of this group (climate + place lore).',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textTertiary(context),
               ),
             ),
             const SizedBox(height: 8),
@@ -952,13 +960,15 @@ class _EditGroupPageState extends State<EditGroupPage>
               children: [
                 ..._worldIds.map((wid) {
                   final w = allWorlds.firstWhere(
-                    (ww) => ww.name == wid,
+                    (ww) => ww.id == wid || ww.name == wid,
                     orElse: () => World(
                       name: wid,
                       lorebook: Lorebook(entries: const []),
                     ),
                   );
-                  final isMissing = !allWorlds.any((ww) => ww.name == wid);
+                  final isMissing = !allWorlds.any(
+                    (ww) => ww.id == wid || ww.name == wid,
+                  );
                   return Chip(
                     label: Text(
                       isMissing ? '$wid (missing)' : w.name,
@@ -977,23 +987,30 @@ class _EditGroupPageState extends State<EditGroupPage>
                       context: context,
                       builder: (ctx) => SimpleDialog(
                         backgroundColor: AppColors.surfaceOf(context),
-                        title: const Text('Link a World'),
+                        title: const Text('Link a Place'),
                         children: allWorlds
                             .map(
                               (w) => SimpleDialogOption(
                                 onPressed: () => Navigator.pop(ctx, w),
-                                child: Text(w.name),
+                                child: Text(
+                                  w.biomeId != null &&
+                                          w.biomeId != 'temperate'
+                                      ? '${w.name} (${w.biomeId})'
+                                      : w.name,
+                                ),
                               ),
                             )
                             .toList(),
                       ),
                     );
-                    if (chosen != null && !_worldIds.contains(chosen.name)) {
-                      setState(() => _worldIds.add(chosen.name));
+                    if (chosen != null &&
+                        !_worldIds.contains(chosen.id) &&
+                        !_worldIds.contains(chosen.name)) {
+                      setState(() => _worldIds.add(chosen.id));
                     }
                   },
                   icon: const Icon(Icons.public, size: 18),
-                  label: const Text('Link World'),
+                  label: const Text('Link Place'),
                 ),
               ],
             ),

@@ -18,7 +18,6 @@
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/services/chat/milestone_feed.dart';
 
 part 'milestone_providers.g.dart';
@@ -39,10 +38,5 @@ class MilestoneTimeline extends _$MilestoneTimeline {
     required String sessionId,
     required String characterId,
     required int revision,
-    required List<ChatMessage> messages,
-  }) => feed.entriesFor(
-    sessionId: sessionId,
-    characterId: characterId,
-    messages: messages,
-  );
+  }) => feed.entriesFor(sessionId: sessionId, characterId: characterId);
 }

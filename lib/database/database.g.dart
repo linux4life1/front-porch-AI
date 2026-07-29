@@ -7167,6 +7167,89 @@ class $WorldsTable extends Worlds with TableInfo<$WorldsTable, World> {
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _coverImageMeta = const VerificationMeta(
+    'coverImage',
+  );
+  @override
+  late final GeneratedColumn<String> coverImage = GeneratedColumn<String>(
+    'cover_image',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _formatVersionMeta = const VerificationMeta(
+    'formatVersion',
+  );
+  @override
+  late final GeneratedColumn<int> formatVersion = GeneratedColumn<int>(
+    'format_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _sourceIdMeta = const VerificationMeta(
+    'sourceId',
+  );
+  @override
+  late final GeneratedColumn<String> sourceId = GeneratedColumn<String>(
+    'source_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _linkedCharacterIdMeta = const VerificationMeta(
+    'linkedCharacterId',
+  );
+  @override
+  late final GeneratedColumn<String> linkedCharacterId =
+      GeneratedColumn<String>(
+        'linked_character_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _biomeIdMeta = const VerificationMeta(
+    'biomeId',
+  );
+  @override
+  late final GeneratedColumn<String> biomeId = GeneratedColumn<String>(
+    'biome_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _biomeJsonMeta = const VerificationMeta(
+    'biomeJson',
+  );
+  @override
+  late final GeneratedColumn<String> biomeJson = GeneratedColumn<String>(
+    'biome_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _injectDescriptionMeta = const VerificationMeta(
+    'injectDescription',
+  );
+  @override
+  late final GeneratedColumn<bool> injectDescription = GeneratedColumn<bool>(
+    'inject_description',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("inject_description" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -7197,6 +7280,13 @@ class $WorldsTable extends Worlds with TableInfo<$WorldsTable, World> {
     description,
     lorebook,
     linkedCharacterName,
+    coverImage,
+    formatVersion,
+    sourceId,
+    linkedCharacterId,
+    biomeId,
+    biomeJson,
+    injectDescription,
     updatedAt,
     deletedAt,
   ];
@@ -7249,6 +7339,57 @@ class $WorldsTable extends Worlds with TableInfo<$WorldsTable, World> {
         ),
       );
     }
+    if (data.containsKey('cover_image')) {
+      context.handle(
+        _coverImageMeta,
+        coverImage.isAcceptableOrUnknown(data['cover_image']!, _coverImageMeta),
+      );
+    }
+    if (data.containsKey('format_version')) {
+      context.handle(
+        _formatVersionMeta,
+        formatVersion.isAcceptableOrUnknown(
+          data['format_version']!,
+          _formatVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_id')) {
+      context.handle(
+        _sourceIdMeta,
+        sourceId.isAcceptableOrUnknown(data['source_id']!, _sourceIdMeta),
+      );
+    }
+    if (data.containsKey('linked_character_id')) {
+      context.handle(
+        _linkedCharacterIdMeta,
+        linkedCharacterId.isAcceptableOrUnknown(
+          data['linked_character_id']!,
+          _linkedCharacterIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('biome_id')) {
+      context.handle(
+        _biomeIdMeta,
+        biomeId.isAcceptableOrUnknown(data['biome_id']!, _biomeIdMeta),
+      );
+    }
+    if (data.containsKey('biome_json')) {
+      context.handle(
+        _biomeJsonMeta,
+        biomeJson.isAcceptableOrUnknown(data['biome_json']!, _biomeJsonMeta),
+      );
+    }
+    if (data.containsKey('inject_description')) {
+      context.handle(
+        _injectDescriptionMeta,
+        injectDescription.isAcceptableOrUnknown(
+          data['inject_description']!,
+          _injectDescriptionMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -7290,6 +7431,34 @@ class $WorldsTable extends Worlds with TableInfo<$WorldsTable, World> {
         DriftSqlType.string,
         data['${effectivePrefix}linked_character_name'],
       ),
+      coverImage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_image'],
+      ),
+      formatVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}format_version'],
+      )!,
+      sourceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_id'],
+      ),
+      linkedCharacterId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}linked_character_id'],
+      ),
+      biomeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}biome_id'],
+      ),
+      biomeJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}biome_json'],
+      ),
+      injectDescription: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}inject_description'],
+      )!,
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -7313,6 +7482,19 @@ class World extends DataClass implements Insertable<World> {
   final String description;
   final String? lorebook;
   final String? linkedCharacterName;
+  final String? coverImage;
+  final int formatVersion;
+  final String? sourceId;
+  final String? linkedCharacterId;
+
+  /// Built-in biome id; null ⇒ temperate.
+  final String? biomeId;
+
+  /// Full custom biome JSON (phase 2); null when using a built-in.
+  final String? biomeJson;
+
+  /// Description injection opt-in; false for rows migrated from library labels.
+  final bool injectDescription;
   final DateTime updatedAt;
   final DateTime? deletedAt;
   const World({
@@ -7321,6 +7503,13 @@ class World extends DataClass implements Insertable<World> {
     required this.description,
     this.lorebook,
     this.linkedCharacterName,
+    this.coverImage,
+    required this.formatVersion,
+    this.sourceId,
+    this.linkedCharacterId,
+    this.biomeId,
+    this.biomeJson,
+    required this.injectDescription,
     required this.updatedAt,
     this.deletedAt,
   });
@@ -7336,6 +7525,23 @@ class World extends DataClass implements Insertable<World> {
     if (!nullToAbsent || linkedCharacterName != null) {
       map['linked_character_name'] = Variable<String>(linkedCharacterName);
     }
+    if (!nullToAbsent || coverImage != null) {
+      map['cover_image'] = Variable<String>(coverImage);
+    }
+    map['format_version'] = Variable<int>(formatVersion);
+    if (!nullToAbsent || sourceId != null) {
+      map['source_id'] = Variable<String>(sourceId);
+    }
+    if (!nullToAbsent || linkedCharacterId != null) {
+      map['linked_character_id'] = Variable<String>(linkedCharacterId);
+    }
+    if (!nullToAbsent || biomeId != null) {
+      map['biome_id'] = Variable<String>(biomeId);
+    }
+    if (!nullToAbsent || biomeJson != null) {
+      map['biome_json'] = Variable<String>(biomeJson);
+    }
+    map['inject_description'] = Variable<bool>(injectDescription);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
@@ -7354,6 +7560,23 @@ class World extends DataClass implements Insertable<World> {
       linkedCharacterName: linkedCharacterName == null && nullToAbsent
           ? const Value.absent()
           : Value(linkedCharacterName),
+      coverImage: coverImage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverImage),
+      formatVersion: Value(formatVersion),
+      sourceId: sourceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceId),
+      linkedCharacterId: linkedCharacterId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedCharacterId),
+      biomeId: biomeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(biomeId),
+      biomeJson: biomeJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(biomeJson),
+      injectDescription: Value(injectDescription),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
@@ -7374,6 +7597,15 @@ class World extends DataClass implements Insertable<World> {
       linkedCharacterName: serializer.fromJson<String?>(
         json['linkedCharacterName'],
       ),
+      coverImage: serializer.fromJson<String?>(json['coverImage']),
+      formatVersion: serializer.fromJson<int>(json['formatVersion']),
+      sourceId: serializer.fromJson<String?>(json['sourceId']),
+      linkedCharacterId: serializer.fromJson<String?>(
+        json['linkedCharacterId'],
+      ),
+      biomeId: serializer.fromJson<String?>(json['biomeId']),
+      biomeJson: serializer.fromJson<String?>(json['biomeJson']),
+      injectDescription: serializer.fromJson<bool>(json['injectDescription']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
     );
@@ -7387,6 +7619,13 @@ class World extends DataClass implements Insertable<World> {
       'description': serializer.toJson<String>(description),
       'lorebook': serializer.toJson<String?>(lorebook),
       'linkedCharacterName': serializer.toJson<String?>(linkedCharacterName),
+      'coverImage': serializer.toJson<String?>(coverImage),
+      'formatVersion': serializer.toJson<int>(formatVersion),
+      'sourceId': serializer.toJson<String?>(sourceId),
+      'linkedCharacterId': serializer.toJson<String?>(linkedCharacterId),
+      'biomeId': serializer.toJson<String?>(biomeId),
+      'biomeJson': serializer.toJson<String?>(biomeJson),
+      'injectDescription': serializer.toJson<bool>(injectDescription),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
     };
@@ -7398,6 +7637,13 @@ class World extends DataClass implements Insertable<World> {
     String? description,
     Value<String?> lorebook = const Value.absent(),
     Value<String?> linkedCharacterName = const Value.absent(),
+    Value<String?> coverImage = const Value.absent(),
+    int? formatVersion,
+    Value<String?> sourceId = const Value.absent(),
+    Value<String?> linkedCharacterId = const Value.absent(),
+    Value<String?> biomeId = const Value.absent(),
+    Value<String?> biomeJson = const Value.absent(),
+    bool? injectDescription,
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
   }) => World(
@@ -7408,6 +7654,15 @@ class World extends DataClass implements Insertable<World> {
     linkedCharacterName: linkedCharacterName.present
         ? linkedCharacterName.value
         : this.linkedCharacterName,
+    coverImage: coverImage.present ? coverImage.value : this.coverImage,
+    formatVersion: formatVersion ?? this.formatVersion,
+    sourceId: sourceId.present ? sourceId.value : this.sourceId,
+    linkedCharacterId: linkedCharacterId.present
+        ? linkedCharacterId.value
+        : this.linkedCharacterId,
+    biomeId: biomeId.present ? biomeId.value : this.biomeId,
+    biomeJson: biomeJson.present ? biomeJson.value : this.biomeJson,
+    injectDescription: injectDescription ?? this.injectDescription,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
   );
@@ -7422,6 +7677,21 @@ class World extends DataClass implements Insertable<World> {
       linkedCharacterName: data.linkedCharacterName.present
           ? data.linkedCharacterName.value
           : this.linkedCharacterName,
+      coverImage: data.coverImage.present
+          ? data.coverImage.value
+          : this.coverImage,
+      formatVersion: data.formatVersion.present
+          ? data.formatVersion.value
+          : this.formatVersion,
+      sourceId: data.sourceId.present ? data.sourceId.value : this.sourceId,
+      linkedCharacterId: data.linkedCharacterId.present
+          ? data.linkedCharacterId.value
+          : this.linkedCharacterId,
+      biomeId: data.biomeId.present ? data.biomeId.value : this.biomeId,
+      biomeJson: data.biomeJson.present ? data.biomeJson.value : this.biomeJson,
+      injectDescription: data.injectDescription.present
+          ? data.injectDescription.value
+          : this.injectDescription,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
     );
@@ -7435,6 +7705,13 @@ class World extends DataClass implements Insertable<World> {
           ..write('description: $description, ')
           ..write('lorebook: $lorebook, ')
           ..write('linkedCharacterName: $linkedCharacterName, ')
+          ..write('coverImage: $coverImage, ')
+          ..write('formatVersion: $formatVersion, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('linkedCharacterId: $linkedCharacterId, ')
+          ..write('biomeId: $biomeId, ')
+          ..write('biomeJson: $biomeJson, ')
+          ..write('injectDescription: $injectDescription, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
           ..write(')'))
@@ -7448,6 +7725,13 @@ class World extends DataClass implements Insertable<World> {
     description,
     lorebook,
     linkedCharacterName,
+    coverImage,
+    formatVersion,
+    sourceId,
+    linkedCharacterId,
+    biomeId,
+    biomeJson,
+    injectDescription,
     updatedAt,
     deletedAt,
   );
@@ -7460,6 +7744,13 @@ class World extends DataClass implements Insertable<World> {
           other.description == this.description &&
           other.lorebook == this.lorebook &&
           other.linkedCharacterName == this.linkedCharacterName &&
+          other.coverImage == this.coverImage &&
+          other.formatVersion == this.formatVersion &&
+          other.sourceId == this.sourceId &&
+          other.linkedCharacterId == this.linkedCharacterId &&
+          other.biomeId == this.biomeId &&
+          other.biomeJson == this.biomeJson &&
+          other.injectDescription == this.injectDescription &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
 }
@@ -7470,6 +7761,13 @@ class WorldsCompanion extends UpdateCompanion<World> {
   final Value<String> description;
   final Value<String?> lorebook;
   final Value<String?> linkedCharacterName;
+  final Value<String?> coverImage;
+  final Value<int> formatVersion;
+  final Value<String?> sourceId;
+  final Value<String?> linkedCharacterId;
+  final Value<String?> biomeId;
+  final Value<String?> biomeJson;
+  final Value<bool> injectDescription;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<int> rowid;
@@ -7479,6 +7777,13 @@ class WorldsCompanion extends UpdateCompanion<World> {
     this.description = const Value.absent(),
     this.lorebook = const Value.absent(),
     this.linkedCharacterName = const Value.absent(),
+    this.coverImage = const Value.absent(),
+    this.formatVersion = const Value.absent(),
+    this.sourceId = const Value.absent(),
+    this.linkedCharacterId = const Value.absent(),
+    this.biomeId = const Value.absent(),
+    this.biomeJson = const Value.absent(),
+    this.injectDescription = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -7489,6 +7794,13 @@ class WorldsCompanion extends UpdateCompanion<World> {
     this.description = const Value.absent(),
     this.lorebook = const Value.absent(),
     this.linkedCharacterName = const Value.absent(),
+    this.coverImage = const Value.absent(),
+    this.formatVersion = const Value.absent(),
+    this.sourceId = const Value.absent(),
+    this.linkedCharacterId = const Value.absent(),
+    this.biomeId = const Value.absent(),
+    this.biomeJson = const Value.absent(),
+    this.injectDescription = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -7500,6 +7812,13 @@ class WorldsCompanion extends UpdateCompanion<World> {
     Expression<String>? description,
     Expression<String>? lorebook,
     Expression<String>? linkedCharacterName,
+    Expression<String>? coverImage,
+    Expression<int>? formatVersion,
+    Expression<String>? sourceId,
+    Expression<String>? linkedCharacterId,
+    Expression<String>? biomeId,
+    Expression<String>? biomeJson,
+    Expression<bool>? injectDescription,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
     Expression<int>? rowid,
@@ -7511,6 +7830,13 @@ class WorldsCompanion extends UpdateCompanion<World> {
       if (lorebook != null) 'lorebook': lorebook,
       if (linkedCharacterName != null)
         'linked_character_name': linkedCharacterName,
+      if (coverImage != null) 'cover_image': coverImage,
+      if (formatVersion != null) 'format_version': formatVersion,
+      if (sourceId != null) 'source_id': sourceId,
+      if (linkedCharacterId != null) 'linked_character_id': linkedCharacterId,
+      if (biomeId != null) 'biome_id': biomeId,
+      if (biomeJson != null) 'biome_json': biomeJson,
+      if (injectDescription != null) 'inject_description': injectDescription,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (rowid != null) 'rowid': rowid,
@@ -7523,6 +7849,13 @@ class WorldsCompanion extends UpdateCompanion<World> {
     Value<String>? description,
     Value<String?>? lorebook,
     Value<String?>? linkedCharacterName,
+    Value<String?>? coverImage,
+    Value<int>? formatVersion,
+    Value<String?>? sourceId,
+    Value<String?>? linkedCharacterId,
+    Value<String?>? biomeId,
+    Value<String?>? biomeJson,
+    Value<bool>? injectDescription,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<int>? rowid,
@@ -7533,6 +7866,13 @@ class WorldsCompanion extends UpdateCompanion<World> {
       description: description ?? this.description,
       lorebook: lorebook ?? this.lorebook,
       linkedCharacterName: linkedCharacterName ?? this.linkedCharacterName,
+      coverImage: coverImage ?? this.coverImage,
+      formatVersion: formatVersion ?? this.formatVersion,
+      sourceId: sourceId ?? this.sourceId,
+      linkedCharacterId: linkedCharacterId ?? this.linkedCharacterId,
+      biomeId: biomeId ?? this.biomeId,
+      biomeJson: biomeJson ?? this.biomeJson,
+      injectDescription: injectDescription ?? this.injectDescription,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       rowid: rowid ?? this.rowid,
@@ -7559,6 +7899,27 @@ class WorldsCompanion extends UpdateCompanion<World> {
         linkedCharacterName.value,
       );
     }
+    if (coverImage.present) {
+      map['cover_image'] = Variable<String>(coverImage.value);
+    }
+    if (formatVersion.present) {
+      map['format_version'] = Variable<int>(formatVersion.value);
+    }
+    if (sourceId.present) {
+      map['source_id'] = Variable<String>(sourceId.value);
+    }
+    if (linkedCharacterId.present) {
+      map['linked_character_id'] = Variable<String>(linkedCharacterId.value);
+    }
+    if (biomeId.present) {
+      map['biome_id'] = Variable<String>(biomeId.value);
+    }
+    if (biomeJson.present) {
+      map['biome_json'] = Variable<String>(biomeJson.value);
+    }
+    if (injectDescription.present) {
+      map['inject_description'] = Variable<bool>(injectDescription.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -7579,8 +7940,735 @@ class WorldsCompanion extends UpdateCompanion<World> {
           ..write('description: $description, ')
           ..write('lorebook: $lorebook, ')
           ..write('linkedCharacterName: $linkedCharacterName, ')
+          ..write('coverImage: $coverImage, ')
+          ..write('formatVersion: $formatVersion, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('linkedCharacterId: $linkedCharacterId, ')
+          ..write('biomeId: $biomeId, ')
+          ..write('biomeJson: $biomeJson, ')
+          ..write('injectDescription: $injectDescription, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ChatWorldsTable extends ChatWorlds
+    with TableInfo<$ChatWorldsTable, ChatWorld> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChatWorldsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chatIdMeta = const VerificationMeta('chatId');
+  @override
+  late final GeneratedColumn<String> chatId = GeneratedColumn<String>(
+    'chat_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _worldIdMeta = const VerificationMeta(
+    'worldId',
+  );
+  @override
+  late final GeneratedColumn<String> worldId = GeneratedColumn<String>(
+    'world_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    chatId,
+    worldId,
+    sortOrder,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chat_worlds';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChatWorld> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('chat_id')) {
+      context.handle(
+        _chatIdMeta,
+        chatId.isAcceptableOrUnknown(data['chat_id']!, _chatIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chatIdMeta);
+    }
+    if (data.containsKey('world_id')) {
+      context.handle(
+        _worldIdMeta,
+        worldId.isAcceptableOrUnknown(data['world_id']!, _worldIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_worldIdMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ChatWorld map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChatWorld(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      chatId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chat_id'],
+      )!,
+      worldId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}world_id'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ChatWorldsTable createAlias(String alias) {
+    return $ChatWorldsTable(attachedDatabase, alias);
+  }
+}
+
+class ChatWorld extends DataClass implements Insertable<ChatWorld> {
+  final String id;
+  final String chatId;
+  final String worldId;
+  final int sortOrder;
+  final DateTime createdAt;
+  const ChatWorld({
+    required this.id,
+    required this.chatId,
+    required this.worldId,
+    required this.sortOrder,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['chat_id'] = Variable<String>(chatId);
+    map['world_id'] = Variable<String>(worldId);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ChatWorldsCompanion toCompanion(bool nullToAbsent) {
+    return ChatWorldsCompanion(
+      id: Value(id),
+      chatId: Value(chatId),
+      worldId: Value(worldId),
+      sortOrder: Value(sortOrder),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ChatWorld.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChatWorld(
+      id: serializer.fromJson<String>(json['id']),
+      chatId: serializer.fromJson<String>(json['chatId']),
+      worldId: serializer.fromJson<String>(json['worldId']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'chatId': serializer.toJson<String>(chatId),
+      'worldId': serializer.toJson<String>(worldId),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ChatWorld copyWith({
+    String? id,
+    String? chatId,
+    String? worldId,
+    int? sortOrder,
+    DateTime? createdAt,
+  }) => ChatWorld(
+    id: id ?? this.id,
+    chatId: chatId ?? this.chatId,
+    worldId: worldId ?? this.worldId,
+    sortOrder: sortOrder ?? this.sortOrder,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ChatWorld copyWithCompanion(ChatWorldsCompanion data) {
+    return ChatWorld(
+      id: data.id.present ? data.id.value : this.id,
+      chatId: data.chatId.present ? data.chatId.value : this.chatId,
+      worldId: data.worldId.present ? data.worldId.value : this.worldId,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatWorld(')
+          ..write('id: $id, ')
+          ..write('chatId: $chatId, ')
+          ..write('worldId: $worldId, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, chatId, worldId, sortOrder, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChatWorld &&
+          other.id == this.id &&
+          other.chatId == this.chatId &&
+          other.worldId == this.worldId &&
+          other.sortOrder == this.sortOrder &&
+          other.createdAt == this.createdAt);
+}
+
+class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
+  final Value<String> id;
+  final Value<String> chatId;
+  final Value<String> worldId;
+  final Value<int> sortOrder;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const ChatWorldsCompanion({
+    this.id = const Value.absent(),
+    this.chatId = const Value.absent(),
+    this.worldId = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChatWorldsCompanion.insert({
+    required String id,
+    required String chatId,
+    required String worldId,
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       chatId = Value(chatId),
+       worldId = Value(worldId);
+  static Insertable<ChatWorld> custom({
+    Expression<String>? id,
+    Expression<String>? chatId,
+    Expression<String>? worldId,
+    Expression<int>? sortOrder,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (chatId != null) 'chat_id': chatId,
+      if (worldId != null) 'world_id': worldId,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChatWorldsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? chatId,
+    Value<String>? worldId,
+    Value<int>? sortOrder,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ChatWorldsCompanion(
+      id: id ?? this.id,
+      chatId: chatId ?? this.chatId,
+      worldId: worldId ?? this.worldId,
+      sortOrder: sortOrder ?? this.sortOrder,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (chatId.present) {
+      map['chat_id'] = Variable<String>(chatId.value);
+    }
+    if (worldId.present) {
+      map['world_id'] = Variable<String>(worldId.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatWorldsCompanion(')
+          ..write('id: $id, ')
+          ..write('chatId: $chatId, ')
+          ..write('worldId: $worldId, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ChatBiomeSpansTable extends ChatBiomeSpans
+    with TableInfo<$ChatBiomeSpansTable, ChatBiomeSpan> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChatBiomeSpansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chatIdMeta = const VerificationMeta('chatId');
+  @override
+  late final GeneratedColumn<String> chatId = GeneratedColumn<String>(
+    'chat_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _effectiveFromDayMeta = const VerificationMeta(
+    'effectiveFromDay',
+  );
+  @override
+  late final GeneratedColumn<int> effectiveFromDay = GeneratedColumn<int>(
+    'effective_from_day',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _biomeJsonMeta = const VerificationMeta(
+    'biomeJson',
+  );
+  @override
+  late final GeneratedColumn<String> biomeJson = GeneratedColumn<String>(
+    'biome_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    chatId,
+    effectiveFromDay,
+    biomeJson,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chat_biome_spans';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChatBiomeSpan> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('chat_id')) {
+      context.handle(
+        _chatIdMeta,
+        chatId.isAcceptableOrUnknown(data['chat_id']!, _chatIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chatIdMeta);
+    }
+    if (data.containsKey('effective_from_day')) {
+      context.handle(
+        _effectiveFromDayMeta,
+        effectiveFromDay.isAcceptableOrUnknown(
+          data['effective_from_day']!,
+          _effectiveFromDayMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_effectiveFromDayMeta);
+    }
+    if (data.containsKey('biome_json')) {
+      context.handle(
+        _biomeJsonMeta,
+        biomeJson.isAcceptableOrUnknown(data['biome_json']!, _biomeJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_biomeJsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ChatBiomeSpan map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChatBiomeSpan(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      chatId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chat_id'],
+      )!,
+      effectiveFromDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}effective_from_day'],
+      )!,
+      biomeJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}biome_json'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ChatBiomeSpansTable createAlias(String alias) {
+    return $ChatBiomeSpansTable(attachedDatabase, alias);
+  }
+}
+
+class ChatBiomeSpan extends DataClass implements Insertable<ChatBiomeSpan> {
+  final String id;
+  final String chatId;
+  final int effectiveFromDay;
+  final String biomeJson;
+  final DateTime createdAt;
+  const ChatBiomeSpan({
+    required this.id,
+    required this.chatId,
+    required this.effectiveFromDay,
+    required this.biomeJson,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['chat_id'] = Variable<String>(chatId);
+    map['effective_from_day'] = Variable<int>(effectiveFromDay);
+    map['biome_json'] = Variable<String>(biomeJson);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ChatBiomeSpansCompanion toCompanion(bool nullToAbsent) {
+    return ChatBiomeSpansCompanion(
+      id: Value(id),
+      chatId: Value(chatId),
+      effectiveFromDay: Value(effectiveFromDay),
+      biomeJson: Value(biomeJson),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ChatBiomeSpan.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChatBiomeSpan(
+      id: serializer.fromJson<String>(json['id']),
+      chatId: serializer.fromJson<String>(json['chatId']),
+      effectiveFromDay: serializer.fromJson<int>(json['effectiveFromDay']),
+      biomeJson: serializer.fromJson<String>(json['biomeJson']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'chatId': serializer.toJson<String>(chatId),
+      'effectiveFromDay': serializer.toJson<int>(effectiveFromDay),
+      'biomeJson': serializer.toJson<String>(biomeJson),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ChatBiomeSpan copyWith({
+    String? id,
+    String? chatId,
+    int? effectiveFromDay,
+    String? biomeJson,
+    DateTime? createdAt,
+  }) => ChatBiomeSpan(
+    id: id ?? this.id,
+    chatId: chatId ?? this.chatId,
+    effectiveFromDay: effectiveFromDay ?? this.effectiveFromDay,
+    biomeJson: biomeJson ?? this.biomeJson,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ChatBiomeSpan copyWithCompanion(ChatBiomeSpansCompanion data) {
+    return ChatBiomeSpan(
+      id: data.id.present ? data.id.value : this.id,
+      chatId: data.chatId.present ? data.chatId.value : this.chatId,
+      effectiveFromDay: data.effectiveFromDay.present
+          ? data.effectiveFromDay.value
+          : this.effectiveFromDay,
+      biomeJson: data.biomeJson.present ? data.biomeJson.value : this.biomeJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatBiomeSpan(')
+          ..write('id: $id, ')
+          ..write('chatId: $chatId, ')
+          ..write('effectiveFromDay: $effectiveFromDay, ')
+          ..write('biomeJson: $biomeJson, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, chatId, effectiveFromDay, biomeJson, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChatBiomeSpan &&
+          other.id == this.id &&
+          other.chatId == this.chatId &&
+          other.effectiveFromDay == this.effectiveFromDay &&
+          other.biomeJson == this.biomeJson &&
+          other.createdAt == this.createdAt);
+}
+
+class ChatBiomeSpansCompanion extends UpdateCompanion<ChatBiomeSpan> {
+  final Value<String> id;
+  final Value<String> chatId;
+  final Value<int> effectiveFromDay;
+  final Value<String> biomeJson;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const ChatBiomeSpansCompanion({
+    this.id = const Value.absent(),
+    this.chatId = const Value.absent(),
+    this.effectiveFromDay = const Value.absent(),
+    this.biomeJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChatBiomeSpansCompanion.insert({
+    required String id,
+    required String chatId,
+    required int effectiveFromDay,
+    required String biomeJson,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       chatId = Value(chatId),
+       effectiveFromDay = Value(effectiveFromDay),
+       biomeJson = Value(biomeJson);
+  static Insertable<ChatBiomeSpan> custom({
+    Expression<String>? id,
+    Expression<String>? chatId,
+    Expression<int>? effectiveFromDay,
+    Expression<String>? biomeJson,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (chatId != null) 'chat_id': chatId,
+      if (effectiveFromDay != null) 'effective_from_day': effectiveFromDay,
+      if (biomeJson != null) 'biome_json': biomeJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChatBiomeSpansCompanion copyWith({
+    Value<String>? id,
+    Value<String>? chatId,
+    Value<int>? effectiveFromDay,
+    Value<String>? biomeJson,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ChatBiomeSpansCompanion(
+      id: id ?? this.id,
+      chatId: chatId ?? this.chatId,
+      effectiveFromDay: effectiveFromDay ?? this.effectiveFromDay,
+      biomeJson: biomeJson ?? this.biomeJson,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (chatId.present) {
+      map['chat_id'] = Variable<String>(chatId.value);
+    }
+    if (effectiveFromDay.present) {
+      map['effective_from_day'] = Variable<int>(effectiveFromDay.value);
+    }
+    if (biomeJson.present) {
+      map['biome_json'] = Variable<String>(biomeJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatBiomeSpansCompanion(')
+          ..write('id: $id, ')
+          ..write('chatId: $chatId, ')
+          ..write('effectiveFromDay: $effectiveFromDay, ')
+          ..write('biomeJson: $biomeJson, ')
+          ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -14675,6 +15763,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FoldersTable folders = $FoldersTable(this);
   late final $PersonasTable personas = $PersonasTable(this);
   late final $WorldsTable worlds = $WorldsTable(this);
+  late final $ChatWorldsTable chatWorlds = $ChatWorldsTable(this);
+  late final $ChatBiomeSpansTable chatBiomeSpans = $ChatBiomeSpansTable(this);
   late final $MessageEmbeddingsTable messageEmbeddings =
       $MessageEmbeddingsTable(this);
   late final $DataBankEntriesTable dataBankEntries = $DataBankEntriesTable(
@@ -14715,6 +15805,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     folders,
     personas,
     worlds,
+    chatWorlds,
+    chatBiomeSpans,
     messageEmbeddings,
     dataBankEntries,
     journalMemories,
@@ -17840,6 +18932,13 @@ typedef $$WorldsTableCreateCompanionBuilder =
       Value<String> description,
       Value<String?> lorebook,
       Value<String?> linkedCharacterName,
+      Value<String?> coverImage,
+      Value<int> formatVersion,
+      Value<String?> sourceId,
+      Value<String?> linkedCharacterId,
+      Value<String?> biomeId,
+      Value<String?> biomeJson,
+      Value<bool> injectDescription,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> rowid,
@@ -17851,6 +18950,13 @@ typedef $$WorldsTableUpdateCompanionBuilder =
       Value<String> description,
       Value<String?> lorebook,
       Value<String?> linkedCharacterName,
+      Value<String?> coverImage,
+      Value<int> formatVersion,
+      Value<String?> sourceId,
+      Value<String?> linkedCharacterId,
+      Value<String?> biomeId,
+      Value<String?> biomeJson,
+      Value<bool> injectDescription,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> rowid,
@@ -17887,6 +18993,41 @@ class $$WorldsTableFilterComposer
 
   ColumnFilters<String> get linkedCharacterName => $composableBuilder(
     column: $table.linkedCharacterName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverImage => $composableBuilder(
+    column: $table.coverImage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get formatVersion => $composableBuilder(
+    column: $table.formatVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceId => $composableBuilder(
+    column: $table.sourceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get linkedCharacterId => $composableBuilder(
+    column: $table.linkedCharacterId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get biomeId => $composableBuilder(
+    column: $table.biomeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get biomeJson => $composableBuilder(
+    column: $table.biomeJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get injectDescription => $composableBuilder(
+    column: $table.injectDescription,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17935,6 +19076,41 @@ class $$WorldsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get coverImage => $composableBuilder(
+    column: $table.coverImage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get formatVersion => $composableBuilder(
+    column: $table.formatVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceId => $composableBuilder(
+    column: $table.sourceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get linkedCharacterId => $composableBuilder(
+    column: $table.linkedCharacterId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get biomeId => $composableBuilder(
+    column: $table.biomeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get biomeJson => $composableBuilder(
+    column: $table.biomeJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get injectDescription => $composableBuilder(
+    column: $table.injectDescription,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -17971,6 +19147,35 @@ class $$WorldsTableAnnotationComposer
 
   GeneratedColumn<String> get linkedCharacterName => $composableBuilder(
     column: $table.linkedCharacterName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get coverImage => $composableBuilder(
+    column: $table.coverImage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get formatVersion => $composableBuilder(
+    column: $table.formatVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceId =>
+      $composableBuilder(column: $table.sourceId, builder: (column) => column);
+
+  GeneratedColumn<String> get linkedCharacterId => $composableBuilder(
+    column: $table.linkedCharacterId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get biomeId =>
+      $composableBuilder(column: $table.biomeId, builder: (column) => column);
+
+  GeneratedColumn<String> get biomeJson =>
+      $composableBuilder(column: $table.biomeJson, builder: (column) => column);
+
+  GeneratedColumn<bool> get injectDescription => $composableBuilder(
+    column: $table.injectDescription,
     builder: (column) => column,
   );
 
@@ -18014,6 +19219,13 @@ class $$WorldsTableTableManager
                 Value<String> description = const Value.absent(),
                 Value<String?> lorebook = const Value.absent(),
                 Value<String?> linkedCharacterName = const Value.absent(),
+                Value<String?> coverImage = const Value.absent(),
+                Value<int> formatVersion = const Value.absent(),
+                Value<String?> sourceId = const Value.absent(),
+                Value<String?> linkedCharacterId = const Value.absent(),
+                Value<String?> biomeId = const Value.absent(),
+                Value<String?> biomeJson = const Value.absent(),
+                Value<bool> injectDescription = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -18023,6 +19235,13 @@ class $$WorldsTableTableManager
                 description: description,
                 lorebook: lorebook,
                 linkedCharacterName: linkedCharacterName,
+                coverImage: coverImage,
+                formatVersion: formatVersion,
+                sourceId: sourceId,
+                linkedCharacterId: linkedCharacterId,
+                biomeId: biomeId,
+                biomeJson: biomeJson,
+                injectDescription: injectDescription,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 rowid: rowid,
@@ -18034,6 +19253,13 @@ class $$WorldsTableTableManager
                 Value<String> description = const Value.absent(),
                 Value<String?> lorebook = const Value.absent(),
                 Value<String?> linkedCharacterName = const Value.absent(),
+                Value<String?> coverImage = const Value.absent(),
+                Value<int> formatVersion = const Value.absent(),
+                Value<String?> sourceId = const Value.absent(),
+                Value<String?> linkedCharacterId = const Value.absent(),
+                Value<String?> biomeId = const Value.absent(),
+                Value<String?> biomeJson = const Value.absent(),
+                Value<bool> injectDescription = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -18043,6 +19269,13 @@ class $$WorldsTableTableManager
                 description: description,
                 lorebook: lorebook,
                 linkedCharacterName: linkedCharacterName,
+                coverImage: coverImage,
+                formatVersion: formatVersion,
+                sourceId: sourceId,
+                linkedCharacterId: linkedCharacterId,
+                biomeId: biomeId,
+                biomeJson: biomeJson,
+                injectDescription: injectDescription,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 rowid: rowid,
@@ -18067,6 +19300,407 @@ typedef $$WorldsTableProcessedTableManager =
       $$WorldsTableUpdateCompanionBuilder,
       (World, BaseReferences<_$AppDatabase, $WorldsTable, World>),
       World,
+      PrefetchHooks Function()
+    >;
+typedef $$ChatWorldsTableCreateCompanionBuilder =
+    ChatWorldsCompanion Function({
+      required String id,
+      required String chatId,
+      required String worldId,
+      Value<int> sortOrder,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$ChatWorldsTableUpdateCompanionBuilder =
+    ChatWorldsCompanion Function({
+      Value<String> id,
+      Value<String> chatId,
+      Value<String> worldId,
+      Value<int> sortOrder,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$ChatWorldsTableFilterComposer
+    extends Composer<_$AppDatabase, $ChatWorldsTable> {
+  $$ChatWorldsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get chatId => $composableBuilder(
+    column: $table.chatId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get worldId => $composableBuilder(
+    column: $table.worldId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChatWorldsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChatWorldsTable> {
+  $$ChatWorldsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get chatId => $composableBuilder(
+    column: $table.chatId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get worldId => $composableBuilder(
+    column: $table.worldId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChatWorldsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChatWorldsTable> {
+  $$ChatWorldsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get chatId =>
+      $composableBuilder(column: $table.chatId, builder: (column) => column);
+
+  GeneratedColumn<String> get worldId =>
+      $composableBuilder(column: $table.worldId, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ChatWorldsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChatWorldsTable,
+          ChatWorld,
+          $$ChatWorldsTableFilterComposer,
+          $$ChatWorldsTableOrderingComposer,
+          $$ChatWorldsTableAnnotationComposer,
+          $$ChatWorldsTableCreateCompanionBuilder,
+          $$ChatWorldsTableUpdateCompanionBuilder,
+          (
+            ChatWorld,
+            BaseReferences<_$AppDatabase, $ChatWorldsTable, ChatWorld>,
+          ),
+          ChatWorld,
+          PrefetchHooks Function()
+        > {
+  $$ChatWorldsTableTableManager(_$AppDatabase db, $ChatWorldsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChatWorldsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChatWorldsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChatWorldsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> chatId = const Value.absent(),
+                Value<String> worldId = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatWorldsCompanion(
+                id: id,
+                chatId: chatId,
+                worldId: worldId,
+                sortOrder: sortOrder,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String chatId,
+                required String worldId,
+                Value<int> sortOrder = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatWorldsCompanion.insert(
+                id: id,
+                chatId: chatId,
+                worldId: worldId,
+                sortOrder: sortOrder,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChatWorldsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChatWorldsTable,
+      ChatWorld,
+      $$ChatWorldsTableFilterComposer,
+      $$ChatWorldsTableOrderingComposer,
+      $$ChatWorldsTableAnnotationComposer,
+      $$ChatWorldsTableCreateCompanionBuilder,
+      $$ChatWorldsTableUpdateCompanionBuilder,
+      (ChatWorld, BaseReferences<_$AppDatabase, $ChatWorldsTable, ChatWorld>),
+      ChatWorld,
+      PrefetchHooks Function()
+    >;
+typedef $$ChatBiomeSpansTableCreateCompanionBuilder =
+    ChatBiomeSpansCompanion Function({
+      required String id,
+      required String chatId,
+      required int effectiveFromDay,
+      required String biomeJson,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$ChatBiomeSpansTableUpdateCompanionBuilder =
+    ChatBiomeSpansCompanion Function({
+      Value<String> id,
+      Value<String> chatId,
+      Value<int> effectiveFromDay,
+      Value<String> biomeJson,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$ChatBiomeSpansTableFilterComposer
+    extends Composer<_$AppDatabase, $ChatBiomeSpansTable> {
+  $$ChatBiomeSpansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get chatId => $composableBuilder(
+    column: $table.chatId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get effectiveFromDay => $composableBuilder(
+    column: $table.effectiveFromDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get biomeJson => $composableBuilder(
+    column: $table.biomeJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChatBiomeSpansTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChatBiomeSpansTable> {
+  $$ChatBiomeSpansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get chatId => $composableBuilder(
+    column: $table.chatId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get effectiveFromDay => $composableBuilder(
+    column: $table.effectiveFromDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get biomeJson => $composableBuilder(
+    column: $table.biomeJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChatBiomeSpansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChatBiomeSpansTable> {
+  $$ChatBiomeSpansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get chatId =>
+      $composableBuilder(column: $table.chatId, builder: (column) => column);
+
+  GeneratedColumn<int> get effectiveFromDay => $composableBuilder(
+    column: $table.effectiveFromDay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get biomeJson =>
+      $composableBuilder(column: $table.biomeJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ChatBiomeSpansTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChatBiomeSpansTable,
+          ChatBiomeSpan,
+          $$ChatBiomeSpansTableFilterComposer,
+          $$ChatBiomeSpansTableOrderingComposer,
+          $$ChatBiomeSpansTableAnnotationComposer,
+          $$ChatBiomeSpansTableCreateCompanionBuilder,
+          $$ChatBiomeSpansTableUpdateCompanionBuilder,
+          (
+            ChatBiomeSpan,
+            BaseReferences<_$AppDatabase, $ChatBiomeSpansTable, ChatBiomeSpan>,
+          ),
+          ChatBiomeSpan,
+          PrefetchHooks Function()
+        > {
+  $$ChatBiomeSpansTableTableManager(
+    _$AppDatabase db,
+    $ChatBiomeSpansTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChatBiomeSpansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChatBiomeSpansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChatBiomeSpansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> chatId = const Value.absent(),
+                Value<int> effectiveFromDay = const Value.absent(),
+                Value<String> biomeJson = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatBiomeSpansCompanion(
+                id: id,
+                chatId: chatId,
+                effectiveFromDay: effectiveFromDay,
+                biomeJson: biomeJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String chatId,
+                required int effectiveFromDay,
+                required String biomeJson,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatBiomeSpansCompanion.insert(
+                id: id,
+                chatId: chatId,
+                effectiveFromDay: effectiveFromDay,
+                biomeJson: biomeJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChatBiomeSpansTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChatBiomeSpansTable,
+      ChatBiomeSpan,
+      $$ChatBiomeSpansTableFilterComposer,
+      $$ChatBiomeSpansTableOrderingComposer,
+      $$ChatBiomeSpansTableAnnotationComposer,
+      $$ChatBiomeSpansTableCreateCompanionBuilder,
+      $$ChatBiomeSpansTableUpdateCompanionBuilder,
+      (
+        ChatBiomeSpan,
+        BaseReferences<_$AppDatabase, $ChatBiomeSpansTable, ChatBiomeSpan>,
+      ),
+      ChatBiomeSpan,
       PrefetchHooks Function()
     >;
 typedef $$MessageEmbeddingsTableCreateCompanionBuilder =
@@ -21607,6 +23241,10 @@ class $AppDatabaseManager {
       $$PersonasTableTableManager(_db, _db.personas);
   $$WorldsTableTableManager get worlds =>
       $$WorldsTableTableManager(_db, _db.worlds);
+  $$ChatWorldsTableTableManager get chatWorlds =>
+      $$ChatWorldsTableTableManager(_db, _db.chatWorlds);
+  $$ChatBiomeSpansTableTableManager get chatBiomeSpans =>
+      $$ChatBiomeSpansTableTableManager(_db, _db.chatBiomeSpans);
   $$MessageEmbeddingsTableTableManager get messageEmbeddings =>
       $$MessageEmbeddingsTableTableManager(_db, _db.messageEmbeddings);
   $$DataBankEntriesTableTableManager get dataBankEntries =>

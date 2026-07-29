@@ -10,9 +10,14 @@
 import type { CSSProperties } from 'react';
 
 export interface WorldSummary {
+  id?: string;
   name: string;
   description: string;
   entryCount: number;
+  biomeId?: string | null;
+  injectDescription?: boolean;
+  coverImage?: string | null;
+  hasCover?: boolean;
   linkedCharacterName?: string | null;
   linkedCharacterId?: string | null;
 }
@@ -52,7 +57,16 @@ export function WorldCard({
       <div className="wsg-world-head">
         <div className="wsg-world-avatar" aria-hidden>
           <span>{initial}</span>
-          {world.linkedCharacterId && (
+          {world.coverImage && world.coverImage.startsWith('data:') ? (
+            <img
+              src={world.coverImage}
+              alt=""
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : world.linkedCharacterId ? (
             <img
               src={`/api/characters/${world.linkedCharacterId}/avatar?w=256`}
               alt=""
@@ -61,15 +75,15 @@ export function WorldCard({
                 e.currentTarget.style.display = 'none';
               }}
             />
-          )}
+          ) : null}
         </div>
         <div className="wsg-world-title">
           <span className="wsg-world-name" title={world.name}>
             {world.name}
           </span>
-          {world.linkedCharacterName && (
-            <span className="wsg-linked" title={`Linked to ${world.linkedCharacterName}`}>
-              🔗 <span>{world.linkedCharacterName}</span>
+          {world.biomeId && world.biomeId !== 'temperate' && (
+            <span className="wsg-linked" title={`Climate: ${world.biomeId}`}>
+              🌡️ <span>{world.biomeId}</span>
             </span>
           )}
         </div>
@@ -77,7 +91,7 @@ export function WorldCard({
           <button className="icon-btn" title="Edit" onClick={onEdit}>
             ✎
           </button>
-          <button className="icon-btn" title="Export JSON" onClick={onExport}>
+          <button className="icon-btn" title="Export .fpworld" onClick={onExport}>
             ⬇
           </button>
           <button className="icon-btn" title="Delete" disabled={busy} onClick={onDelete}>

@@ -51,7 +51,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.1'
+          flutter-version: '3.44.8'
           channel: 'stable'
           # Caching is intentionally disabled throughout release.yml (maintainer call):
           # stable releases build EVERYTHING fresh so no cached artifact can ever go
@@ -173,6 +173,51 @@ jobs:
         env:
           CXXFLAGS: "-Wno-unknown-warning-option"
         run: flutter build linux --release
+
+      # ── Guard: the Linux bundle MUST be able to reach SQLite ──
+      #
+      # v1.1.0 shipped with NO SQLite in the bundle at all and bricked every
+      # Linux install ("libsqlite3.so is missing" -> "database is corrupted").
+      # Nothing caught it: the build succeeded, the tests passed (CI runners
+      # have libsqlite3 via dev packages), and macOS/Windows silently fell back
+      # to /usr/lib/libsqlite3.dylib and winsqlite3.dll respectively. Only a
+      # real Linux end user without libsqlite3-dev ever saw it.
+      #
+      # Cause: `sqlite3` 3.x bundles SQLite itself, `sqlite3` 2.x delegates to
+      # `sqlite3_flutter_libs`. A transitive downgrade to 2.x while that helper
+      # was pinned to 0.6.0+eol — a tombstone release containing no code —
+      # left nothing to produce the library.
+      #
+      # This checks REACHABILITY, not a filename, because the two eras deliver
+      # SQLite differently: 3.x emits a standalone lib/libsqlite3.so via native
+      # assets, while 0.5.x compiles sqlite3.c into the plugin .so. Either is
+      # fine. Zero exporters is a broken release.
+      - name: Verify SQLite is bundled (Linux)
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          BUNDLE=build/linux/x64/release/bundle
+          echo "Scanning $BUNDLE for a library exporting the SQLite C API..."
+          FOUND=""
+          while IFS= read -r so; do
+            if nm -D --defined-only "$so" 2>/dev/null | grep -qE ' sqlite3_open_v2$'; then
+              echo "  ✓ $(basename "$so") exports sqlite3_open_v2"
+              FOUND="yes"
+            fi
+          done < <(find "$BUNDLE" -name '*.so*' -type f)
+
+          if [ -z "$FOUND" ]; then
+            echo "::error::No library in the Linux bundle exports the SQLite C API."
+            echo "::error::The app cannot open its database and will report the"
+            echo "::error::database as corrupted on every user's machine."
+            echo "::error::Check that pubspec.lock's sqlite3 is 3.x (self-bundling)"
+            echo "::error::OR that sqlite3_flutter_libs is 0.5.x (NOT 0.6.0+eol,"
+            echo "::error::which ships no code). See the note in pubspec.yaml."
+            echo "--- bundle contents ---"
+            find "$BUNDLE" -name '*.so*' -type f -printf '  %f\n' || true
+            exit 1
+          fi
+          echo "SQLite is reachable from the bundle."
 
       - name: Bundle libfpzip for the native Draw Things client (macOS)
         if: matrix.platform == 'macos'
@@ -401,28 +446,6 @@ jobs:
           
           echo "✓ Build complete: PKG and inner .app are fully notarized and stapled!"
 
-      # Unsigned shim DMG for stable channel (Front_Porch_AI.dmg) — the last bridge.
-      - name: Build unsigned shim DMG (legacy name for stable updater transition)
-        if: matrix.platform == 'macos'
-        run: |
-          cd build/macos/Build/Products/Release
-          APP_NAME=$(ls -d *.app | head -1)
-          # Absolute via GITHUB_WORKSPACE for robustness (review issue 9).
-          SHIM_DMG="${GITHUB_WORKSPACE}/Front_Porch_AI.dmg"
-          echo "==> Building unsigned shim DMG $SHIM_DMG for stable channel (no codesign/notarize)"
-          SHIM_ROOT="/tmp/shim-stable-$$"
-          rm -rf "$SHIM_ROOT"
-          mkdir -p "$SHIM_ROOT"
-          cp -R "$APP_NAME" "$SHIM_ROOT/"
-          if hdiutil create -volname "Front Porch AI" -srcfolder "$SHIM_ROOT" -ov -format UDZO "$SHIM_DMG" 2>&1 | tail -3; then
-            echo "✓ stable shim DMG via hdiutil"
-          else
-            brew install create-dmg || true
-            "${GITHUB_WORKSPACE}/create-dmg.sh" --skip-jenkins "$SHIM_DMG" "$SHIM_ROOT" || true  # absolute for consistency (Issue B)
-          fi
-          rm -rf "$SHIM_ROOT"
-          ls -l "$SHIM_DMG" || true
-
       - name: Get Version
         id: get_version
         run: echo "VERSION=$(echo ${GITHUB_REF_NAME} | sed 's/^[vV]//')" >> $GITHUB_OUTPUT
@@ -563,15 +586,20 @@ jobs:
             Front_Porch_AI-Linux.AppImage
             Front_Porch_AI-Linux.deb
             Front_Porch_AI-Linux.rpm
+            Front_Porch_AI_Linux.tar.gz
             Front_Porch_AI_Setup.exe
             Front_Porch_AI.pkg
-            Front_Porch_AI.dmg
           if-no-files-found: ignore
 
   publish-release:
     name: Publish Release
     needs: release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    # Tag-ref-only, but event-agnostic: a workflow_dispatch ON a tag ref must
+    # publish exactly like a tag push. Needed because tags created via
+    # GITHUB_TOKEN (cut-release.yml — remote sessions cannot push tags) do not
+    # fire on:push workflows; the release build is then dispatched on the tag.
+    # Dispatch requires repo write access, so the trust level is unchanged.
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       # Checkout BEFORE downloading artifacts so the repo (docs/main.md) is present.
@@ -621,9 +649,9 @@ jobs:
             Front_Porch_AI-Linux.AppImage
             Front_Porch_AI-Linux.deb
             Front_Porch_AI-Linux.rpm
+            Front_Porch_AI_Linux.tar.gz
             Front_Porch_AI_Setup.exe
             Front_Porch_AI.pkg
-            Front_Porch_AI.dmg
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           body: ${{ steps.release_notes.outputs.body }}
         env:

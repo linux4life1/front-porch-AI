@@ -421,9 +421,10 @@ void main(List<String> args) async {
               previous ?? GroupChatRepository(storage, db),
         ),
         ChangeNotifierProvider(create: (context) => FolderService(db)),
-        ChangeNotifierProxyProvider2<
+        ChangeNotifierProxyProvider3<
           CharacterRepository,
           StorageService,
+          GroupChatRepository,
           WorldRepository
         >(
           create: (context) {
@@ -435,12 +436,16 @@ void main(List<String> args) async {
             repo.setCharacterRepository(
               Provider.of<CharacterRepository>(context, listen: false),
             );
+            repo.setGroupChatRepository(
+              Provider.of<GroupChatRepository>(context, listen: false),
+            );
             return repo;
           },
-          update: (context, charRepo, storage, previous) {
+          update: (context, charRepo, storage, groups, previous) {
             final newRepo = previous ?? WorldRepository(storage, db);
             // Re-wire CharacterRepository if changed
             newRepo.setCharacterRepository(charRepo);
+            newRepo.setGroupChatRepository(groups);
             return newRepo;
           },
         ),

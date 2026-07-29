@@ -197,6 +197,17 @@
 
   /* --------------------------------- boot --------------------------------- */
   function boot() {
+    // Path-based share links (/card/<id>, /creator/<id>) are normally answered
+    // by the server-side OG page, which redirects here with a hash route. If
+    // the static host ever serves the SPA for those paths instead (e.g. the
+    // Caddy mapping isn't live yet), translate the path into the hash route so
+    // the link still lands on the right card.
+    var pm = location.pathname.match(/^\/(card|creator)\/([\w-]+)\/?$/);
+    if (pm) {
+      location.replace(location.origin + '/#/' + pm[1] + '/' + pm[2]);
+      return;
+    }
+
     el = S.ui.el;
     ui = S.ui;
     Api = S.api;

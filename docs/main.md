@@ -2,6 +2,12 @@
 
 These notes feed the in-app "Update Available" dialog for stable releases on `main`.
 
+## v1.1.1 — Linux hotfix
+
+- 🐧 **Fixes Linux installs that couldn't open their database** — v1.1.0 shipped without its bundled SQLite engine, so Linux users saw "libsqlite3.so is missing" and were told their database was corrupted. **Your data was never actually damaged** — the app simply couldn't open it. Updating fixes it, and your chats are exactly where you left them. Affects every Linux package (`.deb`, `.rpm`, AppImage, tarball and the AUR build); macOS and Windows were never affected.
+
+- 🔒 **This can't happen again** — the release pipeline now refuses to publish a Linux build that can't reach its database engine, so a missing library is caught before it ever reaches a download page instead of on your machine.
+
 ## Highlights — v1.0
 
 Front Porch AI hits **1.0** — the biggest update ever. Everything below has been proving itself on the nightly builds for months and lands in stable at once.

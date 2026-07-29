@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:front_porch_ai/ui/dialogs/import_character_lore_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:path/path.dart' as p;
@@ -318,12 +319,32 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   //  AVATAR
   // ═══════════════════════════════════════════════════════════════
 
+  /// Card face for this page: the ★ starred gallery look when set, else the
+  /// library portrait — same resolution as the home grid / export cover
+  /// (issue #171: used to read raw `imagePath` only, so Add avatar + ★ left
+  /// this page stuck on "No avatar" while chat already showed the look).
+  ///
+  /// Cost: once per Details rebuild via the repo's cover cache (not a chat
+  /// bubble hot path). Prefer this over a raw existsSync on imagePath.
+  /// Falls back to raw `imagePath` when CharacterRepository is not above this
+  /// widget (widget goldens / rare embeds that only provide StorageService).
   File? get _avatarFile {
+    try {
+      final repo = Provider.of<CharacterRepository>(context, listen: false);
+      final cover = repo.coverImageFileFor(widget.character);
+      if (cover != null) return cover;
+    } on ProviderNotFoundException {
+      // Fall through to imagePath.
+    }
     final img = widget.character.imagePath;
     if (img == null || img.isEmpty) return null;
     if (p.isAbsolute(img)) return File(img);
-    final storage = Provider.of<StorageService>(context, listen: false);
-    return File(p.join(storage.charactersDir.path, img));
+    try {
+      final storage = Provider.of<StorageService>(context, listen: false);
+      return File(p.join(storage.charactersDir.path, img));
+    } on ProviderNotFoundException {
+      return File(img);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -571,6 +592,26 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     }
   }
 
+  Future<void> _importLoreFromCharacter() async {
+    final repo = Provider.of<CharacterRepository>(context, listen: false);
+    final entries = await showImportCharacterLoreDialog(
+      context: context,
+      characters: repo.characters,
+      excludeCharacterName: widget.character.name,
+    );
+    if (entries == null || entries.isEmpty) return;
+    setState(() {
+      _loreEntries.addAll(entries);
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added ${entries.length} entries from character.'),
+        ),
+      );
+    }
+  }
+
   Future<void> _importLorebookJson() async {
     final result = await PickerPrefs.pickFiles(
       category: PickerPrefs.catImport,
@@ -791,42 +832,54 @@ class _EditCharacterPageState extends State<EditCharacterPage>
               // ── Avatar (read-only). Portrait + expression images are managed
               //    in the Avatar Gallery (right-click a character on the home
               //    grid, or the chat sidebar) — no destructive change here.
-              Center(
-                child: Container(
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    color: AppColors.cardOf(context),
-                    border: Border.all(color: AppColors.borderOf(context).withValues(alpha: 0.45)),
-                    image: _avatarFile != null && _avatarFile!.existsSync()
-                        ? DecorationImage(
-                            image: FileImage(_avatarFile!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: (_avatarFile == null || !_avatarFile!.existsSync())
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.person,
-                              size: 56,
-                              color: AppColors.resolve(context, Colors.white.withValues(alpha: 0.15), Colors.black.withValues(alpha: 0.15)),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'No avatar',
-                              style: TextStyle(
-                                color: AppColors.textTertiary(context),
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        )
-                      : null,
-                ),
+              //    Display uses coverImageFileFor (★-aware), not raw imagePath.
+              Builder(
+                builder: (context) {
+                  final cover = _avatarFile;
+                  return Center(
+                    child: Container(
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        color: AppColors.cardOf(context),
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(alpha: 0.45),
+                        ),
+                        image: cover != null
+                            ? DecorationImage(
+                                image: FileImage(cover),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: cover == null
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.person,
+                                  size: 56,
+                                  color: AppColors.resolve(
+                                    context,
+                                    Colors.white.withValues(alpha: 0.15),
+                                    Colors.black.withValues(alpha: 0.15),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'No avatar',
+                                  style: TextStyle(
+                                    color: AppColors.textTertiary(context),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : null,
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 20),
 
@@ -1180,7 +1233,20 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                   ElevatedButton.icon(
                     onPressed: _importLorebookJson,
                     icon: const Icon(Icons.cloud_upload, size: 18),
-                    label: const Text('Import'),
+                    label: const Text('Import file'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.surfaceContainerOf(context),
+                      foregroundColor: AppColors.textPrimary(context),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _importLoreFromCharacter,
+                    icon: const Icon(Icons.person_search, size: 18),
+                    label: const Text('From character'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.surfaceContainerOf(context),
                       foregroundColor: AppColors.textPrimary(context),
@@ -1424,7 +1490,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Linked Worlds',
+                    'Linked Places',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -1433,12 +1499,13 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Attach worlds to include their lorebooks in this character\'s conversations.',
+                    'Attach places (Worlds) so their lore and climate apply in this character\'s chats. '
+                    'To copy another character\'s lore into this card, use Lorebook → From character.',
                     style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context)),
                   ),
                   const SizedBox(height: 20),
 
-                  if (repo.worlds.isEmpty)
+                  if (repo.placeWorlds.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(40),
                       decoration: BoxDecoration(
@@ -1456,7 +1523,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'No worlds found',
+                              'No places found',
                               style: TextStyle(
                                 color: AppColors.textTertiary(context),
                                 fontSize: 15,
@@ -1464,7 +1531,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Create worlds in the Worlds section.',
+                              'Create places in the Worlds section.',
                               style: TextStyle(
                                 color: AppColors.textTertiary(context),
                                 fontSize: 12,
@@ -1475,8 +1542,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                       ),
                     )
                   else
-                    ...repo.worlds.map((world) {
-                      final isLinked = _selectedWorldNames.contains(world.name);
+                    ...repo.placeWorlds.map((world) {
+                      final isLinked = _selectedWorldNames.contains(world.id) ||
+                          _selectedWorldNames.contains(world.name);
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
@@ -1531,8 +1599,12 @@ class _EditCharacterPageState extends State<EditCharacterPage>
                             onChanged: (val) {
                               setState(() {
                                 if (val) {
-                                  _selectedWorldNames.add(world.name);
+                                  _selectedWorldNames.remove(world.name);
+                                  if (!_selectedWorldNames.contains(world.id)) {
+                                    _selectedWorldNames.add(world.id);
+                                  }
                                 } else {
+                                  _selectedWorldNames.remove(world.id);
                                   _selectedWorldNames.remove(world.name);
                                 }
                               });
@@ -1805,11 +1877,19 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     );
 
     if (collapsed) {
-      return Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardOf(context),
+      // Material, not a decorated Container: ExpansionTile's header is a
+      // ListTile, which paints its background and ink splash onto the nearest
+      // Material ancestor — a coloured DecoratedBox in between swallows the
+      // ripple. Flutter 3.44 asserts on this ("ListTile background color or
+      // ink splashes may be invisible"). Same colour, radius and border; the
+      // header ripple now actually renders.
+      return Material(
+        color: AppColors.cardOf(context),
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.borderOf(context).withValues(alpha: 0.45)),
+          side: BorderSide(
+            color: AppColors.borderOf(context).withValues(alpha: 0.45),
+          ),
         ),
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),

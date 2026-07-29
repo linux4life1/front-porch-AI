@@ -44,7 +44,7 @@ class _PiperImportVoiceButtonState extends State<PiperImportVoiceButton> {
   bool _importing = false;
 
   Future<void> _import() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['onnx'],
       dialogTitle: 'Pick a Piper voice model (.onnx)',

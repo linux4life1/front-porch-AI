@@ -826,12 +826,15 @@ void main() {
         groupWorldNames: ['w'],
         resolveWorld: (n) => n == 'w' ? world : null,
       );
-      // Enumerator yields it three times (group + A + B)…
-      expect(refs.where((r) => identical(r.entry, we)).length, 3);
-      // …but a probability-0 scan proves single evaluation: with dedup the
-      // entry is rolled once; run many scans — statistically ~50% trigger
-      // rate is untestable, so instead assert via probability 0 (never) and
-      // rely on the identity-dedup unit fact above.
+      // The world is reachable three ways (group + A + B), but the collector
+      // dedupes by world id at ENUMERATION (Living Worlds `seenWorldIds`), so
+      // its entries are yielded exactly once. (Pre-Worlds this yielded 3 and
+      // relied on roll-time identity dedup; the contract moved upstream.)
+      expect(refs.where((r) => identical(r.entry, we)).length, 1);
+      // A probability-0 scan proves single evaluation end-to-end: were the
+      // entry ever rolled twice per scan, >0 probabilities would compound —
+      // ~50% trigger rate is untestable, so assert via probability 0 (never)
+      // on top of the enumeration-dedup fact above.
       we.probability = 0;
       final svc = createTestLorebookScanner(
         characters: chars,

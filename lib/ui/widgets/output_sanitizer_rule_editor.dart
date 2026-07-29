@@ -94,9 +94,10 @@ class _OutputSanitizerRuleEditorState extends State<OutputSanitizerRuleEditor> {
     widget.onRulesChanged([...widget.rules]..removeAt(index));
   }
 
+  // onReorderItem (unlike the retired onReorder) delivers newIndex already
+  // adjusted for the removal at oldIndex — no manual decrement.
   void _reorderRule(int oldIndex, int newIndex) {
     if (oldIndex == newIndex) return;
-    if (newIndex > oldIndex) newIndex -= 1;
     final list = [...widget.rules];
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);
@@ -251,7 +252,7 @@ class _OutputSanitizerRuleEditorState extends State<OutputSanitizerRuleEditor> {
                   physics: const NeverScrollableScrollPhysics(),
                   buildDefaultDragHandles: false,
                   itemCount: widget.rules.length,
-                  onReorder: _reorderRule,
+                  onReorderItem: _reorderRule,
                   itemBuilder: (ctx, i) {
                     final rule = widget.rules[i];
                     return Container(

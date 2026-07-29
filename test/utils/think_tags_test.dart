@@ -60,4 +60,48 @@ void main() {
       'One. Two.',
     );
   });
+
+  group('splitMessageForEdit / joinMessageEdit', () {
+    test('splits paired think from body without tags in either field', () {
+      final parts = splitMessageForEdit(
+        '<think>Let me analyze this.</think>\n"Hello," she said.',
+      );
+      expect(parts.thinking, 'Let me analyze this.');
+      expect(parts.body, '"Hello," she said.');
+    });
+
+    test('plain message has empty thinking', () {
+      final parts = splitMessageForEdit('Just a reply.');
+      expect(parts.thinking, isEmpty);
+      expect(parts.body, 'Just a reply.');
+    });
+
+    test('unclosed think treats rest as thinking', () {
+      final parts = splitMessageForEdit('<think>still going');
+      expect(parts.thinking, 'still going');
+      expect(parts.body, isEmpty);
+    });
+
+    test('join with thinking wraps tags; empty thinking is body only', () {
+      expect(
+        joinMessageEdit(thinking: 'reason', body: 'Body text'),
+        '<think>\nreason\n</think>\nBody text',
+      );
+      expect(joinMessageEdit(thinking: '  ', body: 'Body only'), 'Body only');
+      expect(joinMessageEdit(thinking: '', body: ''), '');
+    });
+
+    test('round-trip preserves thinking + body', () {
+      const raw =
+          '<think>\nCareful analysis.\n</think>\n*She waves.* "Hi."';
+      final parts = splitMessageForEdit(raw);
+      final joined = joinMessageEdit(
+        thinking: parts.thinking,
+        body: parts.body,
+      );
+      final again = splitMessageForEdit(joined);
+      expect(again.thinking, 'Careful analysis.');
+      expect(again.body, '*She waves.* "Hi."');
+    });
+  });
 }

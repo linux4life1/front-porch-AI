@@ -5,8 +5,12 @@
 # Why this exists: the widget golden tests are Linux-gated — a green macOS
 # `flutter test` does NOT execute them, which is exactly how a red-CI commit
 # once reached Rawhide. This script mirrors the GitHub `golden` and `test`
-# jobs byte-for-byte (same Flutter 3.41.1, same flags) so pushes can be gated
-# on the same evidence CI uses.
+# jobs byte-for-byte (same Flutter version as ci.yml, same flags) so pushes
+# can be gated on the same evidence CI uses.
+#
+# The image is built from scripts/ci-golden.Dockerfile — when ci.yml bumps
+# its flutter-version, rebuild with the matching FLUTTER_VERSION build-arg
+# and update the IMG default below, or the gate false-fails on pub get.
 #
 # Usage:
 #   scripts/ci-local.sh                 # golden suite only (the Linux-only gap)
@@ -24,7 +28,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 MODE="${1:-golden}"
-IMG="${FPAI_CI_IMAGE:-fpai-golden:3.41.1}"
+IMG="${FPAI_CI_IMAGE:-fpai-golden:3.44.8}"
 VOL=fpai-ci-workspace
 # The pub cache MUST persist across steps: every `docker run --rm` is a fresh
 # container, and without this volume the cache `flutter pub get` builds is

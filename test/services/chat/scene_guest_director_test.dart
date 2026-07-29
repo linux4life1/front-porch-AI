@@ -225,6 +225,216 @@ void main() {
       expect(gatePrompts, isEmpty, reason: 'nickname heuristic short-circuits');
     });
 
+    test('exclude: a routed direct-address speaker never re-chimes', () async {
+      guests = [_guest('Ann'), _guest('Bob')];
+      gateReplies = {'Bob': '{"speak": true}'};
+      // "Ann" saturates the user text (heuristic hit), but Ann already spoke
+      // via the direct-address route — she must be skipped entirely.
+      await build().runChimeIns(
+        userText: 'Ann - what do you think?',
+        primaryResponse: 'ANN_REPLY mentioning Ann herself',
+        exclude: guests.first,
+      );
+      expect(spoke, ['Bob'], reason: 'Ann is excluded, Bob gates in');
+      expect(
+        gatePrompts.where((p) => p.contains('Would Ann')),
+        isEmpty,
+        reason: 'the excluded guest is never even gate-evaluated',
+      );
+    });
+
+    group('directlyAddressedGuest', () {
+      test('leading vocative with dash routes (the Discord report shape)', () {
+        guests = [_guest('Evelyn')];
+        final got = build().directlyAddressedGuest(
+          'Evelyn - I was hoping you could clarify your point from before',
+        );
+        expect(got?.name, 'Evelyn');
+      });
+
+      test('leading vocative with comma routes', () {
+        guests = [_guest('Mara Vance')];
+        expect(
+          build().directlyAddressedGuest('Mara, can you help me?')?.name,
+          'Mara Vance',
+        );
+      });
+
+      test('bare name routes', () {
+        guests = [_guest('Evelyn')];
+        expect(build().directlyAddressedGuest('Evelyn?')?.name, 'Evelyn');
+      });
+
+      test('trailing vocative routes', () {
+        guests = [_guest('Mara Vance')];
+        expect(
+          build().directlyAddressedGuest('What do you think, Mara?')?.name,
+          'Mara Vance',
+        );
+      });
+
+      test('quoted roleplay wrapper still anchors', () {
+        guests = [_guest('Evelyn')];
+        expect(
+          build().directlyAddressedGuest('"Evelyn, help!"')?.name,
+          'Evelyn',
+        );
+      });
+
+      test('a mid-sentence mention does NOT route', () {
+        guests = [_guest('Evelyn')];
+        expect(
+          build().directlyAddressedGuest('I told Evelyn about the trip'),
+          isNull,
+        );
+      });
+
+      test('narration starting with the name does NOT route', () {
+        guests = [_guest('Evelyn')];
+        expect(
+          build().directlyAddressedGuest('Evelyn walked into the room'),
+          isNull,
+        );
+      });
+
+      test('a hyphenated OTHER name does NOT route (leading or trailing)', () {
+        guests = [_guest('Mara')];
+        final dir = build();
+        expect(dir.directlyAddressedGuest('Mara-Lynn came by today'), isNull);
+        expect(dir.directlyAddressedGuest('I met Anna-Mara.'), isNull);
+        // …while a real spaced-dash vocative still routes.
+        expect(dir.directlyAddressedGuest('Mara - got a second?')?.name, 'Mara');
+      });
+
+      test('a possessive does NOT route', () {
+        guests = [_guest('Evelyn')];
+        expect(
+          build().directlyAddressedGuest("Evelyn's point was interesting"),
+          isNull,
+        );
+      });
+
+      test('addressing the HOST does NOT route to a guest', () {
+        guests = [_guest('Evelyn')];
+        expect(
+          build().directlyAddressedGuest('Host, what do you think?'),
+          isNull,
+        );
+      });
+
+      test('a title first-name is not a routable nickname', () {
+        guests = [_guest('Major Tom')];
+        final dir = build();
+        expect(dir.directlyAddressedGuest('Major, report!'), isNull);
+        expect(
+          dir.directlyAddressedGuest('Major Tom, report!')?.name,
+          'Major Tom',
+        );
+      });
+
+      test('disabled director never routes', () {
+        enabled = false;
+        guests = [_guest('Evelyn')];
+        expect(build().directlyAddressedGuest('Evelyn, hi!'), isNull);
+        expect(build().directlyAddressedGuest('@Evelyn hi!'), isNull);
+      });
+
+      test('@Name routes without punctuation, anywhere in the line', () {
+        guests = [_guest('Evelyn')];
+        final dir = build();
+        expect(
+          dir.directlyAddressedGuest('@Evelyn what did you mean')?.name,
+          'Evelyn',
+        );
+        expect(
+          dir.directlyAddressedGuest('so hey @Evelyn any thoughts')?.name,
+          'Evelyn',
+        );
+      });
+
+      test('an @ of the HOST anywhere keeps the turn with the host', () {
+        guests = [_guest('Evelyn')];
+        final dir = build();
+        expect(
+          dir.directlyAddressedGuest('@Host and @Evelyn — thoughts?'),
+          isNull,
+        );
+        // The veto is absolute: it also beats a guest VOCATIVE later in the
+        // same line (Grok finding, review session 2026-07-28).
+        expect(
+          dir.directlyAddressedGuest('@Host what do you think, Evelyn?'),
+          isNull,
+        );
+      });
+    });
+
+    group('atMentionedCard (static @-matcher)', () {
+      test('matches first-name nickname and full name, case-insensitive', () {
+        final cards = [_guest('Mara Vance'), _guest('Evelyn')];
+        expect(
+          SceneGuestDirector.atMentionedCard(cards, 'hey @mara, hi')?.name,
+          'Mara Vance',
+        );
+        expect(
+          SceneGuestDirector.atMentionedCard(cards, '@Mara Vance hello')?.name,
+          'Mara Vance',
+        );
+      });
+
+      test('earliest @ in text order wins', () {
+        final cards = [_guest('Ann'), _guest('Bob')];
+        expect(
+          SceneGuestDirector.atMentionedCard(
+            cards,
+            'tell @Bob first, then @Ann',
+          )?.name,
+          'Bob',
+        );
+      });
+
+      test('same-@ tie goes to the longer name, not list order', () {
+        // "Mara Quinn" is FIRST in the list and her "Mara" nickname matches
+        // the same @ — the full-name match must still win.
+        final cards = [_guest('Mara Quinn'), _guest('Mara Vance')];
+        expect(
+          SceneGuestDirector.atMentionedCard(cards, '@Mara Vance hello')?.name,
+          'Mara Vance',
+        );
+      });
+
+      test('@ after punctuation still routes (no space required)', () {
+        final cards = [_guest('Evelyn')];
+        expect(
+          SceneGuestDirector.atMentionedCard(cards, 'hey,@Evelyn hi')?.name,
+          'Evelyn',
+        );
+        expect(
+          SceneGuestDirector.atMentionedCard(cards, '[@Evelyn] thoughts?')?.name,
+          'Evelyn',
+        );
+      });
+
+      test('email-like and hyphenated forms never match', () {
+        final cards = [_guest('Evelyn'), _guest('Mara')];
+        expect(
+          SceneGuestDirector.atMentionedCard(cards, 'mail me@evelyn.com'),
+          isNull,
+        );
+        expect(
+          SceneGuestDirector.atMentionedCard(cards, 'ask @Mara-Lynn about it'),
+          isNull,
+        );
+      });
+
+      test('no @ in text short-circuits to null', () {
+        final cards = [_guest('Evelyn')];
+        expect(
+          SceneGuestDirector.atMentionedCard(cards, 'Evelyn what gives'),
+          isNull,
+        );
+      });
+    });
+
     test('bails between guests when context becomes invalid', () async {
       guests = [_guest('Ann'), _guest('Bob')];
       gateReplies = {'Ann': '{"speak": true}', 'Bob': '{"speak": true}'};

@@ -52,9 +52,12 @@ import 'package:front_porch_ai/services/chat/member_origin_resolver.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/needs_impact.dart';
+import 'package:front_porch_ai/models/world.dart';
+import 'package:front_porch_ai/services/chat/biome_schedule.dart';
+import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
-import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
+import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/utils/emotion_labels.dart';
 import 'package:front_porch_ai/utils/output_sanitizer_regex.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart'; // parseGroupRealismSeeds — fresh-chat group realism reset (fixation-bleed fix)
@@ -85,6 +88,7 @@ import 'package:front_porch_ai/services/chat/prompt_injection/emotion_injection.
 import 'package:front_porch_ai/services/chat/prompt_injection/behavioral_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/time_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/weather_injection.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/world_injection.dart';
 import 'package:front_porch_ai/services/chat/absence_tracker.dart';
 import 'package:front_porch_ai/services/chat/afk_flavor.dart';
 import 'package:front_porch_ai/services/chat/ambition_service.dart';
@@ -1299,8 +1303,15 @@ class ChatService extends ChangeNotifier {
       _pendingRealismMetadata![key] = value;
     },
     onPatchLastMessageRealismState: (tod, dc, clockIso) {
-      if (_messages.isNotEmpty) {
-        final lastMsg = _messages.last;
+      // Patch the newest REAL message — never a narration banner. Dream /
+      // chance-time messages carry only their banner flag; stamping a full
+      // realism snapshot onto one corrupts it (2026-07-28) and makes a
+      // banner the time authority for swipe/regen restores.
+      for (final lastMsg in _messages.reversed) {
+        if (lastMsg.activeMetadata?['is_dream'] == true ||
+            lastMsg.activeMetadata?['is_chance_time_narration'] == true) {
+          continue;
+        }
         lastMsg.activeMetadata ??= {};
         final existingState = lastMsg.activeMetadata!['realism_state'];
         if (existingState is Map<String, dynamic>) {
@@ -1312,6 +1323,7 @@ class ChatService extends ChangeNotifier {
           lastMsg.activeMetadata!['realism_state'] = _captureRealismState();
           lastMsg.activeMetadata!['realism_state']['time_nudged'] = true;
         }
+        break;
       }
     },
   );
@@ -1468,6 +1480,77 @@ class ChatService extends ChangeNotifier {
   /// loops in generation/impersonate/sidebar/pre-AI-snapshot/scanner).
   /// [inheritOverride] forces member books in for scanning/reset; injection
   /// and sidebar pass null to honor the group's inherit flag.
+  /// Living Worlds: UUIDs of worlds attached to the current session.
+  /// Loaded on session open; group template seeds new chats.
+  List<String> _chatWorldIds = const [];
+
+  /// Hydrated mid-chat climate spans + world default (Living Worlds phase 1).
+  BiomeSchedule _biomeSchedule = const BiomeSchedule();
+
+  Future<void> _reloadChatWorldIds() async {
+    final sid = _currentSessionId;
+    if (sid == null) {
+      _chatWorldIds = const [];
+      _biomeSchedule = const BiomeSchedule();
+      return;
+    }
+    try {
+      _chatWorldIds = await _worldRepository.getChatWorldIds(sid);
+    } catch (e) {
+      debugPrint('[ChatService] chat world load failed: $e');
+      _chatWorldIds = const [];
+    }
+    await _reloadBiomeSchedule();
+  }
+
+  Future<void> _reloadBiomeSchedule() async {
+    final sid = _currentSessionId;
+    if (sid == null) {
+      _biomeSchedule = const BiomeSchedule();
+      return;
+    }
+    try {
+      final rows = await _worldRepository.getChatBiomeSpanRows(sid);
+      _biomeSchedule = BiomeSchedule.fromJsonSpans(
+        rows: rows,
+        worldDefault: _worldDefaultBiome,
+      );
+    } catch (e) {
+      debugPrint('[ChatService] biome schedule load failed: $e');
+      _biomeSchedule = BiomeSchedule(worldDefault: _worldDefaultBiome);
+    }
+  }
+
+  /// Public attach surface for chat tools / UI.
+  List<String> get chatWorldIds => List.unmodifiable(_chatWorldIds);
+
+  Future<void> setChatWorldIds(List<String> worldIds) async {
+    final sid = _currentSessionId;
+    if (sid == null) return;
+    await _worldRepository.setChatWorlds(sid, worldIds);
+    _chatWorldIds = List.unmodifiable(worldIds);
+    await _reloadBiomeSchedule();
+    notifyListeners();
+  }
+
+  /// Climate active on the current story day (span override or world default).
+  Biome get activeChatBiome =>
+      _biomeSchedule.biomeAt(_timeService.dayCount);
+
+  /// Insert a mid-chat climate changeover from [dayCount] onward.
+  Future<void> setChatClimate(Biome biome) async {
+    final sid = _currentSessionId;
+    if (sid == null) return;
+    final day = _timeService.dayCount < 1 ? 1 : _timeService.dayCount;
+    await _worldRepository.setChatBiome(
+      chatId: sid,
+      dayCount: day,
+      biome: biome,
+    );
+    await _reloadBiomeSchedule();
+    notifyListeners();
+  }
+
   List<LoreEntryRef> _collectLoreRefs({bool? inheritOverride}) {
     return collectLoreEntryRefs(
       characters: _activeGroup != null
@@ -1477,9 +1560,9 @@ class ChatService extends ChangeNotifier {
                 : const <CharacterCard>[]),
       chatLorebook: _loreTimedEffects.chatLorebook,
       groupLorebook: _activeGroupLorebook,
+      chatWorldIds: _chatWorldIds,
       groupWorldNames: _activeGroup?.worldIds ?? const [],
-      resolveWorld: (name) =>
-          _worldRepository.worlds.where((w) => w.name == name).firstOrNull,
+      resolveWorld: _worldRepository.resolveWorld,
       inherit:
           inheritOverride ?? (_activeGroup?.inheritCharacterLorebooks ?? true),
     );
@@ -1795,6 +1878,33 @@ class ChatService extends ChangeNotifier {
   String? get absenceBannerPhrase =>
       _storageService.absenceBannerEnabled ? absencePhrase : null;
 
+  /// Climate from the first attached world that carries one (Living Worlds).
+  /// Used as the schedule default when no mid-chat span covers a day.
+  /// Temperate when nothing is attached — byte-identical to pre-biome weather.
+  Biome get _worldDefaultBiome {
+    World? pick(String ref) => _worldRepository.resolveWorld(ref);
+    for (final id in _chatWorldIds) {
+      final w = pick(id);
+      if (w == null) continue;
+      if (w.biomeId != null || w.biomeJson != null) {
+        return Biome.resolve(biomeId: w.biomeId, biomeJson: w.biomeJson);
+      }
+    }
+    final group = _activeGroup;
+    if (group != null) {
+      for (final ref in group.worldIds) {
+        final w = pick(ref);
+        if (w == null) continue;
+        if (w.biomeId != null || w.biomeJson != null) {
+          return Biome.resolve(biomeId: w.biomeId, biomeJson: w.biomeJson);
+        }
+      }
+    }
+    return Biome.temperate;
+  }
+
+  Biome _biomeAtDay(int day) => _biomeSchedule.biomeAt(day);
+
   /// Today's story weather, or null when off (living-time-features.md §3).
   /// Pure recompute from existing state — nothing stored, so save/load and
   /// group re-entry agree for free. Gate: realism + passage-of-time + the
@@ -1812,6 +1922,7 @@ class ChatService extends ChangeNotifier {
       sessionSeed: seed,
       dayCount: _timeService.dayCount,
       date: _timeService.clock,
+      biomeAtDay: _biomeAtDay,
     );
   }
 
@@ -1819,14 +1930,17 @@ class ChatService extends ChangeNotifier {
   /// Because the engine is a prefix-stable deterministic walk, this forecast
   /// is exactly what day dayCount+1 will be when the story clock reaches it
   /// (dayCount is derived from the calendar date, so +1 day ⇔ +1 dayCount) —
-  /// foreshadowed fronts always arrive. Recompute is O(dayCount) integer
-  /// math, called once per turn by the injection and once per facade read.
+  /// foreshadowed fronts always arrive (except the first day of a mid-chat
+  /// climate switch — see [WeatherInjection.suppressForeshadow]).
+  /// Recompute is O(dayCount) integer math, called once per turn by the
+  /// injection and once per facade read.
   DailyWeather? get upcomingWeather {
     if (currentWeather == null) return null;
     return WeatherEngine.weatherFor(
       sessionSeed: _currentSessionId!,
       dayCount: _timeService.dayCount + 1,
       date: _timeService.clock.add(const Duration(days: 1)),
+      biomeAtDay: _biomeAtDay,
     );
   }
 
@@ -1842,6 +1956,7 @@ class ChatService extends ChangeNotifier {
       dayCount: _timeService.dayCount,
       date: _timeService.clock,
       hour: _timeService.clock.hour,
+      biomeAtDay: _biomeAtDay,
     );
   }
 
@@ -1854,14 +1969,16 @@ class ChatService extends ChangeNotifier {
     if (now == null) return null;
     final day = _timeService.dayCount;
     return switch (now.segment) {
-      DaySegment.morning => day <= 1
-          ? null
-          : WeatherSegments.segmentWeatherFor(
-              sessionSeed: _currentSessionId!,
-              dayCount: day - 1,
-              date: _timeService.clock.subtract(const Duration(days: 1)),
-              hour: 23,
-            ),
+      DaySegment.morning =>
+        day <= 1
+            ? null
+            : WeatherSegments.segmentWeatherFor(
+                sessionSeed: _currentSessionId!,
+                dayCount: day - 1,
+                date: _timeService.clock.subtract(const Duration(days: 1)),
+                hour: 23,
+                biomeAtDay: _biomeAtDay,
+              ),
       DaySegment.afternoon => _segmentAt(7),
       DaySegment.evening => _segmentAt(14),
       DaySegment.night => _segmentAt(18),
@@ -1873,12 +1990,15 @@ class ChatService extends ChangeNotifier {
     dayCount: _timeService.dayCount,
     date: _timeService.clock,
     hour: hour,
+    biomeAtDay: _biomeAtDay,
   );
 
   late final _weatherInjection = WeatherInjection(
     getWeather: () => currentSegmentWeather,
     getPreviousSegment: () => previousSegmentWeather,
     getUpcoming: () => upcomingWeather,
+    suppressForeshadow: () =>
+        _biomeSchedule.isSpanStart(_timeService.dayCount),
   );
 
   // ── Ambitions (Living Time §6) ──
@@ -2306,8 +2426,7 @@ class ChatService extends ChangeNotifier {
               .where((c) => _getCharacterIdFromCard(c) == obj.characterId)
               .firstOrNull ??
           (_activeCharacter != null &&
-                  _getCharacterIdFromCard(_activeCharacter!) ==
-                      obj.characterId
+                  _getCharacterIdFromCard(_activeCharacter!) == obj.characterId
               ? _activeCharacter
               : null);
       final ambitions = card?.frontPorchExtensions?.ambitions ?? const [];
@@ -2353,9 +2472,7 @@ class ChatService extends ChangeNotifier {
     libraryStableGroupIds: () {
       final repo = _characterRepository;
       if (repo == null) return <String>{};
-      return {
-        for (final c in repo.characters) _getCharacterIdFromCard(c),
-      };
+      return {for (final c in repo.characters) _getCharacterIdFromCard(c)};
     },
     getConsumedBlockKeys: () =>
         _storageService.memorySettings.porchConsumedBlockKeys,
@@ -2392,33 +2509,35 @@ class ChatService extends ChangeNotifier {
     final service =
         testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
     try {
-      return await service.generateWithTools(
-      GenerationParams(
-        prompt: prompt,
-        maxLength: 4000,
-        temperature: 0.1,
-        repeatPenalty: 1.15,
-        topP: 0.5,
-        xtcProbability: 0.0,
-        reasoningEnabled: false,
-        // Explicit thinking-off: Nano-GPT/OpenRouter only receive the
-        // disable signal when the reasoning block is present, and it is
-        // only emitted when a reasoning field is set. Without this a
-        // ":thinking" model (e.g. Kimi K2.6) keeps reasoning during the
-        // journal tool call, which returns tool calls only intermittently
-        // (the "had to regen twice" symptom). 0 → {enabled:false,
-        // max_tokens:0, exclude:true}, the strongest disable signal.
-        reasoningMaxTokens: 0,
-        stopSequences: const [],
-      ),
-      tools,
-        // Whole-call deadline: a backend that accepts the request and never
-        // answers (cold model reload after an idle unload, dead server queue,
-        // or the call queued behind a long generation like character
-        // creation) must not park a journal/realism pass forever. The timeout
-        // THROWS — isToolTransportFailure classifies it so verdict sites fall
-        // back to text for the round without branding the backend XML-only.
-      ).timeout(kEvalToolCallTimeout);
+      return await service
+          .generateWithTools(
+            GenerationParams(
+              prompt: prompt,
+              maxLength: 4000,
+              temperature: 0.1,
+              repeatPenalty: 1.15,
+              topP: 0.5,
+              xtcProbability: 0.0,
+              reasoningEnabled: false,
+              // Explicit thinking-off: Nano-GPT/OpenRouter only receive the
+              // disable signal when the reasoning block is present, and it is
+              // only emitted when a reasoning field is set. Without this a
+              // ":thinking" model (e.g. Kimi K2.6) keeps reasoning during the
+              // journal tool call, which returns tool calls only intermittently
+              // (the "had to regen twice" symptom). 0 → {enabled:false,
+              // max_tokens:0, exclude:true}, the strongest disable signal.
+              reasoningMaxTokens: 0,
+              stopSequences: const [],
+            ),
+            tools,
+            // Whole-call deadline: a backend that accepts the request and never
+            // answers (cold model reload after an idle unload, dead server queue,
+            // or the call queued behind a long generation like character
+            // creation) must not park a journal/realism pass forever. The timeout
+            // THROWS — isToolTransportFailure classifies it so verdict sites fall
+            // back to text for the round without branding the backend XML-only.
+          )
+          .timeout(kEvalToolCallTimeout);
     } on TimeoutException {
       // The deadline abandoned an in-flight call. On the single-slot local
       // backend that orphan holds the shared idle slot (_pendingRequest), so
@@ -2518,15 +2637,17 @@ class ChatService extends ChangeNotifier {
   /// "Our Story" timeline read-model (Living Time §7) — pure aggregation
   /// over data already persisted; the journal dialog's timeline tab and the
   /// web facade both read through this one instance.
-  late final MilestoneFeed milestoneFeed = MilestoneFeed(getDb: () => _db);
+  late final MilestoneFeed milestoneFeed = MilestoneFeed(
+    getDb: () => _db,
+    getMessages: () => _messages,
+  );
 
   late final _journalInjection = JournalInjection(
     store: _journalStore,
     getSessionId: () => _currentSessionId,
     // Two-tier memory: receipts → live verbatim lines (positions are the
     // stable indices cards already store).
-    getMessageAt: (p) =>
-        p >= 0 && p < _messages.length ? _messages[p] : null,
+    getMessageAt: (p) => p >= 0 && p < _messages.length ? _messages[p] : null,
     // Same scalar EmotionInjection reads — in group non-obs the pre-gen
     // load-into-scalars dance has set it to the upcoming speaker's emotion
     // by assembly time, so mood-congruent recall is per-speaker (parity).
@@ -3272,6 +3393,12 @@ class ChatService extends ChangeNotifier {
     // A photo turn's captioning windows run while _isGenerating is false; this
     // guard stops a second send from interleaving them (see isPhotoTurnInFlight).
     if (_photoTurnInFlight) return;
+    // No new user turn while a generation is live (streaming, draining, or
+    // finalizing). A send mid-turn interleaves this method's own message
+    // inserts (dream block) with the active turn's writes on one shared
+    // list — the 2026-07-28 dream-corruption report. Stop first: the Stop
+    // button now halts a turn promptly (see the drain cancel fix).
+    if (_isGenerating) return;
     // One-shot absence acknowledgment: pending survives exactly the first
     // user turn after load (all of that turn's prompt builds see it); the
     // second turn clears it for good.
@@ -3477,9 +3604,21 @@ class ChatService extends ChangeNotifier {
       _timeService.detectOocTimeSkip(text);
     }
 
+    // ── Direct-address turn routing (both cast surfaces) ─────────────────
+    // 1:1: "@Evelyn …" anywhere (or a vocative — "Evelyn - can you clarify…")
+    // routes this turn to the GUEST via the parity-safe guest path; the host
+    // turn and its prep below (chaos tick/wheel, decay, pre-gen eval) are
+    // skipped — guests carry ZERO Realism/Needs, the host simply didn't take
+    // a turn. Fixes the "responds twice per message" Discord report
+    // (2026-07-28). Group: "@Member" forces that member as this turn's
+    // speaker (inside the call; returns null — the turn proceeds normally).
+    // Decision logic lives in the scene-guest leaf.
+    final addressedGuest = _directAddressRoutedGuest(userMsg.promptText);
+
     // ── Chaos Mode: check + pause for wheel if triggered ─────────────────
     // Guard + tick delegated (pendingInjection check via service getter).
-    if (_chaosModeService.chaosModeEnabled &&
+    if (addressedGuest == null &&
+        _chaosModeService.chaosModeEnabled &&
         _chaosModeService.pendingChaosInjection == null) {
       if (checkAndTickChaosPressure()) {
         // Create a completer so sendMessage pauses here until the wheel resolves
@@ -3512,7 +3651,7 @@ class ChatService extends ChangeNotifier {
     // can use the same delta-revert mechanism the classic realism fields
     // (bond/trust/arousal) use.
     Map<String, int>? preTurnVector;
-    if (_realismActiveThisMode) {
+    if (_realismActiveThisMode && addressedGuest == null) {
       if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
         preTurnVector = Map<String, int>.from(_needsSimulation.vector);
         _pendingRealismMetadata ??= {};
@@ -3574,7 +3713,11 @@ class ChatService extends ChangeNotifier {
       return;
     }
 
-    await _generateResponse(GenerationMode.normal);
+    if (addressedGuest != null) {
+      await generateGuestTurn(addressedGuest);
+    } else {
+      await _generateResponse(GenerationMode.normal);
+    }
     // Backend-down abort: no response was generated, so none of the
     // post-turn work below may run — no idle-timer arming, no chip attach,
     // no guest chime-ins against the notice text (pre-move parity: the old
@@ -3606,8 +3749,12 @@ class ChatService extends ChangeNotifier {
     // above). Let the director decide which guest(s) speak next. Shared with
     // regenerateMainCharacter() so the re-chime gate is identical after a regen.
     // promptText (not raw text) so a photo-only turn feeds the director a
-    // "[shared a photo]" marker instead of an empty user message.
-    await _maybeRunSceneGuestChimeIns(userText: userMsg.promptText);
+    // "[shared a photo]" marker instead of an empty user message. A routed
+    // direct-address speaker is excluded — they already answered this turn.
+    await _maybeRunSceneGuestChimeIns(
+      userText: userMsg.promptText,
+      exclude: addressedGuest,
+    );
 
     // ── Auto-caption the attached photo for future-turn history ─────────────
     // Vision path only (blind models were captioned pre-gen). Runs LAST so the
@@ -3628,7 +3775,10 @@ class ChatService extends ChangeNotifier {
   /// present. Each gate eval + guest turn is a slow LLM call, so it bails if the
   /// user switches chats / the scene changes (so guests never speak into the
   /// wrong conversation).
-  Future<void> _maybeRunSceneGuestChimeIns({required String userText}) async {
+  Future<void> _maybeRunSceneGuestChimeIns({
+    required String userText,
+    CharacterCard? exclude,
+  }) async {
     if (_activeGroup != null ||
         _sceneGuestCards.isEmpty ||
         _isGenerating ||
@@ -3643,6 +3793,7 @@ class ChatService extends ChangeNotifier {
       userText: userText,
       primaryResponse: primaryResponse,
       isContextValid: () => !_sceneChanged(token) && _activeGroup == null,
+      exclude: exclude,
     );
   }
 
@@ -3774,8 +3925,14 @@ class ChatService extends ChangeNotifier {
   Future<void> continueGeneration() async {
     if (_messages.isEmpty || _isGenerating || _guestBusy) return;
 
-    // Only continue if the last message is from a bot (non-user, non-system)
-    if (!_messages.last.isUser && _messages.last.sender != 'System') {
+    // Only continue if the last message is from a bot (non-user, non-system).
+    // Narration banners (dreams, Chance Time) are excluded: continue_ streams
+    // straight into _messages.last, which would append a chat reply to the
+    // banner (the dream-corruption class, 2026-07-28).
+    if (!_messages.last.isUser &&
+        _messages.last.sender != 'System' &&
+        _messages.last.activeMetadata?['is_dream'] != true &&
+        _messages.last.activeMetadata?['is_chance_time_narration'] != true) {
       await _generateResponse(GenerationMode.continue_);
     }
   }
@@ -3860,6 +4017,11 @@ class ChatService extends ChangeNotifier {
   }
 
   void deleteMessage(int index) async {
+    // No deletes while a generation is live: removing entries shifts every
+    // position the active turn still relies on (chip attach, lorebook scan,
+    // journal invalidation) — and made a dream banner the last message,
+    // where the aborted turn's writes landed (2026-07-28). Stop first.
+    if (_isGenerating) return;
     if (index >= 0 && index < _messages.length) {
       final deleted = _messages[index];
       _messages.removeAt(index);

@@ -542,7 +542,6 @@ class ChatToolsFacade {
       for (final e in await _chat.milestoneFeed.entriesFor(
         sessionId: sessionId,
         characterId: owner.id,
-        messages: _chat.messages,
       )) {
         entries.add({
           'kind': e.kind,

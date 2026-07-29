@@ -281,6 +281,10 @@ void main() {
     });
 
     test('extra uploads: null emotion → look, tagged → expression', () async {
+      // The in-memory card has a portrait path, but the repo row from setup
+      // has none — without a usable face, addLook is portrait-only (no look
+      // row). Sync the portrait first so null-emotion truly means "look".
+      await repo.setCharacterImagePath(card, card.imagePath!);
       final c = controller();
       await c.addExtraUpload(_realPng(), null);
       await c.addExtraUpload(_realPng(), 'joy');

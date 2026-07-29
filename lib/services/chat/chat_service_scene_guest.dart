@@ -61,6 +61,52 @@ extension ChatServiceSceneGuest on ChatService {
     return null; // authored by a guest who is no longer present
   }
 
+  /// Direct-address routing for BOTH cast surfaces, called once per user turn
+  /// from `sendMessage`:
+  ///
+  /// **Group mode:** an explicit "@Member" anywhere in the line forces that
+  /// member as this turn's speaker via [setNextCharacter] — the SAME one-shot
+  /// override the group UI's manual pick uses, so the per-speaker realism
+  /// dance and objectives switch follow the pick exactly as they always have
+  /// (parity by reuse, zero new realism surface). The turn itself proceeds
+  /// normally, so this returns null. Not gated on autoChimeEnabled (that flag
+  /// is a 1:1 guest-chime preference; forcing a group speaker is core group
+  /// UX, same as tapping the member card).
+  ///
+  /// **1:1 with Scene Guests:** returns the guest the user's line directly
+  /// addresses ("@Evelyn …" anywhere, or a vocative — see
+  /// [SceneGuestDirector.directlyAddressedGuest]); `sendMessage` then runs
+  /// the guest's parity-safe turn INSTEAD of the host turn. Gated on
+  /// autoChimeEnabled inside the director on purpose: auto-chime OFF means
+  /// "guests speak only via /speak", so routing must not fire either — and
+  /// with chime-ins off the double-response this fixes cannot occur.
+  CharacterCard? _directAddressRoutedGuest(String promptText) {
+    if (_activeGroup != null) {
+      final target = SceneGuestDirector.atMentionedCard(
+        _groupCharacters,
+        promptText,
+      );
+      if (target != null) {
+        debugPrint(
+          '[Cast] @-mention: ${target.name} forced as this turn\'s speaker.',
+        );
+        setNextCharacter(target);
+      }
+      return null;
+    }
+    if (_sceneGuestCards.isEmpty) return null;
+    final guest = _ensureSceneGuestDirector().directlyAddressedGuest(
+      promptText,
+    );
+    if (guest != null) {
+      debugPrint(
+        '[SceneGuest] User addressed ${guest.name} directly — '
+        'routing this turn to the guest (host turn skipped).',
+      );
+    }
+    return guest;
+  }
+
   /// Generate a turn spoken by a Scene Guest (Lite NPC) inside a 1:1 chat.
   ///
   /// Reuses the normal generation engine with the guest as the speaker. Carries

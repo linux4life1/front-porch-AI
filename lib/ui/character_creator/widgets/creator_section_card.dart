@@ -28,39 +28,53 @@ class CreatorSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
+      // Material, not a decorated Container. ExpansionTile builds an internal
+      // ListTile for its header, and a ListTile paints its background and ink
+      // splashes onto the nearest Material ancestor — so a coloured
+      // DecoratedBox sitting between them hides the tap ripple entirely.
+      // Flutter 3.44 added a debug assertion for exactly this ("ListTile
+      // background color or ink splashes may be invisible"), which is how it
+      // was found. Giving the card its own Material keeps the identical
+      // colour, radius and accent border while letting the header ripple
+      // actually render.
+      child: Material(
         // Darker than the surfaceContainer chips/fields inside so they read as
         // crisp pills/boxes (surfaceContainer-on-surfaceContainer is invisible
         // in dark mode — borderOf ≈ surfaceContainer).
         color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accentColor.withValues(alpha: 0.15)),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: initiallyExpanded,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          iconColor: accentColor,
-          collapsedIconColor: AppColors.textTertiary(context),
-          leading: Icon(icon, color: accentColor, size: 18),
-          title: Text(
-            title,
-            style: TextStyle(
-              color: AppColors.textPrimary(context),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: accentColor.withValues(alpha: 0.15)),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: initiallyExpanded,
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
             ),
-          ),
-          subtitle: Text(
-            subtitle,
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 11,
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            iconColor: accentColor,
+            collapsedIconColor: AppColors.textTertiary(context),
+            leading: Icon(icon, color: accentColor, size: 18),
+            title: Text(
+              title,
+              style: TextStyle(
+                color: AppColors.textPrimary(context),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
+            subtitle: Text(
+              subtitle,
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 11,
+              ),
+            ),
+            children: children,
           ),
-          children: children,
         ),
       ),
     );

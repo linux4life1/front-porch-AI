@@ -185,6 +185,8 @@ class ChatFacade {
       'totalGreetings': activeChar?.allGreetings.length ?? 1,
       'userPersonaName': _personas?.persona.name ?? 'User',
       'lorebook': lorebook,
+      // Living Worlds — places attached to this session (ids).
+      'chatWorldIds': _chat.chatWorldIds,
       // Lore token meter (desktop sidebar parity): last generation's lore
       // share of the budget + anything dropped for space. Additive fields.
       'loreTokens': _chat.lastLoreTokens,

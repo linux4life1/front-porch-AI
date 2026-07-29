@@ -33,8 +33,10 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
 /// malicious page to open a cross-site socket (WS-CSRF/hijack).
 class StreamRoutes {
   StreamRoutes(this._deps, Router router) {
+    // shelf_web_socket 3.x ConnectionCallback is (channel, subprotocol).
     _wsHandler = webSocketHandler(
-      (WebSocketChannel channel) => _deps.streamHub!.register(channel),
+      (WebSocketChannel channel, String? _) =>
+          _deps.streamHub!.register(channel),
       pingInterval: const Duration(seconds: 30),
     );
     router.get('/api/ws', _handle);

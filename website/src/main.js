@@ -60,6 +60,20 @@
     reveals.forEach(function (el) { el.classList.add('in'); });
   }
 
+  /* ---- keep the release version fresh (landing page) ------------------ */
+  var verEl = document.getElementById('stable-ver');
+  var bannerEl = document.getElementById('latest-banner');
+  if (verEl || bannerEl) {
+    fetch('https://api.github.com/repos/linux4life1/front-porch-AI/releases/latest')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (rel) {
+        if (!rel || !rel.tag_name) return;
+        if (verEl) verEl.textContent = rel.tag_name;
+        if (bannerEl) bannerEl.textContent = '🎉 New release: ' + (rel.name || rel.tag_name);
+      })
+      .catch(function () { /* offline or rate-limited — the baked-in version stands */ });
+  }
+
   /* ---- OS hint in the download section -------------------------------- */
   var hint = document.getElementById('os-hint');
   if (hint) {

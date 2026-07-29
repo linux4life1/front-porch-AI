@@ -39,7 +39,24 @@ function stamp(file) {
   }
   return stampCache.get(file);
 }
-const STABLE_VERSION = 'v1.0.0';
+// Latest stable release, fetched from GitHub at build time so every rebuild
+// ships the current version automatically. The literals below are only the
+// offline-build fallback. (main.js also refreshes these client-side, so the
+// live page stays correct even between deploys.)
+let STABLE_VERSION = 'v1.1.2';
+let STABLE_BANNER = 'v1.1.2 — Faces That Stick';
+try {
+  const res = await fetch('https://api.github.com/repos/linux4life1/front-porch-AI/releases/latest', {
+    headers: { accept: 'application/vnd.github+json' },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const rel = await res.json();
+  if (rel.tag_name) STABLE_VERSION = rel.tag_name;
+  STABLE_BANNER = rel.name || STABLE_VERSION;
+} catch (e) {
+  console.warn(`! could not fetch latest release (${e.message}) — using fallback ${STABLE_VERSION}`);
+}
 
 /** The docs that make up the site, in reading order. */
 const DOCS = [
@@ -317,7 +334,9 @@ function buildDocs() {
 /* -------------------------------------------------------- landing & co. */
 
 function buildLanding() {
-  const bodyHtml = read(path.join(SRC, 'index.html')).replaceAll('{{STABLE_VERSION}}', STABLE_VERSION);
+  const bodyHtml = read(path.join(SRC, 'index.html'))
+    .replaceAll('{{STABLE_VERSION}}', STABLE_VERSION)
+    .replaceAll('{{STABLE_BANNER}}', STABLE_BANNER);
   out(
     'index.html',
     shell({

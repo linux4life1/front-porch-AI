@@ -26,12 +26,38 @@ const SLASH_COMMANDS: { cmd: string; args: string; desc: string }[] = [
   { cmd: '/expression', args: '[emotion]', desc: "Set the character's expression; omit the emotion to clear it" },
 ];
 
+/** The in-progress "@" token ending at `caret`, or null. Mirrors the engine's
+ *  boundary rule: the @ must not follow a word char/dot/hyphen/plus, so typing
+ *  an email never opens the popup. */
+function activeMentionQuery(
+  text: string,
+  caret: number,
+): { start: number; prefix: string } | null {
+  const head = text.slice(0, Math.max(0, Math.min(caret, text.length)));
+  // Unicode letters/digits so accented names filter too — kept in lock-step
+  // with the desktop MentionAutocomplete twin.
+  const m = /(?:^|[^\w.+-])@([\p{L}\p{N}_]*)$/u.exec(head);
+  if (!m) return null;
+  const prefix = m[1];
+  return { start: head.length - prefix.length - 1, prefix };
+}
+
+/** Case-insensitive candidate filter: full name or any name token starts with
+ *  the typed prefix ("@van" finds "Mara Vance"). */
+function mentionNameMatches(name: string, prefix: string): boolean {
+  if (!prefix) return true;
+  const p = prefix.toLowerCase();
+  const n = name.trim().toLowerCase();
+  return n.startsWith(p) || n.split(/\s+/).some((t) => t.startsWith(p));
+}
+
 export function ChatComposer({
   onSend,
   onStop,
   isGenerating,
   canMic,
   onDraftChange,
+  cast,
 }: {
   onSend: (text: string) => void;
   onStop: () => void;
@@ -39,6 +65,9 @@ export function ChatComposer({
   canMic: boolean;
   /** Live draft mirror for the lorebook "would trigger next" preview. */
   onDraftChange?: (text: string) => void;
+  /** Present cast for the "@" autocomplete (host + guests, or group members).
+   *  Omit / a lone host disables the popup. */
+  cast?: { name: string; isHost: boolean; isLite: boolean }[];
 }) {
   const [draft, setDraftState] = useState('');
   const setDraft = (v: string | ((d: string) => string)) => {
@@ -49,7 +78,41 @@ export function ChatComposer({
     });
   };
   const [slashDismissed, setSlashDismissed] = useState(false);
-  const showSlash = draft.trimStart().startsWith('/') && !slashDismissed;
+
+  // "@" cast autocomplete — the cast-name twin of the slash cheat sheet
+  // (same panel styles). Tracks the caret so a token being typed mid-draft
+  // still resolves; picking a row splices "@Name " and the engine's
+  // direct-address router makes that character answer the turn. An active
+  // @ token outranks the slash sheet (so "/speak @Ev" shows the cast, as on
+  // desktop, where the slash helper only matches a bare "/command" field).
+  const [caret, setCaret] = useState(0);
+  const [mentionDismissed, setMentionDismissed] = useState(false);
+  const mentionable = (cast ?? []).length > 1 ? cast! : [];
+  const mentionQuery =
+    mentionable.length > 0 ? activeMentionQuery(draft, caret) : null;
+  const mentionMatches = mentionQuery
+    ? mentionable.filter((c) => mentionNameMatches(c.name, mentionQuery.prefix))
+    : [];
+  const showMention = !mentionDismissed && mentionMatches.length > 0;
+  const showSlash =
+    draft.trimStart().startsWith('/') && !slashDismissed && !showMention;
+
+  const insertMention = (name: string) => {
+    if (!mentionQuery) return;
+    const inserted = `@${name} `;
+    const next =
+      draft.slice(0, mentionQuery.start) + inserted + draft.slice(caret);
+    const newCaret = mentionQuery.start + inserted.length;
+    setDraft(next);
+    setCaret(newCaret);
+    requestAnimationFrame(() => {
+      const ta = taRef.current;
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(newCaret, newCaret);
+      }
+    });
+  };
 
   // Auto-grow the textarea with content, capped at ~40% of the viewport (then it
   // scrolls). Resets to one line after sending (draft clears). The transparent
@@ -84,6 +147,8 @@ export function ChatComposer({
     if (!text) return;
     setDraft('');
     setSlashDismissed(false);
+    setMentionDismissed(false);
+    setCaret(0);
     onSend(text);
   };
 
@@ -112,6 +177,34 @@ export function ChatComposer({
           ))}
         </div>
       )}
+      {showMention && (
+        <div
+          className="slash-cheatsheet"
+          role="listbox"
+          aria-label="Address a character"
+        >
+          <div className="cheatsheet-head">
+            <span>Address a character</span>
+            <button className="link-btn" onClick={() => setMentionDismissed(true)}>Close</button>
+          </div>
+          {mentionMatches.map((c, i) => (
+            <button
+              key={`${i}-${c.name}`}
+              className="cheatsheet-row"
+              onClick={() => insertMention(c.name)}
+            >
+              <span className="cheatsheet-cmd">@{c.name}</span>
+              <span className="cheatsheet-desc">
+                {c.isHost
+                  ? 'Main character — keeps the turn'
+                  : c.isLite
+                    ? 'Scene Guest — answers in their own reply'
+                    : 'Group member — answers this turn'}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="composer-area">
         <div className="composer-backdrop" ref={backdropRef} aria-hidden="true">
           {renderRpInline(draft, 'c', false)}
@@ -125,10 +218,23 @@ export function ChatComposer({
           onScroll={syncScroll}
           onChange={(e) => {
             const v = e.target.value;
+            const c = e.target.selectionStart ?? v.length;
             setDraft(v);
+            setCaret(c);
             if (!v.trimStart().startsWith('/')) setSlashDismissed(false);
+            // A dismissed "@" popup comes back once the token is left/retyped.
+            if (!activeMentionQuery(v, c)) setMentionDismissed(false);
+          }}
+          onSelect={(e) => {
+            const ta = e.target as HTMLTextAreaElement;
+            setCaret(ta.selectionStart ?? draft.length);
           }}
           onKeyDown={(e) => {
+            if (e.key === 'Escape' && showMention) {
+              e.preventDefault();
+              setMentionDismissed(true);
+              return;
+            }
             if (e.key === 'Escape' && showSlash) {
               e.preventDefault();
               setSlashDismissed(true);

@@ -35,8 +35,6 @@ Beta builds also come as standalone `.zip` files — just extract and run, no in
 
 > **Tip:** Front Porch AI is code-signed and **notarized by Apple**, so macOS opens it without Gatekeeper warnings, "damaged app" scares, or right-click workarounds — on the first launch and every launch. Very few apps in this space go through notarization; we do it for every release.
 
-A `.dmg` is also published for people who prefer drag-and-drop installs, but the `.pkg` is the smoother path and the one we recommend.
-
 The app is built natively for Apple Silicon (M1 and newer), where it runs local AI models beautifully. It also runs on Intel Macs, but those can't handle local models — the app will guide you into remote-API mode instead.
 
 ## Linux — Package Managers (Recommended)

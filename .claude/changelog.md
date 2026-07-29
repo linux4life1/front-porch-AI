@@ -1,5 +1,213 @@
 # Changelog
 
+## 2026-07-29 — test(worlds)+docs: Phase 2 prep — per-biome weather pins + extreme-bands design addendum
+- **Why:** Maintainer greenlit Living Worlds Phase 2 (custom biomes — "Mars", volcanic worlds) and chose the REAL extreme-temperature path (extend `TempBand` both ends) over display-only fakery. Before any engine change, every shipped climate needs its own byte-identical fence: the pinned sequence previously covered only temperate, so a clamp mistake could rewrite desert/rainforest/etc. history without failing CI.
+- **Did:** (1) `test/services/chat/weather_biome_pins_test.dart` — pinned 8-day sequences for all 7 built-ins × winter+summer (15 tests incl. a temperate≡null identity tie to the original pin); sequences generated from the live engine and sanity-checked against each biome's signature (desert bone-dry, continental snow, tropical collapsed seasons, mediterranean dry summer). (2) `docs/design/living-worlds.md` — Rev.3 addendum: extreme bands (`cryogenic`/`furnace`/`inferno`), per-biome jitter-clamp range (the determinism guard), authored per-season display-°C anchors for extreme bands (UI-only; prompts stay words-only), stance floors at extremes, water-condition preview warnings, mixed-fleet `.fpworld` import tolerance, locked build order (pins → engine → editor → skins/stance); §5 gate marked maintainer-overridden.
+- **Mockup:** custom-climate editor sketch published as an Artifact (Mars fixture, mandatory-stance error state, preview-as-validation panel) — awaiting maintainer approval before any UI work.
+- **Files:** `test/services/chat/weather_biome_pins_test.dart` (new), `docs/design/living-worlds.md`.
+
+## 2026-07-29 — chore(ci): ci-local docker gate rebuilt on Flutter 3.44.8 (+ Dockerfile committed)
+- **Why:** The local pre-push gate image (`fpai-golden:3.41.1`) predated ci.yml's move to 3.44.8 — its `pub get` fails against the refreshed lockfile, so the gate was silently unusable (part of how a red tip reached Rawhide). The image's Dockerfile was never committed; rebuilding required reconstructing it from `docker history`.
+- **Did:** Dockerfile now at `scripts/ci-golden.Dockerfile` (FLUTTER_VERSION build-arg, rebuild command + lock-step rule documented); `ci-local.sh` defaults to `fpai-golden:3.44.8`. Built the image (linux/amd64) and verified the golden gate end-to-end: 94 tests green in-container against the current tree. Old 3.41.1 image left in place (user can `docker rmi` to reclaim ~5GB).
+- **Also:** goldens for the Living Worlds UI churn were refreshed via the `update-goldens.yml` runner artifact earlier tonight (commit 4e9205e7); the golden fakes grew the new ChatService/WorldRepository surface (dd08cbaf).
+- **Files:** `scripts/ci-golden.Dockerfile` (new), `scripts/ci-local.sh`. Commit 4a10af60.
+
+## 2026-07-29 — fix(worlds): CI-red scanner test + Claude review of b3f775ce (blockers + hardening)
+- **CI red (blocker):** origin/Rawhide's "Tests (unit+integration)" job failed since 229b6e9b on `lorebook_scanner_test` "same world reachable twice rolls probability at most once" — the Worlds work moved world dedup INTO the enumerator (`seenWorldIds`), while the test still asserted the old contract (entry yielded 3× via group+A+B, deduped at roll time). The protected behavior (single evaluation) is intact and now structural; updated the expectation to 1 + rewrote the comments to document the moved contract.
+- **Purge gating (blocker):** the `.fpworld` recovery export ran in a try/catch that logged and fell through to the hard delete — a failed export (disk full, encode error) still destroyed the world, defeating the safety fix. Now a failed export SKIPS that world's delete, ref-stripping only covers actually-deleted worlds (`deletedIds`/`deletedNames`), the method returns `({deleted, skipped})`, and the one-shot pref is only set when skipped == 0 so failures retry next launch.
+- **Same-day climate switch:** `insertBiomeSpan` now deletes any existing span for the same (chat, effective_from_day) before inserting — re-switching climate within one story day replaces rather than stacking rows whose winner depended on incidental row order.
+- **Cover encode off the UI thread:** `encodeWorldCoverDataUrl` now runs via `compute()` at the pick site (decode+resize+JPEG of a multi-MB photo froze the UI; design doc promised off-thread). Added `foundation.dart show compute` import.
+- **Web climate honesty:** `setChatClimate` errors on an unknown climate id instead of silently applying temperate.
+- **Second stale pin (also CI-red):** `avatar_repository_test` still asserted `schemaVersion == 39`; the full-suite run caught it (targeted runs missed it). Updated to 40 with a Living Worlds note.
+- **Grok counter-review round (2 findings, both fixed):** (a) pref-lock hole — strip-after-delete meant a partial run (deletes done, strip threw) left dangling character/group refs, and the NEXT launch saw zero doomed worlds, reported clean, and locked the one-shot pref forever; purge now strips refs BEFORE deleting rows, so any failure point leaves a state the next launch fully retries. (b) `insertBiomeSpan`'s delete-then-insert is now wrapped in a DB transaction so a mid-upsert failure can't silently drop the day's span. Plus Grok's test ask: new end-to-end purge-safety test (blocked recovery dir → world kept + pref unset; unblocked → exported, deleted, pref locked, `.fpworld` present).
+- **Hygiene:** intent comment on the cover-scrim raw white/black (text-on-photo, deliberately theme-independent); removed 2 unused imports in `world_repository_test.dart`.
+- **Files:** `test/services/chat/lorebook_scanner_test.dart`, `test/services/avatar_repository_test.dart`, `lib/services/world_repository.dart`, `lib/database/database.dart`, `lib/ui/pages/world_management_page.dart`, `lib/services/web/facade/world_facade.dart`, `lib/ui/pages/worlds/world_place_card.dart`, `test/services/world_repository_test.dart`.
+
+## 2026-07-28 — docs(worlds): Living Worlds status complete through b3f775ce
+- **Why:** Reviewers need an accurate done map after medium batch + Claude review fixes.
+- **Did:** Phase 0 COMPLETE; Phase 1 COMPLETE (optional run-length/goldens open); commit table `229b6e9b` / `b3f775ce`; Claude finding disposition; test-strategy gates refreshed.
+- **Files:** docs/design/living-worlds.md
+
+## 2026-07-28 — fix(worlds): Claude review of Living Worlds high batch
+- **#1 purge safety:** export each character-linked clone as `.fpworld` to `worlds/recovered_character_lore_clones/` before hard delete (user-edited lore on the world row is no longer silently destroyed).
+- **#2 web bundle:** `npm run build` → refreshed `assets/web_app` (Edit Message, Places climate, covers now in the shipped PWA).
+- **#3 weather chip:** already fixed in medium batch (reads ChatService / active biome) — verified still true.
+- **#4 migration honesty:** comments + design doc: data mutations single-run; `groups.world_ids` rewritten in place (backup only for originals); chat_worlds skip existing pairs; collapsed double inject UPDATE.
+- **Cleanup:** `group_world_refs` key; resolve name→UUID when counting/fixing.
+- **Files:** world_repository, database.dart, database_cleanup(+dialog), assets/web_app/*, living-worlds.md.
+
+## 2026-07-28 — feat(worlds): medium batch — mid-chat climate, covers, card polish
+- **Climate spans:** `biome_schedule.dart`; ChatService hydrates spans; weather walk uses `biomeAtDay`; foreshadow suppress on span day-0; diurnalAmplitude in segments (temperate 1.0 keeps °C).
+- **UI:** Places panel climate dropdown (Story Tools); web `/api/chat/climate` + ChatPlacesSection; WeatherChip reads ChatService (correct biome).
+- **Covers:** `world_cover.dart` size-capped JPEG data URLs; desktop edit pick + WorldPlaceCard thumbs; web Worlds edit + WorldCard.
+- **Polish:** warm-porch Worlds chrome; group card dual `world_ids`/`world_names` export.
+- **Tests added:** biome_schedule_test, world_cover_test. **Before push:** regen widget goldens if world_management/time_strip fail.
+- **Deferred:** run-length prose, custom biomes (phase 2), cleanup rename.
+
+## 2026-07-28 — docs(worlds): Living Worlds implementation status for review
+- **Why:** Another agent needs a trustworthy done/partial/not-started map; design prose alone overstates phase 1.
+- **Did:** `docs/design/living-worlds.md` — Phase 0 DONE, Phase 1 PARTIAL (spans table + engine + world default; spans not wired / no mid-chat UI), Phase 2/3 not started; checklist with file pointers; test-strategy gates marked; medium batch + golden regen callout.
+- **Files:** docs/design/living-worlds.md
+
+## 2026-07-29 — feat(worlds): chat place attach + web Places parity + place-only pickers
+- **Desktop:** ChatPlacesPanel in Story Tools (1:1 + group) mutates chatWorldIds; group/character/edit pickers use placeWorlds + UUIDs.
+- **Web:** WorldsPage climates/inject/fpworld export; /api/worlds/climates; /api/chat/places GET/POST; ChatPlacesSection in insight; WorldCard climate chip.
+- **Files:** chat_places_panel, story_tools_group, edit_group/character, lorebook_worlds_tab, world_facade/routes, chat_facade, WorldsPage, ChatInsight, ChatPlacesSection, WorldCard, styles, Rawhide.
+
+## 2026-07-29 — feat(worlds): purge character-linked world clones; import lore from character
+- **Why:** Worlds tab was cluttered with auto-cloned "X's Lorebook" rows; Living Worlds makes worlds *places*, not character lore mirrors.
+- **Did:** Detect+purge character-linked worlds once (pref `purged_character_linked_worlds_v1`); strip refs from characters.world_names / groups.world_ids / chat_worlds; saveWorld clears linkedCharacter fields; Edit Character + group lore "From character" dialog; web CharacterEdit "From character…"; placeWorlds filter on group attach.
+- **Safe:** Character card lorebooks untouched; only world rows that were linked clones deleted.
+- **Files:** character_linked_world.dart, world_repository, database strip refs, main.dart wiring, import_character_lore_dialog, edit_character_page, lorebook_worlds_tab, CharacterEditPage, tests, Rawhide.
+
+## 2026-07-29 — feat(worlds): Living Worlds phase 0+1 foundation (portable places + biomes)
+- **Why:** Worlds were name-keyed lore folders; no climate, no safe export of a whole *place*, group rename cascade, no chat-level attach path.
+- **Did:** schema v40 (world columns, chat_worlds, chat_biome_spans, name→UUID group backfill); World model + id; .fpworld encode/decode; WorldRepository by id + exportFpWorld + chat attach; lorebook_collection chatWorldIds; weather Biome tables + engine biome param (temperate ≡ legacy); world description injection; desktop editor climate + inject toggle; .fpworld export; group create stores world UUIDs.
+- **Files:** database.dart(+g), world.dart, fp_world_package.dart, world_ref_resolver.dart, weather_biomes.dart, world_repository.dart, lorebook_collection.dart, weather_engine.dart, world_injection.dart, chat_service*, world_management_page, create_group_chat_page, world_facade, tests, docs/design/living-worlds.md, docs/Rawhide.md.
+
+## 2026-07-28 — feat(cast): @Name addressing — the mentioned character answers (guests AND groups)
+- **Why:** Maintainer follow-up to the double-response fix: the "@Evelyn" form should be a first-class mechanic. The vocative router required punctuation shapes; groups had NO way to address a member by text at all (round-robin/random/manual pick only).
+- **Fix:** New static `SceneGuestDirector.atMentionedCard` (+ `_atMentionHit`): matches `@Name`/`@FirstName` anywhere in the line — `@` must not follow a word char/dot/hyphen/plus (so "me@evelyn.com" never matches while ",@Evelyn" / "[@Evelyn]" do), name ends at a hyphen-rejecting word boundary (so "@Mara-Lynn" isn't guest "Mara"), earliest @ in text order wins, and on the same @ the LONGER name wins ("@Mara Vance" can't be stolen by another card's "Mara" nickname). **1:1:** `directlyAddressedGuest` checks @-mentions first, no punctuation needed; `@Host` anywhere keeps the whole turn with the host — absolute veto, it also beats a guest vocative later in the line; vocative patterns unchanged as fallback. **Group:** `_directAddressRoutedGuest` (scene-guest leaf) now resolves `@Member` against `_groupCharacters` and forces them via the SAME public `setNextCharacter` path the group UI's manual pick uses (objectives switch + per-speaker realism dance follow the pick — parity by reuse, zero new realism surface); the turn proceeds normally. Group @ is deliberately NOT gated on autoChimeEnabled (that's a 1:1 chime preference). `_nameVariants` became static.
+- **Grok review (delta):** 4 findings; fixed the real bug (host-@ veto didn't beat a trailing guest vocative), the same-@ tie-break, and the punctuation-before-@ gaps (allow-list → negative lookbehind); accepted the 1:1-veto vs group-earliest-@ semantics split as intentional (host is the default speaker in 1:1; members are peers in a group).
+- **Web parity:** automatic for the engine — shared ChatService, no new engine UI surface.
+- **Autocomplete popup (maintainer follow-up, same day):** typing `@` opens the cast list above the composer, "just like the popup if you type /" — same panel visuals as each surface's slash helper, filter-as-you-type (full name or any name token prefix), tap fills `@Name `. Desktop: new `MentionAutocomplete` widget (`lib/ui/chat_components/widgets/mention_autocomplete.dart`, exported from the chat_components barrel) wired under the slash helper in chat_page's input column; pure static helpers (`activeMentionQuery`, `nameMatches`) unit-tested; hidden in group observer mode; candidates = host + guests (1:1, only when guests present) or group members; warm-porch accent (`porchAmberOf`). Web: `ChatComposer` gains a `cast` prop (from ChatPage's existing `state.cast`), caret-tracked `@`-token detection mirroring the engine's boundary rule (emails never trigger), popup reuses the existing `.slash-cheatsheet` styles verbatim, Escape dismisses like the slash sheet; `npm run build` regenerated `assets/web_app` (tsc clean).
+- **Files:** `lib/services/chat/scene_guest_director.dart`, `lib/services/chat/chat_service_scene_guest.dart`, `lib/services/chat_service.dart` (seam comment only), `lib/ui/chat_components/widgets/mention_autocomplete.dart` (new), `lib/ui/chat_components/chat_components.dart`, `lib/ui/pages/chat_page.dart` (+9 lines), `web_ui/src/components/ChatComposer.tsx`, `web_ui/src/pages/ChatPage.tsx`, `test/services/chat/scene_guest_director_test.dart`, `test/ui/chat_components/mention_autocomplete_test.dart` (new; 37/37 director + 10/10 popup helpers, 743 chat-leaf suite green, analyze clean, dart fix clean).
+
+## 2026-07-28 — feat(chat): fullscreen Edit Message editor with RP highlight + think split
+- **Why:** The chat Edit Message UI was an old cramped AlertDialog: plain text, no syntax highlighting, raw `<think>` tags, non-expandable small box.
+- **Fix:** New `showMessageEditDialog` fullscreen editor (StyledTextController prose preset for dialogue/action/macros), collapsible Thinking section (split/join via pure helpers in `think_tags.dart` so tags never appear in either field), dirty discard confirm, char count, Esc / ⌘↵ shortcuts. Web/mobile parity via `MessageEditModal` + `messageEdit.ts` (same split/join, RP backdrop coloring). Bubble now opens the dialog instead of the AlertDialog.
+- **Files:** `lib/ui/dialogs/message_edit_dialog.dart`, `lib/utils/think_tags.dart`, `lib/ui/chat_components/bubbles/message_bubble.dart`, `web_ui/src/components/MessageEditModal.tsx`, `messageEdit.ts`, `ChatMessageList.tsx`, `ChatPage.tsx`, `styles.css`, tests, `docs/Rawhide.md`.
+
+## 2026-07-28 — fix(scene-guests): promoted guest answered twice per message (Discord report by adv997)
+- **Why:** After cast detection promoted a narrated side character (e.g. "Evelyn") to a Scene Guest, the host card kept writing the guest's dialogue inline (the transcript is full of the host voicing them — that's WHY they were detected — so the existing "do NOT write dialogue for them" ban lost to many-shot momentum), and the chime-in director then ALSO ran the guest's own turn (name-mention heuristic) → the same character answered twice per user message.
+- **Fix:** (1) Deterministic routing: `SceneGuestDirector.directlyAddressedGuest` detects a vocative of a present guest in the user's line (leading "Evelyn - …"/"Evelyn, …"/"@Evelyn …", bare "Evelyn?", trailing "…, Evelyn?"; host name outranks; title first-names like "Major" never match; gated on autoChimeEnabled) and `sendMessage` then runs the GUEST's parity-safe turn instead of the host turn — skipping host-turn prep (chaos tick/wheel, mood/needs/nsfw decay, pre-gen realism eval; guests carry zero Realism/Needs, the host simply didn't take a turn) — and excludes that guest from the follow-up chime-in pass (new `exclude` param) so they can't speak twice. (2) Prompt: the host-turn ban now carries an explicit handoff ("if earlier messages included their lines, that has ended") plus a defer clause for fuzzily-addressed guests. `_mentionsGuest` consolidated over a shared `_nameVariants` helper.
+- **Parity:** Scene Guests are 1:1-only, so no group divergence; guest turns were already realism-free by construction. On a routed turn the host's sim clocks (needs/mood/nsfw decay, chaos pressure) deliberately don't tick — the host didn't take a turn.
+- **Grok review:** 5 findings. Fixed: routing decision extracted to `_directAddressRoutedGuest` in the scene-guest leaf (god-file growth); plus my own catch: hyphenated OTHER names ("Mara-Lynn", "Anna-Mara") no longer false-match — a dash only separates a vocative with whitespace next to it. Accepted-by-design (Grok concurred, "ship as-is"): non-vocative addresses ("Evelyn what did you mean") stay on the host path with the strengthened ban (widening would steal host turns on narration); routing gated on autoChimeEnabled (with chime OFF the double cannot occur); host outranks a shared first name.
+- **Files:** `lib/services/chat/scene_guest_director.dart`, `lib/services/chat/chat_service_scene_guest.dart`, `lib/services/chat_service.dart`, `lib/services/chat/chat_service_generation.dart`, `test/services/chat/scene_guest_director_test.dart` (12 new tests; 29/29 green, chat suites 763 green, analyze clean).
+
+## 2026-07-28 — fix(ci): stabilize Linux E2E smoke (no remote Kobold download + retry)
+- **Why:** E2E smoke (linux) failed with exit 79 "No tests were found" after ~5s mid-boot — process death with no Dart stack. Same SHA's macos/windows E2E and unit/goldens were green; prior commits on Rawhide had green Linux E2E (flake). Successful Linux runs were also downloading ~131MB of KoboldCpp during smoke despite the fake openRouter backend.
+- **Fix:** `SetupService.runAutoSetup` skips local binary download when backend is already openRouter/omlx (correct for remote-only users + E2E). Smoke test treats window_manager placement as best-effort. CI Linux E2E retries once after a failed attempt (clears build/linux between tries).
+- **Files:** `lib/services/setup_service.dart`, `integration_test/app_smoke_test.dart`, `.github/workflows/ci.yml`.
+
+## 2026-07-28 — chore(deps): refresh lock for Flutter 3.44.8; land safe majors
+- **Why:** Flutter was pinned to 3.44.8 but constraints/lock still reflected the pre-bump debt; `pub outdated` showed a long tail of upgrades.
+- **Did:** `flutter pub upgrade` + raised direct majors that resolve: file_picker 11, record 7, grpc 5, flat_buffers 25, shelf_web_socket 3 (+ ~60 total version bumps). API fixes: `FilePicker.platform` → static `FilePicker.*`; shelf_web_socket `ConnectionCallback` now `(channel, subprotocol)`. Floors regenerated (no downgrades).
+- **Blocked (documented in test/deps/README.md):** riverpod_generator ≥4.0.6 / riverpod 3.4 (flutter_test test_api); drift_dev ≥2.34.1 (analyzer 13); image 4.9 + syncfusion 34 (xml 7 vs webdav); package_info_plus 10 (win32 6 vs file_picker 11); flutter_markdown → plus migration deferred.
+- **Smoke:** `flutter analyze` clean; full unit suite **2603 pass / 13 skip / 0 fail**.
+- **Files:** `pubspec.yaml`, `pubspec.lock`, `test/deps/*`, picker/stream API call sites, generated plugin cmakes.
+
+## 2026-07-28 — fix(avatar): no look dupe on placeholder replace; home cover refreshes on Done
+- **Why:** First Add avatar on a placeholder wrote portrait *and* a gallery look (same face twice). Home kept the old placeholder after Done because Image.file cached the same path; only a ★ click changed the cover key.
+- **Fix:** addLook is portrait-only when face is missing/placeholder (400×600 solid); further Add avatar adds real looks. `coverEpoch` + home Image.file keys refresh the grid on Done.
+- **Files:** `character_repository.dart`, `portrait_promotion.dart`, `character_grid_card.dart`, `character_card_grid.dart`, facade tests, `docs/Rawhide.md`.
+
+## 2026-07-28 — test(avatar): fix CI after portrait/bootstrap work (#171)
+- **Why:** (1) 3 `character_authoring_facade_test` failures — addLook bootstraps a portrait then re-embeds; tests used invalid `[1,2,3,4]` bytes. (2) Widget golden `edit_character` — `_avatarFile` required `CharacterRepository` and the golden only provided StorageService → ProviderNotFoundException + 54% pixel fail.
+- **Fix:** Real PNG fixture in facade test; bootstrap refuses non-decodable bytes; V2CardService falls back to synthetic placeholder on bad source decode; Edit Character `_avatarFile` falls back to imagePath when CharacterRepository is absent.
+- **Files:** `test/services/web/character_authoring_facade_test.dart`, `lib/services/portrait_promotion.dart`, `lib/services/v2_card_service.dart`, `lib/ui/pages/edit_character_page.dart`, `test/services/portrait_promotion_test.dart`.
+
+## 2026-07-28 — fix(avatar): gallery delete showed the wrong tile vanishing
+- **Why:** Deleting the blank/portrait (promote look in place) or a gallery look could leave Image.file showing a stale frame: same portrait path, new bytes, no widget key → wrong tile appeared gone until Done refreshed home.
+- **Fix:** ValueKeys by avatar id + `mediaGen` imageVersion on tiles; FileImage.evict + mediaGen bump after remove/deletePortrait/replace/addLook.
+- **Files:** `avatar_gallery_controller.dart`, `avatar_tile.dart`, `avatar_gallery_looks_section.dart`, `avatar_gallery_expressions_section.dart`, `docs/Rawhide.md`.
+
+## 2026-07-28 — fix(avatar): replace solid-color placeholder when a real image is added (#171)
+- **Why:** Creator "None for now" (and similar) leave a solid-color V2 PNG as `imagePath`. Add avatar then only added a gallery look and left the color block as the Portrait tile.
+- **Fix:** `bootstrapPortraitIfMissing` now also overwrites when `isPlaceholderPortrait` (solid-color sample grid). First real look replaces the placeholder in place; real portraits are untouched.
+- **Files:** `lib/services/portrait_promotion.dart`, `lib/services/character_repository.dart` (comment), `test/services/portrait_promotion_test.dart`, `docs/Rawhide.md`.
+
+## 2026-07-28 — fix(avatar): Edit Character was star-blind; gallery couldn't fill a missing portrait (#171)
+- **Why:** Reporter added a look via Home → Avatar Gallery, starred it, and saw it in chat, but Edit Character still showed the grey "No avatar" placeholder. Root cause: Edit Character only read raw `imagePath`; ★ sets `favoriteAvatarId` and never rewrites `imagePath`. Separately, a card with no usable portrait couldn't persist the star (`updateCharacter` early-returns when `imagePath` is null).
+- **Fix:** Edit Character preview uses `coverImageFileFor` (same ★-aware resolver as home/export). First `addLook` bootstraps a portrait copy when none exists (`bootstrapPortraitIfMissing` in portrait_promotion.dart). ★-persist does the same before the extensions write. Gallery shows **Set portrait** when the portrait tile is missing; creator "None for now" copy names Set portrait / Add avatar + ★. Web `setFavorite` + repo `addLook` share the bootstrap so web/desktop stay aligned.
+- **Files:** `lib/ui/pages/edit_character_page.dart`, `lib/services/portrait_promotion.dart`, `lib/services/character_repository.dart`, `lib/ui/dialogs/avatar_gallery/*`, `lib/ui/avatar_creation/portrait_section.dart`, `lib/services/web/facade/character_authoring_facade.dart`, `test/services/portrait_promotion_test.dart`, `docs/Rawhide.md`.
+- **Verification:** portrait_promotion_test + analyze on touched files.
+
+## 2026-07-28 — fix(ui): ExpansionTile headers could never show their tap ripple (Flutter 3.44 caught it)
+- **Why:** the Flutter 3.44.8 bump left 5 golden tests failing on a NEW debug assertion — *"ListTile background color or ink splashes may be invisible… wrapped in a DecoratedBox that has a background color"*. Not a pixel diff and not a bump regression: a real, long-standing UI defect that older Flutter simply never warned about.
+- **The defect:** `ExpansionTile` builds an internal `ListTile` for its header, and a `ListTile` paints its background and ink splash onto the **nearest Material ancestor**. Both offenders wrapped one in a `Container(decoration: BoxDecoration(color: …))`, so the coloured DecoratedBox sat between the tile and its Material and swallowed the ripple entirely. Tapping those headers has been visually dead the whole time.
+- **Two offenders, found by reading the assertion's widget dump rather than guessing:** `creator_section_card.dart` (identified from `tilePadding (16,4)` + a tealAccent-at-0.15 border, matching its defaults) and `edit_character_page.dart:1808` (radius 14 + border at 0.45 alpha). Both now use `Material` with `RoundedRectangleBorder`, preserving colour, radius and border exactly while giving the tile a Material to paint on.
+- **Golden diff reviewed visually, not rubber-stamped:** the change produced an 8.99% pixel diff, which looked alarming. Opening master vs test side by side showed layout, colours and spacing **identical** — content below the first card simply sits **1px higher**, because `ShapeBorder.dimensions` insets slightly differently than `BoxDecoration`'s border. A 1px vertical shift lights up every text edge, which is the entire 9%. 8 goldens regenerated (4 tests × light/dark); the edit-character golden needed no update at all.
+- **Verification:** goldens **94/94 pass** at CI parity (`--concurrency=1`); non-golden suite **2,591 pass**; `flutter analyze` unchanged at 5 pre-existing `info`s (4 deprecated Flutter APIs + 1 lint hint) — no new issues.
+- **Files:** `lib/ui/character_creator/widgets/creator_section_card.dart`, `lib/ui/pages/edit_character_page.dart`, 8 goldens.
+
+## 2026-07-28 — chore(toolchain): bump Flutter 3.41.1 -> 3.44.8, restoring all 8 dependency downgrades
+- **Why:** maintainer directive — the bump could not be deferred indefinitely (`riverpod_generator` 4.0.6+ and `riverpod_annotation` 4.0.5 already require Dart 3.12, and that list only grows), and it is the only satisfiable way to reverse the dependency debt left by `da0e49eb`. Verified end-to-end locally with 3.44.8 installed alongside 3.41.1 — nothing here is estimated.
+- **Restores all 8 downgrades AND keeps Riverpod codegen** (no trade-off against the 2026-07-21 codegen directive): `analyzer` 9.0.0 → 12.1.0, `drift`/`drift_dev` 2.31 → 2.34.3/2.34.0, `sqlite3` 2.9.4 → **3.5.0** (self-bundling again), `sqlite3_flutter_libs` 0.5.42 → 0.6.0+eol, `riverpod_generator` 4.0.3 → 4.0.4, `meta` 1.17 → 1.18, `sqlparser`, `dart_style`, `matcher`, `test_api`. 18 of 206 packages move; **zero downgrades, zero removals**.
+- **Three traps hit, all recorded so nobody repeats them:** (1) **bumping Flutter alone is a silent no-op** — pub keeps the existing lock where still valid, so constraints must rise in the same change; (2) **`riverpod_generator` 4.0.7 does not work even on 3.44.8** — it pulls `riverpod_annotation` 4.0.5 → `riverpod` 3.4.1 → `test`, needing a `test_api` the SDK's `flutter_test` doesn't pin; **4.0.4 is the working version**; (3) **`build_runner` silently wrote 0 outputs** on the first regeneration because its cache considered the reverted files current — `.dart_tool/build` had to be cleared to get a true regeneration.
+- **`pubspec.yaml` comment inverted (important):** the `sqlite3_flutter_libs` note said "MUST stay on 0.5.x", which is now exactly backwards and would have been a trap. It now documents the 3.x pairing while still naming the v1.1.0 incident and pointing at both guards.
+- **Verification (all run, not assumed):** full non-golden suite **2,591 pass / 0 fail**; `flutter analyze` **5 issues, all `info`** (4 newly-deprecated Flutter APIs — `onReorder`, `axisAlignment` — plus one lint hint); Linux release **builds a working ELF executable**, all dynamic links resolve, headless smoke test fails only on `cannot open display` (i.e. every native library loaded); **SQLite bundle guard passes** — now via a standalone `lib/libsqlite3.so` from native assets, the v1.0.0 mechanism, which is exactly why that guard checks symbol reachability rather than a filename; dependency guard 11/11 with the baseline updated for the legitimate upgrades.
+- **120 goldens regenerated.** Diffs measured before accepting: **0.0–0.1% of pixels, max channel delta 25–88** — antialiasing and text-rendering shift from the new engine, no layout movement.
+- **KNOWN RED: 5 golden tests still fail**, and they are a real (pre-existing) finding rather than a pixel diff. Flutter 3.44 added a debug assertion — *"ListTile background color or ink splashes may be invisible… wrapped in a DecoratedBox that has a background color"* — which fires on 5 creator/dialog surfaces (QuickConfigStep, GuidedConfigStep, GuidedOutputSettings, AutomatedConfigStep, Edit-character tab 0). Their ink splashes genuinely do not render today; older Flutter simply never warned. **The assertion is debug-only, so release builds and the shipped app are unaffected.** Fix is to wrap the affected `ListTile`s in their own `Material` or drop the background colour from the intermediate decoration — deliberately left as a follow-up rather than bundled into a toolchain change.
+- **Rawhide only.** A toolchain bump does not get cherry-picked to `main`; it reaches main through the normal promotion once proven, per the branch workflow.
+- **Files:** `pubspec.yaml`, `pubspec.lock`, 5 workflows (8 Flutter pins), 2 regenerated `.g.dart`, 4 platform plugin registrants, `test/deps/dependency_floors.json`, 120 goldens.
+
+## 2026-07-28 — chore(deps): the remaining 8 downgrades are unsatisfiable, not pending — proven and documented
+- **Why:** maintainer asked for the outstanding dependency debt to be cleared rather than left hanging. It cannot be, on the current toolchain — and the reason is a hard constraint, not a judgement call. Investigated with the CI-pinned Flutter 3.41.1 (Dart 3.11.0) installed locally so the resolution is the real one, not a guess.
+- **The proof:** Flutter 3.41.1's `flutter_test` pins `meta` to exactly **1.17.0**. `analyzer` 10.2.0+ requires `meta ^1.18.0`, so analyzer is capped at **10.0.1**. `drift_dev` 2.32.0 requires `analyzer ^10.0.0` (fits), but `riverpod_generator` requires `^9.0.0` (4.0.3) or `^12.0.0` (4.0.4) — **it skipped analyzer 10 and 11 entirely**. No release of it accepts the only analyzer drift 2.32 can use. drift 2.32+ and Riverpod codegen are therefore mutually exclusive here, which is precisely why `da0e49eb`'s resolver downgraded drift: it had no other move. Attempting the upgrade fails explicitly (`riverpod_generator >=4.0.6 requires SDK >=3.12.0`, then `analyzer ^12 → meta ^1.18.0` vs `flutter_test`'s pinned 1.17.0).
+- **Risk re-checked, not assumed — one of my own earlier concerns disproven:** I had flagged that `database.g.dart` was generated by drift_dev 2.32 while running against 2.31, a latent hazard if anyone reran codegen. Ran a full `build_runner build --delete-conflicting-outputs`: output is **byte-identical** (md5 unchanged, zero git diff). The two versions emit the same code for this schema, so the mismatch is a non-issue. Combined with the earlier finding that none of the 8 ships native code, the remaining gap is inert.
+- **The one real escape, recorded for when it's wanted:** bump the CI Flutter pin to a release with Dart ≥3.12. Everything aligns in one move — `riverpod_generator` 4.0.7 and `drift_dev` 2.34.5 both target `analyzer ^13`, and drift 2.34 requires `sqlite3 ^3.0.0`, which returns SQLite to self-bundling 3.x and lets `sqlite3_flutter_libs` go back to the `0.6.0+eol` marker. That is a toolchain change (all 94 goldens re-baselined), deliberately not folded into hotfix work.
+- **NEW `test/deps/README.md`** — the incident, the guards, the constraint table, why the gap is inert, and how to clear it. Lives next to the tests so the next agent hits it at the moment they'd otherwise be tempted to regenerate the baseline.
+- **Files:** NEW `test/deps/README.md`, `.claude/changelog.md`. No dependency or generated-code changes (regeneration confirmed identical).
+- **Verification:** full `build_runner` run clean and byte-identical; guard suite 11/11; `flutter analyze` clean.
+
+## 2026-07-28 — test(deps): dependency-downgrade regression guard (maintainer directive)
+- **Why:** the v1.1.0 Linux outage reached users because *nothing failed* — build green, 2,580 tests green, and macOS/Windows silently fell back to system SQLite. The maintainer's only test machine is a Mac, so the regression was **structurally invisible**: "since this dep regression had no effect on my only test system (macOS) you need to add regression tests pinned to the known good pre-existing deps so that way tests fail loud if another agent tries to downgrade deps ever again."
+- **NEW `test/deps/dependency_floor_test.dart`** — pure Dart, no native deps, so it fails on **every** platform including the Mac where the original bug could never reproduce. Three guards:
+  1. **Floor check** — a checked-in baseline (`test/deps/dependency_floors.json`, all 206 resolved packages) that no dependency may fall below. Upgrades pass; any downgrade fails loudly with a named diff. The failure message explicitly forbids "fixing" it by regenerating the baseline.
+  2. **Disappearance check** — a package vanishing from the lock removes shipped functionality as quietly as a downgrade.
+  3. **SQLite pairing invariant** — encodes the actual lethal rule rather than a version floor (a floor could not express it, since the hotfix legitimately runs sqlite3 2.x): `sqlite3` 3.x self-bundles and pairs with flutter_libs 0.6.x; `sqlite3` 2.x bundles nothing and REQUIRES flutter_libs 0.5.x. 2.x + 0.6.x is the combination that produces no SQLite at all.
+- **NEW `test/deps/fixtures/v1.1.0_broken.lock`** — the real lock entries from `git show v1.1.0:pubspec.lock`, so two regression tests run the real checks over the real broken state and assert they are rejected.
+- **Methodology note (a false pass I caught):** the first verification swapped `pubspec.lock` for v1.1.0's and re-ran the suite — it **passed**, which looked like the guard was useless. Cause: `flutter test` implicitly runs `pub get`, which re-resolved the lock back to a valid state before the test read it. A checked-in fixture is immune, since no resolver touches it. Recorded here because the same trap would silently invalidate any future lock-based test.
+- **Both mechanisms mutation-tested:** the pairing check rejects the real v1.1.0 fixture; the floor check was proven to fire by temporarily raising drift's floor above the resolved version (produced `drift: 2.32.0 -> 2.31.0 (DOWNGRADE)`), then restored.
+- **Known drift recorded in the baseline:** 8 packages remain below their v1.0.0 values (drift/drift_dev 2.31 vs 2.32, analyzer 9 vs 10, sqlparser, dart_style, _fe_analyzer_shared, matcher, test_api). None ship native code, so none can remove a binary; restoring them means restoring analyzer 10, which fights the Riverpod codegen constraint — a Rawhide follow-up, deliberately not attempted under release pressure.
+- **Verification:** 11 tests pass; `flutter analyze` clean.
+
+## 2026-07-28 — fix(deps): v1.1.0 shipped no SQLite on Linux — every install bricked
+- **Symptom (Discord, Kubuntu, both .deb and AppImage):** after updating to v1.1.0, "the database is corrupted" and "libsqlite3.so is missing."
+- **Root cause:** `sqlite3` the Dart package has two eras — **3.x bundles the native SQLite itself** (native assets), **2.x delegates that to `sqlite3_flutter_libs`**. `da0e49eb` ("refactor(riverpod): migrate Living Time providers to @riverpod codegen", 2026-07-21) re-resolved the lock as collateral of adding the codegen stack: `analyzer` 10.0.1→9.0.0 dragged `drift_dev`/`drift` 2.32→2.31, and drift 2.31 caps `sqlite3: ^2.6.0`, forcing `sqlite3` 3.2.0→**2.9.4**. But `sqlite3_flutter_libs` was pinned at `0.6.0+eol` — a **tombstone whose source literally reads "This package does not do anything"**, published solely to guarantee the old 2.x build scripts are NOT used. sqlite3 2.x + 0.6.0+eol is therefore the one combination that provably cannot produce a native library.
+- **Proven, not inferred:** downloaded both releases — v1.0.0's AppImage contains `lib/libsqlite3.so`; v1.1.0's bundle contains every other native lib (onnxruntime, sherpa, plugins) and no SQLite at all.
+- **Why Linux only:** sqlite3 2.x probes for the flutter_libs plugin symbol, then falls back per platform — macOS to `/usr/lib/libsqlite3.dylib` (always present), Windows to `winsqlite3.dll` (ships with Win10+), Linux to the bare `libsqlite3.so` soname, which only `libsqlite3-dev` provides. The maintainer's macOS machine could never reproduce it.
+- **"Corrupted" was a red herring:** `AppDatabase.integrityCheck()` returns `false` on ANY exception, so a failed library load surfaces as corruption. One root cause, two messages. No user data was ever damaged.
+- **Fix:** `sqlite3_flutter_libs: ^0.6.0+eol` → `^0.5.41` (resolves 0.5.42) — the correct pairing for the sqlite3 2.x era, with a long comment in pubspec.yaml so nobody "helpfully" bumps it back. Exactly **one** dependency changed; the lock delta is two lines. Deliberately NOT restoring drift 2.32/analyzer 10 — that fights the Riverpod codegen constraint and is not a change to make under release pressure (tracked as a Rawhide follow-up; note `database.g.dart` was generated Jul 20 by drift_dev 2.32 and now runs against 2.31 — compiles clean, but rerunning build_runner may produce a different file).
+- **Full downgrade audit (maintainer request):** 9 packages went backwards in `da0e49eb` — sqlite3, drift, drift_dev, sqlparser, analyzer, _fe_analyzer_shared, dart_style, matcher, test_api. **None of the other eight ships native build files**, so none could silently remove a binary; sqlite3 was uniquely dangerous precisely because 2.9.4 has no build hook of its own. Zero packages were upgraded or removed.
+- **CI guard (all three Linux pipelines):** a post-build step fails the job unless some `.so` in the bundle exports `sqlite3_open_v2`. Checks **reachability, not a filename**, because the eras differ — 3.x emits a standalone `lib/libsqlite3.so`, 0.5.x compiles `sqlite3.c` into the plugin `.so`. Validated **both directions**: passes on the fixed build, and fails when run against the actual shipped-broken v1.1.0 tarball.
+- **Verification:** installed the CI-pinned Flutter 3.41.1 / Dart 3.11.0 and built a real Linux release — `libsqlite3_flutter_libs_plugin.so` is 1.8 MB with SQLite 3.52.0 compiled in, exporting `sqlite3_open_v2`, `sqlite3_prepare_v2`, and `sqlite3_flutter_libs_plugin_register_with_registrar` (the exact symbol the 2.x loader probes). Full suite **2,580 passed / 11 skipped**; `flutter analyze` clean. Plugin registrants regenerated for linux/macos/windows (purely additive) — macOS and Windows now carry their own SQLite instead of the system copy.
+- **Files:** `pubspec.yaml`, `pubspec.lock`, `.github/workflows/{release,nightly,beta-release}.yml`, `linux|windows/flutter/generated_plugin_*`, `macos/Flutter/GeneratedPluginRegistrant.swift`, `docs/main.md`, `docs/Rawhide.md`.
+
+## 2026-07-28 — fix(ci/release): AUR tarball missing from every stable release since May + cut-release tag-move
+- **Why:** while verifying v1.1.0, discovered the AUR package `front-porch-ai-bin` sources `releases/download/v<ver>/Front_Porch_AI_Linux.tar.gz` — an asset absent from the release (and from EVERY stable release since 2026-05-07): commit 5bc2b9c6 ("remove Windows zip packaging") deleted the shared `${{ matrix.asset_name }}` line from the artifact-upload and release-files lists without realizing the same matrix variable carried the LINUX tarball. The Linux job kept building the tar.gz; it just never shipped, so `yay -S front-porch-ai-bin` has 404'd at makepkg for months. The publish-aur job never caught it — it only pushes PKGBUILD text (live AUR PKGBUILD confirmed pointing at the missing v1.1.0 URL).
+- **Fix 1 (`release.yml`, 01b32cb7):** `Front_Porch_AI_Linux.tar.gz` listed explicitly in both the Upload Build Artifacts path list and the softprops files list (Linux-leg-only file; both steps tolerate per-leg missing entries).
+- **Fix 2 (`cut-release.yml`, 52e413f0):** a re-dispatched release.yml executes the workflow file AS OF THE TAG, so the fix couldn't reach the already-published v1.1.0 until the tag moved over it. cut-release now handles an existing release by force-moving the git tag to the target branch tip via the API (release shell — title/notes/assets — untouched); fresh-cut behavior unchanged.
+- **Execution:** both mirrored to main (f0c050a0, byte-identical to Rawhide @ 52e413f0) → cut-release dispatched (moved v1.1.0 → f0c050a0, verified via fetch) → release.yml re-dispatched on the moved tag (run 30324216911) to rebuild and ship the tarball into the v1.1.0 release.
+- **Files:** `.github/workflows/release.yml`, `.github/workflows/cut-release.yml` (Rawhide + main mirror).
+- **Verification:** YAML parse clean on both; tag position verified f0c050a0; rebuild monitored by the release watcher.
+
+## 2026-07-28 — feat(ci/release): cut-release helper + event-agnostic publish gate (v1.1.0 cut from a proxy'd session)
+- **Why:** the maintainer directed the v1.1.0 release be cut entirely from a Claude Code Remote session ("I don't have access to a computer currently… Do it for me!"), but the session git proxy denies tag pushes — packet-trace verified HTTP 403 on `refs/tags/*` while `refs/heads/*` pushes succeed. Tags also needed a human-facing title ("v1.1.0 — Weather Report") without breaking the strict-vX.Y.Z contract (`release.yml` derives VERSION from `GITHUB_REF_NAME`; APT/RPM/installer metadata all consume it).
+- **How:** NEW `.github/workflows/cut-release.yml` — dispatch-only; validates the tag shape (`^[vV]\d+\.\d+\.\d+$`), then `gh release create <tag> --target <branch> --title "<title>"` with the repo's GITHUB_TOKEN, creating the tag + a titled release shell in one step. Titles live ONLY in the release display name (the in-app updater reads tag_name/prerelease/body/assets, never the name). Because GITHUB_TOKEN-created tags never fire `on: push` workflows (GitHub's recursion guard), `release.yml`'s publish gate changed from `github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')` to tag-ref-only but event-agnostic (`startsWith(github.ref, 'refs/tags/')`) — a workflow_dispatch ON the tag ref publishes exactly like a tag push; branch-ref dispatches still skip publish as before.
+- **Incident during landing (MCP push_files):** the first mirror push sent a literal `@@FILE:release.yml@@` placeholder as the file body, truncating Rawhide's `release.yml` to 20 bytes (c66066df); restored (3e8ccb23) but with doubled backslashes in 5 Windows pwsh path lines; byte-exact restore verified by diff in e765ea03. Main received the files via a normal git branch push (365739a2), diff-verified byte-identical to Rawhide — no promotion divergence.
+- **Release execution:** cut-release dispatched on main (run 30322953919, success) → tag v1.1.0 @ 365739a2 + shell "v1.1.0 — Weather Report" (release id 360802948) → `release.yml` dispatched on ref v1.1.0 (run 30323024252) to build + publish assets/notes into the shell.
+- **Files:** NEW `.github/workflows/cut-release.yml`, `.github/workflows/release.yml` (gate + comment), mirrored to `main`.
+- **Verification:** both workflow files byte-identical Rawhide↔main; cut run green; tag/target/title verified via API; publish-gate reasoning documented in the workflow header.
+
+## 2026-07-27 — chore(release): retire the unsigned shim DMG everywhere (maintainer decision)
+- **Why:** maintainer: "we've drug that corpse along long enough." The shim existed only as an updater bridge for pre-.pkg .dmg/.app installs. Safety pre-verified in-repo: the 2026-07-08 "pkg downloads but never applies" regression that reverted the first removal was root-caused to the nightly SHA race (fixed) — the changelog explicitly calls the DMG revert a red herring "can be re-attempted later" — and the maintainer previously recorded that all macOS users have moved to the .pkg.
+- **Removed:** shim-DMG build steps + asset-list entries from `nightly.yml`, `beta-release.yml`, `release.yml` (all still parse as YAML); the shim section, `--skip-shim` flag, and summary lines from `scripts/build-macos.sh` (bash -n clean); the whole client-side legacy path from `update_service.dart` — 3 `.dmg` consts, `_getLegacyMacDmgAsset()`, the checkForUpdate fallback probe, and the hdiutil-attach DMG branch of `_replaceMacApp` (pkg-only script now); the `.dmg` mention in `docs/install.md`.
+- **Accepted cost (stated):** binaries so old they predate the .pkg-aware updater will find no recognizable asset and silently stop seeing updates — one manual .pkg download recovers them. Per the maintainer's earlier assessment, that set is effectively empty.
+- **Files:** 3 workflows, `build-macos.sh`, `update_service.dart`, `docs/install.md`, `docs/Rawhide.md`.
+- **Verification:** all 3 workflows parse; bash -n clean; `flutter analyze` zero issues; full suite in the release-promotion pre-flight.
+
+
+## 2026-07-27 — fix(tts): Speech Rate slider was a no-op for Piper (hardcoded) and masked for Kokoro (replay cache)
+- **Why:** Discord report — the speed slider does nothing for Kokoro and Piper. Two distinct bugs:
+- **Bug 1 (Piper, total no-op):** the whole Piper chain had no speed parameter — `_piperGenerateWav(voice, text, index)` → `SherpaPiperEngine.generate(root, voiceKey, text, outputPath)` → worker `tts.generate(..., speed: 1.0)` HARDCODED. Fixed by threading `speed` end-to-end (engine signature, isolate job payload `job[3]`, all 3 tts_service call sites — the third needed `speed` hoisted into the `_isPiperEngine` branch, it was scoped to the sibling ElevenLabs branch).
+- **Bug 2 (all engines, masked as no-op):** the replay cache key was (messageId, textHash, voice, engine) — speed missing. The natural repro "play → move slider → play same message" hit the cache and replayed the OLD-speed WAV, so Kokoro (whose generation plumbing was fine) also read as a no-op. Added `_cachedSpeed` to the key + both cache-write sites.
+- **Tests:** `sherpa_piper_test.dart` — existing closed-loop updated for the new required param; new env-gated regression: 1.6x audio must be <85% the byte length of 1.0x (runs where FP_TTS_TEST_ROOT points at real models; skips in CI like the closed loop).
+- **Web parity:** none needed — web TTS plays through the same TtsService; the Speech Rate slider surface remains the desktop TTS dialog (pre-existing).
+- **Files:** `sherpa_piper_engine.dart`, `tts_service.dart`, `sherpa_piper_test.dart`, `docs/Rawhide.md`.
+- **Verification:** analyze clean; TTS suite green (model-gated tests skip without local models); full non-golden suite green (see session).
+
 ## 2026-07-27 — fix(tools): empty answers are never capability verdicts — pill no longer falls off after Scene Guest joins
 - **Why:** the tool-calling pill kept flipping to "not supported" after a Scene Guest was created, despite the earlier layer-1 fix. Root cause: that fix classified THROWN transport failures, but a KoboldCpp server-side abort (`/api/extra/abort` — fired by stopGeneration, `_fireToolEval`'s timeout teardown, or LlmEvalEngine's `ensureServerIdle` retry hygiene) completes an in-flight tool call NORMALLY: HTTP 200, zero tokens, no tool_calls. That clean empty answer reached the verdict sites as `resp` null/empty and was branded "model can't speak tools". Guest joins reproduce it reliably: long mint generation + concurrent eval burst + abort/idle traffic on the single-slot backend. (`character_gen_llm.dart` even documented the shape — the fix only moved the MINT off the abort path.)
 - **New rule at all four verdict sites** (`fireStructuredEval`, journal `_runExchange`, growth `_runExchange`, `ToolSupportTester.test`): only real evidence brands — a PROSE answer with no tool call marks XML-only; null/EMPTY answers are inconclusive (fall back to text/XML for that round, probe left untested, re-probe next pass). Cost audit: no double-generation regression — the ToolSupportTester ping (cheap, fires on model/backend switches) remains the oracle that brands genuinely tool-less models; prose-answering models still brand in-pass. `fireStructuredEval`'s flag renamed `transportFailure`→`inconclusive`; tester now re-arms `_lastAutoTestedIdentity` on inconclusive outcomes (empty answer OR transport failure) so auto-retest isn't a once-only no-op.
@@ -5839,3 +6047,305 @@ voice selection via the facade.
 **Verification:** 11 new tests (wire-format round-trip via a real protobuf reader in-test,
 end-to-end offline import, traversal, dupes, cleanup); suite 2,524 green; analyze clean;
 goldens regenerated + eyeballed; golden verify green.
+
+## 2026-07-28 (UTC) — Stoop hub: shareable card links (Discord OG embeds) + public creator profiles
+
+**Files:** `website/src/stoop/api.js`, `app.js`, `views-browse.js`, `views-inbox.js`,
+`stoop.css` (companion server work in backporch-server: share.ts OG endpoints,
+guest-accessible /creators/:id, User.bio + profileLinks migration).
+
+**What:** Card links shared to Discord unfurled as the generic FPAI logo — the hub is
+hash-routed, so crawlers never see a per-card URL. New path-based share links
+(`hub.frontporchai.app/card/<id>`, `/creator/<id>`) hit server-side OG pages (per-card
+title/summary/avatar for SFW cards; NSFW cards deliberately embed the logo + a generic
+line per the real-photo/NSFW moderation posture) and meta-refresh humans into the SPA.
+Hub: 🔗 Share buttons on card detail + creator pages (guests included), creator pages
+render bio/external links/lifetime stats, account page gains a bio + 4-link editor
+(links double as public self-attribution for cross-posted catalogs — the ScarletKat
+pattern). app.js boot translates /card/<id> paths into hash routes as a fallback until
+the Caddy /card/* → /share/card/* mapping is live.
+
+**Verification:** website build green (50 + 21 files), node --check on all edited hub
+scripts, backporch-server typecheck green; migration is additive/defaulted.
+
+**Post-review fixes (same day, Grok dual review):** NSFW card names scrubbed from OG
+titles (server 27f79cb); hub follows use the resolved user id (vanity-URL 404 fix);
+stats nullish guard + "some hidden (18+ off)" hint; `links`/`profileLinks` served as
+aliases server-side with a client fallback; Rawhide.md What's-New entry added.
+
+## 2026-07-28 (UTC) — Commit official Dart/Flutter agent skills into the repo
+
+**Files:** `.gitignore`, `.claude/skills/flutter-add-integration-test/SKILL.md`,
+`.claude/skills/dart-collect-coverage/SKILL.md`, `.claude/skills/dart-use-pattern-matching/SKILL.md`
+
+**What:** Google's Flutter/Dart teams now publish official agent skills
+(flutter/skills + dart-lang/skills on GitHub). Vendored three that fit this repo —
+integration-test authoring, coverage collection, pattern-matching idioms — so every
+contributor's agent gets current-SDK guidance (the repo just moved to Flutter 3.44.8 /
+Dart 3.12.2, newer than most models' training data). `.gitignore` narrowed from
+`.claude/skills/` to `.claude/skills/*` + negations so these three are tracked while
+per-machine skills (character-forge) stay private.
+
+**Verification:** `git status` shows only the three SKILL.md files tracked; character-forge
+still ignored.
+
+## 2026-07-28 (UTC) — TtsService dispose/stop teardown race + E2E cold-boot smoke test
+
+**Files:** `lib/services/tts_service.dart`, `integration_test/app_smoke_test.dart` (new),
+`test_driver/integration_test.dart` (new), `pubspec.yaml` + `pubspec.lock`
+(dev deps: integration_test SDK, path_provider_platform_interface)
+
+**What:** New E2E smoke test boots the REAL app (real main(), DB open, service
+init, window) and asserts MainLayout appears with no unhandled exceptions —
+the regression class unit tests can't catch (init order, plugin/native breakage
+after SDK/dep bumps). Isolation is total and non-negotiable: fake
+PathProviderPlatform rooted in a throwaway temp dir + in-memory
+SharedPreferences (from source isPreRelease=false, so a naive run would open
+the operator's REAL ~/Documents/FrontPorchAI and FileConsolidationService
+would move real Application Support folders). Scope deliberately stops at the
+home layout — opening a chat would hit PorchMemoryMailbox's hard-coded real
+$HOME paths (documented in the test header).
+
+First run immediately caught a real bug: TtsService.dispose() fires stop()
+un-awaited; stop() resumes after `await _audioPlayer.stop()` and called
+notifyListeners() on the disposed notifier (debug assert; stripped in
+release). Fixed with a `_disposed` guard. Likely present on dev/main too —
+candidate for backport.
+
+**Verification:** `flutter test integration_test/app_smoke_test.dart -d macos`
+passes (Flutter 3.44.8); full `flutter analyze` — 0 new issues (5 pre-existing
+infos from the 3.44.8 bump remain, all in untouched files); `dart fix --dry-run`
+suggests nothing in touched files.
+
+**Commits:** (see below — fix + harness committed separately)
+
+## 2026-07-28 (UTC) — Smoke test extended to a full chat round-trip + 3.44.8 lint sweep
+
+**Files:** `integration_test/app_smoke_test.dart`, plus lint fixes in
+`lib/ui/widgets/download_queue_panel.dart`, `hf_model_card.dart`,
+`output_sanitizer_rule_editor.dart`, `lib/ui/pages/create_group_chat_page.dart`,
+`lib/services/chat/journal_store.dart`
+
+**What:** (1) Lint sweep restored 0-issue `flutter analyze` after the 3.44.8 bump:
+SizeTransition axisAlignment→alignment (SDK formula, behavior identical),
+ReorderableListView onReorder→onReorderItem (semantics change — framework now
+pre-adjusts newIndex, manual decrements deleted), null-aware spread in
+journal_store. (2) The E2E smoke test now does a full conversation, not just
+boot: an in-process fake KoboldCpp (OpenAI-SSE, ephemeral port) is wired via
+KoboldService.setBaseUrl; the test creates a character through
+CharacterRepository, opens the real ChatPage (same calls as the card-tap
+handler — the home grid doesn't rebuild on background inserts), types in the
+real input, taps the real send button, and asserts the streamed reply bubble.
+New preset 'import_llmerta_porch_memories': false is load-bearing: chat open
+would otherwise run the Mafia mailbox import against hard-coded real $HOME
+paths. Round-trip passes in ~4s wall-clock.
+
+**Verification:** `flutter analyze` — No issues found (project back to 0);
+`flutter test integration_test/app_smoke_test.dart -d macos` green.
+
+## 2026-07-28 (UTC) — E2E suite: realism + journal + sidebar coverage; TimeStrip overflow fix
+
+**Files:** `integration_test/app_smoke_test.dart` (rewritten),
+`integration_test/support/e2e_sandbox.dart` (new),
+`integration_test/support/fake_backend.dart` (new),
+`lib/ui/chat_components/sidebar/character_state/time_strip.dart`
+
+**What:** The smoke test now runs a realism-enabled journey: boot → create card
+(with FrontPorchExtensions(realismEnabled: true) — the realism_default OR only
+applies to cards that CARRY extensions) → 2-message chat → asserts the 4-call
+realism eval pipeline consumed canned eval JSON (bond 0→2, trust +1, emotion
+applied, chip metadata attached) → plants a Journal card via the app's own
+store and renders it by expanding the Journal & Memory accordion → asserts the
+'Journal on · RAG off' sidebar surface → audits backend traffic (unknown
+endpoints fail by name; /api/v0/models is a whitelisted LM Studio probe where
+404 IS the correct answer). The fake backend is connected the way real users
+connect unmanaged local servers (remote/PseudoRemote mode) because
+managed-kobold mode's zombie cleanup pkills ANY koboldcpp it didn't spawn —
+the suite also pre-flight-fails if anything listens on 5001 to protect a real
+backend. Test-window ergonomics: corner-pinned on-top + blur (macOS pauses
+frames for occluded windows; pump would hang), pump watchdog fails loudly if
+frames stop, real-mouse hover assert downgraded (framework noise).
+
+**Bug found by the suite:** TimeStrip's sidebar Row overflowed 28px whenever
+realism is on (period label + date at natural size exceed the 300px sidebar).
+Fixed with Flexible + ellipsis on the period label.
+
+**NOT covered (offline constraints, documented in the test header):**
+RAG retrieval (nomic model is a consent-gated download), TTS/STT/image-gen
+engines (model binaries), physical-state eval payload (parses to no-op).
+
+**Verification:** `flutter analyze` clean; suite green in ~6s app time.
+
+## 2026-07-28 (UTC) — E2E suite hardening from hostile review + two real fixes it forced
+
+**Files:** `integration_test/app_smoke_test.dart`, `integration_test/support/fake_backend.dart`,
+`lib/ui/chat_components/sidebar/character_state/time_strip.dart`
+
+**What (Grok review round 3, findings verified then fixed):**
+(1) TimeStrip: Flexible→Expanded + maxLines:1, competing Spacer removed — the
+review was right that Flexible+Spacer split flex space 50/50 (label truncated
+early beside empty space) and that ellipsis without maxLines can wrap.
+(2) FlutterError.onError filter: addTearDown restore + null-safe fallthrough
+to FlutterError.presentError — can no longer drop errors.
+(3) Eval-vs-chat routing now classifies on the LAST message's content, not the
+whole body: a realism-enabled chat request carries realism-state injection in
+its SYSTEM prompt, and the whole-body key search misrouted turn 2's generation
+into the eval branch (caught live by the new chatRequests>=2 assert — the
+previously "green" run had never actually generated turn 2; its reply text
+assert was satisfied by turn 1's identical reply).
+(4) Scene-time/posture eval modeled (posture/minutes_elapsed/new_day) so
+counters stay honest; tools probe is a real JSON field check; handler catch
+logs; per-completion classification line printed for post-mortems.
+(5) sendRobustly(): delivery-confirmed send with retry + controller self-heal —
+the live binding's fake keyboard connection goes stale after the app's
+post-send IME churn (enterText works for turn 1, silently no-ops for turn 2).
+
+**Verification:** `flutter analyze` clean; suite green (~7s app time) with
+completion log confirming 2 real chat generations + 4 evals + tool probes.
+
+## 2026-07-28 (UTC) — Full-array E2E: needs, chaos, objectives, and the real journal pass
+
+**Files:** `integration_test/app_smoke_test.dart`, `integration_test/support/fake_backend.dart`
+
+**What:** The smoke suite now asserts every chat subsystem does real work in one
+two-turn journey: realism evals (bond 0→13/trust/emotion/posture), the needs
+simulation (canned needs-impact deltas land as chip metadata), chaos pressure
+accumulation (extensions arm chaosModeEnabled), objective proposal (narrative
+eval proposes a real objective → activeObjectives) + autonomous task generation
+(numbered-list exchange), and a REAL journal maintenance pass — bond_delta=13
+trips the >=12 salience kick, the pass runs its XML exchange against the fake
+(tools probe → XML fallback), applies `<memory action=add>` + `<recap>`, and
+the written card must render in the sidebar panel after expanding the accordion
+(scroll-into-view + retry-tap: the sidebar outgrew the window with needs/chaos
+content and lazy list items can't be found unbuilt; an edge-of-viewport tap
+can miss silently). Fake gains journal-XML and task-list branches with their
+own counters, needs `<need>_delta` payloads, and streams via one _streamSse
+helper. Verification: analyze clean; suite green ~7s; log shows both turns'
+full 5-eval suites + 2 journal passes applied ("1 op(s) + recap" ×2).
+
+## 2026-07-28 (UTC) — E2E smoke suite wired into CI (macOS blocking, Windows experimental)
+
+**Files:** `.github/workflows/ci.yml`
+
+**What:** New `e2e-smoke` job (needs: analyze) runs the full-array suite on
+every PR/push to dev/main/Rawhide: macos-latest blocking, windows-latest
+`continue-on-error: true` until its first green run is on record (then flip
+`experimental` to false). Public repo → hosted macOS/Windows runners are free.
+30-min job timeout; build dominates, test is ~7s. Linux deliberately not wired
+(needs xvfb). Verified by pushing Rawhide and watching the run.
+
+## 2026-07-28 (UTC) — E2E: survive (and cover) the Chance Time wheel
+
+**Files:** `integration_test/app_smoke_test.dart`
+
+**What:** Chaos Mode's Chance Time wheel is a modal overlay that waits for the
+USER to spin — and the trigger roll is RNG, so it strikes runs
+nondeterministically. The operator caught a hung run by literally watching the
+window: the suite was waiting for chatRequests=2 while the app waited for a
+spin. All 7 post-send waits + the send retry loop now run through
+spinChanceTimeIfAsked(): tap SPIN, wait out the landing, dismiss the result
+card — user-faithful, and it turns the wheel into covered surface whenever it
+fires. 4 consecutive green runs after the change (no roll observed locally;
+the handler's live proof will come from CI frequency).
+
+## 2026-07-28 (UTC) — E2E: 4x CI timeout scale + instrumented turn-1 wait
+
+**Files:** `integration_test/support/e2e_sandbox.dart`, `integration_test/app_smoke_test.dart`
+
+**What:** First CI run: Windows PASSED first try (suite now proven
+cross-platform); macOS runner timed out waiting for turn 1's reply — 2-core
+runner vs locally-tuned timeouts. All wait helpers now multiply timeouts by
+kCiTimeoutScale (4 when CI=true, 1 locally), and the turn-1 reply wait is
+split: first wait for chatRequests>=1 with live backend counters in the
+failure message (evals vs generation vs render pinpointing), then the render
+wait. Local run unchanged and green.
+
+## 2026-07-28 (UTC) — CI e2e-smoke: both platforms green; Windows promoted to blocking
+
+**Files:** `.github/workflows/ci.yml`
+
+**What:** Run 2 with the 4x CI timeout scale: macOS 3m13s green, Windows 4m12s
+green (Windows has passed both of its first two executions ever). Windows
+`experimental` flipped to false — the E2E smoke suite now BLOCKS PRs on both
+desktop platforms.
+
+## 2026-07-28 (UTC) — E2E chaos assert: pressure OR wheel — CI run 3 caught the coupling
+
+**Files:** `integration_test/app_smoke_test.dart`
+
+**What:** CI run 3 (macOS): the Chance Time wheel fired live for the first
+time — the spin handler worked end to end (spun, dismissed, event-injected
+generation served) — and then the chaos assert timed out at "pressure > 0
+(now 0)": firing Chance Time CONSUMES the pressure back to zero, so
+"pressure moved" and "wheel fired" are mutually exclusive proofs of the same
+mechanism. The assert now accepts either. Also retroactively explains CI
+run 1's macOS failure (wheel blocking turn 1 before the handler existed).
+Windows is 3/3 green.
+
+## 2026-07-28 (UTC) — ChatDriver extraction (wheel immunity everywhere) + Linux CI (experimental)
+
+**Files:** `integration_test/support/chat_driver.dart` (new),
+`integration_test/app_smoke_test.dart`, `.github/workflows/ci.yml`
+
+**What:** All interaction plumbing moved into ChatDriver with two invariants
+baked into EVERY wait: CI timeout scaling and Chance Time immunity (spin →
+land → dismiss). Previously a handful of waits (waitSendable, widget finds,
+the accordion loop) weren't wheel-aware, so an unluckily-timed RNG roll could
+still red a CI run even though the app worked as intended — unacceptable for
+a PR gate. Now structurally impossible: waits exist only through the driver.
+Also resolves the 500-line pressure (test 348 + driver 167). ci.yml: Linux
+e2e job added experimental (xvfb + GTK/GStreamer deps), same
+observe-then-graduate path Windows took, so shakedown runs can't block PRs.
+
+## 2026-07-28 (UTC) — "Our Story" eternal spinner fixed (unstable Riverpod family key)
+
+**Files:** `lib/services/chat/milestone_feed.dart`, `lib/services/chat_service.dart`,
+`lib/services/chat/milestone_providers.dart` (+ regenerated .g.dart),
+`lib/ui/dialogs/journal_timeline_tab.dart`, `lib/services/web/facade/chat_tools_facade.dart`,
+`test/services/chat/milestone_feed_test.dart`, `test/services/chat/riverpod_providers_test.dart`,
+`integration_test/support/chat_driver.dart`, `integration_test/app_smoke_test.dart`,
+`docs/Rawhide.md`
+
+**What:** Operator-reported: the Journal dialog's Our Story tab spun forever on
+a live session. Root cause: `ChatService.messages` returns `List.unmodifiable`
+(a NEW instance per call) and it was a `milestoneTimelineProvider` FAMILY KEY —
+list == is identity, so every dialog rebuild (and busy sessions rebuild
+constantly: RAG init, growth, timers) registered as "new args", discarded the
+loading provider, and started a fresh one. The fetch never completed. Fix:
+messages leave the family entirely; MilestoneFeed gains a `getMessages`
+callback (wired to the internal list in chat_service, matching the getDb
+pattern) read at fetch time; `revision` (message count) remains the intended
+refetch key. Web facade + both test files updated (facade behavior unchanged —
+it never used Riverpod, web timeline was never broken; desktop-only bug).
+
+**Regression net:** E2E journey gains Phase 4b — open the Journal dialog from
+the sidebar (ensure-visible retry: the Open button sits below the sidebar
+fold), switch to Our Story, and require NO spinner remains inside the dialog
+(content-agnostic: entries and empty state both count).
+
+**Verification:** milestone_feed_test + riverpod_providers_test green (7 tests);
+full E2E green in ~8s; analyze clean; build_runner regenerated.
+
+## 2026-07-28 (UTC) — Linux E2E promoted to blocking (2/2 green from first execution)
+
+**Files:** `.github/workflows/ci.yml`
+
+**What:** Linux e2e-smoke passed both of its first two CI executions (xvfb +
+GTK/GStreamer recipe worked untouched). experimental → false. The full-array
+E2E suite now BLOCKS PRs on all three desktop platforms.
+
+## 2026-07-29 (UTC) — frontporchai.app was advertising v1.0.0; version now self-updating
+
+**Files:** `website/build.mjs`, `website/src/index.html`, `website/src/main.js`
+
+**What:** The live site showed "Latest release · v1.0.0" + a "Version 1.0 is
+here" hero banner while the real latest stable was v1.1.2 — the version was a
+hardcoded build.mjs constant nobody bumped across v1.1.0/v1.1.1/v1.1.2.
+build.mjs now fetches the latest release (tag + name) from the GitHub API at
+build time (hardcoded value demoted to offline fallback with a warning), and
+main.js refreshes the banner/version client-side on load so the page stays
+correct even between deploys. Scrubbed dated launch copy ("New in 1.0",
+Stoop "New!" tag). Rebuilt + rsynced to the droplet; verified live via
+headless browser (correct text, zero console errors); screenshot in
+~/Desktop/fpai-review/website-v112-live.png. Commit a4f4161c (Rawhide,
+local only — not pushed).

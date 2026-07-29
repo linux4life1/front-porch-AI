@@ -44,7 +44,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.1'
+          flutter-version: '3.44.8'
           channel: 'stable'
           cache: true
 
@@ -112,6 +112,34 @@ jobs:
         env:
           CXXFLAGS: "-Wno-unknown-warning-option"
         run: flutter build linux --release
+
+      # ── Guard: the Linux bundle MUST be able to reach SQLite ──
+      # v1.1.0 shipped with no SQLite in the bundle and bricked every Linux
+      # install ("libsqlite3.so is missing" -> "database is corrupted"). The
+      # build succeeded and tests passed; only real users saw it. Checks
+      # REACHABILITY, not a filename: sqlite3 3.x emits a standalone
+      # lib/libsqlite3.so, sqlite3_flutter_libs 0.5.x compiles sqlite3.c into
+      # the plugin .so. Either is fine; zero exporters is a broken release.
+      # Full rationale in .github/workflows/release.yml and pubspec.yaml.
+      - name: Verify SQLite is bundled (Linux)
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          BUNDLE=build/linux/x64/release/bundle
+          FOUND=""
+          while IFS= read -r so; do
+            if nm -D --defined-only "$so" 2>/dev/null | grep -qE ' sqlite3_open_v2$'; then
+              echo "  ✓ $(basename "$so") exports sqlite3_open_v2"
+              FOUND="yes"
+            fi
+          done < <(find "$BUNDLE" -name '*.so*' -type f)
+          if [ -z "$FOUND" ]; then
+            echo "::error::No library in the Linux bundle exports the SQLite C API."
+            echo "::error::The app cannot open its database. See pubspec.yaml note."
+            find "$BUNDLE" -name '*.so*' -type f -printf '  %f\n' || true
+            exit 1
+          fi
+          echo "SQLite is reachable from the bundle."
 
       - name: Bundle libfpzip for the native Draw Things client (macOS)
         if: matrix.platform == 'macos'
@@ -182,8 +210,8 @@ jobs:
       # Primary artifact for beta channel is now .pkg (to match the updater consts
       # and the overall .pkg direction). Beta flow currently does ad-hoc app re-sign
       # (no full Developer ID + notary secrets in this workflow), so we do a bare
-      # pkgbuild here. The important thing for the auto-updater transition is the
-      # fixed name + the unsigned shim DMG.
+      # pkgbuild here. The important thing for the auto-updater is the
+      # fixed canonical .pkg name (the shim DMG was retired 2026-07-27).
       - name: Build macOS PKG (primary for beta channel)
         if: matrix.platform == 'macos'
         run: |
@@ -207,33 +235,6 @@ jobs:
           # in-app updater expects. Use ${GITHUB_WORKSPACE} (absolute) to avoid
           # brittle relative ../../ counts (addresses review issues 1 and 9).
           mv "$PKG_NAME" "${GITHUB_WORKSPACE}/Front_Porch_AI_MacOS.pkg" 2>/dev/null || true
-
-      # Unsigned shim DMG (the "one last" bridge). Same .app, legacy name, no sign.
-      # This + the PKG above lets beta-channel users (old and new) keep auto-updating
-      # from within the app.
-      - name: Build unsigned shim DMG (legacy name for beta updater transition)
-        if: matrix.platform == 'macos'
-        run: |
-          cd build/macos/Build/Products/Release
-          APP_NAME=$(ls -d *.app | head -1)
-          # Write directly to GITHUB_WORKSPACE using absolute path (robust, no
-          # relative ../../ count that can drift; see review issue 9). This
-          # ensures the exact legacy name appears at root for artifact/gh-release.
-          SHIM_DMG="${GITHUB_WORKSPACE}/Front_Porch_AI_MacOS.dmg"
-          echo "==> Building unsigned shim DMG $SHIM_DMG (no codesign/notarize)"
-          SHIM_ROOT="/tmp/shim-beta-$$"
-          rm -rf "$SHIM_ROOT"
-          mkdir -p "$SHIM_ROOT"
-          cp -R "$APP_NAME" "$SHIM_ROOT/"
-          if hdiutil create -volname "Front Porch AI" -srcfolder "$SHIM_ROOT" -ov -format UDZO "$SHIM_DMG" 2>&1 | tail -3; then
-            echo "✓ beta shim DMG via hdiutil"
-          else
-            echo "hdiutil shim failed; create-dmg --skip-jenkins fallback"
-            brew install create-dmg || true
-            "${GITHUB_WORKSPACE}/create-dmg.sh" --skip-jenkins "$SHIM_DMG" "$SHIM_ROOT" || true  # absolute for consistency (Issue B)
-          fi
-          rm -rf "$SHIM_ROOT"
-          ls -l "$SHIM_DMG" || true
 
       - name: Get Version
         id: get_version
@@ -291,7 +292,6 @@ jobs:
           path: |
             Front_Porch_AI_Beta_Setup.exe
             Front_Porch_AI_MacOS.pkg
-            Front_Porch_AI_MacOS.dmg
             Front_Porch_AI-Linux.AppImage
           if-no-files-found: ignore
 
@@ -336,7 +336,6 @@ jobs:
           files: |
             Front_Porch_AI_Beta_Setup.exe
             Front_Porch_AI_MacOS.pkg
-            Front_Porch_AI_MacOS.dmg
             Front_Porch_AI-Linux.AppImage
           prerelease: true
           name: "${{ github.ref_name }} (Pre-Release)"

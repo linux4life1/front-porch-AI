@@ -21,7 +21,7 @@ import 'package:front_porch_ai/app_version.dart';
 export 'package:file_picker/file_picker.dart'
     show FileType, FilePickerResult, PlatformFile;
 
-/// Thin wrapper around `FilePicker.platform` that remembers the last folder
+/// Thin wrapper around `FilePicker` that remembers the last folder
 /// used per [category] and reopens the native dialog there (#84).
 ///
 /// Every open/save/directory dialog previously started at the OS default (root
@@ -65,7 +65,7 @@ class PickerPrefs {
     }
   }
 
-  /// Drop-in for `FilePicker.platform.pickFiles` that resumes at (and records)
+  /// Drop-in for `FilePicker.pickFiles` that resumes at (and records)
   /// the last folder used for [category].
   static Future<FilePickerResult?> pickFiles({
     required String category,
@@ -77,7 +77,7 @@ class PickerPrefs {
     bool lockParentWindow = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       dialogTitle: dialogTitle,
       initialDirectory: _read(prefs, category),
       type: type,
@@ -93,7 +93,7 @@ class PickerPrefs {
     return result;
   }
 
-  /// Drop-in for `FilePicker.platform.saveFile`.
+  /// Drop-in for `FilePicker.saveFile`.
   static Future<String?> saveFile({
     required String category,
     String? dialogTitle,
@@ -104,7 +104,7 @@ class PickerPrefs {
     bool lockParentWindow = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final path = await FilePicker.platform.saveFile(
+    final path = await FilePicker.saveFile(
       dialogTitle: dialogTitle,
       fileName: fileName,
       initialDirectory: _read(prefs, category),
@@ -117,7 +117,7 @@ class PickerPrefs {
     return path;
   }
 
-  /// Drop-in for `FilePicker.platform.getDirectoryPath`. Remembers the chosen
+  /// Drop-in for `FilePicker.getDirectoryPath`. Remembers the chosen
   /// directory itself so the next pick starts there.
   static Future<String?> getDirectoryPath({
     required String category,
@@ -125,7 +125,7 @@ class PickerPrefs {
     bool lockParentWindow = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final path = await FilePicker.platform.getDirectoryPath(
+    final path = await FilePicker.getDirectoryPath(
       dialogTitle: dialogTitle,
       initialDirectory: _read(prefs, category),
       lockParentWindow: lockParentWindow,

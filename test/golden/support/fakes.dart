@@ -32,8 +32,11 @@ import 'package:front_porch_ai/models/chat_generation_settings.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/models/chat_theme_overrides.dart';
 import 'package:front_porch_ai/models/chat_participant.dart';
+import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
+import 'package:front_porch_ai/services/chat/weather_segments.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
+import 'package:front_porch_ai/utils/character_linked_world.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
@@ -390,6 +393,23 @@ class FakeChatService extends ChangeNotifier implements ChatService {
           date: _time.clock.add(const Duration(days: 1)),
         );
 
+  // Intra-day chip surface (Living Time §3 / Living Worlds): same shape as
+  // the real getter — gated on currentWeather, recomputed by WeatherSegments
+  // over the deterministic seed/day/clock. Span-less temperate climate, so
+  // pre-biome chip pixels stay byte-identical.
+  @override
+  SegmentWeather? get currentSegmentWeather => currentWeatherValue == null
+      ? null
+      : WeatherSegments.segmentWeatherFor(
+          sessionSeed: currentSessionId!,
+          dayCount: _time.dayCount,
+          date: _time.clock,
+          hour: _time.clock.hour,
+        );
+
+  @override
+  Biome get activeChatBiome => Biome.temperate;
+
   @override
   String? get currentSessionId => 'golden-session';
 
@@ -483,6 +503,10 @@ class FakeCharacterRepository extends ChangeNotifier
   @override
   Future<void> loadCharacters() async {}
 
+  /// Home grid keys cover images with this; static goldens stay at 0.
+  @override
+  int get coverEpoch => 0;
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -544,6 +568,12 @@ class FakeWorldRepository extends ChangeNotifier implements WorldRepository {
   List<world_model.World> get worlds => List.unmodifiable(_worlds);
   @override
   bool get isLoading => false;
+
+  // Living Worlds: mirrors the real filter (places = not character-linked).
+  @override
+  List<world_model.World> get placeWorlds => List.unmodifiable(
+        _worlds.where((w) => !isCharacterLinkedWorld(w)),
+      );
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

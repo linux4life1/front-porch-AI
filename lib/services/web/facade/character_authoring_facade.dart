@@ -24,6 +24,7 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/avatar_image.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/portrait_promotion.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Write-side adapter for character authoring beyond create/edit: delete and
@@ -183,15 +184,42 @@ class CharacterAuthoringFacade {
 
   /// Set (or clear) the ★ favorite avatar — the export cover + default opening
   /// face. Pass the avatar id, or null/'' to clear back to the portrait. Pointer
-  /// only: never mutates `imagePath`. Persists via the card's PNG extensions.
+  /// only when a portrait already exists; if the card has no usable portrait,
+  /// the starred image is bootstrapped into `imagePath` so the extensions write
+  /// can land (desktop parity for issue #171).
   Future<bool> setFavorite(String id, String? avatarId) async {
     final card = await _repo.getCharacterCardById(id);
     if (card == null) return false;
-    final ext = card.frontPorchExtensions ?? FrontPorchExtensions();
-    ext.favoriteAvatarId = (avatarId == null || avatarId.trim().isEmpty)
+    final clean = (avatarId == null || avatarId.trim().isEmpty)
         ? null
         : avatarId;
+    final ext = card.frontPorchExtensions ?? FrontPorchExtensions();
+    ext.favoriteAvatarId = clean;
     card.frontPorchExtensions = ext;
+    card.avatarImages = await _repo.getAvatarImages(id);
+    if (clean != null && !hasUsablePortrait(card, _storage)) {
+      AvatarImage? target;
+      for (final a in card.avatarImages ?? const <AvatarImage>[]) {
+        if (a.id == clean) {
+          target = a;
+          break;
+        }
+      }
+      if (target != null) {
+        final file = target.resolveFile(
+          _storage.characterBaseDir(card.name).path,
+        );
+        if (file.existsSync()) {
+          await bootstrapPortraitIfMissing(
+            card: card,
+            storage: _storage,
+            bytes: await file.readAsBytes(),
+            updateCharacter: _repo.updateCharacter,
+          );
+          return true;
+        }
+      }
+    }
     await _repo.updateCharacter(card);
     return true;
   }

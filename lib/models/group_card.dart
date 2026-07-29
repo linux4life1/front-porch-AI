@@ -58,7 +58,12 @@ class GroupCard {
   final String? groupLorebook;
 
   /// Attached world IDs for this group (world lorebooks + descriptions).
+  /// Prefer UUIDs (Living Worlds); older cards may still carry names here.
   final List<String> worldIds;
+
+  /// Display names parallel to [worldIds] for legacy importers that only
+  /// resolve worlds by name. Empty when unknown.
+  final List<String> worldNames;
 
   /// Whether member character lorebooks should be inherited.
   final bool inheritCharacterLorebooks;
@@ -102,6 +107,7 @@ class GroupCard {
     Map<String, String>? characterSystemPrompts,
     this.groupLorebook,
     List<String>? worldIds,
+    List<String>? worldNames,
     this.inheritCharacterLorebooks = true,
     this.chaosModeEnabled = false,
     this.chaosNsfwEnabled = false,
@@ -111,7 +117,8 @@ class GroupCard {
     this.extensions,
   }) : rawMemberData = rawMemberData ?? members.map((c) => c.toJson()).toList(),
        characterSystemPrompts = characterSystemPrompts ?? {},
-       worldIds = worldIds ?? [];
+       worldIds = worldIds ?? [],
+       worldNames = worldNames ?? [];
 
   Map<String, dynamic> toJson() {
     final result = <String, dynamic>{
@@ -132,6 +139,10 @@ class GroupCard {
     }
     if (worldIds.isNotEmpty) {
       result['world_ids'] = worldIds;
+    }
+    // Dual-ref for older importers that still bind by name (Living Worlds).
+    if (worldNames.isNotEmpty) {
+      result['world_names'] = worldNames;
     }
     result['inherit_character_lorebooks'] = inheritCharacterLorebooks;
 
@@ -208,6 +219,11 @@ class GroupCard {
             ?.map((e) => e.toString())
             .toList() ??
         [];
+    final worldNames =
+        (json['world_names'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
 
     return GroupCard(
       name: json['name'] ?? 'Group',
@@ -222,6 +238,7 @@ class GroupCard {
       characterSystemPrompts: charPrompts,
       groupLorebook: json['group_lorebook']?.toString(),
       worldIds: worldIds,
+      worldNames: worldNames,
       inheritCharacterLorebooks: json['inherit_character_lorebooks'] ?? true,
       chaosModeEnabled: json['chaos_mode_enabled'] ?? false,
       chaosNsfwEnabled: json['chaos_nsfw_enabled'] ?? false,

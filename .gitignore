@@ -141,8 +141,13 @@ bug_triage.md
 create-dmg.sh
 docs/Newsletter-Since-March-28-2026.md
 
-# Local Claude Code skills (per-machine, never shared).
-.claude/skills/
+# Local Claude Code skills (per-machine, never shared) — except the official
+# Dart/Flutter skills from flutter/skills + dart-lang/skills, which are
+# committed so every contributor's agent gets current-SDK guidance.
+.claude/skills/*
+!.claude/skills/dart-collect-coverage/
+!.claude/skills/dart-use-pattern-matching/
+!.claude/skills/flutter-add-integration-test/
 
 # Locally-built fpzip dylib for the native Draw Things client (scripts/build-fpzip-macos.sh)
 tools/fpzip/

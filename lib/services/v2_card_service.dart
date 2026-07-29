@@ -38,10 +38,12 @@ class V2CardService {
         final bytes = await File(sourceImagePath).readAsBytes();
         avatar = img.decodeImage(bytes);
       }
-    } catch (e) {
-      if (sourceImagePath != null) {
-        rethrow;
-      }
+    } catch (_) {
+      // Corrupt / non-image bytes (or a format decoder that throws): fall
+      // through to the synthetic placeholder rather than failing the whole
+      // card write. Callers that bootstrap a portrait then re-embed via
+      // updateCharacter must not lose extensions over a bad decode.
+      avatar = null;
     }
 
     if (avatar == null) {

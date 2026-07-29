@@ -18,7 +18,7 @@
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:front_porch_ai/services/update_service.dart';
@@ -173,8 +173,8 @@ class UpdateDialog extends StatelessWidget {
   }
 
   /// Renders the non-technical "What's New" changelog from the GitHub release body.
-  /// Uses flutter_markdown (already a dependency) inside a constrained scroll area
-  /// so long release notes do not blow out the AlertDialog.
+  /// Uses flutter_markdown_plus inside a constrained scroll area so long release
+  /// notes do not blow out the AlertDialog.
   /// Empty state gracefully falls back to a GitHub link (covers the case where
   /// the release body has not yet been populated with friendly text).
   Widget _buildChangelogSection(BuildContext context, UpdateService service) {

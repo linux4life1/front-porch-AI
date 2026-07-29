@@ -285,7 +285,7 @@ class _DatabaseCleanupDialogState extends State<DatabaseCleanupDialog> {
       'Broken group character refs',
       Icons.group,
     ),
-    _Category('group_world_ids', 'Broken group world refs', Icons.public),
+    _Category('group_world_refs', 'Broken group world refs', Icons.public),
   ];
 
   List<Widget> _buildOrphanCategoryList(ThemeData theme, OrphanReport report) {

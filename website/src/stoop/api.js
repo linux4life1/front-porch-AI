@@ -63,6 +63,7 @@
   var ERROR_TEXT = {
     invalid_credentials: 'Wrong email or password.',
     email_taken: 'An account with that email already exists.',
+    display_name_taken: 'That display name is already taken — pick another.',
     underage: 'You must be 18 or older to use The Stoop.',
     account_banned: 'This account has been banned.',
     ban_evasion: 'Sign-up was blocked. If you believe this is a mistake, reach out on Discord.',
@@ -212,6 +213,9 @@
     },
     setNsfw: function (enabled) {
       return api('POST', '/auth/nsfw', { enabled: enabled }).then(applyAuthPayload);
+    },
+    updateProfile: function (bio, links) {
+      return api('POST', '/me/profile', { bio: bio, links: links }).then(applyAuthPayload);
     },
     changePassword: function (currentPassword, newPassword) {
       return api('POST', '/auth/change-password', { currentPassword: currentPassword, newPassword: newPassword });

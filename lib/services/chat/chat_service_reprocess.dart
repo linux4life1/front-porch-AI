@@ -357,7 +357,16 @@ extension ChatServiceReprocess on ChatService {
     int hostIndex = -1;
     for (int i = _messages.length - 1; i >= 0; i--) {
       final m = _messages[i];
-      if (m.isUser || m.sender == 'System') return; // user/System tail — nothing to regen
+      if (m.isUser || m.sender == 'System') {
+        return; // user/System tail — nothing to regen
+      }
+      // Narration banners (dreams, Chance Time) look like character messages
+      // (isUser false, character-name sender) but are not regen targets —
+      // regenerating one would replace a rollover artifact with a chat reply.
+      if (m.activeMetadata?['is_dream'] == true ||
+          m.activeMetadata?['is_chance_time_narration'] == true) {
+        return;
+      }
       if (!_isGuestAuthoredMessage(m)) {
         hostIndex = i;
         break;
@@ -396,8 +405,13 @@ extension ChatServiceReprocess on ChatService {
     // restore it; see _abortIfBackendDown).
     if (await _abortIfBackendDown()) return;
 
-    // Check if the last message is from the character
-    if (!_messages.last.isUser && _messages.last.sender != 'System') {
+    // Check if the last message is from the character. Narration banners
+    // (dreams, Chance Time) carry a character-name sender but must never be
+    // regen targets — a regen would swipe a chat reply into the banner.
+    if (!_messages.last.isUser &&
+        _messages.last.sender != 'System' &&
+        _messages.last.activeMetadata?['is_dream'] != true &&
+        _messages.last.activeMetadata?['is_chance_time_narration'] != true) {
       // Instead of removing the message, we generate a new swipe
       // Temporarily remove the last message so the prompt doesn't include it
       final lastMsg = _messages.removeLast();

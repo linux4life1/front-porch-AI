@@ -5,10 +5,10 @@
 # + "ticket survives so Gatekeeper accepts the installed app".
 #
 # Bare-minimum packaging: plain pkgbuild + productsign for .pkg (signed+notarized+stapled).
-# Also emits one last unsigned/un-notarized shim DMG (under legacy channel names
-# like Front_Porch_AI_Nightly.dmg) so the in-app updater (which still knows how
+# (The unsigned shim DMG was retired 2026-07-27 — the .pkg is the only macOS
+# artifact; the in-app updater has been .pkg-first since the transition and
 # to hdiutil+replace for old .app installs) can bridge old and new users.
-# Primary artifacts: .pkg . The shim is the compat layer only (transitional).
+# Primary artifact: .pkg .
 #
 # Preferred auth: App Store Connect API key (stable, no flaky password keychain item).
 #   export APPLE_API_KEY_PATH=/path/to/AuthKey_XXXX.p8
@@ -29,18 +29,13 @@
 #   7. Diagnostics + verification steps
 #
 # Usage:
-#   ./scripts/build-macos.sh            # full (build + sign + bare .pkg + notarize + unsigned shim DMG)
+#   ./scripts/build-macos.sh            # full (build + sign + bare .pkg + notarize)
 #   ./scripts/build-macos.sh --fast
 #   ./scripts/build-macos.sh --full-notarize
-#   ./scripts/build-macos.sh --skip-shim   # independent; --skip-pkg does not force it
 #
-# After run: the .pkg (+ last unsigned shim DMG for updater compat) is ready.
+# After run: the .pkg is ready.
 # Double-click the .pkg to install to /Applications.
-# The shim DMG (Front_Porch_AI_Nightly.dmg etc.) is deliberately unsigned/un-notarized
 # and is the bridge so in-app auto-update continues to work for everyone during
-# the .dmg->.pkg transition.
-# Note: --skip-shim is now independent of --skip-pkg (the .app bundle from a prior
-# full or --fast run is sufficient for shim production).
 
 set -euo pipefail
 
@@ -50,7 +45,6 @@ set -euo pipefail
 DO_ML=1          # full app build (Flutter + web UI) by default
 SKIP_SIGN=0
 SKIP_PKG=0
-SKIP_SHIM=0
 FULL_NOTARIZE=0
 CERT_NAME="${MACOS_CERTIFICATE_NAME:-}"
 
@@ -67,7 +61,6 @@ for arg in "$@"; do
     --sign-only) DO_ML=0; SKIP_SIGN=0 ;;
     --full-notarize) FULL_NOTARIZE=1 ;;
     --skip-pkg) SKIP_PKG=1 ;;
-    --skip-shim) SKIP_SHIM=1 ;;
     --cert-name=*) CERT_NAME="${arg#*=}" ;;
     --help|-h)
       echo "See top of script for usage."
@@ -88,7 +81,6 @@ cd "$ROOT"
 APP_NAME="FrontPorchAI-Rawhide.app"
 APP_BUNDLE="$ROOT/build/macos/Build/Products/Release/$APP_NAME"
 PKG_PATH=""
-SHIM_DMG_PATH=""
 
 
 if [ "$DO_ML" -eq 1 ]; then
@@ -365,53 +357,6 @@ else
   echo "    .pkg created: $PKG_PATH (signed with Installer cert via productsign)"
 fi
 
-# ─────────────────────────────────────────────────────────────────────────────
-# One last unsigned shim DMG (transitional bridge for the in-app updater).
-# Produced from the *same* .app that went into the .pkg so versions match.
-# Deliberately NOT codesigned or notarized (so Gatekeeper does not interfere
-# with the temp hdiutil attach that the legacy client replace script performs).
-# The DMG contains the .app directly at the volume root so the client's
-#   find "$MOUNT_POINT" -maxdepth 1 -name "*.app" ...
-# logic continues to work exactly as before.
-# Uses direct hdiutil (minimal) or falls back to ./create-dmg.sh --skip-jenkins.
-# Only for the Rawhide/nightly legacy name here (local builds target Rawhide).
-# CI publishes the full set of legacy shims for all channels.
-# ─────────────────────────────────────────────────────────────────────────────
-if [ "$SKIP_SHIM" -eq 1 ]; then
-  echo "==> Skipping unsigned shim DMG (--skip-shim)"
-else
-  # Legacy shim name expected by both old and new client code for the nightly/rawhide channel.
-  SHIM_DMG_NAME="Front_Porch_AI_Nightly.dmg"
-  SHIM_DMG_PATH="$ROOT/$SHIM_DMG_NAME"
-  echo "==> Producing unsigned un-notarized shim DMG for updater transition: $SHIM_DMG_NAME"
-  rm -f "$SHIM_DMG_PATH"
-  SHIM_ROOT="$ROOT/build/shim-dmg-$$"
-  rm -rf "$SHIM_ROOT"
-  mkdir -p "$SHIM_ROOT"
-  cp -R "$APP_BUNDLE" "$SHIM_ROOT/" || {
-    echo "ERROR: failed to stage .app for shim DMG"
-    rm -rf "$SHIM_ROOT"
-  }
-  if [ -d "$SHIM_ROOT" ]; then
-    # Minimal hdiutil (no fancy UI, no sign, no notarize).
-    if hdiutil create -volname "Front Porch AI" -srcfolder "$SHIM_ROOT" -ov -format UDZO "$SHIM_DMG_PATH" >/dev/null 2>&1; then
-      echo "    Shim DMG created via hdiutil: $SHIM_DMG_PATH"
-    else
-      echo "    hdiutil create for shim failed, trying create-dmg.sh --skip-jenkins (if present)..."
-      if [ -x "./create-dmg.sh" ]; then
-        ./create-dmg.sh --skip-jenkins "$SHIM_DMG_PATH" "$SHIM_ROOT" || echo "    create-dmg shim attempt also failed (continuing)"
-      fi
-    fi
-    rm -rf "$SHIM_ROOT"
-    if [ -f "$SHIM_DMG_PATH" ]; then
-      ls -lh "$SHIM_DMG_PATH"
-      echo "    Unsigned shim DMG ready (no codesign/notarize — bridge only)"
-    else
-      echo "    WARNING: shim DMG was not produced"
-    fi
-  fi
-fi
-
 # Use the NOTARY_AUTH detected earlier (API key preferred).
 # Notarize + staple the .pkg.
 if [ "$FULL_NOTARIZE" -eq 1 ] || [ -n "$NOTARY_AUTH" ]; then
@@ -440,24 +385,16 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 echo ""
 echo "======================================================================"
-echo "  DONE.  Bare .pkg + notarize/staple + unsigned shim DMG (transition bridge)."
+echo "  DONE.  Bare .pkg + notarize/staple."
 echo "======================================================================"
 echo ""
 echo "Artifacts produced:"
 echo "  .pkg (primary, signed+notarized+stapled): $PKG_PATH"
-echo "  shim DMG (unsigned/un-notarized, last one for in-app updater compat):"
-if [ -n "${SHIM_DMG_PATH:-}" ] && [ -f "$SHIM_DMG_PATH" ]; then
-  echo "    $SHIM_DMG_PATH"
-else
-  echo "    (skipped via --skip-shim or not produced)"
-fi
 echo ""
 echo "To install/test:"
 echo "  1. Double-click $PKG_PATH for the real signed install (recommended)."
-echo "  2. The unsigned shim DMG (if produced) is only for testing the legacy"
-echo "     in-app auto-update replace path from old .dmg-based installs."
-echo "  3. Let the Installer place the app to /Applications/FrontPorchAI-Rawhide.app"
-echo "  4. libfpzip is inside the installed bundle at the exact"
+echo "  2. Let the Installer place the app to /Applications/FrontPorchAI-Rawhide.app"
+echo "  3. libfpzip is inside the installed bundle at the exact"
 echo "     correct relative path (Contents/Frameworks)."
 echo "  4. Run the 4 checks on the installed app:"
 echo "     codesign -vvv --deep --strict /Applications/$APP_NAME"

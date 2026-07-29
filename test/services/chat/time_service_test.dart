@@ -34,9 +34,10 @@ Future<void> runEval(
   TimeService t, {
   String? oneShotText,
   Future<String?> Function(String)? fire,
+  String recent = 'User: hi\nNia: hello',
 }) => t.evaluateTimeProgressAndPostureIfNeeded(
   charName: 'Nia',
-  recent: 'User: hi\nNia: hello',
+  recent: recent,
   shortTermTierName: 'Warm',
   onChunk: null,
   fireLLMEval: (p, {onChunk}) async => fire == null ? null : await fire(p),
@@ -174,7 +175,7 @@ void main() {
       expect(pending['time_skip_to'], contains('12:00 PM'));
     });
 
-    test('"a few hours later" is +2h; bare OOC marker is +1h', () {
+    test('"a few hours later" is +2h; OOC with skip language is +1h', () {
       final t = makeService();
       seedFixed(t, timeOfDay: 'morning');
       t.detectOocTimeSkip('a few hours later, they arrive');
@@ -182,6 +183,40 @@ void main() {
       t.detectOocTimeSkip('(ooc: skip ahead a bit)');
       expect(t.clock, DateTime.utc(2026, 7, 2, 12, 0));
     });
+
+    test('OOC marker with no time language moves nothing', () {
+      // A bare "(OOC: ...)" direction/flavor note used to cost a silent +1h.
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      final before = t.clock;
+      t.detectOocTimeSkip('(ooc: she is very sweaty as a general rule)');
+      expect(t.clock, before);
+    });
+
+    test(
+      'an OOC skip owns the turn — the eval cannot double-advance',
+      () async {
+        // Field report: chip said "Time skip: 11:50 PM" while the sidebar
+        // showed 1:05 AM next day — the skip stamped the chip, then the same
+        // turn's scene-time eval re-counted the exchange and pushed the clock
+        // past midnight. The skip is now the turn's only clock authority.
+        final t = makeService();
+        seedFixed(t, timeOfDay: 'night'); // Thu 22:30
+        t.detectOocTimeSkip('(ooc: skip ahead an hour)');
+        expect(t.clock, DateTime.utc(2026, 7, 2, 23, 30));
+        await runEval(
+          t,
+          oneShotText: '{"minutes_elapsed": 75, "new_day": false}',
+        );
+        expect(t.clock, DateTime.utc(2026, 7, 2, 23, 30)); // unchanged
+        // The next turn's eval advances normally again.
+        await runEval(
+          t,
+          oneShotText: '{"minutes_elapsed": 10, "new_day": false}',
+        );
+        expect(t.clock, DateTime.utc(2026, 7, 2, 23, 40));
+      },
+    );
 
     test('"the next morning" jumps to 08:00 the following day', () {
       final t = makeService();
@@ -292,14 +327,42 @@ void main() {
     test('new_day from evening onward jumps to 08:00 next day', () async {
       final t = makeService();
       seedFixed(t); // evening 18:30
-      await runEval(t, oneShotText: '{"minutes_elapsed": 0, "new_day": true}');
+      await runEval(
+        t,
+        oneShotText: '{"minutes_elapsed": 0, "new_day": true}',
+        recent: 'Nia: goodnight... *she falls asleep*\nUser: *morning comes*',
+      );
       expect(t.clock, DateTime.utc(2026, 7, 3, 8, 0));
 
       // new_day mid-afternoon is ignored (not a valid transition).
       t.setClockDirect(DateTime.utc(2026, 7, 3, 14, 0));
-      await runEval(t, oneShotText: '{"minutes_elapsed": 0, "new_day": true}');
+      await runEval(
+        t,
+        oneShotText: '{"minutes_elapsed": 0, "new_day": true}',
+        recent: 'Nia: *she wakes from her nap*',
+      );
       expect(t.clock.hour, 14);
     });
+
+    test(
+      'hallucinated new_day without sleep/wake language is suppressed',
+      () async {
+        // The Misty bug: "the beach where we met yesterday" talk at 6:30 PM
+        // produced new_day=true and slammed the story to next morning.
+        final t = makeService();
+        seedFixed(t); // evening 18:30
+        await runEval(
+          t,
+          oneShotText: '{"minutes_elapsed": 10, "new_day": true}',
+          recent:
+              'User: *the car pulls into the lot at the beach where we met '
+              'yesterday in the rainstorm*\nNia: It looks so calm today.',
+        );
+        // Only the clamped minutes applied — same evening, same day.
+        expect(t.clock, DateTime.utc(2026, 7, 2, 18, 40));
+        expect(t.dayCount, 3);
+      },
+    );
 
     test(
       'multi-call eval failure drifts deterministically, never freezes',

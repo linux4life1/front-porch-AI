@@ -26,8 +26,8 @@ import '../sidebar_tokens.dart';
 import 'objective_task_row.dart';
 
 /// Objectives panel — primary quest, task generation/list, secondary
-/// objectives, and the add-goal field. Lives inside the Story Tools
-/// accordion (which provides collapse), so the body is always visible.
+/// objectives, and the add-goal field. Lives in its own SidebarBody
+/// accordion (collapsed by default); the accordion provides collapse.
 class ObjectivePanel extends StatefulWidget {
   final ChatService chatService;
   const ObjectivePanel({super.key, required this.chatService});
@@ -336,17 +336,18 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                 }),
 
                 const SizedBox(height: 8),
+                // Two rows so a narrow sidebar never overflows (was fixed
+                // 80px slider + labels + "Check now" → +13px overflow).
                 Row(
                   children: [
                     Text(
-                      'Check every ',
+                      'Check every',
                       style: TextStyle(
                         fontSize: 10,
                         color: AppColors.textSecondary(context),
                       ),
                     ),
-                    SizedBox(
-                      width: 80,
+                    Expanded(
                       child: SliderTheme(
                         data: SliderThemeData(
                           trackHeight: 2,
@@ -358,6 +359,7 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                             context,
                           ).withValues(alpha: 0.2),
                           thumbColor: AppColors.textSecondary(context),
+                          overlayShape: SliderComponentShape.noOverlay,
                         ),
                         child: Slider(
                           value: pObj.checkFrequency.toDouble(),
@@ -376,41 +378,40 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                         color: AppColors.textSecondary(context),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    chatService.isCheckingCompletion
-                        ? SizedBox(
+                  ],
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: chatService.isCheckingCompletion
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: SizedBox(
                             width: 12,
                             height: 12,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.5,
                               color: AppColors.bondHighOf(context),
                             ),
-                          )
-                        : InkWell(
-                            onTap: () => chatService.forceCheckCompletion(),
-                            child: Padding(
-                              padding: const EdgeInsets.all(2),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.check_circle_outline,
-                                    size: 12,
-                                    color: AppColors.bondHighOf(context),
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    'Check now',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.bondHighOf(context),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ),
-                  ],
+                        )
+                      : TextButton.icon(
+                          onPressed: () => chatService.forceCheckCompletion(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.bondHighOf(context),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 0,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.check_circle_outline, size: 12),
+                          label: const Text(
+                            'Check now',
+                            style: TextStyle(fontSize: 10),
+                          ),
+                        ),
                 ),
               ],
             ],
@@ -438,31 +439,33 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
 
             const SizedBox(height: 12),
 
-            // Add new objective box
-            Row(
+            // Add new objective — field full width; buttons wrap below on
+            // narrow sidebars instead of overflowing.
+            AppTextField(
+              controller: _goalController,
+              style: TextStyle(
+                color: AppColors.textPrimary(context),
+                fontSize: 11,
+              ),
+              decoration: _goalFieldDecoration(context, 'Add new goal...'),
+              onSubmitted: (_) => _submitGoal(
+                chatService,
+                isPrimary: chatService.primaryObjective == null,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.end,
               children: [
-                Expanded(
-                  child: AppTextField(
-                    controller: _goalController,
-                    style: TextStyle(
-                      color: AppColors.textPrimary(context),
-                      fontSize: 11,
-                    ),
-                    decoration: _goalFieldDecoration(context, 'Add new goal...'),
-                    onSubmitted: (_) => _submitGoal(
-                      chatService,
-                      isPrimary: chatService.primaryObjective == null,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
                 ElevatedButton(
                   onPressed: () => _submitGoal(chatService, isPrimary: true),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.taskAccentOf(context),
                     foregroundColor: AppColors.onChaosAccent,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
+                      horizontal: 10,
                       vertical: 0,
                     ),
                     minimumSize: const Size(0, 28),
@@ -473,14 +476,13 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                   ),
                   child: const Text('As Primary'),
                 ),
-                const SizedBox(width: 4),
                 ElevatedButton(
                   onPressed: () => _submitGoal(chatService, isPrimary: false),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.surfaceContainerOf(context),
                     foregroundColor: AppColors.textPrimary(context),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
+                      horizontal: 10,
                       vertical: 0,
                     ),
                     minimumSize: const Size(0, 28),

@@ -231,7 +231,8 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
               // Expanded content
               SizeTransition(
                 sizeFactor: _expandAnimation,
-                axisAlignment: -1,
+                // Old axisAlignment: -1 (vertical) per the SDK migration formula.
+                alignment: Alignment.topLeft,
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 300),
                   padding: const EdgeInsets.all(12),

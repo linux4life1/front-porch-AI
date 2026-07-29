@@ -26,7 +26,8 @@ import 'package:front_porch_ai/services/chat/weather_engine.dart';
 /// Applied after base decay + time-of-day.
 typedef DecayModifier = ({
   String name,
-  bool Function(String key, Map<String, int> vector, NeedsSimulation ctx) condition,
+  bool Function(String key, Map<String, int> vector, NeedsSimulation ctx)
+  condition,
   double Function(String key, int current, NeedsSimulation ctx) factor,
 });
 
@@ -66,7 +67,8 @@ class NeedsSimulation {
 
   Map<String, int> _vector = {};
   String? _pendingCatastrophe;
-  String? _lastSceneReason; // from model/Director for better chip reasons on scene deltas
+  String?
+  _lastSceneReason; // from model/Director for better chip reasons on scene deltas
 
   NeedsSimulation({
     required this.onNotify,
@@ -90,19 +92,43 @@ class NeedsSimulation {
   // Buffer state and getters completely removed.
 
   static const List<String> needKeys = [
-    'hunger', 'bladder', 'energy', 'social', 'fun', 'hygiene', 'comfort',
+    'hunger',
+    'bladder',
+    'energy',
+    'social',
+    'fun',
+    'hygiene',
+    'comfort',
   ];
 
   static const Map<String, int> needDefaults = {
-    'hunger': 75, 'bladder': 80, 'energy': 80, 'social': 65, 'fun': 65, 'hygiene': 75, 'comfort': 70,
+    'hunger': 75,
+    'bladder': 80,
+    'energy': 80,
+    'social': 65,
+    'fun': 65,
+    'hygiene': 75,
+    'comfort': 70,
   };
 
   static const Map<String, int> needDecay = {
-    'hunger': 4, 'bladder': 6, 'energy': 3, 'social': 2, 'fun': 2, 'hygiene': 1, 'comfort': 2,
+    'hunger': 4,
+    'bladder': 6,
+    'energy': 3,
+    'social': 2,
+    'fun': 2,
+    'hygiene': 1,
+    'comfort': 2,
   };
 
   static const Map<String, int> needRestore = {
-    'hunger': 50, 'bladder': 70, 'energy': 40, 'social': 45, 'fun': 40, 'hygiene': 35, 'comfort': 35,
+    'hunger': 50,
+    'bladder': 70,
+    'energy': 40,
+    'social': 45,
+    'fun': 40,
+    'hygiene': 35,
+    'comfort': 35,
   };
   static const int needRestoreDefault = 30;
 
@@ -241,22 +267,26 @@ class NeedsSimulation {
   static final List<DecayModifier> decayModifiers = <DecayModifier>[
     (
       name: 'low_energy_hunger_boost',
-      condition: (key, vector, ctx) => key == 'hunger' && (vector['energy'] ?? 50) <= 30,
+      condition: (key, vector, ctx) =>
+          key == 'hunger' && (vector['energy'] ?? 50) <= 30,
       factor: (key, current, ctx) => 1.35,
     ),
     (
       name: 'low_energy_comfort_boost',
-      condition: (key, vector, ctx) => key == 'comfort' && (vector['energy'] ?? 50) <= 25,
+      condition: (key, vector, ctx) =>
+          key == 'comfort' && (vector['energy'] ?? 50) <= 25,
       factor: (key, current, ctx) => 1.25,
     ),
     (
       name: 'low_fun_social_boost',
-      condition: (key, vector, ctx) => key == 'social' && (vector['fun'] ?? 50) <= 20,
+      condition: (key, vector, ctx) =>
+          key == 'social' && (vector['fun'] ?? 50) <= 20,
       factor: (key, current, ctx) => 1.4,
     ),
     (
       name: 'low_bladder_comfort_boost',
-      condition: (key, vector, ctx) => key == 'comfort' && (vector['bladder'] ?? 50) <= 20,
+      condition: (key, vector, ctx) =>
+          key == 'comfort' && (vector['bladder'] ?? 50) <= 20,
       factor: (key, current, ctx) => 1.25,
     ),
     // (enjoys low hygiene arousal mutation and other buffer-dependent modifiers removed with the buffers)
@@ -354,7 +384,10 @@ class NeedsSimulation {
     onNotify();
   }
 
-  void applyNeedsDeltas(Map<String, int> deltas, {bool fromSexualActivity = false}) {
+  void applyNeedsDeltas(
+    Map<String, int> deltas, {
+    bool fromSexualActivity = false,
+  }) {
     // Kept for any legacy direct callers; delegates to impact path (no buffer side effects).
     applySceneImpact(NeedsImpact(deltas: deltas));
   }
@@ -362,13 +395,20 @@ class NeedsSimulation {
   Map<String, dynamic> computeNeedsDeltasWithReasons(Map<String, int> pre) {
     final out = <String, dynamic>{};
     for (final k in needKeys) {
-      final before = pre[k] ?? 0;
+      // No baseline → no delta. A missing pre-turn value used to read as 0,
+      // fabricating "delta = the full current value" chips (a 67 hunger
+      // showed delta 67) whenever capture ran without a pre-turn vector —
+      // e.g. a time-chevron patch outside any turn (2026-07-28 snapshot).
+      final before = pre[k];
+      if (before == null) continue;
       final after = _vector[k] ?? before;
       final delta = after - before;
       String reason = 'Stable';
       if (delta > 0) reason = 'Scene action';
       if (delta < 0) reason = 'Natural decay';
-      if (_lastSceneReason != null && _lastSceneReason!.isNotEmpty) reason = _lastSceneReason!;
+      if (_lastSceneReason != null && _lastSceneReason!.isNotEmpty) {
+        reason = _lastSceneReason!;
+      }
       if (delta != 0) {
         out[k] = {'delta': delta, 'reason': reason};
       }
@@ -524,22 +564,22 @@ class NeedsSimulation {
     // character the distressed hygiene value is a HIGH number, so a raw-value
     // sort would rank their most urgent need last and let milder needs crowd
     // it out of the cap.
-    final ranked = [
-      for (final e in vector.entries)
-        (
-          key: e.key,
-          value: e.value,
-          effectiveStep: getInjectionEffectiveStep(
-            e.key,
-            e.value,
-            enjoysLowHygieneOverride: enjoysLowHygieneOverride,
-          ),
-        ),
-    ]..sort((a, b) {
-        final byStep = a.effectiveStep.compareTo(b.effectiveStep);
-        return byStep != 0 ? byStep : a.value.compareTo(b.value);
-      });
+    final ranked =
+        [
+          for (final e in vector.entries)
+            (
+              key: e.key,
+              value: e.value,
+              effectiveStep: getInjectionEffectiveStep(
+                e.key,
+                e.value,
+                enjoysLowHygieneOverride: enjoysLowHygieneOverride,
+              ),
+            ),
+        ]..sort((a, b) {
+          final byStep = a.effectiveStep.compareTo(b.effectiveStep);
+          return byStep != 0 ? byStep : a.value.compareTo(b.value);
+        });
     return ranked.where((e) => e.effectiveStep <= 4).take(3).toList();
   }
-
 }

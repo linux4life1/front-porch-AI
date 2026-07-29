@@ -166,7 +166,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.1'
+          flutter-version: '3.44.8'
           channel: 'stable'
           cache: true
 
@@ -253,6 +253,34 @@ jobs:
         env:
           CXXFLAGS: "-Wno-unknown-warning-option"
         run: flutter build linux --release
+
+      # ── Guard: the Linux bundle MUST be able to reach SQLite ──
+      # v1.1.0 shipped with no SQLite in the bundle and bricked every Linux
+      # install ("libsqlite3.so is missing" -> "database is corrupted"). The
+      # build succeeded and tests passed; only real users saw it. Checks
+      # REACHABILITY, not a filename: sqlite3 3.x emits a standalone
+      # lib/libsqlite3.so, sqlite3_flutter_libs 0.5.x compiles sqlite3.c into
+      # the plugin .so. Either is fine; zero exporters is a broken release.
+      # Full rationale in .github/workflows/release.yml and pubspec.yaml.
+      - name: Verify SQLite is bundled (Linux)
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          BUNDLE=build/linux/x64/release/bundle
+          FOUND=""
+          while IFS= read -r so; do
+            if nm -D --defined-only "$so" 2>/dev/null | grep -qE ' sqlite3_open_v2$'; then
+              echo "  ✓ $(basename "$so") exports sqlite3_open_v2"
+              FOUND="yes"
+            fi
+          done < <(find "$BUNDLE" -name '*.so*' -type f)
+          if [ -z "$FOUND" ]; then
+            echo "::error::No library in the Linux bundle exports the SQLite C API."
+            echo "::error::The app cannot open its database. See pubspec.yaml note."
+            find "$BUNDLE" -name '*.so*' -type f -printf '  %f\n' || true
+            exit 1
+          fi
+          echo "SQLite is reachable from the bundle."
 
       - name: Rename macOS app bundle for Rawhide Nightly (collision avoidance)
         if: matrix.platform == 'macos'
@@ -380,17 +408,17 @@ jobs:
 
           echo "✓ Certificate identity found in keychain"
 
-      # macOS signing + PKG notarization flow (PKG is primary; a shim .dmg rides along):
+      # macOS signing + PKG notarization flow (PKG is the ONLY macOS asset):
       #
       # 1. Clean xattrs from the built .app (must be before codesigning).
       # 2. Sign the .app bundle (inside-out: frameworks → Resources Mach-O → app).
       # 3. pkgbuild + productsign the .pkg (using Installer cert).
       # 4. Notarize + staple the .pkg.
-      # 5. Separately: build the unsigned shim .dmg (see step below) for updater compat.
       #
-      # NOTE: the shim .dmg removal was reverted on 2026-07-08 after an in-app
-      # updater regression surfaced (the .pkg downloaded but did not apply /
-      # kept re-prompting). Keep the shim until the .pkg-apply path is diagnosed.
+      # The unsigned shim .dmg was retired 2026-07-27 (maintainer decision).
+      # Its 2026-07-08 removal-revert was a red herring — the re-prompt bug was
+      # the nightly SHA race (see changelog), fixed since. All macOS users are
+      # on the .pkg; pre-.pkg binaries must manually download once.
       - name: Clean xattrs from app bundle (before code signing)
         if: matrix.platform == 'macos'
         run: |
@@ -553,38 +581,6 @@ jobs:
           
           echo "✓ Build complete: PKG and inner .app are fully notarized and stapled!"
 
-      # One last unsigned shim DMG (transitional). Produced from the exact same
-      # .app bundle that went into the .pkg. Deliberately no codesign/notarize
-      # so the legacy hdiutil attach path in UpdateService works on any macOS
-      # (including old clients). Named exactly as the legacy consts so both old
-      # and new client _platformAsset / fallback logic find it.
-      # (Restored after a removal was reverted 2026-07-08 — an in-app-updater
-      #  regression surfaced; keep until the .pkg-apply path is fully diagnosed.)
-      - name: Build unsigned shim DMG (last bridge for in-app updater from .dmg/.app installs)
-        if: matrix.platform == 'macos'
-        run: |
-          cd build/macos/Build/Products/Release
-          APP_NAME=$(ls -d *.app | head -1)
-          # Absolute via GITHUB_WORKSPACE (robust against relative path drift;
-          # addresses review issue 9). Produces exact legacy name at root.
-          SHIM_DMG="${GITHUB_WORKSPACE}/Front_Porch_AI_Nightly.dmg"
-          echo "==> Building unsigned/un-notarized shim DMG $SHIM_DMG from $APP_NAME"
-          # Stage so .app is at the volume root (client's find -maxdepth 1 expects it)
-          SHIM_ROOT="/tmp/shim-$$"
-          rm -rf "$SHIM_ROOT"
-          mkdir -p "$SHIM_ROOT"
-          cp -R "$APP_NAME" "$SHIM_ROOT/"
-          # Direct minimal hdiutil — no create-dmg fanciness, no --codesign, no --notarize
-          if hdiutil create -volname "Front Porch AI" -srcfolder "$SHIM_ROOT" -ov -format UDZO "$SHIM_DMG" 2>&1 | tail -5; then
-            echo "✓ Shim DMG created"
-          else
-            echo "hdiutil failed for shim; trying create-dmg --skip-jenkins as fallback"
-            brew install create-dmg || true
-            "${GITHUB_WORKSPACE}/create-dmg.sh" --skip-jenkins "$SHIM_DMG" "$SHIM_ROOT" || true  # absolute for consistency (Issue B)
-          fi
-          rm -rf "$SHIM_ROOT"
-          ls -l "$SHIM_DMG" || echo "(shim not present)"
-
       - name: Package Linux Nightly (AppImage + tar.gz)
         if: matrix.platform == 'linux'
         env:
@@ -636,7 +632,6 @@ jobs:
           path: |
             Front_Porch_AI_Nightly_Setup.exe
             Front_Porch_AI_Nightly.pkg
-            Front_Porch_AI_Nightly.dmg
             Front_Porch_AI_Nightly-Linux.AppImage
             Front_Porch_AI_Nightly-Linux.tar.gz
           if-no-files-found: ignore
@@ -707,7 +702,6 @@ jobs:
           files: |
             Front_Porch_AI_Nightly_Setup.exe
             Front_Porch_AI_Nightly.pkg
-            Front_Porch_AI_Nightly.dmg
             Front_Porch_AI_Nightly-Linux.AppImage
             Front_Porch_AI_Nightly-Linux.tar.gz
           body: |

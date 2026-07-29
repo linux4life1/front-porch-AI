@@ -45,7 +45,6 @@ final class MilestoneTimelineProvider
       String sessionId,
       String characterId,
       int revision,
-      List<ChatMessage> messages,
     })
     super.argument,
   }) : super(
@@ -81,7 +80,7 @@ final class MilestoneTimelineProvider
   }
 }
 
-String _$milestoneTimelineHash() => r'fd413a41c403631a87f487de76dae0a47c4d52bb';
+String _$milestoneTimelineHash() => r'fb4f584d0ab900279825369488ba948d57ce635b';
 
 /// "Our Story" timeline state (Living Time §7) — an @riverpod AsyncNotifier
 /// (project standard): the async build IS the fetch, consumers render
@@ -104,7 +103,6 @@ final class MilestoneTimelineFamily extends $Family
             String sessionId,
             String characterId,
             int revision,
-            List<ChatMessage> messages,
           })
         > {
   MilestoneTimelineFamily._()
@@ -130,14 +128,12 @@ final class MilestoneTimelineFamily extends $Family
     required String sessionId,
     required String characterId,
     required int revision,
-    required List<ChatMessage> messages,
   }) => MilestoneTimelineProvider._(
     argument: (
       feed: feed,
       sessionId: sessionId,
       characterId: characterId,
       revision: revision,
-      messages: messages,
     ),
     from: this,
   );
@@ -164,24 +160,21 @@ abstract class _$MilestoneTimeline
             String sessionId,
             String characterId,
             int revision,
-            List<ChatMessage> messages,
           });
   MilestoneFeed get feed => _$args.feed;
   String get sessionId => _$args.sessionId;
   String get characterId => _$args.characterId;
   int get revision => _$args.revision;
-  List<ChatMessage> get messages => _$args.messages;
 
   FutureOr<List<MilestoneEntry>> build({
     required MilestoneFeed feed,
     required String sessionId,
     required String characterId,
     required int revision,
-    required List<ChatMessage> messages,
   });
   @$mustCallSuper
   @override
-  void runBuild() {
+  WhenComplete runBuild() {
     final ref =
         this.ref
             as $Ref<AsyncValue<List<MilestoneEntry>>, List<MilestoneEntry>>;
@@ -196,14 +189,13 @@ abstract class _$MilestoneTimeline
               Object?,
               Object?
             >;
-    element.handleCreate(
+    return element.handleCreate(
       ref,
       () => build(
         feed: _$args.feed,
         sessionId: _$args.sessionId,
         characterId: _$args.characterId,
         revision: _$args.revision,
-        messages: _$args.messages,
       ),
     );
   }

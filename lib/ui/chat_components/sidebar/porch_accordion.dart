@@ -91,20 +91,26 @@ class PorchAccordionState extends State<PorchAccordion> {
   @override
   Widget build(BuildContext context) {
     final accent = widget.accent;
-    return Container(
-      margin: const EdgeInsets.only(bottom: SidebarTokens.sectionGap),
-      decoration: BoxDecoration(
+    // Material (not Container+decoration) so nested ExpansionTile/ListTile
+    // ink and splash paint on this surface — Container's DecoratedBox sits
+    // between ListTiles and the scaffold Material and triggers Flutter's
+    // "ink may be invisible" assertion in debug.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: SidebarTokens.sectionGap),
+      child: Material(
         color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
-        border: Border.all(
-          color: _expanded
-              ? accent.withValues(alpha: 0.25)
-              : AppColors.borderOf(context).withValues(alpha: 0.15),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
+          side: BorderSide(
+            color: _expanded
+                ? accent.withValues(alpha: 0.25)
+                : AppColors.borderOf(context).withValues(alpha: 0.15),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           InkWell(
             onTap: _toggle,
             borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
@@ -189,6 +195,7 @@ class PorchAccordionState extends State<PorchAccordion> {
                 : const SizedBox(width: double.infinity),
           ),
         ],
+        ),
       ),
     );
   }

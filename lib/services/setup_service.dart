@@ -49,7 +49,20 @@ class SetupService extends ChangeNotifier {
       // 1. Wait for StorageService to fully initialize (SharedPreferences loaded)
       await _storageService.initialized;
 
-      // 2. Check and Download Backend if missing
+      // Remote backends never need a local KoboldCpp binary. Skip the ~100MB+
+      // download (and the overlay) so first boot for OpenRouter/OMLX users —
+      // and the E2E smoke suite, which runs against an in-process fake remote —
+      // is not blocked on a network fetch that can OOM or flake under CI.
+      final backendType = _storageService.backendType;
+      final isLocalBackend =
+          backendType != 'openRouter' && backendType != 'omlx';
+      if (!isLocalBackend) {
+        _currentStep = SetupStep.complete;
+        notifyListeners();
+        return;
+      }
+
+      // 2. Check and Download Backend if missing (local backend only)
       await _backendManager.checkBackendAvailability();
       if (_backendManager.backendPath == null) {
         _currentStep = SetupStep.downloadingBackend;
@@ -74,16 +87,12 @@ class SetupService extends ChangeNotifier {
       //    .kcpps preset that owns the model — the preset used to be its own
       //    "pseudoRemote" backend, but it is now just a launch option of the
       //    local backend, so a single autostart branch handles both.
-      final backendType = _storageService.backendType;
-      final isLocalBackend =
-          backendType != 'openRouter' && backendType != 'omlx';
       final modelPath = _storageService.lastUsedModelPath;
       final presetOwnsModel =
           _storageService.kcppsHasModel &&
           _storageService.kcppsModelFileExists;
 
-      if (isLocalBackend &&
-          _storageService.autostartBackend &&
+      if (_storageService.autostartBackend &&
           (modelPath != null || presetOwnsModel)) {
         _currentStep = SetupStep.startingBackend;
         notifyListeners();

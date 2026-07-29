@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The scrolling chat transcript: per-message bubbles (with speaker labels in a
-// multi-character scene, collapsible thinking blocks, inline edit, Realism/Needs
-// chips, and the per-message action toolbar) plus the live streaming bubble.
-// Extracted verbatim from ChatPage to keep that page under the file-size cap;
-// every action is delegated to a callback so all chat state stays in ChatPage.
+// multi-character scene, collapsible thinking blocks, Realism/Needs chips, and
+// the per-message action toolbar) plus the live streaming bubble. Message edit
+// is a fullscreen modal owned by ChatPage (MessageEditModal).
 
 import { type RefObject } from 'react';
 import { MessageContent } from './MessageContent';
@@ -100,11 +99,6 @@ export function ChatMessageList({
   genStatus,
   scrollRef,
   canSpeak,
-  editIndex,
-  editDraft,
-  onEditDraftChange,
-  onCancelEdit,
-  onSaveEdit,
   onBeginEdit,
   onSwipe,
   onRegenerate,
@@ -122,11 +116,6 @@ export function ChatMessageList({
   genStatus: GenStatus | null;
   scrollRef: RefObject<HTMLDivElement>;
   canSpeak: boolean;
-  editIndex: number | null;
-  editDraft: string;
-  onEditDraftChange: (v: string) => void;
-  onCancelEdit: () => void;
-  onSaveEdit: () => void;
   onBeginEdit: (m: Message) => void;
   onSwipe: (index: number, direction: number) => void;
   onRegenerate: () => void;
@@ -159,57 +148,40 @@ export function ChatMessageList({
                 <div className="thinking-body">{m.thinkingContent}</div>
               </details>
             )}
-            {editIndex === m.index ? (
-              <div className="msg-edit">
-                <textarea
-                  value={editDraft}
-                  onChange={(e) => onEditDraftChange(e.target.value)}
-                  rows={4}
-                  autoFocus
+            <div className={m.isUser ? 'bubble user' : 'bubble ai'}>
+              {m.image && (
+                // Generated image (from /image or the Image Studio) —
+                // native right-click gives "Save image as…" in a browser.
+                <img
+                  className="chat-image"
+                  src={`/api/image/saved/${encodeURIComponent(m.image)}`}
+                  alt={m.imagePrompt || 'generated image'}
+                  title={m.imagePrompt}
+                  loading="lazy"
                 />
-                <div className="msg-edit-actions">
-                  <button onClick={onCancelEdit}>Cancel</button>
-                  <button className="primary" onClick={onSaveEdit}>Save</button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className={m.isUser ? 'bubble user' : 'bubble ai'}>
-                  {m.image && (
-                    // Generated image (from /image or the Image Studio) —
-                    // native right-click gives "Save image as…" in a browser.
-                    <img
-                      className="chat-image"
-                      src={`/api/image/saved/${encodeURIComponent(m.image)}`}
-                      alt={m.imagePrompt || 'generated image'}
-                      title={m.imagePrompt}
-                      loading="lazy"
-                    />
-                  )}
-                  {m.text && <MessageContent text={m.text} />}
-                </div>
-                {!m.isUser && m.chips && (
-                  <ChipsRow
-                    chips={m.chips}
-                    isLast={m.index === lastIndex}
-                    busy={busy}
-                    onReprocess={() => onReprocess(m.index)}
-                    onRevert={() => onRevert(m.index)}
-                  />
-                )}
-                <MessageActions
-                  m={m}
-                  isLast={m.index === lastIndex}
-                  busy={busy}
-                  canSpeak={canSpeak}
-                  onSwipe={onSwipe}
-                  onRegenerate={onRegenerate}
-                  onContinue={onContinue}
-                  onEdit={() => onBeginEdit(m)}
-                  onDelete={() => onDelete(m.index)}
-                />
-              </>
+              )}
+              {m.text && <MessageContent text={m.text} />}
+            </div>
+            {!m.isUser && m.chips && (
+              <ChipsRow
+                chips={m.chips}
+                isLast={m.index === lastIndex}
+                busy={busy}
+                onReprocess={() => onReprocess(m.index)}
+                onRevert={() => onRevert(m.index)}
+              />
             )}
+            <MessageActions
+              m={m}
+              isLast={m.index === lastIndex}
+              busy={busy}
+              canSpeak={canSpeak}
+              onSwipe={onSwipe}
+              onRegenerate={onRegenerate}
+              onContinue={onContinue}
+              onEdit={() => onBeginEdit(m)}
+              onDelete={() => onDelete(m.index)}
+            />
           </div>
         );
       })}

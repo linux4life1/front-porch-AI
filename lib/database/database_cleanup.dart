@@ -91,7 +91,8 @@ class DatabaseCleanup {
 
     brokenRefCounts['memory_sources'] = await _countBrokenMemorySources(db);
     brokenRefCounts['group_character_ids'] = await _countBrokenGroupCharIds(db);
-    brokenRefCounts['group_world_ids'] = await _countBrokenGroupWorldIds(db);
+    // Living Worlds: world_ids hold UUIDs (names still accepted as resolvable).
+    brokenRefCounts['group_world_refs'] = await _countBrokenGroupWorldIds(db);
 
     return OrphanReport(
       orphanCounts: orphanCounts,
@@ -134,7 +135,7 @@ class DatabaseCleanup {
 
     fixedRefCounts['memory_sources'] = await _fixBrokenMemorySources(db);
     fixedRefCounts['group_character_ids'] = await _fixBrokenGroupCharIds(db);
-    fixedRefCounts['group_world_ids'] = await _fixBrokenGroupWorldIds(db);
+    fixedRefCounts['group_world_refs'] = await _fixBrokenGroupWorldIds(db);
 
     await db.bumpSyncVersion();
 
@@ -234,8 +235,8 @@ class DatabaseCleanup {
   }
 
   static Future<int> _countBrokenGroupWorldIds(AppDatabase db) async {
-    final validIds = await _getValidWorldIds(db);
-    return _countBrokenJsonRefs(db, 'groups', 'world_ids', validIds);
+    final valid = await _getValidWorldRefs(db);
+    return _countBrokenWorldRefs(db, valid);
   }
 
   static Future<int> _countBrokenJsonRefs(
@@ -399,8 +400,82 @@ class DatabaseCleanup {
   }
 
   static Future<int> _fixBrokenGroupWorldIds(AppDatabase db) async {
-    final validIds = await _getValidWorldIds(db);
-    return _fixJsonRefs(db, 'groups', 'world_ids', validIds);
+    final valid = await _getValidWorldRefs(db);
+    return _fixGroupWorldRefs(db, valid);
+  }
+
+  /// Count group world_ids entries that resolve to neither a live world id
+  /// nor a live world name (post–Living Worlds UUID column + legacy names).
+  static Future<int> _countBrokenWorldRefs(
+    AppDatabase db,
+    ({Set<String> ids, Map<String, String> nameToId}) valid,
+  ) async {
+    final rows = await db.customSelect('''
+      SELECT id, world_ids FROM groups
+      WHERE deleted_at IS NULL AND world_ids IS NOT NULL AND world_ids != '[]'
+    ''').get();
+    var broken = 0;
+    for (final row in rows) {
+      final raw = row.data['world_ids'] as String?;
+      if (raw == null || raw.isEmpty) continue;
+      try {
+        final refs = List<String>.from(jsonDecode(raw));
+        if (refs.any(
+          (r) => !valid.ids.contains(r) && !valid.nameToId.containsKey(r),
+        )) {
+          broken++;
+        }
+      } catch (e) {
+        debugPrint(
+          '[DB Cleanup] Failed to parse world_ids in group '
+          '${row.data['id']}: $e',
+        );
+      }
+    }
+    return broken;
+  }
+
+  /// Drop unresolvable refs; rewrite surviving names → UUID.
+  static Future<int> _fixGroupWorldRefs(
+    AppDatabase db,
+    ({Set<String> ids, Map<String, String> nameToId}) valid,
+  ) async {
+    final rows = await db.customSelect('''
+      SELECT id, world_ids FROM groups
+      WHERE deleted_at IS NULL AND world_ids IS NOT NULL AND world_ids != '[]'
+    ''').get();
+    var fixed = 0;
+    for (final row in rows) {
+      final groupId = row.data['id'] as String;
+      final raw = row.data['world_ids'] as String?;
+      if (raw == null || raw.isEmpty) continue;
+      try {
+        final refs = List<String>.from(jsonDecode(raw));
+        final cleaned = <String>[];
+        final seen = <String>{};
+        for (final ref in refs) {
+          final id = valid.ids.contains(ref)
+              ? ref
+              : valid.nameToId[ref];
+          if (id == null) continue;
+          if (seen.add(id)) cleaned.add(id);
+        }
+        final encoded = jsonEncode(cleaned);
+        if (encoded != raw) {
+          await db.customUpdate(
+            'UPDATE groups SET world_ids = ? WHERE id = ?',
+            variables: [Variable(encoded), Variable(groupId)],
+            updates: {db.groups},
+          );
+          fixed++;
+        }
+      } catch (e) {
+        debugPrint(
+          '[DB Cleanup] Failed to parse world_ids in group $groupId: $e',
+        );
+      }
+    }
+    return fixed;
   }
 
   static Future<int> _fixJsonRefs(
@@ -447,10 +522,20 @@ class DatabaseCleanup {
     return rows.map((r) => r.data['id'] as String).toSet();
   }
 
-  static Future<Set<String>> _getValidWorldIds(AppDatabase db) async {
+  static Future<({Set<String> ids, Map<String, String> nameToId})>
+      _getValidWorldRefs(AppDatabase db) async {
     final rows = await db.customSelect('''
-      SELECT id FROM worlds WHERE deleted_at IS NULL
+      SELECT id, name FROM worlds WHERE deleted_at IS NULL
     ''').get();
-    return rows.map((r) => r.data['id'] as String).toSet();
+    final ids = <String>{};
+    final nameToId = <String, String>{};
+    for (final r in rows) {
+      final id = r.data['id'] as String?;
+      final name = r.data['name'] as String?;
+      if (id == null) continue;
+      ids.add(id);
+      if (name != null && name.isNotEmpty) nameToId[name] = id;
+    }
+    return (ids: ids, nameToId: nameToId);
   }
 }

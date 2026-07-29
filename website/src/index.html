@@ -3,7 +3,7 @@
 
 <section class="hero">
   <div class="hero-lamp"><img src="/assets/images/front_porch_ai_icon.png" alt="Front Porch AI"></div>
-  <a class="eyebrow" href="https://github.com/linux4life1/front-porch-AI/releases/latest" target="_blank" rel="noopener">🎉 Version 1.0 is here — stay awhile and listen</a>
+  <a class="eyebrow" id="latest-banner" href="https://github.com/linux4life1/front-porch-AI/releases/latest" target="_blank" rel="noopener">🎉 New release: {{STABLE_BANNER}}</a>
   <h1>Pull up a chair.<br>Your characters are <em>already home</em>.</h1>
   <p class="tagline">
     Front Porch AI is a free, open-source desktop app for AI character chat that runs
@@ -44,7 +44,7 @@
   <div class="channels">
     <div class="channel channel-stable reveal">
       <div class="chead"><h3>🛋️ Stable</h3><span class="badge badge-stable">Recommended</span></div>
-      <p class="ver">Latest release · <code>{{STABLE_VERSION}}</code></p>
+      <p class="ver">Latest release · <code id="stable-ver">{{STABLE_VERSION}}</code></p>
       <ul>
         <li>🏡 <strong>The Stoop</strong> — a community character hub built right into the app; whole group casts travel intact.</li>
         <li>🧠 <strong>The Realism Engine</strong> — bond, trust, moods with memory, and time that actually passes.</li>
@@ -59,7 +59,7 @@
       <div class="chead"><h3>🤠 Rawhide</h3><span class="badge badge-nightly">Nightly · cutting edge</span></div>
       <p class="ver">Fresh builds every night from the <code>Rawhide</code> branch</p>
       <ul>
-        <li>🏡 <strong>The Stoop</strong> — the built-in community character hub. Browse, share, one-tap download. <em>New!</em></li>
+        <li>🏡 <strong>The Stoop</strong> — the built-in community character hub. Browse, share, one-tap download.</li>
         <li>🎭 <strong>One chat, a changing cast</strong> — characters can join and leave a conversation in place.</li>
         <li>💾 <strong>Smarter local backups</strong> — rolling snapshots so yesterday is always one click away.</li>
         <li>🧪 Everything else lands here first.</li>
@@ -89,7 +89,7 @@
 <section class="stoop" id="stoop">
   <div class="inner reveal">
     <div class="panel">
-      <span class="eyebrow">🏡 New in 1.0 — in the app and in your browser</span>
+      <span class="eyebrow">🏡 In the app and in your browser</span>
       <h2>The Stoop — the neighbours brought characters</h2>
       <p class="lead">
         A community character hub built right into the app — and now open from any browser at

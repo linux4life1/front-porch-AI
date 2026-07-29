@@ -186,10 +186,59 @@ export function CharacterEditPage() {
 
       <h3 className="section-label">Lorebook</h3>
       <LoreEntriesEditor entries={lore} onChange={setLore} />
+      <div className="row-actions" style={{ marginTop: 8 }}>
+        <button
+          type="button"
+          className="ghost"
+          onClick={async () => {
+            try {
+              const list = await api.get<{ id: string; name: string }[]>(
+                '/api/characters?scope=allCharacters',
+              );
+              const others = (list ?? []).filter((x) => x.id !== id);
+              if (!others.length) {
+                setError('No other characters to import lore from.');
+                return;
+              }
+              const pick = window.prompt(
+                `Import lore from which character?\n${others.map((x) => x.name).join(', ')}`,
+                others[0]?.name ?? '',
+              );
+              if (!pick?.trim()) return;
+              const match =
+                others.find((x) => x.name.toLowerCase() === pick.trim().toLowerCase()) ??
+                others.find((x) => x.name.toLowerCase().includes(pick.trim().toLowerCase()));
+              if (!match) {
+                setError(`No character named "${pick}".`);
+                return;
+              }
+              const d = await api.get<CharDetail>(`/api/characters/${match.id}/detail`);
+              const incoming = (d.lorebook?.entries ?? []).map((e) => ({
+                name: e.name ?? '',
+                key: e.key ?? '',
+                content: e.content ?? '',
+                enabled: e.enabled ?? true,
+                constant: e.constant ?? false,
+                stickyDepth: e.stickyDepth ?? 1,
+              }));
+              if (!incoming.length) {
+                setError(`${match.name} has no lorebook entries.`);
+                return;
+              }
+              setLore((prev) => [...prev, ...incoming]);
+              setError('');
+            } catch (e) {
+              setError(e instanceof Error ? e.message : 'Import failed');
+            }
+          }}
+        >
+          From character…
+        </button>
+      </div>
 
-      <h3 className="section-label">Linked worlds</h3>
+      <h3 className="section-label">Linked places</h3>
       {allWorlds.length === 0 ? (
-        <p className="muted small">No worlds yet. Create one from the Worlds page to link it here.</p>
+        <p className="muted small">No places yet. Create one from the Worlds page to link it here.</p>
       ) : (
         <div className="world-picker">
           {allWorlds.map((w) => (

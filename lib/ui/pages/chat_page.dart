@@ -2109,6 +2109,16 @@ class _ChatPageState extends State<ChatPage> {
           },
         ),
 
+        // ── @-mention helper ─────────────────────────────────────────────
+        // The cast-name twin of the slash helper: while the cursor token is
+        // "@…", lists who can be addressed (host + guests, or group
+        // members); tapping fills in "@Name " and that character answers
+        // the turn (the sendMessage direct-address router).
+        MentionAutocomplete(
+          controller: _controller,
+          focusNode: _chatFocusNode,
+        ),
+
         // ── Input bar ────────────────────────────────────────────────────
         Column(
           mainAxisSize: MainAxisSize.min,

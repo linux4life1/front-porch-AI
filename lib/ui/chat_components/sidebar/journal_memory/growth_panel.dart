@@ -235,30 +235,36 @@ class GrowthPanel extends StatelessWidget {
   }
 
   Widget _pastSection(BuildContext context, List<GrowthRingData> past) {
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.only(left: 20, right: 4),
-        childrenPadding: const EdgeInsets.only(left: 20, bottom: 4),
-        dense: true,
-        visualDensity: VisualDensity.compact,
-        title: Text(
-          'Past growth (${past.length})',
-          style: TextStyle(
-            fontSize: 11,
-            color: AppColors.textTertiary(context),
-          ),
-        ),
-        children: [
-          for (final ring in past)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Opacity(
-                opacity: 0.65,
-                child: _ringCard(context, ring, isPast: true),
-              ),
+    // Material so ExpansionTile's internal ListTile has a paint surface —
+    // without it, Flutter asserts when a parent PorchAccordion DecoratedBox
+    // sits between this ListTile and the nearest Material (ink invisible).
+    return Material(
+      type: MaterialType.transparency,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.only(left: 20, right: 4),
+          childrenPadding: const EdgeInsets.only(left: 20, bottom: 4),
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          title: Text(
+            'Past growth (${past.length})',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textTertiary(context),
             ),
-        ],
+          ),
+          children: [
+            for (final ring in past)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Opacity(
+                  opacity: 0.65,
+                  child: _ringCard(context, ring, isPast: true),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -543,14 +549,20 @@ class GrowthPanel extends StatelessWidget {
 
   Widget _actionsRow(BuildContext context, Color accent) {
     final busy = chatService.isGrowthPassRunning;
+    // Wrap — three TextButtons in a Row overflow the narrow chat sidebar
+    // by ~13px ("Check now · Plant a ring · Reset").
     return Padding(
       padding: const EdgeInsets.only(left: 12),
-      child: Row(
+      child: Wrap(
+        spacing: 0,
+        runSpacing: 0,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           TextButton.icon(
             style: TextButton.styleFrom(
               visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: busy ? null : () => chatService.forceGrowthPass(),
             icon: busy
@@ -571,7 +583,8 @@ class GrowthPanel extends StatelessWidget {
           TextButton.icon(
             style: TextButton.styleFrom(
               visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: () => _plantRing(context),
             icon: Icon(
@@ -587,11 +600,11 @@ class GrowthPanel extends StatelessWidget {
               ),
             ),
           ),
-          const Spacer(),
           TextButton(
             style: TextButton.styleFrom(
               visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: () => _confirmReset(context),
             child: Text(

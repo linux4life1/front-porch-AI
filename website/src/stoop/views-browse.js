@@ -27,6 +27,34 @@
     return Api.state.user ? !!Api.state.user.nsfwEnabled : !!Api.state.guestAdult;
   }
 
+  /* ---- share links ----
+     Path-based URLs (no #) so Discord/Slack crawlers hit the server-side OG
+     page (Caddy maps /card/* + /creator/* onto the API's /share/ routes) and
+     unfurl the card's real name, summary, and art instead of the site logo. */
+  var HUB_ORIGIN = location.hostname === 'hub.frontporchai.app' ? location.origin : 'https://hub.frontporchai.app';
+
+  // Prefer the display name in creator URLs (vanity: #/creator/SosukeAizen).
+  // Names are unique server-side (claimed first-come), but only route-safe
+  // ones fit the hash routes — anything else falls back to the immutable id.
+  function creatorRef(c) {
+    var name = c && c.displayName;
+    return name && /^[\w-]{2,40}$/.test(name) ? name : (c && c.id) || '';
+  }
+
+  function shareBtn(kind, id) {
+    var url = HUB_ORIGIN + '/' + kind + '/' + id;
+    var btn = el('button', { class: 'hub-linklike', type: 'button', title: 'Copy a link that unfurls nicely in Discord & friends' }, '🔗 Share');
+    btn.addEventListener('click', function () {
+      var done = function () { ui.toast('Link copied — paste it anywhere.'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link:', url); });
+      } else {
+        window.prompt('Copy this link:', url);
+      }
+    });
+    return btn;
+  }
+
   /* ================================ browse ================================ */
   function renderBrowse(mount) {
     var page = 0;
@@ -188,6 +216,30 @@
     ]);
   }
 
+  /* V2 character_book — the section the detail page silently dropped (a card
+     with lore looked loreless on the hub). Disabled entries stay hidden; an
+     entry with no trigger keys is constant/always-active lore. */
+  function lorebookSection(book) {
+    var entries = (book && Array.isArray(book.entries)) ? book.entries : [];
+    entries = entries.filter(function (e) { return e && e.enabled !== false; });
+    if (!entries.length) return null;
+    return el('details', { class: 'hub-sect' }, [
+      el('summary', null, 'Lorebook (' + entries.length + (entries.length === 1 ? ' entry' : ' entries') + ')'),
+      el('div', { class: 'hub-lore' }, entries.map(function (e) {
+        var label = e.name || e.comment || '';
+        var keys = Array.isArray(e.keys) ? e.keys.filter(Boolean) : [];
+        var trigger = keys.length ? 'triggers: ' + keys.join(', ') : 'always active';
+        return el('div', { class: 'hub-lore-entry' }, [
+          el('div', { class: 'hub-lore-head' }, [
+            el('strong', null, label || (keys.length ? keys.join(', ') : 'Entry')),
+            el('span', { class: 'hub-dim hub-small' }, ' · ' + trigger),
+          ]),
+          el('pre', { class: 'hub-sect-text' }, e.content || ''),
+        ]);
+      })),
+    ]);
+  }
+
   function renderCard(mount, id) {
     mount.replaceChildren(ui.spinner());
     Api.cardDetail(id).then(function (c) {
@@ -274,12 +326,14 @@
           ]);
 
       // Guests can download but not vote/report — invite them to join instead.
+      // Sharing is for everyone.
       var actionExtras = signedIn
         ? [
             el('span', { class: 'hub-votebox' }, [upBtn, dnBtn]),
+            shareBtn('card', id),
             el('button', { class: 'hub-linklike', type: 'button', onclick: showReport }, '⚑ Report'),
           ]
-        : [el('a', { class: 'hub-signin-nudge', href: '#/signin' }, 'Sign in to vote, follow & report')];
+        : [shareBtn('card', id), el('a', { class: 'hub-signin-nudge', href: '#/signin' }, 'Sign in to vote, follow & report')];
 
       var alts = Array.isArray(card.alternate_greetings) ? card.alternate_greetings.filter(Boolean).join('\n\n———\n\n') : '';
 
@@ -294,7 +348,7 @@
               c.modPick ? el('span', { class: 'hub-badge hub-badge-pick' }, '★ Mod’s Pick') : null,
             ]),
             el('h2', { class: 'hub-detail-name' }, c.name),
-            c.creator ? el('a', { class: 'hub-detail-creator', href: '#/creator/' + c.creator.id }, (c.originalCreator ? 'uploaded by ' : 'by ') + c.creator.displayName + ' →') : null,
+            c.creator ? el('a', { class: 'hub-detail-creator', href: '#/creator/' + creatorRef(c.creator) }, (c.originalCreator ? 'uploaded by ' : 'by ') + c.creator.displayName + ' →') : null,
             c.originalCreator ? el('div', { class: 'hub-detail-origcreator' }, 'created by ' + c.originalCreator) : null,
             el('p', { class: 'hub-detail-summary' }, c.summary || ''),
             (c.tags && c.tags.length)
@@ -318,6 +372,7 @@
           textSection('First message', card.first_mes || card.first_message),
           textSection('Alternate greetings', alts),
           textSection('Example dialogue', card.mes_example),
+          lorebookSection(card.character_book),
         ]),
       ]));
     }).catch(function (e) {
@@ -336,7 +391,9 @@
         followBtn = el('button', { class: 'btn ' + (cr.following ? 'btn-ghost' : 'btn-amber'), type: 'button' },
           cr.following ? '✓ Following' : '+ Follow');
         followBtn.addEventListener('click', function () {
-          var call = cr.following ? Api.unfollow(id) : Api.follow(id);
+          // Always follow by the resolved user id — the route param may be a
+          // vanity display name, which the follow endpoints don't accept.
+          var call = cr.following ? Api.unfollow(cr.id) : Api.follow(cr.id);
           call.then(function (r) {
             cr.following = r.following;
             cr.followers = r.followers;
@@ -348,13 +405,43 @@
       }
       var followers = el('span', { class: 'hub-dim' }, ui.num(cr.followers) + ' follower' + (cr.followers === 1 ? '' : 's'));
       var cards = cr.cards || [];
+
+      // Lifetime stats over every approved card (server-side, not the visible
+      // slice) so SFW-only viewers see the same numbers.
+      var stats = cr.stats || {};
+      var totalCards = stats.cards != null ? stats.cards : cards.length;
+      var statLine = el('span', { class: 'hub-dim' },
+        ui.num(totalCards) + ' cards · ' +
+        ui.num(stats.downloads || 0) + ' downloads · ' +
+        ui.num(stats.score || 0) + ' net votes' +
+        (cards.length < totalCards ? ' · some hidden (18+ off)' : ''));
+
+      // Bio + external links (creator-controlled; the server only accepts
+      // http(s) URLs). Links double as public self-attribution for creators
+      // cross-posting their own catalogs from chub/Backyard.
+      var bioBlock = (cr.bio || '').trim()
+        ? el('p', { class: 'hub-creator-bio' }, cr.bio.trim())
+        : null;
+      var creatorLinks = cr.links || cr.profileLinks || [];
+      var linkList = creatorLinks.length
+        ? el('div', { class: 'hub-creator-links' }, creatorLinks.map(function (u) {
+            var label = u.replace(/^https?:\/\//, '').replace(/\/$/, '');
+            if (label.length > 42) label = label.slice(0, 40) + '…';
+            return el('a', { href: u, target: '_blank', rel: 'noopener nofollow' }, '🔗 ' + label);
+          }))
+        : null;
+
       mount.replaceChildren(el('div', null, [
         el('a', { class: 'hub-back', href: '#/' }, '← Back to browsing'),
         el('div', { class: 'hub-creator-head' }, [
           el('h2', null, cr.displayName),
           followers,
+          statLine,
           followBtn,
+          shareBtn('creator', creatorRef(cr)),
         ]),
+        bioBlock,
+        linkList,
         cards.length
           ? el('div', { class: 'hub-grid' }, cards.map(ui.cardTile))
           : ui.emptyState('🪑', 'No public cards yet'),
