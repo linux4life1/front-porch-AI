@@ -224,7 +224,6 @@ class _HFModelCardState extends State<HFModelCard>
                 // Expanded quant options
                 SizeTransition(
                   sizeFactor: _expandAnimation,
-                  // Old axisAlignment: -1 (vertical) per the SDK migration formula.
                   alignment: Alignment.topLeft,
                   child: Container(
                     decoration: BoxDecoration(

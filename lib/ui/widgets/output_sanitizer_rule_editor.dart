@@ -252,7 +252,7 @@ class _OutputSanitizerRuleEditorState extends State<OutputSanitizerRuleEditor> {
                   physics: const NeverScrollableScrollPhysics(),
                   buildDefaultDragHandles: false,
                   itemCount: widget.rules.length,
-                  onReorderItem: _reorderRule,
+                   onReorderItem: _reorderRule,
                   itemBuilder: (ctx, i) {
                     final rule = widget.rules[i];
                     return Container(

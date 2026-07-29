@@ -1065,7 +1065,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _members.length,
-              onReorderItem: _reorderMembers,
+               onReorderItem: _reorderMembers,
               itemBuilder: (ctx, i) {
                 final c = _members[i];
                 final id = _stableId(c);
