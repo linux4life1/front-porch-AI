@@ -110,6 +110,7 @@ class _CallOverlayState extends State<CallOverlay>
         await ttsService.speakStreaming(
           sentenceController.stream,
           voiceKey: voiceKey,
+          emotionLabel: chatService.expressionService.currentExpressionLabel,
         );
       } finally {
         await sub.cancel();

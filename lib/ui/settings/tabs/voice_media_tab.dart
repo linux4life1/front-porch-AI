@@ -1206,6 +1206,33 @@ class VoiceMediaTab extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 8),
+                      // Emotional Voice toggle (only relevant when expressions are on)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.record_voice_over,
+                            size: 16,
+                            color: AppColors.textSecondary(context),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Emotional Voice',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary(context),
+                              ),
+                            ),
+                          ),
+                          Switch(
+                            value: storage.emotionalVoiceEnabled,
+                            onChanged: (val) =>
+                                storage.setEmotionalVoiceEnabled(val),
+                            activeTrackColor: AppColors.presetColors[4],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       // Fallback dropdown
                       Row(
                         children: [

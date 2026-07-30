@@ -450,6 +450,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                                                 message.displayText,
                                                 voiceKey: voiceKey,
                                                 messageId: msgId,
+                                                emotionLabel: chatService
+                                                    .expressionService
+                                                    .currentExpressionLabel,
                                               );
                                             }
                                           },

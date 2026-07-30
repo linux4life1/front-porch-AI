@@ -35,6 +35,8 @@ import 'package:front_porch_ai/services/openai_tts_engine.dart';
 import 'package:front_porch_ai/services/elevenlabs_tts_engine.dart';
 import 'package:front_porch_ai/services/tts/sherpa_piper_engine.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
+import 'package:front_porch_ai/utils/emotional_voice_rates.dart';
+import 'package:front_porch_ai/utils/wav_resampler.dart';
 
 /// Text-to-speech service — multi-engine architecture.
 ///
@@ -75,6 +77,9 @@ class TtsService extends ChangeNotifier {
   // the slider read as a no-op for Kokoro (whose generation plumbing was
   // actually fine) and masked Piper's real hardcoded-speed bug.
   double? _cachedSpeed;
+
+  // Emotional voice rate is also part of the replay identity.
+  double? _cachedEmoRate;
 
   bool get isSpeaking => _isSpeaking;
   bool get isGenerating => _isGenerating;
@@ -216,7 +221,7 @@ class TtsService extends ChangeNotifier {
   ///
   /// Generates audio for the entire message first (buffered), then plays
   /// it back seamlessly. Shows generation progress.
-  Future<void> speak(String text, {String? voiceKey, String? messageId}) async {
+  Future<void> speak(String text, {String? voiceKey, String? messageId, String? emotionLabel}) async {
     if (!_storageService.ttsEnabled) {
       print('TTS: disabled, skipping');
       return;
@@ -254,6 +259,12 @@ class TtsService extends ChangeNotifier {
     }
 
     final speed = _storageService.ttsSpeechRate;
+    final emotionalVoiceOn = _storageService.emotionalVoiceEnabled &&
+        _storageService.expressionEnabled &&
+        emotionLabel != null;
+    final emoRate = emotionalVoiceOn
+        ? EmotionalVoiceRates.rateFor(emotionLabel)
+        : 1.0;
 
     // Check cache — replay instantly if same message & same content
     final textHash = sanitized.hashCode;
@@ -263,6 +274,7 @@ class TtsService extends ChangeNotifier {
         voice == _cachedVoice &&
         _storageService.ttsEngine == _cachedEngine &&
         speed == _cachedSpeed &&
+        emoRate == _cachedEmoRate &&
         _cachedWav != null &&
         _cachedWav!.existsSync()) {
       print('TTS: cache hit for message $messageId');
@@ -421,12 +433,17 @@ class TtsService extends ChangeNotifier {
           }
 
           if (finalAudio != null) {
+            // Emotional voice: resample for pitch+duration shift
+            if (emotionalVoiceOn) {
+              finalAudio = await WavResampler.resample(finalAudio, emoRate);
+            }
             _cachedWav = finalAudio;
             _cachedMessageId = messageId;
             _cachedTextHash = sanitized.hashCode;
             _cachedVoice = voice;
             _cachedEngine = _storageService.ttsEngine;
             _cachedSpeed = speed;
+            _cachedEmoRate = emoRate;
 
             await _playWavFile(finalAudio);
           }
@@ -447,6 +464,12 @@ class TtsService extends ChangeNotifier {
       // (Kokoro and Piper returned above; only the cloud engines get here.)
       if (_storageService.ttsEngine == 'elevenlabs') {
         final engine = activeEngine;
+        // Apply emotional voice via native ElevenLabs style param
+        if (emotionalVoiceOn) {
+          _elevenlabsEngine.style = EmotionalVoiceRates.elevenlabsStyleFor(
+            emotionLabel,
+          );
+        }
         final speed = _storageService.ttsSpeechRate;
         _generationProgress = 0.5;
         notifyListeners();
@@ -536,6 +559,11 @@ class TtsService extends ChangeNotifier {
       }
 
       if (audioFile != null && _isSpeaking) {
+        // Emotional voice: resample WAV engines (ElevenLabs handles it at gen time)
+        if (emotionalVoiceOn &&
+            _storageService.ttsEngine != 'elevenlabs') {
+          audioFile = await WavResampler.resample(audioFile, emoRate);
+        }
         // Cache the audio for instant replay
         _cachedWav = audioFile;
         _cachedMessageId = messageId;
@@ -543,6 +571,7 @@ class TtsService extends ChangeNotifier {
         _cachedVoice = voice;
         _cachedEngine = _storageService.ttsEngine;
         _cachedSpeed = speed;
+        _cachedEmoRate = emoRate;
         await _playWavFile(audioFile);
         // Don't delete — it's cached now
       }
@@ -574,6 +603,7 @@ class TtsService extends ChangeNotifier {
   Future<void> speakStreaming(
     Stream<String> sentenceStream, {
     String? voiceKey,
+    String? emotionLabel,
   }) async {
     if (!_storageService.ttsEnabled) return;
 
@@ -643,6 +673,12 @@ class TtsService extends ChangeNotifier {
 
     final engine = activeEngine;
     final speed = _storageService.ttsSpeechRate;
+    final emotionalVoiceOn = _storageService.emotionalVoiceEnabled &&
+        _storageService.expressionEnabled &&
+        emotionLabel != null;
+    final emoRate = emotionalVoiceOn
+        ? EmotionalVoiceRates.rateFor(emotionLabel)
+        : 1.0;
     final tempFiles = <File>[];
 
     // Shared queue between producer and consumer
@@ -680,10 +716,22 @@ class TtsService extends ChangeNotifier {
             if (_isPiperEngine) {
               wavFile = await _piperGenerateWav(voice, sanitized, idx, speed);
             } else {
+              // Apply ElevenLabs emotion style before generation
+              if (_storageService.ttsEngine == 'elevenlabs' &&
+                  emotionalVoiceOn) {
+                _elevenlabsEngine.style =
+                    EmotionalVoiceRates.elevenlabsStyleFor(emotionLabel);
+              }
               kDebugPrint(
                 '[TtsService] Streaming: generating audio for chunk (len=${sanitized.length})',
               );
               wavFile = await engine.generateAudio(sanitized, voice, speed);
+            }
+            // Emotional voice: resample non-ElevenLabs chunks
+            if (emotionalVoiceOn &&
+                _storageService.ttsEngine != 'elevenlabs' &&
+                wavFile != null) {
+              wavFile = await WavResampler.resample(wavFile, emoRate);
             }
             return wavFile;
           }();
@@ -768,7 +816,11 @@ class TtsService extends ChangeNotifier {
 
   /// Generate audio for the given text and return the WAV file without playing.
   /// Used by the web server to stream audio to the browser.
-  Future<File?> generateAudioFile(String text, {String? voiceKey}) async {
+  Future<File?> generateAudioFile(
+    String text, {
+    String? voiceKey,
+    String? emotionLabel,
+  }) async {
     if (!_storageService.ttsEnabled) return null;
 
     var voice = (voiceKey != null && voiceKey.isNotEmpty)
@@ -788,6 +840,13 @@ class TtsService extends ChangeNotifier {
     final sanitized = _sanitizeText(text);
     if (sanitized.trim().isEmpty) return null;
 
+    final emotionalVoiceOn = _storageService.emotionalVoiceEnabled &&
+        _storageService.expressionEnabled &&
+        emotionLabel != null;
+    final emoRate = emotionalVoiceOn
+        ? EmotionalVoiceRates.rateFor(emotionLabel)
+        : 1.0;
+
     if (_isPiperEngine && !await _ensurePiperVoice(voice)) return null;
 
     try {
@@ -806,6 +865,11 @@ class TtsService extends ChangeNotifier {
       if (_storageService.ttsEngine == 'elevenlabs') {
         // ElevenLabs: send full text as one request for natural intonation
         final engine = activeEngine;
+        if (emotionalVoiceOn) {
+          _elevenlabsEngine.style = EmotionalVoiceRates.elevenlabsStyleFor(
+            emotionLabel,
+          );
+        }
         final speed = _storageService.ttsSpeechRate;
         final wav = await engine.generateAudio(sanitized, voice, speed);
         if (wav != null) wavFiles.add(wav);
@@ -849,13 +913,21 @@ class TtsService extends ChangeNotifier {
 
       if (wavFiles.isEmpty) return null;
 
-      // ElevenLabs returns a single MP3 — skip WAV concatenation.
+      // ElevenLabs returns a single MP3 — skip WAV concatenation and resampling.
       if (_storageService.ttsEngine == 'elevenlabs' && wavFiles.length == 1) {
         return wavFiles.first;
       }
 
       final combinedWav = await WavUtils.concatenateWavFiles(wavFiles);
       _cleanupFiles(wavFiles);
+
+      // Emotional voice: resample WAV engines (ElevenLabs handled at gen time)
+      if (emotionalVoiceOn &&
+          _storageService.ttsEngine != 'elevenlabs' &&
+          combinedWav != null) {
+        return WavResampler.resample(combinedWav, emoRate);
+      }
+
       return combinedWav;
     } catch (e) {
       print('TTS generateAudioFile error: $e');
@@ -1062,6 +1134,7 @@ class TtsService extends ChangeNotifier {
     _cachedTextHash = null;
     _cachedVoice = null;
     _cachedEngine = null;
+    _cachedEmoRate = null;
   }
 
   /// Play a WAV file.

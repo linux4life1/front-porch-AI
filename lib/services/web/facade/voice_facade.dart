@@ -49,9 +49,17 @@ class VoiceFacade {
 
   /// Synthesize [text] to audio bytes (no host playback). Returns the bytes plus
   /// their MIME type, or null when TTS is off / produced nothing.
-  Future<AudioPayload?> speak(String text, {String? voiceKey}) async {
+  Future<AudioPayload?> speak(
+    String text, {
+    String? voiceKey,
+    String? emotion,
+  }) async {
     if (!_storage.ttsEnabled || text.trim().isEmpty) return null;
-    final file = await _tts.generateAudioFile(text, voiceKey: voiceKey);
+    final file = await _tts.generateAudioFile(
+      text,
+      voiceKey: voiceKey,
+      emotionLabel: emotion,
+    );
     if (file == null || !file.existsSync()) return null;
     final bytes = await file.readAsBytes();
     // ElevenLabs returns mp3; every other engine returns a (merged) WAV.

@@ -1807,6 +1807,7 @@ extension ChatServiceGeneration on ChatService {
             lastMsg.displayText,
             voiceKey: voiceKey,
             messageId: msgId,
+            emotionLabel: _expressionService.currentExpressionLabel,
           );
         }
 
