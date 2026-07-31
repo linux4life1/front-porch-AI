@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/avatar_image.dart';
 import 'package:front_porch_ai/services/avatar_gallery.dart';
+import 'package:path/path.dart' as p;
 
 AvatarImage _look(String id, {int order = 0}) => AvatarImage(
   id: id,
@@ -50,11 +51,11 @@ void main() {
     test('resolveFile picks looks/ vs avatars/ off the character base folder', () {
       expect(
         _look('a').resolveFile('/chars/Carly').path,
-        '/chars/Carly/looks/a.png',
+        p.join('/chars/Carly', 'looks', 'a.png'),
       );
       expect(
         _expr('b', 'joy').resolveFile('/chars/Carly').path,
-        '/chars/Carly/avatars/b.png',
+        p.join('/chars/Carly', 'avatars', 'b.png'),
       );
     });
   });

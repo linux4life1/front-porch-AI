@@ -15,6 +15,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:path/path.dart' as p;
 
 /// Mock path_provider so StorageService can resolve
 /// getApplicationDocumentsDirectory() without a real platform channel.
@@ -871,7 +872,7 @@ void main() {
       // A starred avatar whose file really exists — the only branch that
       // stats the disk.
       final base = storage.characterBaseDir('CacheTest');
-      final avatarFile = File('${base.path}/avatars/star.png')
+      final avatarFile = File(p.join(base.path, 'avatars', 'star.png'))
         ..createSync(recursive: true)
         ..writeAsBytesSync([1, 2, 3]);
       final card = CharacterCard(
