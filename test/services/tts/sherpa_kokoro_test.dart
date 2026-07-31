@@ -26,6 +26,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/kokoro_engine.dart';
 import 'package:front_porch_ai/services/stt/sherpa_whisper_engine.dart';
 import 'package:front_porch_ai/services/tts/sherpa_kokoro_engine.dart';
 
@@ -42,6 +43,26 @@ void main() {
     expect(ids.length, 53);
     expect(ids.reduce((a, b) => a < b ? a : b), 0);
     expect(ids.reduce((a, b) => a > b ? a : b), 52);
+  });
+
+  test('catalog voices match the speaker-id map in both directions', () {
+    final catalogIds = KokoroEngine.voiceCatalog.map((v) => v.id).toList();
+    // Every selectable voice must resolve to a real speaker id (no dead
+    // entries silently falling back to af_heart).
+    for (final id in catalogIds) {
+      expect(
+        SherpaKokoroEngine.speakerIds.containsKey(id),
+        isTrue,
+        reason: 'catalog voice "$id" has no speaker id',
+      );
+    }
+    // Every speaker id must be selectable from the catalog.
+    for (final id in SherpaKokoroEngine.speakerIds.keys) {
+      expect(catalogIds, contains(id),
+          reason: 'speaker "$id" is missing from the catalog');
+    }
+    expect(catalogIds.length, 53);
+    expect(catalogIds.length, SherpaKokoroEngine.speakerIds.length);
   });
 
   final root = Platform.environment['FP_TTS_TEST_ROOT'];
@@ -69,6 +90,60 @@ void main() {
         try {
           File(out).deleteSync();
         } catch (_) {}
+      }
+    },
+    skip: kokoroReady ? false : 'FP_TTS_TEST_ROOT not set — skipping',
+  );
+
+  test(
+    'real-model output varies by speaker id (af_heart vs am_michael)',
+    () async {
+      final engine = SherpaKokoroEngine();
+      final testRoot = root!;
+      final outA = '${Directory.systemTemp.path}/kokoro_sid_a.wav';
+      final outB = '${Directory.systemTemp.path}/kokoro_sid_b.wav';
+      const text = 'The porch light flickers over the quiet street.';
+      try {
+        final wavA = await engine.generate(
+          root: testRoot,
+          text: text,
+          voice: 'af_heart',
+          speed: 1.0,
+          outputPath: outA,
+        );
+        final wavB = await engine.generate(
+          root: testRoot,
+          text: text,
+          voice: 'am_michael',
+          speed: 1.0,
+          outputPath: outB,
+        );
+        expect(wavA.existsSync(), isTrue);
+        expect(wavB.existsSync(), isTrue);
+        expect(wavA.lengthSync(), greaterThan(50 * 1024));
+        expect(wavB.lengthSync(), greaterThan(50 * 1024));
+        final bytesA = await wavA.readAsBytes();
+        final bytesB = await wavB.readAsBytes();
+        final n = bytesA.length < bytesB.length ? bytesA.length : bytesB.length;
+        var differs = false;
+        for (var i = 0; i < n; i++) {
+          if (bytesA[i] != bytesB[i]) {
+            differs = true;
+            break;
+          }
+        }
+        expect(
+          differs,
+          isTrue,
+          reason: 'different speaker ids must produce different audio',
+        );
+      } finally {
+        engine.shutdown();
+        for (final f in [outA, outB]) {
+          try {
+            File(f).deleteSync();
+          } catch (_) {}
+        }
       }
     },
     skip: kokoroReady ? false : 'FP_TTS_TEST_ROOT not set — skipping',

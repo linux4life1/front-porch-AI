@@ -141,6 +141,10 @@ class KokoroEngine implements TtsEngine {
   @override
   List<TtsVoiceInfo> get availableVoices => _voices;
 
+  /// Static view of the catalog (tests / CLI access without an engine
+  /// instance).
+  static List<TtsVoiceInfo> get voiceCatalog => _voices;
+
   /// Built-in Kokoro voice catalog.
   static const _voices = [
     // American English — Female
@@ -359,9 +363,16 @@ class KokoroEngine implements TtsEngine {
       engine: 'kokoro',
     ),
     TtsVoiceInfo(
-      id: 'jm_beta',
-      name: 'Beta',
-      gender: 'Male',
+      id: 'jf_nezumi',
+      name: 'Nezumi',
+      gender: 'Female',
+      language: 'Japanese',
+      engine: 'kokoro',
+    ),
+    TtsVoiceInfo(
+      id: 'jf_tebukuro',
+      name: 'Tebukuro',
+      gender: 'Female',
       language: 'Japanese',
       engine: 'kokoro',
     ),
@@ -383,13 +394,6 @@ class KokoroEngine implements TtsEngine {
     TtsVoiceInfo(
       id: 'em_alex',
       name: 'Alex',
-      gender: 'Male',
-      language: 'Spanish',
-      engine: 'kokoro',
-    ),
-    TtsVoiceInfo(
-      id: 'em_santa',
-      name: 'Santa',
       gender: 'Male',
       language: 'Spanish',
       engine: 'kokoro',
@@ -498,8 +502,8 @@ class KokoroEngine implements TtsEngine {
       engine: 'kokoro',
     ),
     TtsVoiceInfo(
-      id: 'zm_yibo',
-      name: 'Yibo',
+      id: 'zm_yunjian',
+      name: 'Yunjian',
       gender: 'Male',
       language: 'Mandarin Chinese',
       engine: 'kokoro',

@@ -106,6 +106,20 @@ class SherpaKokoroEngine {
     'zm_yunyang': 52,
   };
 
+  /// Resolves [voice] to a speaker id, falling back to af_heart (and logging)
+  /// when the id is unknown so stale/mismatched voice keys surface in logs
+  /// instead of silently sounding like the default voice.
+  static int _resolveSid(String voice) {
+    final sid = speakerIds[voice];
+    if (sid == null) {
+      print(
+        '[Kokoro] voice "$voice" not in speakerIds — falling back to af_heart',
+      );
+      return speakerIds['af_heart']!;
+    }
+    return sid;
+  }
+
   /// A `sherpa-v1_0/` sibling of the legacy kokoro_models files so the old
   /// model stays untouched until the post-soak cleanup UI.
   static String modelDir(String root) =>
@@ -178,7 +192,7 @@ class SherpaKokoroEngine {
       _worker!.send([
         reply.sendPort,
         text,
-        speakerIds[voice] ?? speakerIds['af_heart']!,
+        _resolveSid(voice),
         speed,
         outputPath,
       ]);
