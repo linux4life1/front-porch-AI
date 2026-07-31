@@ -123,3 +123,19 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# sherpa-onnx 1.13.x links against onnxruntime 1.27 (ORT API v27), but the
+# onnxruntime_v2 plugin bundles onnxruntime 1.22 under the same onnxruntime.dll
+# filename. file(INSTALL) resolves that name collision state-dependently and can
+# leave the stale 1.22 next to sherpa-onnx-c-api.dll, crashing the TTS engine.
+# Copy sherpa's 1.27 into the bundle on every install so the outcome is
+# deterministic regardless of the previous output state.
+if(DEFINED sherpa_onnx_windows_bundled_libraries)
+  list(GET sherpa_onnx_windows_bundled_libraries 1 _SHERPA_ONNXRUNTIME_DLL)
+  install(CODE "
+    if(EXISTS \"${_SHERPA_ONNXRUNTIME_DLL}\")
+      file(COPY \"${_SHERPA_ONNXRUNTIME_DLL}\"
+        DESTINATION \"${CMAKE_CURRENT_BINARY_DIR}/runner/\${CMAKE_INSTALL_CONFIG_NAME}\")
+    endif()
+    " COMPONENT Runtime)
+endif()
