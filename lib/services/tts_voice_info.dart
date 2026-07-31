@@ -22,7 +22,7 @@ class TtsVoiceInfo {
   final String name;
   final String gender;
   final String language;
-  final String engine; // 'kokoro', 'openai', 'piper'
+  final String engine; // 'kokoro', 'openai', 'piper', 'zipvoice'
 
   const TtsVoiceInfo({
     required this.id,

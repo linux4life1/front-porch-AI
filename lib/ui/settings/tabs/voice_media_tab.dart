@@ -56,6 +56,8 @@ class VoiceMediaTab extends StatelessWidget {
         return 'OpenAI TTS';
       case 'piper':
         return 'Piper TTS';
+      case 'zipvoice':
+        return 'ZipVoice TTS';
       default:
         return 'TTS';
     }

@@ -31,6 +31,7 @@ void main() {
       EngineHealth.expressions,
       EngineHealth.kokoro,
       EngineHealth.piper,
+      EngineHealth.zipvoice,
       EngineHealth.whisper,
       EngineHealth.drawThings,
       EngineHealth.embeddings,

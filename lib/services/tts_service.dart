@@ -35,19 +35,22 @@ import 'package:front_porch_ai/services/openai_tts_engine.dart';
 import 'package:front_porch_ai/services/elevenlabs_tts_engine.dart';
 import 'package:front_porch_ai/services/tts/sherpa_piper_engine.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
+import 'package:front_porch_ai/services/tts/sherpa_zipvoice_engine.dart';
 
 /// Text-to-speech service — multi-engine architecture.
 ///
-/// Supports: Kokoro (local, default), Piper (local), OpenAI TTS (cloud),
-/// ElevenLabs (cloud). Handles buffered playback, progress tracking, and
-/// text sanitization. All local audio is generated in-process by
-/// sherpa-onnx (docs/design/sidecar-retirement.md — no Python involved).
+/// Supports: Kokoro (local, default), Piper (local), ZipVoice (local,
+/// zero-shot), OpenAI TTS (cloud), ElevenLabs (cloud). Handles buffered
+/// playback, progress tracking, and text sanitization. All local audio is
+/// generated in-process by sherpa-onnx (docs/design/sidecar-retirement.md —
+/// no Python involved).
 class TtsService extends ChangeNotifier {
   final StorageService _storageService;
   final VoiceManager _voiceManager;
 
   /// In-process sherpa vits engine for Piper voices (phase 4b).
   final SherpaPiperEngine _piperNative = SherpaPiperEngine();
+  late final SherpaZipVoiceEngine _zipvoiceNative;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   // Engines
@@ -110,6 +113,10 @@ class TtsService extends ChangeNotifier {
         return _elevenlabsEngine;
       case 'kokoro':
         return _kokoroEngine;
+      case 'zipvoice':
+        _zipvoiceNative.referenceAudioPath =
+            _storageService.zipvoiceTtsReferenceAudio;
+        return _zipvoiceNative;
       default:
         return _kokoroEngine; // Piper handled separately for backward compat
     }
@@ -117,6 +124,9 @@ class TtsService extends ChangeNotifier {
 
   /// Whether the current engine is Piper.
   bool get _isPiperEngine => _storageService.ttsEngine == 'piper';
+
+  /// Whether the current engine is ZipVoice.
+  bool get _isZipVoiceEngine => _storageService.ttsEngine == 'zipvoice';
 
   /// Cached voices for the currently selected engine.
   /// This is the source of truth used by UI pickers.
@@ -158,6 +168,8 @@ class TtsService extends ChangeNotifier {
         print('TTS: Failed to refresh Piper voices: $e');
         _currentAvailableVoices = const [];
       }
+    } else if (_isZipVoiceEngine) {
+      _currentAvailableVoices = _zipvoiceNative.availableVoices;
     } else {
       _currentAvailableVoices = activeEngine.availableVoices;
     }
@@ -192,7 +204,8 @@ class TtsService extends ChangeNotifier {
   /// Whether the active engine's model files are already downloaded.
   Future<bool> isModelDownloaded() => activeEngine.isAvailable;
 
-  TtsService(this._storageService, this._voiceManager) {
+  TtsService(this._storageService, this._voiceManager)
+      : _zipvoiceNative = SherpaZipVoiceEngine(_storageService) {
     // Prime the voice list for the current engine (important for Piper + custom voices)
     unawaited(refreshAvailableVoices());
   }
@@ -208,6 +221,7 @@ class TtsService extends ChangeNotifier {
     stop();
     _clearCache();
     _piperNative.shutdown();
+    _zipvoiceNative.shutdown();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -230,8 +244,13 @@ class TtsService extends ChangeNotifier {
         ? voiceKey
         : _storageService.ttsVoiceModel;
     if (voice.isEmpty) {
-      print('TTS: no voice configured');
-      return;
+      // ZipVoice has a single default voice — fallback to it when none set.
+      if (_isZipVoiceEngine) {
+        voice = 'zipvoice-default';
+      } else {
+        print('TTS: no voice configured');
+        return;
+      }
     }
 
     // Defensive check: if the resolved voice key is clearly incompatible
@@ -297,7 +316,7 @@ class TtsService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // For Kokoro, ensure model is downloaded
+      // For local engines, ensure model is downloaded
       if (_storageService.ttsEngine == 'kokoro') {
         final ready = await activeEngine.ensureModelReady(
           onProgress: (p) {
@@ -318,15 +337,37 @@ class TtsService extends ChangeNotifier {
         }
       }
 
+      if (_isZipVoiceEngine) {
+        final ready = await _zipvoiceNative.ensureModelReady(
+          onProgress: (p) {
+            _modelDownloadProgress = p;
+            _isDownloadingModel = p < 1.0;
+            notifyListeners();
+          },
+        );
+        _isDownloadingModel = false;
+        if (!ready || !_isSpeaking) {
+          print('TTS: ZipVoice model not ready');
+          return;
+        }
+        _zipvoiceNative.referenceAudioPath =
+            _storageService.zipvoiceTtsReferenceAudio;
+      }
+
       final bool isKokoro = _storageService.ttsEngine == 'kokoro';
       final bool isPiper = _isPiperEngine;
 
-      // Unified modern path for Kokoro (persistent) and Piper (one-shot).
-      // Both now benefit from proper sanitization, smart chunking for long text,
-      // real progress reporting, and correct ordering/collation.
-      // Piper remains strictly one-shot under the hood (as the binary is designed).
-      if (isKokoro || isPiper) {
-        final engineName = isPiper ? 'Piper' : 'Kokoro';
+      // Unified modern path for Kokoro (persistent), Piper (one-shot), and
+      // ZipVoice (one-shot zero-shot). All three benefit from proper
+      // sanitization, smart chunking for long text, real progress reporting,
+      // and correct ordering/collation.
+      // Piper and ZipVoice remain strictly one-shot under the hood.
+      if (isKokoro || isPiper || _isZipVoiceEngine) {
+        final engineName = _isZipVoiceEngine
+            ? 'ZipVoice'
+            : isPiper
+                ? 'Piper'
+                : 'Kokoro';
         final modeLabel = _storageService.ttsNarrateQuotedOnly
             ? 'Only Quotes'
             : _storageService.ttsIgnoreAsterisks
@@ -342,7 +383,32 @@ class TtsService extends ChangeNotifier {
 
         List<File> generatedWavs = [];
 
-        if (isPiper) {
+        if (_isZipVoiceEngine) {
+          // ZipVoice: one-shot zero-shot generation with reference audio.
+          _generationProgress = 0.5;
+          _isGenerating = true;
+          notifyListeners();
+          File? wav;
+          try {
+            wav = await _zipvoiceNative.generateAudio(
+              sanitized,
+              voice,
+              speed,
+              onProgress: (progress) {
+                _generationProgress = progress;
+                notifyListeners();
+              },
+            );
+          } catch (e) {
+            print('TTS: ZipVoice generation error: $e');
+            _lastError = e.toString();
+          }
+          if (wav != null) {
+            generatedWavs = [wav];
+          }
+          _isGenerating = false;
+          notifyListeners();
+        } else if (isPiper) {
           // Piper: per-chunk one-shot on the in-process sherpa engine
           // (sidecar retirement phase 4b — the legacy binary is gone).
           if (!await _ensurePiperVoice(voice)) {
@@ -596,9 +662,13 @@ class TtsService extends ChangeNotifier {
         ? voiceKey
         : _storageService.ttsVoiceModel;
     if (voice.isEmpty) {
-      print('TTS streaming: no voice configured');
-      bail();
-      return;
+      if (_isZipVoiceEngine) {
+        voice = 'zipvoice-default';
+      } else {
+        print('TTS streaming: no voice configured');
+        bail();
+        return;
+      }
     }
 
     // Defensive mismatch protection (same as in speak())
@@ -619,7 +689,7 @@ class TtsService extends ChangeNotifier {
       return;
     }
 
-    // Ensure Kokoro model is ready
+    // Ensure local engine model is ready
     if (_storageService.ttsEngine == 'kokoro') {
       final ready = await activeEngine.ensureModelReady(
         onProgress: (p) {
@@ -637,6 +707,23 @@ class TtsService extends ChangeNotifier {
       if (activeEngine is KokoroEngine) {
         unawaited((activeEngine as KokoroEngine).ensureWorkersWarm());
       }
+    }
+
+    if (_isZipVoiceEngine) {
+      final ready = await _zipvoiceNative.ensureModelReady(
+        onProgress: (p) {
+          _modelDownloadProgress = p;
+          _isDownloadingModel = p < 1.0;
+          notifyListeners();
+        },
+      );
+      _isDownloadingModel = false;
+      if (!ready) {
+        bail();
+        return;
+      }
+      _zipvoiceNative.referenceAudioPath =
+          _storageService.zipvoiceTtsReferenceAudio;
     }
 
     _clearCache(); // no caching for streaming
@@ -677,7 +764,18 @@ class TtsService extends ChangeNotifier {
           // Fire off generation without awaiting — runs concurrently
           final future = () async {
             File? wavFile;
-            if (_isPiperEngine) {
+            if (_isZipVoiceEngine) {
+              try {
+                wavFile = await _zipvoiceNative.generateAudio(
+                  sanitized,
+                  voice,
+                  speed,
+                );
+              } catch (e) {
+                print('TTS: ZipVoice streaming error: $e');
+                _lastError = e.toString();
+              }
+            } else if (_isPiperEngine) {
               wavFile = await _piperGenerateWav(voice, sanitized, idx, speed);
             } else {
               kDebugPrint(
@@ -774,7 +872,13 @@ class TtsService extends ChangeNotifier {
     var voice = (voiceKey != null && voiceKey.isNotEmpty)
         ? voiceKey
         : _storageService.ttsVoiceModel;
-    if (voice.isEmpty) return null;
+    if (voice.isEmpty) {
+      if (_isZipVoiceEngine) {
+        voice = 'zipvoice-default';
+      } else {
+        return null;
+      }
+    }
 
     // Defensive mismatch protection (same as in speak())
     if (_isPiperEngine && !await _voiceManager.isVoiceInstalled(voice)) {
@@ -800,6 +904,13 @@ class TtsService extends ChangeNotifier {
         }
       }
 
+      if (_isZipVoiceEngine) {
+        final ready = await _zipvoiceNative.ensureModelReady(onProgress: (_) {});
+        if (!ready) return null;
+        _zipvoiceNative.referenceAudioPath =
+            _storageService.zipvoiceTtsReferenceAudio;
+      }
+
       final sentences = _splitSentences(sanitized);
       final wavFiles = <File>[];
 
@@ -808,6 +919,20 @@ class TtsService extends ChangeNotifier {
         final engine = activeEngine;
         final speed = _storageService.ttsSpeechRate;
         final wav = await engine.generateAudio(sanitized, voice, speed);
+        if (wav != null) wavFiles.add(wav);
+      } else if (_isZipVoiceEngine) {
+        final speed = _storageService.ttsSpeechRate;
+        File? wav;
+        try {
+          wav = await _zipvoiceNative.generateAudio(
+            sanitized,
+            voice,
+            speed,
+          );
+        } catch (e) {
+          print('TTS: ZipVoice generation error: $e');
+          _lastError = e.toString();
+        }
         if (wav != null) wavFiles.add(wav);
       } else if (_isPiperEngine) {
         final speed = _storageService.ttsSpeechRate;

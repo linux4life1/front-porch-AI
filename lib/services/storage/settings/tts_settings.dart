@@ -24,7 +24,7 @@ import 'settings_base.dart';
 /// Lifted mechanically (Stage 7). All persistence + notify via base.
 class TtsSettings with SettingsBase {
   bool _ttsEnabled = false;
-  String _ttsEngine = 'kokoro'; // 'kokoro', 'openai', 'elevenlabs', 'piper'
+  String _ttsEngine = 'kokoro'; // 'kokoro', 'openai', 'elevenlabs', 'piper', 'zipvoice'
   String _ttsVoiceModel =
       ''; // voice key, e.g. 'af_heart' or 'en_US-lessac-medium'
   double _ttsSpeechRate = 1.0;
@@ -43,6 +43,7 @@ class TtsSettings with SettingsBase {
   int _ttsConcurrency = Platform.numberOfProcessors.clamp(1, 8);
   int _ttsAudioLookahead = 6;
   double _directorDelay = 15.0;
+  String _zipvoiceTtsReferenceAudio = '';
 
   bool get ttsEnabled => _ttsEnabled;
   String get ttsEngine => _ttsEngine;
@@ -63,6 +64,7 @@ class TtsSettings with SettingsBase {
   int get ttsConcurrency => _ttsConcurrency.clamp(1, 8);
   int get ttsAudioLookahead => _ttsAudioLookahead;
   double get directorDelay => _directorDelay;
+  String get zipvoiceTtsReferenceAudio => _zipvoiceTtsReferenceAudio;
 
   void load() {
     _ttsEnabled = prefs?.getBool(k('tts_enabled')) ?? false;
@@ -91,6 +93,8 @@ class TtsSettings with SettingsBase {
     _ttsIgnoreAsterisks = prefs?.getBool(k('tts_ignore_asterisks')) ?? false;
     _ttsReplaceCurlyQuotes = prefs?.getBool(k('tts_replace_curly_quotes')) ?? false;
     _directorDelay = prefs?.getDouble(k('director_delay')) ?? 15.0;
+    _zipvoiceTtsReferenceAudio =
+        prefs?.getString(k('zipvoice_tts_reference_audio')) ?? '';
   }
 
   Future<void> setTtsEnabled(bool value) async {
@@ -204,6 +208,12 @@ class TtsSettings with SettingsBase {
   Future<void> setDirectorDelay(double value) async {
     _directorDelay = value.clamp(0.5, 60.0);
     await prefs?.setDouble(k('director_delay'), _directorDelay);
+    notify();
+  }
+
+  Future<void> setZipvoiceTtsReferenceAudio(String value) async {
+    _zipvoiceTtsReferenceAudio = value;
+    await prefs?.setString(k('zipvoice_tts_reference_audio'), value);
     notify();
   }
 }

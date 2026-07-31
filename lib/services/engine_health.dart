@@ -49,6 +49,7 @@ class EngineHealth extends ChangeNotifier {
   static const String expressions = 'Expressions';
   static const String kokoro = 'Kokoro voice';
   static const String piper = 'Piper voice';
+  static const String zipvoice = 'ZipVoice voice';
   static const String whisper = 'Voice input';
   static const String drawThings = 'Draw Things';
   static const String embeddings = 'Memory embeddings';
@@ -57,6 +58,7 @@ class EngineHealth extends ChangeNotifier {
     expressions,
     kokoro,
     piper,
+    zipvoice,
     whisper,
     drawThings,
     embeddings,

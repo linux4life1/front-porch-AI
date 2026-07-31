@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -170,6 +171,8 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                           ..._buildElevenLabsSettings(storage, tts, voices),
                         if (engineId == 'piper')
                           ..._buildPiperSettings(storage, tts),
+                        if (engineId == 'zipvoice')
+                          ..._buildZipVoiceSettings(storage, tts),
 
                         const SizedBox(height: 20),
 
@@ -482,6 +485,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
           _engineTab(storage, 'openai', '☁️ OpenAI', 'Cloud API'),
           _engineTab(storage, 'elevenlabs', '🎙 ElevenLabs', 'Premium'),
           _engineTab(storage, 'piper', '📦 Piper', 'Lightweight'),
+          _engineTab(storage, 'zipvoice', '🧩 ZipVoice', 'Zero-shot'),
         ],
       ),
     );
@@ -1076,6 +1080,231 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                   fontSize: 11,
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  /// ZipVoice-specific settings.
+  List<Widget> _buildZipVoiceSettings(StorageService storage, TtsService tts) {
+    return [
+      // ── Model status ──
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: tts.isDownloadingModel
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.formMasterAccent,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Downloading ZipVoice model (${(tts.modelDownloadProgress * 100).toInt()}%)...',
+                        style: const TextStyle(
+                          color: AppColors.formMasterAccent,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: tts.modelDownloadProgress,
+                    backgroundColor: Colors.white12,
+                    color: AppColors.formMasterAccent,
+                    minHeight: 4,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ],
+              )
+            : FutureBuilder<bool>(
+                future: tts.isModelDownloaded(),
+                builder: (context, snapshot) {
+                  final isDownloaded = snapshot.data == true;
+                  if (isDownloaded) {
+                    return const Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'ZipVoice model ready ✓',
+                            style: TextStyle(color: Colors.green, fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      const Icon(
+                        Icons.download_rounded,
+                        color: AppColors.formMasterAccent,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          '~1GB download required',
+                          style: TextStyle(color: Colors.white38, fontSize: 11),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final success = await tts.downloadModel();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  success
+                                      ? 'ZipVoice model ready!'
+                                      : 'Download failed — check connection',
+                                ),
+                                backgroundColor: success
+                                    ? Colors.green
+                                    : Colors.redAccent,
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.download, size: 14),
+                        label: const Text('Download'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.formMasterAccent,
+                          foregroundColor: AppColors.onChaosAccent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          textStyle: const TextStyle(fontSize: 12),
+                          minimumSize: const Size(0, 30),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+      ),
+      const SizedBox(height: 16),
+
+      // ── Reference audio picker ──
+      const Text(
+        'Reference Audio',
+        style: TextStyle(
+          color: Colors.white54,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    storage.zipvoiceTtsReferenceAudio.isNotEmpty
+                        ? storage.zipvoiceTtsReferenceAudio
+                        : 'No reference audio selected',
+                    style: TextStyle(
+                      color: storage.zipvoiceTtsReferenceAudio.isNotEmpty
+                          ? Colors.white
+                          : Colors.white38,
+                      fontSize: 11,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final result = await FilePicker.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['wav'],
+                    );
+                    if (result != null && result.files.single.path != null) {
+                      await storage.setZipvoiceTtsReferenceAudio(
+                        result.files.single.path!,
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.folder_open, size: 14),
+                  label: const Text('Browse'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.formMasterAccent,
+                    foregroundColor: AppColors.onChaosAccent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    textStyle: const TextStyle(fontSize: 12),
+                    minimumSize: const Size(0, 30),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Select a WAV file (~3–12 seconds of clean speech) for voice cloning.',
+              style: TextStyle(color: Colors.white24, fontSize: 10),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, color: Colors.cyan, size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'ZipVoice is a zero-shot voice cloning model. It uses a '
+                    'short reference audio clip (3–12 seconds of clean '
+                    'speech) to clone the target voice.',
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 6),
+            Text(
+              'A transcript is required: create a .txt file with the exact '
+              'same name as the WAV, next to it (e.g. reference.wav + '
+              'reference.txt). ZipVoice reads the transcript automatically.',
+              style: TextStyle(color: Colors.cyan, fontSize: 11),
             ),
           ],
         ),

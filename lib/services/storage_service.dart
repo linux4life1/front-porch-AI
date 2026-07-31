@@ -334,6 +334,9 @@ class StorageService extends ChangeNotifier {
   Future<void> setTtsAutoPlay(bool v) => ttsSettings.setTtsAutoPlay(v);
   double get directorDelay => ttsSettings.directorDelay;
   Future<void> setDirectorDelay(double v) => ttsSettings.setDirectorDelay(v);
+  String get zipvoiceTtsReferenceAudio => ttsSettings.zipvoiceTtsReferenceAudio;
+  Future<void> setZipvoiceTtsReferenceAudio(String v) =>
+      ttsSettings.setZipvoiceTtsReferenceAudio(v);
   String get callModelName => sttSettings.callModelName;
   Future<void> setCallModelName(String v) => sttSettings.setCallModelName(v);
   String get callSystemPrompt => sttSettings.callSystemPrompt;
