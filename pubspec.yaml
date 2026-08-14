@@ -74,7 +74,7 @@ dependencies:
   shelf_router: ^1.1.4
   shelf_web_socket: ^3.0.0
   web_socket_channel: ^3.0.1 # WS channel abstraction (server + client/tests)
-  hashlib: ^1.21.0
+  hashlib: ^2.4.2
   otp: ^3.1.4 # RFC 6238 TOTP for optional web-login 2FA
   page_flip: ^0.2.5+1
   html: ^0.15.6
