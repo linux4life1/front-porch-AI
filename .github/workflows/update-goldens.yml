@@ -26,7 +26,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[update-goldens]')
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload changed goldens
         if: steps.collect.outputs.changed == '1'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: updated-goldens
           # Artifact root = contents of _changed_goldens, i.e. paths begin at

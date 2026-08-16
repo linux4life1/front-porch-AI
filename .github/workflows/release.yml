@@ -46,7 +46,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -154,7 +154,7 @@ jobs:
       # No npm cache here — caching is intentionally disabled across release.yml
       # (stable releases build everything fresh; see the Setup Flutter note above).
       - name: Setup Node (for the WebUI bundle)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
@@ -582,7 +582,7 @@ jobs:
            tar -czvf ../../../../../${{ matrix.asset_name }} .
 
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: build-${{ matrix.platform }}
           path: |
@@ -609,10 +609,10 @@ jobs:
       # download-artifact only writes files and won't clobber the checked-out tree,
       # and the release binaries have distinct names from any repo files.
       - name: Checkout Code (for release notes)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Download Build Artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: build-*
           merge-multiple: true
@@ -646,7 +646,7 @@ jobs:
           fi
 
       - name: Create or Update Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             Front_Porch_AI-Linux.AppImage
@@ -704,7 +704,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Linux Build Artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: build-linux
 
@@ -759,7 +759,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Linux Build Artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: build-linux
 
