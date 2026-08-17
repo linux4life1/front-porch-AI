@@ -86,16 +86,16 @@ dependencies:
   # In-process Whisper STT (replaces the Python whisper_stt sidecar; the
   # sidecar remains as automatic fallback for one release cycle —
   # docs/design/sidecar-retirement.md phase 3).
-  sherpa_onnx: ^1.13.4
-  flutter_riverpod: ^3.0.0
-  riverpod_annotation: '>=4.0.0 <4.0.5'
+  sherpa_onnx: ^1.13.5
+  flutter_riverpod: ^3.4.2
+  riverpod_annotation: ^4.0.6
   flutter_markdown_plus: ^1.0.12
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  drift_dev: ^2.34.0
-  build_runner: ^2.4.14
+  drift_dev: ^2.34.5
+  build_runner: ^2.16.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -107,7 +107,7 @@ dev_dependencies:
   # 3.47 *can* resolve riverpod_generator 4.0.8 + drift_dev 2.34.5 together;
   # 4.0.6+ still needs a dedicated codegen/lifecycle pass. file_picker stays
   # 11 — 12 deletes FilePickerResult. xml 7 still blocked by webdav_client.
-  riverpod_generator: '>=4.0.4 <4.0.6'
+  riverpod_generator: ^4.0.8
   integration_test:
     sdk: flutter
   path_provider_platform_interface: ^2.1.3
