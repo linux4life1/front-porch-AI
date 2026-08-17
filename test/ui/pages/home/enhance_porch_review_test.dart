@@ -86,38 +86,39 @@ void main() {
     expect(useSwitch.value, isFalse);
   });
 
-  testWidgets('empty proposed description and personality default Use this off', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _app(
-        EnhanceReviewBody(
-          original: CharacterCard(
-            name: 'Nina',
-            description: 'authored description',
-            personality: 'authored personality',
-          ),
-          enhanced: CharacterCard(
-            name: 'Nina',
-            description: '   ',
-            personality: '',
-          ),
-          selection: const EnhanceSelection(
-            description: true,
-            personality: true,
-            exampleDialogue: false,
-            porchLife: false,
+  testWidgets(
+    'empty proposed description and personality default Use this off',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          EnhanceReviewBody(
+            original: CharacterCard(
+              name: 'Nina',
+              description: 'authored description',
+              personality: 'authored personality',
+            ),
+            enhanced: CharacterCard(
+              name: 'Nina',
+              description: '   ',
+              personality: '',
+            ),
+            selection: const EnhanceSelection(
+              description: true,
+              personality: true,
+              exampleDialogue: false,
+              porchLife: false,
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
-    expect(switches, hasLength(2));
-    expect(switches[0].value, isFalse);
-    expect(switches[1].value, isFalse);
-  });
+      final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
+      expect(switches, hasLength(2));
+      expect(switches[0].value, isFalse);
+      expect(switches[1].value, isFalse);
+    },
+  );
 
   testWidgets('non-empty proposed description still defaults Use this on', (
     tester,
@@ -146,10 +147,7 @@ void main() {
     await tester.pumpWidget(
       _app(
         EnhanceReviewBody(
-          original: CharacterCard(
-            name: 'Nina',
-            firstMessage: 'Hey there.',
-          ),
+          original: CharacterCard(name: 'Nina', firstMessage: 'Hey there.'),
           enhanced: CharacterCard(name: 'Nina', firstMessage: ''),
           selection: const EnhanceSelection(
             description: false,

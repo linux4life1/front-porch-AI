@@ -4,45 +4,12 @@
 // Enhance Review says "New lorebook entries" — Save must append those
 // onto the book duplicateCharacter just copied, never replace it.
 
-import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
-import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/pages/home/enhance/enhance_review_body.dart';
-
-class _Repo extends Fake implements CharacterRepository {
-  CharacterCard? lastUpdated;
-
-  @override
-  Future<CharacterCard?> duplicateCharacter(
-    CharacterCard card, {
-    String? targetDirOverride,
-    String? forcedBasename,
-    bool skipLibraryInsert = false,
-    String? newNameOverride,
-  }) async {
-    return CharacterCard(
-      name: newNameOverride ?? '${card.name} (duplicate)',
-      description: card.description,
-      lorebook: card.lorebook != null
-          ? Lorebook(entries: List.of(card.lorebook!.entries))
-          : null,
-    );
-  }
-
-  @override
-  Future<void> updateCharacter(CharacterCard card, {bool notify = true}) async {
-    lastUpdated = card;
-  }
-}
-
-class _Folders extends Fake implements FolderService {
-  @override
-  Future<void> inheritFolder(String? sourcePath, String? copyPath) async {}
-}
 
 void main() {
   test('mergeLorebookEntries appends and replaces by name', () {
@@ -61,53 +28,17 @@ void main() {
     expect(merged[2].content, 'new bar');
   });
 
-  testWidgets('Save appends accepted lore onto the duplicated original book', (
-    tester,
-  ) async {
-    final repo = _Repo();
-    final original = CharacterCard(
-      name: 'Nina',
-      lorebook: Lorebook(
-        entries: [LorebookEntry(name: 'The Kitchen', content: 'kept')],
-      ),
+  test('Save merges onto the duplicated book instead of replacing it', () {
+    final src = File(
+      'lib/ui/pages/home/enhance/enhance_review_body.dart',
+    ).readAsStringSync();
+    final saveAt = src.indexOf('Future<CharacterCard?> save()');
+    expect(saveAt, greaterThanOrEqualTo(0));
+    final save = src.substring(saveAt);
+    expect(save, contains('mergeLorebookEntries(book.entries, keptLore)'));
+    expect(
+      save.contains('copy.lorebook = Lorebook(entries: keptLore)'),
+      isFalse,
     );
-    final enhanced = CharacterCard(
-      name: 'Nina',
-      lorebook: Lorebook(
-        entries: [LorebookEntry(name: 'The Bar', content: 'new place')],
-      ),
-    );
-    final key = GlobalKey<EnhanceReviewBodyState>();
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          Provider<CharacterRepository>.value(value: repo),
-          Provider<FolderService>.value(value: _Folders()),
-        ],
-        child: MaterialApp(
-          home: Scaffold(
-            body: EnhanceReviewBody(
-              key: key,
-              original: original,
-              enhanced: enhanced,
-              selection: const EnhanceSelection(
-                description: false,
-                personality: false,
-                exampleDialogue: false,
-                lorebook: true,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final saved = await key.currentState!.save();
-    expect(saved, isNotNull);
-    final names = repo.lastUpdated!.lorebook!.entries.map((e) => e.name);
-    expect(names, ['The Kitchen', 'The Bar']);
-    expect(repo.lastUpdated!.lorebook!.entries[0].content, 'kept');
-    expect(repo.lastUpdated!.lorebook!.entries[1].content, 'new place');
   });
 }

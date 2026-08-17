@@ -29,9 +29,7 @@ List<LorebookEntry> mergeLorebookEntries(
   final out = List<LorebookEntry>.from(original);
   for (final entry in incoming) {
     final name = entry.name.trim();
-    final i = name.isEmpty
-        ? -1
-        : out.indexWhere((e) => e.name.trim() == name);
+    final i = name.isEmpty ? -1 : out.indexWhere((e) => e.name.trim() == name);
     if (i >= 0) {
       out[i] = entry;
     } else {

@@ -85,7 +85,8 @@ extension _ChatPageInputActions on _ChatPageState {
         ),
         PopupMenuItem(
           value: 'import',
-          enabled: !chatService.isGenerating &&
+          enabled:
+              !chatService.isGenerating &&
               !chatService.isSettlingTurn &&
               !chatService.isImporting,
           child: Tooltip(

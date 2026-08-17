@@ -23,7 +23,6 @@ part of '../home_page.dart';
 /// Split out of the _HomePageState god file as a private extension
 /// (part of the same library, so it keeps full access to page state).
 extension _HomePageChrome on _HomePageState {
-
   Widget _buildModeToggle() {
     return HomeModeToggle(
       showStories: _showStories,
@@ -116,9 +115,8 @@ extension _HomePageChrome on _HomePageState {
       debugPrint('[Home] open chat failed: $e\n$st');
       if (mounted && nav.canPop()) {
         nav.pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open chat: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not open chat: $e')));
       }
       return;
     }
@@ -182,7 +180,10 @@ extension _HomePageChrome on _HomePageState {
     _openingChat = true;
     try {
       final chatService = Provider.of<ChatService>(context, listen: false);
-      final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
+      final groupRepo = Provider.of<GroupChatRepository>(
+        context,
+        listen: false,
+      );
       final groupId = 'group_${group.id}';
       final sessions = await chatService.getSessionsForId(groupId);
 
@@ -230,7 +231,10 @@ extension _HomePageChrome on _HomePageState {
     _openingChat = true;
     try {
       final subject = character?.name ?? group?.name ?? '';
-      final personaId = await showPersonaPickerDialog(context, subject: subject);
+      final personaId = await showPersonaPickerDialog(
+        context,
+        subject: subject,
+      );
       if (personaId == null || !mounted) return;
 
       final chatService = Provider.of<ChatService>(context, listen: false);
@@ -396,7 +400,6 @@ extension _HomePageChrome on _HomePageState {
         break;
     }
   }
-
 
   /// One drop handler for both draggable kinds: characters are keyed by image
   /// filename, group casts by their group id (see FolderService).

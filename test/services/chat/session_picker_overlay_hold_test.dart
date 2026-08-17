@@ -104,9 +104,8 @@ void main() {
   }
 
   test('_openSessionMessages does not call endSessionLoad', () {
-    final src = File(
-      'lib/services/chat/chat_service_session_window.dart',
-    ).readAsStringSync();
+    final src = File('lib/services/chat/chat_service_session_window.dart')
+        .readAsStringSync();
     final openAt = src.indexOf('Future<void> _openSessionMessages');
     expect(openAt, greaterThanOrEqualTo(0));
     expect(src.substring(openAt).contains('endSessionLoad()'), isFalse);
@@ -159,27 +158,30 @@ void main() {
     },
   );
 
-  test('picker hold stays up when setActive loads another card\'s tail', () async {
-    final a = await addCard('Ada');
-    final b = await addCard('Bea');
-    await chat.setActiveCharacter(a);
-    await chat.sendMessage('ada chat');
-    await chat.setActiveCharacter(b);
-    await chat.sendMessage('bea chat');
-    expect(chat.isLoadingSession, isFalse);
+  test(
+    'picker hold stays up when setActive loads another card\'s tail',
+    () async {
+      final a = await addCard('Ada');
+      final b = await addCard('Bea');
+      await chat.setActiveCharacter(a);
+      await chat.sendMessage('ada chat');
+      await chat.setActiveCharacter(b);
+      await chat.sendMessage('bea chat');
+      expect(chat.isLoadingSession, isFalse);
 
-    chat.beginSessionLoad();
-    await chat.setActiveCharacter(a);
-    expect(
-      chat.isLoadingSession,
-      isTrue,
-      reason:
-          '_openSessionMessages used to endSessionLoad after the last-24 '
-          'tail, uncovering the composer before hydrate',
-    );
-    chat.endSessionLoad();
-    expect(chat.isLoadingSession, isFalse);
-  });
+      chat.beginSessionLoad();
+      await chat.setActiveCharacter(a);
+      expect(
+        chat.isLoadingSession,
+        isTrue,
+        reason:
+            '_openSessionMessages used to endSessionLoad after the last-24 '
+            'tail, uncovering the composer before hydrate',
+      );
+      chat.endSessionLoad();
+      expect(chat.isLoadingSession, isFalse);
+    },
+  );
 
   test('sendMessage is a no-op while the session overlay is up', () async {
     final card = await addCard('Gate');

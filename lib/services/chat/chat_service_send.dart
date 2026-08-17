@@ -602,9 +602,9 @@ extension ChatServiceSend on ChatService {
         final cards = await _journalStore.cardsFor(sessionId, ownerId);
         final sorted = [...cards]
           ..sort(
-            (a, b) => JournalPhysics.cooledHeat(
-              b,
-            ).compareTo(JournalPhysics.cooledHeat(a)),
+            (a, b) =>
+                JournalPhysics.cooledHeat(b)
+                    .compareTo(JournalPhysics.cooledHeat(a)),
           );
         return await _dreamService.generateDream(
           characterName: ownerCard.name,

@@ -28,9 +28,8 @@ void main() {
   });
 
   test('open does not drop the overlay — owner ends after hydrate', () {
-    final src = File(
-      'lib/services/chat/chat_service_session_window.dart',
-    ).readAsStringSync();
+    final src = File('lib/services/chat/chat_service_session_window.dart')
+        .readAsStringSync();
     final openAt = src.indexOf('Future<void> _openSessionMessages');
     expect(openAt, greaterThanOrEqualTo(0));
     final openBody = src.substring(openAt);
