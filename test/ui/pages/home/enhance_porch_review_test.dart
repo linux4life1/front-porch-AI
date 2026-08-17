@@ -6,11 +6,29 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chargen/chat_grounding.dart';
+import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/ui/pages/home/enhance/enhance_review_body.dart';
 
 Widget _app(Widget child) => MaterialApp(home: Scaffold(body: child));
+
+const _porchOnly = EnhanceSelection(
+  description: false,
+  personality: false,
+  exampleDialogue: false,
+  porchLife: true,
+);
+
+FrontPorchExtensions _authored() => FrontPorchExtensions(
+  ambitions: const ['old goal'],
+  inventory: const {
+    'worn': ['old coat'],
+  },
+);
+
+CharacterCard _nina({FrontPorchExtensions? ext}) =>
+    CharacterCard(name: 'Nina', frontPorchExtensions: ext);
 
 void main() {
   testWidgets('Porch Life proposal shows Before vs After with Use this on', (
@@ -19,30 +37,16 @@ void main() {
     await tester.pumpWidget(
       _app(
         EnhanceReviewBody(
-          original: CharacterCard(
-            name: 'Nina',
-            frontPorchExtensions: FrontPorchExtensions(
-              ambitions: const ['old goal'],
-              inventory: const {
-                'worn': ['old coat'],
-              },
-            ),
-          ),
-          enhanced: CharacterCard(
-            name: 'Nina',
-            frontPorchExtensions: FrontPorchExtensions(
+          original: _nina(ext: _authored()),
+          enhanced: _nina(
+            ext: FrontPorchExtensions(
               ambitions: const ['stay fed'],
               inventory: const {
                 'worn': ['flour-dusted apron'],
               },
             ),
           ),
-          selection: const EnhanceSelection(
-            description: false,
-            personality: false,
-            exampleDialogue: false,
-            porchLife: true,
-          ),
+          selection: _porchOnly,
         ),
       ),
     );
@@ -52,8 +56,13 @@ void main() {
       find.text('Porch Life (wardrobe, ambitions, likes)'),
       findsOneWidget,
     );
-    expect(find.textContaining('old goal'), findsOneWidget);
+    expect(find.text('After (editable)'), findsOneWidget);
+    expect(find.text('Use this'), findsOneWidget);
+    // Before is the authored line, not a silent overwrite of the After chips.
+    expect(find.text('Ambitions: old goal'), findsOneWidget);
+    expect(find.text('Wearing: old coat'), findsOneWidget);
     expect(find.text('stay fed'), findsOneWidget);
+    expect(find.text('flour-dusted apron'), findsOneWidget);
     final useSwitch = tester.widget<Switch>(find.byType(Switch).first);
     expect(useSwitch.value, isTrue);
   });
@@ -64,24 +73,17 @@ void main() {
     await tester.pumpWidget(
       _app(
         EnhanceReviewBody(
-          original: CharacterCard(
-            name: 'Nina',
-            frontPorchExtensions: FrontPorchExtensions(
-              ambitions: const ['old goal'],
-            ),
-          ),
-          enhanced: CharacterCard(name: 'Nina'),
-          selection: const EnhanceSelection(
-            description: false,
-            personality: false,
-            exampleDialogue: false,
-            porchLife: true,
-          ),
+          original: _nina(ext: _authored()),
+          enhanced: _nina(),
+          selection: _porchOnly,
         ),
       ),
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('After (editable)'), findsOneWidget);
+    expect(find.text('Ambitions: old goal'), findsOneWidget);
+    expect(find.text('Wearing: old coat'), findsOneWidget);
     final useSwitch = tester.widget<Switch>(find.byType(Switch).first);
     expect(useSwitch.value, isFalse);
   });

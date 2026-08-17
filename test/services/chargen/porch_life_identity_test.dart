@@ -67,6 +67,18 @@ thanks
       expect(id.carrying.length, lessThanOrEqualTo(8));
       expect(id.carrying.first, 'car keys');
     });
+
+    test('isEmpty is all seven lists empty — mute JSON included', () {
+      expect(const PorchLifeIdentity().isEmpty, isTrue);
+      expect(parsePorchLifeIdentity('{}', nsfw: false).isEmpty, isTrue);
+      expect(parsePorchLifeIdentity('thanks', nsfw: false).isEmpty, isTrue);
+      expect(
+        parsePorchLifeIdentity({
+          'ambitions': ['stay fed'],
+        }, nsfw: false).isEmpty,
+        isFalse,
+      );
+    });
   });
 
   group('generateCharacter seeds Porch Life', () {

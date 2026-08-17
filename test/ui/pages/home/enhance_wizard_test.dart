@@ -215,6 +215,10 @@ void main() {
     expect(find.text('What should the interview rewrite?'), findsOneWidget);
     expect(find.text('Description'), findsOneWidget);
     expect(find.text('Personality'), findsOneWidget);
+    expect(
+      find.text('Porch Life (wardrobe, ambitions, likes)'),
+      findsOneWidget,
+    );
     expect(find.text('Allow 18+ themes'), findsOneWidget);
     expect(find.textContaining('very short'), findsOneWidget);
     expect(find.text('Start the Interview'), findsOneWidget);

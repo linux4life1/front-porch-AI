@@ -82,18 +82,67 @@ void main() {
       expect(result!.frontPorchExtensions, isNull);
     },
   );
+
+  for (final mute in ['{}', 'thanks']) {
+    test(
+      'mute "$mute" empties the proposal identity, not the source card',
+      () async {
+        final source = CharacterCard(
+          name: 'Nina',
+          description: 'A baker.',
+          personality: 'Hungry and kind.',
+          firstMessage: 'I wipe flour off the apron.',
+          frontPorchExtensions: FrontPorchExtensions(
+            ambitions: const ['old goal'],
+            inventory: const {
+              'worn': ['old coat'],
+            },
+          ),
+        );
+        final llm = _EnhancePorchLlm(porchReply: mute);
+        final gen = CharacterGenService(llm);
+        final result = await gen.enhanceCharacter(
+          source: source,
+          selection: const EnhanceSelection(
+            description: false,
+            personality: false,
+            exampleDialogue: false,
+            porchLife: true,
+          ),
+          chatGrounding: _grounding,
+        );
+
+        expect(result, isNotNull);
+        expect(
+          llm.prompts.any((p) => p.contains('Seed Porch Life identity')),
+          isTrue,
+        );
+        expect(porchLifeIdentityOf(result!.frontPorchExtensions).isEmpty, isTrue);
+        expect(source.frontPorchExtensions?.ambitions, ['old goal']);
+        expect(porchLifeIdentityOf(source.frontPorchExtensions).worn, [
+          'old coat',
+        ]);
+      },
+    );
+  }
 }
 
 class _EnhancePorchLlm extends LLMService {
+  _EnhancePorchLlm({this.porchReply});
+
+  /// When set, the Porch Life seed yields this text instead of a valid JSON
+  /// proposal — mute (`{}`) and garbage (`thanks`) both parse to isEmpty.
+  final String? porchReply;
   final prompts = <String>[];
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
     prompts.add(params.prompt);
     if (params.prompt.contains('Seed Porch Life identity')) {
-      yield '{"ambitions":["stay fed"],"likes":["hot coffee"],'
-          '"dislikes":["being interrupted"],"worn":["flour-dusted apron"],'
-          '"carrying":["shop keys"]}';
+      yield porchReply ??
+          '{"ambitions":["stay fed"],"likes":["hot coffee"],'
+              '"dislikes":["being interrupted"],"worn":["flour-dusted apron"],'
+              '"carrying":["shop keys"]}';
       return;
     }
     if (params.prompt.contains('Write example dialogue exchanges')) {
