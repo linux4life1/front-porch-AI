@@ -81,13 +81,16 @@ class RateLimiter {
 
   /// Whether [ip] is within the sliding-window attempt cap. A read never mints
   /// an entry — otherwise merely *asking* about a spoofed IP would grow the map.
+  ///
+  /// Empty / whitespace / null is not unlimited: those share one `_unknown`
+  /// bucket so a missing IP cannot skip the cap.
   bool ipAllowed(String? ip) {
-    if (ip == null || ip.isEmpty) return true;
-    final hits = _byIp[ip];
+    final key = _ipKey(ip);
+    final hits = _byIp[key];
     if (hits == null) return true;
     final cutoff = _now().subtract(_ipWindow);
     hits.removeWhere((t) => t.isBefore(cutoff));
-    if (hits.isEmpty) _byIp.remove(ip);
+    if (hits.isEmpty) _byIp.remove(key);
     return hits.length < _ipWindowMax;
   }
 
@@ -105,7 +108,7 @@ class RateLimiter {
 
   /// Whether [ip] may attempt first-run setup (stricter sliding window).
   bool setupIpAllowed(String? ip) {
-    final key = (ip == null || ip.isEmpty) ? '_unknown' : ip;
+    final key = _ipKey(ip);
     final hits = _setupByIp[key];
     if (hits == null) return true;
     final cutoff = _now().subtract(setupWindow);
@@ -116,7 +119,7 @@ class RateLimiter {
 
   /// Count a setup attempt (success or fail) toward the setup IP window.
   void recordSetupAttempt(String? ip) {
-    final key = (ip == null || ip.isEmpty) ? '_unknown' : ip;
+    final key = _ipKey(ip);
     if (_setupByIp.length >= _maxKeys) _sweep();
     (_setupByIp[key] ??= []).add(_now());
   }
@@ -126,9 +129,15 @@ class RateLimiter {
   int get trackedKeys => _byUser.length + _byIp.length + _setupByIp.length;
 
   void _touchIp(String? ip) {
-    if (ip == null || ip.isEmpty) return;
+    final key = _ipKey(ip);
     if (_byIp.length >= _maxKeys) _sweep();
-    (_byIp[ip] ??= []).add(_now());
+    (_byIp[key] ??= []).add(_now());
+  }
+
+  /// Empty / whitespace is not a valid IP — one shared fail-closed bucket.
+  String _ipKey(String? ip) {
+    final trimmed = ip?.trim() ?? '';
+    return trimmed.isEmpty ? '_unknown' : trimmed;
   }
 
   /// Drop everything that can no longer change an answer: IP windows whose

@@ -50,6 +50,16 @@
 - **Files:** chargen/narrative_voice.dart, character_gen_prompts.dart,
   character_gen_steps.dart, character_gen_service.dart, creator_state*,
   narrative_voice_selector.dart, web OutputSettings + chargenForm
+## 2026-08-17 — fix(web): loopback-proxy XFF uses appended hop; empty IP fail-closed
+- **Why:** `requestClientIp` took the leftmost XFF hop when the peer was
+  loopback. ngrok appends the real client, so a caller-supplied first hop
+  minted a fresh login/step-up rate-limit key. `X-Forwarded-For: ,8.8.8.8`
+  became `""`, and `ipAllowed` treated empty as unlimited.
+- **What:** Rightmost non-empty non-loopback hop behind a loopback peer.
+  LAN-direct still ignores XFF. Empty/whitespace/null IP shares one
+  `_unknown` bucket and is recorded — the cap is not skipped.
+- **Files:** client_ip.dart, rate_limiter.dart,
+  client_ip_proxy_xff_test.dart, rate_limiter_empty_ip_test.dart
 
 ## 2026-08-17 — test(creator): pin RealismStep Porch Life vs engine split
 - **Why:** Feature Design lock: engine OFF on the AI creator still shows
