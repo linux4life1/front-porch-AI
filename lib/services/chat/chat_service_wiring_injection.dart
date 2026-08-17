@@ -406,17 +406,6 @@ extension ChatServiceWiringInjection on ChatService {
     );
   }
 
-  PlanInjection _buildPlanInjection() {
-    return PlanInjection(
-      getTodayLine: () => _timeService.visibleTodayLine,
-      getActiveCharacter: () => _activeCharacter,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
-      getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
-      getGroupCharacters: () => _groupCharacters,
-      getCharacterIdFromCard: _getCharacterIdFromCard,
-    );
-  }
-
   PreferencesInjection _buildPreferencesInjection() {
     return PreferencesInjection(
       getActiveCharacter: () => _activeCharacter,
