@@ -168,6 +168,38 @@ export function mergeLorebook(original: unknown, incoming: unknown): Record<stri
   return { ...rest, entries };
 }
 
+/** Authored Porch Life on the duplicate — empty proposed lists keep these. */
+export type EnhanceApplyOriginal = {
+  lorebook?: unknown;
+  ambitions?: string[];
+  likes?: string[];
+  dislikes?: string[];
+  intimateInto?: string[];
+  intimateNotInto?: string[];
+  inventory?: { worn?: unknown[]; carrying?: unknown[] };
+};
+
+/** Keep [authored] when [proposed] is missing or empty. */
+export function keepAuthoredIfEmpty(
+  proposed: string[] | undefined,
+  authored: string[] | undefined,
+): string[] {
+  return proposed && proposed.length > 0 ? proposed : (authored ?? []);
+}
+
+function inventoryNames(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item === 'string' && item.trim()) out.push(item);
+    else if (item && typeof item === 'object' && typeof (item as { name?: unknown }).name === 'string') {
+      const name = ((item as { name: string }).name).trim();
+      if (name) out.push(name);
+    }
+  }
+  return out;
+}
+
 /**
  * The partial-update body for `POST /api/characters/<newId>`: only accepted
  * sections are included (the duplicate already carries the original for the
@@ -177,7 +209,7 @@ export function buildApplyBody(
   proposal: EnhanceProposal,
   accepted: EnhanceAccepted,
   edits: EnhanceEdits = {},
-  original: { lorebook?: unknown } = {},
+  original: EnhanceApplyOriginal = {},
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   if (accepted.description && proposal.description !== undefined) {
@@ -205,14 +237,14 @@ export function buildApplyBody(
   }
   if (accepted.porchLife && proposal.porchLife) {
     const p = edits.porchLife ?? proposal.porchLife;
-    body.ambitions = p.ambitions;
-    body.likes = p.likes;
-    body.dislikes = p.dislikes;
-    body.intimateInto = p.intimateInto;
-    body.intimateNotInto = p.intimateNotInto;
+    body.ambitions = keepAuthoredIfEmpty(p.ambitions, original.ambitions);
+    body.likes = keepAuthoredIfEmpty(p.likes, original.likes);
+    body.dislikes = keepAuthoredIfEmpty(p.dislikes, original.dislikes);
+    body.intimateInto = keepAuthoredIfEmpty(p.intimateInto, original.intimateInto);
+    body.intimateNotInto = keepAuthoredIfEmpty(p.intimateNotInto, original.intimateNotInto);
     body.inventory = {
-      worn: p.worn,
-      carrying: p.carrying,
+      worn: keepAuthoredIfEmpty(p.worn, inventoryNames(original.inventory?.worn)),
+      carrying: keepAuthoredIfEmpty(p.carrying, inventoryNames(original.inventory?.carrying)),
     };
   }
   return body;

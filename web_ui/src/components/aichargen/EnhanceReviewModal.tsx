@@ -89,7 +89,15 @@ export function EnhanceReviewModal({
       );
       await api.post(
         `/api/characters/${dup.id}`,
-        buildApplyBody(proposal, accepted, edits, { lorebook: old?.lorebook }),
+        buildApplyBody(proposal, accepted, edits, {
+          lorebook: old?.lorebook,
+          ambitions: old?.realism?.ambitions,
+          likes: old?.realism?.likes,
+          dislikes: old?.realism?.dislikes,
+          intimateInto: old?.realism?.intimateInto,
+          intimateNotInto: old?.realism?.intimateNotInto,
+          inventory: old?.realism?.inventory,
+        }),
       );
       // Don't leave yet — offer to bring the base character's chats along.
       setBusy(false);

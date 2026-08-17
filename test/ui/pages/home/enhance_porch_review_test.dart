@@ -4,6 +4,8 @@
 // Enhance Review must offer keep-or-accept for Porch Life, and an empty
 // proposal must default Use this OFF so a mute model cannot wipe a wardrobe.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -74,7 +76,15 @@ void main() {
       _app(
         EnhanceReviewBody(
           original: _nina(ext: _authored()),
-          enhanced: _nina(),
+          // Mute-seed shape: copyWith empty lists, not a null extensions
+          // object. A pin on `_nina()` (null ext) can stay green while
+          // `extensions != null` defaults Use this ON.
+          enhanced: _nina(
+            ext: FrontPorchExtensions(
+              ambitions: const [],
+              inventory: const {'worn': <String>[], 'carrying': <String>[]},
+            ),
+          ),
           selection: _porchOnly,
         ),
       ),
@@ -165,5 +175,20 @@ void main() {
 
     final useSwitch = tester.widget<Switch>(find.byType(Switch).first);
     expect(useSwitch.value, isFalse);
+  });
+
+  test('Save writes Porch Life only when Use this is on', () {
+    final src = File(
+      'lib/ui/pages/home/enhance/enhance_review_body.dart',
+    ).readAsStringSync();
+    final saveAt = src.indexOf('Future<CharacterCard?> save()');
+    expect(saveAt, greaterThanOrEqualTo(0));
+    final save = src.substring(saveAt);
+    expect(
+      save,
+      contains("widget.selection.porchLife && (_use['porchLife'] ?? false)"),
+    );
+    expect(save, contains('applyPorchLifeProposal'));
+    expect(save.contains('ext.copyWith('), isFalse);
   });
 }

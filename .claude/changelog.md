@@ -3,6 +3,19 @@
 
 # Changelog
 
+## 2026-08-17 — fix(enhance): empty Porch Life lists do not wipe authored chips
+- **Why:** Bug Hunter: tests never called save(). Dropping `_use['porchLife']`
+  from the write gate stayed green, then mute copyWith emptied worn on
+  the duplicate. Ambitions-only is isEmpty false → Use this ON → worn:[]
+  dropped the coat while Before still showed it.
+- **What:** save() still gates on Use this (source-string pin, lorebook
+  class). applyPorchLifeProposal keeps authored lists the proposal left
+  empty. Mute-seed widget fixture uses empty-list extensions, not null.
+  Same merge on the PWA apply body.
+- **Files:** porch_life_identity.dart, enhance_review_body.dart,
+  enhance_porch_review_test.dart, porch_life_identity_test.dart,
+  web enhanceForm + EnhanceReviewModal
+
 ## 2026-08-17 — test(creator): pin RealismStep Porch Life vs engine split
 - **Why:** Feature Design lock: engine OFF on the AI creator still shows
   Time, Chaos, and identity chips. The existing form-level finder

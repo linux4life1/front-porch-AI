@@ -125,6 +125,30 @@ describe('buildApplyBody', () => {
     expect(body).not.toHaveProperty('description');
   });
 
+  it('empty proposed worn keeps authored old coat', () => {
+    const body = buildApplyBody(
+      {
+        porchLife: {
+          ambitions: ['stay fed'],
+          likes: [],
+          dislikes: [],
+          worn: [],
+          carrying: [],
+          intimateInto: [],
+          intimateNotInto: [],
+        },
+      },
+      { ...allOn, description: false, personality: false, exampleDialogue: false, scenario: false, greetings: false, lorebook: false },
+      {},
+      { ambitions: ['old goal'], inventory: { worn: ['old coat'] } },
+    );
+    expect(body.ambitions).toEqual(['stay fed']);
+    expect(body.inventory).toEqual({
+      worn: ['old coat'],
+      carrying: [],
+    });
+  });
+
   it('nothing accepted → empty body (duplicate stays pristine)', () => {
     const body = buildApplyBody(proposal, {
       description: false,

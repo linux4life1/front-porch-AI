@@ -164,6 +164,46 @@ Map<String, dynamic> _regexLists(String raw) {
   return out;
 }
 
+/// Keep [authored] for any list [proposed] left empty. A mute or partial
+/// Porch Life proposal must not silently wipe an authored wardrobe.
+PorchLifeIdentity mergePorchLifeIdentity(
+  PorchLifeIdentity authored,
+  PorchLifeIdentity proposed,
+) {
+  List<String> keep(List<String> next, List<String> prior) =>
+      next.isEmpty ? prior : next;
+  return PorchLifeIdentity(
+    ambitions: keep(proposed.ambitions, authored.ambitions),
+    likes: keep(proposed.likes, authored.likes),
+    dislikes: keep(proposed.dislikes, authored.dislikes),
+    worn: keep(proposed.worn, authored.worn),
+    carrying: keep(proposed.carrying, authored.carrying),
+    intimateInto: keep(proposed.intimateInto, authored.intimateInto),
+    intimateNotInto: keep(proposed.intimateNotInto, authored.intimateNotInto),
+  );
+}
+
+/// Stamp a merged Porch Life proposal onto the duplicate's extensions.
+/// Empty proposed lists keep the authored chips already on [base].
+FrontPorchExtensions applyPorchLifeProposal(
+  FrontPorchExtensions? base,
+  PorchLifeIdentity proposed,
+) {
+  final merged = mergePorchLifeIdentity(porchLifeIdentityOf(base), proposed);
+  final ext = base ?? FrontPorchExtensions();
+  return ext.copyWith(
+    ambitions: merged.ambitions,
+    likes: merged.likes,
+    dislikes: merged.dislikes,
+    intimateInto: merged.intimateInto,
+    intimateNotInto: merged.intimateNotInto,
+    inventory: Pockets.cardJsonFrom(
+      worn: merged.worn,
+      carrying: merged.carrying,
+    ),
+  );
+}
+
 /// Chip lists already stored on a card — the Enhance review "Before" column.
 PorchLifeIdentity porchLifeIdentityOf(FrontPorchExtensions? ext) {
   if (ext == null) return const PorchLifeIdentity();

@@ -22,7 +22,6 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
-import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
 import 'package:front_porch_ai/ui/pages/home/enhance/enhance_review_porch_life.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -178,16 +177,16 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
         }
       }
       if (widget.selection.porchLife && (_use['porchLife'] ?? false)) {
-        final ext = copy.frontPorchExtensions ?? FrontPorchExtensions();
-        copy.frontPorchExtensions = ext.copyWith(
-          ambitions: _porchAmbitions,
-          likes: _porchLikes,
-          dislikes: _porchDislikes,
-          intimateInto: _porchIntimateInto,
-          intimateNotInto: _porchIntimateNotInto,
-          inventory: Pockets.cardJsonFrom(
+        copy.frontPorchExtensions = applyPorchLifeProposal(
+          copy.frontPorchExtensions,
+          PorchLifeIdentity(
+            ambitions: _porchAmbitions,
+            likes: _porchLikes,
+            dislikes: _porchDislikes,
             worn: _porchWorn,
             carrying: _porchCarrying,
+            intimateInto: _porchIntimateInto,
+            intimateNotInto: _porchIntimateNotInto,
           ),
         );
       }
