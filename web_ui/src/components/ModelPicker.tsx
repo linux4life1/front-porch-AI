@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
+import { attachStepUp, remotePreviewNeedsStepUp } from './StepUpFields';
 
 interface RemoteModel {
   id: string;
@@ -20,6 +21,11 @@ interface RemoteModel {
 export function ModelPicker({
   apiUrl,
   apiKey,
+  savedApiUrl,
+  currentPassword = '',
+  totpCode = '',
+  totpEnabled = false,
+  onTotpRequired,
   value,
   onChange,
 }: {
@@ -27,6 +33,12 @@ export function ModelPicker({
   /** The unsaved API key from the form (may be ''); when blank the server falls
    *  back to the stored key, so an existing setup still lists models. */
   apiKey: string;
+  /** Already-saved remote URL. A different preview URL needs a password step-up. */
+  savedApiUrl: string;
+  currentPassword?: string;
+  totpCode?: string;
+  totpEnabled?: boolean;
+  onTotpRequired?: () => void;
   value: string;
   onChange: (id: string) => void;
 }) {
@@ -40,10 +52,20 @@ export function ModelPicker({
   const fetchModels = async () => {
     setLoading(true);
     setError('');
+    const needsStepUp = remotePreviewNeedsStepUp(apiUrl, apiKey, savedApiUrl);
+    if (needsStepUp && !currentPassword.trim()) {
+      setModels([]);
+      setError('Enter your web login password to list models from this URL.');
+      setLoading(false);
+      return;
+    }
     try {
       const body: Record<string, unknown> = {};
       if (apiUrl.trim()) body.apiUrl = apiUrl.trim();
       if (apiKey.trim()) body.apiKey = apiKey.trim();
+      if (needsStepUp) {
+        attachStepUp(body, currentPassword, totpEnabled, totpCode);
+      }
       const r = await api.post<{ models: RemoteModel[] }>('/api/backend/remote-models', body);
       const list = r.models ?? [];
       setModels(list);
@@ -52,19 +74,22 @@ export function ModelPicker({
       }
     } catch (e) {
       setModels([]);
+      if (e instanceof ApiError && e.payload.totpRequired === true) {
+        onTotpRequired?.();
+      }
       setError(e instanceof ApiError ? e.message : 'Could not reach the provider.');
     } finally {
       setLoading(false);
     }
   };
 
-  // (Re)fetch on mount and whenever the provider URL changes, debounced so
-  // typing a custom URL doesn't fire a request per keystroke. A blank URL skips.
+  // (Re)fetch on mount and whenever the provider URL / preview key / password
+  // changes, debounced so typing a custom URL doesn't fire a request per keystroke.
   useEffect(() => {
     const t = setTimeout(() => void fetchModels(), 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiUrl]);
+  }, [apiUrl, apiKey, savedApiUrl, currentPassword, totpCode]);
 
   // Close the dropdown when clicking outside it.
   useEffect(() => {

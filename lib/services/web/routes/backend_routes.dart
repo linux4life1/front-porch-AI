@@ -199,10 +199,13 @@ class WebBackendRoutes {
       JsonResponse.ok({'queries': _backend!.recommendations()});
 
   // ── Remote (OpenAI-compatible) model picker ──────────────────────────────
-  // Optional apiUrl/apiKey in the body let the Settings page preview a provider
-  // before saving; the facade falls back to the stored remote credentials.
+  // Optional apiUrl/apiKey let Settings preview a provider before saving.
+  // A non-stored host/key is credential-grade (it would fire a live request
+  // with the stored key) — same password step-up as settings persist.
   Future<shelf.Response> _remoteModels(shelf.Request r) async {
     final body = await _json(r);
+    final denied = await _denyUnstoredPreview(body, r);
+    if (denied != null) return denied;
     final models = await _backend!.remoteModels(
       apiUrl: body['apiUrl']?.toString(),
       apiKey: body['apiKey']?.toString(),
@@ -216,6 +219,8 @@ class WebBackendRoutes {
     if (model.isEmpty) {
       return JsonResponse.badRequest('model is required');
     }
+    final denied = await _denyUnstoredPreview(body, r);
+    if (denied != null) return denied;
     final menu = await _backend!.reasoningMenu(
       model: model,
       apiUrl: body['apiUrl']?.toString(),
@@ -226,6 +231,8 @@ class WebBackendRoutes {
 
   Future<shelf.Response> _testConnection(shelf.Request r) async {
     final body = await _json(r);
+    final denied = await _denyUnstoredPreview(body, r);
+    if (denied != null) return denied;
     final message = await _backend!.testRemoteConnection(
       apiUrl: body['apiUrl']?.toString(),
       apiKey: body['apiKey']?.toString(),
@@ -234,6 +241,22 @@ class WebBackendRoutes {
       'ok': message.toLowerCase().contains('success'),
       'message': message,
     });
+  }
+
+  /// Null when the preview uses the saved URL/key (or re-auth passed).
+  Future<shelf.Response?> _denyUnstoredPreview(
+    Map<String, dynamic> body,
+    shelf.Request request,
+  ) {
+    final stored = _deps.storage.backendSettings;
+    if (!remoteCredentialPreviewNeedsStepUp(
+      body,
+      currentRemoteApiUrl: stored.remoteApiUrl,
+      currentRemoteApiKey: stored.remoteApiKey,
+    )) {
+      return Future<shelf.Response?>.value(null);
+    }
+    return denyUnlessSteppedUp(auth: _deps.auth, body: body, request: request);
   }
 
   // ── Image generation ─────────────────────────────────────────────────────

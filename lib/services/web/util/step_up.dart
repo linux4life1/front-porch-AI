@@ -38,6 +38,30 @@ bool remoteCredentialWriteNeedsStepUp(
   return apiKey != null && apiKey.isNotEmpty;
 }
 
+/// True when a preview call (`apiUrl` / `apiKey`) would use a host or key
+/// other than the already-saved remote credentials.
+///
+/// Empty / omitted fields fall back to the stored pair and stay session-only.
+/// A caller-supplied host with the stored key is the leftover the persist
+/// gate does not cover — that must step up too.
+bool remoteCredentialPreviewNeedsStepUp(
+  Map<String, dynamic> body, {
+  required String currentRemoteApiUrl,
+  required String currentRemoteApiKey,
+}) {
+  final previewUrl = body['apiUrl']?.toString();
+  if (previewUrl != null &&
+      previewUrl.trim().isNotEmpty &&
+      previewUrl.trim() != currentRemoteApiUrl.trim()) {
+    return true;
+  }
+  final previewKey = body['apiKey']?.toString();
+  if (previewKey != null && previewKey.isNotEmpty) {
+    return previewKey != currentRemoteApiKey;
+  }
+  return false;
+}
+
 /// Null when re-auth passed; otherwise the HTTP error to return unchanged.
 Future<shelf.Response?> denyUnlessSteppedUp({
   required AuthService auth,

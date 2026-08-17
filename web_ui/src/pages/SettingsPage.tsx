@@ -9,7 +9,11 @@ import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
 import { spellCheckLabel, sortedByLabel } from '../spellCheckLabels';
 import { applySpellCheckLang } from '../spellCheckLang';
-import { StepUpFields } from '../components/StepUpFields';
+import {
+  StepUpFields,
+  attachStepUp,
+  remotePreviewNeedsStepUp,
+} from '../components/StepUpFields';
 import {
   reasoningEffortBlurb,
   reasoningEffortChipsFor,
@@ -185,8 +189,7 @@ export function SettingsPage() {
       const needsStepUp =
         s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim();
       if (needsStepUp) {
-        body.currentPassword = password;
-        if (totpEnabled && totpCode.trim()) body.totpCode = totpCode.trim();
+        attachStepUp(body, password, totpEnabled, totpCode);
       }
       const next = await api.post<Settings>('/api/settings', body);
       setS(next);
@@ -231,15 +234,27 @@ export function SettingsPage() {
     patch(next);
   };
 
+  const previewNeedsStepUp = remotePreviewNeedsStepUp(
+    s.remoteApiUrl,
+    apiKey,
+    savedRemoteApiUrl,
+  );
+
   const testConnection = async () => {
     setTesting(true);
     setTestMsg('');
     try {
       const body: Record<string, unknown> = { apiUrl: s.remoteApiUrl };
       if (apiKey.trim()) body.apiKey = apiKey.trim();
+      if (previewNeedsStepUp) {
+        attachStepUp(body, password, totpEnabled, totpCode);
+      }
       const r = await api.post<{ ok: boolean; message: string }>('/api/backend/test-connection', body);
       setTestMsg(r.message);
     } catch (e) {
+      if (e instanceof ApiError && e.payload.totpRequired === true) {
+        setTotpEnabled(true);
+      }
       setTestMsg(e instanceof ApiError ? e.message : 'Connection test failed');
     } finally {
       setTesting(false);
@@ -301,20 +316,30 @@ export function SettingsPage() {
               <ModelPicker
                 apiUrl={s.remoteApiUrl}
                 apiKey={apiKey}
+                savedApiUrl={savedRemoteApiUrl}
+                currentPassword={password}
+                totpCode={totpCode}
+                totpEnabled={totpEnabled}
+                onTotpRequired={() => setTotpEnabled(true)}
                 value={s.remoteModelName}
                 onChange={(id) => {
                   patch({ remoteModelName: id })
                   void (async () => {
+                    if (previewNeedsStepUp && !password) return
                     try {
+                      const body: Record<string, unknown> = {
+                        model: id,
+                        apiUrl: s.remoteApiUrl,
+                      }
+                      if (apiKey.trim()) body.apiKey = apiKey.trim()
+                      if (previewNeedsStepUp) {
+                        attachStepUp(body, password, totpEnabled, totpCode)
+                      }
                       const menu = await api.post<{
                         efforts?: string[]
                         mandatory?: boolean
                         localSupport?: string
-                      }>('/api/backend/reasoning-menu', {
-                        model: id,
-                        apiUrl: s.remoteApiUrl,
-                        ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
-                      })
+                      }>('/api/backend/reasoning-menu', body)
                       setS((prev) =>
                         prev && prev.remoteModelName === id
                           ? {
@@ -325,7 +350,10 @@ export function SettingsPage() {
                             }
                           : prev,
                       )
-                    } catch {
+                    } catch (e) {
+                      if (e instanceof ApiError && e.payload.totpRequired === true) {
+                        setTotpEnabled(true)
+                      }
                       /* family-hint chips stay until Save */
                     }
                   })()
@@ -344,7 +372,11 @@ export function SettingsPage() {
               </label>
             )}
             <div className="test-conn-row">
-              <button className="ghost" onClick={testConnection} disabled={testing}>
+              <button
+                className="ghost"
+                onClick={testConnection}
+                disabled={testing || (previewNeedsStepUp && !password)}
+              >
                 {testing ? 'Testing…' : 'Test connection'}
               </button>
               {testMsg && (
@@ -578,8 +610,8 @@ export function SettingsPage() {
           onTotp={setTotpCode}
           reason={
             totpEnabled
-              ? 'Changing the API URL or key points generation at a new host — confirm your web login password and a 2FA code.'
-              : 'Changing the API URL or key points generation at a new host — confirm your web login password.'
+              ? 'Changing the API URL or key — or testing a new host — needs your web login password and a 2FA code.'
+              : 'Changing the API URL or key — or testing a new host — needs your web login password.'
           }
         />
       )}

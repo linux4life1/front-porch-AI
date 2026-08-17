@@ -92,6 +92,19 @@
   No product UI change. No goldens.
 - **Files:** enhance_porch_review_test.dart, enhance_porch_life_test.dart,
   porch_life_identity_test.dart, enhance_wizard_test.dart
+## 2026-08-17 — fix(web): gate preview remote-models / test-connection / reasoning-menu
+- **Why:** Persist of remoteApiUrl/apiKey was stepped-up, but the three
+  preview POSTs still accepted a caller-supplied host with only a session.
+  A stolen cookie could fire a live request (with the stored key) at a
+  host the user never saved.
+- **What:** `remoteCredentialPreviewNeedsStepUp` + the same password/TOTP
+  gate as settings persist. Session-only when the body uses the saved
+  URL/key unchanged. PWA Test connection / ModelPicker send the password
+  when the preview host or key differs; they do not auto-fetch without it.
+- **Files:** step_up.dart, backend_routes.dart,
+  backend_preview_step_up_test.dart, SettingsPage.tsx, ModelPicker.tsx,
+  StepUpFields.tsx
+
 ## 2026-08-17 — fix(web): harden PWA headers, client IP, settings step-up, Stoop report
 - **Why:** Four web/PWA gaps: no CSP, LAN clients could rotate X-Forwarded-For
   to bypass the login IP cap, a stolen session cookie could retarget the
