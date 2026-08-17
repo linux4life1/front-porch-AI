@@ -40,7 +40,7 @@ void main() {
         ),
       ),
       group: 'planner',
-      name: 'plans_today_line',
+      name: 'today_line_under_strip',
       surface: const Size(340, 160),
     );
   });
