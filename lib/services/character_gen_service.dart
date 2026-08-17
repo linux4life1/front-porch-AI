@@ -36,15 +36,24 @@ part 'chargen/character_gen_porch_life.dart';
 
 /// Per-category descriptions for lorebook generation prompts.
 const _loreCategoryDescriptions = {
-  'Locations': 'Notable places in the world: cities, provinces, landmarks, dungeons, taverns, wilderness areas. Describe geography, atmosphere, reputation, and who frequents them',
-  'NPCs/Allies': 'Supporting characters who exist in the world: shopkeepers, rulers, rivals, mysterious figures, recurring contacts. Name, role, personality, and relationship to the setting',
-  'Factions/Organizations': 'Guilds, governments, criminal syndicates, cults, religious orders, military groups. Structure, goals, reputation, territory, and influence',
-  'Culture/Customs': 'Social norms, traditions, holidays, taboos, greetings, food, clothing, entertainment, laws. How people in this world live day-to-day',
-  'Abilities/Magic': 'Magic systems, combat arts, supernatural phenomena, technology rules. How powers work, costs, limitations, who can use them, societal attitudes toward them',
-  'Flora/Fauna': 'Creatures, monsters, beasts, plants, and materials unique to this world. Appearance, behavior, ecological role, uses, and dangers',
-  'History/Events': 'World-level historical events: wars, cataclysms, discoveries, founding of nations, political upheavals. NOT the character\'s personal biography',
-  'Items/Equipment': 'Notable weapons, artifacts, potions, tools, currencies, trade goods. Origin, properties, rarity, cultural significance',
-  'Secrets/Hidden Lore': 'Forbidden knowledge, hidden locations, conspiracies, prophecies, sealed powers, forgotten truths that most people in the world don\'t know about',
+  'Locations':
+      'Notable places in the world: cities, provinces, landmarks, dungeons, taverns, wilderness areas. Describe geography, atmosphere, reputation, and who frequents them',
+  'NPCs/Allies':
+      'Supporting characters who exist in the world: shopkeepers, rulers, rivals, mysterious figures, recurring contacts. Name, role, personality, and relationship to the setting',
+  'Factions/Organizations':
+      'Guilds, governments, criminal syndicates, cults, religious orders, military groups. Structure, goals, reputation, territory, and influence',
+  'Culture/Customs':
+      'Social norms, traditions, holidays, taboos, greetings, food, clothing, entertainment, laws. How people in this world live day-to-day',
+  'Abilities/Magic':
+      'Magic systems, combat arts, supernatural phenomena, technology rules. How powers work, costs, limitations, who can use them, societal attitudes toward them',
+  'Flora/Fauna':
+      'Creatures, monsters, beasts, plants, and materials unique to this world. Appearance, behavior, ecological role, uses, and dangers',
+  'History/Events':
+      'World-level historical events: wars, cataclysms, discoveries, founding of nations, political upheavals. NOT the character\'s personal biography',
+  'Items/Equipment':
+      'Notable weapons, artifacts, potions, tools, currencies, trade goods. Origin, properties, rarity, cultural significance',
+  'Secrets/Hidden Lore':
+      'Forbidden knowledge, hidden locations, conspiracies, prophecies, sealed powers, forgotten truths that most people in the world don\'t know about',
 };
 
 // The interview is assembled in _runCharacterInterview in a deliberate order:
@@ -178,6 +187,14 @@ class CharacterGenService {
     void Function(String error)? onError,
     void Function(String status)? onStatus,
   }) async {
+    // Voice must be set BEFORE the base-card prompt so description /
+    // personality pick up tense and third-person pronouns.
+    _narrativeVoice = NarrativeVoice.parse(
+      perspective: narrativePerspective,
+      tense: narrativeTense,
+    );
+    _narrativeSex = sex;
+
     // ── Step 1: Generate base card ──────────────────────────────
     onStatus?.call('Generating character profile...');
     final basePrompt = _buildBasePrompt(
@@ -214,11 +231,6 @@ class CharacterGenService {
     if (abortInFlight) _llmService.abortGeneration();
     _reasoningEnabled = reasoningEnabled;
     _includeDynamicMacros = includeDynamicMacros;
-    _narrativeVoice = NarrativeVoice.parse(
-      perspective: narrativePerspective,
-      tense: narrativeTense,
-    );
-    _narrativeSex = sex;
 
     int attempts = 0;
     CharacterCard? card;

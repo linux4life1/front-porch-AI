@@ -67,9 +67,16 @@ extension GenPrompts on CharacterGenService {
     // The user's active system prompt or API default applies at chat time.
     const sysSpec = '';
 
+    final fieldVoice =
+        cardFieldVoiceClause(
+          voice: _narrativeVoice,
+          pronouns: resolveNarrativePronouns(_narrativeSex),
+        ) ??
+        'third person';
+
     // Description spec — only included for guided mode
     final descriptionSpec = generateDescription
-        ? '- "description": (string) $descriptionDetail, third person. Physical appearance ONLY: body type, height, skin tone, hair, eyes, clothing, distinguishing marks. Do NOT put these in description: personality/motives (those go in "personality"), scenario/setting (goes in "scenario"), NSFW/sexual details, backstory, or speech patterns. STRICTLY obey the word limit\n'
+        ? '- "description": (string) $descriptionDetail, $fieldVoice. Physical appearance ONLY: body type, height, skin tone, hair, eyes, clothing, distinguishing marks. Do NOT put these in description: personality/motives (those go in "personality"), scenario/setting (goes in "scenario"), NSFW/sexual details, backstory, or speech patterns. STRICTLY obey the word limit\n'
         : '';
 
     // Description exclusion note — only when NOT generating description
@@ -86,7 +93,7 @@ Character name: $name
 Concept: $concept
 $ageLine$sexLine$relationshipLine$backstoryLine$scenarioLine$keywordsLine$loreLine
 Required JSON keys (generate them IN THIS ORDER):
-$descriptionSpec- "personality": (string) 2-3 paragraphs, third person. Go beyond surface-level traits — write a personality that makes this character feel REAL and fun to roleplay with. Cover ALL of these dimensions:
+$descriptionSpec- "personality": (string) 2-3 paragraphs, $fieldVoice. Go beyond surface-level traits — write a personality that makes this character feel REAL and fun to roleplay with. Cover ALL of these dimensions:
   * Core traits AND their contradictions (e.g. "fiercely protective but terrified of emotional vulnerability")
   * Speech patterns — do they ramble, speak tersely, use slang, swear, use formal language, have verbal tics or catchphrases?
   * Emotional triggers — what makes them angry, what softens them, what shuts them down, what makes them laugh?
@@ -127,52 +134,67 @@ Respond with ONLY the JSON:''';
     String lengthEnforcement;
     switch (length) {
       case 'Short (1-2 paragraphs)':
-        lengthEnforcement = 'Write at least 150 words. MINIMUM 2 paragraphs, each 3-5 sentences. Do NOT write a single paragraph.';
+        lengthEnforcement =
+            'Write at least 150 words. MINIMUM 2 paragraphs, each 3-5 sentences. Do NOT write a single paragraph.';
         break;
       case 'Long (4-6 paragraphs)':
-        lengthEnforcement = 'Write at least 600 words across 5-6 full paragraphs. Each paragraph MUST be 4-6 sentences. Include detailed scene-setting, inner monologue, environmental descriptions, and character mannerisms. DO NOT stop early or summarize. Fill the space with vivid, immersive prose.';
+        lengthEnforcement =
+            'Write at least 600 words across 5-6 full paragraphs. Each paragraph MUST be 4-6 sentences. Include detailed scene-setting, inner monologue, environmental descriptions, and character mannerisms. DO NOT stop early or summarize. Fill the space with vivid, immersive prose.';
         break;
       default:
-        lengthEnforcement = 'Write at least 350 words across 3-4 paragraphs. MINIMUM 3 paragraphs, each 4+ sentences. Do NOT compress into fewer paragraphs.';
+        lengthEnforcement =
+            'Write at least 350 words across 3-4 paragraphs. MINIMUM 3 paragraphs, each 4+ sentences. Do NOT compress into fewer paragraphs.';
     }
 
     String toneSpec = '';
     switch (tone) {
       case 'Romantic':
-        toneSpec = '\nTone: Romantic — Warm intimacy, emotional vulnerability, longing glances, and heartfelt connection. Focus on the emotional bond between {{char}} and {{user}}. Include tender physical awareness (proximity, warmth, touch) without being explicit.';
+        toneSpec =
+            '\nTone: Romantic — Warm intimacy, emotional vulnerability, longing glances, and heartfelt connection. Focus on the emotional bond between {{char}} and {{user}}. Include tender physical awareness (proximity, warmth, touch) without being explicit.';
         break;
       case 'Spicy/NSFW':
-        toneSpec = '\nTone: Spicy/NSFW — Sensual tension, physical chemistry, and charged atmosphere. Include suggestive descriptions, body language, and desire. Be bold with attraction and intimacy. Push boundaries while keeping literary quality.';
+        toneSpec =
+            '\nTone: Spicy/NSFW — Sensual tension, physical chemistry, and charged atmosphere. Include suggestive descriptions, body language, and desire. Be bold with attraction and intimacy. Push boundaries while keeping literary quality.';
         break;
       case 'Flirty/Playful':
-        toneSpec = '\nTone: Flirty/Playful — Light teasing, witty banter, confident energy, and playful tension. {{char}} should be charming and a little daring. Include smirks, raised eyebrows, and double meanings. Keep it fun, not heavy.';
+        toneSpec =
+            '\nTone: Flirty/Playful — Light teasing, witty banter, confident energy, and playful tension. {{char}} should be charming and a little daring. Include smirks, raised eyebrows, and double meanings. Keep it fun, not heavy.';
         break;
       case 'Wholesome':
-        toneSpec = '\nTone: Wholesome — Warm, cozy, and comforting. Focus on kindness, gentle humor, and genuine care. Think shared meals, soft laughter, safe spaces. The greeting should feel like a warm blanket — inviting and safe.';
+        toneSpec =
+            '\nTone: Wholesome — Warm, cozy, and comforting. Focus on kindness, gentle humor, and genuine care. Think shared meals, soft laughter, safe spaces. The greeting should feel like a warm blanket — inviting and safe.';
         break;
       case 'Slice of Life':
-        toneSpec = '\nTone: Slice of Life — Everyday mundane moments made interesting. Casual, grounded, realistic. Focus on small details: morning routines, grocery shopping, waiting for the bus. Beauty in the ordinary.';
+        toneSpec =
+            '\nTone: Slice of Life — Everyday mundane moments made interesting. Casual, grounded, realistic. Focus on small details: morning routines, grocery shopping, waiting for the bus. Beauty in the ordinary.';
         break;
       case 'Story/Narrative':
-        toneSpec = '\nTone: Story/Narrative — Rich literary prose with strong scene-setting. Open like a novel chapter with atmospheric description, inner monologue, and world-building. Prioritize immersion and vivid imagery over action.';
+        toneSpec =
+            '\nTone: Story/Narrative — Rich literary prose with strong scene-setting. Open like a novel chapter with atmospheric description, inner monologue, and world-building. Prioritize immersion and vivid imagery over action.';
         break;
       case 'Adventure':
-        toneSpec = '\nTone: Adventure — Excitement, exploration, and the thrill of the unknown. {{char}} is in motion — discovering something, embarking on a journey, or inviting {{user}} along for the ride. High energy, forward momentum, wonder.';
+        toneSpec =
+            '\nTone: Adventure — Excitement, exploration, and the thrill of the unknown. {{char}} is in motion — discovering something, embarking on a journey, or inviting {{user}} along for the ride. High energy, forward momentum, wonder.';
         break;
       case 'Combat/Action':
-        toneSpec = '\nTone: Combat/Action — Adrenaline, danger, and physical intensity. Open mid-fight, mid-chase, or in the aftermath of violence. Sharp pacing, visceral descriptions, and tactical awareness. {{char}} is in their element.';
+        toneSpec =
+            '\nTone: Combat/Action — Adrenaline, danger, and physical intensity. Open mid-fight, mid-chase, or in the aftermath of violence. Sharp pacing, visceral descriptions, and tactical awareness. {{char}} is in their element.';
         break;
       case 'Comedy/Humor':
-        toneSpec = '\nTone: Comedy/Humor — Genuinely funny. Include witty observations, absurd situations, comic timing, or self-deprecating humor. {{char}} should make {{user}} want to laugh. Avoid being cringey — aim for clever over random.';
+        toneSpec =
+            '\nTone: Comedy/Humor — Genuinely funny. Include witty observations, absurd situations, comic timing, or self-deprecating humor. {{char}} should make {{user}} want to laugh. Avoid being cringey — aim for clever over random.';
         break;
       case 'Suspense/Thriller':
-        toneSpec = '\nTone: Suspense/Thriller — Tension, urgency, and unease. Something is wrong or about to go wrong. Use short sentences for pacing, environmental unease, and a sense that time is running out. End with a hook that demands a response.';
+        toneSpec =
+            '\nTone: Suspense/Thriller — Tension, urgency, and unease. Something is wrong or about to go wrong. Use short sentences for pacing, environmental unease, and a sense that time is running out. End with a hook that demands a response.';
         break;
       case 'Dark/Mystery':
-        toneSpec = '\nTone: Dark/Mystery — Brooding atmosphere, secrets, and moral ambiguity. Shadows, whispered conversations, hidden motives. {{char}} knows something {{user}} doesn\'t — or vice versa. Atmospheric and ominous.';
+        toneSpec =
+            '\nTone: Dark/Mystery — Brooding atmosphere, secrets, and moral ambiguity. Shadows, whispered conversations, hidden motives. {{char}} knows something {{user}} doesn\'t — or vice versa. Atmospheric and ominous.';
         break;
       case 'Melancholy':
-        toneSpec = '\nTone: Melancholy — Bittersweet, introspective, and emotionally heavy. Focus on loss, nostalgia, quiet pain, or fading hope. Beautiful sadness. The greeting should ache a little — poetic but not melodramatic.';
+        toneSpec =
+            '\nTone: Melancholy — Bittersweet, introspective, and emotionally heavy. Focus on loss, nostalgia, quiet pain, or fading hope. Beautiful sadness. The greeting should ache a little — poetic but not melodramatic.';
         break;
       default: // 'Neutral'
         toneSpec = '';

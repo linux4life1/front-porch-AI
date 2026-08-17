@@ -16,7 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// Perspective + tense for AI character generation (greetings + example dialog).
+// Perspective + tense for AI character generation (character text +
+// example dialog + greetings).
 //
 // Default is first-person present — the historical baked-in voice. Other
 // combinations are opt-in from the creator's output settings. Third person
@@ -221,6 +222,25 @@ String? exampleDialogueVoiceRule({
   final p = pronouns;
   final tenseBit = voice.isPast ? 'past tense' : 'present tense';
   return '- Write every {{char}} response in third person $tenseBit — narrate $name as ${p.subject}/${p.object}/${p.possessive}. Never first person ("I", "my", "me")';
+}
+
+/// Voice clause for description / personality field specs.
+///
+/// Null on the default path so those strings stay the historical
+/// "third person" / "Third-person" wording. Past tense and third-person
+/// pronouns are appended only when the user opted out of the default.
+String? cardFieldVoiceClause({
+  required NarrativeVoice voice,
+  required NarrativePronouns pronouns,
+}) {
+  if (voice.isDefault) return null;
+  if (voice.isFirst) {
+    return voice.isPast
+        ? 'first person past tense ("I", "my", "me")'
+        : 'first person present tense ("I", "my", "me")';
+  }
+  final tense = voice.isPast ? 'past tense' : 'present tense';
+  return 'third person $tense (${pronouns.slashSet})';
 }
 
 String _voicePhrase(NarrativeVoice voice, NarrativePronouns pronouns) {

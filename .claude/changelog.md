@@ -21,7 +21,8 @@
   to rewrite the card or patch source and rebuild.
 - **What:** Output settings gain First/Third and Present/Past chips (default
   first + present, same wording as before). Third person resolves he/she/they
-  from Sex. Threaded through desktop (all three modes), the web wizard, and
+  from Sex. Description, personality, example dialogue, and greetings follow
+  the choice. Threaded through desktop (all three modes), the web wizard, and
   the `/api/chargen/create` facade.
 - **Files:** chargen/narrative_voice.dart, character_gen_prompts.dart,
   character_gen_steps.dart, character_gen_service.dart, creator_state*,

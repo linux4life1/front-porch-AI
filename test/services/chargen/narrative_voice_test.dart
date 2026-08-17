@@ -137,6 +137,50 @@ void main() {
         contains('third person past tense'),
       );
     });
+
+    test(
+      'default leaves description/personality on historical third person',
+      () {
+        expect(
+          cardFieldVoiceClause(
+            voice: NarrativeVoice.defaults,
+            pronouns: NarrativePronouns.they,
+          ),
+          isNull,
+        );
+      },
+    );
+
+    test('past tense names description, personality, and example dialog', () {
+      const voice = NarrativeVoice(tense: NarrativeTense.past);
+      final clause = cardFieldVoiceClause(
+        voice: voice,
+        pronouns: NarrativePronouns.they,
+      );
+      expect(clause, contains('past tense'));
+      expect(
+        exampleDialogueVoiceRule(
+          name: name,
+          voice: voice,
+          pronouns: NarrativePronouns.they,
+        ),
+        contains('past tense'),
+      );
+    });
+
+    test('third person card fields use gender pronouns', () {
+      const voice = NarrativeVoice(perspective: NarrativePerspective.third);
+      final she = cardFieldVoiceClause(
+        voice: voice,
+        pronouns: resolveNarrativePronouns('Female'),
+      );
+      final he = cardFieldVoiceClause(
+        voice: voice,
+        pronouns: resolveNarrativePronouns('Male'),
+      );
+      expect(she, contains('she/her/her'));
+      expect(he, contains('he/him/his'));
+    });
   });
 
   group('generateCharacter threads voice into greeting + example prompts', () {
@@ -162,13 +206,30 @@ void main() {
         (p) => p.contains('WRITE exactly 3 example exchanges'),
         orElse: () => '',
       );
+      final base = llm.prompts.firstWhere(
+        (p) => p.contains('Create a roleplay character card'),
+        orElse: () => '',
+      );
       expect(greeting, isNotEmpty, reason: 'greeting prompt must fire');
       expect(example, isNotEmpty, reason: 'example-dialog prompt must fire');
+      expect(base, isNotEmpty, reason: 'base-card prompt must fire');
       expect(greeting, contains('third person past tense'));
       expect(greeting, contains('she/her/her'));
       expect(greeting, isNot(contains('First person ONLY')));
       expect(example, contains('third person past tense'));
       expect(example, contains('she/her/her'));
+      expect(
+        base,
+        contains(
+          '"description": (string) 2-3 paragraphs, third person past tense (she/her/her)',
+        ),
+      );
+      expect(
+        base,
+        contains(
+          '"personality": (string) 2-3 paragraphs, third person past tense (she/her/her)',
+        ),
+      );
     });
 
     test(
@@ -200,6 +261,21 @@ void main() {
             'First person ONLY ("I", "my", "me") — never third person, never use "Nina" to refer to yourself',
           ),
         );
+        final base = llm.prompts.firstWhere(
+          (p) => p.contains('Create a roleplay character card'),
+          orElse: () => '',
+        );
+        expect(
+          base,
+          contains('2-3 paragraphs, third person. Physical appearance ONLY'),
+        );
+        expect(
+          base,
+          contains(
+            '2-3 paragraphs, third person. Go beyond surface-level traits',
+          ),
+        );
+        expect(base, isNot(contains('past tense')));
       },
     );
   });

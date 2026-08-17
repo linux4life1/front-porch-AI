@@ -37,8 +37,14 @@ extension GenSteps2 on CharacterGenService {
     for (final field in missingFields) {
       switch (field) {
         case 'personality':
+          final fieldVoice =
+              cardFieldVoiceClause(
+                voice: _narrativeVoice,
+                pronouns: resolveNarrativePronouns(_narrativeSex),
+              ) ??
+              'third person';
           fieldSpecs.add(
-            '- "personality": (string) 1-2 paragraphs, third person, core traits + motivations + quirks',
+            '- "personality": (string) 1-2 paragraphs, $fieldVoice, core traits + motivations + quirks',
           );
           break;
         case 'scenario':

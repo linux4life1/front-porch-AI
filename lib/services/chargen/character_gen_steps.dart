@@ -207,6 +207,12 @@ Respond with ONLY the JSON:''';
               'authoritative as the interview; match this voice, history, and '
               'relationship exactly):\n$chatGrounding\n'
         : '';
+    final fieldVoice =
+        cardFieldVoiceClause(
+          voice: _narrativeVoice,
+          pronouns: resolveNarrativePronouns(_narrativeSex),
+        ) ??
+        'Third-person';
     final prompt =
         '''
 You have just completed an in-character interview with $name.
@@ -228,8 +234,8 @@ ${card.scenario}
 
 Rewrite these fields using the specific details, voice, and texture revealed in the interview:
 
-- "description": (string) Third-person. Physical appearance ONLY: body, face, hair, eyes, clothing, posture, distinguishing marks. Use specific concrete details that emerged in the interview — not generic adjectives like "beautiful" or "attractive." Replace vague descriptors with precise ones ("calloused hands" not "strong hands", "a crooked nose from an old break" not "an interesting face"). 2-3 paragraphs. Do NOT include personality, backstory, or scenario.
-- "personality": (string) Third-person. Write 2-3 rich paragraphs covering ALL of the following dimensions:
+- "description": (string) $fieldVoice. Physical appearance ONLY: body, face, hair, eyes, clothing, posture, distinguishing marks. Use specific concrete details that emerged in the interview — not generic adjectives like "beautiful" or "attractive." Replace vague descriptors with precise ones ("calloused hands" not "strong hands", "a crooked nose from an old break" not "an interesting face"). 2-3 paragraphs. Do NOT include personality, backstory, or scenario.
+- "personality": (string) $fieldVoice. Write 2-3 rich paragraphs covering ALL of the following dimensions:
   * Core traits and their contradictions (e.g. "fiercely loyal but slow to trust")
   * Speech patterns and verbal habits (catchphrases, how they curse, whether they ramble or speak tersely)
   * Emotional triggers — what makes them angry, what softens them, what makes them shut down
