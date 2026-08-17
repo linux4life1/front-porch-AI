@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:io' show InternetAddress;
+
 /// In-memory login throttling for the web secure-login.
 ///
 /// Two layers:
@@ -134,10 +136,14 @@ class RateLimiter {
     (_byIp[key] ??= []).add(_now());
   }
 
-  /// Empty / whitespace is not a valid IP — one shared fail-closed bucket.
+  /// Empty / whitespace / unparsed / loopback is not a valid IP — one
+  /// shared fail-closed bucket. A client-chosen token must not mint a key.
   String _ipKey(String? ip) {
     final trimmed = ip?.trim() ?? '';
-    return trimmed.isEmpty ? '_unknown' : trimmed;
+    if (trimmed.isEmpty) return '_unknown';
+    final parsed = InternetAddress.tryParse(trimmed);
+    if (parsed == null || parsed.isLoopback) return '_unknown';
+    return trimmed;
   }
 
   /// Drop everything that can no longer change an answer: IP windows whose

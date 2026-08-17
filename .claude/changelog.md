@@ -50,6 +50,15 @@
 - **Files:** chargen/narrative_voice.dart, character_gen_prompts.dart,
   character_gen_steps.dart, character_gen_service.dart, creator_state*,
   narrative_voice_selector.dart, web OutputSettings + chargenForm
+## 2026-08-17 — fix(web): ignore X-Real-IP; unparsed hops are not limiter keys
+- **Why:** With no usable XFF, `requestClientIp` returned caller-supplied
+  `X-Real-IP` as a raw string — a unique value minted a fresh RateLimiter
+  key. `_rightmostNonLoopbackHop` also returned an unparsed token.
+- **What:** Ignore `X-Real-IP` (cannot prove the proxy set it). XFF hops
+  must parse as a non-loopback IP. Unparsed / empty / loopback tokens
+  map to the shared `_unknown` bucket. LAN-direct and `isSecure` unchanged.
+- **Files:** client_ip.dart, rate_limiter.dart, client_ip_real_ip_test.dart
+
 ## 2026-08-17 — fix(web): loopback-proxy XFF uses appended hop; empty IP fail-closed
 - **Why:** `requestClientIp` took the leftmost XFF hop when the peer was
   loopback. ngrok appends the real client, so a caller-supplied first hop

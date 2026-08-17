@@ -32,36 +32,36 @@ bool requestPeerIsLoopback(shelf.Request request) {
 
 /// Client IP for rate limits and presence.
 ///
-/// `X-Forwarded-For` / `X-Real-IP` are honored only when the immediate peer
-/// is loopback — the same trust rule as [WebServerDeps.isSecure]. A LAN
-/// client cannot rotate those headers to mint a fresh rate-limit key.
+/// `X-Forwarded-For` is honored only when the immediate peer is loopback —
+/// the same trust rule as [WebServerDeps.isSecure]. A LAN client cannot
+/// rotate that header to mint a fresh rate-limit key.
 ///
 /// When the peer *is* a loopback proxy (ngrok / Tailscale-serve), the
-/// proxy *appends* the real client. A caller-supplied leftmost hop is
-/// ignored; empty / whitespace tokens are not a valid IP.
+/// proxy *appends* the real client. Only a parsed non-loopback hop counts;
+/// empty / unparsed / loopback-only tokens are not a key (`null` → the
+/// shared unknown bucket). `X-Real-IP` is ignored: a client can set it
+/// and we cannot prove the proxy did.
 String? requestClientIp(shelf.Request request) {
   if (requestPeerIsLoopback(request)) {
     final forwarded = request.headers['x-forwarded-for'];
     if (forwarded != null && forwarded.isNotEmpty) {
-      final hop = _rightmostNonLoopbackHop(forwarded);
-      if (hop != null) return hop;
+      return _rightmostParsedNonLoopbackHop(forwarded);
     }
-    final realIp = request.headers['x-real-ip']?.trim();
-    if (realIp != null && realIp.isNotEmpty) return realIp;
   }
   final conn = request.context['shelf.io.connection_info'];
   if (conn is HttpConnectionInfo) return conn.remoteAddress.address;
   return null;
 }
 
-/// The hop the trusted proxy added: rightmost non-empty non-loopback token.
-String? _rightmostNonLoopbackHop(String forwarded) {
+/// The hop the trusted proxy added: rightmost parsed non-loopback token.
+/// Unparsed tokens are skipped — they are not a valid IP key.
+String? _rightmostParsedNonLoopbackHop(String forwarded) {
   final hops = forwarded.split(',');
   for (var i = hops.length - 1; i >= 0; i--) {
     final hop = hops[i].trim();
     if (hop.isEmpty) continue;
     final parsed = InternetAddress.tryParse(hop);
-    if (parsed != null && parsed.isLoopback) continue;
+    if (parsed == null || parsed.isLoopback) continue;
     return hop;
   }
   return null;
