@@ -104,6 +104,70 @@ export function buildEnhancePayload(
   };
 }
 
+/** True when a proposed text field has something to accept. */
+export function hasProposedText(value: string | undefined): boolean {
+  return !!value?.trim();
+}
+
+/**
+ * Per-field Use this defaults for text sections. Empty proposed text
+ * starts OFF so a mute model cannot wipe the original. Does not touch
+ * porchLife — that already special-cases empty in the review modal.
+ */
+export function withEmptyTextUseOff(
+  selection: EnhanceSelection,
+  proposal: EnhanceProposal,
+): Pick<
+  EnhanceAccepted,
+  'description' | 'personality' | 'exampleDialogue' | 'scenario' | 'greetings'
+> {
+  return {
+    description: selection.description && hasProposedText(proposal.description),
+    personality: selection.personality && hasProposedText(proposal.personality),
+    exampleDialogue: selection.exampleDialogue && hasProposedText(proposal.mesExample),
+    scenario: selection.scenario && hasProposedText(proposal.scenario),
+    greetings:
+      selection.greetings &&
+      (hasProposedText(proposal.firstMessage) ||
+        (proposal.alternateGreetings?.some((g) => !!g.trim()) ?? false)),
+  };
+}
+
+function loreEntries(book: unknown): Record<string, unknown>[] {
+  if (!book || typeof book !== 'object') return [];
+  const entries = (book as { entries?: unknown }).entries;
+  if (!Array.isArray(entries)) return [];
+  return entries.filter((e): e is Record<string, unknown> => !!e && typeof e === 'object');
+}
+
+function loreEntryName(entry: Record<string, unknown>): string {
+  const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+  if (name) return name;
+  return typeof entry.comment === 'string' ? entry.comment.trim() : '';
+}
+
+/**
+ * Append proposed lore entries onto the original book. Same-name incoming
+ * entries replace; never assign the proposal as the whole book.
+ */
+export function mergeLorebook(original: unknown, incoming: unknown): Record<string, unknown> {
+  const origEntries = loreEntries(original);
+  const add = loreEntries(incoming);
+  const entries = [...origEntries];
+  for (const entry of add) {
+    const name = loreEntryName(entry);
+    const i = name ? entries.findIndex((e) => loreEntryName(e) === name) : -1;
+    if (i >= 0) entries[i] = entry;
+    else entries.push(entry);
+  }
+  const rest =
+    original && typeof original === 'object' && !Array.isArray(original)
+      ? { ...(original as Record<string, unknown>) }
+      : {};
+  delete rest.entries;
+  return { ...rest, entries };
+}
+
 /**
  * The partial-update body for `POST /api/characters/<newId>`: only accepted
  * sections are included (the duplicate already carries the original for the
@@ -113,6 +177,7 @@ export function buildApplyBody(
   proposal: EnhanceProposal,
   accepted: EnhanceAccepted,
   edits: EnhanceEdits = {},
+  original: { lorebook?: unknown } = {},
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   if (accepted.description && proposal.description !== undefined) {
@@ -136,7 +201,7 @@ export function buildApplyBody(
     }
   }
   if (accepted.lorebook && proposal.lorebook != null) {
-    body.lorebook = proposal.lorebook;
+    body.lorebook = mergeLorebook(original.lorebook, proposal.lorebook);
   }
   if (accepted.porchLife && proposal.porchLife) {
     const p = edits.porchLife ?? proposal.porchLife;

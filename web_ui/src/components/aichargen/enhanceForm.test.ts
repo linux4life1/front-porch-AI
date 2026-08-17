@@ -12,6 +12,8 @@ import {
   anySelected,
   buildApplyBody,
   buildEnhancePayload,
+  mergeLorebook,
+  withEmptyTextUseOff,
   type EnhanceProposal,
 } from './enhanceForm';
 
@@ -134,5 +136,76 @@ describe('buildApplyBody', () => {
       porchLife: false,
     });
     expect(body).toEqual({});
+  });
+
+  it('appends proposed lore onto the original book (merge by name)', () => {
+    const body = buildApplyBody(
+      proposal,
+      { ...allOn, description: false, personality: false, exampleDialogue: false, scenario: false, greetings: false, porchLife: false },
+      {},
+      { lorebook: { entries: [{ name: 'The Kitchen', content: 'kept' }] } },
+    );
+    expect(body.lorebook).toEqual({
+      entries: [
+        { name: 'The Kitchen', content: 'kept' },
+        { name: 'The Bar' },
+      ],
+    });
+  });
+});
+
+describe('withEmptyTextUseOff', () => {
+  const allOn = {
+    description: true,
+    personality: true,
+    exampleDialogue: true,
+    scenario: true,
+    greetings: true,
+    lorebook: true,
+    porchLife: true,
+  };
+
+  it('empty proposed description/personality/greetings default Use this off', () => {
+    const seeded = withEmptyTextUseOff(allOn, {
+      description: '   ',
+      personality: '',
+      firstMessage: '',
+      alternateGreetings: ['  '],
+    });
+    expect(seeded.description).toBe(false);
+    expect(seeded.personality).toBe(false);
+    expect(seeded.greetings).toBe(false);
+  });
+
+  it('non-empty proposed text still defaults Use this on', () => {
+    const seeded = withEmptyTextUseOff(allOn, {
+      description: 'rewritten',
+      personality: 'new voice',
+      firstMessage: 'Hey.',
+    });
+    expect(seeded.description).toBe(true);
+    expect(seeded.personality).toBe(true);
+    expect(seeded.greetings).toBe(true);
+  });
+});
+
+describe('mergeLorebook', () => {
+  it('keeps original entries and appends new ones', () => {
+    const merged = mergeLorebook(
+      { entries: [{ name: 'The Kitchen', content: 'kept' }] },
+      { entries: [{ name: 'The Bar', content: 'new' }] },
+    );
+    expect(merged.entries).toEqual([
+      { name: 'The Kitchen', content: 'kept' },
+      { name: 'The Bar', content: 'new' },
+    ]);
+  });
+
+  it('replaces an original entry when the incoming name matches', () => {
+    const merged = mergeLorebook(
+      { entries: [{ name: 'The Kitchen', content: 'old' }] },
+      { entries: [{ name: 'The Kitchen', content: 'rewritten' }] },
+    );
+    expect(merged.entries).toEqual([{ name: 'The Kitchen', content: 'rewritten' }]);
   });
 });

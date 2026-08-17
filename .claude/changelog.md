@@ -12,6 +12,24 @@
 - **What:** New finder test pumps public RealismStep with a seeded
   CreatorState (engine off / 18+ on / engine on). No pixel golden.
 - **Files:** test/ui/character_creator/realism_step_porch_life_ungated_test.dart
+## 2026-08-17 — fix(chat,enhance): picker overlay hold, empty Use this, lorebook append
+- **Why:** Four verified user-hittable bugs. The session picker dropped
+  `isLoadingSession` after the last-24 tail, so a fast send could persist
+  the pre-hydrate realism reset onto the last-active chat. Enhance Review
+  defaulted empty text fields Use this ON, and Save replaced the original
+  lorebook with only the new entries. A failed home-grid load left ChatPage
+  sitting on a half-hydrated transcript.
+- **What:** `_openSessionMessages` no longer calls `endSessionLoad` —
+  the owner drops the overlay after hydrate (`setActiveCharacter` finally
+  / picker finally). Send and the composer gate on `isLoadingSession`.
+  Empty proposed description/personality/dialogue/scenario/greetings
+  default Use this OFF (porchLife path untouched). Save appends accepted
+  lore entries onto the duplicated book (merge by name). Failed
+  `_pushChatWhile` pops ChatPage and snacks. Same empty-text + lore
+  merge on the PWA.
+- **Files:** chat_service_session_window.dart, chat_service_send.dart,
+  chat_page.input*.dart, home_page_chrome.dart, enhance_review_body.dart,
+  enhance_lorebook_merge.dart, web enhanceForm + EnhanceReviewModal
 
 ## 2026-08-16 — feat(enhance): Porch Life is a keep-or-accept proposal
 - **Why:** AI Create now seeds wardrobe/ambitions, but Enhance is a

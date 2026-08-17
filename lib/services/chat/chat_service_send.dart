@@ -35,6 +35,10 @@ extension ChatServiceSend on ChatService {
         (text.trim().isEmpty && imageBytes == null)) {
       return;
     }
+    // Overlay / picker hydrate is still in flight. A send here would
+    // persist the pre-hydrate realism reset onto whichever session is
+    // currently live (often the last-active chat, not the one opening).
+    if (_isLoadingSession) return;
     // Don't let a user turn start while forked-in entrances are still playing —
     // it would race the one-shot entrance directive / turn positioning.
     if (_entrancesInFlight) return;

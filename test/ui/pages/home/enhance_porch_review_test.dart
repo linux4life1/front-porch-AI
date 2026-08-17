@@ -85,4 +85,85 @@ void main() {
     final useSwitch = tester.widget<Switch>(find.byType(Switch).first);
     expect(useSwitch.value, isFalse);
   });
+
+  testWidgets('empty proposed description and personality default Use this off', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        EnhanceReviewBody(
+          original: CharacterCard(
+            name: 'Nina',
+            description: 'authored description',
+            personality: 'authored personality',
+          ),
+          enhanced: CharacterCard(
+            name: 'Nina',
+            description: '   ',
+            personality: '',
+          ),
+          selection: const EnhanceSelection(
+            description: true,
+            personality: true,
+            exampleDialogue: false,
+            porchLife: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
+    expect(switches, hasLength(2));
+    expect(switches[0].value, isFalse);
+    expect(switches[1].value, isFalse);
+  });
+
+  testWidgets('non-empty proposed description still defaults Use this on', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        EnhanceReviewBody(
+          original: CharacterCard(name: 'Nina', description: 'old'),
+          enhanced: CharacterCard(name: 'Nina', description: 'rewritten'),
+          selection: const EnhanceSelection(
+            description: true,
+            personality: false,
+            exampleDialogue: false,
+            porchLife: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final useSwitch = tester.widget<Switch>(find.byType(Switch).first);
+    expect(useSwitch.value, isTrue);
+  });
+
+  testWidgets('empty proposed greetings default Use this off', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        EnhanceReviewBody(
+          original: CharacterCard(
+            name: 'Nina',
+            firstMessage: 'Hey there.',
+          ),
+          enhanced: CharacterCard(name: 'Nina', firstMessage: ''),
+          selection: const EnhanceSelection(
+            description: false,
+            personality: false,
+            exampleDialogue: false,
+            greetings: true,
+            porchLife: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final useSwitch = tester.widget<Switch>(find.byType(Switch).first);
+    expect(useSwitch.value, isFalse);
+  });
 }

@@ -98,27 +98,31 @@ extension _HomePageChrome on _HomePageState {
     );
   }
 
-  /// Shows a dialog letting the user choose which saved session to resume.
-  /// Returns the session ID, '__new__' for a new chat, or null if cancelled.
-
   // ─── CharacterCardGrid Callback Handlers ────────────────────────
 
   /// Push ChatPage immediately and drain [load] after pop. The session
   /// overlay covers hydrate — awaiting load first is the home-grid freeze.
+  /// A failed load pops the ghost ChatPage and snacks the error.
   Future<void> _pushChatWhile(Future<void> load) async {
     if (!mounted) {
       await load;
       return;
     }
-    final nav = Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const ChatPage()));
+    final nav = Navigator.of(context);
+    final route = nav.push(MaterialPageRoute(builder: (_) => const ChatPage()));
     try {
       await load;
     } catch (e, st) {
       debugPrint('[Home] open chat failed: $e\n$st');
+      if (mounted && nav.canPop()) {
+        nav.pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open chat: $e')),
+        );
+      }
+      return;
     }
-    await nav;
+    await route;
     if (mounted) _refreshLastActivityCache();
   }
 

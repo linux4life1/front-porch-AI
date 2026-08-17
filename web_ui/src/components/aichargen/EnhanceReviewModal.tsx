@@ -13,6 +13,7 @@ import { api, ApiError } from '../../api/client';
 import { useLayout } from '../../hooks/useBreakpoint';
 import {
   buildApplyBody,
+  withEmptyTextUseOff,
   type EnhanceAccepted,
   type EnhanceEdits,
   type EnhanceProposal,
@@ -25,6 +26,7 @@ interface CharDetail {
   mesExample?: string;
   scenario?: string;
   firstMessage?: string;
+  lorebook?: unknown;
   realism?: {
     ambitions?: string[];
     likes?: string[];
@@ -54,6 +56,7 @@ export function EnhanceReviewModal({
   const [old, setOld] = useState<CharDetail | null>(null);
   const [accepted, setAccepted] = useState<EnhanceAccepted>(() => ({
     ...selection,
+    ...withEmptyTextUseOff(selection, proposal),
     porchLife:
       selection.porchLife &&
       porchHasItems(proposal.porchLife),
@@ -84,7 +87,10 @@ export function EnhanceReviewModal({
         `/api/characters/${characterId}/duplicate`,
         { newName: `${characterName} (Enhanced)` },
       );
-      await api.post(`/api/characters/${dup.id}`, buildApplyBody(proposal, accepted, edits));
+      await api.post(
+        `/api/characters/${dup.id}`,
+        buildApplyBody(proposal, accepted, edits, { lorebook: old?.lorebook }),
+      );
       // Don't leave yet — offer to bring the base character's chats along.
       setBusy(false);
       setApplied(dup.id);

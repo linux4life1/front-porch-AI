@@ -27,19 +27,19 @@ void main() {
     expect(11 < kSessionOpenWindow, isTrue);
   });
 
-  test('open drops the overlay before the background backfill starts', () {
+  test('open does not drop the overlay — owner ends after hydrate', () {
     final src = File(
       'lib/services/chat/chat_service_session_window.dart',
     ).readAsStringSync();
     final openAt = src.indexOf('Future<void> _openSessionMessages');
-    final backfillAt = src.indexOf('_runBackgroundBackfill');
-    final endAt = src.indexOf('endSessionLoad()');
     expect(openAt, greaterThanOrEqualTo(0));
-    expect(endAt, greaterThan(openAt));
+    final openBody = src.substring(openAt);
     expect(
-      endAt < backfillAt,
-      isTrue,
-      reason: 'spinner must drop before the 11k-row decode loop is kicked',
+      openBody.contains('endSessionLoad()'),
+      isFalse,
+      reason:
+          'tail paint is about backfill, not dropping before scalars. '
+          'A picker-owned load still has hydrate + loadSession to run.',
     );
     expect(src.contains('await Future<void>.delayed(Duration.zero)'), isTrue);
   });

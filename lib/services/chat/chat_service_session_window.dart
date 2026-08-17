@@ -4,10 +4,12 @@
 part of '../chat_service.dart';
 
 /// Tail-first session hydrate, then a chunked background backfill of
-/// everything older. The overlay drops after the tail; the rest pages
+/// everything older. The tail is what ChatPage paints; the rest pages
 /// in with a yield per chunk so 11k JSON decodes cannot freeze the
-/// first paint. RAG/Journal wait on [_awaitHistoryHydrated] or treat
-/// [basePosition] as already out of context.
+/// first paint. Overlay drop belongs to the owner after scalars
+/// hydrate — this method must not call [endSessionLoad]. RAG/Journal
+/// wait on [_awaitHistoryHydrated] or treat [basePosition] as already
+/// out of context.
 extension ChatServiceSessionWindow on ChatService {
   bool get isBackfillingHistory => _history.isBackfilling;
   bool get hasOlderHistory => _history.hasMore;
@@ -42,8 +44,10 @@ extension ChatServiceSessionWindow on ChatService {
     return abs;
   }
 
-  /// Last [kSessionOpenWindow] rows. Drops the overlay here so ChatPage
-  /// can paint, then pages the rest in on a yielded loop.
+  /// Last [kSessionOpenWindow] rows, then pages the rest in on a
+  /// yielded loop. Does not drop the session overlay — scalars still
+  /// hydrate after this returns, and a picker-owned load still has
+  /// [loadSession] / [startNewChat] to run.
   Future<void> _openSessionMessages(String sessionId) async {
     final sw = Stopwatch()..start();
     _history.reset();
@@ -63,7 +67,6 @@ extension ChatServiceSessionWindow on ChatService {
       'n=${tail.length} base=${_history.basePosition} '
       'hasMore=${_history.hasMore} session=$sessionId',
     );
-    endSessionLoad();
     if (_history.hasMore) {
       final epoch = _history.epoch;
       _history.backfill = _runBackgroundBackfill(sessionId, epoch);

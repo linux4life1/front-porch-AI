@@ -10,5 +10,6 @@ library;
 export 'char_macro.dart';
 export 'chat_grounding.dart';
 export 'enhance_context.dart';
+export 'enhance_lorebook_merge.dart';
 export 'lorebook_mechanics.dart';
 export 'porch_life_identity.dart';

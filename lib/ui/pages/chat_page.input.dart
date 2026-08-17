@@ -140,10 +140,11 @@ extension _ChatPageInput on _ChatPageState {
   /// photo BYTES to ChatService, which saves the photo only after its own
   /// guards pass — so we never save a file for a turn ChatService will drop.
   /// We mirror every one of sendMessage's silent early-returns here
-  /// (isGenerating / isGuestBusy / entrancesInFlight / no active chat) so the
-  /// pending photo and typed text are preserved for retry rather than
-  /// consumed into the void. In observer mode the photo is NOT consumed —
-  /// director notes are pure instructions and would drop it.
+  /// (isGenerating / isLoadingSession / isGuestBusy / entrancesInFlight /
+  /// no active chat) so the pending photo and typed text are preserved
+  /// for retry rather than consumed into the void. In observer mode the
+  /// photo is NOT consumed — director notes are pure instructions and
+  /// would drop it.
   void _sendCurrentMessage(ChatService chatService) {
     final pending = chatService.observerMode ? null : _pendingImageBytes;
     final text = _controller.text;
@@ -155,6 +156,7 @@ extension _ChatPageInput on _ChatPageState {
         // deliberately guards on isGenerating (streaming) and NOT on
         // isSettlingTurn — see the comment there.
         chatService.isGenerating ||
+        chatService.isLoadingSession ||
         chatService.isGuestBusy ||
         chatService.isPhotoTurnInFlight ||
         chatService.entrancesInFlight ||

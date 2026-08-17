@@ -74,7 +74,8 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
     void field(String key, bool selected, String newValue) {
       if (!selected) return;
       _controllers[key] = TextEditingController(text: newValue);
-      _use[key] = true;
+      // Empty proposal must not default ON — same rule as porchLife.
+      _use[key] = newValue.trim().isNotEmpty;
     }
 
     field(
@@ -98,7 +99,9 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
       for (var i = 0; i < widget.enhanced.alternateGreetings.length; i++) {
         field('alt$i', true, widget.enhanced.alternateGreetings[i]);
       }
-      _use['greetings'] = true;
+      _use['greetings'] =
+          widget.enhanced.firstMessage.trim().isNotEmpty ||
+          widget.enhanced.alternateGreetings.any((g) => g.trim().isNotEmpty);
     }
     _useLoreEntry = List.filled(
       widget.enhanced.lorebook?.entries.length ?? 0,
@@ -167,7 +170,12 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
           if (_useLoreEntry[i]) loreEntries[i],
       ];
       if (keptLore.isNotEmpty) {
-        copy.lorebook = Lorebook(entries: keptLore);
+        final book = copy.lorebook;
+        if (book == null) {
+          copy.lorebook = Lorebook(entries: List.of(keptLore));
+        } else {
+          book.entries = mergeLorebookEntries(book.entries, keptLore);
+        }
       }
       if (widget.selection.porchLife && (_use['porchLife'] ?? false)) {
         final ext = copy.frontPorchExtensions ?? FrontPorchExtensions();
