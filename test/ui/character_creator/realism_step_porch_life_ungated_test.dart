@@ -136,7 +136,8 @@ void main() {
 
       _expectPorchLifeVisible();
       expect(find.byType(NeedsFormSection), findsOneWidget);
-      expect(find.text('Needs Simulation'), findsOneWidget);
+      // Header + toggle row both say this; one would be a false red.
+      expect(find.text('Needs Simulation'), findsAtLeastNWidgets(1));
       expect(find.text('Short-Term Bond'), findsOneWidget);
       expect(find.text('Long-Term Bond'), findsOneWidget);
       expect(find.text('Trust Level'), findsOneWidget);
