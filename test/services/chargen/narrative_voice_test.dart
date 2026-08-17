@@ -8,7 +8,10 @@
 // pins the generateCharacter call site so deleting the wiring still
 // goes red.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/character_gen_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -278,6 +281,119 @@ void main() {
         expect(base, isNot(contains('past tense')));
       },
     );
+
+    test('generateCharacter stamps voice onto the returned card', () async {
+      final llm = _RecordingLlm();
+      final gen = CharacterGenService(llm);
+      final card = await gen.generateCharacter(
+        name: 'Nina',
+        concept: 'a tired baker',
+        sex: 'Female',
+        narrativePerspective: 'third',
+        narrativeTense: 'past',
+        generateLorebook: false,
+        altGreetingCount: 0,
+        generateDescription: true,
+      );
+      expect(card, isNotNull);
+      final stamped = readNarrativeVoice(card);
+      expect(stamped.perspective, 'third');
+      expect(stamped.tense, 'past');
+      expect(stamped.sex, 'Female');
+    });
+  });
+
+  group('Enhance keeps the card voice', () {
+    test('omitted voice resolves to first-person present', () {
+      final resolved = resolveEnhanceVoice();
+      expect(resolved.perspective, 'first');
+      expect(resolved.tense, 'present');
+      expect(resolved.sex, isEmpty);
+      expect(resolved.voice.isDefault, isTrue);
+    });
+
+    test('stamped third+past+Female is kept when Enhance omits params', () {
+      final card = CharacterCard(name: 'Nina');
+      stampNarrativeVoice(
+        card,
+        voice: const NarrativeVoice(
+          perspective: NarrativePerspective.third,
+          tense: NarrativeTense.past,
+        ),
+        sex: 'Female',
+      );
+      final resolved = resolveEnhanceVoice(source: card);
+      expect(resolved.perspective, 'third');
+      expect(resolved.tense, 'past');
+      expect(resolved.sex, 'Female');
+    });
+
+    test(
+      'enhanceCharacter on a third+past+Female card does not force defaults',
+      () async {
+        final card = CharacterCard(
+          name: 'Nina',
+          description: 'Original description of Nina.',
+          personality: 'Original personality of Nina.',
+          scenario: 'A quiet bar after hours.',
+        );
+        stampNarrativeVoice(
+          card,
+          voice: const NarrativeVoice(
+            perspective: NarrativePerspective.third,
+            tense: NarrativeTense.past,
+          ),
+          sex: 'Female',
+        );
+        final llm = _RecordingLlm();
+        final gen = CharacterGenService(llm);
+        await gen.enhanceCharacter(
+          source: card,
+          selection: const EnhanceSelection(
+            greetings: true,
+            exampleDialogue: true,
+          ),
+          chatGrounding: 'User: hi\nNina: she wiped flour off her hands.',
+        );
+
+        final greeting = llm.prompts.firstWhere(
+          (p) => p.contains('NARRATIVE STRUCTURE'),
+          orElse: () => '',
+        );
+        final example = llm.prompts.firstWhere(
+          (p) => p.contains('Write example dialogue exchanges'),
+          orElse: () => '',
+        );
+        final enrich = llm.prompts.firstWhere(
+          (p) => p.contains('rewrite these three fields'),
+          orElse: () => '',
+        );
+        expect(greeting, isNotEmpty, reason: 'greeting prompt must fire');
+        expect(example, isNotEmpty, reason: 'example-dialog prompt must fire');
+        expect(enrich, isNotEmpty, reason: 'enrichment prompt must fire');
+        expect(greeting, contains('third person past tense'));
+        expect(greeting, contains('she/her/her'));
+        expect(greeting, isNot(contains('First person ONLY')));
+        expect(example, contains('third person past tense'));
+        expect(example, contains('she/her/her'));
+        expect(enrich, contains('third person past tense (she/her/her)'));
+      },
+    );
+
+    test('desktop Enhance and the web facade both forward voice', () {
+      // Call-site pin: deleting either wire leaves Enhance on defaults
+      // even when the card was stamped third+past.
+      final wizard = File(
+        'lib/ui/pages/home/enhance/enhance_wizard_page.dart',
+      ).readAsStringSync();
+      expect(wizard, contains('readNarrativeVoice(widget.character)'));
+      expect(wizard, contains('narrativePerspective: voice.perspective'));
+      final facade = File(
+        'lib/services/web/facade/chargen_facade.dart',
+      ).readAsStringSync();
+      expect(facade, contains("body['narrativePerspective']"));
+      expect(facade, contains('narrativePerspective: narrativePerspective'));
+    });
   });
 }
 

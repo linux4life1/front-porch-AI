@@ -532,6 +532,7 @@ class CharacterGenService {
     // mid-chat. Normalize every generated text field to the portable macro.
     // (Logic lives in chargen/char_macro.dart so it stays unit-testable.)
     applyCharMacroToCard(card, name);
+    stampNarrativeVoice(card, voice: _narrativeVoice, sex: _narrativeSex);
 
     onStatus?.call('Character generated!');
     return card;

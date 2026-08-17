@@ -28,6 +28,9 @@ extension GenEnhance on CharacterGenService {
     bool nsfwEnabled = false,
     bool reasoningEnabled = false,
     bool abortInFlight = false,
+    String? narrativePerspective,
+    String? narrativeTense,
+    String? sex,
     void Function(String accumulated)? onProgress,
     void Function(String error)? onError,
     void Function(String status)? onStatus,
@@ -63,10 +66,16 @@ extension GenEnhance on CharacterGenService {
     if (abortInFlight) _llmService.abortGeneration();
     _reasoningEnabled = reasoningEnabled;
     _includeDynamicMacros = false;
-    // Enhance has no voice picker — stay on the historical first-person
-    // present path so a prior generate's third/past choice cannot leak.
-    _narrativeVoice = NarrativeVoice.defaults;
-    _narrativeSex = '';
+    // Keep the card's Create voice. Params override the stamp; omitted
+    // (and unstamped cards) stay first-person present.
+    final resolved = resolveEnhanceVoice(
+      narrativePerspective: narrativePerspective,
+      narrativeTense: narrativeTense,
+      sex: sex,
+      source: source,
+    );
+    _narrativeVoice = resolved.voice;
+    _narrativeSex = resolved.sex;
 
     // ── Interview, grounded in the real chat (always runs) ─────────
     onStatus?.call('Interviewing $name about the chat...');

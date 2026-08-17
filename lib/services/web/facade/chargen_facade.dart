@@ -82,7 +82,9 @@ class ChargenFacade {
   /// endpoints.
   ///
   /// Body: `{characterId, sessionId, fields: EnhanceSelection JSON,
-  /// nsfwEnabled, modelId?}` — `modelId` (remote backends only) runs the
+  /// nsfwEnabled, modelId?, narrativePerspective?, narrativeTense?, sex?}` —
+  /// voice fields keep the Create choice; omitted falls back to the card
+  /// stamp, then first-person present. `modelId` (remote backends only) runs the
   /// enhance on that model via the same ad-hoc resolver the creator wizard
   /// uses, without switching the app's active model.
   Map<String, dynamic> startEnhance(Map<String, dynamic> body) {
@@ -114,6 +116,9 @@ class ChargenFacade {
         body['nsfwEnabled'] == true,
         svc,
         db,
+        narrativePerspective: body['narrativePerspective']?.toString(),
+        narrativeTense: body['narrativeTense']?.toString(),
+        sex: body['sex']?.toString(),
       ),
     );
     return {'ok': true};
@@ -125,8 +130,11 @@ class ChargenFacade {
     EnhanceSelection selection,
     bool nsfwEnabled,
     LLMService svc,
-    AppDatabase db,
-  ) async {
+    AppDatabase db, {
+    String? narrativePerspective,
+    String? narrativeTense,
+    String? sex,
+  }) async {
     try {
       final ctx = await buildEnhanceContext(
         db: db,
@@ -150,6 +158,9 @@ class ChargenFacade {
         selection: selection,
         chatGrounding: grounding,
         nsfwEnabled: nsfwEnabled,
+        narrativePerspective: narrativePerspective,
+        narrativeTense: narrativeTense,
+        sex: sex,
         // Same rule as the desktop flow and the Scene Guest mint: never kill
         // evals a live chat may have in flight on the shared backend.
         abortInFlight: false,

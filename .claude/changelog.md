@@ -15,6 +15,19 @@
 - **Files:** porch_life_identity.dart, enhance_review_body.dart,
   enhance_porch_review_test.dart, porch_life_identity_test.dart,
   web enhanceForm + EnhanceReviewModal
+## 2026-08-17 — fix(chargen): Enhance keeps Create's narrative voice
+- **Why:** Bug Hunter hold on #200 — `enhanceCharacter` forced
+  `NarrativeVoice.defaults` and empty sex so a prior generate could not
+  leak, which rewrote third/past cards as first-person present. Web
+  `buildEnhancePayload` / `startEnhance` did not forward voice either.
+- **What:** Create stamps perspective/tense/sex on the card. Enhance
+  resolves params → stamp → first-person present. Desktop wizard and
+  `/api/chargen/enhance` carry the same fields. No Enhance Review layout
+  change.
+- **Files:** narrative_voice.dart, character_gen_enhance.dart,
+  character_gen_service.dart, enhance_wizard_page.dart, chargen_facade.dart,
+  character_facade.dart, enhanceForm.ts, EnhanceDialog.tsx
+
 ## 2026-08-17 — feat(chargen): perspective + tense for greetings and example dialog
 - **Why:** Issue #194 — first-person present was baked into the greeting and
   example-dialog prompts, so users who wanted third person or past tense had

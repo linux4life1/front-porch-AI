@@ -10,7 +10,7 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 - ✨ **Enhance Review leaves empty rewrites unticked** — if the model returned a blank description or greeting, Use this starts off so Save cannot wipe what you already wrote.
 
 - 📖 **Enhance lorebook adds entries instead of replacing the book** — new places from the story are appended; the original entries stay.
-- ✍️ **AI Create can write in third person and/or past tense** — on the output-settings step, pick First or Third person and Present or Past. Default is still first-person present. Third person uses the Sex field for he/she/they (blank Sex → they/them). Applies to description, personality, example dialogue, and greetings.
+- ✍️ **AI Create can write in third person and/or past tense** — on the output-settings step, pick First or Third person and Present or Past. Default is still first-person present. Third person uses the Sex field for he/she/they (blank Sex → they/them). Applies to description, personality, example dialogue, and greetings. AI Enhance keeps that same voice instead of rewriting everything as first-person present.
 
 - 👗 **AI Create fills wardrobe, pockets and ambitions** — after it writes the greeting it seeds what they are wearing and carrying, what they want long-term, and (if you turned 18+ on in the wizard) intimate likes and limits. You can still edit every chip on the Porch Life step.
 

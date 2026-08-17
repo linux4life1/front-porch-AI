@@ -16,12 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/models.dart';
+
 // Perspective + tense for AI character generation (character text +
 // example dialog + greetings).
 //
 // Default is first-person present — the historical baked-in voice. Other
 // combinations are opt-in from the creator's output settings. Third person
 // resolves he/she/they from the Sex field so pronouns stay consistent.
+//
+// Create stamps the choice onto the card (`extensions.narrative_voice`) so
+// Enhance can keep it. Params override the stamp; omitted voice stays default.
 
 enum NarrativePerspective { first, third }
 
@@ -241,6 +246,76 @@ String? cardFieldVoiceClause({
   }
   final tense = voice.isPast ? 'past tense' : 'present tense';
   return 'third person $tense (${pronouns.slashSet})';
+}
+
+/// PNG extension key (sibling of `front_porch`) so the stamp survives
+/// save/reload without growing FrontPorchExtensions.
+const kNarrativeVoiceExtensionKey = 'narrative_voice';
+
+/// Perspective/tense/sex after params + card stamp + defaults are resolved.
+class ResolvedNarrativeVoice {
+  const ResolvedNarrativeVoice({
+    this.perspective = 'first',
+    this.tense = 'present',
+    this.sex = '',
+  });
+
+  final String perspective;
+  final String tense;
+  final String sex;
+
+  NarrativeVoice get voice =>
+      NarrativeVoice.parse(perspective: perspective, tense: tense);
+}
+
+/// Write the Create choice onto [card] so a later Enhance can read it.
+void stampNarrativeVoice(
+  CharacterCard card, {
+  required NarrativeVoice voice,
+  required String sex,
+}) {
+  final raw = Map<String, dynamic>.from(card.rawExtensions ?? {});
+  raw[kNarrativeVoiceExtensionKey] = {
+    'perspective': voice.isFirst ? 'first' : 'third',
+    'tense': voice.isPast ? 'past' : 'present',
+    if (sex.trim().isNotEmpty) 'sex': sex.trim(),
+  };
+  card.rawExtensions = raw;
+}
+
+/// Read a stamped voice. Missing/malformed → first-person present, empty sex.
+ResolvedNarrativeVoice readNarrativeVoice(CharacterCard? card) {
+  final raw = card?.rawExtensions?[kNarrativeVoiceExtensionKey];
+  if (raw is! Map) return const ResolvedNarrativeVoice();
+  final map = Map<String, dynamic>.from(raw);
+  final voice = NarrativeVoice.parse(
+    perspective: map['perspective']?.toString(),
+    tense: map['tense']?.toString(),
+  );
+  return ResolvedNarrativeVoice(
+    perspective: voice.isFirst ? 'first' : 'third',
+    tense: voice.isPast ? 'past' : 'present',
+    sex: (map['sex']?.toString() ?? '').trim(),
+  );
+}
+
+/// Params win when non-empty. Empty/omitted falls back to the card stamp,
+/// then to first-person present.
+ResolvedNarrativeVoice resolveEnhanceVoice({
+  String? narrativePerspective,
+  String? narrativeTense,
+  String? sex,
+  CharacterCard? source,
+}) {
+  final stamped = readNarrativeVoice(source);
+  final p = narrativePerspective?.trim() ?? '';
+  final t = narrativeTense?.trim() ?? '';
+  final s = sex?.trim() ?? '';
+  return ResolvedNarrativeVoice(
+    perspective: p.isNotEmpty ? p : stamped.perspective,
+    tense: t.isNotEmpty ? t : stamped.tense,
+    sex: s.isNotEmpty ? s : stamped.sex,
+  );
 }
 
 String _voicePhrase(NarrativeVoice voice, NarrativePronouns pronouns) {

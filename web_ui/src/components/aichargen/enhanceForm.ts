@@ -92,6 +92,11 @@ export function buildEnhancePayload(
   selection: EnhanceSelection,
   nsfwEnabled: boolean,
   modelId = '',
+  voice?: {
+    narrativePerspective?: string;
+    narrativeTense?: string;
+    sex?: string;
+  },
 ) {
   return {
     characterId,
@@ -101,6 +106,14 @@ export function buildEnhancePayload(
     // Remote backends only: which model runs THIS enhance (the server resolves
     // it ad-hoc; the app's active model is never switched). '' = active model.
     ...(modelId ? { modelId } : {}),
+    // Same voice Create used. Omitted → server reads the card stamp, then
+    // first-person present. Only spread set keys so the default payload
+    // shape (and its existing test) stays unchanged.
+    ...(voice?.narrativePerspective
+      ? { narrativePerspective: voice.narrativePerspective }
+      : {}),
+    ...(voice?.narrativeTense ? { narrativeTense: voice.narrativeTense } : {}),
+    ...(voice?.sex ? { sex: voice.sex } : {}),
   };
 }
 

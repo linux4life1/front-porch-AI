@@ -225,11 +225,15 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
       _previewText = '';
       _gen = gen;
     });
+    final voice = readNarrativeVoice(widget.character);
     final enhanced = await gen.enhanceCharacter(
       source: widget.character,
       selection: selection,
       chatGrounding: grounding,
       nsfwEnabled: _nsfw,
+      narrativePerspective: voice.perspective,
+      narrativeTense: voice.tense,
+      sex: voice.sex,
       // A home-screen action must not kill evals a background chat may have
       // in flight on the shared backend (Scene Guest precedent).
       abortInFlight: false,
