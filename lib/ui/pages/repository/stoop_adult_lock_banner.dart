@@ -230,12 +230,12 @@ class StoopAdultSwitch extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   const StoopAdultSwitch({
-    super.key,
+    Key? key,
     required this.value,
     required this.locked,
     this.pending = false,
     required this.onChanged,
-  });
+  }) : super(key: key ?? const Key('stoop-adult-switch'));
 
   @override
   Widget build(BuildContext context) {
@@ -253,6 +253,7 @@ class StoopAdultSwitch extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: SwitchListTile(
+          key: const Key('stoop-adult-switch-tile'),
           value: value,
           onChanged: (locked || pending) ? null : onChanged,
           activeThumbColor: AppColors.stoopEmber,

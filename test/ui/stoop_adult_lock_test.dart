@@ -422,8 +422,13 @@ void _wizardTests() {
     await tapText(tester, 'Back');
   }
 
+  Finder adultSwitchFinder() => find.descendant(
+    of: find.byType(StoopAdultSwitch),
+    matching: find.byType(SwitchListTile),
+  );
+
   SwitchListTile adultSwitch(WidgetTester tester) =>
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+      tester.widget<SwitchListTile>(adultSwitchFinder());
 
   group('the share wizard\'s 18+ flag', () {
     testWidgets('a forced tick is WITHDRAWN when a clean card is picked next', (
@@ -461,7 +466,7 @@ void _wizardTests() {
 
       // Deliberately marked 18+ by hand on a card the rule says nothing about.
       await toContent(tester, 'Clean Clive');
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(adultSwitchFinder());
       await tester.pumpAndSettle();
       expect(adultSwitch(tester).value, isTrue);
 

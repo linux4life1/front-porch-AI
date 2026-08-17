@@ -797,6 +797,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
           const SizedBox(height: 16),
         ],
         StoopAdultSwitch(
+          key: const Key('stoop-adult-switch'),
           value: _adult.value,
           locked: _forcedAdult,
           pending: _castPending,

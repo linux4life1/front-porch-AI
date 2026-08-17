@@ -18,11 +18,11 @@ class StoopCommentsSwitch extends StatelessWidget {
   final bool liveKill;
 
   const StoopCommentsSwitch({
-    super.key,
+    Key? key,
     required this.value,
     required this.onChanged,
     this.liveKill = false,
-  });
+  }) : super(key: key ?? const Key('stoop-comments-enabled'));
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +37,7 @@ class StoopCommentsSwitch extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: SwitchListTile(
+          key: const Key('stoop-comments-enabled'),
           value: value,
           onChanged: onChanged,
           activeThumbColor: AppColors.stoopAmber,
