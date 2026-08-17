@@ -15,6 +15,16 @@
 - **Files:** porch_life_identity.dart, enhance_review_body.dart,
   enhance_porch_review_test.dart, porch_life_identity_test.dart,
   web enhanceForm + EnhanceReviewModal
+## 2026-08-17 — test(golden): refresh quick_config goldens for voice chips
+- **Why:** TestChampion CI HOLD on #200 — QuickConfigStep's output-settings
+  card grew two Greeting voice chip rows; the committed PNGs still showed
+  the pre-chip layout.
+- **What:** Regenerated only `quick_config.{light,dark}.png` via
+  `--update-goldens --name QuickConfigStep`. `guided_output_settings`
+  was regenerated the same way and is byte-identical (chips sit below
+  that golden's existing clip). No 900px goldens, no tree-wide refresh.
+- **Files:** test/golden/widget/_goldens/creator_steps/quick_config.*.png
+
 ## 2026-08-17 — fix(chargen): Enhance keeps Create's narrative voice
 - **Why:** Bug Hunter hold on #200 — `enhanceCharacter` forced
   `NarrativeVoice.defaults` and empty sex so a prior generate could not
