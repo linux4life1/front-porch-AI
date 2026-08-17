@@ -55,9 +55,11 @@ extension _CreatorModes on CreatorState {
         loreCategories: const [],
         loreDepth: 'Standard',
         includeDynamicMacros: includeDynamicMacros,
+        narrativePerspective: narrativePerspective,
+        narrativeTense: narrativeTense,
         descriptionDetail: '2-3 paragraphs',
         age: '',
-        sex: '',
+        sex: sexController.text.trim(),
         relationship: '',
         scenario: quickScenarioController.text.trim(),
         backstory: '',
@@ -154,6 +156,8 @@ extension _CreatorModes on CreatorState {
         loreCategories: selectedLoreCategories.toList(),
         loreDepth: loreDepth,
         includeDynamicMacros: includeDynamicMacros,
+        narrativePerspective: narrativePerspective,
+        narrativeTense: narrativeTense,
         descriptionDetail:
             CreatorState.generationDetailOptions[generationDetail] ??
             '2-3 paragraphs',
@@ -264,6 +268,8 @@ extension _CreatorModes on CreatorState {
           loreCategories: selectedLoreCategories.toList(),
           loreDepth: loreDepth,
           includeDynamicMacros: includeDynamicMacros,
+          narrativePerspective: narrativePerspective,
+          narrativeTense: narrativeTense,
           descriptionDetail:
               CreatorState.generationDetailOptions[generationDetail] ??
               '2-3 paragraphs',

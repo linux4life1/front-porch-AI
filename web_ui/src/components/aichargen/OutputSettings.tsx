@@ -4,11 +4,20 @@
 // Shared output settings for all three modes: greeting length + count + tones,
 // lorebook generation (toggle + categories + depth), and description detail.
 
-import { MultiChipSelect, ChipSelect } from './fields';
+import { MultiChipSelect, ChipSelect, Field } from './fields';
 import {
   GREETING_LENGTHS, TONE_OPTIONS, LORE_CATEGORIES, LORE_DEPTHS,
   GENERATION_DETAIL, type ChargenForm,
 } from './chargenForm';
+
+const PERSPECTIVES: { id: ChargenForm['narrativePerspective']; label: string }[] = [
+  { id: 'first', label: 'First person' },
+  { id: 'third', label: 'Third person' },
+];
+const TENSES: { id: ChargenForm['narrativeTense']; label: string }[] = [
+  { id: 'present', label: 'Present' },
+  { id: 'past', label: 'Past' },
+];
 
 export function OutputSettings({
   form, set,
@@ -45,6 +54,48 @@ export function OutputSettings({
         options={Object.keys(GENERATION_DETAIL)}
         onChange={(v) => set({ generationDetail: v || 'Standard' })}
       />
+
+      <div className="cg-field">
+        <span className="cg-field-label">Perspective</span>
+        <div className="cg-chips">
+          {PERSPECTIVES.map((p) => (
+            <button
+              type="button"
+              key={p.id}
+              className={`cg-chip${form.narrativePerspective === p.id ? ' on' : ''}`}
+              onClick={() => set({ narrativePerspective: p.id })}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="cg-field">
+        <span className="cg-field-label">Tense</span>
+        <div className="cg-chips">
+          {TENSES.map((t) => (
+            <button
+              type="button"
+              key={t.id}
+              className={`cg-chip${form.narrativeTense === t.id ? ' on' : ''}`}
+              onClick={() => set({ narrativeTense: t.id })}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {form.narrativePerspective === 'third' && (
+        <Field
+          label="Sex"
+          hint="(for he/she/they — blank defaults to they/them)"
+          value={form.sex}
+          onChange={(v) => set({ sex: v })}
+          placeholder="e.g. Female, Male, they/them"
+        />
+      )}
 
       <label className="cg-field cg-toggle">
         <input

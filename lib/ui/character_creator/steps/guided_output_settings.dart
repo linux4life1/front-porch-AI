@@ -135,6 +135,31 @@ class GuidedOutputSettings extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
+        _inputLabel(context, 'Greeting voice'),
+        const SizedBox(height: 4),
+        Text(
+          'Perspective and tense for the first message, alternates, and example dialogue.',
+          style: TextStyle(
+            color: AppColors.textTertiary(context),
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 8),
+        NarrativeVoiceSelector(
+          perspective: state.narrativePerspective,
+          tense: state.narrativeTense,
+          accentColor: accent,
+          onPerspectiveChanged: (v) {
+            state.narrativePerspective = v;
+            _save();
+          },
+          onTenseChanged: (v) {
+            state.narrativeTense = v;
+            _save();
+          },
+        ),
+        const SizedBox(height: 16),
+
         // Art style
         _inputLabel(context, 'Avatar Art Style'),
         const SizedBox(height: 8),

@@ -35,7 +35,10 @@ class QuickConfigStep extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             helper,
-            style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
+            style: TextStyle(
+              color: AppColors.textTertiary(context),
+              fontSize: 11,
+            ),
           ),
         ],
         const SizedBox(height: 8),
@@ -60,7 +63,10 @@ class QuickConfigStep extends StatelessWidget {
       onChanged: (_) => state.saveState(),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: AppColors.textTertiary(context), fontSize: 12),
+        hintStyle: TextStyle(
+          color: AppColors.textTertiary(context),
+          fontSize: 12,
+        ),
         filled: true,
         fillColor: AppColors.surfaceContainerOf(context),
         border: OutlineInputBorder(
@@ -75,7 +81,10 @@ class QuickConfigStep extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: accent, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
     );
   }
@@ -160,14 +169,12 @@ class QuickConfigStep extends StatelessWidget {
                   _inputLabel(
                     context,
                     'Describe them (optional)',
-                    helper:
-                        'A sentence or two is plenty. Leave it blank and the AI will invent someone.',
+                    helper: 'A sentence or two is plenty. Leave it blank and the AI will invent someone.',
                   ),
                   _textField(
                     context,
                     controller: state.conceptController,
-                    hint:
-                        'A gruff dwarven blacksmith who secretly writes poetry...',
+                    hint: 'A gruff dwarven blacksmith who secretly writes poetry...',
                     accent: quickAccent,
                     maxLines: 4,
                     minLines: 3,
@@ -176,14 +183,12 @@ class QuickConfigStep extends StatelessWidget {
                   _inputLabel(
                     context,
                     'Scenario / Setting (optional)',
-                    helper:
-                        'Where does the story take place? What\'s the situation? The AI will build on this.',
+                    helper: 'Where does the story take place? What\'s the situation? The AI will build on this.',
                   ),
                   _textField(
                     context,
                     controller: state.quickScenarioController,
-                    hint:
-                        'A modern coffee shop where they work as a barista, a fantasy guild hall, a space station...',
+                    hint: 'A modern coffee shop where they work as a barista, a fantasy guild hall, a space station...',
                     accent: quickAccent,
                     maxLines: 3,
                     minLines: 2,
@@ -226,14 +231,14 @@ class QuickConfigStep extends StatelessWidget {
                   _inputLabel(
                     context,
                     'Number of Greetings',
-                    helper:
-                        'How many first messages to generate (1 main + alternates).',
+                    helper: 'How many first messages to generate (1 main + alternates).',
                   ),
                   AlternateGreetingsSlider(
                     value: state.quickGreetingCount,
                     accentColor: quickAccent,
-                    formatLabel: (v) =>
-                        v == 0 ? '1 greeting' : '1 + $v alt${v == 1 ? '' : 's'}',
+                    formatLabel: (v) => v == 0
+                        ? '1 greeting'
+                        : '1 + $v alt${v == 1 ? '' : 's'}',
                     onChanged: (val) {
                       state.quickGreetingCount = val;
                       final maxTones = state.quickGreetingCount + 1;
@@ -242,6 +247,33 @@ class QuickConfigStep extends StatelessWidget {
                       }
                       state.saveState();
                       state.notify();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _inputLabel(
+                    context,
+                    'Greeting voice',
+                    helper:
+                        'Perspective and tense for the first message, '
+                        'alternates, and example dialogue.',
+                  ),
+                  NarrativeVoiceSelector(
+                    perspective: state.narrativePerspective,
+                    tense: state.narrativeTense,
+                    accentColor: quickAccent,
+                    sexController: state.sexController,
+                    onPerspectiveChanged: (v) {
+                      state.narrativePerspective = v;
+                      state.saveState();
+                      state.notify();
+                    },
+                    onTenseChanged: (v) {
+                      state.narrativeTense = v;
+                      state.saveState();
+                      state.notify();
+                    },
+                    onSexChanged: () {
+                      state.saveState();
                     },
                   ),
                   const SizedBox(height: 16),
@@ -263,7 +295,9 @@ class QuickConfigStep extends StatelessWidget {
                 subtitle: 'Optional — paste wiki/lore URLs or attach files.',
                 icon: Icons.menu_book,
                 accentColor: quickAccent,
-                children: [LoreInputSection(state: state, accentColor: quickAccent)],
+                children: [
+                  LoreInputSection(state: state, accentColor: quickAccent),
+                ],
               ),
 
               // NSFW toggle
@@ -271,8 +305,7 @@ class QuickConfigStep extends StatelessWidget {
                 value: state.quickNsfwEnabled,
                 accentColor: nsfwAccent,
                 title: 'NSFW Content',
-                subtitle:
-                    'Enables adult themes in personality, lorebook, and greetings',
+                subtitle: 'Enables adult themes in personality, lorebook, and greetings',
                 animated: true,
                 onChanged: (v) {
                   state.quickNsfwEnabled = v;

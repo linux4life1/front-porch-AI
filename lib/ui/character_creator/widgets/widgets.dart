@@ -18,6 +18,7 @@ export 'guided_vision_panel.dart';
 export 'lore_input_section.dart';
 export 'lorebook_generation_card.dart';
 export 'mode_card.dart';
+export 'narrative_voice_selector.dart';
 export 'reasoning_toggle.dart';
 export 'relationship_select_section.dart';
 export 'review_lorebook_section.dart';

@@ -15,6 +15,17 @@
 - **Files:** porch_life_identity.dart, enhance_review_body.dart,
   enhance_porch_review_test.dart, porch_life_identity_test.dart,
   web enhanceForm + EnhanceReviewModal
+## 2026-08-17 — feat(chargen): perspective + tense for greetings and example dialog
+- **Why:** Issue #194 — first-person present was baked into the greeting and
+  example-dialog prompts, so users who wanted third person or past tense had
+  to rewrite the card or patch source and rebuild.
+- **What:** Output settings gain First/Third and Present/Past chips (default
+  first + present, same wording as before). Third person resolves he/she/they
+  from Sex. Threaded through desktop (all three modes), the web wizard, and
+  the `/api/chargen/create` facade.
+- **Files:** chargen/narrative_voice.dart, character_gen_prompts.dart,
+  character_gen_steps.dart, character_gen_service.dart, creator_state*,
+  narrative_voice_selector.dart, web OutputSettings + chargenForm
 
 ## 2026-08-17 — test(creator): pin RealismStep Porch Life vs engine split
 - **Why:** Feature Design lock: engine OFF on the AI creator still shows

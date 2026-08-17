@@ -63,6 +63,10 @@ extension GenEnhance on CharacterGenService {
     if (abortInFlight) _llmService.abortGeneration();
     _reasoningEnabled = reasoningEnabled;
     _includeDynamicMacros = false;
+    // Enhance has no voice picker — stay on the historical first-person
+    // present path so a prior generate's third/past choice cannot leak.
+    _narrativeVoice = NarrativeVoice.defaults;
+    _narrativeSex = '';
 
     // ── Interview, grounded in the real chat (always runs) ─────────
     onStatus?.call('Interviewing $name about the chat...');

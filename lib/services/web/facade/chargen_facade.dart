@@ -331,6 +331,9 @@ class ChargenFacade {
         loreCategories: _strList(fields['loreCategories'], const []),
         loreDepth: fields['loreDepth']?.toString() ?? 'Standard',
         includeDynamicMacros: fields['includeDynamicMacros'] == true,
+        narrativePerspective:
+            fields['narrativePerspective']?.toString() ?? 'first',
+        narrativeTense: fields['narrativeTense']?.toString() ?? 'present',
         age: fields['age']?.toString() ?? '',
         sex: fields['sex']?.toString() ?? '',
         relationship: fields['relationship']?.toString() ?? '',

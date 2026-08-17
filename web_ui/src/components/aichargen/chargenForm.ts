@@ -25,6 +25,8 @@ export interface ChargenForm {
   loreCategories: string[];
   loreDepth: string;
   includeDynamicMacros: boolean;
+  narrativePerspective: 'first' | 'third';
+  narrativeTense: 'present' | 'past';
   generationDetail: string; // label key into GENERATION_DETAIL
   // Quick
   quickConcept: string;
@@ -94,6 +96,8 @@ export const DEFAULT_FORM: ChargenForm = {
   loreCategories: [],
   loreDepth: 'Standard',
   includeDynamicMacros: false,
+  narrativePerspective: 'first',
+  narrativeTense: 'present',
   generationDetail: 'Standard',
   quickConcept: '',
   quickKeywords: '',
@@ -234,6 +238,8 @@ function outputSettings(f: ChargenForm): Record<string, unknown> {
     loreCategories: f.generateLorebook ? f.loreCategories : [],
     loreDepth: f.loreDepth,
     includeDynamicMacros: f.includeDynamicMacros,
+    narrativePerspective: f.narrativePerspective,
+    narrativeTense: f.narrativeTense,
     descriptionDetail: GENERATION_DETAIL[f.generationDetail] ?? '2-3 paragraphs',
   };
 }
@@ -258,6 +264,7 @@ export function buildPayload(f: ChargenForm): Record<string, unknown> {
       concept: quickConcept,
       personalityKeywords: f.quickKeywords.trim(),
       scenario: f.quickScenario.trim(),
+      sex: f.sex.trim(),
     };
   }
 

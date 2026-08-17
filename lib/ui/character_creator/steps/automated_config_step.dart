@@ -279,6 +279,31 @@ class AutomatedConfigStep extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 24),
+                  const CreatorInputLabel('Greeting voice'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Perspective and tense for the first message, alternates, '
+                    'and example dialogue.',
+                    style: TextStyle(
+                      color: AppColors.textTertiary(context),
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  NarrativeVoiceSelector(
+                    perspective: state.narrativePerspective,
+                    tense: state.narrativeTense,
+                    accentColor: amber,
+                    onPerspectiveChanged: (v) {
+                      state.narrativePerspective = v;
+                      _save();
+                    },
+                    onTenseChanged: (v) {
+                      state.narrativeTense = v;
+                      _save();
+                    },
+                  ),
+                  const SizedBox(height: 24),
                   const CreatorInputLabel('Avatar Art Style'),
                   const SizedBox(height: 8),
                   AvatarArtStyleSelector(
@@ -299,9 +324,7 @@ class AutomatedConfigStep extends StatelessWidget {
                 icon: Icons.menu_book,
                 accentColor: amber,
                 initiallyExpanded: true,
-                children: [
-                  LoreInputSection(state: state, accentColor: amber),
-                ],
+                children: [LoreInputSection(state: state, accentColor: amber)],
               ),
               const SizedBox(height: 16),
             ],

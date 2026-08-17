@@ -121,7 +121,8 @@ Respond with ONLY the JSON:''';
     // history (what they want from {{user}}, unspoken tension) actively hurts a
     // "you just met" card. Empty OR a stranger-like preset counts as no relationship.
     final relLower = relationship.trim().toLowerCase();
-    final hasRelationship = relLower.isNotEmpty &&
+    final hasRelationship =
+        relLower.isNotEmpty &&
         relLower != 'stranger' &&
         relLower != 'strangers' &&
         relLower != 'none';
@@ -203,8 +204,8 @@ Respond with ONLY the JSON:''';
     // must sound like the character as PLAYED, not as originally sketched.
     final groundingSection = chatGrounding.trim().isNotEmpty
         ? '\nREAL CHAT EXCERPTS ($name as actually played with {{user}} — equally '
-            'authoritative as the interview; match this voice, history, and '
-            'relationship exactly):\n$chatGrounding\n'
+              'authoritative as the interview; match this voice, history, and '
+              'relationship exactly):\n$chatGrounding\n'
         : '';
     final prompt =
         '''
@@ -312,9 +313,15 @@ Respond with ONLY the JSON:''';
     // inventing synthetic ones.
     final groundingSection = chatGrounding.trim().isNotEmpty
         ? '\nREAL CHAT LINES ($name speaking in an actual roleplay — the '
-            'strongest reference for voice; prefer adapting the best genuine '
-            'exchanges over inventing new ones):\n$chatGrounding\n'
+              'strongest reference for voice; prefer adapting the best genuine '
+              'exchanges over inventing new ones):\n$chatGrounding\n'
         : '';
+    final voiceRule = exampleDialogueVoiceRule(
+      name: name,
+      voice: _narrativeVoice,
+      pronouns: resolveNarrativePronouns(_narrativeSex),
+    );
+    final voiceRuleLine = voiceRule == null ? '' : '\n$voiceRule';
     final prompt =
         '''Write example dialogue exchanges for a roleplay character named $name.
 These examples teach the AI how $name speaks — their vocabulary, sentence structure, emotional reactions, and mannerisms.
@@ -345,7 +352,7 @@ RULES:
 - Use the EXACT speech patterns from the interview — if they use slang, contractions, or unusual phrasing, replicate it
 - Include *action descriptions* and emotional reactions, not just dialogue
 - {{char}} responses should feel like they come from a real person with opinions, not a generic AI
-- Use {{char}} and {{user}} as placeholders — never real names
+- Use {{char}} and {{user}} as placeholders — never real names$voiceRuleLine
 
 Output ONLY the example dialogue. No commentary, no JSON, no explanation. Start directly with <START>:''';
 

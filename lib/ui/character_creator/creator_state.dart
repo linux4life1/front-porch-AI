@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
@@ -62,6 +63,11 @@ class CreatorState extends ChangeNotifier {
   Set<String> selectedLoreCategories = {};
   String loreDepth = 'Standard';
   bool includeDynamicMacros = false;
+
+  /// Greeting + example-dialog voice. `'first'`/`'third'` and
+  /// `'present'`/`'past'`. Default first + present is the historical path.
+  String narrativePerspective = 'first';
+  String narrativeTense = 'present';
   Set<String> selectedRelationships = {};
   String customRelationship = '';
   String selectedArchetype = '';
@@ -163,6 +169,8 @@ class CreatorState extends ChangeNotifier {
   static const _prefLoreCategories = 'chargen_lore_categories';
   static const _prefLoreDepth = 'chargen_lore_depth';
   static const _prefDynamicMacros = 'chargen_dynamic_macros';
+  static const _prefNarrativePerspective = 'chargen_narrative_perspective';
+  static const _prefNarrativeTense = 'chargen_narrative_tense';
   static const _prefRelationships = 'chargen_relationships';
   static const _prefCustomRelationship = 'chargen_custom_relationship';
   static const _prefNsfwEnabled = 'chargen_nsfw_enabled';
@@ -385,6 +393,15 @@ class CreatorState extends ChangeNotifier {
         .toSet();
     loreDepth = prefs.getString(_prefLoreDepth) ?? 'Standard';
     includeDynamicMacros = prefs.getBool(_prefDynamicMacros) ?? false;
+    narrativePerspective =
+        prefs.getString(_prefNarrativePerspective) ?? 'first';
+    if (narrativePerspective != 'first' && narrativePerspective != 'third') {
+      narrativePerspective = 'first';
+    }
+    narrativeTense = prefs.getString(_prefNarrativeTense) ?? 'present';
+    if (narrativeTense != 'present' && narrativeTense != 'past') {
+      narrativeTense = 'present';
+    }
     final savedRelationships = prefs.getString(_prefRelationships) ?? '';
     selectedRelationships = savedRelationships
         .split(',')
@@ -493,6 +510,8 @@ class CreatorState extends ChangeNotifier {
     );
     await prefs.setString(_prefLoreDepth, loreDepth);
     await prefs.setBool(_prefDynamicMacros, includeDynamicMacros);
+    await prefs.setString(_prefNarrativePerspective, narrativePerspective);
+    await prefs.setString(_prefNarrativeTense, narrativeTense);
     await prefs.setString(_prefRelationships, selectedRelationships.join(','));
     await prefs.setString(_prefCustomRelationship, customRelationship);
     await prefs.setBool(_prefNsfwEnabled, nsfwEnabled);
@@ -670,6 +689,8 @@ class CreatorState extends ChangeNotifier {
     generateLorebook = true;
     loreDepth = 'Standard';
     includeDynamicMacros = false;
+    narrativePerspective = 'first';
+    narrativeTense = 'present';
     generationDetail = 'Standard';
 
     // Generation state
