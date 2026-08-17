@@ -10,6 +10,7 @@
 
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 
@@ -503,6 +504,68 @@ class BackporchApi {
     return _meResult(await _get('/auth/me', accessToken));
   }
 
+  // --- comments (sketched; MOCK pass — do not call against prod) ---
+
+  /// List comments on a card. Not wired this pass.
+  Future<List<dynamic>> listComments(String accessToken, String cardId) {
+    throw UnsupportedError(
+      'Stoop comments are mock-only this pass; inject StoopCommentsClient.',
+    );
+  }
+
+  /// Create a comment. Not wired this pass.
+  Future<Map<String, dynamic>> createComment(
+    String accessToken,
+    String cardId,
+    String body,
+  ) {
+    throw UnsupportedError(
+      'Stoop comments are mock-only this pass; inject StoopCommentsClient.',
+    );
+  }
+
+  /// Soft-delete a comment. Not wired this pass.
+  Future<Map<String, dynamic>> deleteComment(
+    String accessToken,
+    String cardId,
+    String commentId,
+  ) {
+    throw UnsupportedError(
+      'Stoop comments are mock-only this pass; inject StoopCommentsClient.',
+    );
+  }
+
+  /// Report a comment. Not wired this pass.
+  Future<void> reportComment(
+    String accessToken,
+    String cardId,
+    String commentId, {
+    required String category,
+    required String reason,
+  }) {
+    throw UnsupportedError(
+      'Stoop comments are mock-only this pass; inject StoopCommentsClient.',
+    );
+  }
+
+  /// Owner-only PATCH for `commentsEnabled` / `commentsLocked`.
+  /// 404 is fail-closed at the call site (hide Discussion).
+  Future<({bool commentsEnabled, bool commentsLocked})> patchCardComments(
+    String accessToken,
+    String cardId, {
+    bool? commentsEnabled,
+    bool? commentsLocked,
+  }) async {
+    final body = <String, dynamic>{};
+    if (commentsEnabled != null) body['commentsEnabled'] = commentsEnabled;
+    if (commentsLocked != null) body['commentsLocked'] = commentsLocked;
+    final json = await _patch('/characters/$cardId', body, token: accessToken);
+    return (
+      commentsEnabled: json['commentsEnabled'] == true,
+      commentsLocked: json['commentsLocked'] == true,
+    );
+  }
+
   // --- messaging: the user's thread with the moderation team ---
 
   /// The whole conversation, oldest first.
@@ -577,6 +640,29 @@ class BackporchApi {
           .get(
             Uri.parse('$baseUrl$path'),
             headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 30));
+      return _parse(res);
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<Map<String, dynamic>> _patch(
+    String path,
+    Map<String, dynamic> body, {
+    String? token,
+  }) async {
+    final client = http.Client();
+    try {
+      final res = await client
+          .patch(
+            Uri.parse('$baseUrl$path'),
+            headers: {
+              'Content-Type': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 30));
       return _parse(res);

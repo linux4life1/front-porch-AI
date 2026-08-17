@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/group_card_importer.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_avatar.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_card_comments.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_card_sections.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_collapsible.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_group_sections.dart';
@@ -89,6 +90,10 @@ class _StoopDetailPanel extends StatefulWidget {
 
 class _StoopDetailPanelState extends State<_StoopDetailPanel> {
   final _api = BackporchApi();
+  // Mock-only this pass — never the live Backporch comments API.
+  final _commentsClient = MemoryStoopCommentsClient(
+    optIn: StoopCommentsOptIn.instance,
+  );
   StoopCardDetail? _detail;
   bool _loading = true;
   String? _error;
@@ -132,6 +137,7 @@ class _StoopDetailPanelState extends State<_StoopDetailPanel> {
     try {
       final d = await _api.cardDetail(_token, widget.cardId);
       if (!mounted) return;
+      _commentsClient.setCardCommentsEnabled(d.id, d.commentsEnabled);
       setState(() {
         _detail = d;
         _score = d.score;
@@ -399,6 +405,23 @@ class _StoopDetailPanelState extends State<_StoopDetailPanel> {
                   _chatName(d),
                   firstMessage: _firstMessage(d),
                 ),
+              const SizedBox(height: 28),
+              StoopCardDiscussionSection(
+                cardId: d.id,
+                cardOwnerId: d.creator?.id,
+                user: context.watch<AuthState>().user,
+                client: _commentsClient,
+                commentsEnabled: d.commentsEnabled,
+                commentsLocked: d.commentsLocked,
+                persistFlags: ({commentsEnabled, commentsLocked}) {
+                  return _api.patchCardComments(
+                    _token,
+                    d.id,
+                    commentsEnabled: commentsEnabled,
+                    commentsLocked: commentsLocked,
+                  );
+                },
+              ),
             ]),
           ),
         ),

@@ -19,6 +19,13 @@ analyzer:
     - "**/*_generated.dart"
     - "lib/services/grpc/**.pb*.dart"
     - "lib/services/grpc/draw_things_generated.dart"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   rules:

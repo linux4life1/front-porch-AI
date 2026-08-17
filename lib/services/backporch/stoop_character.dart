@@ -37,6 +37,9 @@ class StoopCharacter {
   /// library character this post came from when publishing an in-place update.
   final String? originStableId;
 
+  /// Per-card Discussion opt-in. Default OFF. See StoopCardDetail.commentsEnabled.
+  final bool commentsEnabled;
+
   const StoopCharacter({
     required this.id,
     required this.name,
@@ -50,6 +53,7 @@ class StoopCharacter {
     required this.downloadCount,
     required this.primaryAssetId,
     this.originStableId,
+    this.commentsEnabled = false,
   });
 
   bool get isPending => status == 'PENDING';
@@ -72,5 +76,6 @@ class StoopCharacter {
     downloadCount: (json['downloadCount'] as num?)?.toInt() ?? 0,
     primaryAssetId: json['primaryAssetId'] as String?,
     originStableId: json['originStableId'] as String?,
+    commentsEnabled: json['commentsEnabled'] == true,
   );
 }

@@ -132,6 +132,9 @@ flutter:
     # non-recursive, so the Vite assets/ subdir is listed explicitly.
     - assets/web_app/
     - assets/web_app/assets/
+    # Bundled so GoogleFonts.fraunces works when runtime fetch is off
+    # (widget goldens / offline). File name must match google_fonts.
+    - google_fonts/Fraunces-SemiBold.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

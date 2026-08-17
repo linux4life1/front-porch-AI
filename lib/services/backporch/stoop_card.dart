@@ -115,8 +115,8 @@ class StoopCard {
     creator: j['creator'] is Map<String, dynamic>
         ? StoopCreatorRef.fromJson(j['creator'] as Map<String, dynamic>)
         : null,
-    originalCreator: (j['originalCreator'] as String?)?.trim().isNotEmpty ==
-            true
+    originalCreator:
+        (j['originalCreator'] as String?)?.trim().isNotEmpty == true
         ? (j['originalCreator'] as String).trim()
         : null,
     primaryAssetId: j['primaryAssetId'] as String?,
@@ -209,6 +209,13 @@ class StoopCardDetail {
   /// The caller's current vote: 1, -1, or 0.
   final int myVote;
 
+  /// Per-card Discussion opt-in. Default OFF. Omitted / missing => false.
+  final bool commentsEnabled;
+
+  /// Live kill switch. True hides Discussion without wiping comments.
+  /// Omitted / missing => false (unlocked).
+  final bool commentsLocked;
+
   const StoopCardDetail({
     required this.id,
     required this.name,
@@ -225,6 +232,8 @@ class StoopCardDetail {
     required this.tags,
     required this.primaryAssetId,
     required this.myVote,
+    this.commentsEnabled = false,
+    this.commentsLocked = false,
   });
 
   bool get isGroup => type == 'GROUP';
@@ -243,13 +252,15 @@ class StoopCardDetail {
     creator: j['creator'] is Map<String, dynamic>
         ? StoopCreatorRef.fromJson(j['creator'] as Map<String, dynamic>)
         : null,
-    originalCreator: (j['originalCreator'] as String?)?.trim().isNotEmpty ==
-            true
+    originalCreator:
+        (j['originalCreator'] as String?)?.trim().isNotEmpty == true
         ? (j['originalCreator'] as String).trim()
         : null,
     card: (j['card'] as Map<String, dynamic>?) ?? const {},
     tags: ((j['tags'] as List?) ?? const []).map((e) => e.toString()).toList(),
     primaryAssetId: j['primaryAssetId'] as String?,
     myVote: (j['myVote'] as num?)?.toInt() ?? 0,
+    commentsEnabled: j['commentsEnabled'] == true,
+    commentsLocked: j['commentsLocked'] == true,
   );
 }

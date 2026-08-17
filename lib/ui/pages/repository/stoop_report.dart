@@ -66,7 +66,8 @@ class StoopReportControl extends StatelessWidget {
 
 /// Category + required written reason. Empty reason keeps the dialog open.
 class StoopReportDialog extends StatefulWidget {
-  const StoopReportDialog({super.key});
+  final String title;
+  const StoopReportDialog({super.key, this.title = 'Report this card'});
 
   @override
   State<StoopReportDialog> createState() => _StoopReportDialogState();
@@ -109,7 +110,7 @@ class _StoopReportDialogState extends State<StoopReportDialog> {
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(color: stoopBorderHi(context)),
       ),
-      title: Text('Report this card', style: stoopDisplay(context, size: 19)),
+      title: Text(widget.title, style: stoopDisplay(context, size: 19)),
       scrollable: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,

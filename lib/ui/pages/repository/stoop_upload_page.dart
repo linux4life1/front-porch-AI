@@ -20,6 +20,7 @@ import 'package:front_porch_ai/providers/auth_state.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_adult_lock_banner.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_comments_switch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_completeness_panel.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_verify_banner.dart';
@@ -51,6 +52,10 @@ class StoopUploadPage extends StatefulWidget {
   /// preserves it by default (clearing the field on update removes the credit).
   final String? initialOriginalCreator;
 
+  /// The posted card's current Discussion opt-in (client-side / future hub
+  /// field `commentsEnabled`). Default off.
+  final bool initialCommentsEnabled;
+
   /// The post's current DISPLAY name + summary, so update mode preserves them
   /// instead of re-seeding from the local card. The display name is the
   /// listing title ("Misty Meadows, Misguided Meteorologist") and may differ
@@ -68,11 +73,11 @@ class StoopUploadPage extends StatefulWidget {
     this.initialOriginalCreator,
     this.initialName,
     this.initialSummary,
+    this.initialCommentsEnabled = false,
   });
 
   bool get isUpdate =>
-      updateStoopId != null &&
-      (updateCharacter != null || updateGroup != null);
+      updateStoopId != null && (updateCharacter != null || updateGroup != null);
 
   @override
   State<StoopUploadPage> createState() => _StoopUploadPageState();
@@ -107,6 +112,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
   /// The 18+ flag AND who set it (author vs the intimate-preferences rule), so
   /// changing the pick withdraws a forced tick without touching the author's.
   final _adult = StoopAdultFlag();
+  bool _commentsEnabled = false;
   bool _standardsAck = false;
   bool _busy = false;
   String? _error;
@@ -145,7 +151,9 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
     _selected = null;
     _selectedWorld = null;
     _name.text = group.name;
-    _setSummaryFrom(group.scenario); // groups have no description; seed scenario
+    _setSummaryFrom(
+      group.scenario,
+    ); // groups have no description; seed scenario
     _tagPool = [];
     _tags = [];
     // The cast lives in group_members, so the 18+ scan can't be synchronous.
@@ -175,7 +183,9 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
     // posted before that rule carries initialNsfw == false, and re-publishing
     // it must not preserve that.
     if (uc != null) {
-      _adult.setByAuthor(widget.initialNsfw); // the post's own flag, not the rule
+      _adult.setByAuthor(
+        widget.initialNsfw,
+      ); // the post's own flag, not the rule
       _applySelection(uc);
       _currentStep = 1;
     } else if (ug != null) {
@@ -192,6 +202,16 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
       _summary.text = widget.initialSummary!.trim();
     }
     _originalCreator.text = widget.initialOriginalCreator ?? '';
+    // Per-card Discussion opt-in. Default OFF. Update mode restores the
+    // published choice from the client store (or the card field).
+    if (widget.updateStoopId != null) {
+      _commentsEnabled = StoopCommentsOptIn.instance.published(
+        widget.updateStoopId!,
+        fromCard: widget.initialCommentsEnabled,
+      );
+    } else {
+      _commentsEnabled = widget.initialCommentsEnabled;
+    }
   }
 
   void _select(CharacterCard card) {
@@ -241,8 +261,8 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
         return (detail != null && detail.isNotEmpty)
             ? detail
             : 'This card is missing required fields (first message, '
-                'description/personality, or scenario). Fill them in the '
-                'editor and try again.';
+                  'description/personality, or scenario). Fill them in the '
+                  'editor and try again.';
       default:
         return 'Couldn’t share that character. Check your connection and retry.';
     }
@@ -361,6 +381,8 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
         // preferences must never leave here with the flag off. Solo reads the
         // rule off `card` — the very object being published.
         'nsfw': _adult.value || stoopForcesAdult(card, null),
+        // Client-side / future hub field. Default false. Not deployed to API.
+        'commentsEnabled': _commentsEnabled,
         'tags': _tags,
         'card': card.toJson(),
         'changelog': widget.isUpdate ? 'Updated' : 'Initial upload',
@@ -369,20 +391,24 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
       };
       if (widget.isUpdate) {
         // In-place new version of the existing post (keeps id/downloads/score).
-        await BackporchApi().publishVersion(
+        final result = await BackporchApi().publishVersion(
           accessToken: auth.accessToken!,
           characterId: widget.updateStoopId!,
           payload: payload,
           avatarBytes: bytes,
           avatarFilename: 'avatar.$ext',
         );
+        _rememberCommentsOptIn(
+          result.id.isNotEmpty ? result.id : widget.updateStoopId!,
+        );
       } else {
-        await BackporchApi().uploadCharacter(
+        final result = await BackporchApi().uploadCharacter(
           accessToken: auth.accessToken!,
           payload: payload,
           avatarBytes: bytes,
           avatarFilename: 'avatar.$ext',
         );
+        _rememberCommentsOptIn(result.id);
       }
       if (mounted) Navigator.pop(context, true);
     } on BackporchApiException catch (e) {
@@ -415,8 +441,10 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
         }
         return;
       }
-      final completeness =
-          StoopCardCompleteness.assess(groupCard.toJson(), 'GROUP');
+      final completeness = StoopCardCompleteness.assess(
+        groupCard.toJson(),
+        'GROUP',
+      );
       if (completeness.incomplete) {
         if (mounted) setState(() => _error = completeness.message);
         return;
@@ -450,6 +478,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
         'summary': _summary.text.trim(),
         'type': 'GROUP',
         'nsfw': _adult.value || forcedAdult, // see the SOLO payload above
+        'commentsEnabled': _commentsEnabled,
         'tags': _tags,
         'card': groupCard.toJson(),
         'changelog': widget.isUpdate ? 'Updated' : 'Initial upload',
@@ -460,20 +489,24 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
         // In-place new version of the existing group post (keeps id/downloads/
         // score). The group card now carries a stable id, so this is the same
         // in-place path solo characters use.
-        await BackporchApi().publishVersion(
+        final result = await BackporchApi().publishVersion(
           accessToken: auth.accessToken!,
           characterId: widget.updateStoopId!,
           payload: payload,
           avatarBytes: collage,
           avatarFilename: 'cover.png',
         );
+        _rememberCommentsOptIn(
+          result.id.isNotEmpty ? result.id : widget.updateStoopId!,
+        );
       } else {
-        await BackporchApi().uploadCharacter(
+        final result = await BackporchApi().uploadCharacter(
           accessToken: auth.accessToken!,
           payload: payload,
           avatarBytes: collage,
           avatarFilename: 'cover.png',
         );
+        _rememberCommentsOptIn(result.id);
       }
       if (mounted) Navigator.pop(context, true);
     } on BackporchApiException catch (e) {
@@ -507,6 +540,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
         nsfw: _adult.value,
         tags: _tags,
         originalCreator: _originalCreator.text.trim(),
+        commentsEnabled: _commentsEnabled,
       );
       if (validation != null) {
         if (mounted) setState(() => _error = validation);
@@ -522,6 +556,10 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _rememberCommentsOptIn(String cardId) {
+    StoopCommentsOptIn.instance.setPublished(cardId, _commentsEnabled);
   }
 
   bool get _canAdvance {
@@ -764,6 +802,12 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
           pending: _castPending,
           onChanged: (v) => setState(() => _adult.setByAuthor(v)),
         ),
+        const SizedBox(height: 12),
+        StoopCommentsSwitch(
+          key: const Key('stoop-comments-opt-in'),
+          value: _commentsEnabled,
+          onChanged: (v) => setState(() => _commentsEnabled = v),
+        ),
         const SizedBox(height: 20),
         StoopStandardsCard(
           footer: CheckboxListTile(
@@ -878,10 +922,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
             runSpacing: 8,
             children: [
               for (final t in _tags)
-                Text(
-                  '#$t',
-                  style: TextStyle(color: stoopTealText(context)),
-                ),
+                Text('#$t', style: TextStyle(color: stoopTealText(context))),
             ],
           ),
         const SizedBox(height: 20),
@@ -893,10 +934,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
-          Text(
-            _error!,
-            style: TextStyle(color: stoopEmberText(context)),
-          ),
+          Text(_error!, style: TextStyle(color: stoopEmberText(context))),
         ],
       ],
     );
@@ -927,10 +965,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
               label: isLast ? 'Submit for review' : 'Next',
               busy: _busy,
               onPressed: (_canAdvance && !_busy) ? _next : null,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 28,
-                vertical: 13,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 13),
             ),
           ],
         ),

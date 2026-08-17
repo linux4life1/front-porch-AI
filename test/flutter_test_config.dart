@@ -42,6 +42,15 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
     'test/golden/fonts/Roboto-Regular.ttf',
     'test/golden/fonts/Roboto-Bold.ttf',
   ]);
+  // StoopCollapsible titles use GoogleFonts.fraunces (stoopDisplay). Tests
+  // forbid runtime fetch, so register the bundled face under the family
+  // names google_fonts asks for — otherwise the title paints as a tofu bar.
+  await _loadFont('Fraunces', const [
+    'test/golden/fonts/Fraunces-SemiBold.ttf',
+  ]);
+  await _loadFont('Fraunces-SemiBold', const [
+    'test/golden/fonts/Fraunces-SemiBold.ttf',
+  ]);
 
   await testMain();
 }

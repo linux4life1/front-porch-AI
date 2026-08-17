@@ -101,6 +101,7 @@ class StoopMyUploadTile extends StatelessWidget {
           initialName: c.name,
           initialSummary: c.summary,
           initialOriginalCreator: c.originalCreator,
+          initialCommentsEnabled: c.commentsEnabled,
         ),
       ),
     );
@@ -174,6 +175,7 @@ class StoopMyUploadTile extends StatelessWidget {
           initialName: c.name,
           initialSummary: c.summary,
           initialOriginalCreator: c.originalCreator,
+          initialCommentsEnabled: c.commentsEnabled,
         ),
       ),
     );
@@ -209,7 +211,9 @@ class StoopMyUploadTile extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.stoopEmber),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.stoopEmber,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete from The Stoop'),
           ),

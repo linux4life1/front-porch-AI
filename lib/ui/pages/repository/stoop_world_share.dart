@@ -42,6 +42,7 @@ Future<String?> publishStoopWorld({
   required bool nsfw,
   required List<String> tags,
   required String originalCreator,
+  bool commentsEnabled = false,
 }) async {
   final cover = decodeWorldCoverBytes(world.coverImage);
   if (cover == null) {
@@ -69,13 +70,14 @@ Future<String?> publishStoopWorld({
     return completeness.message;
   }
 
-  await api.uploadCharacter(
+  final result = await api.uploadCharacter(
     accessToken: accessToken,
     payload: {
       'name': name,
       'summary': summary,
       'type': 'WORLD',
       'nsfw': nsfw,
+      'commentsEnabled': commentsEnabled,
       'tags': tags,
       // Full place package — lore, resolved climate, traits, and the cover
       // (as a data URL) so a download restores the world exactly.
@@ -86,6 +88,7 @@ Future<String?> publishStoopWorld({
     avatarBytes: cover,
     avatarFilename: isPng ? 'cover.png' : 'cover.jpg',
   );
+  StoopCommentsOptIn.instance.setPublished(result.id, commentsEnabled);
   return null;
 }
 
@@ -237,9 +240,7 @@ class _StoopWorldsPickSectionState extends State<StoopWorldsPickSection> {
       decoration: BoxDecoration(
         gradient: stoopCardGradient(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.stoopAmber.withValues(alpha: 0.45),
-        ),
+        border: Border.all(color: AppColors.stoopAmber.withValues(alpha: 0.45)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

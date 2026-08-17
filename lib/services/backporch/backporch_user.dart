@@ -59,6 +59,11 @@ class BackporchUser {
   /// null. The account keeps [email] until that link is opened.
   final String? pendingEmail;
 
+  /// Whether the server actually sent `emailVerified`. Older servers omit it
+  /// and [emailVerified] defaults true so Report still works. Comments are
+  /// fail-closed: omitted is NOT verified (see stoopCanComment).
+  final bool emailVerifiedKnown;
+
   const BackporchUser({
     required this.id,
     required this.email,
@@ -66,6 +71,7 @@ class BackporchUser {
     required this.role,
     required this.ageVerified,
     this.emailVerified = true,
+    this.emailVerifiedKnown = true,
     required this.nsfwEnabled,
     required this.acceptedPolicyVersion,
     required this.twoFactorEnabled,
@@ -86,6 +92,7 @@ class BackporchUser {
     role: json['role'] as String? ?? 'USER',
     ageVerified: json['ageVerified'] as bool? ?? false,
     emailVerified: json['emailVerified'] as bool? ?? true,
+    emailVerifiedKnown: json.containsKey('emailVerified'),
     nsfwEnabled: json['nsfwEnabled'] as bool? ?? false,
     acceptedPolicyVersion: json['acceptedPolicyVersion'] as String?,
     twoFactorEnabled: json['twoFactorEnabled'] as bool? ?? false,
