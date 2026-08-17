@@ -44,6 +44,10 @@ class SettingsFacade {
 
   static const List<String> backends = ['kobold', 'openRouter', 'omlx'];
 
+  /// Live remote API base — used by the settings route to decide whether a
+  /// POST would actually change the generation host (step-up gate).
+  String get currentRemoteApiUrl => _storage.backendSettings.remoteApiUrl;
+
   static String? _seededReasoningCatalogUrl;
 
   /// The identity the shared reasoning-effort helpers key on: the remote model
@@ -193,8 +197,7 @@ class SettingsFacade {
             _storage.realismSettings.pocketTransfersEnabled,
         // 2026-08-08: "Acts on desires" (After Dark) and the global Chaos Mode
         // default. Additive, as always — an older PWA ignores both keys.
-        'intimateAgencyEnabled':
-            _storage.realismSettings.intimateAgencyEnabled,
+        'intimateAgencyEnabled': _storage.realismSettings.intimateAgencyEnabled,
         'chaosModeDefault': _storage.realismSettings.chaosModeDefault,
         'sceneGuestDetectionEnabled':
             _storage.realismSettings.sceneGuestDetectionEnabled,
@@ -204,8 +207,7 @@ class SettingsFacade {
         'dreamsEnabled': _storage.realismSettings.dreamsEnabled,
         'absenceBannerEnabled': _storage.realismSettings.absenceBannerEnabled,
         'absenceAckEnabled': _storage.realismSettings.absenceAckEnabled,
-        'absenceThresholdHours':
-            _storage.realismSettings.absenceThresholdHours,
+        'absenceThresholdHours': _storage.realismSettings.absenceThresholdHours,
         // Read-only context so the web can show the same honest warnings the
         // desktop does: the promise pass needs the Journal, and with realism
         // off there is no passage of time.
@@ -362,8 +364,8 @@ class SettingsFacade {
 
     final reasoning = body['reasoningEnabled'];
     if (reasoning is bool) {
-      final lockedOff = !reasoning &&
-          reasoningEffortIsMandatory(b.remoteModelName);
+      final lockedOff =
+          !reasoning && reasoningEffortIsMandatory(b.remoteModelName);
       if (!lockedOff) await b.setReasoningEnabled(reasoning);
     }
     final effort = body['reasoningEffort']?.toString();
@@ -442,19 +444,19 @@ class SettingsFacade {
   }
 
   static String _name(BackendType t) => switch (t) {
-        BackendType.kobold => 'kobold',
-        BackendType.openRouter => 'openRouter',
-        BackendType.omlx => 'omlx',
-      };
+    BackendType.kobold => 'kobold',
+    BackendType.openRouter => 'openRouter',
+    BackendType.omlx => 'omlx',
+  };
 
   static BackendType? _parse(String s) => switch (s) {
-        'kobold' => BackendType.kobold,
-        // Legacy 'pseudoRemote' now maps to the local Kobold backend.
-        'pseudoRemote' => BackendType.kobold,
-        'openRouter' => BackendType.openRouter,
-        'omlx' => BackendType.omlx,
-        _ => null,
-      };
+    'kobold' => BackendType.kobold,
+    // Legacy 'pseudoRemote' now maps to the local Kobold backend.
+    'pseudoRemote' => BackendType.kobold,
+    'openRouter' => BackendType.openRouter,
+    'omlx' => BackendType.omlx,
+    _ => null,
+  };
 
   /// Legacy-engine model files still on the host's disk (sidecar
   /// retirement cleanup — desktop parity: the Reclaim Disk Space card).

@@ -28,13 +28,14 @@
 /// simple. Inject [now] in tests for deterministic time.
 ///
 /// The maps are BOUNDED. Both tracked keys are attacker-chosen — the submitted
-/// username, and a client IP that is read from `X-Forwarded-For` and so can be
-/// a fresh value per request — and a login attempt for an unknown username
-/// short-circuits before Argon2, so an unauthenticated loop against a
-/// LAN/tunnel-exposed server used to mint one permanent map entry per request
-/// until the process died. Every mutator therefore sweeps entries that can no
-/// longer affect a decision (empty windows, streaks nobody is riding), and a
-/// hard [_maxKeys] ceiling drops the least-relevant remainder.
+/// username, and a client IP (real TCP peer, or `X-Forwarded-For` only when
+/// the immediate peer is loopback; see `requestClientIp`) — and a login
+/// attempt for an unknown username short-circuits before Argon2, so an
+/// unauthenticated loop against a LAN/tunnel-exposed server used to mint one
+/// permanent map entry per request until the process died. Every mutator
+/// therefore sweeps entries that can no longer affect a decision (empty
+/// windows, streaks nobody is riding), and a hard [_maxKeys] ceiling drops
+/// the least-relevant remainder.
 class RateLimiter {
   RateLimiter({DateTime Function()? now}) : _now = now ?? DateTime.now;
 

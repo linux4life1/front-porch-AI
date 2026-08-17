@@ -73,12 +73,13 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
     WebGroupRoutes(deps.groupFacade!, router, thumbnails: thumbnails);
   }
   if (deps.settingsFacade != null) {
-    WebSettingsRoutes(deps.settingsFacade!, router);
+    WebSettingsRoutes(deps, router);
   }
   if (deps.stoopFacade != null) WebStoopRoutes(deps.stoopFacade!, router);
   if (deps.worldFacade != null) WebWorldRoutes(deps.worldFacade!, router);
   if (deps.backendFacade != null || deps.imageFacade != null) {
     WebBackendRoutes(
+      deps,
       router,
       backend: deps.backendFacade,
       image: deps.imageFacade,

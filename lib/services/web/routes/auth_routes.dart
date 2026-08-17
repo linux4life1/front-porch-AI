@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io' show HttpConnectionInfo;
-
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
@@ -67,8 +65,7 @@ class WebAuthRoutes {
 
   Future<shelf.Response> _state(shelf.Request request) async {
     final token = Cookies.sessionToken(request);
-    final userId =
-        token == null ? null : await _auth.sessions.validate(token);
+    final userId = token == null ? null : await _auth.sessions.validate(token);
     // Account details ride along ONLY for an authenticated caller — this
     // endpoint is public (pre-login) and must not leak the username.
     final info = userId != null ? await _auth.accountInfo() : null;
@@ -104,7 +101,7 @@ class WebAuthRoutes {
       password,
       setupToken: body['setupToken']?.toString(),
       isDirectLoopbackClient: _isDirectLoopbackSetupClient(request),
-      ip: _clientIp(request),
+      ip: requestClientIp(request),
     );
     switch (status) {
       case SetupStatus.alreadyConfigured:
@@ -137,7 +134,7 @@ class WebAuthRoutes {
     final result = await _auth.login(
       username,
       password,
-      ip: _clientIp(request),
+      ip: requestClientIp(request),
       userAgent: request.headers['user-agent'],
     );
     if (result.status == LoginStatus.success && result.token != null) {
@@ -160,7 +157,7 @@ class WebAuthRoutes {
       (body['username'] ?? '').toString(),
       (body['password'] ?? '').toString(),
       totpCode: body['totpCode']?.toString(),
-      ip: _clientIp(request),
+      ip: requestClientIp(request),
       userAgent: request.headers['user-agent'],
     );
     switch (result.status) {
@@ -219,7 +216,7 @@ class WebAuthRoutes {
       totpCode: body['totpCode']?.toString(),
       newUsername: body['newUsername']?.toString(),
       newPassword: newPassword,
-      ip: _clientIp(request),
+      ip: requestClientIp(request),
     );
     if (status == CredentialChangeStatus.success && newPassword.isNotEmpty) {
       final token = Cookies.sessionToken(request);
@@ -268,7 +265,7 @@ class WebAuthRoutes {
     final result = await _auth.beginTotpEnrollment(
       currentPassword: body['currentPassword']?.toString() ?? '',
       totpCode: body['totpCode']?.toString(),
-      ip: _clientIp(request),
+      ip: requestClientIp(request),
     );
     if (result.status == CredentialChangeStatus.success &&
         result.enrollment != null) {
@@ -293,7 +290,7 @@ class WebAuthRoutes {
       currentPassword: body['currentPassword']?.toString() ?? '',
       code: (body['code'] ?? '').toString(),
       totpCode: body['totpCode']?.toString(),
-      ip: _clientIp(request),
+      ip: requestClientIp(request),
     );
     if (result.status == CredentialChangeStatus.success &&
         result.recoveryCodes != null) {
@@ -317,7 +314,7 @@ class WebAuthRoutes {
     final status = await _auth.disableTotp(
       currentPassword: body['currentPassword']?.toString() ?? '',
       totpCode: body['totpCode']?.toString(),
-      ip: _clientIp(request),
+      ip: requestClientIp(request),
     );
     return _credentialChangeResponse(status);
   }
@@ -339,7 +336,9 @@ class WebAuthRoutes {
           extra: const {'totpRequired': true},
         );
       case CredentialChangeStatus.lockedOut:
-        return JsonResponse.tooManyRequests('Too many attempts, try again later');
+        return JsonResponse.tooManyRequests(
+          'Too many attempts, try again later',
+        );
       case CredentialChangeStatus.notSetUp:
         return JsonResponse.error(409, 'Account not configured');
       case CredentialChangeStatus.alreadyEnabled:
@@ -359,18 +358,10 @@ class WebAuthRoutes {
       request.context[kAuthUserIdContextKey] as String;
 
   String _setCookie(shelf.Request request, String token) => Cookies.setSession(
-        token,
-        secure: _deps.isSecure(request),
-        maxAgeSeconds: _cookieMaxAge,
-      );
-
-  String? _clientIp(shelf.Request request) {
-    final fwd = request.headers['x-forwarded-for'];
-    if (fwd != null && fwd.isNotEmpty) return fwd.split(',').first.trim();
-    final conn = request.context['shelf.io.connection_info'];
-    if (conn is HttpConnectionInfo) return conn.remoteAddress.address;
-    return null;
-  }
+    token,
+    secure: _deps.isSecure(request),
+    maxAgeSeconds: _cookieMaxAge,
+  );
 
   /// Whether a state-changing public POST was really issued by the Front Porch
   /// page (or a non-browser client), rather than by some other site's page that
@@ -400,11 +391,8 @@ class WebAuthRoutes {
 
   /// Direct host browser only — see [SetupGate.isDirectLoopbackClient].
   bool _isDirectLoopbackSetupClient(shelf.Request request) {
-    final conn = request.context['shelf.io.connection_info'];
-    final peerLoopback =
-        conn is HttpConnectionInfo && conn.remoteAddress.isLoopback;
     return SetupGate.isDirectLoopbackClient(
-      peerIsLoopback: peerLoopback,
+      peerIsLoopback: requestPeerIsLoopback(request),
       xForwardedFor: request.headers['x-forwarded-for'],
       xForwardedProto: request.headers['x-forwarded-proto'],
     );

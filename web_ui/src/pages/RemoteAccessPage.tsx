@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, ApiError } from '../api/client';
+import { StepUpFields } from '../components/StepUpFields';
 
 interface TunnelState {
   installed: boolean;
@@ -94,32 +95,18 @@ export function RemoteAccessPage() {
   };
 
   const stepUpFields = (
-    <>
-      <p className="muted small">
-        Turning a tunnel on publishes this app beyond this computer — confirm your
-        web login password{totpEnabled ? ' and a 2FA code' : ''}.
-      </p>
-      <label>
-        Web login password
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </label>
-      {totpEnabled && (
-        <label>
-          Two-factor code
-          <input
-            inputMode="numeric"
-            placeholder="123456"
-            value={totpCode}
-            onChange={(e) => setTotpCode(e.target.value)}
-          />
-        </label>
-      )}
-    </>
+    <StepUpFields
+      password={password}
+      onPassword={setPassword}
+      totpEnabled={totpEnabled}
+      totpCode={totpCode}
+      onTotp={setTotpCode}
+      reason={
+        totpEnabled
+          ? 'Turning a tunnel on publishes this app beyond this computer — confirm your web login password and a 2FA code.'
+          : 'Turning a tunnel on publishes this app beyond this computer — confirm your web login password.'
+      }
+    />
   );
 
   if (!status) return <div className="centered"><div className="spinner" /></div>;

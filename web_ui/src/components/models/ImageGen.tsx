@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
+import { StepUpFields } from '../StepUpFields';
 
 interface ImageConfig {
   backend: string;
@@ -47,15 +48,54 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   const [filename, setFilename] = useState<string | null>(null);
   const [inserted, setInserted] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [savedRemoteApiUrl, setSavedRemoteApiUrl] = useState('');
+  const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [totpEnabled, setTotpEnabled] = useState(false);
 
   useEffect(() => {
-    api.get<ImageConfig>('/api/image/config').then(setCfg).catch(() => {});
+    api
+      .get<ImageConfig>('/api/image/config')
+      .then((next) => {
+        setCfg(next);
+        setSavedRemoteApiUrl(next.remoteApiUrl);
+      })
+      .catch(() => {});
+    api
+      .get<{ totpEnabled?: boolean }>('/api/auth/state')
+      .then((st) => setTotpEnabled(!!st.totpEnabled))
+      .catch(() => {});
   }, []);
 
   if (!cfg) return null;
   const set = (patch: Partial<ImageConfig>) => setCfg({ ...cfg, ...patch });
-  const saveConfig = (patch: Record<string, unknown>) =>
-    api.post<ImageConfig>('/api/image/config', patch).then(setCfg).catch((e) => onError(e instanceof ApiError ? e.message : 'Save failed'));
+  const saveConfig = (patch: Record<string, unknown>) => {
+    const needsStepUp =
+      (typeof patch.remoteApiUrl === 'string' &&
+        patch.remoteApiUrl !== savedRemoteApiUrl) ||
+      (typeof patch.apiKey === 'string' && patch.apiKey.length > 0);
+    if (needsStepUp) {
+      patch.currentPassword = password;
+      if (totpEnabled && totpCode.trim()) patch.totpCode = totpCode.trim();
+    }
+    return api
+      .post<ImageConfig>('/api/image/config', patch)
+      .then((next) => {
+        setCfg(next);
+        setSavedRemoteApiUrl(next.remoteApiUrl);
+        if (needsStepUp) {
+          setPassword('');
+          setTotpCode('');
+          setApiKey('');
+        }
+      })
+      .catch((e) => {
+        if (e instanceof ApiError && e.payload.totpRequired === true) {
+          setTotpEnabled(true);
+        }
+        onError(e instanceof ApiError ? e.message : 'Save failed');
+      });
+  };
 
   const generate = () => {
     if (!prompt.trim()) return;
@@ -94,7 +134,14 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         <>
           <label>
             API URL
-            <input value={cfg.remoteApiUrl} onChange={(e) => set({ remoteApiUrl: e.target.value })} onBlur={() => saveConfig({ remoteApiUrl: cfg.remoteApiUrl })} />
+            <input
+              value={cfg.remoteApiUrl}
+              onChange={(e) => set({ remoteApiUrl: e.target.value })}
+              onBlur={() => {
+                if (cfg.remoteApiUrl === savedRemoteApiUrl) return;
+                if (password) void saveConfig({ remoteApiUrl: cfg.remoteApiUrl });
+              }}
+            />
           </label>
           <label>
             Image model
@@ -102,8 +149,43 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           </label>
           <label>
             API key {cfg.hasApiKey && <span className="muted small">(set — leave blank to keep)</span>}
-            <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} onBlur={() => apiKey && saveConfig({ apiKey })} />
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              onBlur={() => {
+                if (apiKey && password) void saveConfig({ apiKey });
+              }}
+            />
           </label>
+          {(cfg.remoteApiUrl !== savedRemoteApiUrl || !!apiKey) && (
+            <>
+              <StepUpFields
+                password={password}
+                onPassword={setPassword}
+                totpEnabled={totpEnabled}
+                totpCode={totpCode}
+                onTotp={setTotpCode}
+                reason={
+                  totpEnabled
+                    ? 'Changing the image API URL or key — confirm your web login password and a 2FA code.'
+                    : 'Changing the image API URL or key — confirm your web login password.'
+                }
+              />
+              <button
+                className="ghost"
+                disabled={!password}
+                onClick={() =>
+                  void saveConfig({
+                    remoteApiUrl: cfg.remoteApiUrl,
+                    ...(apiKey ? { apiKey } : {}),
+                  })
+                }
+              >
+                Save API settings
+              </button>
+            </>
+          )}
         </>
       ) : cfg.backend === 'a1111' ? (
         <>

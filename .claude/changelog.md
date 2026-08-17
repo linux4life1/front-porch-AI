@@ -92,6 +92,19 @@
   No product UI change. No goldens.
 - **Files:** enhance_porch_review_test.dart, enhance_porch_life_test.dart,
   porch_life_identity_test.dart, enhance_wizard_test.dart
+## 2026-08-17 — fix(web): harden PWA headers, client IP, settings step-up, Stoop report
+- **Why:** Four web/PWA gaps: no CSP, LAN clients could rotate X-Forwarded-For
+  to bypass the login IP cap, a stolen session cookie could retarget the
+  remote LLM URL/key, and the web Stoop report relay forwarded a blank reason.
+- **What:** CSP header on every response (same-origin PWA; no unsafe-eval).
+  `requestClientIp` honors XFF/X-Real-IP only from a loopback TCP peer.
+  POST /api/settings (and /api/image/config) require password step-up to
+  change remoteApiUrl or apiKey. Report route returns 400 reason_required
+  before relay. Web Settings / Image Gen prompt for the password.
+- **Files:** security_headers.dart, client_ip.dart, step_up.dart,
+  settings_routes.dart, backend_routes.dart, stoop_routes.dart,
+  auth_routes.dart, auth_middleware.dart, remote_routes.dart,
+  SettingsPage.tsx, ImageGen.tsx, StepUpFields.tsx
 
 ## 2026-08-16 — feat(enhance): Porch Life is a keep-or-accept proposal
 - **Why:** AI Create now seeds wardrobe/ambitions, but Enhance is a

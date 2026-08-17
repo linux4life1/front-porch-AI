@@ -9,6 +9,7 @@ import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
 import { spellCheckLabel, sortedByLabel } from '../spellCheckLabels';
 import { applySpellCheckLang } from '../spellCheckLang';
+import { StepUpFields } from '../components/StepUpFields';
 import {
   reasoningEffortBlurb,
   reasoningEffortChipsFor,
@@ -110,13 +111,28 @@ export function SettingsPage() {
 
   const [legacy, setLegacy] = useState<LegacyModels | null>(null);
   const [reclaiming, setReclaiming] = useState(false);
+  const [savedRemoteApiUrl, setSavedRemoteApiUrl] = useState('');
+  const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [totpEnabled, setTotpEnabled] = useState(false);
 
-  const load = () => api.get<Settings>('/api/settings').then(setS).catch(() => {});
+  const load = () =>
+    api
+      .get<Settings>('/api/settings')
+      .then((next) => {
+        setS(next);
+        setSavedRemoteApiUrl(next.remoteApiUrl);
+      })
+      .catch(() => {});
   const loadLegacy = () =>
     api.get<LegacyModels>('/api/legacy-models').then(setLegacy).catch(() => {});
   useEffect(() => {
     void load();
     void loadLegacy();
+    void api
+      .get<{ totpEnabled?: boolean }>('/api/auth/state')
+      .then((st) => setTotpEnabled(!!st.totpEnabled))
+      .catch(() => {});
   }, []);
 
   const reclaim = async () => {
@@ -166,14 +182,26 @@ export function SettingsPage() {
         body.spellCheckLanguage = s.spellCheckLanguage;
       }
       if (apiKey.trim()) body.apiKey = apiKey.trim();
+      const needsStepUp =
+        s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim();
+      if (needsStepUp) {
+        body.currentPassword = password;
+        if (totpEnabled && totpCode.trim()) body.totpCode = totpCode.trim();
+      }
       const next = await api.post<Settings>('/api/settings', body);
       setS(next);
+      setSavedRemoteApiUrl(next.remoteApiUrl);
       // Take effect on this device immediately rather than at next reload.
       applySpellCheckLang(next.spellCheckLanguage);
       setApiKey('');
+      setPassword('');
+      setTotpCode('');
       setSaved(true);
       setTimeout(() => setSaved(false), 1800);
     } catch (e) {
+      if (e instanceof ApiError && e.payload.totpRequired === true) {
+        setTotpEnabled(true);
+      }
       setError(e instanceof ApiError ? e.message : 'Could not save settings');
     } finally {
       setSaving(false);
@@ -541,7 +569,28 @@ export function SettingsPage() {
       )}
 
       {error && <p className="error">{error}</p>}
-      <button className="primary" onClick={save} disabled={saving}>
+      {(s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim()) && (
+        <StepUpFields
+          password={password}
+          onPassword={setPassword}
+          totpEnabled={totpEnabled}
+          totpCode={totpCode}
+          onTotp={setTotpCode}
+          reason={
+            totpEnabled
+              ? 'Changing the API URL or key points generation at a new host — confirm your web login password and a 2FA code.'
+              : 'Changing the API URL or key points generation at a new host — confirm your web login password.'
+          }
+        />
+      )}
+      <button
+        className="primary"
+        onClick={save}
+        disabled={
+          saving ||
+          ((s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim()) && !password)
+        }
+      >
         {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save settings'}
       </button>
 

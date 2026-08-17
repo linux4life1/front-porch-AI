@@ -123,28 +123,39 @@ void main() {
     );
   }
 
-  test('login relays the body and passes upstream status/body through', () async {
-    upstreamStatus = 401;
-    upstreamBody = '{"error":"two_factor_required"}';
-    final res = await send(
-      'POST',
-      '/api/stoop/auth/login',
-      jsonBody: {'email': 'a@b.c', 'password': 'hunter22'},
-    );
-    expect(res.statusCode, 401);
-    expect(await res.readAsString(), '{"error":"two_factor_required"}');
-    expect(hits.single.method, 'POST');
-    expect(hits.single.path, '/auth/login');
-    expect(hits.single.auth, isNull);
-    expect(jsonDecode(hits.single.body), {'email': 'a@b.c', 'password': 'hunter22'});
-  });
+  test(
+    'login relays the body and passes upstream status/body through',
+    () async {
+      upstreamStatus = 401;
+      upstreamBody = '{"error":"two_factor_required"}';
+      final res = await send(
+        'POST',
+        '/api/stoop/auth/login',
+        jsonBody: {'email': 'a@b.c', 'password': 'hunter22'},
+      );
+      expect(res.statusCode, 401);
+      expect(await res.readAsString(), '{"error":"two_factor_required"}');
+      expect(hits.single.method, 'POST');
+      expect(hits.single.path, '/auth/login');
+      expect(hits.single.auth, isNull);
+      expect(jsonDecode(hits.single.body), {
+        'email': 'a@b.c',
+        'password': 'hunter22',
+      });
+    },
+  );
 
-  test('token-required routes answer 401 locally when no token is sent', () async {
-    final res = await send('GET', '/api/stoop/me');
-    expect(res.statusCode, 401);
-    expect(jsonDecode(await res.readAsString()), {'error': 'stoop_not_signed_in'});
-    expect(hits, isEmpty, reason: 'the upstream must never be hit');
-  });
+  test(
+    'token-required routes answer 401 locally when no token is sent',
+    () async {
+      final res = await send('GET', '/api/stoop/me');
+      expect(res.statusCode, 401);
+      expect(jsonDecode(await res.readAsString()), {
+        'error': 'stoop_not_signed_in',
+      });
+      expect(hits, isEmpty, reason: 'the upstream must never be hit');
+    },
+  );
 
   test('browse forwards the query string and the bearer token', () async {
     upstreamBody = '{"total":0,"page":0,"items":[]}';
@@ -160,21 +171,41 @@ void main() {
     expect(hits.single.auth, 'Bearer tok-1');
   });
 
-  test('report injects the card id from the path into the upstream body', () async {
-    final res = await send(
-      'POST',
-      '/api/stoop/cards/c42/report',
-      headers: {'x-stoop-token': 'tok-1'},
-      jsonBody: {'category': 'SPAM', 'reason': 'ad bot'},
-    );
-    expect(res.statusCode, 200);
-    expect(hits.single.path, '/reports');
-    expect(jsonDecode(hits.single.body), {
-      'characterId': 'c42',
-      'category': 'SPAM',
-      'reason': 'ad bot',
-    });
-  });
+  test(
+    'report injects the card id from the path into the upstream body',
+    () async {
+      final res = await send(
+        'POST',
+        '/api/stoop/cards/c42/report',
+        headers: {'x-stoop-token': 'tok-1'},
+        jsonBody: {'category': 'SPAM', 'reason': 'ad bot'},
+      );
+      expect(res.statusCode, 200);
+      expect(hits.single.path, '/reports');
+      expect(jsonDecode(hits.single.body), {
+        'characterId': 'c42',
+        'category': 'SPAM',
+        'reason': 'ad bot',
+      });
+    },
+  );
+
+  test(
+    'report with a blank reason is refused locally and never relayed',
+    () async {
+      final res = await send(
+        'POST',
+        '/api/stoop/cards/c42/report',
+        headers: {'x-stoop-token': 'tok-1'},
+        jsonBody: {'category': 'SPAM', 'reason': '   '},
+      );
+      expect(res.statusCode, 400);
+      expect(jsonDecode(await res.readAsString()), {
+        'error': 'reason_required',
+      });
+      expect(hits, isEmpty, reason: 'blank reason must not reach upstream');
+    },
+  );
 
   test('follow=false maps to an upstream DELETE', () async {
     await send(
@@ -187,25 +218,27 @@ void main() {
     expect(hits.single.path, '/creators/u7/follow');
   });
 
-  test('asset requests fall back to the token remembered from earlier calls',
-      () async {
-    // No token known yet → 401, upstream untouched.
-    final cold = await send('GET', '/api/stoop/assets/a1');
-    expect(cold.statusCode, 401);
-    expect(hits, isEmpty);
+  test(
+    'asset requests fall back to the token remembered from earlier calls',
+    () async {
+      // No token known yet → 401, upstream untouched.
+      final cold = await send('GET', '/api/stoop/assets/a1');
+      expect(cold.statusCode, 401);
+      expect(hits, isEmpty);
 
-    // An authenticated call teaches the facade the token…
-    await send('GET', '/api/stoop/me', headers: {'x-stoop-token': 'tok-9'});
+      // An authenticated call teaches the facade the token…
+      await send('GET', '/api/stoop/me', headers: {'x-stoop-token': 'tok-9'});
 
-    // …then a header-less <img> fetch succeeds with it.
-    upstreamContentType = 'image/png';
-    upstreamBody = 'PNGBYTES';
-    final warm = await send('GET', '/api/stoop/assets/a1');
-    expect(warm.statusCode, 200);
-    expect(warm.headers['content-type'], startsWith('image/png'));
-    expect(hits.last.path, '/assets/a1/raw');
-    expect(hits.last.auth, 'Bearer tok-9');
-  });
+      // …then a header-less <img> fetch succeeds with it.
+      upstreamContentType = 'image/png';
+      upstreamBody = 'PNGBYTES';
+      final warm = await send('GET', '/api/stoop/assets/a1');
+      expect(warm.statusCode, 200);
+      expect(warm.headers['content-type'], startsWith('image/png'));
+      expect(hits.last.path, '/assets/a1/raw');
+      expect(hits.last.auth, 'Bearer tok-9');
+    },
+  );
 
   test('aup serves the bundled policy document', () async {
     final res = await send('GET', '/api/stoop/aup');
@@ -217,71 +250,80 @@ void main() {
     expect(hits, isEmpty, reason: 'served locally, never proxied');
   });
 
-  test('download answers 503 when the library repositories are not wired',
-      () async {
-    final res = await send(
-      'POST',
-      '/api/stoop/cards/c1/download',
-      headers: {'x-stoop-token': 'tok-1'},
-      jsonBody: {'type': 'SOLO'},
-    );
-    expect(res.statusCode, 503);
-    expect(jsonDecode(await res.readAsString()), {'error': 'library_unavailable'});
-    expect(hits, isEmpty);
-  });
-
-  test('a WORLD download imports the .fpworld payload as a local place',
-      () async {
-    // A fully-wired facade (the setUp one has no library repositories).
-    final storage = StorageService();
-    await storage.initialized;
-    final worlds = WorldRepository(storage, db);
-    final wired = StoopFacade(
-      storage,
-      db,
-      characters: CharacterRepository(db, storage),
-      groups: GroupChatRepository(storage, db),
-      worlds: worlds,
-      api: BackporchApi(baseUrl: 'http://127.0.0.1:${upstream.port}'),
-    );
-    final wiredRouter = Router();
-    WebStoopRoutes(wired, wiredRouter);
-
-    upstreamBody = jsonEncode({
-      'type': 'WORLD',
-      'downloadCount': 1,
-      'card': {
-        'formatVersion': 1,
-        'id': 'pkg-mars',
-        'name': 'Mars Colony',
-        'description': 'Thin air, heavy dust.',
-        'lorebook': {
-          'entries': [
-            {'keys': ['dome'], 'content': 'The dome hums at night.'},
-          ],
-        },
-        'biome': null,
-      },
-    });
-    final res = await wiredRouter.call(
-      shelf.Request(
+  test(
+    'download answers 503 when the library repositories are not wired',
+    () async {
+      final res = await send(
         'POST',
-        Uri.parse('http://localhost/api/stoop/cards/w1/download'),
+        '/api/stoop/cards/c1/download',
         headers: {'x-stoop-token': 'tok-1'},
-        body: jsonEncode({'type': 'WORLD'}),
-      ),
-    );
-    expect(res.statusCode, 200);
-    final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-    expect(body['ok'], isTrue);
-    expect(body['type'], 'WORLD');
-    expect(body['name'], 'Mars Colony');
-    // The download endpoint was hit upstream, and the place actually landed
-    // in the local library (fresh local id, provenance preserved).
-    expect(hits.single.path, '/characters/w1/download');
-    final imported = worlds.worlds.where((w) => w.name == 'Mars Colony');
-    expect(imported, hasLength(1));
-    expect(imported.first.sourceId, 'pkg-mars');
-    expect(imported.first.lorebook.entries, hasLength(1));
-  });
+        jsonBody: {'type': 'SOLO'},
+      );
+      expect(res.statusCode, 503);
+      expect(jsonDecode(await res.readAsString()), {
+        'error': 'library_unavailable',
+      });
+      expect(hits, isEmpty);
+    },
+  );
+
+  test(
+    'a WORLD download imports the .fpworld payload as a local place',
+    () async {
+      // A fully-wired facade (the setUp one has no library repositories).
+      final storage = StorageService();
+      await storage.initialized;
+      final worlds = WorldRepository(storage, db);
+      final wired = StoopFacade(
+        storage,
+        db,
+        characters: CharacterRepository(db, storage),
+        groups: GroupChatRepository(storage, db),
+        worlds: worlds,
+        api: BackporchApi(baseUrl: 'http://127.0.0.1:${upstream.port}'),
+      );
+      final wiredRouter = Router();
+      WebStoopRoutes(wired, wiredRouter);
+
+      upstreamBody = jsonEncode({
+        'type': 'WORLD',
+        'downloadCount': 1,
+        'card': {
+          'formatVersion': 1,
+          'id': 'pkg-mars',
+          'name': 'Mars Colony',
+          'description': 'Thin air, heavy dust.',
+          'lorebook': {
+            'entries': [
+              {
+                'keys': ['dome'],
+                'content': 'The dome hums at night.',
+              },
+            ],
+          },
+          'biome': null,
+        },
+      });
+      final res = await wiredRouter.call(
+        shelf.Request(
+          'POST',
+          Uri.parse('http://localhost/api/stoop/cards/w1/download'),
+          headers: {'x-stoop-token': 'tok-1'},
+          body: jsonEncode({'type': 'WORLD'}),
+        ),
+      );
+      expect(res.statusCode, 200);
+      final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+      expect(body['ok'], isTrue);
+      expect(body['type'], 'WORLD');
+      expect(body['name'], 'Mars Colony');
+      // The download endpoint was hit upstream, and the place actually landed
+      // in the local library (fresh local id, provenance preserved).
+      expect(hits.single.path, '/characters/w1/download');
+      final imported = worlds.worlds.where((w) => w.name == 'Mars Colony');
+      expect(imported, hasLength(1));
+      expect(imported.first.sourceId, 'pkg-mars');
+      expect(imported.first.lorebook.entries, hasLength(1));
+    },
+  );
 }

@@ -22,24 +22,50 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
 /// Baseline security response headers. HSTS is only emitted over a secure
 /// transport (it is meaningless and counter-productive over plain http).
+///
+/// CSP is header-only (no meta tag). Tight same-origin PWA policy:
+/// - no `unsafe-eval` (the production Vite bundle does not need it)
+/// - `style-src` allows `'unsafe-inline'` because the React tree uses
+///   `style={{…}}` widely
+/// - `blob:` on script/worker/media/img for the audio worklet, object URLs,
+///   and generated images
+/// - `connect-src 'self'` covers same-origin fetch + WebSocket (CSP3)
+/// Vite's own dev server is a different origin and is unaffected.
 class SecurityHeaders {
   SecurityHeaders(this._deps);
 
   final WebServerDeps _deps;
 
+  /// Production PWA Content-Security-Policy. Kept as a single const so tests
+  /// can assert the header without re-deriving the directive list.
+  static const String contentSecurityPolicy =
+      "default-src 'self'; "
+      "script-src 'self' blob:; "
+      "style-src 'self' 'unsafe-inline'; "
+      "img-src 'self' data: blob:; "
+      "font-src 'self'; "
+      "connect-src 'self'; "
+      "worker-src 'self' blob:; "
+      "media-src 'self' blob:; "
+      "object-src 'none'; "
+      "base-uri 'self'; "
+      "form-action 'self'; "
+      "frame-ancestors 'none'";
+
   shelf.Middleware get middleware => (shelf.Handler inner) {
-        return (shelf.Request request) async {
-          final response = await inner(request);
-          final headers = <String, String>{
-            'X-Content-Type-Options': 'nosniff',
-            'X-Frame-Options': 'DENY',
-            'Referrer-Policy': 'no-referrer',
-          };
-          if (_deps.isSecure(request)) {
-            headers['Strict-Transport-Security'] =
-                'max-age=31536000; includeSubDomains';
-          }
-          return response.change(headers: headers);
-        };
+    return (shelf.Request request) async {
+      final response = await inner(request);
+      final headers = <String, String>{
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'no-referrer',
+            'Content-Security-Policy': contentSecurityPolicy,
       };
+      if (_deps.isSecure(request)) {
+        headers['Strict-Transport-Security'] =
+            'max-age=31536000; includeSubDomains';
+      }
+      return response.change(headers: headers);
+    };
+  };
 }

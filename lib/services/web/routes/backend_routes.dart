@@ -19,17 +19,21 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
-import 'package:front_porch_ai/services/web/facade/backend_facade.dart';
-import 'package:front_porch_ai/services/web/facade/image_facade.dart';
+import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
+import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
 /// Backend lifecycle + local-model switching + HuggingFace downloader, plus
 /// image-generation config/generate. Progress is polled (GET /downloads), not
 /// streamed — simpler and robust for mobile sleep/wake.
 class WebBackendRoutes {
-  WebBackendRoutes(Router router, {BackendFacade? backend, ImageFacade? image})
-      : _backend = backend,
-        _image = image {
+  WebBackendRoutes(
+    this._deps,
+    Router router, {
+    BackendFacade? backend,
+    ImageFacade? image,
+  }) : _backend = backend,
+       _image = image {
     if (backend != null) {
       router.get('/api/backend/status', _status);
       router.post('/api/backend/restart', _restart);
@@ -67,10 +71,12 @@ class WebBackendRoutes {
     }
   }
 
+  final WebServerDeps _deps;
   final BackendFacade? _backend;
   final ImageFacade? _image;
 
-  shelf.Response _status(shelf.Request r) => JsonResponse.ok(_backend!.status());
+  shelf.Response _status(shelf.Request r) =>
+      JsonResponse.ok(_backend!.status());
 
   Future<shelf.Response> _restart(shelf.Request r) async {
     await _backend!.restart();
@@ -138,7 +144,9 @@ class WebBackendRoutes {
       return JsonResponse.badRequest('repoId and filename are required');
     }
     final taskId = await _backend!.queueDownload(repoId, filename);
-    if (taskId == null) return JsonResponse.error(404, 'File not found in repo');
+    if (taskId == null) {
+      return JsonResponse.error(404, 'File not found in repo');
+    }
     return JsonResponse.ok({'taskId': taskId, ..._backend.downloadsState()});
   }
 
@@ -233,7 +241,21 @@ class WebBackendRoutes {
       JsonResponse.ok(_image!.config());
 
   Future<shelf.Response> _imageUpdateConfig(shelf.Request r) async {
-    await _image!.updateConfig(await _json(r));
+    final body = await _json(r);
+    // Same stored remote URL/key as POST /api/settings — a session cookie
+    // must not redirect image generation either.
+    if (remoteCredentialWriteNeedsStepUp(
+      body,
+      currentRemoteApiUrl: '${_image!.config()['remoteApiUrl'] ?? ''}',
+    )) {
+      final denied = await denyUnlessSteppedUp(
+        auth: _deps.auth,
+        body: body,
+        request: r,
+      );
+      if (denied != null) return denied;
+    }
+    await _image.updateConfig(body);
     return JsonResponse.ok(_image.config());
   }
 
@@ -244,7 +266,10 @@ class WebBackendRoutes {
     }
     final result = await _image!.generate(body);
     if (result == null) {
-      return JsonResponse.error(502, _image.config()['statusMessage']?.toString() ?? 'Generation failed');
+      return JsonResponse.error(
+        502,
+        _image.config()['statusMessage']?.toString() ?? 'Generation failed',
+      );
     }
     return JsonResponse.ok(result);
   }

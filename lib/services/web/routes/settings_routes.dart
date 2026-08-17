@@ -21,10 +21,12 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/web/facade/settings_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
+import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
 /// Core generation + backend settings endpoints for the web Settings page.
 class WebSettingsRoutes {
-  WebSettingsRoutes(this._facade, Router router) {
+  WebSettingsRoutes(this._deps, Router router)
+    : _facade = _deps.settingsFacade! {
     router.get('/api/settings', _get);
     router.post('/api/settings', _post);
     // Legacy-engine model cleanup (desktop parity: Reclaim Disk Space).
@@ -39,6 +41,7 @@ class WebSettingsRoutes {
     );
   }
 
+  final WebServerDeps _deps;
   final SettingsFacade _facade;
 
   Future<shelf.Response> _get(shelf.Request request) async =>
@@ -50,6 +53,20 @@ class WebSettingsRoutes {
       body = await RequestBody.readJsonMap(request);
     } catch (_) {
       return JsonResponse.badRequest('Invalid JSON body');
+    }
+    // Redirecting generation (URL) or overwriting the API key is
+    // credential-grade — same password (+ TOTP) step-up as tunnel enable.
+    // Samplers and Porch Life toggles stay session-only.
+    if (remoteCredentialWriteNeedsStepUp(
+      body,
+      currentRemoteApiUrl: _facade.currentRemoteApiUrl,
+    )) {
+      final denied = await denyUnlessSteppedUp(
+        auth: _deps.auth,
+        body: body,
+        request: request,
+      );
+      if (denied != null) return denied;
     }
     await _facade.update(body);
     return JsonResponse.ok(await _readWithLanguages());

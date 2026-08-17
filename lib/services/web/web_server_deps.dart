@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
-
 import 'package:shelf/shelf.dart' as shelf;
 
 import 'package:front_porch_ai/database/database.dart';
@@ -26,6 +24,7 @@ import 'package:front_porch_ai/services/web/auth/auth_service.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 import 'package:front_porch_ai/services/web/tunnels/tunnel_manager.dart';
+import 'package:front_porch_ai/services/web/util/util.dart';
 
 /// Immutable bundle of collaborators passed *down* into route groups and
 /// middleware, so the rewritten server inverts the legacy "every route reaches
@@ -150,7 +149,6 @@ class WebServerDeps {
     if (request.headers['x-forwarded-proto']?.toLowerCase() != 'https') {
       return false;
     }
-    final conn = request.context['shelf.io.connection_info'];
-    return conn is HttpConnectionInfo && conn.remoteAddress.isLoopback;
+    return requestPeerIsLoopback(request);
   }
 }

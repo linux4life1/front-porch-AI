@@ -25,8 +25,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import 'package:front_porch_ai/services/backporch/backporch_api.dart';
-import 'package:front_porch_ai/services/backporch/stoop_aup.dart';
+import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/services/web/facade/stoop_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
@@ -72,8 +71,14 @@ class WebStoopRoutes {
     router.post('/api/stoop/me/profile', _tokenCall('POST', '/me/profile'));
     // Change the sign-in email (confirmation link goes to the NEW address);
     // DELETE abandons a pending change.
-    router.post('/api/stoop/me/email', _tokenCall('POST', '/auth/change-email'));
-    router.delete('/api/stoop/me/email', _tokenCall('DELETE', '/auth/change-email'));
+    router.post(
+      '/api/stoop/me/email',
+      _tokenCall('POST', '/auth/change-email'),
+    );
+    router.delete(
+      '/api/stoop/me/email',
+      _tokenCall('DELETE', '/auth/change-email'),
+    );
     router.post(
       '/api/stoop/me/resend-verification',
       _tokenCall('POST', '/auth/resend-verification'),
@@ -178,8 +183,9 @@ class WebStoopRoutes {
   // GET handlers forward request.url.query so additive params (e.g.
   // types=solo,group,world for Living Worlds — audit P2.15 / second-look)
   // reach the backend; POST/DELETE keep the empty-query default.
-  shelf.Handler _authCall(String upstreamPath) => (shelf.Request request) =>
-      _relay(request, 'POST', upstreamPath, tokenRequired: false);
+  shelf.Handler _authCall(String upstreamPath) =>
+      (shelf.Request request) =>
+          _relay(request, 'POST', upstreamPath, tokenRequired: false);
 
   shelf.Handler _tokenCall(String method, String upstreamPath) =>
       (shelf.Request request) => _relay(
@@ -192,13 +198,18 @@ class WebStoopRoutes {
   Future<shelf.Response> Function(shelf.Request, String) _cardCall(
     String method,
     String suffix,
-  ) => (shelf.Request request, String id) =>
-      _relay(request, method, '/characters/${Uri.encodeComponent(id)}$suffix');
+  ) =>
+      (shelf.Request request, String id) => _relay(
+        request,
+        method,
+        '/characters/${Uri.encodeComponent(id)}$suffix',
+      );
 
   Future<shelf.Response> Function(shelf.Request, String) _creatorCall(
     String method,
     String suffix,
-  ) => (shelf.Request request, String id) => _relay(
+  ) =>
+      (shelf.Request request, String id) => _relay(
         request,
         method,
         '/creators/${Uri.encodeComponent(id)}$suffix',
@@ -247,6 +258,10 @@ class WebStoopRoutes {
   Future<shelf.Response> _report(shelf.Request request, String id) async {
     final body = await _jsonBody(request);
     if (body == null) return JsonResponse.badRequest('Invalid JSON body');
+    final reason = '${body['reason'] ?? ''}';
+    if (!stoopReportReasonOk(reason)) {
+      return JsonResponse.error(400, 'reason_required');
+    }
     return _relay(
       request,
       'POST',
@@ -254,7 +269,7 @@ class WebStoopRoutes {
       bodyOverride: {
         'characterId': id,
         'category': '${body['category'] ?? 'OTHER'}',
-        'reason': '${body['reason'] ?? ''}',
+        'reason': reason,
       },
     );
   }
@@ -385,17 +400,14 @@ class WebStoopRoutes {
           ),
         );
         upstream = up;
-        up.ready.then(
-          (_) {
-            if (closed) return;
-            up.stream.listen(
-              browser.sink.add,
-              onDone: shutDown,
-              onError: (_) => shutDown(),
-            );
-          },
-          onError: (_) => shutDown(),
-        );
+        up.ready.then((_) {
+          if (closed) return;
+          up.stream.listen(
+            browser.sink.add,
+            onDone: shutDown,
+            onError: (_) => shutDown(),
+          );
+        }, onError: (_) => shutDown());
       },
       onDone: shutDown,
       onError: (_) => shutDown(),

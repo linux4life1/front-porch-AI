@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io' show HttpConnectionInfo;
-
 import 'package:shelf/shelf.dart' as shelf;
 
 import 'package:front_porch_ai/services/web/util/util.dart';
@@ -47,40 +45,32 @@ class WebAuthMiddleware {
   };
 
   shelf.Middleware get middleware => (shelf.Handler inner) {
-        return (shelf.Request request) async {
-          final path = request.url.path;
+    return (shelf.Request request) async {
+      final path = request.url.path;
 
-          // Static assets and the public auth/health endpoints: no session.
-          if (!path.startsWith('api/') || _publicApiPaths.contains(path)) {
-            return inner(request);
-          }
+      // Static assets and the public auth/health endpoints: no session.
+      if (!path.startsWith('api/') || _publicApiPaths.contains(path)) {
+        return inner(request);
+      }
 
-          final token = Cookies.sessionToken(request);
-          final userId =
-              token == null ? null : await _deps.auth.sessions.validate(token);
-          if (userId == null) {
-            return JsonResponse.unauthorized('Authentication required');
-          }
+      final token = Cookies.sessionToken(request);
+      final userId = token == null
+          ? null
+          : await _deps.auth.sessions.validate(token);
+      if (userId == null) {
+        return JsonResponse.unauthorized('Authentication required');
+      }
 
-          // Report presence for the desktop lock/settings UI (host dedupes).
-          final cb = _deps.onClientActive;
-          if (cb != null) {
-            final ip = _clientIp(request);
-            cb(ip, _describeClient(request.headers['user-agent'], ip));
-          }
+      // Report presence for the desktop lock/settings UI (host dedupes).
+      final cb = _deps.onClientActive;
+      if (cb != null) {
+        final ip = requestClientIp(request);
+        cb(ip, _describeClient(request.headers['user-agent'], ip));
+      }
 
-          return inner(
-            request.change(context: {kAuthUserIdContextKey: userId}),
-          );
-        };
-      };
-
-  String? _clientIp(shelf.Request request) {
-    final fwd = request.headers['x-forwarded-for'];
-    if (fwd != null && fwd.isNotEmpty) return fwd.split(',').first.trim();
-    final conn = request.context['shelf.io.connection_info'];
-    return conn is HttpConnectionInfo ? conn.remoteAddress.address : null;
-  }
+      return inner(request.change(context: {kAuthUserIdContextKey: userId}));
+    };
+  };
 
   /// Compact "Browser on OS" label from a User-Agent (with the IP appended).
   static String _describeClient(String? ua, String? ip) {
@@ -94,7 +84,14 @@ class WebAuthMiddleware {
       }
     }
     String os = '';
-    for (final o in const ['Android', 'iPhone', 'iPad', 'Windows', 'Mac', 'Linux']) {
+    for (final o in const [
+      'Android',
+      'iPhone',
+      'iPad',
+      'Windows',
+      'Mac',
+      'Linux',
+    ]) {
       if (ua.contains(o)) {
         os = o == 'Mac' ? 'macOS' : (o == 'iPhone' || o == 'iPad' ? 'iOS' : o);
         break;
