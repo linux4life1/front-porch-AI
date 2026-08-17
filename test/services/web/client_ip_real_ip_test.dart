@@ -72,8 +72,12 @@ void main() {
     for (var i = 0; i < 50; i++) {
       rl.recordFailure('u$i', ip);
     }
-    expect(rl.ipAllowed('not-an-ip'), isFalse);
+    // Fail-closed: the helper returned null (shared _unknown), not the
+    // unparsed token. That bucket is full; a never-seen public IP is not.
+    expect(rl.ipAllowed(ip), isFalse);
     expect(rl.ipAllowed(null), isFalse);
+    expect(rl.ipAllowed(''), isFalse);
+    expect(rl.ipAllowed('9.9.9.9'), isTrue);
   });
 
   test('loopback-only XFF is not a unique limiter key', () {
@@ -88,7 +92,10 @@ void main() {
     for (var i = 0; i < 50; i++) {
       rl.recordFailure('u$i', ip);
     }
-    expect(rl.ipAllowed('127.0.0.1'), isFalse);
+    // Same shared _unknown / null bucket — not a key named 127.0.0.1.
+    expect(rl.ipAllowed(ip), isFalse);
     expect(rl.ipAllowed(null), isFalse);
+    expect(rl.ipAllowed(''), isFalse);
+    expect(rl.ipAllowed('9.9.9.9'), isTrue);
   });
 }
