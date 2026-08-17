@@ -117,7 +117,10 @@ void main() {
           llm.prompts.any((p) => p.contains('Seed Porch Life identity')),
           isTrue,
         );
-        expect(porchLifeIdentityOf(result!.frontPorchExtensions).isEmpty, isTrue);
+        expect(
+          porchLifeIdentityOf(result!.frontPorchExtensions).isEmpty,
+          isTrue,
+        );
         expect(source.frontPorchExtensions?.ambitions, ['old goal']);
         expect(porchLifeIdentityOf(source.frontPorchExtensions).worn, [
           'old coat',

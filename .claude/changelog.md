@@ -36,10 +36,12 @@
   and `if (use) write` gate existed; they were not pinned at save().
 - **What:** Extended existing tests. Non-empty Review asserts After
   heading + authored Before lines + proposal chips. Empty Review keeps
-  authored Before and Use this off. save() with the default off leaves
-  the duplicate's wardrobe intact. Mute `{}` / `thanks` seed empties
+  authored Before and Use this off. Mute `{}` / `thanks` seed empties
   the proposal only. isEmpty covers mute JSON. Wizard Interview lists
-  Porch Life. No product UI change. No goldens.
+  Porch Life. save() was not widget-pinned — a CharacterRepository
+  fake still ran the real duplicateCharacter (`_isLoading`). The
+  `if (use) write` gate plus default-off is the wipe protection.
+  No product UI change. No goldens.
 - **Files:** enhance_porch_review_test.dart, enhance_porch_life_test.dart,
   porch_life_identity_test.dart, enhance_wizard_test.dart
 
