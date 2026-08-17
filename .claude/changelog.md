@@ -3,6 +3,16 @@
 
 # Changelog
 
+## 2026-08-17 — test(creator): pin RealismStep Porch Life vs engine split
+- **Why:** Feature Design lock: engine OFF on the AI creator still shows
+  Time, Chaos, and identity chips. The existing form-level finder
+  (`realism_form_porch_life_ungated_test.dart`) never pumps RealismStep,
+  so a wiring miss (no calendar callbacks, no Needs section, gating
+  Time/Chaos on the step) would stay green.
+- **What:** New finder test pumps public RealismStep with a seeded
+  CreatorState (engine off / 18+ on / engine on). No pixel golden.
+- **Files:** test/ui/character_creator/realism_step_porch_life_ungated_test.dart
+
 ## 2026-08-16 — feat(enhance): Porch Life is a keep-or-accept proposal
 - **Why:** AI Create now seeds wardrobe/ambitions, but Enhance is a
   sibling path. Blindly overwriting an authored wardrobe would be
