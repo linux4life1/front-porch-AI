@@ -16,11 +16,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// Perspective + tense for AI character generation (greetings + example dialog).
-///
-/// Default is first-person present — the historical baked-in voice. Other
-/// combinations are opt-in from the creator's output settings. Third person
-/// resolves he/she/they from the Sex field so pronouns stay consistent.
+// Perspective + tense for AI character generation (greetings + example dialog).
+//
+// Default is first-person present — the historical baked-in voice. Other
+// combinations are opt-in from the creator's output settings. Third person
+// resolves he/she/they from the Sex field so pronouns stay consistent.
 
 enum NarrativePerspective { first, third }
 
