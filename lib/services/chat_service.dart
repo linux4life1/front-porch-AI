@@ -119,7 +119,7 @@ part 'chat/chat_service_defaults.dart';
 // GBNF grammar-removal historical note both moved to chat_service_defaults.dart;
 // both are library top-level, so every part file's access is unaffected.)
 
-class ChatService extends ChangeNotifier {
+class ChatService extends ChangeNotifier with ChatTodayLine {
   final KoboldService _koboldService;
   final UserPersonaService _userPersonaService;
   final StorageService _storageService;
@@ -158,16 +158,6 @@ class ChatService extends ChangeNotifier {
   // purpose — NOT persisted, so NSFW tasks default OFF on a fresh launch.
   bool objectiveNsfwTasks = false;
   int objectiveTaskCount = 5;
-
-  /// Session-scoped today's plan sentence. In-memory this pass — not on the
-  /// card and not written to the session blob. Null/blank = no TodayLine.
-  String? _todaySentence;
-  String? get todaySentence => _todaySentence;
-  void setTodaySentence(String? value) {
-    final next = value?.trim();
-    _todaySentence = (next == null || next.isEmpty) ? null : next;
-    notifyListeners();
-  }
 
   /// Armed only while the TURN-path completion check runs (see
   /// _maybeCheckTaskCompletionSync try/finally): check-driven objective
@@ -623,6 +613,7 @@ class ChatService extends ChangeNotifier {
       _ambitionsForImpl(card);
 
   late final _ambitionInjection = _buildAmbitionInjection();
+
   /// Likes & Dislikes fragment — NOT realism-gated (see PreferencesInjection).
   late final _preferencesInjection = _buildPreferencesInjection();
 
@@ -919,11 +910,6 @@ class ChatService extends ChangeNotifier {
   // reset hygiene. Barrel not updated (internal; <3 public cross locations).
   RelationshipService get relationshipService => _relationshipService;
   TimeService get timeService => _timeService;
-  String? get todayLine {
-    if (!_storageService.realismSettings.plannerEnabled) return null;
-    return todaySentence;
-  }
-
   NsfwService get nsfwService => _nsfwService;
   ChaosModeService get chaosModeService => _chaosModeService;
   NeedsSimulation get needsSimulation => _needsSimulation;
