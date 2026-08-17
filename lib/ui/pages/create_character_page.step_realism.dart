@@ -95,6 +95,9 @@ extension _CreateCharacterRealismStep on _CreateCharacterPageState {
                 ambitions: _realismAmbitions,
                 onAmbitionsChanged: (v) =>
                     rebuildState(() => _realismAmbitions = v),
+                planLines: _realismPlanLines,
+                onPlanLinesChanged: (v) =>
+                    rebuildState(() => _realismPlanLines = v),
                 likes: _realismLikes,
                 onLikesChanged: (v) => rebuildState(() => _realismLikes = v),
                 dislikes: _realismDislikes,

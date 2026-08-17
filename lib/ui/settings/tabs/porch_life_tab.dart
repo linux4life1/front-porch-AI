@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/planner_feature_row.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// **Porch Life** — every "what makes characters feel alive" switch in one
@@ -349,6 +350,13 @@ class PorchLifeTab extends StatelessWidget {
                   'moves them, so they need Objectives running.',
               value: realism.ambitionsEnabled,
               onChanged: realism.setAmbitionsEnabled,
+            ),
+            PlannerFeatureRow(
+              value: realism.plannerEnabled,
+              timeOn: timeOn,
+              objectivesOn: objectivesOn,
+              journalOn: journalOn,
+              onChanged: realism.setPlannerEnabled,
             ),
             FeatureRow(
               icon: Icons.person_search_outlined,

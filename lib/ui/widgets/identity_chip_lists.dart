@@ -25,6 +25,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 // Sibling in this file's OWN barrel directory — importing widgets.dart here
 // would be a self-import (the structural exemption in CLAUDE.md).
 import 'package:front_porch_ai/ui/widgets/chip_list_editor.dart';
+import 'package:front_porch_ai/ui/widgets/plan_lines_editor.dart';
 
 /// The install's 18+ master switch — the same one that shows or hides the
 /// After Dark group in Settings — or `false` when no [StorageService] is in
@@ -51,6 +52,16 @@ bool adultThemesEnabledOf(BuildContext context) {
   }
 }
 
+bool plannerEnabledOf(BuildContext context) {
+  try {
+    return Provider.of<StorageService>(
+      context,
+    ).realismSettings.plannerEnabled;
+  } catch (_) {
+    return false;
+  }
+}
+
 /// The card-authored IDENTITY lists — Ambitions, Likes & Dislikes, and the 18+
 /// pair — every one of them a short list of short phrases edited as chips.
 ///
@@ -67,6 +78,8 @@ class IdentityChipLists extends StatelessWidget {
     super.key,
     this.ambitions,
     this.onAmbitionsChanged,
+    this.planLines,
+    this.onPlanLinesChanged,
     this.likes,
     this.onLikesChanged,
     this.dislikes,
@@ -84,6 +97,9 @@ class IdentityChipLists extends StatelessWidget {
 
   final List<String>? ambitions;
   final ValueChanged<List<String>>? onAmbitionsChanged;
+
+  final List<String>? planLines;
+  final ValueChanged<List<String>>? onPlanLinesChanged;
 
   final List<String>? likes;
   final ValueChanged<List<String>>? onLikesChanged;
@@ -139,6 +155,9 @@ class IdentityChipLists extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasAmbitions = ambitions != null && onAmbitionsChanged != null;
+    final hasPlanLines = plannerEnabledOf(context) &&
+        planLines != null &&
+        onPlanLinesChanged != null;
     final hasTastes =
         likes != null &&
         onLikesChanged != null &&
@@ -157,7 +176,11 @@ class IdentityChipLists extends StatelessWidget {
         carrying != null &&
         onCarryingChanged != null;
 
-    if (!hasAmbitions && !hasTastes && !hasIntimate && !hasWardrobe) {
+    if (!hasAmbitions &&
+        !hasPlanLines &&
+        !hasTastes &&
+        !hasIntimate &&
+        !hasWardrobe) {
       return const SizedBox.shrink();
     }
 
@@ -185,6 +208,15 @@ class IdentityChipLists extends StatelessWidget {
                   'they inch forward when objectives complete. Not a to-do '
                   'list — quests live in the chat sidebar.',
             ),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        if (hasPlanLines) ...[
+          PlanLinesEditor(
+            enabled: true,
+            values: planLines!,
+            onChanged: onPlanLinesChanged!,
           ),
           const SizedBox(height: 20),
         ],

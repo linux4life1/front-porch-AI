@@ -274,6 +274,7 @@ class CreatorState extends ChangeNotifier {
   /// Long-term ambitions authored in the creator's realism step (approved
   /// sketch §4). Card-resident like the rest of this state.
   List<String> realismAmbitions = const [];
+  List<String> realismPlanLines = const [];
 
   /// Likes & Dislikes and the 18+ pair — same card-resident identity lists,
   /// authored in the same step.

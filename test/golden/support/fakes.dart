@@ -102,6 +102,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     this.characterEmotion = 'neutral',
     this.emotionIntensity = 'moderate',
     this.isGrowthPassRunning = false,
+    this.todaySentence,
     this.activeCharacter,
     List<ChatMessage> messages = const [],
     // Generation status bar surface.
@@ -259,6 +260,16 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   final String emotionIntensity;
   @override
   final bool isGrowthPassRunning;
+  @override
+  String? todaySentence;
+  @override
+  String? get todayLine => todaySentence;
+  @override
+  void setTodaySentence(String? value) {
+    final next = value?.trim();
+    todaySentence = (next == null || next.isEmpty) ? null : next;
+    notifyListeners();
+  }
   @override
   final CharacterCard? activeCharacter;
 

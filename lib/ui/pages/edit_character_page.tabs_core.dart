@@ -296,6 +296,9 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                   ambitions: _ambitions,
                   onAmbitionsChanged: (v) =>
                       rebuildState(() => _ambitions = v),
+                  planLines: _planLines,
+                  onPlanLinesChanged: (v) =>
+                      rebuildState(() => _planLines = v),
                   likes: _likes,
                   onLikesChanged: (v) => rebuildState(() => _likes = v),
                   dislikes: _dislikes,

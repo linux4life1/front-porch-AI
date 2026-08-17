@@ -695,6 +695,9 @@ class StorageService extends ChangeNotifier {
   bool get objectivesEnabled => realismSettings.objectivesEnabled;
   Future<void> setObjectivesEnabled(bool v) =>
       realismSettings.setObjectivesEnabled(v);
+  bool get plannerEnabled => realismSettings.plannerEnabled;
+  Future<void> setPlannerEnabled(bool v) =>
+      realismSettings.setPlannerEnabled(v);
   bool get adultThemesEnabled => realismSettings.adultThemesEnabled;
   Future<void> setAdultThemesEnabled(bool v) =>
       realismSettings.setAdultThemesEnabled(v);

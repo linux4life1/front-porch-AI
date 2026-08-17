@@ -106,6 +106,7 @@ extension CreatorEngine on CreatorState {
         needsSimEnabled: realismNeedsSim,
         enjoysLowHygiene: realismEnjoysLowHygiene,
         ambitions: realismAmbitions,
+        planLines: realismPlanLines,
         likes: realismLikes,
         dislikes: realismDislikes,
         intimateInto: realismIntimateInto,

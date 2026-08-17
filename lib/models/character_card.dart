@@ -85,6 +85,10 @@ class FrontPorchExtensions {
   /// journal cards (Living Time §6). Authored in the character editor.
   List<String> ambitions;
 
+  /// Short plan-line sentences. Identity like [ambitions]: travel with the card.
+  /// The today sentence is session state, never stored here.
+  List<String> planLines;
+
   /// What this character is drawn to, and what puts them off — short phrases,
   /// authored on the card. Identity like [ambitions]: they travel with it.
   ///
@@ -212,6 +216,7 @@ class FrontPorchExtensions {
     // Never mutated in place — always replaced wholesale (copyWith/editor),
     // so the const default is safe.
     this.ambitions = const [],
+    this.planLines = const [],
     this.likes = const [],
     this.dislikes = const [],
     this.intimateInto = const [],
@@ -290,6 +295,7 @@ class FrontPorchExtensions {
         'needs_sim_enabled': needsSimEnabled,
         'enjoys_low_hygiene': enjoysLowHygiene,
         'ambitions': ambitions,
+        'plan_lines': planLines,
         'likes': likes,
         'dislikes': dislikes,
         // Nested so the 18+ pair can be stripped from a share as one object.
@@ -369,6 +375,7 @@ class FrontPorchExtensions {
       needsSimEnabled: realism['needs_sim_enabled'] as bool? ?? false,
       enjoysLowHygiene: realism['enjoys_low_hygiene'] as bool? ?? false,
       ambitions: _phrases(realism['ambitions']),
+      planLines: _phrases(realism['plan_lines']),
       likes: _phrases(realism['likes']),
       dislikes: _phrases(realism['dislikes']),
       intimateInto: _phrases(_intimate(realism)['into']),
@@ -448,6 +455,7 @@ class FrontPorchExtensions {
     bool? needsSimEnabled,
     bool? enjoysLowHygiene,
     List<String>? ambitions,
+    List<String>? planLines,
     List<String>? likes,
     List<String>? dislikes,
     List<String>? intimateInto,
@@ -507,6 +515,7 @@ class FrontPorchExtensions {
       needsSimEnabled: needsSimEnabled ?? this.needsSimEnabled,
       enjoysLowHygiene: enjoysLowHygiene ?? this.enjoysLowHygiene,
       ambitions: ambitions ?? this.ambitions,
+      planLines: planLines ?? this.planLines,
       likes: likes ?? this.likes,
       dislikes: dislikes ?? this.dislikes,
       intimateInto: intimateInto ?? this.intimateInto,

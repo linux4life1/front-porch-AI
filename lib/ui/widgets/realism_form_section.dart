@@ -67,6 +67,10 @@ class RealismFormSection extends StatelessWidget {
   final List<String>? ambitions;
   final ValueChanged<List<String>>? onAmbitionsChanged;
 
+  /// Plan-line sentences. Same optional-pair convention as [ambitions].
+  final List<String>? planLines;
+  final ValueChanged<List<String>>? onPlanLinesChanged;
+
   /// Likes & Dislikes, and the 18+ pair — same optional-pair convention as
   /// [ambitions]: pass values + callback or the section is absent, so surfaces
   /// that predate these fields keep compiling and rendering unchanged.
@@ -137,6 +141,8 @@ class RealismFormSection extends StatelessWidget {
     required this.onChaosModeChanged,
     this.ambitions,
     this.onAmbitionsChanged,
+    this.planLines,
+    this.onPlanLinesChanged,
     this.likes,
     this.onLikesChanged,
     this.dislikes,
@@ -752,6 +758,8 @@ class RealismFormSection extends StatelessWidget {
         IdentityChipLists(
           ambitions: ambitions,
           onAmbitionsChanged: onAmbitionsChanged,
+          planLines: planLines,
+          onPlanLinesChanged: onPlanLinesChanged,
           likes: likes,
           onLikesChanged: onLikesChanged,
           dislikes: dislikes,

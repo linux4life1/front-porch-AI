@@ -144,6 +144,24 @@ class TimeService {
   // One clock authority per turn: set when detectOocTimeSkip moves the clock,
   // consumed by the per-turn eval so it can't re-count the same exchange.
   bool _oocSkipMovedClockThisTurn = false;
+  String? todayLine;
+  int? _todayLineDayCount;
+
+  void clearTodayLine() {
+    todayLine = null;
+    _todayLineDayCount = null;
+  }
+
+  String? get visibleTodayLine {
+    final line = todayLine?.trim();
+    if (line == null || line.isEmpty) return null;
+    if (_todayLineDayCount != null && _todayLineDayCount != dayCount) {
+      todayLine = null;
+      _todayLineDayCount = null;
+      return null;
+    }
+    return line;
+  }
 
   // Tools transport for the scene-time and posture evals (nullable — tests and
   // any host without the tools door stay on the text path).
@@ -261,6 +279,8 @@ class TimeService {
     // through the ordinary save. Leaving a previous chat's `true` standing here
     // would ask the loader to patch a row this service no longer describes.
     _canonicalClockWasSynthesised = false;
+    todayLine = null;
+    _todayLineDayCount = null;
   }
 
   /// Seed from a V2 card / ext-seed payload (design §3a). [storyStartDate]
@@ -300,6 +320,8 @@ class TimeService {
         : StoryClock.representativeTime(current, timeOfDay);
     _passageOfTimeEnabled = passageOfTimeEnabled;
     _turnsSinceClockMoved = 0;
+    todayLine = null;
+    _todayLineDayCount = null;
   }
 
   /// Load from a session row. Canonical columns win; legacy rows synthesize
@@ -331,6 +353,7 @@ class TimeService {
     // never survive a reopen, and the next save wrote `true` back over it. The
     // setting was not merely ignored; it was destroyed.
     _passageOfTimeEnabled = passageOfTimeEnabled;
+    clearTodayLine();
 
     final clock = StoryClock.parse(storyClock);
     final anchor = StoryClock.parse(storyStartDate);
@@ -412,11 +435,15 @@ class TimeService {
   /// time. delta = +1 (forward) or -1 (back). Signals god to patch the last
   /// msg realism_state so swipe/regen cannot revert it.
   void nudgeTimePeriod(int delta) {
+    final dayBefore = dayCount;
     _clock = delta >= 0
         ? StoryClock.snapToNextPeriod(_clock)
         : StoryClock.snapToPreviousPeriod(_clock);
     if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
     _turnsSinceClockMoved = 0;
+    if (dayCount != dayBefore) {
+      clearTodayLine();
+    }
     onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
   }
 
@@ -433,6 +460,7 @@ class TimeService {
     );
     if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
     _turnsSinceClockMoved = 0;
+    clearTodayLine();
     onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
   }
 
@@ -575,6 +603,7 @@ class TimeService {
 
     _clock = next;
     _turnsSinceClockMoved = 0;
+    clearTodayLine();
     _oocSkipMovedClockThisTurn = true;
     onSetPendingRealismMetadata(
       'time_skip_to',
@@ -591,6 +620,7 @@ class TimeService {
   /// Apply one turn's elapsed time. [minutes] null means the eval failed —
   /// deterministic drift applies. Returns whether the clock moved.
   bool _applyElapsed({required int? minutes, required bool newDay}) {
+    final dayBefore = dayCount;
     var moved = false;
     final m = (minutes ?? StoryClock.failureDriftMinutes).clamp(
       0,
@@ -614,6 +644,7 @@ class TimeService {
       moved = true;
       debugPrint('[Realism:Time] Stall backstop — snapped to $timeOfDay');
     }
+    if (dayCount != dayBefore) clearTodayLine();
     return moved;
   }
 

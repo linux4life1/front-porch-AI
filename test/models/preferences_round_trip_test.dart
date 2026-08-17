@@ -44,6 +44,7 @@ FrontPorchExtensions seeded() => FrontPorchExtensions(
   intimateInto: ['slow mornings'],
   intimateNotInto: ['an audience'],
   ambitions: ['open her own bakery'],
+  planLines: ['finish the log before the tide'],
 );
 
 void main() {
@@ -55,6 +56,25 @@ void main() {
       expect(back.intimateInto, ['slow mornings']);
       expect(back.intimateNotInto, ['an audience']);
       expect(back.ambitions, ['open her own bakery'], reason: 'not regressed');
+      expect(back.planLines, ['finish the log before the tide']);
+    });
+
+    test('plan_lines omitted JSON reads as empty, not null', () {
+      final back = FrontPorchExtensions.fromJson(const {'realism_engine': {}});
+      expect(back.planLines, isEmpty);
+    });
+
+    test('plan_lines survive the card wire', () {
+      final ext = FrontPorchExtensions(
+        planLines: ['finish the log before the tide'],
+      );
+      final json = ext.toJson();
+      final realism = json['realism_engine'] as Map<String, dynamic>;
+      expect(realism['plan_lines'], ['finish the log before the tide']);
+      expect(
+        FrontPorchExtensions.fromJson(json).planLines,
+        ['finish the log before the tide'],
+      );
     });
 
     test('the 18+ pair travels nested, so a share can strip it as one object', () {
@@ -119,6 +139,7 @@ void main() {
       expect(back.dislikes, ['being interrupted']);
       expect(back.intimateInto, ['slow mornings']);
       expect(back.intimateNotInto, ['an audience']);
+      expect(back.planLines, ['finish the log before the tide']);
     });
 
     test('an older web client that omits the keys keeps the base values', () {
@@ -127,6 +148,7 @@ void main() {
       final back = frontPorchFromFields(const {}, base: seeded());
       expect(back.likes, ['being read to', 'thunderstorms']);
       expect(back.intimateInto, ['slow mornings']);
+      expect(back.planLines, ['finish the log before the tide']);
     });
 
     test('a client sending junk falls back rather than throwing', () {

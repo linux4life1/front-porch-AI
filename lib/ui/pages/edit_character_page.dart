@@ -124,6 +124,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   /// with the card; per-chat progress lives in the Journal.
   // Ambitions are a LIST, not newline-encoded text (see ChipListEditor).
   List<String> _ambitions = const [];
+  List<String> _planLines = const [];
 
   /// Likes & Dislikes and the 18+ pair — card-authored identity, same shape
   /// and same chip editor as [_ambitions].
@@ -287,6 +288,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     _ambitions = List<String>.from(
       widget.character.frontPorchExtensions?.ambitions ?? const [],
     );
+    _planLines = List<String>.from(
+      widget.character.frontPorchExtensions?.planLines ?? const [],
+    );
     _likes = List<String>.from(
       widget.character.frontPorchExtensions?.likes ?? const [],
     );
@@ -449,6 +453,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     // on a card that HAS extensions still writes, via the clause below it.
     final hasIdentityContent =
         _ambitions.isNotEmpty ||
+        _planLines.isNotEmpty ||
         _likes.isNotEmpty ||
         _dislikes.isNotEmpty ||
         _intimateInto.isNotEmpty ||
@@ -485,6 +490,10 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         enjoysLowHygiene: _realismEnjoysLowHygiene,
         ambitions: [
           for (final a in _ambitions)
+            if (a.trim().isNotEmpty) a.trim(),
+        ],
+        planLines: [
+          for (final a in _planLines)
             if (a.trim().isNotEmpty) a.trim(),
         ],
         likes: [

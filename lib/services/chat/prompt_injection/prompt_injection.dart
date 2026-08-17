@@ -34,6 +34,7 @@ export 'inventory_injection.dart';
 export 'journal_injection.dart';
 export 'needs_injection.dart';
 export 'nsfw_injection.dart';
+export 'plan_injection.dart';
 export 'porch_night_injection.dart';
 export 'preferences_injection.dart';
 export 'promise_debt_injection.dart';

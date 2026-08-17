@@ -113,6 +113,7 @@ FrontPorchExtensions frontPorchFromFields(
     chaosModeEnabled: asBool('chaosModeEnabled', b.chaosModeEnabled),
     currentTask: asStr('currentTask', b.currentTask),
     ambitions: asStrList('ambitions', b.ambitions),
+    planLines: asStrList('planLines', b.planLines),
     likes: asStrList('likes', b.likes),
     dislikes: asStrList('dislikes', b.dislikes),
     // The 18+ pair travels FLAT over this bridge (`intimateInto` /
@@ -199,6 +200,7 @@ Map<String, dynamic> frontPorchToJson(FrontPorchExtensions e) => {
   'chaosModeEnabled': e.chaosModeEnabled,
   'currentTask': e.currentTask,
   'ambitions': e.ambitions,
+  'planLines': e.planLines,
   'likes': e.likes,
   'dislikes': e.dislikes,
   'intimateInto': e.intimateInto,

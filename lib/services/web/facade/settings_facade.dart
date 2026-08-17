@@ -181,6 +181,7 @@ class SettingsFacade {
       // Additive and nullable-safe: an older web client ignores the key.
       'realism': {
         'ambitionsEnabled': _storage.realismSettings.ambitionsEnabled,
+        'plannerEnabled': _storage.realismSettings.plannerEnabled,
         'promiseLedgerEnabled': _storage.realismSettings.promiseLedgerEnabled,
         // The rest of the Porch Life tab (2026-08-07). Additive keys only —
         // an older PWA simply ignores what it does not know.
@@ -240,6 +241,10 @@ class SettingsFacade {
     if (realism is Map) {
       final amb = realism['ambitionsEnabled'];
       if (amb is bool) await _storage.realismSettings.setAmbitionsEnabled(amb);
+      final planner = realism['plannerEnabled'];
+      if (planner is bool) {
+        await _storage.realismSettings.setPlannerEnabled(planner);
+      }
       final prom = realism['promiseLedgerEnabled'];
       if (prom is bool) {
         await _storage.realismSettings.setPromiseLedgerEnabled(prom);

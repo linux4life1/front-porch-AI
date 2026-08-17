@@ -185,6 +185,7 @@ class RealismSettings with SettingsBase {
   int _absenceThresholdHours = 24;
   bool _dreamsEnabled = true;
   bool _ambitionsEnabled = true;
+  bool _plannerEnabled = false;
   bool _promiseLedgerEnabled = true;
   List<String> _bannedPhrases = [];
 
@@ -269,6 +270,9 @@ class RealismSettings with SettingsBase {
   /// misleading than a stale fact would be.
   bool get ambitionsEnabled => _ambitionsEnabled;
 
+  /// Planner feature. Default OFF. Not Plans/Wings it.
+  bool get plannerEnabled => _plannerEnabled;
+
   /// The promise/debt ledger. Also independent of Realism, but NOT free and NOT
   /// unconditional: detection is one extra model call per reply, and storage is
   /// the Journal (one journal card per commitment), so it does nothing with the
@@ -318,6 +322,7 @@ class RealismSettings with SettingsBase {
         prefs?.getInt(k('absence_threshold_hours')) ?? 24;
     _dreamsEnabled = prefs?.getBool(k('dreams_enabled')) ?? true;
     _ambitionsEnabled = prefs?.getBool(k('ambitions_enabled')) ?? true;
+    _plannerEnabled = prefs?.getBool(k('planner_enabled')) ?? false;
     _promiseLedgerEnabled =
         prefs?.getBool(k('promise_ledger_enabled')) ?? true;
 
@@ -334,6 +339,12 @@ class RealismSettings with SettingsBase {
   Future<void> setAmbitionsEnabled(bool value) async {
     _ambitionsEnabled = value;
     await prefs?.setBool(k('ambitions_enabled'), value);
+    notify();
+  }
+
+  Future<void> setPlannerEnabled(bool value) async {
+    _plannerEnabled = value;
+    await prefs?.setBool(k('planner_enabled'), value);
     notify();
   }
 

@@ -119,6 +119,11 @@ extension ChatServiceGenerationPostGen on ChatService {
         }
       }
 
+      // Optional [today: …] tag — strip from the visible reply. Live write
+      // stays parked (no holdTodayLine, no plannerEnabled gate).
+      final todayParsed = TodayLineTag.parse(finalResponse);
+      finalResponse = todayParsed.visible;
+
       // Always persist the finalized body. Continue + strip without sanitizer
       // used to leave streamTarget alone after mutating only finalResponse —
       // and when sanitizer DID run it wrote new-tokens-only. One write-back.

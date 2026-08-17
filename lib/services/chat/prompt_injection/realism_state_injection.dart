@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/ambition_injection.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/plan_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/behavioral_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/emotion_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/needs_injection.dart';
@@ -73,6 +74,7 @@ class RealismStateInjection {
   final TimeInjection timeInjection;
   final WeatherInjection weatherInjection;
   final AmbitionInjection ambitionInjection;
+  final PlanInjection? planInjection;
   final PreferencesInjection preferencesInjection;
   final InventoryInjection inventoryInjection;
   final PromiseDebtInjection promiseDebtInjection;
@@ -137,6 +139,7 @@ class RealismStateInjection {
     this.getAmbitionsEnabled,
     this.getPromisesEnabled,
     required this.ambitionInjection,
+    this.planInjection,
     required this.preferencesInjection,
     required this.inventoryInjection,
     required this.promiseDebtInjection,
@@ -308,6 +311,7 @@ class RealismStateInjection {
       // Standing facts, ahead of the volatile state they colour.
       if (getAmbitionsEnabled?.call() ?? true)
         ambitionInjection.buildAmbitionInjection(),
+      planInjection?.buildPlanInjection() ?? '',
       // Likes & Dislikes. UNGATED on purpose — see the class doc on
       // PreferencesInjection: acting on a taste is characterisation, not
       // scoring, so it must survive the Realism Engine being off. It
