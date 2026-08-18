@@ -1,14 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// TodayLine sits under TimeStrip when the planner flag is on and a sentence
-// is held. Omitted when the flag is off or the sentence is empty.
+// Live hold is on the Story Calendar, not under TimeStrip.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/calendar_today_hold.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_group.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/today_line.dart';
@@ -19,7 +19,7 @@ import '../../golden/support/fakes_storage.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  Future<FakeChatService> pumpGroup(
+  Future<void> pumpGroup(
     WidgetTester tester, {
     required bool plannerOn,
     String? today,
@@ -53,57 +53,42 @@ void main() {
       ),
     );
     await tester.pump();
-    return chat;
   }
 
-  testWidgets('TodayLine under TimeStrip when flag on and sentence present',
-      (tester) async {
+  testWidgets('TimeStrip stays; TodayLine is not under it', (tester) async {
     await pumpGroup(
       tester,
       plannerOn: true,
       today: 'Finish the lighthouse log before the tide turns.',
     );
     expect(find.byType(TimeStrip), findsOneWidget);
-    expect(find.byType(TodayLine), findsOneWidget);
+    expect(find.byType(TodayLine), findsNothing);
     expect(
       find.text('Finish the lighthouse log before the tide turns.'),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('No plan yet.'), findsNothing);
   });
 
-  testWidgets('TodayLine omitted when flag is off even if a sentence is held',
-      (tester) async {
-    await pumpGroup(
-      tester,
-      plannerOn: false,
-      today: 'Finish the lighthouse log before the tide turns.',
+  testWidgets('Calendar hold shows the sentence and X clears it', (tester) async {
+    final chat = FakeChatService(
+      todaySentence: 'Hold the porch light.',
     );
-    expect(find.byType(TimeStrip), findsOneWidget);
-    expect(find.text('Finish the lighthouse log before the tide turns.'),
-        findsNothing);
-    expect(find.text('No plan yet.'), findsNothing);
-    expect(tester.getSize(find.byType(TodayLine)).height, 0);
-  });
-
-  testWidgets('TodayLine omitted when sentence is empty', (tester) async {
-    await pumpGroup(tester, plannerOn: true, today: null);
-    expect(find.byType(TimeStrip), findsOneWidget);
-    expect(find.text('No plan yet.'), findsNothing);
-    expect(tester.getSize(find.byType(TodayLine)).height, 0);
-  });
-
-  testWidgets('deleting the visible line clears the session sentence',
-      (tester) async {
-    final chat = await pumpGroup(
-      tester,
-      plannerOn: true,
-      today: 'Hold the porch light.',
+    addTearDown(chat.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CalendarTodayHold(
+            enabled: true,
+            text: chat.todaySentence,
+            onAbandon: chat.abandonToday,
+          ),
+        ),
+      ),
     );
-    expect(chat.todaySentence, 'Hold the porch light.');
+    expect(find.text('TODAY'), findsOneWidget);
+    expect(find.text('Hold the porch light.'), findsOneWidget);
     await tester.tap(find.byTooltip("Clear today's plan"));
     await tester.pump();
     expect(chat.todaySentence, isNull);
-    expect(find.text('Hold the porch light.'), findsNothing);
   });
 }

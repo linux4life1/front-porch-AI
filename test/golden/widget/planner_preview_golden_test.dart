@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/calendar_today_hold.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/today_line.dart';
 import 'package:front_porch_ai/ui/widgets/plan_lines_editor.dart';
 
@@ -18,29 +19,24 @@ import '../support/creator_test_support.dart';
 import '../support/fakes.dart';
 import '../support/golden_app.dart';
 
+void _noop() {}
+
 void main() {
   setupPathProviderMock();
 
-  testWidgets('Chat — one sentence under the evening strip', (tester) async {
-    final chat = FakeChatService(timeOfDay: 'evening', dayCount: 3);
-    addTearDown(chat.dispose);
+  testWidgets('Calendar — today hold under the date', (tester) async {
     await expectThemedGoldens(
       tester,
-      child: SizedBox(
+      child: const SizedBox(
         width: 300,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TimeStrip(chat: chat),
-            const TodayLine(
-              enabled: true,
-              text: 'Get Saturday’s errands done before Tuesday’s review.',
-            ),
-          ],
+        child: CalendarTodayHold(
+          enabled: true,
+          text: 'Get Saturday’s errands done before Tuesday’s review.',
+          onAbandon: _noop,
         ),
       ),
       group: 'planner',
-      name: 'today_line_under_strip',
+      name: 'calendar_today_hold',
       surface: const Size(340, 160),
     );
   });

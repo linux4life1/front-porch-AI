@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// V2 glance: presence word under TimeStrip, above TodayLine.
+// V2 glance: presence word under TimeStrip. Plan lives on the calendar.
 // Sheet work row. Group card dims when Away / At work.
 
 @Tags(['golden'])
@@ -14,7 +14,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/today_line.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_card.dart';
 import 'package:front_porch_ai/ui/widgets/work_row.dart';
 
@@ -22,7 +21,7 @@ import '../support/creator_test_support.dart';
 import '../support/fakes.dart';
 import '../support/golden_app.dart';
 
-Widget _stack(FakeChatService chat, PresenceWhere where, {String? today}) {
+Widget _stack(FakeChatService chat, PresenceWhere where) {
   return SizedBox(
     width: 300,
     child: Column(
@@ -30,7 +29,6 @@ Widget _stack(FakeChatService chat, PresenceWhere where, {String? today}) {
       children: [
         TimeStrip(chat: chat),
         PresenceWord(where: where),
-        TodayLine(enabled: true, text: today),
       ],
     ),
   );
@@ -44,11 +42,7 @@ void main() {
     addTearDown(chat.dispose);
     await expectThemedGoldens(
       tester,
-      child: _stack(
-        chat,
-        PresenceWhere.withYou,
-        today: 'Get Saturday’s errands done before Tuesday’s review.',
-      ),
+      child: _stack(chat, PresenceWhere.withYou),
       group: 'v2',
       name: 'with_you',
       surface: const Size(340, 200),

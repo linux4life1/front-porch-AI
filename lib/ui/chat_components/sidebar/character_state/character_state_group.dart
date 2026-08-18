@@ -34,7 +34,6 @@ import 'bond_bars.dart';
 import 'character_state_settings.dart';
 import 'time_strip.dart';
 import 'presence_word.dart';
-import 'today_line.dart';
 
 /// 🎭 Character State — the first warm-porch accordion: everything about who
 /// the character *is right now* in one card. 1:1 shows the emotion line,
@@ -344,13 +343,6 @@ class _CharacterStateGroupState extends State<CharacterStateGroup> {
                           ),
                         ),
                       ),
-                    TodayLine(
-                      enabled: Provider.of<StorageService>(context)
-                          .realismSettings
-                          .plannerEnabled,
-                      text: chat.todaySentence,
-                      onDelete: chat.abandonToday,
-                    ),
                   ],
                 );
               },

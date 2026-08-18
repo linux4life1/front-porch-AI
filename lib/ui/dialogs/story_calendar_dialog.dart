@@ -22,6 +22,8 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/calendar_today_hold.dart';
+import 'package:provider/provider.dart';
 import 'journal_card_editor.dart';
 
 /// The Story Calendar (docs/design/story-calendar.md §6): a month grid over
@@ -147,6 +149,22 @@ class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
                 color: AppColors.textSecondary(context),
               ),
             ),
+            ListenableBuilder(
+              listenable: _chat,
+              builder: (context, _) {
+                var plannerOn = false;
+                try {
+                  plannerOn = Provider.of<StorageService>(context)
+                      .realismSettings
+                      .plannerEnabled;
+                } catch (_) {}
+                return CalendarTodayHold(
+                  enabled: plannerOn,
+                  text: _chat.todaySentence,
+                  onAbandon: _chat.abandonToday,
+                );
+              },
+            ),
             const SizedBox(height: 10),
             _monthNav(context),
             const SizedBox(height: 6),
@@ -257,6 +275,8 @@ class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
     final inStory = !date.isBefore(_startDate) && !date.isAfter(_currentDate);
     final storyDay = _dayFor(date);
     final hasMemories = inStory && _cardsByDay.containsKey(storyDay);
+    final hasPlan = isCurrent &&
+        ((_chat.todaySentence ?? '').trim().isNotEmpty);
     final selected = inStory && _selectedDay == storyDay;
 
     return InkWell(
@@ -293,7 +313,7 @@ class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
             ),
             SizedBox(
               height: 5,
-              child: hasMemories
+              child: (hasMemories || hasPlan)
                   ? Container(
                       width: 4,
                       height: 4,
