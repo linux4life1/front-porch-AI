@@ -14,7 +14,14 @@ enum PresenceWhere { withYou, away, atWork }
 class PresenceWord extends StatelessWidget {
   final PresenceWhere where;
 
-  const PresenceWord({super.key, required this.where});
+  /// False on group cards — the word sits in the header, not under a strip.
+  final bool padTop;
+
+  const PresenceWord({
+    super.key,
+    required this.where,
+    this.padTop = true,
+  });
 
   String get label => switch (where) {
         PresenceWhere.withYou => 'With you',
@@ -29,7 +36,7 @@ class PresenceWord extends StatelessWidget {
   Widget build(BuildContext context) {
     final onScene = where == PresenceWhere.withYou;
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: EdgeInsets.only(top: padTop ? 6 : 0),
       child: Text(
         label,
         maxLines: 1,

@@ -84,7 +84,10 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
   @override
   Widget build(BuildContext context) {
     final chat = widget.chatService;
-    final isRealism = chat.isGroupRealismActive;
+    // Public getters — isGroupRealismActive reads a library-private field
+    // and cannot be faked. Same formula.
+    final isRealism =
+        chat.realismEnabled && chat.isGroupMode && !chat.observerMode;
 
     // Resolve per-character state (only meaningful when realism is on)
     final emotion = isRealism
@@ -140,7 +143,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
 
     // Lust visibility follows the stable per-member group flag (the live
     // nsfwService scalar is per-speaker-volatile in groups).
-    final lustOn = chat.isGroupNsfwEnabled;
+    final lustOn = isRealism && chat.isGroupNsfwEnabled;
     // Arousal has its own ±100 ladder (level ÷ 10) and its own vocabulary, and
     // both must be read for THIS member. The tier came from the bond ladder,
     // and the name came from nsfwService.arousalTierName — the LIVE SPEAKER's
@@ -153,8 +156,19 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
         ? AppColors.frostAccentOf(context)
         : AppColors.lustAccentOf(context);
 
+    final ext = widget.character.frontPorchExtensions;
+    final presence = PresenceWord(
+      where: derivePresence(
+        occupation: ext?.occupation ?? '',
+        hours: ext?.hours ?? '',
+        timeOfDay: chat.timeService.timeOfDay,
+        inScene: widget.isNextSpeaker || widget.isExpanded,
+      ),
+      padTop: false,
+    );
     final isDirector = chat.observerMode;
-    final opacity = isDirector ? 0.38 : 1.0;
+    // Away / At work uses the signed 0.45. Director 0.38 is only for With you.
+    final opacity = presence.dimCard ? 0.45 : (isDirector ? 0.38 : 1.0);
 
     final ringColor = (emotion != null && isRealism)
         ? emotionRingColor(emotion)
@@ -281,6 +295,8 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      presence,
+                      const SizedBox(width: 6),
                       if (widget.isNextSpeaker)
                         Container(
                           padding: const EdgeInsets.symmetric(

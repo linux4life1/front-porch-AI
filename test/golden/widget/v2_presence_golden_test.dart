@@ -11,10 +11,11 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/today_line.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/group_member_card.dart';
 import 'package:front_porch_ai/ui/widgets/work_row.dart';
 
 import '../support/creator_test_support.dart';
@@ -97,34 +98,36 @@ void main() {
   });
 
   testWidgets('Group — Away dims the compact card', (tester) async {
-    const word = PresenceWord(where: PresenceWhere.away);
+    final chat = _GroupCardChat();
+    addTearDown(chat.dispose);
     await expectThemedGoldens(
       tester,
       child: SizedBox(
         width: 300,
-        child: Opacity(
-          opacity: word.dimCard ? 0.45 : 1,
-          child: Row(
-            children: [
-              Builder(
-                builder: (context) => Text(
-                  'Mira',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary(context),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              word,
-            ],
-          ),
+        child: GroupMemberCard(
+          character: CharacterCard(name: 'Mira'),
+          chatService: chat,
+          avatarColor: const Color(0xFF7A6A4F),
+          isNextSpeaker: false,
+          isExpanded: false,
+          onTap: () {},
         ),
       ),
       group: 'v2',
       name: 'group_away_dim',
-      surface: const Size(340, 80),
+      surface: const Size(340, 160),
     );
   });
+}
+
+/// Compact card golden. Realism off so we do not need the full group-state
+/// surface. Away comes from not-in-scene (not next, not expanded).
+class _GroupCardChat extends FakeChatService {
+  _GroupCardChat() : super(timeOfDay: 'evening', dayCount: 3);
+
+  @override
+  bool get isGroupRealismActive => false;
+
+  @override
+  bool get isGroupNsfwEnabled => false;
 }
