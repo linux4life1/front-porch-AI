@@ -653,6 +653,21 @@ mixin ChatServiceTodaySentence on ChangeNotifier {
   }
 
   String? get todayLine => todaySentence;
+
+  /// Drop the RAM hold. Does not touch the DB row.
+  void _clearTodayPointer() {
+    _todaySentence = null;
+    _todayObjectiveId = null;
+    _todayObjectiveText = null;
+    notifyListeners();
+  }
+
+  /// Simulate a reload that lost the RAM id. Test only.
+  @visibleForTesting
+  void dropTodayPointerForTest() {
+    _todayObjectiveId = null;
+    _todayObjectiveText = null;
+  }
 }
 
 enum PlannerTodayFate { done, abandoned, dayAte }
@@ -665,11 +680,57 @@ extension ChatServicePlannerResolve on ChatService {
     };
   }
 
+  bool _looksLikeTodayRow(Objective obj) {
+    if (obj.isPrimary) return false;
+    final served = obj.servedAmbition?.trim();
+    if (served != null && served.isNotEmpty) return false;
+    return tasksForObjective(obj).isEmpty;
+  }
+
+  Objective? _findLiveTodayRow(String text) {
+    return _activeObjectives
+        .where(_looksLikeTodayRow)
+        .where((o) => o.objective == text)
+        .firstOrNull;
+  }
+
+  /// Stale RAM id is dropped. Rebound only by held id or sentence text.
+  /// Never claim a random taskless secondary.
+  void _rebindTodayObjectiveFromDb() {
+    if (_todayObjectiveId != null) {
+      final live =
+          _activeObjectives.where((o) => o.id == _todayObjectiveId).firstOrNull;
+      if (live != null) {
+        _todayObjectiveText = live.objective;
+        if (_todaySentence == null) setTodaySentence(live.objective);
+        return;
+      }
+      _todayObjectiveId = null;
+      _todayObjectiveText = null;
+    }
+    final text = _todaySentence;
+    if (text == null) return;
+    final match = _findLiveTodayRow(text);
+    if (match == null) return;
+    _todayObjectiveId = match.id;
+    _todayObjectiveText = match.objective;
+  }
+
+  bool _isHeldTodayObjective(Objective obj) {
+    if (obj.id == _todayObjectiveId) return true;
+    if (_todayObjectiveId != null) return false;
+    if (!_looksLikeTodayRow(obj)) return false;
+    if (_todaySentence != null) return obj.objective == _todaySentence;
+    return true;
+  }
+
   Future<void> _deactivateTodayObjective() async {
     final id = _todayObjectiveId;
     if (id == null) return;
+    final live = _activeObjectives.where((o) => o.id == id).firstOrNull;
     _todayObjectiveId = null;
     _todayObjectiveText = null;
+    if (live == null) return;
     await _db.updateObjective(
       ObjectivesCompanion(
         id: drift.Value(id),
@@ -684,8 +745,18 @@ extension ChatServicePlannerResolve on ChatService {
   Future<void> _upsertTodayObjective(String line) async {
     final trimmed = line.trim();
     if (trimmed.isEmpty || _currentSessionId == null) return;
-    if (_todayObjectiveId != null) {
-      if (_todayObjectiveText == trimmed) return;
+    if (_todayObjectiveId != null &&
+        !_activeObjectives.any((o) => o.id == _todayObjectiveId)) {
+      _todayObjectiveId = null;
+      _todayObjectiveText = null;
+    }
+    final existing = _findLiveTodayRow(trimmed);
+    if (existing != null) {
+      _todayObjectiveId = existing.id;
+      _todayObjectiveText = trimmed;
+      return;
+    }
+    if (_todayObjectiveId != null && _todayObjectiveText != trimmed) {
       await _deactivateTodayObjective();
     }
     final newId = const Uuid().v4();
@@ -699,7 +770,7 @@ extension ChatServicePlannerResolve on ChatService {
   }
 
   Future<void> _onTodayObjectiveCompleted(Objective obj) async {
-    if (obj.id != _todayObjectiveId && _todayObjectiveId != null) return;
+    if (!_isHeldTodayObjective(obj)) return;
     final held = todaySentence ?? obj.objective;
     _todayObjectiveId = null;
     _todayObjectiveText = null;

@@ -487,7 +487,7 @@ extension ChatServiceWiringEvals on ChatService {
       // ambition progress can move. Fire-and-forget; owner resolved from the
       // objective row's characterId (per-character in groups by construction).
       onQuestAchieved: (obj) {
-        if (obj.id == _todayObjectiveId) {
+        if (_isHeldTodayObjective(obj)) {
           unawaited(_onTodayObjectiveCompleted(obj));
           return;
         }

@@ -190,6 +190,13 @@ void main() {
     await fireToday(chat, 'Sweep the stoop before dusk.');
     final id = chat.todayObjectiveId!;
     chat.abandonToday();
+    for (var i = 0; i < 200; i++) {
+      await Future<void>.delayed(Duration.zero);
+      if (chat.todayObjectiveId == null &&
+          chat.activeObjectives.every((o) => o.id != id)) {
+        break;
+      }
+    }
     await _drain();
 
     expect(chat.todaySentence, isNull);
@@ -230,10 +237,10 @@ void main() {
     final wiring = File(
       'lib/services/chat/chat_service_wiring_evals.dart',
     ).readAsStringSync();
-    expect(wiring, contains('if (obj.id == _todayObjectiveId)'));
+    expect(wiring, contains('if (_isHeldTodayObjective(obj))'));
     expect(wiring, contains('unawaited(_onTodayObjectiveCompleted(obj));'));
     expect(
-      wiring.indexOf('if (obj.id == _todayObjectiveId)'),
+      wiring.indexOf('if (_isHeldTodayObjective(obj))'),
       lessThan(wiring.indexOf('_ambitionService.onQuestAchieved')),
     );
 
@@ -320,6 +327,101 @@ void main() {
       TodayLineTag.proposedCollidesWithToday('Climb the mountain', payload),
       isFalse,
     );
+  });
+
+  test('new chat + same sentence inserts in the new session', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    final oldSid = chat.currentSessionId;
+    final oldId = chat.todayObjectiveId;
+    expect(oldSid, isNotNull);
+    expect(oldId, isNotNull);
+
+    await chat.startNewChat();
+    await _drain();
+    expect(chat.currentSessionId, isNot(oldSid));
+    expect(chat.todayObjectiveId, isNull);
+
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    expect(chat.todayObjectiveId, isNotNull);
+    expect(chat.todayObjectiveId, isNot(oldId));
+    expect(chat.currentSessionId, isNot(oldSid));
+
+    final oldRows = await db.getObjectivesForCharacter(
+      chat.characterIdFor(who),
+      chatId: oldSid,
+    );
+    expect(oldRows.where((o) => o.id == oldId && o.active).length, 1);
+    final newRows = await allRows(chat, who);
+    expect(newRows.where((o) => o.id == chat.todayObjectiveId && o.active).length, 1);
+  });
+
+  test('new chat + new sentence leaves the previous session row active', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    final oldSid = chat.currentSessionId;
+    final oldId = chat.todayObjectiveId;
+
+    await chat.startNewChat();
+    await _drain();
+    await fireToday(chat, 'Water the geraniums.');
+    expect(chat.todayObjectiveId, isNot(oldId));
+    expect(todayRow(chat).objective, 'Water the geraniums.');
+
+    final oldRows = await db.getObjectivesForCharacter(
+      chat.characterIdFor(who),
+      chatId: oldSid,
+    );
+    expect(oldRows.where((o) => o.id == oldId && o.active).length, 1);
+  });
+
+  test('reload with a null pointer rebinds the live row', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    final held = chat.todayObjectiveId;
+    expect(held, isNotNull);
+
+    chat.dropTodayPointerForTest();
+    expect(chat.todayObjectiveId, isNull);
+
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    expect(chat.todayObjectiveId, held);
+    expect(
+      chat.activeObjectives.where((o) => !o.isPrimary && o.active).length,
+      1,
+    );
+  });
+
+  test('orphaned today-row is still the held today objective', () {
+    final evals = File(
+      'lib/services/chat/chat_service_wiring_evals.dart',
+    ).readAsStringSync();
+    expect(evals, contains('if (_isHeldTodayObjective(obj))'));
+    final accessors = File(
+      'lib/services/chat/chat_service_accessors.dart',
+    ).readAsStringSync();
+    expect(accessors, contains('bool _isHeldTodayObjective(Objective obj)'));
+    expect(accessors, contains('if (_todayObjectiveId != null) return false;'));
+    expect(accessors, contains('if (_todaySentence != null) return obj.objective == _todaySentence;'));
+  });
+
+  test('session change clears the today pointer then rebinds', () {
+    final start = File(
+      'lib/services/chat/chat_service_session_manage.dart',
+    ).readAsStringSync();
+    expect(start, contains('_clearTodayPointer();'));
+    final load = File(
+      'lib/services/chat/chat_service_session_load.dart',
+    ).readAsStringSync();
+    expect(load, contains('_clearTodayPointer();'));
+    final objs = File(
+      'lib/services/chat/chat_service_objectives.dart',
+    ).readAsStringSync();
+    expect(objs, contains('_rebindTodayObjectiveFromDb();'));
+    expect(objs, contains('_clearTodayPointer();'));
   });
 
 }

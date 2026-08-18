@@ -203,6 +203,7 @@ extension ChatServiceChatEntry on ChatService {
     _messages.clear();
     _history.reset();
     _currentSessionId = null;
+    _clearTodayPointer();
     _summary = '';
     _summaryLastIndex = 0;
     _selectedLooks

@@ -112,6 +112,7 @@ extension ChatServiceSessionManage on ChatService {
     if (tip == null) return;
 
     final oldSessionId = _currentSessionId!;
+    _clearTodayPointer();
     final forkedMessages = _messages
         .sublist(0, tip + 1)
         .map(
@@ -242,6 +243,7 @@ extension ChatServiceSessionManage on ChatService {
   /// it used to leak in through here whenever the picker was skipped.
   Future<void> startNewChat({String? personaId}) async {
     if (_activeCharacter == null && _activeGroup == null) return;
+    _clearTodayPointer();
 
     await _userPersonaService.setActivePersona(
       personaId ?? _userPersonaService.defaultPersonaId,

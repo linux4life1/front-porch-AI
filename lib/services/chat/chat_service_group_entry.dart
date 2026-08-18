@@ -121,6 +121,7 @@ extension ChatServiceGroupEntry on ChatService {
     _messages.clear();
     _history.reset();
     _currentSessionId = null;
+    _clearTodayPointer();
     // Clear fork/branch state so it doesn't leak across group switches
     // (see startNewChat and setActiveCharacter for rationale).
     _parentSessionId = null;

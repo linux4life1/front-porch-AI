@@ -52,6 +52,7 @@ extension ChatServiceObjectives on ChatService {
           false; // secondary zero in _loadActiveObjectives empty (0-session hygiene for summary flag)
       _isGrowthPassRunning =
           false; // growth-pass flag zero in _loadActiveObjectives empty (0-session hygiene; keep reset blocks in sync)
+      _clearTodayPointer();
       return;
     }
     final charId = _getCharacterIdFromCard(_activeCharacter!);
@@ -71,6 +72,7 @@ extension ChatServiceObjectives on ChatService {
       );
       _activeObjectives = [];
     }
+    _rebindTodayObjectiveFromDb();
     notifyListeners(); // Central _disposed guard in ChatService overrides now protects this (and all other) post-async notify sites. Per-site try/catch removed (deletion part of rec 2 task); see god _disposed + notify override + setActiveCharacter:2205 comment.
   }
 
