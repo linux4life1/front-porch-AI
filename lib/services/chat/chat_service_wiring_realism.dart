@@ -43,8 +43,12 @@ extension ChatServiceWiringRealism on ChatService {
       onStoryDayChanged: () {
         final held = todaySentence;
         setTodaySentence(null);
-        unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.dayAte));
-        unawaited(_deactivateTodayObjective());
+        // Journal before deactivate: both hit Drift, and racing the
+        // today_objective_id clear can drop the dayAte card.
+        unawaited(() async {
+          await _journalResolvedToday(held, fate: PlannerTodayFate.dayAte);
+          await _deactivateTodayObjective();
+        }());
       },
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       onTodayEval: (line) {
@@ -52,11 +56,15 @@ extension ChatServiceWiringRealism on ChatService {
           abandonToday();
         } else {
           final prev = todaySentence;
-          if (prev != null && prev != line) {
-            unawaited(_journalResolvedToday(prev, fate: PlannerTodayFate.done));
-          }
           setTodaySentence(line);
-          unawaited(_upsertTodayObjective(line));
+          // Journal the retired line before upsert/persist so the done
+          // card cannot lose a Drift race with today_objective_id.
+          unawaited(() async {
+            if (prev != null && prev != line) {
+              await _journalResolvedToday(prev, fate: PlannerTodayFate.done);
+            }
+            await _upsertTodayObjective(line);
+          }());
         }
       },
       onPatchLastMessageRealismState: (tod, dc, clockIso) {

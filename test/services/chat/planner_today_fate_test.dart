@@ -104,7 +104,7 @@ void main() {
     expect(
       src,
       contains(
-        'unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.abandoned))',
+        '_journalResolvedToday(held, fate: PlannerTodayFate.abandoned)',
       ),
     );
 

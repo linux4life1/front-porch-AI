@@ -622,8 +622,10 @@ extension ChatServiceAccessors on ChatService {
     // retest tool support for the new model (sidebar pill contract).
     _storageService.addListener(_onBackendIdentity);
     _onTodayAbandoned = (held) {
-      unawaited(_deactivateTodayObjective());
-      unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.abandoned));
+      unawaited(() async {
+        await _deactivateTodayObjective();
+        await _journalResolvedToday(held, fate: PlannerTodayFate.abandoned);
+      }());
     };
   }
 }
@@ -772,8 +774,10 @@ extension ChatServicePlannerResolve on ChatService {
     _todayObjectiveId = null;
     _todayObjectiveText = null;
     setTodaySentence(null);
-    unawaited(_persistTodayObjectiveId(null));
-    unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.done));
+    unawaited(() async {
+      await _journalResolvedToday(held, fate: PlannerTodayFate.done);
+      await _persistTodayObjectiveId(null);
+    }());
   }
 
   /// Journal a finished or day-eaten line. Capture [held] before clearing.
