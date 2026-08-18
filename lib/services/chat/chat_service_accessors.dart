@@ -662,12 +662,6 @@ mixin ChatServiceTodaySentence on ChangeNotifier {
     notifyListeners();
   }
 
-  /// Simulate a reload that lost the RAM id. Test only.
-  @visibleForTesting
-  void dropTodayPointerForTest() {
-    _todayObjectiveId = null;
-    _todayObjectiveText = null;
-  }
 }
 
 enum PlannerTodayFate { done, abandoned, dayAte }
@@ -687,16 +681,18 @@ extension ChatServicePlannerResolve on ChatService {
     return tasksForObjective(obj).isEmpty;
   }
 
-  Objective? _findLiveTodayRow(String text) {
-    return _activeObjectives
-        .where(_looksLikeTodayRow)
-        .where((o) => o.objective == text)
-        .firstOrNull;
+  Objective? _findLiveTodayRow({String? text}) {
+    final hits = _activeObjectives.where(_looksLikeTodayRow);
+    if (text != null) {
+      return hits.where((o) => o.objective == text).firstOrNull;
+    }
+    final list = hits.toList();
+    return list.length == 1 ? list.first : null;
   }
 
-  /// Stale RAM id is dropped. Rebound only by held id or sentence text.
-  /// Never claim a random taskless secondary.
-  void _rebindTodayObjectiveFromDb() {
+  /// Stale RAM id is dropped. Text match always. Unique today-shaped row
+  /// only when [claimIfUnique] — session load after a full pointer clear.
+  void _rebindTodayObjectiveFromDb({bool claimIfUnique = false}) {
     if (_todayObjectiveId != null) {
       final live =
           _activeObjectives.where((o) => o.id == _todayObjectiveId).firstOrNull;
@@ -709,11 +705,20 @@ extension ChatServicePlannerResolve on ChatService {
       _todayObjectiveText = null;
     }
     final text = _todaySentence;
-    if (text == null) return;
-    final match = _findLiveTodayRow(text);
-    if (match == null) return;
-    _todayObjectiveId = match.id;
-    _todayObjectiveText = match.objective;
+    if (text != null) {
+      final match = _findLiveTodayRow(text: text);
+      if (match != null) {
+        _todayObjectiveId = match.id;
+        _todayObjectiveText = match.objective;
+        return;
+      }
+    }
+    if (!claimIfUnique) return;
+    final unique = _findLiveTodayRow();
+    if (unique == null) return;
+    _todayObjectiveId = unique.id;
+    _todayObjectiveText = unique.objective;
+    setTodaySentence(unique.objective);
   }
 
   bool _isHeldTodayObjective(Objective obj) {
@@ -721,7 +726,7 @@ extension ChatServicePlannerResolve on ChatService {
     if (_todayObjectiveId != null) return false;
     if (!_looksLikeTodayRow(obj)) return false;
     if (_todaySentence != null) return obj.objective == _todaySentence;
-    return true;
+    return false;
   }
 
   Future<void> _deactivateTodayObjective() async {
@@ -750,7 +755,7 @@ extension ChatServicePlannerResolve on ChatService {
       _todayObjectiveId = null;
       _todayObjectiveText = null;
     }
-    final existing = _findLiveTodayRow(trimmed);
+    final existing = _findLiveTodayRow(text: trimmed);
     if (existing != null) {
       _todayObjectiveId = existing.id;
       _todayObjectiveText = trimmed;

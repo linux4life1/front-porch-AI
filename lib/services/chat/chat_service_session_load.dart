@@ -618,9 +618,9 @@ extension ChatServiceSessionLoad on ChatService {
       _messagesSinceLastCheck = 0;
       _isCheckingCompletion = false;
       if (_activeGroup != null) {
-        await _loadObjectivesForCurrentSpeaker();
+        await _loadObjectivesForCurrentSpeaker(claimTodayIfUnique: true);
       } else {
-        await _loadActiveObjectives();
+        await _loadActiveObjectives(claimTodayIfUnique: true);
       }
 
       // (Lorebook scanLatest already ran inside _hydrateMessagesFromRows —
