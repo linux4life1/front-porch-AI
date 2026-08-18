@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/chat/today_line_tag.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 final Directory _root = Directory.systemTemp.createTempSync(
@@ -304,4 +305,21 @@ void main() {
     expect(skipFn!.group(1)!, contains('if (_activeGroup == null) return false;'));
     expect(skipFn.group(1)!, contains('return groupTurnSkips(where);'));
   });
+
+  test('proposed_objective matching today_sentence is a collision', () {
+    const payload =
+        '{"today_sentence": "Sweep the stoop before dusk.", "proposed_objective": "Sweep the stoop before dusk."}';
+    expect(
+      TodayLineTag.proposedCollidesWithToday(
+        'Sweep the stoop before dusk.',
+        payload,
+      ),
+      isTrue,
+    );
+    expect(
+      TodayLineTag.proposedCollidesWithToday('Climb the mountain', payload),
+      isFalse,
+    );
+  });
+
 }

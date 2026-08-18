@@ -90,20 +90,4 @@ void main() {
     ]);
     expect(TodayLineTag.parseEvalSentence(none!), isEmpty);
   });
-
-  test('proposed_objective matching today_sentence is a collision', () {
-    const payload =
-        '{"today_sentence": "Sweep the stoop before dusk.", "proposed_objective": "Sweep the stoop before dusk."}';
-    expect(
-      TodayLineTag.proposedCollidesWithToday(
-        'Sweep the stoop before dusk.',
-        payload,
-      ),
-      isTrue,
-    );
-    expect(
-      TodayLineTag.proposedCollidesWithToday('Climb the mountain', payload),
-      isFalse,
-    );
-  });
 }
