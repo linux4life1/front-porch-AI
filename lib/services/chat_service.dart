@@ -915,18 +915,9 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   ChaosModeService get chaosModeService => _chaosModeService;
   NeedsSimulation get needsSimulation => _needsSimulation;
 
-  // (expressionService / chaosPressure / activeFixation / pendingTrustRepair /
-  // currentExpressionLabel / resolveExpressionAvatar / _realismActiveThisMode /
-  // isCancellingRealismEval moved to chat_service_accessors.dart — thin
-  // delegation to the respective *Service, 1:1 vs group parity via the
-  // services' cbs + god impersonation dance, unchanged)
   bool get realismEnabled => _realismEnabled;
-
-  /// Empty stance fails toward here. Group card glance. Fake-pinned.
-  String spatialStanceForGroupCharacter(CharacterCard character) {
-    final id = _getCharacterIdFromCard(character);
-    return _groupRealism[id]?.spatialStance ?? '';
-  }
+  String spatialStanceForGroupCharacter(CharacterCard character) =>
+      _spatialStanceForGroupCharacterImpl(character);
   // Fake-pinned (see the class doc): body in accessors, member stays here.
   bool get objectivesActive => _objectivesActiveImpl;
 

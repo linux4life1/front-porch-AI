@@ -27,6 +27,12 @@ part of '../chat_service.dart';
 /// extension reaches the private `_groupRealism` map, `_getCharacterIdFromCard`,
 /// `_activeGroup`, and `isGroupRealismActive` exactly as the in-class methods did.
 extension ChatServiceGroupRead on ChatService {
+  /// Empty stance fails toward here. Group card glance.
+  String _spatialStanceForGroupCharacterImpl(CharacterCard character) {
+    final id = _getCharacterIdFromCard(character);
+    return _groupRealism[id]?.spatialStance ?? '';
+  }
+
   /// Returns the current emotion label (e.g. "joy", "sadness", "affection") for
   /// the given character when in a realism-enabled group chat. Returns null otherwise.
   String? getEmotionForGroupCharacter(CharacterCard character) {
