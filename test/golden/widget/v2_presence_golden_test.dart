@@ -126,12 +126,6 @@ class _GroupCardChat extends FakeChatService {
   _GroupCardChat() : super(timeOfDay: 'evening', dayCount: 3);
 
   @override
-  bool get isGroupRealismActive => false;
-
-  @override
-  bool get isGroupNsfwEnabled => false;
-
-  @override
   String spatialStanceForGroupCharacter(CharacterCard character) =>
       'left the room';
 }
