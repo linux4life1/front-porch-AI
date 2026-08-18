@@ -44,6 +44,7 @@ extension ChatServiceWiringRealism on ChatService {
         final held = todaySentence;
         setTodaySentence(null);
         unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.dayAte));
+        unawaited(_deactivateTodayObjective());
       },
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       onTodayEval: (line) {
@@ -55,6 +56,7 @@ extension ChatServiceWiringRealism on ChatService {
             unawaited(_journalResolvedToday(prev, fate: PlannerTodayFate.done));
           }
           setTodaySentence(line);
+          unawaited(_upsertTodayObjective(line));
         }
       },
       onPatchLastMessageRealismState: (tod, dc, clockIso) {

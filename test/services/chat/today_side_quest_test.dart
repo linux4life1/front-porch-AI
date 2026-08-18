@@ -1,0 +1,307 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Today is one secondary objective on the existing tracker. Match by
+// held id. Never primary, never tasks, never an ambition.
+
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/services.dart';
+
+final Directory _root = Directory.systemTemp.createTempSync(
+  'fpai_today_quest_',
+);
+
+void _setupPathProviderMock() {
+  const channel = MethodChannel('plugins.flutter.io/path_provider');
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (MethodCall call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return _root.path;
+        }
+        return null;
+      });
+}
+
+class _YesLlm extends LLMService {
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    yield '1: YES';
+  }
+
+  @override
+  bool get isReady => true;
+
+  @override
+  String get backendName => 'YesLlm';
+}
+
+Future<void> _drain([int n = 40]) async {
+  for (var i = 0; i < n; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  _setupPathProviderMock();
+
+  late AppDatabase db;
+  late StorageService storage;
+  late ChatService chat;
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({
+      'update_auto_check': false,
+      'realism_default': false,
+      'pockets_enabled': false,
+      'journal_enabled': false,
+    });
+    db = AppDatabase.forTesting();
+    storage = StorageService();
+    chat =
+        ChatService(
+            KoboldService(storage),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..setCharacterRepository(CharacterRepository(db, storage))
+          ..testLlmServiceOverride = _YesLlm();
+    await storage.initialized;
+    await storage.realismSettings.setPlannerEnabled(true);
+  });
+
+  tearDown(() async {
+    chat.dispose();
+    await db.close();
+  });
+
+  CharacterCard card() => CharacterCard(
+    name: 'Ada',
+    description: 'Exists only inside the today side-quest lock.',
+    firstMessage: 'The screen door bangs shut behind you.',
+  )..dbId = 'char-today-quest';
+
+  Future<void> fireToday(ChatService c, String sentence) async {
+    await c.timeService.evaluateTimeProgressAndPostureIfNeeded(
+      charName: 'Ada',
+      recent: 'User: What are you doing?\nAda: She stacks the books.',
+      shortTermTierName: 'Warm',
+      onChunk: null,
+      fireLLMEval: (p, {onChunk}) async => null,
+      stripThinkBlocks: (s) => s,
+      extractJsonBool: (raw, key) {
+        final m = RegExp('"' + key + r'"\s*:\s*(true|false)').firstMatch(raw);
+        return m == null ? null : m.group(1) == 'true';
+      },
+      setSpatialStance: (_) {},
+      getCurrentSpatialStance: () => '',
+      getCharacterEmotion: () => '',
+      getEmotionIntensity: () => '',
+      oneShotMode: true,
+      oneShotText:
+          '{"minutes_elapsed": 5, "new_day": false, "today_sentence": "$sentence"}',
+    );
+    for (var i = 0; i < 200; i++) {
+      await Future<void>.delayed(Duration.zero);
+      if (c.todayObjectiveId != null &&
+          c.activeObjectives.any((o) => o.id == c.todayObjectiveId)) {
+        return;
+      }
+    }
+  }
+
+  Future<List<Objective>> allRows(ChatService c, CharacterCard who) {
+    return db.getObjectivesForCharacter(
+      c.characterIdFor(who),
+      chatId: c.currentSessionId,
+    );
+  }
+
+  Objective todayRow(ChatService c) {
+    final id = c.todayObjectiveId;
+    expect(id, isNotNull);
+    return c.activeObjectives.singleWhere((o) => o.id == id);
+  }
+
+  test('spawn writes one secondary with empty tasks and no ambition', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+
+    expect(chat.todaySentence, 'Sweep the stoop before dusk.');
+    expect(chat.todayObjectiveId, isNotNull);
+    final row = todayRow(chat);
+    expect(row.isPrimary, isFalse);
+    expect(row.servedAmbition, isNull);
+    expect(row.tasks, '[]');
+    expect(row.active, isTrue);
+    expect(row.objective, 'Sweep the stoop before dusk.');
+    expect(chat.primaryObjective, isNull);
+    expect(chat.secondaryObjectives, hasLength(1));
+  });
+
+  test('same sentence does not spawn a duplicate', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    final id = chat.todayObjectiveId;
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+
+    expect(chat.todayObjectiveId, id);
+    expect(chat.activeObjectives, hasLength(1));
+    expect(chat.activeObjectives.single.id, id);
+  });
+
+  test('new sentence retires the old today-row and inserts the new one', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    final oldId = chat.todayObjectiveId!;
+    await fireToday(chat, 'Hold the porch light.');
+
+    expect(chat.todaySentence, 'Hold the porch light.');
+    expect(chat.todayObjectiveId, isNotNull);
+    expect(chat.todayObjectiveId, isNot(oldId));
+    final live = todayRow(chat);
+    expect(live.objective, 'Hold the porch light.');
+    expect(live.isPrimary, isFalse);
+    expect(live.servedAmbition, isNull);
+    expect(live.tasks, '[]');
+
+    final rows = await allRows(chat, who);
+    final retired = rows.singleWhere((o) => o.id == oldId);
+    expect(retired.active, isFalse);
+    expect(retired.isPrimary, isFalse);
+  });
+
+  test('abandonToday deactivates the today-row and does not complete it', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    final id = chat.todayObjectiveId!;
+    chat.abandonToday();
+    await _drain();
+
+    expect(chat.todaySentence, isNull);
+    expect(chat.todayObjectiveId, isNull);
+    expect(chat.characterEmotion, 'annoyed');
+    expect(chat.activeObjectives, isEmpty);
+    final retired = (await allRows(chat, who)).singleWhere((o) => o.id == id);
+    expect(retired.active, isFalse);
+    expect(retired.isPrimary, isFalse);
+    expect(retired.servedAmbition, isNull);
+    expect(retired.tasks, '[]');
+    final cards = await chat.journalStore.cardsFor(
+      chat.currentSessionId!,
+      chat.characterIdFor(who),
+    );
+    expect(cards, isEmpty);
+  });
+
+  test('day-roll miss deactivates and does not mark complete', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await fireToday(chat, 'Hold the porch light.');
+    final id = chat.todayObjectiveId!;
+    chat.timeService.setClockDirect(
+      chat.timeService.clock.add(const Duration(days: 1)),
+    );
+    await _drain();
+
+    expect(chat.todaySentence, isNull);
+    expect(chat.todayObjectiveId, isNull);
+    expect(chat.characterEmotion, 'annoyed');
+    final retired = (await allRows(chat, who)).singleWhere((o) => o.id == id);
+    expect(retired.active, isFalse);
+    expect(retired.isPrimary, isFalse);
+  });
+
+  test('complete keeps secondary shape and does not serve an ambition', () async {
+    final wiring = File(
+      'lib/services/chat/chat_service_wiring_evals.dart',
+    ).readAsStringSync();
+    expect(wiring, contains('if (obj.id == _todayObjectiveId)'));
+    expect(wiring, contains('unawaited(_onTodayObjectiveCompleted(obj));'));
+    expect(
+      wiring.indexOf('if (obj.id == _todayObjectiveId)'),
+      lessThan(wiring.indexOf('_ambitionService.onQuestAchieved')),
+    );
+
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    final todayId = chat.todayObjectiveId!;
+    expect(chat.primaryObjective, isNull);
+    expect(todayRow(chat).isPrimary, isFalse);
+
+    chat.forceCheckCompletion();
+    for (var i = 0; i < 200; i++) {
+      await Future<void>.delayed(Duration.zero);
+      if (chat.todayObjectiveId == null && chat.todaySentence == null) {
+        break;
+      }
+    }
+    await _drain(20);
+
+    expect(chat.todaySentence, isNull);
+    expect(chat.todayObjectiveId, isNull);
+    expect(chat.characterEmotion, 'content');
+    expect(chat.primaryObjective, isNull);
+
+    final done = (await allRows(chat, who)).singleWhere((o) => o.id == todayId);
+    expect(done.active, isFalse);
+    expect(done.isPrimary, isFalse);
+    expect(done.servedAmbition, isNull);
+    expect(done.tasks, '[]');
+
+    final cards = await chat.journalStore.cardsFor(
+      chat.currentSessionId!,
+      chat.characterIdFor(who),
+    );
+    expect(cards.any((c) => c.content == 'Sweep the stoop before dusk.'), isTrue);
+  });
+
+  test('today insert does not evict other secondaries or steal primary', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    await chat.setObjective('Main quest', isPrimary: true);
+    await chat.setObjective('Side one', isPrimary: false);
+    await chat.setObjective('Side two', isPrimary: false);
+    final before = chat.activeObjectives.map((o) => o.id).toSet();
+    expect(chat.primaryObjective?.objective, 'Main quest');
+    expect(chat.secondaryObjectives, hasLength(2));
+
+    await fireToday(chat, 'Sweep the stoop before dusk.');
+    expect(chat.primaryObjective?.objective, 'Main quest');
+    expect(chat.todayObjectiveId, isNotNull);
+    expect(chat.secondaryObjectives.length, greaterThanOrEqualTo(3));
+    for (final id in before) {
+      expect(chat.activeObjectives.any((o) => o.id == id), isTrue);
+    }
+    final row = todayRow(chat);
+    expect(row.isPrimary, isFalse);
+    expect(row.servedAmbition, isNull);
+    expect(row.tasks, '[]');
+  });
+
+  test('1:1 Away and At work never skip still holds', () {
+    final skipSrc = File(
+      'lib/services/chat/chat_service_turn_flow.dart',
+    ).readAsStringSync();
+    final skipFn = RegExp(
+      r'bool _groupSpeakerSkips\(CharacterCard card\) \{([\s\S]*?)\n  \}',
+    ).firstMatch(skipSrc);
+    expect(skipFn, isNotNull);
+    expect(skipFn!.group(1)!, contains('if (_activeGroup == null) return false;'));
+    expect(skipFn.group(1)!, contains('return groupTurnSkips(where);'));
+  });
+}

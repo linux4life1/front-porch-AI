@@ -31,6 +31,7 @@ import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_prompt_builder.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
+import 'package:front_porch_ai/services/chat/today_line_tag.dart';
 import 'package:front_porch_ai/services/chat/realism_verification.dart';
 import 'package:front_porch_ai/services/llm_service.dart' show LlmToolResponse;
 import 'package:front_porch_ai/utils/utils.dart';

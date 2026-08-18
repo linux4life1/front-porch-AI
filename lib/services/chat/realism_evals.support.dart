@@ -119,7 +119,8 @@ extension _RealismEvalSupport on RealismEvals {
       final isDuplicate = active.any(
         (o) => o.objective.toLowerCase() == objectiveRaw.toLowerCase(),
       );
-      if (!isDuplicate) {
+      if (!isDuplicate &&
+          !TodayLineTag.proposedCollidesWithToday(objectiveRaw, text)) {
         // Claim the main-quest slot when it's free: the character's self-initiated
         // goal becomes their driving primary quest with a full task arc. When a
         // primary already exists (user-set or an earlier autonomous quest), the

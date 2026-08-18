@@ -205,7 +205,11 @@ extension RealismEvalOneShot on RealismEvals {
           final isDuplicate = active.any(
             (o) => o.objective.toLowerCase() == newObj.toLowerCase(),
           );
-          if (!isDuplicate) {
+          if (!isDuplicate &&
+              !TodayLineTag.proposedCollidesWithToday(
+                newObj,
+                textForOneShot,
+              )) {
             // Same decision as the narrative path (strict oneShot vs normal parity):
             // claim the main-quest slot when it's free, stay a side quest when a
             // primary already exists — never displace an existing main quest.

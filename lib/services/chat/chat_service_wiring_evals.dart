@@ -487,6 +487,10 @@ extension ChatServiceWiringEvals on ChatService {
       // ambition progress can move. Fire-and-forget; owner resolved from the
       // objective row's characterId (per-character in groups by construction).
       onQuestAchieved: (obj) {
+        if (obj.id == _todayObjectiveId) {
+          unawaited(_onTodayObjectiveCompleted(obj));
+          return;
+        }
         // The Ambitions switch has to stop the WORK, not just the display.
         // Without this, turning ambitions off still spent a model call on
         // every quest completion — a switch that hid the feature while

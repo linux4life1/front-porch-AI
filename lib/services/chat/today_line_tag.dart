@@ -54,4 +54,12 @@ class TodayLineTag {
     if (line.length > 140) line = line.substring(0, 140).trim();
     return line;
   }
+
+  /// Same-turn collision: proposed_objective must not claim the today line
+  /// as a new main quest.
+  static bool proposedCollidesWithToday(String proposed, String evalText) {
+    final today = parseEvalSentence(evalText);
+    if (today == null || today.isEmpty) return false;
+    return today.toLowerCase() == proposed.trim().toLowerCase();
+  }
 }

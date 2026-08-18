@@ -219,6 +219,41 @@ extension ChatServiceObjectives on ChatService {
     }
   }
 
+  /// Planner today line: one secondary, no tasks, no ambition, no eviction.
+  Future<String?> _insertTodaySideQuest(String goal, {String? id}) async {
+    if (goal.trim().isEmpty || _currentSessionId == null) return null;
+    CharacterCard? target;
+    if (_activeGroup != null) {
+      final currentIsGroupMember =
+          _activeCharacter != null &&
+          _groupCharacters.any(
+            (c) =>
+                _getCharacterIdFromCard(c) ==
+                _getCharacterIdFromCard(_activeCharacter!),
+          );
+      target = currentIsGroupMember
+          ? _activeCharacter
+          : (nextCharacter ?? _groupCharacters.firstOrNull);
+    } else {
+      target = _activeCharacter;
+    }
+    if (target == null) return null;
+    final newId = id ?? const Uuid().v4();
+    await _db.insertObjective(
+      ObjectivesCompanion.insert(
+        id: newId,
+        characterId: _getCharacterIdFromCard(target),
+        objective: goal.trim(),
+        chatId: drift.Value(_currentSessionId),
+        active: const drift.Value(true),
+        isPrimary: const drift.Value(false),
+        servedAmbition: const drift.Value(null),
+      ),
+    );
+    await _loadActiveObjectives();
+    return newId;
+  }
+
   /// Promote an existing side quest to the primary quest IN PLACE, demoting any
   /// current primary to a side quest. Unlike calling [setObjective] with the same
   /// text (the old promote pattern), this keeps the objective's id and its

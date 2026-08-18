@@ -622,6 +622,7 @@ extension ChatServiceAccessors on ChatService {
     // retest tool support for the new model (sidebar pill contract).
     _storageService.addListener(_onBackendIdentity);
     _onTodayAbandoned = (held) {
+      unawaited(_deactivateTodayObjective());
       unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.abandoned));
     };
   }
@@ -631,9 +632,12 @@ extension ChatServiceAccessors on ChatService {
 /// under the 1000-line ratchet. Day-clear is on the clock advance.
 mixin ChatServiceTodaySentence on ChangeNotifier {
   String? _todaySentence;
+  String? _todayObjectiveId;
+  String? _todayObjectiveText;
   void Function(String? held)? _onTodayAbandoned;
 
   String? get todaySentence => _todaySentence;
+  String? get todayObjectiveId => _todayObjectiveId;
 
   void setTodaySentence(String? value) {
     final next = value?.trim();
@@ -659,6 +663,48 @@ extension ChatServicePlannerResolve on ChatService {
       PlannerTodayFate.done => 'content',
       PlannerTodayFate.abandoned || PlannerTodayFate.dayAte => 'annoyed',
     };
+  }
+
+  Future<void> _deactivateTodayObjective() async {
+    final id = _todayObjectiveId;
+    if (id == null) return;
+    _todayObjectiveId = null;
+    _todayObjectiveText = null;
+    await _db.updateObjective(
+      ObjectivesCompanion(
+        id: drift.Value(id),
+        active: const drift.Value(false),
+      ),
+    );
+    await _loadActiveObjectives();
+  }
+
+  /// One secondary today-row. Match/replace by held id. Never primary,
+  /// never tasks, never an ambition, never evicts other secondaries.
+  Future<void> _upsertTodayObjective(String line) async {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty || _currentSessionId == null) return;
+    if (_todayObjectiveId != null) {
+      if (_todayObjectiveText == trimmed) return;
+      await _deactivateTodayObjective();
+    }
+    final newId = const Uuid().v4();
+    _todayObjectiveId = newId;
+    _todayObjectiveText = trimmed;
+    final inserted = await _insertTodaySideQuest(trimmed, id: newId);
+    if (inserted == null) {
+      _todayObjectiveId = null;
+      _todayObjectiveText = null;
+    }
+  }
+
+  Future<void> _onTodayObjectiveCompleted(Objective obj) async {
+    if (obj.id != _todayObjectiveId && _todayObjectiveId != null) return;
+    final held = todaySentence ?? obj.objective;
+    _todayObjectiveId = null;
+    _todayObjectiveText = null;
+    setTodaySentence(null);
+    unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.done));
   }
 
   /// Journal a finished or day-eaten line. Capture [held] before clearing.
