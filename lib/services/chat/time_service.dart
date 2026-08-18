@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/pass_support.dart';
@@ -135,7 +137,7 @@ class TimeService {
 
   /// Fires when the story day actually rolls. ChatService journals
   /// the held today sentence here — not in a getter.
-  final void Function()? onStoryDayChanged;
+  final FutureOr<void> Function()? onStoryDayChanged;
 
   /// When true, the scene-time eval (and one-shot text) asks for
   /// `today_sentence`. Default off so existing constructors stay valid.
@@ -143,7 +145,7 @@ class TimeService {
 
   /// Empty string = abandon; non-empty = set. Do not write [todayLine]
   /// from the eval — ChatService owns the hold via this callback.
-  final void Function(String line)? onTodayEval;
+  final FutureOr<void> Function(String line)? onTodayEval;
 
   // Owned state — the whole subsystem.
   DateTime _clock = StoryClock.representativeTime(
@@ -165,10 +167,10 @@ class TimeService {
     _todayLineDayCount = null;
   }
 
-  void _ifDayChanged(int dayBefore) {
+  Future<void> _ifDayChanged(int dayBefore) async {
     if (dayCount == dayBefore) return;
     clearTodayLine();
-    onStoryDayChanged?.call();
+    await onStoryDayChanged?.call();
   }
 
   String? get visibleTodayLine {
@@ -468,7 +470,7 @@ class TimeService {
   /// Calendar dialog: set the story's current moment directly. Pulls the
   /// anchor back when the new moment predates Day 1 (the story now starts
   /// earlier). Same swipe-survival patch as a nudge.
-  void setClockDirect(DateTime newClock) {
+  Future<void> setClockDirect(DateTime newClock) async {
     final dayBefore = dayCount;
     _clock = DateTime.utc(
       newClock.year,
@@ -479,7 +481,7 @@ class TimeService {
     );
     if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
     _turnsSinceClockMoved = 0;
-    _ifDayChanged(dayBefore);
+    await _ifDayChanged(dayBefore);
     onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
   }
 
@@ -675,10 +677,10 @@ class TimeService {
     return m == null ? null : int.tryParse(m.group(1)!);
   }
 
-  void _maybeApplyTodayEval(String text) {
+  Future<void> _maybeApplyTodayEval(String text) async {
     if (!(getPlannerEnabled?.call() ?? false)) return;
     final parsed = TodayLineTag.parseEvalSentence(text);
-    if (parsed != null) onTodayEval?.call(parsed);
+    if (parsed != null) await onTodayEval?.call(parsed);
   }
 
   /// The posture question alone — shared VERBATIM between the standalone
@@ -867,7 +869,7 @@ class TimeService {
           '[Realism:Time] OOC skip owns this turn — one-shot clock '
           'movement suppressed',
         );
-        _maybeApplyTodayEval(text);
+        await _maybeApplyTodayEval(text);
         return;
       }
       final saidNewDay = extractJsonBool(text, 'new_day') ?? false;
@@ -876,7 +878,7 @@ class TimeService {
         minutes: _extractMinutes(text),
         newDay: saidNewDay && newDayCorroborated,
       );
-      _maybeApplyTodayEval(text);
+      await _maybeApplyTodayEval(text);
       debugPrint(
         '[Realism:Time] One-shot elapsed applied → $displayClock (Day $dayCount)',
       );
@@ -940,7 +942,7 @@ class TimeService {
             newDay: saidNewDay && newDayCorroborated,
           );
         }
-        _maybeApplyTodayEval(text);
+        await _maybeApplyTodayEval(text);
       } else if (!skipOwnsClock) {
         _applyElapsed(minutes: null, newDay: false);
       }

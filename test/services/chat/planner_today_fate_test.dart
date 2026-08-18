@@ -189,7 +189,7 @@ void main() {
 
     chat.setTodaySentence('Hold the porch light.');
     final before = chat.timeService.clock;
-    chat.timeService.setClockDirect(before.add(const Duration(days: 1)));
+    await chat.timeService.setClockDirect(before.add(const Duration(days: 1)));
     await _drain();
 
     expect(chat.todaySentence, isNull);
@@ -262,7 +262,7 @@ void main() {
     expect(chat.todaySentence, line);
 
     final before = chat.timeService.clock;
-    chat.timeService.setClockDirect(before.add(const Duration(days: 1)));
+    await chat.timeService.setClockDirect(before.add(const Duration(days: 1)));
     expect(chat.todaySentence, isNull);
     await _drain();
 

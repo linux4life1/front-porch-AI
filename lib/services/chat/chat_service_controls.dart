@@ -180,7 +180,7 @@ extension ChatServiceControls on ChatService {
   /// Same guard/save/notify shape as the nudge (it IS a precise nudge).
   Future<void> setStoryClock(DateTime clock) async {
     if (!_realismEnabled) return;
-    _timeService.setClockDirect(clock);
+    await _timeService.setClockDirect(clock);
     // Day-ate journal rides TimeService.onStoryDayChanged.
     await _saveChat();
     notifyListeners();

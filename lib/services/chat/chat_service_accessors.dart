@@ -676,20 +676,6 @@ extension ChatServicePlannerResolve on ChatService {
     };
   }
 
-  bool _looksLikeTodayRow(Objective obj) {
-    if (obj.isPrimary) return false;
-    final served = obj.servedAmbition?.trim();
-    if (served != null && served.isNotEmpty) return false;
-    return tasksForObjective(obj).isEmpty;
-  }
-
-  Objective? _findLiveTodayRow(String text) {
-    return _activeObjectives
-        .where(_looksLikeTodayRow)
-        .where((o) => o.objective == text)
-        .firstOrNull;
-  }
-
   Future<void> _persistTodayObjectiveId(String? id) async {
     final sid = _currentSessionId;
     if (sid == null) return;
@@ -742,20 +728,28 @@ extension ChatServicePlannerResolve on ChatService {
   Future<void> _upsertTodayObjective(String line) async {
     final trimmed = line.trim();
     if (trimmed.isEmpty || _currentSessionId == null) return;
-    if (_todayObjectiveId != null &&
-        !_activeObjectives.any((o) => o.id == _todayObjectiveId)) {
-      _todayObjectiveId = null;
-      _todayObjectiveText = null;
-    }
-    final existing = _findLiveTodayRow(trimmed);
-    if (existing != null) {
-      _todayObjectiveId = existing.id;
-      _todayObjectiveText = trimmed;
-      await _persistTodayObjectiveId(existing.id);
-      return;
-    }
-    if (_todayObjectiveId != null && _todayObjectiveText != trimmed) {
-      await _deactivateTodayObjective();
+    final heldId = _todayObjectiveId;
+    if (heldId != null) {
+      final held =
+          _activeObjectives.where((o) => o.id == heldId).firstOrNull;
+      if (held != null && held.objective == trimmed) {
+        _todayObjectiveText = trimmed;
+        await _persistTodayObjectiveId(heldId);
+        return;
+      }
+      if (held == null &&
+          (_todayObjectiveText == trimmed || todaySentence == trimmed)) {
+        // List has not loaded the held row yet. Do not insert a second.
+        await _persistTodayObjectiveId(heldId);
+        return;
+      }
+      if (held != null && held.objective != trimmed) {
+        await _deactivateTodayObjective();
+      } else if (held == null) {
+        _todayObjectiveId = null;
+        _todayObjectiveText = null;
+        await _persistTodayObjectiveId(null);
+      }
     }
     final newId = const Uuid().v4();
     _todayObjectiveId = newId;

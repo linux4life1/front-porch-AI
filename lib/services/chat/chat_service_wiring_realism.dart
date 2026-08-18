@@ -43,29 +43,25 @@ extension ChatServiceWiringRealism on ChatService {
       onStoryDayChanged: () {
         final held = todaySentence;
         setTodaySentence(null);
-        // Journal before deactivate: both hit Drift, and racing the
-        // today_objective_id clear can drop the dayAte card.
-        unawaited(() async {
+        return () async {
           await _journalResolvedToday(held, fate: PlannerTodayFate.dayAte);
           await _deactivateTodayObjective();
-        }());
+        }();
       },
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       onTodayEval: (line) {
         if (line.isEmpty) {
           abandonToday();
-        } else {
-          final prev = todaySentence;
-          setTodaySentence(line);
-          // Journal the retired line before upsert/persist so the done
-          // card cannot lose a Drift race with today_objective_id.
-          unawaited(() async {
-            if (prev != null && prev != line) {
-              await _journalResolvedToday(prev, fate: PlannerTodayFate.done);
-            }
-            await _upsertTodayObjective(line);
-          }());
+          return Future<void>.value();
         }
+        final prev = todaySentence;
+        setTodaySentence(line);
+        return () async {
+          if (prev != null && prev != line) {
+            await _journalResolvedToday(prev, fate: PlannerTodayFate.done);
+          }
+          await _upsertTodayObjective(line);
+        }();
       },
       onPatchLastMessageRealismState: (tod, dc, clockIso) {
         // Patch the newest REAL message — never a narration banner. Dream /

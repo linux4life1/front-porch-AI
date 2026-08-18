@@ -223,7 +223,7 @@ void main() {
     await chat.setActiveCharacter(who);
     await fireToday(chat, 'Hold the porch light.');
     final id = chat.todayObjectiveId!;
-    chat.timeService.setClockDirect(
+    await chat.timeService.setClockDirect(
       chat.timeService.clock.add(const Duration(days: 1)),
     );
     for (var i = 0; i < 200; i++) {
