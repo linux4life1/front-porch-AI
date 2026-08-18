@@ -121,7 +121,7 @@ void main() {
 }
 
 /// Compact card golden. Realism off so we do not need the full group-state
-/// surface. Away comes from not-in-scene (not next, not expanded).
+/// surface. Away comes from stance, not from collapsed / not-next.
 class _GroupCardChat extends FakeChatService {
   _GroupCardChat() : super(timeOfDay: 'evening', dayCount: 3);
 
@@ -130,4 +130,8 @@ class _GroupCardChat extends FakeChatService {
 
   @override
   bool get isGroupNsfwEnabled => false;
+
+  @override
+  String spatialStanceForGroupCharacter(CharacterCard character) =>
+      'left the room';
 }

@@ -921,6 +921,12 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   // delegation to the respective *Service, 1:1 vs group parity via the
   // services' cbs + god impersonation dance, unchanged)
   bool get realismEnabled => _realismEnabled;
+
+  /// Empty stance fails toward here. Group card glance. Fake-pinned.
+  String spatialStanceForGroupCharacter(CharacterCard character) {
+    final id = _getCharacterIdFromCard(character);
+    return _groupRealism[id]?.spatialStance ?? '';
+  }
   // Fake-pinned (see the class doc): body in accessors, member stays here.
   bool get objectivesActive => _objectivesActiveImpl;
 

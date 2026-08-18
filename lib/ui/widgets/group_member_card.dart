@@ -162,7 +162,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
         occupation: ext?.occupation ?? '',
         hours: ext?.hours ?? '',
         timeOfDay: chat.timeService.timeOfDay,
-        inScene: widget.isNextSpeaker || widget.isExpanded,
+        inScene: !stanceSaysAway(
+          chat.spatialStanceForGroupCharacter(widget.character),
+        ),
       ),
       padTop: false,
     );
