@@ -158,7 +158,12 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
         : AppColors.lustAccentOf(context);
 
     final ext = widget.character.frontPorchExtensions;
-    final repo = Provider.maybeOf<CharacterRepository>(context);
+    CharacterRepository? repo;
+    try {
+      repo = Provider.of<CharacterRepository>(context, listen: false);
+    } on ProviderNotFoundException {
+      repo = null;
+    }
     final library = MemberOriginResolver.resolve(
       stampedOriginStableId: null,
       memberName: widget.character.name,
