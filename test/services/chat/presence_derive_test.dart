@@ -168,4 +168,26 @@ void main() {
       isFalse,
     );
   });
+
+  test('hoursMatch 9-5 morning stays true', () {
+    expect(hoursMatch('9-5', 'morning'), isTrue);
+  });
+
+  test('empty group ext falls back to library 9-5 morning At work', () {
+    final work = workFieldsForGroupMember(
+      copyOccupation: '',
+      copyHours: '',
+      libraryOccupation: 'meteorologist',
+      libraryHours: '9-5',
+    );
+    expect(
+      derivePresence(
+        occupation: work.occupation,
+        hours: work.hours,
+        timeOfDay: 'morning',
+        inScene: false,
+      ),
+      PresenceWhere.atWork,
+    );
+  });
 }

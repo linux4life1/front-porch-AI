@@ -7,6 +7,22 @@
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 
+/// Group copies often drop occupation/hours (fromJson only reads
+/// realism_engine.*). Blank copy fields fall back to the origin library card.
+({String occupation, String hours}) workFieldsForGroupMember({
+  required String copyOccupation,
+  required String copyHours,
+  String? libraryOccupation,
+  String? libraryHours,
+}) {
+  final occ = copyOccupation.trim();
+  final hrs = copyHours.trim();
+  return (
+    occupation: occ.isNotEmpty ? occ : (libraryOccupation ?? '').trim(),
+    hours: hrs.isNotEmpty ? hrs : (libraryHours ?? '').trim(),
+  );
+}
+
 /// Derive the glance word.
 ///
 /// Order: at work (occupation + hours match the period) → Away (not

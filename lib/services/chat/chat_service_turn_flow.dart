@@ -102,9 +102,16 @@ extension ChatServiceTurnFlow on ChatService {
   bool _groupSpeakerSkips(CharacterCard card) {
     if (_activeGroup == null) return false;
     final ext = card.frontPorchExtensions;
+    final library = originLibraryCardFor(card);
+    final work = workFieldsForGroupMember(
+      copyOccupation: ext?.occupation ?? '',
+      copyHours: ext?.hours ?? '',
+      libraryOccupation: library?.frontPorchExtensions?.occupation,
+      libraryHours: library?.frontPorchExtensions?.hours,
+    );
     final where = derivePresence(
-      occupation: ext?.occupation ?? '',
-      hours: ext?.hours ?? '',
+      occupation: work.occupation,
+      hours: work.hours,
       timeOfDay: _timeService.timeOfDay,
       inScene: _memberInScene(card),
     );

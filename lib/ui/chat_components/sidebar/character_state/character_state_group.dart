@@ -333,18 +333,17 @@ class _CharacterStateGroupState extends State<CharacterStateGroup> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    PresenceWord(
-                      where: derivePresence(
-                        occupation: ext?.occupation ?? '',
-                        hours: ext?.hours ?? '',
-                        timeOfDay: chat.timeService.timeOfDay,
-                        inScene: widget.isGroup
-                            ? _groupMemberInScene(chat)
-                            : !stanceSaysAway(
-                                chat.relationshipService.spatialStance,
-                              ),
+                    if (!widget.isGroup)
+                      PresenceWord(
+                        where: derivePresence(
+                          occupation: ext?.occupation ?? '',
+                          hours: ext?.hours ?? '',
+                          timeOfDay: chat.timeService.timeOfDay,
+                          inScene: !stanceSaysAway(
+                            chat.relationshipService.spatialStance,
+                          ),
+                        ),
                       ),
-                    ),
                     TodayLine(
                       enabled: Provider.of<StorageService>(context)
                           .realismSettings
@@ -364,17 +363,6 @@ class _CharacterStateGroupState extends State<CharacterStateGroup> {
         ],
       ),
     );
-  }
-
-  /// Group: the active card is in-scene when it is the upcoming / current
-  /// speaker. nextCharacter is the cheap public signal; if it is missing,
-  /// fail toward With you (not Away).
-  bool _groupMemberInScene(ChatService chat) {
-    final active = chat.activeCharacter;
-    if (active == null) return true;
-    final next = chat.nextCharacter;
-    if (next == null) return true;
-    return next.name == active.name;
   }
 
   /// Emotion → emoji (ported verbatim from the old realism_section so the

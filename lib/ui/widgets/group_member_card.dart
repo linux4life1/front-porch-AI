@@ -19,6 +19,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -157,10 +158,22 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
         : AppColors.lustAccentOf(context);
 
     final ext = widget.character.frontPorchExtensions;
+    final repo = Provider.maybeOf<CharacterRepository>(context);
+    final library = MemberOriginResolver.resolve(
+      stampedOriginStableId: null,
+      memberName: widget.character.name,
+      libraryCharacters: repo?.characters ?? const [],
+    );
+    final work = workFieldsForGroupMember(
+      copyOccupation: ext?.occupation ?? '',
+      copyHours: ext?.hours ?? '',
+      libraryOccupation: library?.frontPorchExtensions?.occupation,
+      libraryHours: library?.frontPorchExtensions?.hours,
+    );
     final presence = PresenceWord(
       where: derivePresence(
-        occupation: ext?.occupation ?? '',
-        hours: ext?.hours ?? '',
+        occupation: work.occupation,
+        hours: work.hours,
         timeOfDay: chat.timeService.timeOfDay,
         inScene: !stanceSaysAway(
           chat.spatialStanceForGroupCharacter(widget.character),
