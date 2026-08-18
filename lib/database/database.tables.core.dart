@@ -174,6 +174,14 @@ class Sessions extends Table {
   /// chat where Pockets is switched off.
   TextColumn get pockets => text().nullable()();
 
+  /// v48 — the live Today side-quest row for this chat, or null if none.
+  ///
+  /// Shape is not enough: a user-typed secondary is also isPrimary false,
+  /// tasks [], servedAmbition null. Persist the id so reload rebinds this
+  /// row and never guesses among secondaries. Nullable, no default: every
+  /// chat older than the column has no Today hold.
+  TextColumn get todayObjectiveId => text().nullable()();
+
   // Per-session character evolution (v19)
   // 1:1 chats: plain evolved text
   TextColumn get evolvedPersonality => text().withDefault(const Constant(''))();

@@ -292,7 +292,7 @@ extension ChatServiceGroupEntry on ChatService {
 
     // Load the objectives for whoever is the initial next speaker (or first char)
     if (_activeGroup != null) {
-      await _loadObjectivesForCurrentSpeaker(claimTodayIfUnique: true);
+      await _loadObjectivesForCurrentSpeaker();
     }
 
     // Seed objectives that came from an imported Group Card (one-time), in case it wasn't caught above

@@ -219,6 +219,10 @@ extension AppDatabaseMaintenance on AppDatabase {
         // default. NULL means nothing was recorded, which is true for every
         // chat older than the column.
         'pockets TEXT',
+        // v48 — live Today side-quest row id. Nullable, no default. NULL
+        // means this chat has no Today hold, which is true for every row
+        // older than the column. Do not guess among secondaries.
+        'today_objective_id TEXT',
         // v38 Story Calendar — nullable; NULL = legacy row, synthesized on load
         'story_clock TEXT',
         'story_start_date TEXT',

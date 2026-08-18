@@ -116,7 +116,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
   /// Loads the personal objectives for the current/next speaker into _activeObjectives
   /// when in group mode. This makes the existing objective UI, generation, and injection
   /// work per-character in groups without duplicating the entire objective system.
-  Future<void> _loadObjectivesForCurrentSpeaker({bool claimTodayIfUnique = false}) async {
+  Future<void> _loadObjectivesForCurrentSpeaker() async {
     if (_activeGroup == null || _currentSessionId == null) return;
 
     final speaker = nextCharacter ?? _groupCharacters.firstOrNull;
@@ -141,7 +141,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     );
 
     _activeObjectives = objs.where((o) => o.active).toList();
-    _rebindTodayObjectiveFromDb(claimIfUnique: claimTodayIfUnique);
+    _rebindTodayObjectiveFromDb();
     notifyListeners();
   }
 

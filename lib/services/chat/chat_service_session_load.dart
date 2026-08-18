@@ -460,6 +460,9 @@ extension ChatServiceSessionLoad on ChatService {
     // did not save. Skipped when a record exists: the chat has moved on.
     seedPocketsFromCards();
 
+    _todayObjectiveId = s.todayObjectiveId;
+    _todayObjectiveText = null;
+
     // Re-sync from the character's current setting so that toggling
     // "Enjoys low hygiene" on the character affects existing chats on next load.
     _enjoysLowHygiene =
@@ -618,9 +621,9 @@ extension ChatServiceSessionLoad on ChatService {
       _messagesSinceLastCheck = 0;
       _isCheckingCompletion = false;
       if (_activeGroup != null) {
-        await _loadObjectivesForCurrentSpeaker(claimTodayIfUnique: true);
+        await _loadObjectivesForCurrentSpeaker();
       } else {
-        await _loadActiveObjectives(claimTodayIfUnique: true);
+        await _loadActiveObjectives();
       }
 
       // (Lorebook scanLatest already ran inside _hydrateMessagesFromRows —

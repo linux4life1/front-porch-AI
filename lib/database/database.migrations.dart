@@ -831,5 +831,22 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
           // already present (re-run / dual-version)
         }
       }
+
+      if (from < 48) {
+        // v47→v48: persist the Today side-quest row id on the session.
+        // A user-typed secondary has the same shape (isPrimary false,
+        // tasks [], servedAmbition null), so uniqueness-by-shape cannot
+        // rebind on load. NULL for every existing row is right — those
+        // chats have no Today hold to claim. Additive and nullable, so
+        // a downgrade to v47 keeps reading sessions; the column is ignored.
+        try {
+          await customStatement(
+            'ALTER TABLE sessions ADD COLUMN today_objective_id TEXT',
+          );
+          debugPrint('[DB] v48: added sessions.today_objective_id');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
+      }
   }
 }

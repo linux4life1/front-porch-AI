@@ -681,52 +681,41 @@ extension ChatServicePlannerResolve on ChatService {
     return tasksForObjective(obj).isEmpty;
   }
 
-  Objective? _findLiveTodayRow({String? text}) {
-    final hits = _activeObjectives.where(_looksLikeTodayRow);
-    if (text != null) {
-      return hits.where((o) => o.objective == text).firstOrNull;
-    }
-    final list = hits.toList();
-    return list.length == 1 ? list.first : null;
+  Objective? _findLiveTodayRow(String text) {
+    return _activeObjectives
+        .where(_looksLikeTodayRow)
+        .where((o) => o.objective == text)
+        .firstOrNull;
   }
 
-  /// Stale RAM id is dropped. Text match always. Unique today-shaped row
-  /// only when [claimIfUnique] — session load after a full pointer clear.
-  void _rebindTodayObjectiveFromDb({bool claimIfUnique = false}) {
-    if (_todayObjectiveId != null) {
-      final live =
-          _activeObjectives.where((o) => o.id == _todayObjectiveId).firstOrNull;
-      if (live != null) {
-        _todayObjectiveText = live.objective;
-        if (_todaySentence == null) setTodaySentence(live.objective);
-        return;
-      }
+  Future<void> _persistTodayObjectiveId(String? id) async {
+    final sid = _currentSessionId;
+    if (sid == null) return;
+    await _db.patchSession(
+      SessionsCompanion(
+        id: drift.Value(sid),
+        todayObjectiveId: drift.Value(id),
+      ),
+    );
+  }
+
+  /// Rebind by the persisted session id. Never guess among secondaries.
+  void _rebindTodayObjectiveFromDb() {
+    final id = _todayObjectiveId;
+    if (id == null) return;
+    final live =
+        _activeObjectives.where((o) => o.id == id).firstOrNull;
+    if (live == null) {
       _todayObjectiveId = null;
       _todayObjectiveText = null;
+      return;
     }
-    final text = _todaySentence;
-    if (text != null) {
-      final match = _findLiveTodayRow(text: text);
-      if (match != null) {
-        _todayObjectiveId = match.id;
-        _todayObjectiveText = match.objective;
-        return;
-      }
-    }
-    if (!claimIfUnique) return;
-    final unique = _findLiveTodayRow();
-    if (unique == null) return;
-    _todayObjectiveId = unique.id;
-    _todayObjectiveText = unique.objective;
-    setTodaySentence(unique.objective);
+    _todayObjectiveText = live.objective;
+    if (_todaySentence == null) setTodaySentence(live.objective);
   }
 
   bool _isHeldTodayObjective(Objective obj) {
-    if (obj.id == _todayObjectiveId) return true;
-    if (_todayObjectiveId != null) return false;
-    if (!_looksLikeTodayRow(obj)) return false;
-    if (_todaySentence != null) return obj.objective == _todaySentence;
-    return false;
+    return _todayObjectiveId != null && obj.id == _todayObjectiveId;
   }
 
   Future<void> _deactivateTodayObjective() async {
@@ -735,6 +724,7 @@ extension ChatServicePlannerResolve on ChatService {
     final live = _activeObjectives.where((o) => o.id == id).firstOrNull;
     _todayObjectiveId = null;
     _todayObjectiveText = null;
+    await _persistTodayObjectiveId(null);
     if (live == null) return;
     await _db.updateObjective(
       ObjectivesCompanion(
@@ -755,10 +745,11 @@ extension ChatServicePlannerResolve on ChatService {
       _todayObjectiveId = null;
       _todayObjectiveText = null;
     }
-    final existing = _findLiveTodayRow(text: trimmed);
+    final existing = _findLiveTodayRow(trimmed);
     if (existing != null) {
       _todayObjectiveId = existing.id;
       _todayObjectiveText = trimmed;
+      await _persistTodayObjectiveId(existing.id);
       return;
     }
     if (_todayObjectiveId != null && _todayObjectiveText != trimmed) {
@@ -771,6 +762,7 @@ extension ChatServicePlannerResolve on ChatService {
     if (inserted == null) {
       _todayObjectiveId = null;
       _todayObjectiveText = null;
+      await _persistTodayObjectiveId(null);
     }
   }
 
@@ -780,6 +772,7 @@ extension ChatServicePlannerResolve on ChatService {
     _todayObjectiveId = null;
     _todayObjectiveText = null;
     setTodaySentence(null);
+    unawaited(_persistTodayObjectiveId(null));
     unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.done));
   }
 

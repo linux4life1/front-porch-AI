@@ -443,7 +443,7 @@ extension ChatServiceChatEntry on ChatService {
       }
       // Load active objectives for this session (must be after _loadLastSession
       // so _currentSessionId is set)
-      await _loadActiveObjectives(claimTodayIfUnique: true); // Awaited (was fire-and-forget); root fix for post-dispose notify races in tests + rapid switches. Central _disposed + notifyListeners override (rec 2) now protects residual unawaited/microtask paths + any other notify-after-async in god/services (see _disposed decl, overrides at end of class, and cleaned per-site guard in _loadActiveObjectives).
+      await _loadActiveObjectives(); // Awaited (was fire-and-forget); root fix for post-dispose notify races in tests + rapid switches. Central _disposed + notifyListeners override (rec 2) now protects residual unawaited/microtask paths + any other notify-after-async in god/services (see _disposed decl, overrides at end of class, and cleaned per-site guard in _loadActiveObjectives).
     }
     } finally {
       if (ownedLoad) endSessionLoad();

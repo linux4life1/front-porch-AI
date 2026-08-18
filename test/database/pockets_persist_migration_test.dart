@@ -160,11 +160,14 @@ void main() {
       expect(repair, contains("'pockets TEXT'"));
     });
 
-    test('schemaVersion advanced to 47', () {
+    test('schemaVersion is at least 47', () {
+      final src = File('lib/database/database.dart').readAsStringSync();
+      final m = RegExp(r'schemaVersion => (\d+)').firstMatch(src);
+      expect(m, isNotNull);
       expect(
-        File('lib/database/database.dart').readAsStringSync(),
-        contains('schemaVersion => 47'),
-        reason: 'the ladder step is dead code if the version never asks for it',
+        int.parse(m!.group(1)!),
+        greaterThanOrEqualTo(47),
+        reason: 'the v47 ladder step is dead code if the version never asks for it',
       );
     });
   });

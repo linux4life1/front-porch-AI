@@ -41,7 +41,7 @@ extension ChatServiceObjectives on ChatService {
   }
 
   /// Load the active objectives for the current session from DB.
-  Future<void> _loadActiveObjectives({bool claimTodayIfUnique = false}) async {
+  Future<void> _loadActiveObjectives() async {
     if (_activeCharacter == null || _currentSessionId == null) {
       _activeObjectives = [];
       _messagesSinceLastCheck = 0;
@@ -72,7 +72,7 @@ extension ChatServiceObjectives on ChatService {
       );
       _activeObjectives = [];
     }
-    _rebindTodayObjectiveFromDb(claimIfUnique: claimTodayIfUnique);
+    _rebindTodayObjectiveFromDb();
     notifyListeners(); // Central _disposed guard in ChatService overrides now protects this (and all other) post-async notify sites. Per-site try/catch removed (deletion part of rec 2 task); see god _disposed + notify override + setActiveCharacter:2205 comment.
   }
 
@@ -252,6 +252,7 @@ extension ChatServiceObjectives on ChatService {
         servedAmbition: const drift.Value(null),
       ),
     );
+    await _persistTodayObjectiveId(newId);
     await _loadActiveObjectives();
     return newId;
   }
