@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Optional hidden tag the model may append when a planner forms today's
-// sentence. Stripped from the visible reply. Not a second eval.
+// Leftover [today: …] strip (never shown in the bubble) plus the scene-time
+// eval field parser. Today's sentence is a realism-engine eval, not a tag.
 
 /// Parses and strips `[today: …]` from a model reply.
 class TodayLineTag {
@@ -27,5 +27,31 @@ class TodayLineTag {
     var visible = raw.replaceAll(pattern, '');
     visible = visible.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
     return (visible: visible, line: line);
+  }
+
+  /// Scene-time / one-shot `today_sentence` field.
+  ///
+  /// Returns null when the field is omitted (keep the current hold).
+  /// Returns '' for empty or "none" (abandon). Otherwise the trimmed
+  /// sentence, collapsed whitespace, capped at 140.
+  static String? parseEvalSentence(String raw) {
+    final hasKey = RegExp(r'"today_sentence"\s*:').hasMatch(raw);
+    final String value;
+    if (hasKey) {
+      value =
+          RegExp(
+            r'"today_sentence"\s*:\s*"([^"]*)"',
+          ).firstMatch(raw)?.group(1) ??
+          '';
+    } else if (raw.trim().startsWith('{')) {
+      return null;
+    } else {
+      value = raw;
+      if (value.trim().isEmpty) return null;
+    }
+    var line = value.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (line.isEmpty || line.toLowerCase() == 'none') return '';
+    if (line.length > 140) line = line.substring(0, 140).trim();
+    return line;
   }
 }

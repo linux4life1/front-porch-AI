@@ -8,19 +8,33 @@
 // Design: docs/design/story-calendar.md.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/pass_support.dart';
+import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/llm_service.dart'
+    show LlmToolCall, LlmToolResponse;
 
 TimeService makeService({
   void Function(String, dynamic)? onPending,
   void Function(String, int, String)? onPatch,
   void Function()? onStoryDayChanged,
+  bool Function()? getPlannerEnabled,
+  void Function(String line)? onTodayEval,
+  Future<LlmToolResponse?> Function(String, List<Map<String, dynamic>>)?
+  fireToolEval,
+  ToolTransportProbe? probe,
 }) => TimeService(
   onNotify: () {},
   onSaveChat: () async {},
   onSetPendingRealismMetadata: onPending ?? (_, _) {},
   onPatchLastMessageRealismState: onPatch ?? (_, _, _) {},
   onStoryDayChanged: onStoryDayChanged,
+  getPlannerEnabled: getPlannerEnabled,
+  onTodayEval: onTodayEval,
+  fireToolEval: fireToolEval,
+  probe: probe,
+  getBackendIdentity: () => 'test-backend',
 );
 
 /// Seed to a fixed, deterministic moment: Day 3 (Thu 2026-07-02).
@@ -440,6 +454,128 @@ void main() {
       expect(n, 0);
       t.setClockDirect(DateTime.utc(2026, 7, 3, 9, 0));
       expect(n, 1);
+    });
+  });
+
+  group('TimeService today eval', () {
+    test('JSON path (one-shot text) sets todaySentence', () async {
+      String? seen;
+      final t = makeService(
+        getPlannerEnabled: () => true,
+        onTodayEval: (line) => seen = line,
+      );
+      seedFixed(t);
+      await runEval(
+        t,
+        oneShotText:
+            '{"minutes_elapsed": 8, "new_day": false, "today_sentence": "Finish the lighthouse log."}',
+      );
+      expect(seen, 'Finish the lighthouse log.');
+    });
+
+    test('JSON path (multi-call text) sets todaySentence', () async {
+      String? seen;
+      final t = makeService(
+        getPlannerEnabled: () => true,
+        onTodayEval: (line) => seen = line,
+      );
+      seedFixed(t);
+      await runEval(
+        t,
+        fire: (_) async =>
+            '{"minutes_elapsed": 8, "new_day": false, "today_sentence": "Finish the lighthouse log."}',
+      );
+      expect(seen, 'Finish the lighthouse log.');
+    });
+
+    test('tool path sets todaySentence from tool args', () async {
+      String? seen;
+      List<Map<String, dynamic>>? seenTools;
+      final t = makeService(
+        getPlannerEnabled: () => true,
+        onTodayEval: (line) => seen = line,
+        probe: ToolTransportProbe(),
+        fireToolEval: (prompt, tools) async {
+          seenTools = tools;
+          expect(prompt, contains('today_sentence'));
+          return const LlmToolResponse(
+            calls: [
+              LlmToolCall(
+                name: kSceneTimeTool,
+                arguments: {
+                  'minutes_elapsed': 8,
+                  'new_day': false,
+                  'today_sentence': 'Finish the lighthouse log.',
+                },
+              ),
+            ],
+            text: '',
+          );
+        },
+      );
+      seedFixed(t);
+      await runEval(t, fire: (_) async => 'MUST NOT FALL BACK TO TEXT');
+      expect(seen, 'Finish the lighthouse log.');
+      final required =
+          ((seenTools!.single['function'] as Map)['parameters']
+                  as Map)['required']
+              as List;
+      expect(required, contains('today_sentence'));
+    });
+
+    test('tool path empty today_sentence abandons', () async {
+      String? seen;
+      final t = makeService(
+        getPlannerEnabled: () => true,
+        onTodayEval: (line) => seen = line,
+        probe: ToolTransportProbe(),
+        fireToolEval: (prompt, tools) async => const LlmToolResponse(
+          calls: [
+            LlmToolCall(
+              name: kSceneTimeTool,
+              arguments: {'minutes_elapsed': 4, 'today_sentence': ''},
+            ),
+          ],
+          text: '',
+        ),
+      );
+      seedFixed(t);
+      await runEval(t, fire: (_) async => 'MUST NOT FALL BACK TO TEXT');
+      expect(seen, isEmpty);
+    });
+
+    test('JSON omit keeps the hold (callback not fired)', () async {
+      String? seen = 'held';
+      var fired = false;
+      final t = makeService(
+        getPlannerEnabled: () => true,
+        onTodayEval: (line) {
+          fired = true;
+          seen = line;
+        },
+      );
+      seedFixed(t);
+      await runEval(
+        t,
+        fire: (_) async => '{"minutes_elapsed": 8, "new_day": false}',
+      );
+      expect(fired, isFalse);
+      expect(seen, 'held');
+    });
+
+    test('planner off does not apply today_sentence', () async {
+      String? seen;
+      final t = makeService(
+        getPlannerEnabled: () => false,
+        onTodayEval: (line) => seen = line,
+      );
+      seedFixed(t);
+      await runEval(
+        t,
+        oneShotText:
+            '{"minutes_elapsed": 8, "new_day": false, "today_sentence": "Finish the lighthouse log."}',
+      );
+      expect(seen, isNull);
     });
   });
 }

@@ -205,7 +205,8 @@ class RealismEvals {
   // etc. so bond/trust/arousal (Lust) chips, emotion, fixation, and autonomous objectives are produced exactly
   // as the direct paths. Physical stays delegated; oneShot path stays single-eval for now.
   bool _batchCollectActive = false;
-  final List<Map<String, dynamic>> _pendingBatchEvals = []; // kind, stripped, prompt, scene, injections (for batch director after mains)
+  final List<Map<String, dynamic>> _pendingBatchEvals =
+      []; // kind, stripped, prompt, scene, injections (for batch director after mains)
 
   void beginCollectForBatchedVerification() {
     _batchCollectActive = true;
@@ -231,9 +232,12 @@ class RealismEvals {
     // realismVerificationEnabled flag is off.
   }
 
-  List<Map<String, dynamic>> getCollectedForBatch() => List<Map<String, dynamic>>.from(_pendingBatchEvals);
+  List<Map<String, dynamic>> getCollectedForBatch() =>
+      List<Map<String, dynamic>>.from(_pendingBatchEvals);
 
-  Future<void> applyBatchResults(Map<String, VerificationResult> results) async {
+  Future<void> applyBatchResults(
+    Map<String, VerificationResult> results,
+  ) async {
     // Snapshot to survive any concurrent mutation and to allow apply to clear at end.
     final pending = List<Map<String, dynamic>>.from(_pendingBatchEvals);
     for (final p in pending) {
@@ -331,6 +335,9 @@ class RealismEvals {
   /// the same contract [getAmbitions] keeps.
   final String Function()? getPreferences;
 
+  /// When true, one-shot tools/prompt include `today_sentence`. Default off.
+  final bool Function()? getPlannerEnabled;
+
   final Future<void> Function(
     String objectiveText, {
     bool isPrimary,
@@ -371,6 +378,7 @@ class RealismEvals {
     required this.getActiveObjectives,
     this.getAmbitions,
     this.getPreferences,
+    this.getPlannerEnabled,
     required this.setObjective,
     this.verifyRealismOutput,
   });

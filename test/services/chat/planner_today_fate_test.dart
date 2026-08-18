@@ -18,35 +18,22 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 
-final Directory _root = Directory.systemTemp.createTempSync('fpai_planner_fate_');
+final Directory _root = Directory.systemTemp.createTempSync(
+  'fpai_planner_fate_',
+);
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall call) async {
-    if (call.method == 'getApplicationDocumentsDirectory') {
-      return _root.path;
-    }
-    return null;
-  });
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return _root.path;
+        }
+        return null;
+      });
 }
 
 class _TodayHarness extends ChangeNotifier with ChatServiceTodaySentence {}
-
-class _ScriptedLlm extends LLMService {
-  String replyText = 'She stacks the books.\n[today: Sweep the stoop before dusk.]';
-
-  @override
-  Stream<String> generateStream(GenerationParams params) async* {
-    yield replyText;
-  }
-
-  @override
-  bool get isReady => true;
-
-  @override
-  String get backendName => 'ScriptedLlm';
-}
 
 String? _kindOf(JournalMemoryData card) {
   final raw = card.metadata;
@@ -69,8 +56,6 @@ void main() {
   late AppDatabase db;
   late StorageService storage;
   late ChatService chat;
-  late _ScriptedLlm llm;
-
   setUp(() async {
     SharedPreferences.setMockInitialValues({
       'update_auto_check': false,
@@ -80,16 +65,15 @@ void main() {
     });
     db = AppDatabase.forTesting();
     storage = StorageService();
-    llm = _ScriptedLlm();
-    chat = ChatService(
-      KoboldService(storage),
-      UserPersonaService(db),
-      storage,
-      WorldRepository(storage, db),
-    )
-      ..setDatabase(db)
-      ..setCharacterRepository(CharacterRepository(db, storage))
-      ..testLlmServiceOverride = llm;
+    chat =
+        ChatService(
+            KoboldService(storage),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..setCharacterRepository(CharacterRepository(db, storage));
     await storage.initialized;
     await storage.realismSettings.setPlannerEnabled(true);
   });
@@ -100,23 +84,21 @@ void main() {
   });
 
   CharacterCard card() => CharacterCard(
-        name: 'Ada',
-        description: 'Exists only inside the planner fate lock.',
-        firstMessage: 'The screen door bangs shut behind you.',
-      )..dbId = 'char-planner-fate';
+    name: 'Ada',
+    description: 'Exists only inside the planner fate lock.',
+    firstMessage: 'The screen door bangs shut behind you.',
+  )..dbId = 'char-planner-fate';
 
   Future<List<JournalMemoryData>> cardsFor(ChatService c, CharacterCard who) {
     return c.journalStore.cardsFor(c.currentSessionId!, c.characterIdFor(who));
   }
 
   test('abandonToday sours and writes no journal card', () async {
-    final src = File('lib/services/chat/chat_service_accessors.dart')
-        .readAsStringSync();
+    final src = File(
+      'lib/services/chat/chat_service_accessors.dart',
+    ).readAsStringSync();
     expect(src, contains('enum PlannerTodayFate { done, abandoned, dayAte }'));
-    expect(
-      src,
-      contains('if (fate == PlannerTodayFate.abandoned) return;'),
-    );
+    expect(src, contains('if (fate == PlannerTodayFate.abandoned) return;'));
     expect(src, contains("category: 'moment'"));
     expect(src, contains("kind: 'today'"));
     expect(
@@ -143,8 +125,9 @@ void main() {
   });
 
   test('done and dayAte journal kind today category moment', () async {
-    final accessors = File('lib/services/chat/chat_service_accessors.dart')
-        .readAsStringSync();
+    final accessors = File(
+      'lib/services/chat/chat_service_accessors.dart',
+    ).readAsStringSync();
     final start = accessors.indexOf('Future<void> _journalResolvedToday(');
     expect(start, greaterThanOrEqualTo(0));
     final body = accessors.substring(
@@ -155,11 +138,11 @@ void main() {
     expect(body, contains("category: 'moment'"));
     expect(body, contains("kind: 'today'"));
 
-    final postgen = File(
-      'lib/services/chat/chat_service_generation_postgen.dart',
+    final wiringDone = File(
+      'lib/services/chat/chat_service_wiring_realism.dart',
     ).readAsStringSync();
     expect(
-      postgen,
+      wiringDone,
       contains('_journalResolvedToday(prev, fate: PlannerTodayFate.done)'),
     );
 
@@ -168,19 +151,32 @@ void main() {
     ).readAsStringSync();
     expect(
       wiring,
-      contains(
-        '_journalResolvedToday(held, fate: PlannerTodayFate.dayAte)',
-      ),
+      contains('_journalResolvedToday(held, fate: PlannerTodayFate.dayAte)'),
     );
 
     final who = card();
     await chat.setActiveCharacter(who);
     chat.setTodaySentence('Finish the lighthouse log.');
 
-    await chat.sendMessage('What are you doing?');
-    for (var i = 0; i < 300 && (chat.isGenerating); i++) {
-      await Future<void>.delayed(Duration.zero);
-    }
+    await chat.timeService.evaluateTimeProgressAndPostureIfNeeded(
+      charName: 'Ada',
+      recent: 'User: What are you doing?\nAda: She stacks the books.',
+      shortTermTierName: 'Warm',
+      onChunk: null,
+      fireLLMEval: (p, {onChunk}) async => null,
+      stripThinkBlocks: (s) => s,
+      extractJsonBool: (raw, key) {
+        final m = RegExp('"' + key + r'"\s*:\s*(true|false)').firstMatch(raw);
+        return m == null ? null : m.group(1) == 'true';
+      },
+      setSpatialStance: (_) {},
+      getCurrentSpatialStance: () => '',
+      getCharacterEmotion: () => '',
+      getEmotionIntensity: () => '',
+      oneShotMode: true,
+      oneShotText:
+          '{"minutes_elapsed": 5, "new_day": false, "today_sentence": "Sweep the stoop before dusk."}',
+    );
     await _drain(40);
 
     expect(chat.todaySentence, 'Sweep the stoop before dusk.');
@@ -199,18 +195,18 @@ void main() {
     expect(chat.todaySentence, isNull);
     final afterDay = await cardsFor(chat, who);
     expect(afterDay, hasLength(2));
-    final dayAte = afterDay.firstWhere((c) => c.content == 'Hold the porch light.');
+    final dayAte = afterDay.firstWhere(
+      (c) => c.content == 'Hold the porch light.',
+    );
     expect(dayAte.category, 'moment');
     expect(_kindOf(dayAte), 'today');
   });
 
   test('todaySentence getter does not day-clear', () {
-    final accessors = File('lib/services/chat/chat_service_accessors.dart')
-        .readAsStringSync();
-    expect(
-      accessors,
-      contains('String? get todaySentence => _todaySentence;'),
-    );
+    final accessors = File(
+      'lib/services/chat/chat_service_accessors.dart',
+    ).readAsStringSync();
+    expect(accessors, contains('String? get todaySentence => _todaySentence;'));
     final getter = RegExp(
       r'String\? get todaySentence =>[^;]+;',
     ).firstMatch(accessors);
@@ -237,7 +233,11 @@ void main() {
     final hook = RegExp(
       r'onStoryDayChanged: \(\) \{([\s\S]*?)\n      \},',
     ).firstMatch(wiring);
-    expect(hook, isNotNull, reason: 'clock hook must stay on TimeService wiring');
+    expect(
+      hook,
+      isNotNull,
+      reason: 'clock hook must stay on TimeService wiring',
+    );
     final hookBody = hook!.group(1)!;
     expect(hookBody, contains('final held = todaySentence;'));
     expect(hookBody, contains('setTodaySentence(null);'));

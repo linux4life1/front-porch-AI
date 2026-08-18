@@ -38,7 +38,6 @@ const kMaxTrustDelta = 50;
 const kMinArousalDelta = -25;
 const kMaxArousalDelta = 25;
 
-
 /// Single source of truth for the Realism Engine judge prompts.
 ///
 /// Every fragment that appears in more than one eval (the bond and trust
@@ -93,7 +92,10 @@ class RealismPromptBuilder {
     final parts = <String>[];
 
     if (p.isNotEmpty) {
-      final t = _trimTo(p, _personalityCap < remaining ? _personalityCap : remaining);
+      final t = _trimTo(
+        p,
+        _personalityCap < remaining ? _personalityCap : remaining,
+      );
       parts.add(t);
       remaining -= t.length;
     }
@@ -351,10 +353,10 @@ class RealismPromptBuilder {
       '  A non-sexual, non-romantic turn (food, work, errands, small talk, plain comfort) is 0 — and if '
       'current arousal is above 0 on such a turn, return roughly -5 to -10 so it cools back toward neutral.\n'
       '${refractoryTurnsLeft > 0 ? '  NOTE: $charName just climaxed and is in the post-orgasm refractory '
-              '($refractoryTurnsLeft turns left). Their low desire right now is contented satedness, NOT '
-              'aversion — an affectionate afterglow. Score gentle deltas (-3 to +5); a soft "not yet" to '
-              'another advance is normal recovery, not a rejection, so do not score it negative unless '
-              'something genuinely upsetting happened.\n' : ''}';
+                '($refractoryTurnsLeft turns left). Their low desire right now is contented satedness, NOT '
+                'aversion — an affectionate afterglow. Score gentle deltas (-3 to +5); a soft "not yet" to '
+                'another advance is normal recovery, not a rejection, so do not score it negative unless '
+                'something genuinely upsetting happened.\n' : ''}';
 
   // (There is no posture section here any more. Posture left the fused
   // one-shot call on 2026-08-08 along with the four-call path's copy: it is a
@@ -365,12 +367,14 @@ class RealismPromptBuilder {
 
   // Scene-time fields ride the fused one-shot call (strict one-shot vs
   // normal parity — the dedicated per-turn scene-time eval asks the same).
-  static String _sceneTimeSection() =>
+  static String _sceneTimeSection({bool plannerToday = false}) =>
       '- "minutes_elapsed": in-story minutes the LATEST exchange took (integer, 0-180). Most conversational '
       'exchanges take 2-15 minutes; activities (a meal, a walk, a task, travel) take longer. Use 0 ONLY '
       'when the scene is a continuous instant (mid-action, mid-sentence).\n'
       '- "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, '
-      'scene break). false otherwise.\n';
+      'scene break). false otherwise.\n'
+      '${plannerToday ? '- "today_sentence": one sentence of what they are doing or planning today. '
+                'Empty or "none" abandons the current hold. Omit to keep it.\n' : ''}';
 
   /// The ambitions a proposal should be steering toward, numbered with their
   /// stage words. Empty when the character has none — and then the whole
@@ -475,7 +479,8 @@ class RealismPromptBuilder {
   static String _reasonSection() =>
       '- "reason": one brief sentence naming the key relationship change this turn, or "none".\n';
 
-  static String _recentBlock(String recent) => 'Recent conversation:\n$recent\n\n';
+  static String _recentBlock(String recent) =>
+      'Recent conversation:\n$recent\n\n';
 
   static String _jsonInstruction(List<String> keys) =>
       'Respond with ONLY a flat JSON object containing ${keys.map((k) => '"$k"').join(', ')}. '
@@ -575,11 +580,7 @@ class RealismPromptBuilder {
       '${arousalEnabled ? _arousalSection(charName, userName, arousalLevel, refractoryTurnsLeft) : ''}'
       '\n'
       '${_recentBlock(recent)}'
-      '${toolsMode ? _toolInstruction('report_emotional_state') : _jsonInstruction([
-        'emotion',
-        'emotion_intensity',
-        if (arousalEnabled) 'arousal_delta',
-      ])}';
+      '${toolsMode ? _toolInstruction('report_emotional_state') : _jsonInstruction(['emotion', 'emotion_intensity', if (arousalEnabled) 'arousal_delta'])}';
 
   static String narrativeEvalPrompt({
     required String charName,
@@ -600,11 +601,7 @@ class RealismPromptBuilder {
       '${_fixationSection(charName)}'
       '\n'
       '${_recentBlock(recent)}'
-      '${toolsMode ? _toolInstruction('report_narrative') : _jsonInstruction([
-        'proposed_objective',
-        if (_ambitionRoster(ambitions).isNotEmpty) 'serves_ambition',
-        'fixation_topic',
-      ])}';
+      '${toolsMode ? _toolInstruction('report_narrative') : _jsonInstruction(['proposed_objective', if (_ambitionRoster(ambitions).isNotEmpty) 'serves_ambition', 'fixation_topic'])}';
 
   static String oneShotEvalPrompt({
     required String charName,
@@ -620,6 +617,7 @@ class RealismPromptBuilder {
     List<({String text, int progress})> ambitions = const [],
     String preferences = '',
     bool toolsMode = false,
+    bool plannerToday = false,
   }) =>
       '${judgePrefix(charName: charName, userName: userName, dossier: dossier, standing: standing, preferences: preferences, ambitions: ambitions)}'
       'Score how this exchange truly landed for $charName across every '
@@ -627,26 +625,12 @@ class RealismPromptBuilder {
       '${_bondSection(charName, userName)}'
       '${_trustSection(charName, userName)}'
       '${_emotionSection(charName, allowedEmotionLabels)}'
-      '${_sceneTimeSection()}'
+      '${_sceneTimeSection(plannerToday: plannerToday)}'
       '${arousalEnabled ? _arousalSection(charName, userName, arousalLevel, refractoryTurnsLeft) : ''}'
       '${_objectiveSection(charName, userName, primaryObjective, ambitions)}'
       '${_fixationSection(charName)}'
       '${_reasonSection()}'
       '\n'
       '${_recentBlock(recent)}'
-      '${toolsMode ? _toolInstruction('report_realism') : _jsonInstruction([
-        'relationship_delta',
-        'bond_reason',
-        'trust_delta',
-        'trust_reason',
-        'emotion',
-        'emotion_intensity',
-        'minutes_elapsed',
-        'new_day',
-        if (arousalEnabled) 'arousal_delta',
-        'proposed_objective',
-        if (_ambitionRoster(ambitions).isNotEmpty) 'serves_ambition',
-        'fixation_topic',
-        'reason',
-      ])}';
+      '${toolsMode ? _toolInstruction('report_realism') : _jsonInstruction(['relationship_delta', 'bond_reason', 'trust_delta', 'trust_reason', 'emotion', 'emotion_intensity', 'minutes_elapsed', 'new_day', if (plannerToday) 'today_sentence', if (arousalEnabled) 'arousal_delta', 'proposed_objective', if (_ambitionRoster(ambitions).isNotEmpty) 'serves_ambition', 'fixation_topic', 'reason'])}';
 }

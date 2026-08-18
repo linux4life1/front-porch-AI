@@ -72,11 +72,14 @@ extension RealismEvalOneShot on RealismEvals {
       posture: relationshipService.spatialStance,
     );
     final arousalEnabled = nsfwService.nsfwCooldownEnabled;
-    final labels = getExpressionEnabled() ? EmotionLabels.all : const <String>[];
+    final labels = getExpressionEnabled()
+        ? EmotionLabels.all
+        : const <String>[];
     final primary = getPrimaryObjective();
 
     // Same shared fragments as the multi-call path (strict one-shot vs normal
     // parity by construction — the rubric text cannot drift between paths).
+    final plannerToday = getPlannerEnabled?.call() ?? false;
     String buildPrompt({required bool toolsMode}) =>
         RealismPromptBuilder.oneShotEvalPrompt(
           preferences: getPreferences?.call() ?? '',
@@ -92,6 +95,7 @@ extension RealismEvalOneShot on RealismEvals {
           primaryObjective: primary?.objective,
           ambitions: getAmbitions?.call() ?? const [],
           toolsMode: toolsMode,
+          plannerToday: plannerToday,
         );
     final prompt = buildPrompt(toolsMode: false);
 
@@ -99,7 +103,7 @@ extension RealismEvalOneShot on RealismEvals {
       debugPrint('[Realism:OneShot] Evaluating (fused call)...');
       final raw = await _fireEval(
         toolName: kOneShotTool,
-        tools: kOneShotEvalTools,
+        tools: plannerToday ? kOneShotEvalToolsWithToday : kOneShotEvalTools,
         buildPrompt: buildPrompt,
         onChunk: onChunk,
       );
@@ -150,8 +154,9 @@ extension RealismEvalOneShot on RealismEvals {
             'personality': dossier,
             'standing': standing,
             if (labels.isNotEmpty)
-              'emotion_constraint':
-                  RealismPromptBuilder.emotionLabelConstraint(labels),
+              'emotion_constraint': RealismPromptBuilder.emotionLabelConstraint(
+                labels,
+              ),
           },
         });
         return;
@@ -166,8 +171,9 @@ extension RealismEvalOneShot on RealismEvals {
           'personality': dossier,
           'standing': standing,
           if (labels.isNotEmpty)
-            'emotion_constraint':
-                RealismPromptBuilder.emotionLabelConstraint(labels),
+            'emotion_constraint': RealismPromptBuilder.emotionLabelConstraint(
+              labels,
+            ),
         },
       );
       final textForOneShot = effectiveText; // rebind

@@ -11,29 +11,31 @@ PlanInjection make(
   CharacterCard? card, {
   String? held,
   bool plannerOn = false,
-}) =>
-    PlanInjection(
-      getTodayLine: () => held,
-      getPlannerEnabled: () => plannerOn,
-      getActiveCharacter: () => card,
-      getIsGroupNonObserverMode: () => false,
-      getCurrentSpeakerIdForRealism: () => '',
-      getGroupCharacters: () => const [],
-      getCharacterIdFromCard: (c) => c.name,
-    );
+}) => PlanInjection(
+  getTodayLine: () => held,
+  getPlannerEnabled: () => plannerOn,
+  getActiveCharacter: () => card,
+  getIsGroupNonObserverMode: () => false,
+  getCurrentSpeakerIdForRealism: () => '',
+  getGroupCharacters: () => const [],
+  getCharacterIdFromCard: (c) => c.name,
+);
 
 CharacterCard who(String name) => CharacterCard(
-      name: name,
-      frontPorchExtensions: FrontPorchExtensions(
-        planLines: const ['Finish the lighthouse log before the tide turns.'],
-      ),
-    );
+  name: name,
+  frontPorchExtensions: FrontPorchExtensions(
+    planLines: const ['Finish the lighthouse log before the tide turns.'],
+  ),
+);
 
 void main() {
   test('buildPlanInjection is empty when the flag is off', () {
     expect(
-      make(who('Ada'), held: 'Finish the log.', plannerOn: false)
-          .buildPlanInjection(),
+      make(
+        who('Ada'),
+        held: 'Finish the log.',
+        plannerOn: false,
+      ).buildPlanInjection(),
       isEmpty,
     );
   });
@@ -45,19 +47,17 @@ void main() {
     );
   });
 
-  test('flag on and no held line asks for [today:]', () {
-    final text = make(who('Ada'), plannerOn: true).buildPlanInjection();
-    expect(text, contains('[today:'));
-    expect(text, isNot(contains('hold this')));
+  test('flag on and no held line is empty', () {
+    expect(make(who('Ada'), plannerOn: true).buildPlanInjection(), isEmpty);
   });
 
-  test('flag on and a held line asks to keep it', () {
+  test('flag on and a held line injects the sentence without a tag', () {
     final text = make(
       who('Ada'),
       held: 'Finish the log.',
       plannerOn: true,
     ).buildPlanInjection();
     expect(text, contains('Finish the log.'));
-    expect(text, contains('[today:'));
+    expect(text, isNot(contains('[today:')));
   });
 }

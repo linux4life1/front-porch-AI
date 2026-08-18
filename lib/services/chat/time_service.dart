@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
+import 'package:front_porch_ai/services/chat/today_line_tag.dart';
 import 'package:front_porch_ai/services/services.dart' show LlmToolResponse;
 import 'package:front_porch_ai/utils/utils.dart' show stripQuotedSpeech;
 
@@ -136,6 +137,14 @@ class TimeService {
   /// the held today sentence here — not in a getter.
   final void Function()? onStoryDayChanged;
 
+  /// When true, the scene-time eval (and one-shot text) asks for
+  /// `today_sentence`. Default off so existing constructors stay valid.
+  final bool Function()? getPlannerEnabled;
+
+  /// Empty string = abandon; non-empty = set. Do not write [todayLine]
+  /// from the eval — ChatService owns the hold via this callback.
+  final void Function(String line)? onTodayEval;
+
   // Owned state — the whole subsystem.
   DateTime _clock = StoryClock.representativeTime(
     StoryClock.todayAnchor(),
@@ -192,6 +201,8 @@ class TimeService {
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,
+    this.getPlannerEnabled,
+    this.onTodayEval,
   });
 
   // ── Public surface ────────────────────────────────────────────────────────
@@ -237,8 +248,6 @@ class TimeService {
   /// columns are only written by a full chat save — opening a chat, reading it
   /// and closing it never froze the date, so those chats wandered indefinitely.
   bool get canonicalClockWasSynthesised => _canonicalClockWasSynthesised;
-
-
 
   /// "9:40 PM" / "Tue, Mar 3" / "Tuesday, March 3rd(, 1887)" for the UI.
   String get displayClock => StoryClock.formatClock(_clock);
@@ -666,6 +675,12 @@ class TimeService {
     return m == null ? null : int.tryParse(m.group(1)!);
   }
 
+  void _maybeApplyTodayEval(String text) {
+    if (!(getPlannerEnabled?.call() ?? false)) return;
+    final parsed = TodayLineTag.parseEvalSentence(text);
+    if (parsed != null) onTodayEval?.call(parsed);
+  }
+
   /// The posture question alone — shared VERBATIM between the standalone
   /// post-generation posture pass above and the fused reply-facts prompt
   /// (ReplyFactsEval), so the two transports can never drift in what they
@@ -846,20 +861,22 @@ class TimeService {
       // The fused JSON already carries minutes_elapsed/new_day. Clock math
       // only — no LLM call. (Posture is NOT in it any more; it has its own
       // post-generation pass.)
+      final text = oneShotText ?? '';
       if (skipOwnsClock) {
         debugPrint(
           '[Realism:Time] OOC skip owns this turn — one-shot clock '
           'movement suppressed',
         );
+        _maybeApplyTodayEval(text);
         return;
       }
-      final text = oneShotText ?? '';
       final saidNewDay = extractJsonBool(text, 'new_day') ?? false;
       if (saidNewDay && !newDayCorroborated) logSuppressedNewDay();
       _applyElapsed(
         minutes: _extractMinutes(text),
         newDay: saidNewDay && newDayCorroborated,
       );
+      _maybeApplyTodayEval(text);
       debugPrint(
         '[Realism:Time] One-shot elapsed applied → $displayClock (Day $dayCount)',
       );
@@ -869,12 +886,15 @@ class TimeService {
     // The two minutes_elapsed / new_day rules are written once and shared, so
     // the standalone clock cannot be tuned apart from the engine's by someone
     // editing one copy.
+    final plannerToday = getPlannerEnabled?.call() ?? false;
     final timeRules =
         '1. "minutes_elapsed": how many in-story minutes passed during the LATEST exchange below (integer, 0-${StoryClock.maxMinutesPerTurn}). '
         'Most conversational exchanges take 2-15 minutes; activities (a meal, a walk, a task, travel) take longer. '
         'Use 0 ONLY when the scene is a continuous instant (mid-action, mid-sentence).\n'
         '2. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise. '
-        'Merely MENTIONING yesterday, tomorrow, or another day does NOT count — the characters must actually cross a night.\n';
+        'Merely MENTIONING yesterday, tomorrow, or another day does NOT count — the characters must actually cross a night.\n'
+        '${plannerToday ? '3. "today_sentence": one sentence of what they are doing or planning today. '
+                  'Empty or "none" abandons the current hold. Omit to keep it.\n' : ''}';
 
     // ONE time prompt for both drivers. The engine adds its scene framing
     // (mood, last known position, relationship tension); the standalone clock
@@ -891,7 +911,7 @@ class TimeService {
         'Current story time: $displayClock on $narrativeWeekday, Day $dayCount.\n\n'
         '$timeRules\n'
         'Recent conversation:\n$recent\n\n'
-        '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "minutes_elapsed" and "new_day". Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "minutes_elapsed" and "new_day". '
+        '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "minutes_elapsed" and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "minutes_elapsed" and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. '
                   'Do NOT use markdown code blocks — return raw JSON only.'}';
 
     try {
@@ -899,7 +919,9 @@ class TimeService {
         buildPrompt,
         fireLLMEval: fireLLMEval,
         onChunk: onChunk,
-        tools: kSceneTimeOnlyEvalTools,
+        tools: plannerToday
+            ? kSceneTimeOnlyEvalToolsWithToday
+            : kSceneTimeOnlyEvalTools,
       );
       if (raw != null) {
         final text = stripThinkBlocks(raw).isNotEmpty
@@ -918,6 +940,7 @@ class TimeService {
             newDay: saidNewDay && newDayCorroborated,
           );
         }
+        _maybeApplyTodayEval(text);
       } else if (!skipOwnsClock) {
         _applyElapsed(minutes: null, newDay: false);
       }

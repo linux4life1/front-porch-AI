@@ -318,6 +318,43 @@ final List<Map<String, dynamic>> kSceneTimeOnlyEvalTools = [
   ),
 ];
 
+final Map<String, dynamic> _todaySentenceField = _strField(
+  'One sentence of what they are doing or planning today, or "none".',
+);
+
+/// Scene-time schema when the planner is on. `today_sentence` is REQUIRED so
+/// small locals fill it (empty / "none" abandons; omit is the text-path keep).
+final List<Map<String, dynamic>> kSceneTimeOnlyEvalToolsWithToday = [
+  _tool(
+    kSceneTimeTool,
+    'Report how much in-story time the latest exchange took, and today\'s plan.',
+    {
+      'minutes_elapsed': _sceneTimeFields['minutes_elapsed']!,
+      'new_day': _sceneTimeFields['new_day']!,
+      'today_sentence': _todaySentenceField,
+    },
+    const ['minutes_elapsed', 'today_sentence'],
+  ),
+];
+
+/// One-shot schema when the planner is on. Same required-field lesson as
+/// minutes_elapsed: a model fills what the schema demands.
+final List<Map<String, dynamic>> kOneShotEvalToolsWithToday = [
+  _tool(
+    kOneShotTool,
+    'Report the full realism evaluation for this exchange in one call.',
+    {..._oneShotFields, 'today_sentence': _todaySentenceField},
+    const [
+      'relationship_delta',
+      'trust_delta',
+      'emotion',
+      'emotion_intensity',
+      'minutes_elapsed',
+      'today_sentence',
+    ],
+  ),
+];
+
 final Map<String, Map<String, dynamic>> _expressionFields = {
   'label': {
     'type': 'string',
@@ -436,9 +473,9 @@ final Map<String, Map<String, Map<String, dynamic>>> _fieldsByTool = {
   kRelationshipTool: _relationshipFields,
   kEmotionalTool: _emotionalFields,
   kNarrativeTool: _narrativeFields,
-  kOneShotTool: _oneShotFields,
+  kOneShotTool: {..._oneShotFields, 'today_sentence': _todaySentenceField},
   kNeedsImpactTool: _needsImpactFields,
-  kSceneTimeTool: _sceneTimeFields,
+  kSceneTimeTool: {..._sceneTimeFields, 'today_sentence': _todaySentenceField},
   kExpressionTool: _expressionFields,
   kCastDetectTool: _castDetectFields,
   kClimaxToolName: kClimaxFields,
@@ -517,7 +554,11 @@ String? realismToolCallToJson(String toolName, List<LlmToolCall> calls) {
           break;
         default:
           final s = v.toString().trim();
-          if (s.isNotEmpty) out[entry.key] = s;
+          // Empty today_sentence is abandon (same clamp as the JSON path).
+          // Other string fields still treat empty as omit.
+          if (s.isNotEmpty || entry.key == 'today_sentence') {
+            out[entry.key] = s;
+          }
       }
     }
     if (toolName == kCastDetectTool && (out['name'] as String? ?? '').isEmpty) {

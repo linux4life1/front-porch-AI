@@ -73,5 +73,18 @@ void main() {
         expect(props, contains(key), reason: '$key is demanded but undeclared');
       }
     });
+
+    test('planner-on twins demand today_sentence', () {
+      expect(_required(kOneShotEvalToolsWithToday), contains('today_sentence'));
+      expect(
+        _required(kSceneTimeOnlyEvalToolsWithToday),
+        contains('today_sentence'),
+      );
+      expect(_required(kOneShotEvalTools), isNot(contains('today_sentence')));
+      expect(
+        _required(kSceneTimeOnlyEvalTools),
+        isNot(contains('today_sentence')),
+      );
+    });
   });
 }

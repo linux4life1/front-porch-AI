@@ -36,11 +36,7 @@ class PlanInjection with SpeakerCardResolver {
     if (!getPlannerEnabled()) return '';
     if (speakerCard() == null) return '';
     final held = getTodayLine()?.trim();
-    if (held == null || held.isEmpty) {
-      return 'If you form a plan for today, append [today: one sentence] '
-          'at the end of your reply. An empty tag clears it.';
-    }
-    return 'Today\'s plan (hold this): "$held". Append [today: …] only if '
-        'it changes. An empty tag clears it.';
+    if (held == null || held.isEmpty) return '';
+    return 'Today\'s plan: "$held".';
   }
 }

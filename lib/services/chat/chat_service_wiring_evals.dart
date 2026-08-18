@@ -93,23 +93,24 @@ extension ChatServiceWiringEvals on ChatService {
   // backend gets the flat-JSON floor for free.
   PocketsEval _buildPocketsEval() {
     return PocketsEval(
-      fire: ({required debugLabel, required tools, required buildPrompt}) async {
-        return fireStructuredEval(
-          probe: _toolProbe,
-          backendIdentity: _evalBackendIdentity,
-          debugLabel: debugLabel,
-          tools: tools,
-          buildPrompt: buildPrompt,
-          callToText: (resp) =>
-              realismToolCallToJson(PocketsEval.kPocketsTool, resp.calls),
-          fireToolEval: _fireToolEval,
-          fireTextEval: (p, {onChunk}) => _fireLLMEval(
-            p,
-            repeatPenalty: kScalarEvalRepeatPenalty,
-            label: 'pockets',
-          ),
-        );
-      },
+      fire:
+          ({required debugLabel, required tools, required buildPrompt}) async {
+            return fireStructuredEval(
+              probe: _toolProbe,
+              backendIdentity: _evalBackendIdentity,
+              debugLabel: debugLabel,
+              tools: tools,
+              buildPrompt: buildPrompt,
+              callToText: (resp) =>
+                  realismToolCallToJson(PocketsEval.kPocketsTool, resp.calls),
+              fireToolEval: _fireToolEval,
+              fireTextEval: (p, {onChunk}) => _fireLLMEval(
+                p,
+                repeatPenalty: kScalarEvalRepeatPenalty,
+                label: 'pockets',
+              ),
+            );
+          },
     );
   }
 
@@ -123,23 +124,26 @@ extension ChatServiceWiringEvals on ChatService {
   // ratchet. Not a hot path (once per reply, never per frame).
   ReplyFactsEval _buildReplyFactsEval() {
     return ReplyFactsEval(
-      fire: ({required debugLabel, required tools, required buildPrompt}) async {
-        return fireStructuredEval(
-          probe: _toolProbe,
-          backendIdentity: _evalBackendIdentity,
-          debugLabel: debugLabel,
-          tools: tools,
-          buildPrompt: buildPrompt,
-          callToText: (resp) =>
-              realismToolCallToJson(ReplyFactsEval.kReplyFactsTool, resp.calls),
-          fireToolEval: _fireToolEval,
-          fireTextEval: (p, {onChunk}) => _fireLLMEval(
-            p,
-            repeatPenalty: kScalarEvalRepeatPenalty,
-            label: 'reply_facts',
-          ),
-        );
-      },
+      fire:
+          ({required debugLabel, required tools, required buildPrompt}) async {
+            return fireStructuredEval(
+              probe: _toolProbe,
+              backendIdentity: _evalBackendIdentity,
+              debugLabel: debugLabel,
+              tools: tools,
+              buildPrompt: buildPrompt,
+              callToText: (resp) => realismToolCallToJson(
+                ReplyFactsEval.kReplyFactsTool,
+                resp.calls,
+              ),
+              fireToolEval: _fireToolEval,
+              fireTextEval: (p, {onChunk}) => _fireLLMEval(
+                p,
+                repeatPenalty: kScalarEvalRepeatPenalty,
+                label: 'reply_facts',
+              ),
+            );
+          },
     );
   }
 
@@ -149,23 +153,24 @@ extension ChatServiceWiringEvals on ChatService {
   // the flat-JSON floor for free.
   ClimaxEval _buildClimaxEval() {
     return ClimaxEval(
-      fire: ({required debugLabel, required tools, required buildPrompt}) async {
-        return fireStructuredEval(
-          probe: _toolProbe,
-          backendIdentity: _evalBackendIdentity,
-          debugLabel: debugLabel,
-          tools: tools,
-          buildPrompt: buildPrompt,
-          callToText: (resp) =>
-              realismToolCallToJson(ClimaxEval.kClimaxTool, resp.calls),
-          fireToolEval: _fireToolEval,
-          fireTextEval: (p, {onChunk}) => _fireLLMEval(
-            p,
-            repeatPenalty: kScalarEvalRepeatPenalty,
-            label: 'climax',
-          ),
-        );
-      },
+      fire:
+          ({required debugLabel, required tools, required buildPrompt}) async {
+            return fireStructuredEval(
+              probe: _toolProbe,
+              backendIdentity: _evalBackendIdentity,
+              debugLabel: debugLabel,
+              tools: tools,
+              buildPrompt: buildPrompt,
+              callToText: (resp) =>
+                  realismToolCallToJson(ClimaxEval.kClimaxTool, resp.calls),
+              fireToolEval: _fireToolEval,
+              fireTextEval: (p, {onChunk}) => _fireLLMEval(
+                p,
+                repeatPenalty: kScalarEvalRepeatPenalty,
+                label: 'climax',
+              ),
+            );
+          },
     );
   }
 
@@ -376,6 +381,7 @@ extension ChatServiceWiringEvals on ChatService {
               _realismEnabled,
         );
       },
+      getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       setObjective:
           (
             text, {
@@ -536,7 +542,7 @@ extension ChatServiceWiringEvals on ChatService {
     void recordTraffic(LlmToolResponse? resp) => EvalTraffic.current.record(
       label:
           ((tools.firstOrNull?['function'] as Map?)?['name'] as String?) ??
-              'tool',
+          'tool',
       lane: 'tools',
       promptChars: prompt.length,
       outputChars: resp == null
