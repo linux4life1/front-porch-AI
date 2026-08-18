@@ -75,7 +75,12 @@ void main() {
       //      the Table/ladder/repair trio AND that the save and load wires
       //      exist — the wires being the part that was actually missing and
       //      that made 1:1 chats forget her pockets on every reload.
-      expect(db.schemaVersion, 47);
+      // v48: sessions.today_objective_id — the live Today side-quest row.
+      //      Same pin: uniqueness-by-shape cannot rebind once a user-typed
+      //      secondary exists, so the session holds the id. The column itself
+      //      is guarded by the Table/ladder/repair trio plus
+      //      test/services/chat/today_side_quest_test.dart.
+      expect(db.schemaVersion, 48);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {
