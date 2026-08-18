@@ -59,7 +59,8 @@ extension ChatServiceTurnFlow on ChatService {
     if (_clockRunning) {
       await _realismEvals.evaluatePhysicalStateCall(timeOnly: true);
     }
-    await _generateResponse(GenerationMode.normal);
+    // Already ticked above. Skip and speak must not tick again.
+    await _generateResponse(GenerationMode.normal, skipClockAdvance: true);
   }
 
   /// Trigger the next character to speak in group mode.

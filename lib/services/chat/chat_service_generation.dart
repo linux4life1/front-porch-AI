@@ -215,6 +215,11 @@ extension ChatServiceGeneration on ChatService {
           _activeGroup != null &&
           mode != GenerationMode.continue_ &&
           _groupSpeakerSkips(speakingCharacter)) {
+        // Time-only: chat-scoped clock still ticks. No realism/needs dance
+        // for a speaker who is not taking the turn. 1:1 never reaches here.
+        if (!skipClockAdvance && _clockRunning) {
+          await _realismEvals.evaluatePhysicalStateCall(timeOnly: true);
+        }
         debugPrint(
           '[Presence] skip-turn ${speakingCharacter.name} — clock still runs',
         );
