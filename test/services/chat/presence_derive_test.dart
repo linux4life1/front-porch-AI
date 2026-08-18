@@ -3,6 +3,8 @@
 //
 // At work is occupation + hours + the period. Fail closed.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/presence_derive.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
@@ -103,5 +105,67 @@ void main() {
     expect(stanceSaysAway('She left the kitchen'), isTrue);
     expect(stanceSaysAway('in the next room'), isTrue);
     expect(stanceSaysAway('out of sight down the hall'), isTrue);
+  });
+
+  test('1:1 Away and At work never skip; group Away and At work do', () {
+    final skipSrc =
+        File('lib/services/chat/chat_service_turn_flow.dart').readAsStringSync();
+    final skipFn = RegExp(
+      r'bool _groupSpeakerSkips\(CharacterCard card\) \{([\s\S]*?)\n  \}',
+    ).firstMatch(skipSrc);
+    expect(skipFn, isNotNull, reason: '_groupSpeakerSkips must stay in turn_flow');
+    final skipBody = skipFn!.group(1)!;
+    // Goes red if the 1:1 guard is removed from the real method.
+    expect(
+      skipBody,
+      contains('if (_activeGroup == null) return false;'),
+    );
+    expect(skipBody, contains('return groupTurnSkips(where);'));
+
+    final genSrc =
+        File('lib/services/chat/chat_service_generation.dart').readAsStringSync();
+    final genGate = RegExp(
+      r'if \(guestSpeaker == null &&\s+'
+      r'_activeGroup != null &&\s+'
+      r'mode != GenerationMode\.continue_ &&\s+'
+      r'_groupSpeakerSkips\(speakingCharacter\)\)',
+    ).firstMatch(genSrc);
+    expect(
+      genGate,
+      isNotNull,
+      reason: 'generation must call _groupSpeakerSkips only in a group',
+    );
+
+    final atWork = derivePresence(
+      occupation: 'clerk',
+      hours: '9-5',
+      timeOfDay: 'afternoon',
+      inScene: true,
+    );
+    final away = derivePresence(
+      occupation: 'clerk',
+      hours: '9-5',
+      timeOfDay: 'evening',
+      inScene: false,
+    );
+    expect(atWork, PresenceWhere.atWork);
+    expect(away, PresenceWhere.away);
+
+    bool groupSpeakerSkips({
+      required bool activeGroup,
+      required PresenceWhere where,
+    }) {
+      if (!activeGroup) return false;
+      return groupTurnSkips(where);
+    }
+
+    expect(groupSpeakerSkips(activeGroup: false, where: atWork), isFalse);
+    expect(groupSpeakerSkips(activeGroup: false, where: away), isFalse);
+    expect(groupSpeakerSkips(activeGroup: true, where: atWork), isTrue);
+    expect(groupSpeakerSkips(activeGroup: true, where: away), isTrue);
+    expect(
+      groupSpeakerSkips(activeGroup: true, where: PresenceWhere.withYou),
+      isFalse,
+    );
   });
 }
