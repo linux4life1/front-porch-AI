@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// TodayLine under TimeStrip is gated on plannerEnabled. Blank omits the row.
+// Live hold is on Story Calendar. TimeStrip keeps Presence. No TodayLine.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,41 +60,40 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('planner on + line shows the sentence under TimeStrip',
-      (tester) async {
+  testWidgets('planner on does not park Today under TimeStrip', (tester) async {
     await pumpGroup(
       tester,
       plannerOn: true,
       today: 'Finish the lighthouse log before the tide turns.',
     );
     expect(find.byType(TimeStrip), findsOneWidget);
-    expect(find.byType(TodayLine), findsOneWidget);
+    expect(find.byType(TodayLine), findsNothing);
     expect(
       find.text('Finish the lighthouse log before the tide turns.'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('No plan yet.'), findsNothing);
   });
 
-  testWidgets('planner off omits a leftover sentence', (tester) async {
+  testWidgets('planner off still omits Today under TimeStrip', (tester) async {
     await pumpGroup(
       tester,
       plannerOn: false,
       today: 'Finish the lighthouse log before the tide turns.',
     );
     expect(find.byType(TimeStrip), findsOneWidget);
+    expect(find.byType(TodayLine), findsNothing);
     expect(
       find.text('Finish the lighthouse log before the tide turns.'),
       findsNothing,
     );
     expect(find.text('No plan yet.'), findsNothing);
-    expect(tester.getSize(find.byType(TodayLine)).height, 0);
   });
 
-  testWidgets('planner on with empty line omits the row', (tester) async {
+  testWidgets('empty today still omits Today under TimeStrip', (tester) async {
     await pumpGroup(tester, plannerOn: true, today: null);
     expect(find.byType(TimeStrip), findsOneWidget);
+    expect(find.byType(TodayLine), findsNothing);
     expect(find.text('No plan yet.'), findsNothing);
-    expect(tester.getSize(find.byType(TodayLine)).height, 0);
   });
 }

@@ -37,7 +37,7 @@ Widget _stack(FakeChatService chat, PresenceWhere where) {
 void main() {
   setupPathProviderMock();
 
-  testWidgets('Chat — With you + today line', (tester) async {
+  testWidgets('Chat — With you', (tester) async {
     final chat = FakeChatService(timeOfDay: 'evening', dayCount: 3);
     addTearDown(chat.dispose);
     await expectThemedGoldens(
