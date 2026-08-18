@@ -119,7 +119,7 @@ part 'chat/chat_service_defaults.dart';
 // GBNF grammar-removal historical note both moved to chat_service_defaults.dart;
 // both are library top-level, so every part file's access is unaffected.)
 
-class ChatService extends ChangeNotifier with ChatTodayLine {
+class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   final KoboldService _koboldService;
   final UserPersonaService _userPersonaService;
   final StorageService _storageService;
@@ -613,6 +613,7 @@ class ChatService extends ChangeNotifier with ChatTodayLine {
       _ambitionsForImpl(card);
 
   late final _ambitionInjection = _buildAmbitionInjection();
+  late final _planInjection = _buildPlanInjection();
 
   /// Likes & Dislikes fragment — NOT realism-gated (see PreferencesInjection).
   late final _preferencesInjection = _buildPreferencesInjection();

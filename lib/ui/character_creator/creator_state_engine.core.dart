@@ -106,6 +106,8 @@ extension _CreatorCore on CreatorState {
     if (ext == null) return;
     realismAmbitions = List<String>.from(ext.ambitions);
     realismPlanLines = List<String>.from(ext.planLines);
+    realismOccupation = ext.occupation;
+    realismHours = ext.hours;
     realismLikes = List<String>.from(ext.likes);
     realismDislikes = List<String>.from(ext.dislikes);
     realismIntimateInto = List<String>.from(ext.intimateInto);

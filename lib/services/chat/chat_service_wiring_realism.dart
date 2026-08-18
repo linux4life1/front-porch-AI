@@ -40,6 +40,11 @@ extension ChatServiceWiringRealism on ChatService {
         _pendingRealismMetadata ??= {};
         _pendingRealismMetadata![key] = value;
       },
+      onStoryDayChanged: () {
+        final held = todaySentence;
+        setTodaySentence(null);
+        unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.dayAte));
+      },
       onPatchLastMessageRealismState: (tod, dc, clockIso) {
         // Patch the newest REAL message — never a narration banner. Dream /
         // chance-time messages carry only their banner flag; stamping a full

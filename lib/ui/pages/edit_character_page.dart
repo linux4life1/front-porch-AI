@@ -125,6 +125,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   // Ambitions are a LIST, not newline-encoded text (see ChipListEditor).
   List<String> _ambitions = const [];
   List<String> _planLines = const [];
+  String _occupation = '';
+  String _hours = '';
 
   /// Likes & Dislikes and the 18+ pair — card-authored identity, same shape
   /// and same chip editor as [_ambitions].
@@ -291,6 +293,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     _planLines = List<String>.from(
       widget.character.frontPorchExtensions?.planLines ?? const [],
     );
+    _occupation = widget.character.frontPorchExtensions?.occupation ?? '';
+    _hours = widget.character.frontPorchExtensions?.hours ?? '';
     _likes = List<String>.from(
       widget.character.frontPorchExtensions?.likes ?? const [],
     );
@@ -454,6 +458,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     final hasIdentityContent =
         _ambitions.isNotEmpty ||
         _planLines.isNotEmpty ||
+        _occupation.trim().isNotEmpty ||
+        _hours.trim().isNotEmpty ||
         _likes.isNotEmpty ||
         _dislikes.isNotEmpty ||
         _intimateInto.isNotEmpty ||
@@ -496,6 +502,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           for (final a in _planLines)
             if (a.trim().isNotEmpty) a.trim(),
         ],
+        occupation: _occupation.trim(),
+        hours: _hours.trim(),
         likes: [
           for (final a in _likes)
             if (a.trim().isNotEmpty) a.trim(),

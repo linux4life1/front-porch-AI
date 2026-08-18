@@ -132,6 +132,10 @@ class TimeService {
   final void Function(String timeOfDay, int dayCount, String storyClockIso)
   onPatchLastMessageRealismState;
 
+  /// Fires when the story day actually rolls. ChatService journals
+  /// the held today sentence here — not in a getter.
+  final void Function()? onStoryDayChanged;
+
   // Owned state — the whole subsystem.
   DateTime _clock = StoryClock.representativeTime(
     StoryClock.todayAnchor(),
@@ -150,6 +154,12 @@ class TimeService {
   void clearTodayLine() {
     todayLine = null;
     _todayLineDayCount = null;
+  }
+
+  void _ifDayChanged(int dayBefore) {
+    if (dayCount == dayBefore) return;
+    clearTodayLine();
+    onStoryDayChanged?.call();
   }
 
   String? get visibleTodayLine {
@@ -178,6 +188,7 @@ class TimeService {
     required this.onSaveChat,
     required this.onSetPendingRealismMetadata,
     required this.onPatchLastMessageRealismState,
+    this.onStoryDayChanged,
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,
@@ -441,9 +452,7 @@ class TimeService {
         : StoryClock.snapToPreviousPeriod(_clock);
     if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
     _turnsSinceClockMoved = 0;
-    if (dayCount != dayBefore) {
-      clearTodayLine();
-    }
+    _ifDayChanged(dayBefore);
     onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
   }
 
@@ -451,6 +460,7 @@ class TimeService {
   /// anchor back when the new moment predates Day 1 (the story now starts
   /// earlier). Same swipe-survival patch as a nudge.
   void setClockDirect(DateTime newClock) {
+    final dayBefore = dayCount;
     _clock = DateTime.utc(
       newClock.year,
       newClock.month,
@@ -460,13 +470,14 @@ class TimeService {
     );
     if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
     _turnsSinceClockMoved = 0;
-    clearTodayLine();
+    _ifDayChanged(dayBefore);
     onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
   }
 
   /// Post-reply: she named a time, so the live clock follows. Not a user
   /// nudge — swipe/regen still rewind from the previous snapshot.
   void applyReconciledClock(DateTime newClock) {
+    final dayBefore = dayCount;
     _clock = DateTime.utc(
       newClock.year,
       newClock.month,
@@ -476,6 +487,7 @@ class TimeService {
     );
     if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
     _turnsSinceClockMoved = 0;
+    _ifDayChanged(dayBefore);
   }
 
   /// Calendar dialog: re-anchor "story begins on…". Shifts the clock by the
@@ -601,9 +613,10 @@ class TimeService {
       next = _clock.add(const Duration(hours: 1));
     }
 
+    final dayBefore = dayCount;
     _clock = next;
     _turnsSinceClockMoved = 0;
-    clearTodayLine();
+    _ifDayChanged(dayBefore);
     _oocSkipMovedClockThisTurn = true;
     onSetPendingRealismMetadata(
       'time_skip_to',
@@ -644,7 +657,7 @@ class TimeService {
       moved = true;
       debugPrint('[Realism:Time] Stall backstop — snapped to $timeOfDay');
     }
-    if (dayCount != dayBefore) clearTodayLine();
+    _ifDayChanged(dayBefore);
     return moved;
   }
 

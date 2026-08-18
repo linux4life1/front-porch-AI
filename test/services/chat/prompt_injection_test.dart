@@ -489,6 +489,57 @@ void main() {
       expect(txt.toUpperCase(), isNot(contains('MISTRUST')));
     });
 
+    test('1:1 At work narrates from work, not the porch', () {
+      final b = BehavioralInjection(
+        relationshipService: createTestRelSvc(),
+        getRealismEnabled: () => true,
+        getOccupation: () => 'clerk',
+        getHours: () => '9-5',
+        getTimeOfDay: () => 'afternoon',
+        getIsGroup: () => false,
+      );
+      final txt = b.buildPositionInjection();
+      expect(txt, contains('At work as a clerk'));
+      expect(txt, contains('not from the porch'));
+      expect(txt, isNot(contains('Position:')));
+    });
+
+    test('1:1 Away narrates from the stance, not the porch', () {
+      final svc = createTestRelSvc();
+      svc.loadScalars(
+        affectionScore: 0,
+        longTermScore: 0,
+        trustLevel: 0,
+        spatialStance: 'She left the kitchen',
+      );
+      final b = BehavioralInjection(
+        relationshipService: svc,
+        getRealismEnabled: () => true,
+        getIsGroup: () => false,
+      );
+      final txt = b.buildPositionInjection();
+      expect(txt, contains('Away from {{user}}'));
+      expect(txt, contains('left the kitchen'));
+      expect(txt, contains('not from the porch'));
+    });
+
+    test('group Away keeps the Position line', () {
+      final svc = createTestRelSvc();
+      svc.loadScalars(
+        affectionScore: 0,
+        longTermScore: 0,
+        trustLevel: 0,
+        spatialStance: 'She left the kitchen',
+      );
+      final b = BehavioralInjection(
+        relationshipService: svc,
+        getRealismEnabled: () => true,
+        getIsGroup: () => true,
+      );
+      expect(b.buildPositionInjection(), contains('Position: She left the kitchen'));
+      expect(b.buildPositionInjection(), isNot(contains('Away from')));
+    });
+
     test('chaos: calm house register — no ALL-CAPS wall, event intact', () {
       final c = ChaosModeService(
         onNotify: () {},

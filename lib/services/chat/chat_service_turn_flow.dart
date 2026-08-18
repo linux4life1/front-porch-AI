@@ -97,6 +97,35 @@ extension ChatServiceTurnFlow on ChatService {
     return _groupManager!.pickNextSpeaker();
   }
 
+  /// At work (and Away when we know they are not in scene). 1:1 never skips.
+  bool _groupSpeakerSkips(CharacterCard card) {
+    if (_activeGroup == null) return false;
+    final ext = card.frontPorchExtensions;
+    final where = derivePresence(
+      occupation: ext?.occupation ?? '',
+      hours: ext?.hours ?? '',
+      timeOfDay: _timeService.timeOfDay,
+      inScene: _memberInScene(card),
+    );
+    return groupTurnSkips(where);
+  }
+
+  /// Skip path only. 1:1 never skips (caller returns false first).
+  /// Group: recent line, or stance that does not say they left.
+  bool _memberInScene(CharacterCard card) {
+    if (_activeGroup == null) return true;
+    var seen = 0;
+    for (final m in _messages.reversed) {
+      if (m.isUser) continue;
+      if (m.sender == card.name) return true;
+      if (++seen >= 8) break;
+    }
+    final id = _getCharacterIdFromCard(card);
+    final stance = _groupRealism[id]?.spatialStance ?? '';
+    return !stanceSaysAway(stance);
+  }
+
+
   /// Wait for TTS to finish speaking, then apply the configured delay before auto-play.
   void _waitForTtsThenContinue() {
     if (!(_groupManager?.autoPlayActive ?? false) ||

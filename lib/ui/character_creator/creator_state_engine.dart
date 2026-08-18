@@ -107,6 +107,8 @@ extension CreatorEngine on CreatorState {
         enjoysLowHygiene: realismEnjoysLowHygiene,
         ambitions: realismAmbitions,
         planLines: realismPlanLines,
+        occupation: realismOccupation,
+        hours: realismHours,
         likes: realismLikes,
         dislikes: realismDislikes,
         intimateInto: realismIntimateInto,

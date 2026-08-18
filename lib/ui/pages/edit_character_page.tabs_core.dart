@@ -299,6 +299,12 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                   planLines: _planLines,
                   onPlanLinesChanged: (v) =>
                       rebuildState(() => _planLines = v),
+                  occupation: _occupation,
+                  onOccupationChanged: (v) =>
+                      rebuildState(() => _occupation = v),
+                  hours: _hours,
+                  onHoursChanged: (v) =>
+                      rebuildState(() => _hours = v),
                   likes: _likes,
                   onLikesChanged: (v) => rebuildState(() => _likes = v),
                   dislikes: _dislikes,

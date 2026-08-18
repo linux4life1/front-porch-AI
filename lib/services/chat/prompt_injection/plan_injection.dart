@@ -1,15 +1,16 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Planner fragment. Parked: live injection stays off until time +
-// objectives + journal exist. Character writes the plan from personality.
+// Planner fragment. Character writes the plan from personality.
+// Live hold is on when the planner flag is on. No habit gate.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'speaker_resolution.dart';
 
-/// Scene-plan fragment. '' when the speaker wings it or there is no card.
+/// Scene-plan fragment. '' when the planner flag is off or there is no card.
 class PlanInjection with SpeakerCardResolver {
   final String? Function() getTodayLine;
+  final bool Function() getPlannerEnabled;
   @override
   final CharacterCard? Function() getActiveCharacter;
   @override
@@ -23,6 +24,7 @@ class PlanInjection with SpeakerCardResolver {
 
   PlanInjection({
     required this.getTodayLine,
+    required this.getPlannerEnabled,
     required this.getActiveCharacter,
     required this.getIsGroupNonObserverMode,
     required this.getCurrentSpeakerIdForRealism,
@@ -31,8 +33,14 @@ class PlanInjection with SpeakerCardResolver {
   });
 
   String buildPlanInjection() {
-    // Parked. Live write stays off until time + objectives + journal exist.
-    // Do not gate on planHabit. Joe killed Plans / Wings it.
-    return '';
+    if (!getPlannerEnabled()) return '';
+    if (speakerCard() == null) return '';
+    final held = getTodayLine()?.trim();
+    if (held == null || held.isEmpty) {
+      return 'If you form a plan for today, append [today: one sentence] '
+          'at the end of your reply. An empty tag clears it.';
+    }
+    return 'Today\'s plan (hold this): "$held". Append [today: …] only if '
+        'it changes. An empty tag clears it.';
   }
 }

@@ -89,6 +89,12 @@ class FrontPorchExtensions {
   /// The today sentence is session state, never stored here.
   List<String> planLines;
 
+  /// Occupation and hours — two short identity strings. Travel with the card
+  /// like [planLines]. Blank is omitted from JSON. No weekday grid; at-work
+  /// is derived later, not stored here.
+  String occupation;
+  String hours;
+
   /// What this character is drawn to, and what puts them off — short phrases,
   /// authored on the card. Identity like [ambitions]: they travel with it.
   ///
@@ -217,6 +223,8 @@ class FrontPorchExtensions {
     // so the const default is safe.
     this.ambitions = const [],
     this.planLines = const [],
+    this.occupation = '',
+    this.hours = '',
     this.likes = const [],
     this.dislikes = const [],
     this.intimateInto = const [],
@@ -296,6 +304,8 @@ class FrontPorchExtensions {
         'enjoys_low_hygiene': enjoysLowHygiene,
         'ambitions': ambitions,
         'plan_lines': planLines,
+        if (occupation.isNotEmpty) 'occupation': occupation,
+        if (hours.isNotEmpty) 'hours': hours,
         'likes': likes,
         'dislikes': dislikes,
         // Nested so the 18+ pair can be stripped from a share as one object.
@@ -376,6 +386,8 @@ class FrontPorchExtensions {
       enjoysLowHygiene: realism['enjoys_low_hygiene'] as bool? ?? false,
       ambitions: _phrases(realism['ambitions']),
       planLines: _phrases(realism['plan_lines']),
+      occupation: realism['occupation'] as String? ?? '',
+      hours: realism['hours'] as String? ?? '',
       likes: _phrases(realism['likes']),
       dislikes: _phrases(realism['dislikes']),
       intimateInto: _phrases(_intimate(realism)['into']),
@@ -456,6 +468,8 @@ class FrontPorchExtensions {
     bool? enjoysLowHygiene,
     List<String>? ambitions,
     List<String>? planLines,
+    String? occupation,
+    String? hours,
     List<String>? likes,
     List<String>? dislikes,
     List<String>? intimateInto,
@@ -516,6 +530,8 @@ class FrontPorchExtensions {
       enjoysLowHygiene: enjoysLowHygiene ?? this.enjoysLowHygiene,
       ambitions: ambitions ?? this.ambitions,
       planLines: planLines ?? this.planLines,
+      occupation: occupation ?? this.occupation,
+      hours: hours ?? this.hours,
       likes: likes ?? this.likes,
       dislikes: dislikes ?? this.dislikes,
       intimateInto: intimateInto ?? this.intimateInto,

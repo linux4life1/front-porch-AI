@@ -275,6 +275,8 @@ class CreatorState extends ChangeNotifier {
   /// sketch §4). Card-resident like the rest of this state.
   List<String> realismAmbitions = const [];
   List<String> realismPlanLines = const [];
+  String realismOccupation = '';
+  String realismHours = '';
 
   /// Likes & Dislikes and the 18+ pair — same card-resident identity lists,
   /// authored in the same step.

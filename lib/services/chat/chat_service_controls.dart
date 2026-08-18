@@ -171,6 +171,7 @@ extension ChatServiceControls on ChatService {
   Future<void> nudgeTimePeriod(int delta) async {
     if (!_realismEnabled) return;
     _timeService.nudgeTimePeriod(delta);
+    // Day-ate journal rides TimeService.onStoryDayChanged.
     await _saveChat();
     notifyListeners();
   }
@@ -180,6 +181,7 @@ extension ChatServiceControls on ChatService {
   Future<void> setStoryClock(DateTime clock) async {
     if (!_realismEnabled) return;
     _timeService.setClockDirect(clock);
+    // Day-ate journal rides TimeService.onStoryDayChanged.
     await _saveChat();
     notifyListeners();
   }

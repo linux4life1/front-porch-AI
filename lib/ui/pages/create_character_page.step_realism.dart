@@ -98,6 +98,12 @@ extension _CreateCharacterRealismStep on _CreateCharacterPageState {
                 planLines: _realismPlanLines,
                 onPlanLinesChanged: (v) =>
                     rebuildState(() => _realismPlanLines = v),
+                occupation: _realismOccupation,
+                onOccupationChanged: (v) =>
+                    rebuildState(() => _realismOccupation = v),
+                hours: _realismHours,
+                onHoursChanged: (v) =>
+                    rebuildState(() => _realismHours = v),
                 likes: _realismLikes,
                 onLikesChanged: (v) => rebuildState(() => _realismLikes = v),
                 dislikes: _realismDislikes,

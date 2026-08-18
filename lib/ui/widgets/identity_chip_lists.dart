@@ -26,6 +26,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 // would be a self-import (the structural exemption in CLAUDE.md).
 import 'package:front_porch_ai/ui/widgets/chip_list_editor.dart';
 import 'package:front_porch_ai/ui/widgets/plan_lines_editor.dart';
+import 'package:front_porch_ai/ui/widgets/work_row.dart';
 
 /// The install's 18+ master switch — the same one that shows or hides the
 /// After Dark group in Settings — or `false` when no [StorageService] is in
@@ -80,6 +81,10 @@ class IdentityChipLists extends StatelessWidget {
     this.onAmbitionsChanged,
     this.planLines,
     this.onPlanLinesChanged,
+    this.occupation,
+    this.onOccupationChanged,
+    this.hours,
+    this.onHoursChanged,
     this.likes,
     this.onLikesChanged,
     this.dislikes,
@@ -100,6 +105,11 @@ class IdentityChipLists extends StatelessWidget {
 
   final List<String>? planLines;
   final ValueChanged<List<String>>? onPlanLinesChanged;
+
+  final String? occupation;
+  final ValueChanged<String>? onOccupationChanged;
+  final String? hours;
+  final ValueChanged<String>? onHoursChanged;
 
   final List<String>? likes;
   final ValueChanged<List<String>>? onLikesChanged;
@@ -158,6 +168,10 @@ class IdentityChipLists extends StatelessWidget {
     final hasPlanLines = plannerEnabledOf(context) &&
         planLines != null &&
         onPlanLinesChanged != null;
+    final hasWork = occupation != null &&
+        onOccupationChanged != null &&
+        hours != null &&
+        onHoursChanged != null;
     final hasTastes =
         likes != null &&
         onLikesChanged != null &&
@@ -178,6 +192,7 @@ class IdentityChipLists extends StatelessWidget {
 
     if (!hasAmbitions &&
         !hasPlanLines &&
+        !hasWork &&
         !hasTastes &&
         !hasIntimate &&
         !hasWardrobe) {
@@ -217,6 +232,16 @@ class IdentityChipLists extends StatelessWidget {
             enabled: true,
             values: planLines!,
             onChanged: onPlanLinesChanged!,
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        if (hasWork) ...[
+          WorkRow(
+            occupation: occupation!,
+            hours: hours!,
+            onOccupationChanged: onOccupationChanged!,
+            onHoursChanged: onHoursChanged!,
           ),
           const SizedBox(height: 20),
         ],

@@ -71,6 +71,8 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
         enjoysLowHygiene: _realismEnjoysLowHygiene,
         ambitions: _realismAmbitions,
         planLines: _realismPlanLines,
+        occupation: _realismOccupation,
+        hours: _realismHours,
         likes: _realismLikes,
         dislikes: _realismDislikes,
         intimateInto: _realismIntimateInto,
@@ -227,6 +229,8 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
       _realismEnjoysLowHygiene = false;
       _realismAmbitions = const [];
       _realismPlanLines = const [];
+      _realismOccupation = '';
+      _realismHours = '';
       _realismLikes = const [];
       _realismDislikes = const [];
       _realismIntimateInto = const [];

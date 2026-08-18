@@ -308,6 +308,11 @@ extension ChatServiceWiringInjection on ChatService {
     return BehavioralInjection(
       relationshipService: _relationshipService,
       getRealismEnabled: () => _realismEnabled,
+      getOccupation: () =>
+          _activeCharacter?.frontPorchExtensions?.occupation ?? '',
+      getHours: () => _activeCharacter?.frontPorchExtensions?.hours ?? '',
+      getTimeOfDay: () => _timeService.timeOfDay,
+      getIsGroup: () => _activeGroup != null,
     );
   }
 
@@ -391,6 +396,19 @@ extension ChatServiceWiringInjection on ChatService {
       // Condition skins (phase 2 step ④): renamed weather speaks by its new
       // name with stance-driven behavior on every prompt surface.
       getBiome: () => activeChatBiome,
+    );
+  }
+
+  PlanInjection _buildPlanInjection() {
+    return PlanInjection(
+      getTodayLine: () => todaySentence,
+      getPlannerEnabled: () =>
+          _storageService.realismSettings.plannerEnabled,
+      getActiveCharacter: () => _activeCharacter,
+      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
+      getGroupCharacters: () => _groupCharacters,
+      getCharacterIdFromCard: _getCharacterIdFromCard,
     );
   }
 
@@ -548,6 +566,7 @@ extension ChatServiceWiringInjection on ChatService {
       timeInjection: _timeInjection,
       weatherInjection: _weatherInjection,
       ambitionInjection: _ambitionInjection,
+      planInjection: _planInjection,
       preferencesInjection: _preferencesInjection,
       inventoryInjection: _inventoryInjection,
       promiseDebtInjection: _promiseDebtInjection,

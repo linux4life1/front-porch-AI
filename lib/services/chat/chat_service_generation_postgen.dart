@@ -119,10 +119,26 @@ extension ChatServiceGenerationPostGen on ChatService {
         }
       }
 
-      // Optional [today: …] tag — strip from the visible reply. Live write
-      // stays parked (no holdTodayLine, no plannerEnabled gate).
+      // Optional [today: …] tag — strip from the visible reply. Empty tag
+      // abandons the hold; missing tag keeps whatever is held. Never write
+      // TimeService.todayLine.
       final todayParsed = TodayLineTag.parse(finalResponse);
       finalResponse = todayParsed.visible;
+      final todayLine = todayParsed.line;
+      if (_storageService.realismSettings.plannerEnabled &&
+          todayLine != null) {
+        final prev = todaySentence;
+        if (todayLine.isEmpty) {
+          abandonToday();
+        } else {
+          if (prev != null && prev != todayLine) {
+            unawaited(
+              _journalResolvedToday(prev, fate: PlannerTodayFate.done),
+            );
+          }
+          setTodaySentence(todayLine);
+        }
+      }
 
       // Always persist the finalized body. Continue + strip without sanitizer
       // used to leave streamTarget alone after mutating only finalResponse —

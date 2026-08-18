@@ -155,6 +155,21 @@ class RealismStep extends StatelessWidget {
                   state.realismAmbitions = v;
                   state.notify();
                 },
+                planLines: state.realismPlanLines,
+                onPlanLinesChanged: (v) {
+                  state.realismPlanLines = v;
+                  state.notify();
+                },
+                occupation: state.realismOccupation,
+                onOccupationChanged: (v) {
+                  state.realismOccupation = v;
+                  state.notify();
+                },
+                hours: state.realismHours,
+                onHoursChanged: (v) {
+                  state.realismHours = v;
+                  state.notify();
+                },
                 likes: state.realismLikes,
                 onLikesChanged: (v) {
                   state.realismLikes = v;

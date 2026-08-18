@@ -14,11 +14,13 @@ import 'package:front_porch_ai/services/chat/time_service.dart';
 TimeService makeService({
   void Function(String, dynamic)? onPending,
   void Function(String, int, String)? onPatch,
+  void Function()? onStoryDayChanged,
 }) => TimeService(
   onNotify: () {},
   onSaveChat: () async {},
   onSetPendingRealismMetadata: onPending ?? (_, _) {},
   onPatchLastMessageRealismState: onPatch ?? (_, _, _) {},
+  onStoryDayChanged: onStoryDayChanged,
 );
 
 /// Seed to a fixed, deterministic moment: Day 3 (Thu 2026-07-02).
@@ -414,6 +416,30 @@ void main() {
         oneShotText: '{"minutes_elapsed": 120, "new_day": true}',
       );
       expect(t.clock, before);
+    });
+  });
+
+  group('TimeService story-day callback', () {
+    test('onStoryDayChanged fires only when the day rolls', () {
+      var n = 0;
+      final t = makeService(onStoryDayChanged: () => n++);
+      seedFixed(t, timeOfDay: 'evening');
+      t.nudgeTimePeriod(1); // evening → night, same day
+      expect(n, 0);
+      expect(t.dayCount, 3);
+      t.detectOocTimeSkip('the next morning, sunlight woke them');
+      expect(t.dayCount, 4);
+      expect(n, 1);
+    });
+
+    test('same-day clock set does not fire', () {
+      var n = 0;
+      final t = makeService(onStoryDayChanged: () => n++);
+      seedFixed(t);
+      t.setClockDirect(DateTime.utc(2026, 7, 2, 21, 0));
+      expect(n, 0);
+      t.setClockDirect(DateTime.utc(2026, 7, 3, 9, 0));
+      expect(n, 1);
     });
   });
 }

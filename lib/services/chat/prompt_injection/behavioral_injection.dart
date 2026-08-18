@@ -16,7 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/chat/presence_derive.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 
 /// Fixation + spatial-stance fragments for the words-only state block
 /// (docs/design/prompt-state-injection.md §3). Both are free-text fields (may
@@ -40,10 +42,18 @@ import 'package:front_porch_ai/services/chat/relationship_service.dart';
 class BehavioralInjection {
   final RelationshipService relationshipService;
   final bool Function() getRealismEnabled;
+  final String Function()? getOccupation;
+  final String Function()? getHours;
+  final String Function()? getTimeOfDay;
+  final bool Function()? getIsGroup;
 
   BehavioralInjection({
     required this.relationshipService,
     required this.getRealismEnabled,
+    this.getOccupation,
+    this.getHours,
+    this.getTimeOfDay,
+    this.getIsGroup,
   });
 
   /// The background thought — MENTAL state, and it says so itself: "colors
@@ -67,8 +77,33 @@ class BehavioralInjection {
   /// happens, not after it has already written the scene.
   String buildPositionInjection() {
     if (!getRealismEnabled()) return '';
-    if (relationshipService.spatialStance.isEmpty) return '';
-    return 'Position: ${relationshipService.spatialStance} — ground actions in '
+    final stance = relationshipService.spatialStance.trim();
+    final group = getIsGroup?.call() ?? false;
+    if (!group) {
+      final occ = getOccupation?.call() ?? '';
+      final hours = getHours?.call() ?? '';
+      final tod = getTimeOfDay?.call() ?? '';
+      final where = derivePresence(
+        occupation: occ,
+        hours: hours,
+        timeOfDay: tod,
+        inScene: !stanceSaysAway(stance),
+      );
+      if (where == PresenceWhere.atWork) {
+        final job = occ.trim();
+        final here = stance.isEmpty ? '' : ' ($stance)';
+        return 'At work${job.isEmpty ? '' : ' as a $job'}$here. '
+            'Reply from what you are doing there — not from the porch '
+            'with {{user}}.';
+      }
+      if (where == PresenceWhere.away) {
+        final here = stance.isEmpty ? '' : ' ($stance)';
+        return 'Away from {{user}}$here. Reply from there — not from '
+            'the porch.';
+      }
+    }
+    if (stance.isEmpty) return '';
+    return 'Position: $stance — ground actions in '
         'this, but moving and changing position is fine as the scene demands.';
   }
 

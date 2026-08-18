@@ -1,14 +1,20 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Live plan injection is parked. Always ''.
+// Live plan injection is on only when the planner flag is on.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/plan_injection.dart';
 
-PlanInjection make(CharacterCard? card, {String? held}) => PlanInjection(
+PlanInjection make(
+  CharacterCard? card, {
+  String? held,
+  bool plannerOn = false,
+}) =>
+    PlanInjection(
       getTodayLine: () => held,
+      getPlannerEnabled: () => plannerOn,
       getActiveCharacter: () => card,
       getIsGroupNonObserverMode: () => false,
       getCurrentSpeakerIdForRealism: () => '',
@@ -24,18 +30,34 @@ CharacterCard who(String name) => CharacterCard(
     );
 
 void main() {
-  test('buildPlanInjection is empty with no card', () {
-    expect(make(null, held: 'Finish the log.').buildPlanInjection(), isEmpty);
-  });
-
-  test('buildPlanInjection is empty with a card and held line', () {
+  test('buildPlanInjection is empty when the flag is off', () {
     expect(
-      make(who('Ada'), held: 'Finish the log.').buildPlanInjection(),
+      make(who('Ada'), held: 'Finish the log.', plannerOn: false)
+          .buildPlanInjection(),
       isEmpty,
     );
   });
 
-  test('buildPlanInjection is empty with a card and no held line', () {
-    expect(make(who('Ada')).buildPlanInjection(), isEmpty);
+  test('buildPlanInjection is empty with no card even when the flag is on', () {
+    expect(
+      make(null, held: 'Finish the log.', plannerOn: true).buildPlanInjection(),
+      isEmpty,
+    );
+  });
+
+  test('flag on and no held line asks for [today:]', () {
+    final text = make(who('Ada'), plannerOn: true).buildPlanInjection();
+    expect(text, contains('[today:'));
+    expect(text, isNot(contains('hold this')));
+  });
+
+  test('flag on and a held line asks to keep it', () {
+    final text = make(
+      who('Ada'),
+      held: 'Finish the log.',
+      plannerOn: true,
+    ).buildPlanInjection();
+    expect(text, contains('Finish the log.'));
+    expect(text, contains('[today:'));
   });
 }

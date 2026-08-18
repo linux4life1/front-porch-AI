@@ -621,5 +621,70 @@ extension ChatServiceAccessors on ChatService {
     // Local model path / remote model name changes alter the eval identity —
     // retest tool support for the new model (sidebar pill contract).
     _storageService.addListener(_onBackendIdentity);
+    _onTodayAbandoned = (held) {
+      unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.abandoned));
+    };
+  }
+}
+
+/// Session-scoped today sentence. On this leaf so the god file stays
+/// under the 1000-line ratchet. Day-clear is on the clock advance.
+mixin ChatServiceTodaySentence on ChangeNotifier {
+  String? _todaySentence;
+  void Function(String? held)? _onTodayAbandoned;
+
+  String? get todaySentence => _todaySentence;
+
+  void setTodaySentence(String? value) {
+    final next = value?.trim();
+    _todaySentence = (next == null || next.isEmpty) ? null : next;
+    notifyListeners();
+  }
+
+  /// User X or empty [today:] tag. Setter stays a plain clear.
+  void abandonToday() {
+    final held = todaySentence;
+    setTodaySentence(null);
+    _onTodayAbandoned?.call(held);
+  }
+
+  String? get todayLine => todaySentence;
+}
+
+enum PlannerTodayFate { done, abandoned, dayAte }
+
+extension ChatServicePlannerResolve on ChatService {
+  void _nudgePlannerMood(PlannerTodayFate fate) {
+    _characterEmotion = switch (fate) {
+      PlannerTodayFate.done => 'content',
+      PlannerTodayFate.abandoned || PlannerTodayFate.dayAte => 'annoyed',
+    };
+  }
+
+  /// Journal a finished or day-eaten line. Capture [held] before clearing.
+  /// Abandoned lines sour mood and do not write a card.
+  Future<void> _journalResolvedToday(
+    String? held, {
+    required PlannerTodayFate fate,
+  }) async {
+    final line = held?.trim();
+    if (line == null || line.isEmpty) return;
+    if (!_storageService.realismSettings.plannerEnabled) return;
+    _nudgePlannerMood(fate);
+    if (fate == PlannerTodayFate.abandoned) return;
+    final sessionId = _currentSessionId;
+    final card = _activeCharacter;
+    if (sessionId == null || card == null) return;
+    await _journalStore.addCard(
+      sessionId: sessionId,
+      characterId: _getCharacterIdFromCard(card),
+      content: line,
+      category: 'moment',
+      kind: 'today',
+      storyDay: _timeService.dayCount,
+      storyClock: _timeService.storyClockIso,
+      emotionLabel: _characterEmotion.isEmpty ? null : _characterEmotion,
+      maxCards: _storageService.memorySettings.journalMaxCards,
+    );
   }
 }

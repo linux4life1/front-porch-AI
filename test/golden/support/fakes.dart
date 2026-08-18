@@ -271,6 +271,10 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     notifyListeners();
   }
   @override
+  void abandonToday() {
+    setTodaySentence(null);
+  }
+  @override
   final CharacterCard? activeCharacter;
 
   // Generation status bar surface.
