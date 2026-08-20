@@ -41,6 +41,7 @@ const BACKEND_OPTIONS: BackendOption[] = [
   { id: 'omlx', label: 'oMLX (local API)', backend: 'omlx', url: 'http://localhost:8000/v1', kind: 'api' },
   { id: 'nanogpt', label: 'Nano-GPT', backend: 'openRouter', url: 'https://nano-gpt.com/api/v1', kind: 'api' },
   { id: 'openrouter', label: 'OpenRouter', backend: 'openRouter', url: 'https://openrouter.ai/api/v1', kind: 'api' },
+  { id: 'concentrate', label: 'Concentrate', backend: 'openRouter', url: 'https://api.concentrate.ai/v1', kind: 'api' },
   { id: 'custom', label: 'Custom API (OpenAI-compatible)', backend: 'openRouter', url: '', kind: 'api' },
 ];
 

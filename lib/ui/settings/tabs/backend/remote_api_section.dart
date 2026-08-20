@@ -143,6 +143,16 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
                       'https://nano-gpt.com/api/v1',
                     ),
                   ),
+                  ApiPresetChip(
+                    label: 'Concentrate',
+                    active:
+                        storageService.remoteApiUrl ==
+                        'https://api.concentrate.ai/v1',
+                    onPressed: () => _selectPreset(
+                      'Concentrate',
+                      'https://api.concentrate.ai/v1',
+                    ),
+                  ),
                   // No oMLX chip here on purpose: oMLX has its own dedicated
                   // Backend Mode radio above (with oMLX-specific handling),
                   // so a second way to reach it through the generic client
