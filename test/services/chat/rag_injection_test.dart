@@ -633,6 +633,72 @@ void main() {
       );
     });
 
+    test('HOLD hole: leftover kind, remap gap, two-word paraphrase', () {
+      const gist =
+          'I still think about the spare key under the third flowerpot';
+      final burned = _mem(
+        'Nia: I still think about the spare key under the third flowerpot burned',
+        sessionId: 's1',
+        pos: 2,
+      );
+      expect(dropCoveredRagWindows([burned], [gist]), [
+        burned,
+      ], reason: 'burned is a one-word second fact, not paraphrase');
+      final lighthouse = _mem(
+        'Nia: I still think about the spare key under the third flowerpot lighthouse',
+        sessionId: 's1',
+        pos: 3,
+      );
+      expect(dropCoveredRagWindows([lighthouse], [gist]), [
+        lighthouse,
+      ], reason: 'lighthouse is a one-word second fact, not paraphrase');
+      final hidden = _mem(
+        'Nia: the spare key lives hidden under the third flowerpot',
+        sessionId: 's1',
+        pos: 4,
+      );
+      expect(
+        dropCoveredRagWindows([hidden], [gist]),
+        isEmpty,
+        reason: 'lives hidden is same-beat paraphrase, not leftover==2',
+      );
+      final gapped = _mem(
+        'Nia: the porch swing creaked tonight\n'
+        'Nia: I still think about the spare key under the third flowerpot\n'
+        'Nia: I sat on the front garden',
+        sessionId: 's1',
+        pos: 10,
+        end: 12,
+      );
+      final gapKept = dropCoveredRagWindows([gapped], [gist]);
+      expect(gapKept, hasLength(2));
+      expect(gapKept.map((m) => m.positionStart).toList(), [10, 12]);
+      expect(
+        gapKept.any((m) => m.positionStart <= 11 && m.positionEnd >= 11),
+        isFalse,
+        reason: 'middle covered pos must not stay inside a first-to-last span',
+      );
+      final wide = _mem(
+        'Nia: I still think about the spare key under the third flowerpot\n'
+        'Nia: the swing creaked',
+        sessionId: 's1',
+        pos: 10,
+        end: 13,
+      );
+      final wideKept = dropCoveredRagWindows([wide], [gist]);
+      expect(wideKept, hasLength(1));
+      expect(wideKept.first.positionStart, 12);
+      expect(wideKept.first.positionEnd, 13);
+      expect(
+        RetrievedMemory.excludingPositions(wideKept, {
+          10,
+          11,
+        }, currentSessionId: 's1'),
+        hasLength(1),
+        reason: 'span ≠ line count must not keep the flowerpot pos',
+      );
+    });
+
     test('HOLD hole: prefix card does not cover a bigger fact', () {
       final gardenSwing = _mem(
         'Nia: the front garden swing creaked tonight',

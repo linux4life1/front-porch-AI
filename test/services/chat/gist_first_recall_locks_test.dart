@@ -38,11 +38,10 @@
 //
 // Short leftover is ANY extra content token on the longer side —
 // died/gone/fell/hid/ran count even when length < 5. "the spare key"
-// KEEPS died/gone; "third flowerpot" KEEPS fell. Same-beat is one
-// leftover word on a 3-distinctive gist (flowerpot gist + "that
-// creaked"; two-line lives-under + gist). Two leftover words are an
-// extra fact (swing creaked; spare keyboard on the flowerpot). Covered
-// lines are stripped and the span remaps onto the kept lines.
+// KEEPS died/gone; "third flowerpot" KEEPS fell. Same-beat leftover is
+// a closed paraphrase set (lives / hidden / creaked), not leftover==1.
+// Distinctive leftover is an extra fact (burned, lighthouse, swing).
+// Covered lines strip into contiguous runs; each run remaps its span.
 
 import 'dart:io';
 
@@ -1251,13 +1250,18 @@ void main() {
           'died/gone/fell/hid/ran count even when length < 5',
     );
     expect(
-      src.contains('leftover.length == 1') &&
-          src.contains('shortD.length >= 3'),
+      src.contains('_kCoverParaphrase') && src.contains('shortD.length >= 3'),
       isTrue,
       reason:
-          'same-beat: one leftover word on a 3-distinctive gist still '
-          'drops (that creaked / lives). Two leftover words are an extra '
-          'fact. This is not 2-token leftover overlap or a 3-token shortcut',
+          'same-beat leftover is a closed paraphrase set (lives / hidden / '
+          'creaked), not leftover==1. Distinctive leftover is an extra fact',
+    );
+    expect(
+      src.contains('leftover.length == 1'),
+      isFalse,
+      reason:
+          'leftover==1 on a 3-distinctive gist treats burned / lighthouse '
+          'as paraphrase — leftover kind, not leftover count',
     );
     expect(
       src.contains('shortD.intersection(longD).length >= 3'),
@@ -1267,9 +1271,11 @@ void main() {
           'keyboard — leftover count is the same-beat gate',
     );
     expect(
-      src.contains('keptIdx') && src.contains('end - start + 1'),
+      src.contains('_lineSpan') && src.contains('keptIdx'),
       isTrue,
-      reason: 'stripped windows remap positionStart/End onto the kept lines',
+      reason:
+          'each kept run remaps onto its own line span, including when '
+          'message span ≠ line count. first-to-last is the middle-pos hole',
     );
     expect(
       src.contains(r"card.split('\n')"),

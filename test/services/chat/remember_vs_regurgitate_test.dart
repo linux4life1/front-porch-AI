@@ -829,6 +829,54 @@ void main() {
       );
     });
 
+    test('HOLD hole: leftover kind, remap gap, two-word paraphrase', () {
+      const gist =
+          'I still think about the spare key under the third flowerpot';
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: I still think about the spare key under the third flowerpot burned',
+              pos: 2,
+            ),
+          ],
+          [gist],
+        ),
+        isNot(isEmpty),
+        reason: 'burned is a one-word second fact',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: the spare key lives hidden under the third flowerpot',
+              pos: 3,
+            ),
+          ],
+          [gist],
+        ),
+        isEmpty,
+        reason: 'lives hidden is same-beat paraphrase',
+      );
+      final gapKept = dropCoveredRagWindows(
+        [
+          _mem(
+            'Nia: the porch swing creaked tonight\n'
+            'Nia: I still think about the spare key under the third flowerpot\n'
+            'Nia: I sat on the front garden',
+            pos: 10,
+            end: 12,
+          ),
+        ],
+        [gist],
+      );
+      expect(gapKept, hasLength(2));
+      expect(
+        gapKept.any((m) => m.positionStart <= 11 && m.positionEnd >= 11),
+        isFalse,
+      );
+    });
+
     test('HOLD hole: prefix card does not cover a bigger fact', () {
       expect(
         dropCoveredRagWindows(

@@ -402,6 +402,9 @@ const _kJournalBoilerplate = {
   'remember',
 };
 
+/// Same-beat restatement. Not an extra fact. One closed set.
+const _kCoverParaphrase = {'lives', 'hidden', 'creaked'};
+
 bool _isDistinctive(String w) =>
     w.length >= 5 && !_kJournalBoilerplate.contains(w);
 
@@ -425,13 +428,17 @@ bool _lineCovers(List<String> a, List<String> b) {
     for (final w in longer)
       if (_isDistinctive(w)) w,
   };
-  final leftover = longer.toSet().difference(shorter.toSet());
+  final leftover = {
+    for (final w in longer.toSet().difference(shorter.toSet()))
+      if (!_kCoverParaphrase.contains(w)) w,
+  };
   final distinctiveLeftover = longD.difference(shortD);
   if (leftover.isEmpty && distinctiveLeftover.isEmpty) return true;
-  // One leftover word on a complete gist is same-beat paraphrase
-  // (that creaked, lives). Two leftover words are an extra fact
-  // (swing creaked). key is not keyboard. A stem does not cover died.
-  return leftover.length == 1 && shortD.length >= 3;
+  // Paraphrase leftovers (lives / hidden / creaked) do not count.
+  // Short leftover on a complete gist is still the same beat (sat).
+  // Distinctive leftover is an extra fact (burned, lighthouse, swing).
+  if (leftover.isEmpty) return true;
+  return leftover.every((w) => !_isDistinctive(w)) && shortD.length >= 3;
 }
 
 bool _nearCover(String card, String window) {
@@ -471,41 +478,59 @@ List<RetrievedMemory> dropCoveredRagWindows(
       if (c.trim().isNotEmpty) c,
   ];
   if (cards.isEmpty) return memories;
-  return [
-    for (final m in memories)
-      if (_uncoveredMemory(m, cards) case final kept?) kept,
-  ];
+  return [for (final m in memories) ..._uncoveredMemory(m, cards)];
 }
 
-RetrievedMemory? _uncoveredMemory(RetrievedMemory m, List<String> cards) {
+(int, int) _lineSpan(int start, int end, int n, int i) {
+  final span = end - start + 1;
+  if (n <= 0 || span <= 0) return (start, end);
+  final a = start + (i * span) ~/ n;
+  final b = start + ((i + 1) * span) ~/ n - 1;
+  return (a, a > b ? a : b);
+}
+
+List<RetrievedMemory> _uncoveredMemory(RetrievedMemory m, List<String> cards) {
   final lines = [
     for (final raw in m.content.split('\n'))
       if (raw.trim().isNotEmpty) raw,
   ];
-  if (lines.isEmpty) return m;
+  if (lines.isEmpty) return [m];
   final keptIdx = [
     for (var i = 0; i < lines.length; i++)
       if (!_lineCoveredByCards(lines[i], cards)) i,
   ];
-  if (keptIdx.isEmpty) return null;
+  if (keptIdx.isEmpty) return const [];
   if (keptIdx.length == lines.length) {
-    if (_ragCoveredByJournal(m.content, cards)) return null;
-    return m;
+    if (_ragCoveredByJournal(m.content, cards)) return const [];
+    return [m];
   }
-  var start = m.positionStart;
-  var end = m.positionEnd;
-  if (end - start + 1 == lines.length) {
-    start = m.positionStart + keptIdx.first;
-    end = m.positionStart + keptIdx.last;
+  final runs = <List<int>>[
+    [keptIdx.first],
+  ];
+  for (var i = 1; i < keptIdx.length; i++) {
+    if (keptIdx[i] == runs.last.last + 1) {
+      runs.last.add(keptIdx[i]);
+    } else {
+      runs.add([keptIdx[i]]);
+    }
   }
-  return RetrievedMemory(
-    content: [for (final i in keptIdx) lines[i]].join('\n'),
-    characterId: m.characterId,
-    sessionId: m.sessionId,
-    positionStart: start,
-    positionEnd: end,
-    score: m.score,
-  );
+  final n = lines.length;
+  return [
+    for (final run in runs)
+      RetrievedMemory(
+        content: [for (final i in run) lines[i]].join('\n'),
+        characterId: m.characterId,
+        sessionId: m.sessionId,
+        positionStart: _lineSpan(
+          m.positionStart,
+          m.positionEnd,
+          n,
+          run.first,
+        ).$1,
+        positionEnd: _lineSpan(m.positionStart, m.positionEnd, n, run.last).$2,
+        score: m.score,
+      ),
+  ];
 }
 
 bool _ragCoveredByJournal(String ragContent, List<String> cards) {
