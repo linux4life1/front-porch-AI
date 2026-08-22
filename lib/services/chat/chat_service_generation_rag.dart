@@ -36,16 +36,12 @@ extension ChatServiceGenerationRag on ChatService {
         : _storageService.memorySettings.ragEnabled;
 
     if (_isNewChat) {
-      debugPrint(
-        '[RAG:Chat] Skipping memory retrieval - new chat in progress',
-      );
+      debugPrint('[RAG:Chat] Skipping memory retrieval - new chat in progress');
     } else if (t.guestSpeaker != null) {
       // Guest turns answer THIS beat. Guest RAG resurfaces dropped Magus
       // Q&As; a reasoning model treats those as the live question
       // (Discord 2026-08-15: reasoning+RAG = old line; RAG off = latest).
-      debugPrint(
-        '[RAG:Chat] Skipping memory retrieval — Scene Guest turn',
-      );
+      debugPrint('[RAG:Chat] Skipping memory retrieval — Scene Guest turn');
     } else if ((t.droppedMessages > 0 || _history.basePosition > 0) &&
         _memoryService != null &&
         effectiveRagEnabled) {
@@ -54,14 +50,16 @@ extension ChatServiceGenerationRag on ChatService {
         'dropped, base=${_history.basePosition}, triggering retrieval ──',
       );
       try {
-        // Use last 3 messages as the query. promptText, not displayText
-        // (2026-08-10, same fix recentExchange got): only photo turns
-        // differ, and a query blind to "[shared a photo: …]" can't retrieve
-        // the memories a photo-centered exchange is actually about.
-        final queryMessages = _messages.reversed
-            .take(3)
-            .map((m) => '${m.sender}: ${m.promptText}')
-            .join('\n');
+        // Cued query: emotion + fixation + top hot journal line + last
+        // words (photo markers ride lastWords via promptText). Recomposed
+        // here so Continue's plan-phase pop is visible. Not last-3 alone.
+        t.ragQuery = composeRagQuery(
+          emotion: _characterEmotion,
+          fixation: _relationshipService.activeFixation,
+          hotJournalLine: t.ragHotJournalLine,
+          lastWords: lastWordsFromMessages(_messages),
+        );
+        final queryMessages = t.ragQuery;
 
         // Scene Guests Phase 4: a guest turn retrieves the GUEST's own
         // episodic memories (keyed on the guest id), not the host's. The
@@ -81,8 +79,7 @@ extension ChatServiceGenerationRag on ChatService {
         final sessionScoped = <String>{
           if (sourceIds.isNotEmpty) sourceIds.first,
           if (t.guestSpeaker == null && _activeGroup != null)
-            for (final c in _groupCharacters)
-              _getCharacterIdFromCard(c),
+            for (final c in _groupCharacters) _getCharacterIdFromCard(c),
         }..remove('');
 
         // Retrieval limit: groups use the per-session group setting; 1:1
@@ -104,15 +101,23 @@ extension ChatServiceGenerationRag on ChatService {
         );
         // Two-tier memory dedupe: the journal expanded these exact lines
         // above — never pay for them twice.
-        final memories = RetrievedMemory.excludingPositions(
+        final afterExpand = RetrievedMemory.excludingPositions(
           rawMemories,
           t.expandedJournalPositions,
           currentSessionId: _currentSessionId ?? '',
         );
+        // Journal gist already covers this beat — drop extra RAG windows.
+        // Facts that left history and have no card still pass (remember).
+        final uncovered = dropCoveredRagWindows(
+          afterExpand,
+          t.journalCoverLines,
+        );
+        final reaching = isReachingForQuote(lastWordsFromMessages(_messages));
+        final memories = capRagWindows(uncovered, reachingForQuote: reaching);
         if (memories.length < rawMemories.length) {
           debugPrint(
-            '[RAG:Chat] Deduped ${rawMemories.length - memories.length} '
-            'retrieval(s) already expanded by the journal',
+            '[RAG:Chat] Dropped ${rawMemories.length - memories.length} '
+            'retrieval(s) already expanded or covered by the journal',
           );
         }
 
@@ -167,8 +172,7 @@ extension ChatServiceGenerationRag on ChatService {
           int usedTokens = 0;
           for (final m in memories) {
             final memTokens = (lineFor(m).length / 4).ceil();
-            if (usedTokens + memTokens > memoryBudget &&
-                included.isNotEmpty) {
+            if (usedTokens + memTokens > memoryBudget && included.isNotEmpty) {
               debugPrint(
                 '[RAG:Chat] ⚠ Trimmed ${memories.length - included.length} memories to fit budget ($memoryBudget tokens)',
               );
@@ -183,9 +187,12 @@ extension ChatServiceGenerationRag on ChatService {
             // Leading '\n' because this now follows the history transcript,
             // whose last line carries no trailing newline.
             String buildBlock(List<RetrievedMemory> mems) =>
-                '\n[Exact earlier lines from this chat, in story order '
-                '(already happened — reference only, do not revisit):\n'
-                '${chronologicalRagOrder(mems, sessionForStamps).map(lineFor).join('\n')}]\n';
+                buildRagMemoriesBlock(
+                  memories: mems,
+                  currentSessionId: sessionForStamps,
+                  days: days,
+                  reachingForQuote: reaching,
+                );
             t.memoriesBlock = buildBlock(included);
 
             // Budget accounting fix (spec §5f): memories were previously
@@ -250,8 +257,8 @@ extension ChatServiceGenerationRag on ChatService {
           // what shipped, not what was hoped for.
           t.ragReceipt = buildRagReceipt(
             found: rawMemories.length,
-            journalDeduped: rawMemories.length - memories.length,
-            budgetTrimmed: memories.length - included.length,
+            journalDeduped: rawMemories.length - uncovered.length,
+            budgetTrimmed: uncovered.length - included.length,
             injected: chronologicalRagOrder(included, sessionForStamps),
             days: days,
             currentSessionId: sessionForStamps,

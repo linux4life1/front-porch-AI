@@ -21,7 +21,11 @@ import 'package:front_porch_ai/services/chat/journal_physics.dart';
 import 'package:front_porch_ai/services/chat/journal_store.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/journal_injection.dart';
 
-ChatMessage _msg(String sender, String text, {Map<String, dynamic>? metadata}) =>
+ChatMessage _msg(
+  String sender,
+  String text, {
+  Map<String, dynamic>? metadata,
+}) =>
     ChatMessage(text: text, sender: sender, isUser: false, metadata: metadata);
 
 Uint8List _vecBytes(List<double> v) {
@@ -56,10 +60,29 @@ void main() {
     );
 
     test('flashbulb decay: mild fades normally, strong barely at all', () {
-      expect(JournalPhysics.cooledHeat(card(intensity: 'mild')), closeTo(0.85, 1e-9));
-      expect(JournalPhysics.cooledHeat(card(intensity: null)), closeTo(0.85, 1e-9));
-      expect(JournalPhysics.cooledHeat(card(intensity: 'moderate')), closeTo(0.925, 1e-9));
-      expect(JournalPhysics.cooledHeat(card(intensity: 'strong')), closeTo(0.9775, 1e-9));
+      expect(
+        JournalPhysics.cooledHeat(card(intensity: 'mild')),
+        closeTo(0.85, 1e-9),
+      );
+      expect(
+        JournalPhysics.cooledHeat(card(intensity: null)),
+        closeTo(0.85, 1e-9),
+      );
+      expect(
+        JournalPhysics.cooledHeat(card(intensity: 'moderate')),
+        closeTo(0.925, 1e-9),
+      );
+      expect(
+        JournalPhysics.cooledHeat(card(intensity: 'strong')),
+        closeTo(0.9775, 1e-9),
+      );
+    });
+
+    test('topHotJournalLine picks the hottest card and ignores cold ones', () {
+      final cold = card(heat: 0.1);
+      final hot = card(heat: 0.9);
+      expect(JournalPhysics.topHotJournalLine([cold, hot], 'wistful'), 'c');
+      expect(JournalPhysics.topHotJournalLine([cold], 'wistful'), isNull);
     });
 
     test('pinned never decays and heat floors at zero', () {
@@ -67,13 +90,16 @@ void main() {
       expect(JournalPhysics.cooledHeat(card(heat: 0.05)), 0.0);
     });
 
-    test('milestone cards never cool but are not always-injected (Living Time v1.5)', () {
-      final m = card(kind: 'milestone', heat: 1.0, intensity: 'mild');
-      expect(JournalPhysics.isMilestone(m), isTrue);
-      expect(JournalPhysics.cooledHeat(m), 1.0);
-      expect(JournalPhysics.isHot(m), isFalse);
-      expect(JournalPhysics.cardKind(m), 'milestone');
-    });
+    test(
+      'milestone cards never cool but are not always-injected (Living Time v1.5)',
+      () {
+        final m = card(kind: 'milestone', heat: 1.0, intensity: 'mild');
+        expect(JournalPhysics.isMilestone(m), isTrue);
+        expect(JournalPhysics.cooledHeat(m), 1.0);
+        expect(JournalPhysics.isHot(m), isFalse);
+        expect(JournalPhysics.cardKind(m), 'milestone');
+      },
+    );
 
     test('promise cards are ledger-class (Train B)', () {
       final p = card(kind: 'promise', heat: 1.0, intensity: 'mild');
@@ -84,7 +110,10 @@ void main() {
     });
 
     test('hot/cold threshold, pinned always hot', () {
-      expect(JournalPhysics.isHot(card(heat: JournalPhysics.kColdThreshold)), isTrue);
+      expect(
+        JournalPhysics.isHot(card(heat: JournalPhysics.kColdThreshold)),
+        isTrue,
+      );
       expect(JournalPhysics.isHot(card(heat: 0.1)), isFalse);
       expect(JournalPhysics.isHot(card(heat: 0.0, pinned: true)), isTrue);
     });
@@ -93,7 +122,10 @@ void main() {
       expect(JournalPhysics.emotionFamily('wistful'), 'sadness');
       expect(JournalPhysics.emotionFamily('Melancholy '), 'sadness');
       expect(JournalPhysics.emotionFamily('taken aback'), 'surprise');
-      expect(JournalPhysics.emotionFamily('gribble'), 'gribble'); // unknown = own family
+      expect(
+        JournalPhysics.emotionFamily('gribble'),
+        'gribble',
+      ); // unknown = own family
       expect(JournalPhysics.emotionFamily(null), '');
     });
 
@@ -113,13 +145,21 @@ void main() {
     test('salient events: big swings, trust repair, chance time', () {
       expect(
         JournalPhysics.hasSalientEvent([
-          _msg('Mara', 'x', metadata: {'bond_delta': JournalPhysics.kEventBondSwing}),
+          _msg(
+            'Mara',
+            'x',
+            metadata: {'bond_delta': JournalPhysics.kEventBondSwing},
+          ),
         ]),
         isTrue,
       );
       expect(
         JournalPhysics.hasSalientEvent([
-          _msg('Mara', 'x', metadata: {'bond_delta': -JournalPhysics.kEventBondSwing}),
+          _msg(
+            'Mara',
+            'x',
+            metadata: {'bond_delta': -JournalPhysics.kEventBondSwing},
+          ),
         ]),
         isTrue,
       );
@@ -137,7 +177,11 @@ void main() {
       );
       expect(
         JournalPhysics.hasSalientEvent([
-          _msg('Mara', 'x', metadata: {'chance_time_event': 'A stranger arrives'}),
+          _msg(
+            'Mara',
+            'x',
+            metadata: {'chance_time_event': 'A stranger arrives'},
+          ),
         ]),
         isTrue,
       );
@@ -172,8 +216,10 @@ void main() {
         emotionIntensity: intensity,
         maxCards: 200,
       );
-      return (await store.cardsFor('s1', 'mara'))
-          .firstWhere((c) => c.content == content);
+      return (await store.cardsFor(
+        's1',
+        'mara',
+      )).firstWhere((c) => c.content == content);
     }
 
     test('coolCards applies intensity-modified decay, skips pinned', () async {
@@ -275,40 +321,39 @@ void main() {
       expect((await store.cardsFor('s1', 'mara')).single.embedding, isNotNull);
     });
 
-    test('embedMissing vectors only unembedded cards; no embedder = no-op',
-        () async {
-      var calls = 0;
-      final embeddingStore = JournalStore(
-        getDb: () => db,
-        embedText: (text) async {
-          calls++;
-          return [0.5, 0.5, 0.5];
-        },
-      );
-      await embeddingStore.addCard(
-        sessionId: 's1',
-        characterId: 'mara',
-        content: 'needs a vector',
-        category: 'moment',
-        maxCards: 200,
-      );
-      await store.embedMissing('s1', 'mara'); // store has NO embedder
-      expect(calls, 0);
-      expect(
-        (await store.cardsFor('s1', 'mara')).single.embedding,
-        isNull,
-      );
+    test(
+      'embedMissing vectors only unembedded cards; no embedder = no-op',
+      () async {
+        var calls = 0;
+        final embeddingStore = JournalStore(
+          getDb: () => db,
+          embedText: (text) async {
+            calls++;
+            return [0.5, 0.5, 0.5];
+          },
+        );
+        await embeddingStore.addCard(
+          sessionId: 's1',
+          characterId: 'mara',
+          content: 'needs a vector',
+          category: 'moment',
+          maxCards: 200,
+        );
+        await store.embedMissing('s1', 'mara'); // store has NO embedder
+        expect(calls, 0);
+        expect((await store.cardsFor('s1', 'mara')).single.embedding, isNull);
 
-      await embeddingStore.embedMissing('s1', 'mara');
-      expect(calls, 1);
-      final card = (await store.cardsFor('s1', 'mara')).single;
-      expect(card.embedding, isNotNull);
-      expect(card.dimensions, 3);
+        await embeddingStore.embedMissing('s1', 'mara');
+        expect(calls, 1);
+        final card = (await store.cardsFor('s1', 'mara')).single;
+        expect(card.embedding, isNotNull);
+        expect(card.dimensions, 3);
 
-      // Already-embedded cards are skipped on the next sweep.
-      await embeddingStore.embedMissing('s1', 'mara');
-      expect(calls, 1);
-    });
+        // Already-embedded cards are skipped on the next sweep.
+        await embeddingStore.embedMissing('s1', 'mara');
+        expect(calls, 1);
+      },
+    );
   });
 
   group('JournalInjection with physics', () {
@@ -343,62 +388,69 @@ void main() {
         emotionLabel: emotion,
         maxCards: 200,
       );
-      return (await store.cardsFor('s1', 'mara'))
-          .firstWhere((c) => c.content == content);
+      return (await store.cardsFor(
+        's1',
+        'mara',
+      )).firstWhere((c) => c.content == content);
     }
 
-    test('cold cards leave the always-injected set; pinned cold stay', () async {
-      final cold = await addOne('gone cold');
-      await db.updateJournalCard(
-        cold.id,
-        const JournalMemoriesCompanion(heat: Value(0.1)),
-      );
-      final pinnedCold = await addOne('pinned survivor');
-      await db.updateJournalCard(
-        pinnedCold.id,
-        const JournalMemoriesCompanion(heat: Value(0.0), pinned: Value(true)),
-      );
+    test(
+      'cold cards leave the always-injected set; pinned cold stay',
+      () async {
+        final cold = await addOne('gone cold');
+        await db.updateJournalCard(
+          cold.id,
+          const JournalMemoriesCompanion(heat: Value(0.1)),
+        );
+        final pinnedCold = await addOne('pinned survivor');
+        await db.updateJournalCard(
+          pinnedCold.id,
+          const JournalMemoriesCompanion(heat: Value(0.0), pinned: Value(true)),
+        );
 
-      final block = (await buildInjection().buildJournalBlock(
-        characterId: 'mara',
-        characterName: 'Mara',
-        userName: 'Sam',
-      )).text;
-      expect(block, isNot(contains('gone cold')));
-      expect(block, contains('pinned survivor'));
-    });
+        final block = (await buildInjection().buildJournalBlock(
+          characterId: 'mara',
+          characterName: 'Mara',
+          userName: 'Sam',
+        )).text;
+        expect(block, isNot(contains('gone cold')));
+        expect(block, contains('pinned survivor'));
+      },
+    );
 
-    test('mood congruence lifts a cooler matching memory up the order',
-        () async {
-      final sadOlder = await addOne('the sad one', emotion: 'melancholy');
-      await db.updateJournalCard(
-        sadOlder.id,
-        const JournalMemoriesCompanion(heat: Value(0.9)),
-      );
-      await addOne('the joyful one', emotion: 'joyful'); // newer, heat 1.0
+    test(
+      'mood congruence lifts a cooler matching memory up the order',
+      () async {
+        final sadOlder = await addOne('the sad one', emotion: 'melancholy');
+        await db.updateJournalCard(
+          sadOlder.id,
+          const JournalMemoriesCompanion(heat: Value(0.9)),
+        );
+        await addOne('the joyful one', emotion: 'joyful'); // newer, heat 1.0
 
-      currentEmotion = 'wistful'; // sadness family → boost the sad card
-      final block = (await buildInjection().buildJournalBlock(
-        characterId: 'mara',
-        characterName: 'Mara',
-        userName: 'Sam',
-      )).text;
-      expect(
-        block.indexOf('the sad one'),
-        lessThan(block.indexOf('the joyful one')),
-      );
+        currentEmotion = 'wistful'; // sadness family → boost the sad card
+        final block = (await buildInjection().buildJournalBlock(
+          characterId: 'mara',
+          characterName: 'Mara',
+          userName: 'Sam',
+        )).text;
+        expect(
+          block.indexOf('the sad one'),
+          lessThan(block.indexOf('the joyful one')),
+        );
 
-      currentEmotion = 'neutral'; // no boost → plain heat order wins
-      final unboosted = (await buildInjection().buildJournalBlock(
-        characterId: 'mara',
-        characterName: 'Mara',
-        userName: 'Sam',
-      )).text;
-      expect(
-        unboosted.indexOf('the joyful one'),
-        lessThan(unboosted.indexOf('the sad one')),
-      );
-    });
+        currentEmotion = 'neutral'; // no boost → plain heat order wins
+        final unboosted = (await buildInjection().buildJournalBlock(
+          characterId: 'mara',
+          characterName: 'Mara',
+          userName: 'Sam',
+        )).text;
+        expect(
+          unboosted.indexOf('the joyful one'),
+          lessThan(unboosted.indexOf('the sad one')),
+        );
+      },
+    );
 
     test('semantic retrieval resurfaces and re-warms a cold card', () async {
       final cold = await addOne('the lighthouse trip');
@@ -420,8 +472,10 @@ void main() {
       )).text;
       expect(withQuery, contains('the lighthouse trip'));
 
-      final rewarmed = (await store.cardsFor('s1', 'mara'))
-          .firstWhere((c) => c.content == 'the lighthouse trip');
+      final rewarmed = (await store.cardsFor(
+        's1',
+        'mara',
+      )).firstWhere((c) => c.content == 'the lighthouse trip');
       expect(rewarmed.heat, JournalPhysics.kRewarmHeat);
       expect(rewarmed.accessCount, 1);
     });
@@ -453,8 +507,10 @@ void main() {
       )).text;
       expect(dissimilar, isNot(contains('unrelated memory')));
       // And the buried card was never counted as accessed.
-      final untouched = (await store.cardsFor('s1', 'mara'))
-          .firstWhere((c) => c.content == 'unrelated memory');
+      final untouched = (await store.cardsFor(
+        's1',
+        'mara',
+      )).firstWhere((c) => c.content == 'unrelated memory');
       expect(untouched.accessCount, 0);
     });
   });

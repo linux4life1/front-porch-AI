@@ -65,8 +65,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     }
 
     // In call mode, inject voice-specific instructions for natural conversation
-    if (_callMode &&
-        _storageService.sttSettings.callSystemPrompt.isNotEmpty) {
+    if (_callMode && _storageService.sttSettings.callSystemPrompt.isNotEmpty) {
       t.systemPrompt +=
           '\n\n[Voice Call Mode] ${_storageService.sttSettings.callSystemPrompt}';
     }
@@ -297,6 +296,25 @@ extension ChatServiceGenerationBlocks on ChatService {
         ? ''
         : buildRecapBlock(recap: _summary);
 
+    // Cued query for journal cold-resurface AND RAG (not last-3 live lines
+    // alone). Guests skip both. Compose even when the Journal toggle is off
+    // so RAG still searches by feeling / fixation / last words.
+    if (t.guestSpeaker == null && _currentSessionId != null) {
+      final speakerId = _getCharacterIdFromCard(t.speakingCharacter);
+      final cards = speakerId.isEmpty
+          ? const <JournalMemoryData>[]
+          : await _journalStore.cardsFor(_currentSessionId!, speakerId);
+      t.journalCoverLines = [for (final c in cards) c.content];
+      t.ragHotJournalLine =
+          JournalPhysics.topHotJournalLine(cards, _characterEmotion) ?? '';
+      t.ragQuery = composeRagQuery(
+        emotion: _characterEmotion,
+        fixation: _relationshipService.activeFixation,
+        hotJournalLine: t.ragHotJournalLine,
+        lastWords: lastWordsFromMessages(_messages),
+      );
+    }
+
     // The Journal — the upcoming speaker's pinned + hot memory cards, with
     // their felt emotions (strictly this chat's cards; guests never
     // journal). Built HERE, before the fixed-content token count below, so
@@ -311,15 +329,10 @@ extension ChatServiceGenerationBlocks on ChatService {
         characterId: _getCharacterIdFromCard(t.speakingCharacter),
         characterName: t.speakingCharacter.name,
         userName: t.userName,
-        // Cold-card resurfacing query — same last-3-messages recipe as RAG
-        // retrieval below (built separately: that one runs after continue
-        // mode pops the tail message, this one before). promptText (not
-        // bare displayText) so photo turns carry their caption marker the
-        // way RAG already does.
-        queryText: _messages.reversed
-            .take(3)
-            .map((m) => '${m.sender}: ${m.promptText}')
-            .join('\n'),
+        // Cued query (emotion + fixation + top hot card + last words),
+        // not the last-3 live lines. promptText still rides lastWords so
+        // photo captions reach cold-resurface the way they reach RAG.
+        queryText: t.ragQuery,
         messageCount: _messages.length,
       );
       t.journalBlock = journal.text;

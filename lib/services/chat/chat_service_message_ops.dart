@@ -462,7 +462,7 @@ extension ChatServiceMessageOps on ChatService {
   /// was BEFORE the rewrite, and [MemoryService]'s dedupe is purely positional
   /// — a window whose range already exists is skipped forever — so the
   /// discarded/edited reply stayed retrievable and got injected 20+ turns
-  /// later under "Exact earlier lines from this chat … already happened". And
+  /// later as a remembered-from-earlier line. And
   /// after a DELETE every later window's (start,end) addresses different
   /// messages, which mis-stamps story days and mis-aligns the journal de-dupe.
   /// Removing the rows is what lets `_maybeEmbedMessages` rebuild them from

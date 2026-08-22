@@ -224,4 +224,139 @@ void main() {
       expect(err['status'], isNot(dead['status']));
     });
   });
+
+  group('composeRagQuery', () {
+    test('is not the last-3 live lines alone', () {
+      final q = composeRagQuery(
+        emotion: 'wistful',
+        fixation: 'the broken promise',
+        hotJournalLine: 'I still think about the lighthouse',
+        lastWords: 'You: that photo was from our last trip',
+      );
+      expect(q, contains('feeling wistful'));
+      expect(q, contains('on the mind: the broken promise'));
+      expect(q, contains('remembered: I still think about the lighthouse'));
+      expect(q, contains('You: that photo was from our last trip'));
+      expect(
+        q,
+        isNot(equals('You: that photo was from our last trip')),
+        reason: 'cues must ride WITH last words, not be replaced by them',
+      );
+    });
+
+    test('omits empty cues so a cue-less beat is just last words', () {
+      expect(composeRagQuery(lastWords: 'You: evening'), 'You: evening');
+    });
+  });
+
+  group('lastWordsFromMessages', () {
+    test(
+      'keeps the latest line and nearby photo markers, not a last-3 dump',
+      () {
+        final msgs = [
+          ChatMessage(text: 'old one', sender: 'Nia', isUser: false),
+          ChatMessage(
+            text: 'look',
+            sender: 'You',
+            isUser: true,
+            metadata: {
+              'is_user_image': true,
+              'image_caption': 'a red kite over the bay',
+            },
+          ),
+          ChatMessage(text: 'nice', sender: 'Nia', isUser: false),
+          ChatMessage(
+            text: 'That photo was from our last trip',
+            sender: 'You',
+            isUser: true,
+          ),
+        ];
+        final words = lastWordsFromMessages(msgs);
+        expect(words, contains('That photo was from our last trip'));
+        expect(words, contains('[shared a photo: a red kite over the bay]'));
+        expect(words, isNot(contains('old one')));
+        expect(words, isNot(contains('You: look\nnice')));
+      },
+    );
+  });
+
+  group('isReachingForQuote / capRagWindows / dropCoveredRagWindows', () {
+    test('remember/said/vows count as quote-reach; a plain beat does not', () {
+      expect(isReachingForQuote('You: remember our wedding vows?'), isTrue);
+      expect(isReachingForQuote('You: evening. mind if I sit?'), isFalse);
+    });
+
+    test('normal path keeps one uncovered window; quote-reach keeps all', () {
+      final a = _mem('Nia: the porch swing creaked', sessionId: 's1', pos: 2);
+      final b = _mem('You: the red kite', sessionId: 's2', pos: 7);
+      expect(capRagWindows([a, b], reachingForQuote: false), [a]);
+      expect(capRagWindows([a, b], reachingForQuote: true), [a, b]);
+    });
+
+    test('a journal card that covers the beat drops that RAG window', () {
+      final covered = _mem(
+        'Nia: I still think about the lighthouse on the cliff',
+        sessionId: 's1',
+        pos: 4,
+      );
+      final leftover = _mem(
+        'You: remember the red kite on the pier',
+        sessionId: 's1',
+        pos: 9,
+      );
+      final kept = dropCoveredRagWindows(
+        [covered, leftover],
+        ['I still think about the lighthouse'],
+      );
+      expect(kept.map((m) => m.content).toList(), [leftover.content]);
+    });
+
+    test('an uncovered fact that left history still retrieves', () {
+      final leftHistory = _mem(
+        'Nia: the spare key lives under the third flowerpot',
+        sessionId: 's1',
+        pos: 3,
+      );
+      final kept = dropCoveredRagWindows(
+        [leftHistory],
+        ['I felt safe on the porch tonight'],
+      );
+      expect(kept, [leftHistory]);
+    });
+  });
+
+  group('buildRagMemoriesBlock', () {
+    test(
+      'default frame is remembered-from-earlier, not Exact earlier lines',
+      () {
+        final m = _mem('Nia: the swing creaked', sessionId: 's1', pos: 2);
+        final block = buildRagMemoriesBlock(
+          memories: [m],
+          currentSessionId: 's1',
+          days: {m: 1},
+          reachingForQuote: false,
+        );
+        expect(block, contains(kRagRememberedHeader.trim()));
+        expect(block, contains('- (Day 1) Nia: the swing creaked'));
+        expect(block, isNot(contains('Exact earlier lines')));
+      },
+    );
+
+    test('quote-reach uses the quote header; day stamp stays display-only', () {
+      final m = _mem(
+        'Nia: I never want to see you again',
+        sessionId: 's1',
+        pos: 2,
+      );
+      final block = buildRagMemoriesBlock(
+        memories: [m],
+        currentSessionId: 's1',
+        days: {m: 2},
+        reachingForQuote: true,
+      );
+      expect(block, contains(kRagQuoteHeader.trim()));
+      expect(block, contains('(Day 2)'));
+      expect(block, isNot(contains('Exact earlier lines')));
+    });
+  });
 }

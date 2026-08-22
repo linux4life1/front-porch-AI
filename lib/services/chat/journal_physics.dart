@@ -228,4 +228,27 @@ class JournalPhysics {
     }
     return false;
   }
+
+  /// The hottest card's content for the cued RAG / cold-resurface query.
+  /// Null when the diary has no hot set — the query then falls back to
+  /// emotion, fixation, and last words. Does not write cards.
+  static String? topHotJournalLine(
+    List<JournalMemoryData> cards,
+    String currentEmotion,
+  ) {
+    JournalMemoryData? best;
+    var bestKey = double.negativeInfinity;
+    for (final c in cards) {
+      if (!isHot(c)) continue;
+      final key = hotSortKey(c, currentEmotion);
+      if (best == null ||
+          key > bestKey ||
+          (key == bestKey && c.createdAt.isAfter(best.createdAt))) {
+        best = c;
+        bestKey = key;
+      }
+    }
+    final text = best?.content.trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
 }

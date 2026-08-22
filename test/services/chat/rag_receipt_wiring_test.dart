@@ -291,7 +291,14 @@ void main() {
       );
 
       final prompt = llm.chatPrompts.last;
-      expect(prompt, contains('in story order'));
+      expect(
+        prompt,
+        contains('from earlier'),
+        reason:
+            'gist-first frame — the old "Exact earlier lines … in story '
+            'order" dump is no longer the normal (or quote-reach) header',
+      );
+      expect(prompt, isNot(contains('Exact earlier lines')));
       const otherLine = '- (another chat) You: remember the red kite';
       const ownLine = '- (Day 1) Nia: the porch swing creaked all night';
       expect(prompt, contains(otherLine));

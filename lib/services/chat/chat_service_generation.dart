@@ -81,6 +81,16 @@ class _GenTurn {
   String journalBlock = '';
   Set<int> expandedJournalPositions = const {};
 
+  /// Cued RAG / journal-cold query for this turn (emotion + fixation +
+  /// top hot journal line + last words). Empty until the blocks phase.
+  String ragQuery = '';
+
+  /// Top hot journal line baked into [ragQuery] (re-composed after Continue pops).
+  String ragHotJournalLine = '';
+
+  /// Journal card contents used to drop RAG windows the diary already covers.
+  List<String> journalCoverLines = const [];
+
   // ── plan phase → rag/request phases ──
   String history = '';
   int droppedMessages = 0;

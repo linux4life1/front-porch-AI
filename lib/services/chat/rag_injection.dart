@@ -33,7 +33,13 @@
 ///    relevance order — chronology decides how survivors are SHOWN, never
 ///    which memories survive.
 ///
-/// 2. **The receipt.** Every decision the retrieval makes — found, deduped
+/// 2. **Gist-first cue + cover drop.** The query is composed from emotion,
+///    fixation, the top hot journal line, and last words — not the last-3
+///    live lines alone. Extra RAG windows drop when a journal card already
+///    covers the beat. The labeled "Exact earlier lines" dump is gone as
+///    the normal path; verbatim rides only a quote-reach.
+///
+/// 3. **The receipt.** Every decision the retrieval makes — found, deduped
 ///    against the journal, trimmed for budget, injected — was a debugPrint
 ///    and nothing else. [buildRagReceipt] compresses those decisions into a
 ///    metadata map stamped on the turn's message, which is what the sidebar
@@ -44,6 +50,7 @@
 library;
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/pockets.dart' show itemNameTokens;
 import 'package:front_porch_ai/services/memory_service.dart'
     show RetrievedMemory;
 
@@ -123,6 +130,120 @@ String formatRagLine(String content, {int? day, required bool otherChat}) {
       ? '(Day $day) '
       : '';
   return '- $stamp$content';
+}
+
+/// Cue-composed RAG / journal-cold query. Not the last-3 live lines alone —
+/// those teach the embedder to retrieve the scene that is still on screen.
+/// Pack/budget/age floor stay with retrieve(); this only shapes the query.
+String composeRagQuery({
+  String emotion = '',
+  String fixation = '',
+  String hotJournalLine = '',
+  String lastWords = '',
+}) {
+  final parts = <String>[];
+  final e = emotion.trim();
+  if (e.isNotEmpty) parts.add('feeling $e');
+  final f = fixation.trim();
+  if (f.isNotEmpty) parts.add('on the mind: $f');
+  final h = hotJournalLine.trim();
+  if (h.isNotEmpty) parts.add('remembered: $h');
+  final w = lastWords.trim();
+  if (w.isNotEmpty) parts.add(w);
+  return parts.join('\n');
+}
+
+/// The live beat's words: the latest line (promptText, so photo markers
+/// survive) plus any nearby photo captions. Not a last-3 transcript dump.
+String lastWordsFromMessages(List<ChatMessage> messages) {
+  if (messages.isEmpty) return '';
+  final last = messages.last;
+  final parts = <String>['${last.sender}: ${last.promptText}'];
+  final floor = (messages.length - 4).clamp(0, messages.length);
+  for (var i = messages.length - 1; i >= floor; i--) {
+    final m = messages[i];
+    if (identical(m, last)) continue;
+    final t = m.promptText;
+    if (t.contains('[shared a photo:')) {
+      parts.add('${m.sender}: $t');
+    }
+  }
+  return parts.join('\n');
+}
+
+/// Lexical "they want the exact words" — remember / said / vows / etc.
+/// The 0.45 expand/RAG floor still gates retrieve(); this only chooses the
+/// quote frame vs the remembered-fact frame.
+bool isReachingForQuote(String lastWords) {
+  final t = lastWords.toLowerCase();
+  return RegExp(
+    r'\b(remember|said|told|vows|promised|quoted?|exactly)\b',
+  ).hasMatch(t);
+}
+
+/// Drop RAG windows a journal card already covers (token overlap ≥ 2).
+/// Position-overlap with expanded receipts is handled separately by
+/// [RetrievedMemory.excludingPositions]. Not uniqueness-by-shape.
+List<RetrievedMemory> dropCoveredRagWindows(
+  List<RetrievedMemory> memories,
+  Iterable<String> journalCardContents,
+) {
+  final cardTokenSets = [
+    for (final c in journalCardContents) itemNameTokens(c),
+  ].where((s) => s.length >= 2).toList();
+  if (cardTokenSets.isEmpty) return memories;
+  return [
+    for (final m in memories)
+      if (!_ragCoveredByJournal(m.content, cardTokenSets)) m,
+  ];
+}
+
+bool _ragCoveredByJournal(String ragContent, List<Set<String>> cardTokenSets) {
+  final rag = itemNameTokens(ragContent);
+  if (rag.length < 2) return false;
+  for (final card in cardTokenSets) {
+    if (rag.intersection(card).length >= 2) return true;
+  }
+  return false;
+}
+
+/// Normal path: one uncovered window (a fact that left history). Quote-reach
+/// keeps the uncovered set — retrieve() already floored them at 0.45.
+List<RetrievedMemory> capRagWindows(
+  List<RetrievedMemory> uncovered, {
+  required bool reachingForQuote,
+}) {
+  if (uncovered.isEmpty || reachingForQuote) return uncovered;
+  return [uncovered.first];
+}
+
+/// Remembered-fact frame — the default. Not "exact earlier lines".
+const String kRagRememberedHeader =
+    '[Remembered from earlier (already happened — not happening now, '
+    'do not replay as the scene):\n';
+
+/// Quote frame — only when [isReachingForQuote] is true.
+const String kRagQuoteHeader =
+    '[Words they are reaching for, from earlier (already happened — '
+    'quote only if asked):\n';
+
+/// Build the memories block. Day stamps stay display-only; packing order
+/// is the caller's (score-descending). Display order is chronological.
+String buildRagMemoriesBlock({
+  required List<RetrievedMemory> memories,
+  required String currentSessionId,
+  required Map<RetrievedMemory, int?> days,
+  required bool reachingForQuote,
+}) {
+  if (memories.isEmpty) return '';
+  String lineFor(RetrievedMemory m) => formatRagLine(
+    m.content,
+    day: days[m],
+    otherChat: m.sessionId != currentSessionId,
+  );
+  final header = reachingForQuote ? kRagQuoteHeader : kRagRememberedHeader;
+  return '\n$header'
+      '${chronologicalRagOrder(memories, currentSessionId).map(lineFor).join('\n')}]\n';
 }
 
 /// Receipt status strings (wire format — persist in message metadata).

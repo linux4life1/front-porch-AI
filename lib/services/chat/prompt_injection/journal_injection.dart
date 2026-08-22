@@ -81,8 +81,8 @@ class JournalInjection {
   /// memoriesBlock budget uses).
   static const int kHotSetTokenBudget = 600;
 
-  /// [queryText] is the recent-turn text used to resurface cold cards
-  /// semantically (same last-3-messages recipe as RAG retrieval); empty
+  /// [queryText] is the cued query used to resurface cold cards
+  /// semantically (same composeRagQuery as RAG retrieval); empty
   /// skips cold retrieval entirely.
   Future<({String text, Set<int> expandedPositions})> buildJournalBlock({
     required String characterId,

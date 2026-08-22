@@ -28,7 +28,7 @@
 //   * the window's stored `content` is the PRE-rewrite text, and
 //     MemoryService's dedupe is positional only (a range already present is
 //     skipped forever), so the discarded reply was never re-embedded and got
-//     injected 20+ turns later under "Exact earlier lines from this chat …
+//     injected 20+ turns later as a remembered-from-earlier line …
 //     already happened". Delete did not delete.
 //   * after a delete every later window's (start,end) addresses different
 //     messages, mis-stamping story days and mis-aligning the journal de-dupe.
