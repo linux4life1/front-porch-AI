@@ -35,6 +35,13 @@
 // stay off the setting-noun / cover-filler place list, and loved/worry
 // are not a mood-cover list. Refuse leftover-intersection and raw-contains
 // greens as stand-alone.
+//
+// Short leftover is ANY extra content token on the longer side —
+// died/gone/fell/hid/ran count even when length < 5. "the spare key"
+// KEEPS died/gone; "third flowerpot" KEEPS fell. Same-beat 3 shared
+// distinctive tokens still DROPS (flowerpot gist + "that creaked";
+// two-line lives-under + gist). Covered lines are stripped, not the
+// whole span — flowerpot gist line + "the swing creaked" KEEPS swing.
 
 import 'dart:io';
 
@@ -204,6 +211,17 @@ const kLovedFlowerpot = 'Nia: I loved the spare key under the third flowerpot';
 const kWorry = 'I worry';
 const kWorryFlowerpot =
     'Nia: I worry about the spare key under the third flowerpot';
+const kThirdFlowerpot = 'third flowerpot';
+const kSpareKeyDied = 'Nia: the spare key died';
+const kSpareKeyGone = 'Nia: the spare key is gone';
+const kSpareKeyHid = 'Nia: the spare key hid';
+const kSpareKeyRan = 'Nia: the spare key ran';
+const kThirdFlowerpotFell = 'Nia: the third flowerpot fell';
+const kGistThatCreaked =
+    'Nia: I still think about the spare key under the third flowerpot that creaked';
+const kGistPlusSwing =
+    'Nia: I still think about the spare key under the third flowerpot\n'
+    'Nia: the swing creaked';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -1221,6 +1239,20 @@ void main() {
           'so an uncovered swing line survives the span',
     );
     expect(
+      src.contains('leftover.isEmpty'),
+      isTrue,
+      reason:
+          'leftover is ANY extra content token on the longer side — '
+          'died/gone/fell/hid/ran count even when length < 5',
+    );
+    expect(
+      src.contains('shortD.intersection(longD).length >= 3'),
+      isTrue,
+      reason:
+          'same-beat: 3 shared distinctive tokens still DROPS extras '
+          '(creaked / lives-under). This is not 2-token leftover overlap',
+    );
+    expect(
       src.contains(r"card.split('\n')"),
       isTrue,
       reason:
@@ -1803,6 +1835,253 @@ void main() {
         reason:
             'same-beat flowerpot gist still DROPS — no extra distinctive '
             'leftover. Prefix/mood KEEP above must not disable real cover.',
+      );
+    },
+  );
+
+  test(
+    'LOCK: leftover is any extra content token — died/gone/fell/hid/ran KEEP',
+    () async {
+      const cases = [
+        {
+          'tag': 'died',
+          'card': kFixation,
+          'window': kSpareKeyDied,
+          'kept': 'died',
+        },
+        {
+          'tag': 'gone',
+          'card': kFixation,
+          'window': kSpareKeyGone,
+          'kept': 'gone',
+        },
+        {
+          'tag': 'fell',
+          'card': kThirdFlowerpot,
+          'window': kThirdFlowerpotFell,
+          'kept': 'fell',
+        },
+        {
+          'tag': 'hid',
+          'card': kFixation,
+          'window': kSpareKeyHid,
+          'kept': 'hid',
+        },
+        {
+          'tag': 'ran',
+          'card': kFixation,
+          'window': kSpareKeyRan,
+          'kept': 'ran',
+        },
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']!;
+        final cardText = c['card']!;
+        final window = c['window']!;
+        final kept = c['kept']!;
+        final sessionId = 'sess-gistlock-shortleftover-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-shortleftover-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: Value(cardText),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: window,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 0,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+
+        await chat.sendMessage(kSit);
+
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason: 'cues are present — retrieve must run so cover-drop is real',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(cardText),
+          reason:
+              'the "$cardText" card must inject or leftover KEEP was '
+              'never tested',
+        );
+        expect(prompt, contains(kRagRememberedHeader.trim()));
+        expect(
+          prompt,
+          contains(kept),
+          reason:
+              'leftover is ANY extra content token — "$tag" counts even '
+              'when length < 5. "$cardText" must KEEP "$kept". A length>=5 '
+              'distinctive-only leftover rule goes red here.',
+        );
+      }
+    },
+  );
+
+  test(
+    'LOCK: same-beat 3 distinctive tokens still DROPS extras and lives-under',
+    () async {
+      const cases = [
+        {
+          'tag': 'that creaked',
+          'window': kGistThatCreaked,
+          'absent': 'that creaked',
+        },
+        {
+          'tag': 'two-line lives-under',
+          'window': kFactWindow,
+          'absent': 'You: the spare key lives under the third flowerpot',
+        },
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']!;
+        final window = c['window']!;
+        final absent = c['absent']!;
+        final sessionId = 'sess-gistlock-samebeat3-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-samebeat3-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: const Value(kGist),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: window,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 1,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+
+        await chat.sendMessage(kSit);
+
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason: 'retrieve ran — a skip would fake the cover-drop',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(kGist),
+          reason: 'same-beat flowerpot gist must inject',
+        );
+        expect(
+          prompt,
+          isNot(contains(kRagRememberedHeader.trim())),
+          reason:
+              'same-beat: 3 shared distinctive tokens still DROPS. '
+              'Flowerpot gist x $tag must not re-inject the covered window',
+        );
+        expect(
+          prompt,
+          isNot(contains(absent)),
+          reason:
+              'same-beat flowerpot gist x $tag DROPS — "$absent" must '
+              'not reach the prompt',
+        );
+      }
+    },
+  );
+
+  test(
+    'LOCK: covered lines are stripped — flowerpot gist + swing KEEPS swing',
+    () async {
+      final card = await seedOverflowSession(
+        sessionId: 'sess-gistlock-linestrip',
+        charDbId: 'char-gistlock-linestrip',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: const Value('sess-gistlock-linestrip'),
+          characterId: Value(card.stableGroupId),
+          content: const Value(kGist),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      memory.canned = [
+        RetrievedMemory(
+          content: kGistPlusSwing,
+          characterId: 'Nia',
+          sessionId: 'sess-gistlock-linestrip',
+          positionStart: 0,
+          positionEnd: 1,
+          score: 0.9,
+        ),
+      ];
+
+      await chat.sendMessage(kSit);
+
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'cues are present — retrieve must run so line-strip is real',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final prompt = llm.chatPrompts.last;
+      expect(
+        prompt,
+        contains(kGist),
+        reason: 'the flowerpot gist must inject or line-strip was never tested',
+      );
+      expect(
+        prompt,
+        contains(kRagRememberedHeader.trim()),
+        reason:
+            'covered lines are stripped, not the whole span — the swing '
+            'line must still inject as a remembered fact',
+      );
+      expect(
+        prompt,
+        contains(kSwingBody),
+        reason:
+            'flowerpot gist line + "the swing creaked" KEEPS the swing. '
+            'Dropping the whole span goes red here.',
+      );
+      expect(
+        prompt,
+        isNot(contains(kGistPlusSwing)),
+        reason:
+            'the covered flowerpot line is stripped — the raw two-line '
+            'span must not reach the prompt',
       );
     },
   );
