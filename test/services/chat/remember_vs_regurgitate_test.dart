@@ -578,7 +578,28 @@ void main() {
         );
         expect(block, contains(kRagQuoteHeader.trim()));
         expect(block, contains(kFact));
+        expect(block, contains(kFactUser));
+        expect(block, contains(kFactLine));
         expect(block, isNot(contains('Exact earlier lines')));
+      },
+    );
+
+    test(
+      'HOLD leftover: today/night/morning/evening are filler like tonight',
+      () {
+        for (final w in ['today', 'night', 'morning', 'evening']) {
+          expect(
+            coverContentTokens('I felt safe on the porch $w').contains(w),
+            isFalse,
+            reason: '$w must be cover filler',
+          );
+          final swing = _mem('Nia: the porch swing creaked $w', pos: 2);
+          expect(
+            dropCoveredRagWindows([swing], ['I felt safe on the porch $w']),
+            [swing],
+            reason: 'porch+$w is setting+time, not cover',
+          );
+        }
       },
     );
 

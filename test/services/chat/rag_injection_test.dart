@@ -446,6 +446,36 @@ void main() {
       ], reason: 'tonight/today/night are filler — porch+tonight is not cover');
     });
 
+    test(
+      'HOLD leftover: tonight/today/night/morning/evening are cover filler',
+      () {
+        const words = ['tonight', 'today', 'night', 'morning', 'evening'];
+        for (final w in words) {
+          expect(
+            coverContentTokens('porch $w'),
+            isNot(contains(w)),
+            reason: '$w is time filler — must not count as cover',
+          );
+          final swing = _mem(
+            'Nia: the porch swing creaked $w',
+            sessionId: 's1',
+            pos: 2,
+          );
+          final kept = dropCoveredRagWindows(
+            [swing],
+            ['I felt safe on the porch $w'],
+          );
+          expect(
+            kept,
+            [swing],
+            reason:
+                'Porch feeling × porch swing creaked $w must not drop the '
+                'window — $w is filler, one shared noun (porch) is not cover',
+          );
+        }
+      },
+    );
+
     test('HOLD r2: one shared spare token is not cover', () {
       final fact = _mem(
         'Nia: I still think about the spare key under the third flowerpot',
@@ -539,6 +569,28 @@ void main() {
           quoted,
           contains('You: the spare key lives under the third flowerpot'),
         );
+        expect(
+          quoted,
+          contains(
+            'Nia: I still think about the spare key under the third flowerpot',
+          ),
+          reason: 'quote-reach still gets the raw You:/Nia: window',
+        );
+      },
+    );
+
+    test(
+      'HOLD leftover: rememberedLineFromWindow is one body, not the tape',
+      () {
+        const window =
+            'You: the spare key lives under the third flowerpot\n'
+            'Nia: I still think about the spare key under the third flowerpot';
+        final line = rememberedLineFromWindow(window);
+        expect(line.contains('\n'), isFalse);
+        expect(line, isNot(contains('You:')));
+        expect(line, isNot(contains('Nia:')));
+        expect(line, contains('flowerpot'));
+        expect(line, contains('spare key'));
       },
     );
 
