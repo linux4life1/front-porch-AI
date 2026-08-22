@@ -426,6 +426,90 @@ void main() {
       ], reason: 'shared place-compound {front, porch} is not cover');
     });
 
+    test('HOLD hole: setting nouns are filler — not a longer noun list', () {
+      for (final phrase in ['front steps', 'back patio']) {
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem(
+          'Nia: the $phrase swing creaked tonight',
+          sessionId: 's1',
+          pos: 2,
+        );
+        expect(
+          coverContentTokens(feeling),
+          isNot(contains(phrase.split(' ').last)),
+        );
+        expect(
+          coverContentTokens(feeling),
+          isNot(contains(phrase.replaceAll(' ', ''))),
+        );
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing must not cover-drop');
+      }
+      expect(
+        coverContentTokens('this porch swing'),
+        isNot(contains('thisporch')),
+      );
+      expect(coverContentTokens('my porch swing'), isNot(contains('myporch')));
+      expect(coverContentTokens('I sat on porch'), isNot(contains('onporch')));
+      const gist = 'Nia: the porch swing creaked tonight';
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: this porch swing creaked tonight',
+              sessionId: 's1',
+              pos: 2,
+            ),
+          ],
+          [gist],
+        ),
+        isEmpty,
+        reason: 'same-beat this-porch swing still drops',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: my porch swing creaked tonight',
+              sessionId: 's1',
+              pos: 3,
+            ),
+          ],
+          [gist],
+        ),
+        isEmpty,
+        reason: 'same-beat my-porch swing still drops',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'I sat on porch; the swing creaked tonight',
+              sessionId: 's1',
+              pos: 4,
+            ),
+          ],
+          [gist],
+        ),
+        isEmpty,
+        reason: 'same-beat I-sat-on-porch still drops',
+      );
+      final fact = _mem(
+        'Nia: I still think about the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 1,
+      );
+      expect(
+        dropCoveredRagWindows(
+          [fact],
+          ['I still think about the spare key under the third flowerpot'],
+        ),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD hole: any token before a place noun folds — screened porch', () {
       for (final phrase in [
         'screened porch',
@@ -445,7 +529,7 @@ void main() {
           coverContentTokens(feeling),
           isNot(contains(phrase.split(' ').first)),
         );
-        expect(coverContentTokens('the porch'), contains('porch'));
+        expect(coverContentTokens('the porch'), isNot(contains('porch')));
         expect(coverContentTokens('the porch'), isNot(contains('theporch')));
         expect(dropCoveredRagWindows([swing], [feeling]), [
           swing,
@@ -454,8 +538,8 @@ void main() {
       for (final article in ['the', 'a', 'an']) {
         expect(
           coverContentTokens('$article porch'),
-          contains('porch'),
-          reason: '$article stays filler — porch must remain a token',
+          isNot(contains('porch')),
+          reason: '$article stays filler and porch is setting-noun filler',
         );
         expect(
           coverContentTokens('$article porch'),

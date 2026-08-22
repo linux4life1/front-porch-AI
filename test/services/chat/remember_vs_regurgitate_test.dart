@@ -702,6 +702,51 @@ void main() {
       );
     });
 
+    test('HOLD hole: setting nouns are filler — front steps / this-porch', () {
+      for (final phrase in ['front steps', 'back patio', 'screened porch']) {
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem('Nia: the $phrase swing creaked tonight', pos: 2);
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing must not cover-drop');
+      }
+      expect(
+        coverContentTokens('this porch swing'),
+        isNot(contains('thisporch')),
+      );
+      expect(coverContentTokens('I sat on porch'), isNot(contains('onporch')));
+      expect(
+        dropCoveredRagWindows(
+          [_mem('Nia: this porch swing creaked tonight', pos: 2)],
+          ['Nia: the porch swing creaked tonight'],
+        ),
+        isEmpty,
+        reason: 'same-beat this-porch swing still drops',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [_mem('Nia: my porch swing creaked tonight', pos: 3)],
+          ['Nia: the porch swing creaked tonight'],
+        ),
+        isEmpty,
+        reason: 'same-beat my-porch swing still drops',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [_mem('I sat on porch; the swing creaked tonight', pos: 4)],
+          ['Nia: the porch swing creaked tonight'],
+        ),
+        isEmpty,
+        reason: 'same-beat I-sat-on-porch still drops',
+      );
+      final fact = _mem(kFactLine, pos: 1);
+      expect(
+        dropCoveredRagWindows([fact], [kJournalGist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD hole: covered/wraparound fold; the/a/an stay filler', () {
       for (final phrase in [
         'covered porch',
@@ -725,8 +770,8 @@ void main() {
       for (final article in ['the', 'a', 'an']) {
         expect(
           coverContentTokens('$article porch'),
-          contains('porch'),
-          reason: '$article stays filler — porch must remain a token',
+          isNot(contains('porch')),
+          reason: '$article stays filler and porch is setting-noun filler',
         );
         expect(
           coverContentTokens('$article porch'),

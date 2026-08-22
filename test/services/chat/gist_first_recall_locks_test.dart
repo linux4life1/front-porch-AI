@@ -157,6 +157,10 @@ const kWraparoundPorchFeeling = 'I felt safe on the wraparound porch tonight';
 const kWraparoundPorchSwing = 'Nia: the wraparound porch swing creaked tonight';
 const kThePorchFeeling = 'I felt safe on the porch tonight';
 const kThePorchSwing = 'Nia: the porch swing creaked tonight';
+const kFrontStepsFeeling = 'I felt safe on the front steps tonight';
+const kFrontStepsSwing = 'Nia: the front steps swing creaked tonight';
+const kBackPatioFeeling = 'I felt safe on the back patio tonight';
+const kBackPatioSwing = 'Nia: the back patio swing creaked tonight';
 const kSwingTight = 'Nia:the swing';
 const kSwingSpaced = 'Nia: the swing';
 const kSwingBare = 'the swing';
@@ -738,10 +742,22 @@ void main() {
           'set MUST FAIL — the product must not be that restricted list',
     );
     expect(
-      src.contains("{'the', 'a', 'an'}"),
+      src.contains("'this'") && src.contains("'on'"),
       isTrue,
       reason:
-          'the / a / an stay filler — do not fold "the porch" into theporch',
+          'this/my/our/your/on stay particles — do not fold thisporch/onporch',
+    );
+    expect(
+      src.contains("'steps'") &&
+          src.contains("'patio'") &&
+          src.contains("'walk'"),
+      isTrue,
+      reason: 'setting nouns are cover filler — not a longer fold-noun list',
+    );
+    expect(
+      src.contains(r'(porch|yard|lawn|deck|stoop|steps'),
+      isFalse,
+      reason: 'do not grow the fold noun list with steps/patio and stop',
     );
   });
 
@@ -763,6 +779,16 @@ void main() {
           'tag': 'screened porch',
           'feeling': kScreenedPorchFeeling,
           'swing': kScreenedPorchSwing,
+        },
+        {
+          'tag': 'front steps',
+          'feeling': kFrontStepsFeeling,
+          'swing': kFrontStepsSwing,
+        },
+        {
+          'tag': 'back patio',
+          'feeling': kBackPatioFeeling,
+          'swing': kBackPatioSwing,
         },
       ];
       for (var i = 0; i < cases.length; i++) {
