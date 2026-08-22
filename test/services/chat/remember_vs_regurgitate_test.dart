@@ -880,7 +880,7 @@ void main() {
     test('HOLD hole: interior restatement, suffix extra fact, no verb list', () {
       const gist =
           'I still think about the spare key under the third flowerpot';
-      for (final verb in ['tucked', 'buried', 'stays', 'rests']) {
+      for (final verb in ['hidden', 'tucked', 'buried', 'stays', 'rests', 'lives']) {
         expect(
           dropCoveredRagWindows(
             [
@@ -895,6 +895,84 @@ void main() {
           reason: '"$verb under" has leftover — leftover-empty only, so KEEP',
         );
       }
+      for (final verb in ['hidden', 'tucked', 'buried', 'stays', 'rests', 'lives']) {
+        expect(
+          dropCoveredRagWindows(
+            [
+              _mem(
+                'Nia: the spare key under the third flowerpot $verb',
+                pos: 13,
+              ),
+            ],
+            [gist],
+          ),
+          isNot(isEmpty),
+          reason: '$verb as suffix has leftover — leftover-empty only, so KEEP',
+        );
+      }
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: the spare key under the third flowerpot lives hidden',
+              pos: 14,
+            ),
+          ],
+          [gist],
+        ),
+        isNot(isEmpty),
+        reason: 'suffix lives-hidden has leftover — leftover-empty only, so KEEP',
+      );
+      for (final verb in ['hidden', 'tucked', 'buried', 'stays', 'rests', 'lives']) {
+        expect(
+          dropCoveredRagWindows(
+            [
+              _mem(
+                'Nia: $verb the spare key under the third flowerpot',
+                pos: 16,
+              ),
+            ],
+            [gist],
+          ),
+          isNot(isEmpty),
+          reason: '$verb as prefix has leftover — leftover-empty only, so KEEP',
+        );
+      }
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: lives hidden the spare key under the third flowerpot',
+              pos: 17,
+            ),
+          ],
+          [gist],
+        ),
+        isNot(isEmpty),
+        reason: 'prefix lives-hidden has leftover — leftover-empty only, so KEEP',
+      );
+      final twoLine = dropCoveredRagWindows(
+        [
+          _mem(
+            'You: the spare key lives under the third flowerpot\n'
+            'Nia: I still think about the spare key under the third flowerpot',
+            pos: 18,
+            end: 19,
+          ),
+        ],
+        [gist],
+      );
+      expect(twoLine, hasLength(1));
+      expect(
+        twoLine.first.content,
+        contains('lives'),
+        reason: 'two-line lives-under: the lives line KEEPS',
+      );
+      expect(
+        twoLine.first.content,
+        isNot(contains('I still think about')),
+        reason: 'two-line lives-under: the exact gist line still strips',
+      );
       expect(
         dropCoveredRagWindows(
           [

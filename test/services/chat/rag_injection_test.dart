@@ -582,6 +582,16 @@ void main() {
         contains('lives'),
         reason: 'lives is leftover — leftover-empty only, so this line KEEPS',
       );
+      expect(
+        keptBoth.first.content,
+        contains('You: the spare key lives under the third flowerpot'),
+        reason: 'two-line lives-under: the lives line KEEPS',
+      );
+      expect(
+        keptBoth.first.content,
+        isNot(contains('I still think about')),
+        reason: 'exact gist line still strips from the two-line window',
+      );
     });
 
     test('HOLD hole: extra fact on the line and stripped span', () {
@@ -785,6 +795,13 @@ void main() {
         'sat',
         'fell',
         'hid',
+        'stolen',
+        'broken',
+        'locked',
+        'rusty',
+        'moved',
+        'taken',
+        'yellow',
       ]) {
         final interior = _mem(
           'Nia: the spare key $extra under the third flowerpot',
@@ -805,7 +822,7 @@ void main() {
           prefix,
         ], reason: 'short prefix leftover $extra is an extra fact');
       }
-      for (final verb in ['hidden', 'tucked']) {
+      for (final verb in ['hidden', 'tucked', 'buried', 'stays', 'rests', 'lives']) {
         final prefix = _mem(
           'Nia: $verb the spare key under the third flowerpot',
           sessionId: 's1',
@@ -817,6 +834,41 @@ void main() {
           reason: '$verb as prefix has leftover — leftover-empty only, so KEEP',
         );
       }
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: lives hidden the spare key under the third flowerpot',
+              sessionId: 's1',
+              pos: 18,
+            ),
+          ],
+          [gist],
+        ),
+        isNot(isEmpty),
+        reason:
+            'lives hidden as prefix has leftover — leftover-empty only, so KEEP',
+      );
+      final interiorHidden = _mem(
+        'Nia: the spare key hidden under the third flowerpot',
+        sessionId: 's1',
+        pos: 19,
+      );
+      expect(
+        dropCoveredRagWindows([interiorHidden], [gist]),
+        [interiorHidden],
+        reason: 'interior hidden has leftover — leftover-empty only, so KEEP',
+      );
+      final interiorLives = _mem(
+        'Nia: the spare key lives under the third flowerpot',
+        sessionId: 's1',
+        pos: 21,
+      );
+      expect(
+        dropCoveredRagWindows([interiorLives], [gist]),
+        [interiorLives],
+        reason: 'interior lives has leftover — leftover-empty only, so KEEP',
+      );
     });
 
     test('HOLD hole: prefix card does not cover a bigger fact', () {
