@@ -16,6 +16,10 @@
 // New locks (source-scan journal expand, place-compound cover, speaker
 // prefix): still refuse those stand-alone greens. Journal lastWords is
 // scanned at the buildJournalBlock call, not composeRagQuery.
+//
+// Adj+noun place fold (front/back/side + porch/yard/lawn/deck/stoop) and
+// optional-space speaker strip are god-path locks here. A pair list of
+// front/back porch/yard, or a colon that requires a space, goes red.
 
 import 'dart:io';
 
@@ -140,6 +144,13 @@ const kFrontPorchFeeling = 'I felt safe on the front porch tonight';
 const kFrontPorchSwing = 'Nia: the front porch swing creaked tonight';
 const kSwingLine = 'Nia: the swing creaked';
 const kSwingBody = 'the swing creaked';
+const kSidePorchFeeling = 'I felt safe on the side porch tonight';
+const kSidePorchSwing = 'Nia: the side porch swing creaked tonight';
+const kFrontLawnFeeling = 'I felt safe on the front lawn tonight';
+const kFrontLawnSwing = 'Nia: the front lawn swing creaked tonight';
+const kSwingTight = 'Nia:the swing';
+const kSwingSpaced = 'Nia: the swing';
+const kSwingBare = 'the swing';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -687,6 +698,179 @@ void main() {
         quoted,
         contains(kSwingLine),
         reason: 'quote-reach keeps the raw window, prefix included',
+      );
+    },
+  );
+
+  test('LOCK 2: place fold is adj+noun, not a pair list', () {
+    final src = File('lib/services/chat/rag_injection.dart').readAsStringSync();
+    expect(
+      src.contains(r'(front|back|side)\s+(porch|yard|lawn|deck|stoop)'),
+      isTrue,
+      reason:
+          'place fold is adj+noun (front/back/side + porch/yard/lawn/'
+          'deck/stoop) — not two more hardcoded pairs',
+    );
+    expect(
+      src.contains("'front porch':") || src.contains('"front porch":'),
+      isFalse,
+      reason: 'must not be a pair-list of specific compounds',
+    );
+  });
+
+  test(
+    'LOCK 2: side-porch and front-lawn feelings do not cover-drop a swing',
+    () async {
+      const cases = [
+        {
+          'tag': 'side porch',
+          'feeling': kSidePorchFeeling,
+          'swing': kSidePorchSwing,
+        },
+        {
+          'tag': 'front lawn',
+          'feeling': kFrontLawnFeeling,
+          'swing': kFrontLawnSwing,
+        },
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']!;
+        final feeling = c['feeling']!;
+        final swing = c['swing']!;
+        final sessionId = 'sess-gistlock-adjnoun-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-adjnoun-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: Value(feeling),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: swing,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 0,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+
+        await chat.sendMessage(kSit);
+
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason: 'cues are present — retrieve must run so cover-drop is real',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(feeling),
+          reason:
+              'the $tag feeling card must inject or cover-drop was never tested',
+        );
+        expect(prompt, contains(kRagRememberedHeader.trim()));
+        expect(
+          prompt,
+          contains('swing'),
+          reason:
+              '$tag is adj+noun — feeling × $tag swing must not cover-drop '
+              'the swing fact. A pair list of front/back porch/yard goes red.',
+        );
+      }
+    },
+  );
+
+  test(
+    'LOCK 3: optional colon space strips Nia:the swing; quote-reach stays raw',
+    () async {
+      await seedOverflowSession(
+        sessionId: 'sess-gistlock-colon',
+        charDbId: 'char-gistlock-colon',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+
+      Future<String> sitWith(String raw) async {
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: raw,
+            characterId: 'Nia',
+            sessionId: 'sess-gistlock-colon',
+            positionStart: 0,
+            positionEnd: 0,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+        await chat.sendMessage(kSit);
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason: 'cues are present — retrieve must run so the line is real',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        return llm.chatPrompts.last;
+      }
+
+      final tight = await sitWith(kSwingTight);
+      expect(tight, contains(kRagRememberedHeader.trim()));
+      expect(
+        tight,
+        contains(kSwingBare),
+        reason: 'plain path keeps the remembered body',
+      );
+      expect(
+        tight,
+        isNot(contains(kSwingTight)),
+        reason:
+            'optional space after the colon — "Nia:the swing" must become '
+            '"the swing", same as "Nia: the swing"',
+      );
+      final spaced = await sitWith(kSwingSpaced);
+      expect(spaced, contains(kRagRememberedHeader.trim()));
+      expect(spaced, contains(kSwingBare));
+      expect(
+        spaced,
+        isNot(contains(kSwingSpaced)),
+        reason: '"Nia: the swing" strips to "the swing" on the plain path',
+      );
+      memory.retrieveCalls = 0;
+      memory.canned = [
+        RetrievedMemory(
+          content: kSwingTight,
+          characterId: 'Nia',
+          sessionId: 'sess-gistlock-colon',
+          positionStart: 0,
+          positionEnd: 0,
+          score: 0.9,
+        ),
+      ];
+      llm.chatPrompts.clear();
+      await chat.sendMessage('remember what you said about the swing?');
+      expect(memory.retrieveCalls, greaterThan(0));
+      expect(llm.chatPrompts, isNotEmpty);
+      final quoted = llm.chatPrompts.last;
+      expect(quoted, contains(kRagQuoteHeader.trim()));
+      expect(
+        quoted,
+        contains(kSwingTight),
+        reason:
+            'quote-reach keeps the raw window, including Nia:the (no space)',
       );
     },
   );
