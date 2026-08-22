@@ -381,13 +381,11 @@ String _normalizeCoverLine(String s) {
   var t = s.toLowerCase().replaceFirst(_kSpeakerPrefix, '');
   t = t.replaceAll(_kNonWord, ' ');
   t = _foldPlaceCompounds(t);
+  // Time filler and journal boilerplate stay as leftover tokens.
+  // Stripping them made leftover-empty DROP gist+safe / gist+yesterday.
   final kept = <String>[
     for (final w in t.split(_kSpaces))
-      if (w.isNotEmpty &&
-          !_kFunctionWords.contains(w) &&
-          !_kTimeFiller.contains(w) &&
-          !_kJournalBoilerplate.contains(w))
-        w,
+      if (w.isNotEmpty && !_kFunctionWords.contains(w)) w,
   ];
   return kept.join(' ');
 }

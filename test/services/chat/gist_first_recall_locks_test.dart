@@ -1424,6 +1424,14 @@ void main() {
           'must not sit as interior leftover between shared tokens',
     );
     expect(
+      normSlice.contains('_kTimeFiller') ||
+          normSlice.contains('_kJournalBoilerplate'),
+      isFalse,
+      reason:
+          'time filler and journal boilerplate must not strip cover leftover '
+          '— gist+safe / gist+yesterday are leftover KEEP',
+    );
+    expect(
       src.contains('leftover.length == 1'),
       isFalse,
       reason:
@@ -2166,30 +2174,90 @@ void main() {
     },
   );
 
-  test('LOCK: leftover-empty only — interior hidden/tucked/buried/stays/rests/lives KEEP', () async {
-    const cases = [
-      {'tag': 'interior hidden', 'window': kInteriorHidden, 'kept': 'hidden'},
-      {'tag': 'interior tucked', 'window': kInteriorTucked, 'kept': 'tucked'},
-      {'tag': 'interior buried', 'window': kBuriedUnder, 'kept': 'buried'},
-      {'tag': 'interior stays', 'window': kStaysUnder, 'kept': 'stays'},
-      {'tag': 'interior rests', 'window': kRestsUnder, 'kept': 'rests'},
-      {'tag': 'interior lives', 'window': kInteriorLives, 'kept': 'lives'},
-    ];
-    for (var i = 0; i < cases.length; i++) {
-      final c = cases[i];
-      final tag = c['tag']!;
-      final window = c['window']!;
-      final kept = c['kept']!;
-      final sessionId = 'sess-gistlock-samebeat3-$i';
+  test(
+    'LOCK: leftover-empty only — interior hidden/tucked/buried/stays/rests/lives KEEP',
+    () async {
+      const cases = [
+        {'tag': 'interior hidden', 'window': kInteriorHidden, 'kept': 'hidden'},
+        {'tag': 'interior tucked', 'window': kInteriorTucked, 'kept': 'tucked'},
+        {'tag': 'interior buried', 'window': kBuriedUnder, 'kept': 'buried'},
+        {'tag': 'interior stays', 'window': kStaysUnder, 'kept': 'stays'},
+        {'tag': 'interior rests', 'window': kRestsUnder, 'kept': 'rests'},
+        {'tag': 'interior lives', 'window': kInteriorLives, 'kept': 'lives'},
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']!;
+        final window = c['window']!;
+        final kept = c['kept']!;
+        final sessionId = 'sess-gistlock-samebeat3-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-samebeat3-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: const Value(kGist),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: window,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 1,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+
+        await chat.sendMessage(kSit);
+
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason: 'retrieve ran — a skip would fake the cover-drop',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(kGist),
+          reason: 'same-beat flowerpot gist must inject',
+        );
+        expect(prompt, contains(kRagRememberedHeader.trim()));
+        expect(
+          prompt,
+          contains(kept),
+          reason:
+              'leftover-empty only — interior "$tag" has leftover so KEEP. '
+              '"$kept" must reach the prompt. A paraphrase list or length/'
+              'position kind rule goes red here',
+        );
+      }
+    },
+  );
+
+  test(
+    'LOCK: leftover-empty only — two-line lives-under keeps lives, strips gist',
+    () async {
       final card = await seedOverflowSession(
-        sessionId: sessionId,
-        charDbId: 'char-gistlock-samebeat3-$i',
+        sessionId: 'sess-gistlock-livesunder',
+        charDbId: 'char-gistlock-livesunder',
         emotion: kEmotion,
         fixation: kFixation,
       );
       await db.insertJournalCard(
         JournalMemoriesCompanion(
-          sessionId: Value(sessionId),
+          sessionId: const Value('sess-gistlock-livesunder'),
           characterId: Value(card.stableGroupId),
           content: const Value(kGist),
           category: const Value('about_us'),
@@ -2199,9 +2267,9 @@ void main() {
       memory.retrieveCalls = 0;
       memory.canned = [
         RetrievedMemory(
-          content: window,
+          content: kFactWindow,
           characterId: 'Nia',
-          sessionId: sessionId,
+          sessionId: 'sess-gistlock-livesunder',
           positionStart: 0,
           positionEnd: 1,
           score: 0.9,
@@ -2223,88 +2291,34 @@ void main() {
         contains(kGist),
         reason: 'same-beat flowerpot gist must inject',
       );
-      expect(prompt, contains(kRagRememberedHeader.trim()));
       expect(
         prompt,
-        contains(kept),
-        reason:
-            'leftover-empty only — interior "$tag" has leftover so KEEP. '
-            '"$kept" must reach the prompt. A paraphrase list or length/'
-            'position kind rule goes red here',
+        contains(kRagRememberedHeader.trim()),
+        reason: 'the lives line has leftover so it must still inject as RAG',
       );
-    }
-  });
-
-  test('LOCK: leftover-empty only — two-line lives-under keeps lives, strips gist', () async {
-    final card = await seedOverflowSession(
-      sessionId: 'sess-gistlock-livesunder',
-      charDbId: 'char-gistlock-livesunder',
-      emotion: kEmotion,
-      fixation: kFixation,
-    );
-    await db.insertJournalCard(
-      JournalMemoriesCompanion(
-        sessionId: const Value('sess-gistlock-livesunder'),
-        characterId: Value(card.stableGroupId),
-        content: const Value(kGist),
-        category: const Value('about_us'),
-        heat: const Value(0.9),
-      ),
-    );
-    memory.retrieveCalls = 0;
-    memory.canned = [
-      RetrievedMemory(
-        content: kFactWindow,
-        characterId: 'Nia',
-        sessionId: 'sess-gistlock-livesunder',
-        positionStart: 0,
-        positionEnd: 1,
-        score: 0.9,
-      ),
-    ];
-    llm.chatPrompts.clear();
-
-    await chat.sendMessage(kSit);
-
-    expect(
-      memory.retrieveCalls,
-      greaterThan(0),
-      reason: 'retrieve ran — a skip would fake the cover-drop',
-    );
-    expect(llm.chatPrompts, isNotEmpty);
-    final prompt = llm.chatPrompts.last;
-    expect(
-      prompt,
-      contains(kGist),
-      reason: 'same-beat flowerpot gist must inject',
-    );
-    expect(
-      prompt,
-      contains(kRagRememberedHeader.trim()),
-      reason: 'the lives line has leftover so it must still inject as RAG',
-    );
-    expect(
-      prompt,
-      contains('the spare key lives under the third flowerpot'),
-      reason:
-          'two-line lives-under: the lives line KEEPS (plain path strips '
-          'the You: prefix). Whole-window DROP of lives-under goes red here',
-    );
-    expect(
-      prompt,
-      isNot(contains(kFactWindow)),
-      reason:
-          'exact gist line still strips — the two-line blob must not '
-          'survive as one remembered window',
-    );
-    expect(
-      prompt,
-      isNot(contains(kGistWindow)),
-      reason:
-          'the exact gist line still strips from the RAG window. '
-          'Keeping both lines is leftover-empty failure',
-    );
-  });
+      expect(
+        prompt,
+        contains('the spare key lives under the third flowerpot'),
+        reason:
+            'two-line lives-under: the lives line KEEPS (plain path strips '
+            'the You: prefix). Whole-window DROP of lives-under goes red here',
+      );
+      expect(
+        prompt,
+        isNot(contains(kFactWindow)),
+        reason:
+            'exact gist line still strips — the two-line blob must not '
+            'survive as one remembered window',
+      );
+      expect(
+        prompt,
+        isNot(contains(kGistWindow)),
+        reason:
+            'the exact gist line still strips from the RAG window. '
+            'Keeping both lines is leftover-empty failure',
+      );
+    },
+  );
 
   test(
     'LOCK: covered lines are stripped — flowerpot gist + swing KEEPS swing',
@@ -3400,72 +3414,75 @@ void main() {
     }
   });
 
-  test('LOCK: leftover-empty only — this/my/our/your-porch swing still DROP', () async {
-    const cases = [
-      {'tag': 'this-porch swing', 'window': kThisPorchSwing},
-      {'tag': 'my-porch swing', 'window': kMyPorchSwing},
-      {'tag': 'our-porch swing', 'window': kOurPorchSwing},
-      {'tag': 'your-porch swing', 'window': kYourPorchSwing},
-    ];
-    for (var i = 0; i < cases.length; i++) {
-      final c = cases[i];
-      final tag = c['tag']!;
-      final window = c['window']!;
-      final sessionId = 'sess-gistlock-fnporch-$i';
-      final card = await seedOverflowSession(
-        sessionId: sessionId,
-        charDbId: 'char-gistlock-fnporch-$i',
-        emotion: kEmotion,
-        fixation: kFixation,
-      );
-      await db.insertJournalCard(
-        JournalMemoriesCompanion(
-          sessionId: Value(sessionId),
-          characterId: Value(card.stableGroupId),
-          content: const Value(kThePorchSwing),
-          category: const Value('about_us'),
-          heat: const Value(0.9),
-        ),
-      );
-      memory.retrieveCalls = 0;
-      memory.canned = [
-        RetrievedMemory(
-          content: window,
-          characterId: 'Nia',
-          sessionId: sessionId,
-          positionStart: 0,
-          positionEnd: 0,
-          score: 0.9,
-        ),
+  test(
+    'LOCK: leftover-empty only — this/my/our/your-porch swing still DROP',
+    () async {
+      const cases = [
+        {'tag': 'this-porch swing', 'window': kThisPorchSwing},
+        {'tag': 'my-porch swing', 'window': kMyPorchSwing},
+        {'tag': 'our-porch swing', 'window': kOurPorchSwing},
+        {'tag': 'your-porch swing', 'window': kYourPorchSwing},
       ];
-      llm.chatPrompts.clear();
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']!;
+        final window = c['window']!;
+        final sessionId = 'sess-gistlock-fnporch-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-fnporch-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: const Value(kThePorchSwing),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: window,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 0,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
 
-      await chat.sendMessage(kSit);
+        await chat.sendMessage(kSit);
 
-      expect(
-        memory.retrieveCalls,
-        greaterThan(0),
-        reason: 'retrieve ran — a skip would fake the cover-drop',
-      );
-      expect(llm.chatPrompts, isNotEmpty);
-      final prompt = llm.chatPrompts.last;
-      expect(
-        prompt,
-        contains(kThePorchSwing),
-        reason: 'the porch-swing gist must inject or DROP was never tested',
-      );
-      expect(
-        prompt,
-        isNot(contains(kRagRememberedHeader.trim())),
-        reason:
-            'leftover-empty only — "$tag" has no leftover. Function words '
-            'do not mint leftover. "$tag" must still DROP',
-      );
-      expect(
-        prompt,
-        isNot(contains(window)),
-        reason: '"$tag" still DROPS — "$window" must not reach the prompt',
-      );
-    }
-  });
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason: 'retrieve ran — a skip would fake the cover-drop',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(kThePorchSwing),
+          reason: 'the porch-swing gist must inject or DROP was never tested',
+        );
+        expect(
+          prompt,
+          isNot(contains(kRagRememberedHeader.trim())),
+          reason:
+              'leftover-empty only — "$tag" has no leftover. Function words '
+              'do not mint leftover. "$tag" must still DROP',
+        );
+        expect(
+          prompt,
+          isNot(contains(window)),
+          reason: '"$tag" still DROPS — "$window" must not reach the prompt',
+        );
+      }
+    },
+  );
 }

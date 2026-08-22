@@ -822,7 +822,14 @@ void main() {
           prefix,
         ], reason: 'short prefix leftover $extra is an extra fact');
       }
-      for (final verb in ['hidden', 'tucked', 'buried', 'stays', 'rests', 'lives']) {
+      for (final verb in [
+        'hidden',
+        'tucked',
+        'buried',
+        'stays',
+        'rests',
+        'lives',
+      ]) {
         final prefix = _mem(
           'Nia: $verb the spare key under the third flowerpot',
           sessionId: 's1',
@@ -854,21 +861,53 @@ void main() {
         sessionId: 's1',
         pos: 19,
       );
-      expect(
-        dropCoveredRagWindows([interiorHidden], [gist]),
-        [interiorHidden],
-        reason: 'interior hidden has leftover — leftover-empty only, so KEEP',
-      );
+      expect(dropCoveredRagWindows([interiorHidden], [gist]), [
+        interiorHidden,
+      ], reason: 'interior hidden has leftover — leftover-empty only, so KEEP');
       final interiorLives = _mem(
         'Nia: the spare key lives under the third flowerpot',
         sessionId: 's1',
         pos: 21,
       );
-      expect(
-        dropCoveredRagWindows([interiorLives], [gist]),
-        [interiorLives],
-        reason: 'interior lives has leftover — leftover-empty only, so KEEP',
+      expect(dropCoveredRagWindows([interiorLives], [gist]), [
+        interiorLives,
+      ], reason: 'interior lives has leftover — leftover-empty only, so KEEP');
+    });
+
+    test('HOLD hole: filler lists do not erase cover leftover', () {
+      const gist =
+          'I still think about the spare key under the third flowerpot';
+      for (final extra in ['safe', 'felt', 'remember']) {
+        final win = _mem(
+          'Nia: I still think about the spare key under the third flowerpot $extra',
+          sessionId: 's1',
+          pos: 22,
+        );
+        expect(
+          dropCoveredRagWindows([win], [gist]),
+          [win],
+          reason: 'boilerplate leftover $extra must KEEP — not leftover-empty',
+        );
+      }
+      for (final extra in ['yesterday', 'tomorrow', 'morning', 'evening']) {
+        final win = _mem(
+          'Nia: I still think about the spare key under the third flowerpot $extra',
+          sessionId: 's1',
+          pos: 23,
+        );
+        expect(dropCoveredRagWindows([win], [gist]), [
+          win,
+        ], reason: 'time leftover $extra must KEEP — not leftover-empty');
+      }
+      const porch = 'Nia: the porch swing creaked tonight';
+      final tomorrow = _mem(
+        'Nia: the porch swing creaked tomorrow',
+        sessionId: 's1',
+        pos: 24,
       );
+      expect(dropCoveredRagWindows([tomorrow], [porch]), [
+        tomorrow,
+      ], reason: 'porch-swing × tomorrow is leftover, not leftover-empty');
     });
 
     test('HOLD hole: prefix card does not cover a bigger fact', () {
