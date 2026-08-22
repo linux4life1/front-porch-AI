@@ -412,73 +412,30 @@ List<String> _coverWords(String s) {
   return line.split(' ');
 }
 
-/// Tightest span in [longer] that contains every token of [shorter].
-(int, int)? _minCoverWindow(List<String> longer, List<String> shorter) {
-  final need = <String, int>{};
-  for (final w in shorter) {
-    need[w] = (need[w] ?? 0) + 1;
-  }
-  var missing = shorter.length;
-  final got = <String, int>{};
-  var bestL = 0;
-  var bestR = longer.length;
-  var found = false;
-  var l = 0;
-  for (var r = 0; r < longer.length; r++) {
-    final w = longer[r];
-    final n = need[w];
-    if (n != null) {
-      final g = (got[w] ?? 0) + 1;
-      got[w] = g;
-      if (g <= n) missing--;
-    }
-    while (missing == 0 && l <= r) {
-      found = true;
-      if (r - l < bestR - bestL) {
-        bestL = l;
-        bestR = r;
-      }
-      final u = longer[l];
-      final nu = need[u];
-      if (nu != null) {
-        final g = got[u]!;
-        if (g <= nu) missing++;
-        got[u] = g - 1;
-      }
-      l++;
-    }
-  }
-  if (!found) return null;
-  return (bestL, bestR);
+bool _isExtraFactLeftover(String w) {
+  if (!_isDistinctive(w)) return true;
+  if (w.length >= 7) return true;
+  return w.endsWith('ned');
 }
 
-bool _lineCovers(List<String> a, List<String> b) {
-  if (a.isEmpty || b.isEmpty) return false;
-  final shorter = a.length <= b.length ? a : b;
-  final longer = a.length <= b.length ? b : a;
-  if (!shorter.any(_isDistinctive)) return false;
-  if (!longer.toSet().containsAll(shorter)) return false;
+bool _lineCovers(List<String> card, List<String> window) {
+  if (card.isEmpty || window.isEmpty) return false;
+  if (!card.any(_isDistinctive)) return false;
+  if (!window.toSet().containsAll(card)) return false;
   final shortD = {
-    for (final w in shorter)
+    for (final w in card)
       if (_isDistinctive(w)) w,
   };
   final longD = {
-    for (final w in longer)
+    for (final w in window)
       if (_isDistinctive(w)) w,
   };
-  final leftover = longer.toSet().difference(shorter.toSet());
+  final leftover = window.toSet().difference(card.toSet());
   final distinctiveLeftover = longD.difference(shortD);
   if (leftover.isEmpty && distinctiveLeftover.isEmpty) return true;
-  if (leftover.isEmpty) return true;
-  final span = _minCoverWindow(longer, shorter);
-  if (span == null) return false;
-  // Suffix leftover is an extra fact (burned, creaked, died, sat).
-  if (longer.sublist(span.$2 + 1).isNotEmpty) return false;
-  // Distinctive prefix leftover is an extra fact (lighthouse … gist).
-  if (longer.sublist(0, span.$1).any(_isDistinctive)) return false;
-  // Interior leftover is same-beat restatement (lives / tucked / buried).
-  // Short prefix leftover is the same beat (I sat on porch).
-  return true;
+  // Kind, not position. Short leftover and long distinctive leftover
+  // are extra facts. Length 5-6 distinctive leftover is restatement.
+  return leftover.isNotEmpty && leftover.every((w) => !_isExtraFactLeftover(w));
 }
 
 bool _nearCover(String card, String window) {

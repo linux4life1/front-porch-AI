@@ -1141,8 +1141,8 @@ void main() {
           [_mem('I sat on porch; the swing creaked tonight', pos: 4)],
           ['Nia: the porch swing creaked tonight'],
         ),
-        isEmpty,
-        reason: 'same-beat I-sat-on-porch still drops',
+        isNot(isEmpty),
+        reason: 'short leftover sat is an extra fact, not same-beat',
       );
       final fact = _mem(kFactLine, pos: 1);
       expect(

@@ -37,11 +37,10 @@
 // greens as stand-alone.
 //
 // Short leftover is ANY extra content token on the longer side —
-// died/gone/fell/hid/ran count even when length < 5. "the spare key"
-// KEEPS died/gone; "third flowerpot" KEEPS fell. Same-beat is interior
-// leftover (lives / tucked / buried) — no verb list. Suffix leftover
-// is an extra fact (burned, lighthouse, creaked, died, sat). Covered
-// lines strip into contiguous runs; each run remaps its span.
+// died/gone/fell/hid/ran count even when length < 5. Leftover kind,
+// not position: short leftover and long distinctive leftover are extra
+// facts. Length 5-6 distinctive leftover is restatement. Covered lines
+// strip into contiguous runs; each run remaps its span.
 
 import 'dart:io';
 
@@ -1271,11 +1270,17 @@ void main() {
           'died/gone/fell/hid/ran count even when length < 5',
     );
     expect(
-      src.contains('_minCoverWindow') && src.contains('leftover'),
+      src.contains('_isExtraFactLeftover') && src.contains('leftover'),
       isTrue,
       reason:
-          'same-beat is interior leftover; suffix leftover is an extra fact. '
-          'No paraphrase verb list',
+          'leftover kind, not position: short leftover and long distinctive '
+          'leftover are extra facts. Length 5-6 distinctive leftover is '
+          'restatement. No paraphrase verb list',
+    );
+    expect(
+      src.contains('_minCoverWindow'),
+      isFalse,
+      reason: 'interior-vs-suffix is a ship bug — position is not kind',
     );
     expect(
       src.contains('_kCoverParaphrase') || src.contains('shortD.length >= 3'),

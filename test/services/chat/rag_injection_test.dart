@@ -739,7 +739,81 @@ void main() {
       );
       expect(dropCoveredRagWindows([sat], [gist]), [
         sat,
-      ], reason: 'sat on the complete gist is a suffix extra fact');
+      ], reason: 'sat on the complete gist is an extra fact');
+
+      for (final verb in [
+        'hidden',
+        'tucked',
+        'buried',
+        'stays',
+        'rests',
+        'lives',
+      ]) {
+        final suffix = _mem(
+          'Nia: the spare key under the third flowerpot $verb',
+          sessionId: 's1',
+          pos: 13,
+        );
+        expect(
+          dropCoveredRagWindows([suffix], [gist]),
+          isEmpty,
+          reason: '$verb as suffix is still same-beat restatement',
+        );
+      }
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: the spare key under the third flowerpot lives hidden',
+              sessionId: 's1',
+              pos: 14,
+            ),
+          ],
+          [gist],
+        ),
+        isEmpty,
+        reason: 'lives hidden as suffix is still same-beat',
+      );
+      for (final extra in [
+        'burned',
+        'lighthouse',
+        'creaked',
+        'died',
+        'sat',
+        'fell',
+        'hid',
+      ]) {
+        final interior = _mem(
+          'Nia: the spare key $extra under the third flowerpot',
+          sessionId: 's1',
+          pos: 15,
+        );
+        expect(dropCoveredRagWindows([interior], [gist]), [
+          interior,
+        ], reason: '$extra as interior is still an extra fact');
+      }
+      for (final extra in ['hid', 'sat', 'died']) {
+        final prefix = _mem(
+          'Nia: $extra the spare key under the third flowerpot',
+          sessionId: 's1',
+          pos: 16,
+        );
+        expect(dropCoveredRagWindows([prefix], [gist]), [
+          prefix,
+        ], reason: 'short prefix leftover $extra is an extra fact');
+      }
+      for (final verb in ['hidden', 'tucked']) {
+        final prefix = _mem(
+          'Nia: $verb the spare key under the third flowerpot',
+          sessionId: 's1',
+          pos: 17,
+        );
+        expect(
+          dropCoveredRagWindows([prefix], [gist]),
+          isEmpty,
+          reason: '$verb as prefix is still same-beat restatement',
+        );
+      }
     });
 
     test('HOLD hole: prefix card does not cover a bigger fact', () {
@@ -1012,8 +1086,8 @@ void main() {
           ],
           [gist],
         ),
-        isEmpty,
-        reason: 'same-beat I-sat-on-porch still drops',
+        isNot(isEmpty),
+        reason: 'short leftover sat is an extra fact, not same-beat',
       );
       final fact = _mem(
         'Nia: I still think about the spare key under the third flowerpot',
