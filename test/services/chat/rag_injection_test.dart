@@ -431,6 +431,7 @@ void main() {
         'screened porch',
         'covered porch',
         'wraparound porch',
+        'wraparound deck',
       ]) {
         final folded = phrase.replaceAll(' ', '');
         final feeling = 'I felt safe on the $phrase tonight';
@@ -449,6 +450,18 @@ void main() {
         expect(dropCoveredRagWindows([swing], [feeling]), [
           swing,
         ], reason: 'feeling × $phrase swing must not cover-drop');
+      }
+      for (final article in ['the', 'a', 'an']) {
+        expect(
+          coverContentTokens('$article porch'),
+          contains('porch'),
+          reason: '$article stays filler — porch must remain a token',
+        );
+        expect(
+          coverContentTokens('$article porch'),
+          isNot(contains('${article}porch')),
+          reason: 'do not fold "$article porch" into ${article}porch',
+        );
       }
       final fact = _mem(
         'Nia: I still think about the spare key under the third flowerpot',

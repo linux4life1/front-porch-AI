@@ -20,6 +20,7 @@
 // Any-token-before-place-noun fold (porch/yard/lawn/deck/stoop) and
 // optional-space speaker strip are god-path locks here. An adj list of
 // front/back/side, a pair list, or a colon that requires a space, goes red.
+// Screened/covered/wraparound must KEEP. the/a/an stay filler (no theporch).
 
 import 'dart:io';
 
@@ -150,6 +151,12 @@ const kFrontLawnFeeling = 'I felt safe on the front lawn tonight';
 const kFrontLawnSwing = 'Nia: the front lawn swing creaked tonight';
 const kScreenedPorchFeeling = 'I felt safe on the screened porch tonight';
 const kScreenedPorchSwing = 'Nia: the screened porch swing creaked tonight';
+const kCoveredPorchFeeling = 'I felt safe on the covered porch tonight';
+const kCoveredPorchSwing = 'Nia: the covered porch swing creaked tonight';
+const kWraparoundPorchFeeling = 'I felt safe on the wraparound porch tonight';
+const kWraparoundPorchSwing = 'Nia: the wraparound porch swing creaked tonight';
+const kThePorchFeeling = 'I felt safe on the porch tonight';
+const kThePorchSwing = 'Nia: the porch swing creaked tonight';
 const kSwingTight = 'Nia:the swing';
 const kSwingSpaced = 'Nia: the swing';
 const kSwingBare = 'the swing';
@@ -723,6 +730,19 @@ void main() {
       isFalse,
       reason: 'must not be a pair-list of specific compounds',
     );
+    expect(
+      src.contains(r'(front|back|side)\s+(porch|yard|lawn|deck|stoop)'),
+      isFalse,
+      reason:
+          'a source-scan that only looks for (front|back|side) as the fold '
+          'set MUST FAIL — the product must not be that restricted list',
+    );
+    expect(
+      src.contains("{'the', 'a', 'an'}"),
+      isTrue,
+      reason:
+          'the / a / an stay filler — do not fold "the porch" into theporch',
+    );
   });
 
   test(
@@ -805,6 +825,133 @@ void main() {
       }
     },
   );
+
+  test('LOCK 2: covered/wraparound keep; the/a/an stay filler', () async {
+    const cases = [
+      {
+        'tag': 'covered porch',
+        'feeling': kCoveredPorchFeeling,
+        'swing': kCoveredPorchSwing,
+      },
+      {
+        'tag': 'wraparound porch',
+        'feeling': kWraparoundPorchFeeling,
+        'swing': kWraparoundPorchSwing,
+      },
+      {
+        'tag': 'the porch',
+        'feeling': kThePorchFeeling,
+        'swing': kThePorchSwing,
+      },
+    ];
+    for (var i = 0; i < cases.length; i++) {
+      final c = cases[i];
+      final tag = c['tag']!;
+      final feeling = c['feeling']!;
+      final swing = c['swing']!;
+      final sessionId = 'sess-gistlock-anytoken-$i';
+      final card = await seedOverflowSession(
+        sessionId: sessionId,
+        charDbId: 'char-gistlock-anytoken-$i',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: Value(sessionId),
+          characterId: Value(card.stableGroupId),
+          content: Value(feeling),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      memory.retrieveCalls = 0;
+      memory.canned = [
+        RetrievedMemory(
+          content: swing,
+          characterId: 'Nia',
+          sessionId: sessionId,
+          positionStart: 0,
+          positionEnd: 0,
+          score: 0.9,
+        ),
+      ];
+      llm.chatPrompts.clear();
+
+      await chat.sendMessage(kSit);
+
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'cues are present — retrieve must run so cover-drop is real',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final prompt = llm.chatPrompts.last;
+      expect(
+        prompt,
+        contains(feeling),
+        reason:
+            'the $tag feeling card must inject or cover-drop was never tested',
+      );
+      expect(prompt, contains(kRagRememberedHeader.trim()));
+      expect(
+        prompt,
+        contains('swing'),
+        reason:
+            '$tag feeling × $tag swing must KEEP. Fold is ANY token '
+            'before a place noun, not an adj list of front/back/side. '
+            'the/a/an stay filler — do not cover-drop a swing fact.',
+      );
+    }
+
+    final card = await seedOverflowSession(
+      sessionId: 'sess-gistlock-anytoken-flower',
+      charDbId: 'char-gistlock-anytoken-flower',
+      emotion: kEmotion,
+      fixation: kFixation,
+    );
+    await db.insertJournalCard(
+      JournalMemoriesCompanion(
+        sessionId: const Value('sess-gistlock-anytoken-flower'),
+        characterId: Value(card.stableGroupId),
+        content: const Value(kGist),
+        category: const Value('about_us'),
+        heat: const Value(0.9),
+      ),
+    );
+    memory.retrieveCalls = 0;
+    memory.canned = [
+      RetrievedMemory(
+        content: kFactWindow,
+        characterId: 'Nia',
+        sessionId: 'sess-gistlock-anytoken-flower',
+        positionStart: 0,
+        positionEnd: 1,
+        score: 0.9,
+      ),
+    ];
+    llm.chatPrompts.clear();
+    await chat.sendMessage(kSit);
+    expect(
+      memory.retrieveCalls,
+      greaterThan(0),
+      reason: 'retrieve ran — a skip would fake the cover-drop',
+    );
+    expect(llm.chatPrompts, isNotEmpty);
+    final flower = llm.chatPrompts.last;
+    expect(
+      flower,
+      contains(kGist),
+      reason: 'same-beat flowerpot gist must inject',
+    );
+    expect(
+      flower,
+      isNot(contains(kRagRememberedHeader.trim())),
+      reason:
+          'same-beat flowerpot gist still drops the covered RAG window '
+          '— any-token place fold must not disable real cover',
+    );
+  });
 
   test(
     'LOCK 3: optional colon space strips Nia:the swing; quote-reach stays raw',

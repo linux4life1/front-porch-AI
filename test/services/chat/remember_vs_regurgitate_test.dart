@@ -702,6 +702,46 @@ void main() {
       );
     });
 
+    test('HOLD hole: covered/wraparound fold; the/a/an stay filler', () {
+      for (final phrase in [
+        'covered porch',
+        'wraparound porch',
+        'wraparound deck',
+      ]) {
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem('Nia: the $phrase swing creaked tonight', pos: 2);
+        expect(
+          coverContentTokens(feeling),
+          contains(phrase.replaceAll(' ', '')),
+        );
+        expect(
+          coverContentTokens(feeling),
+          isNot(contains(phrase.split(' ').first)),
+        );
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing must not cover-drop');
+      }
+      for (final article in ['the', 'a', 'an']) {
+        expect(
+          coverContentTokens('$article porch'),
+          contains('porch'),
+          reason: '$article stays filler — porch must remain a token',
+        );
+        expect(
+          coverContentTokens('$article porch'),
+          isNot(contains('${article}porch')),
+          reason: 'do not fold "$article porch" into ${article}porch',
+        );
+      }
+      final fact = _mem(kFactLine, pos: 1);
+      expect(
+        dropCoveredRagWindows([fact], [kJournalGist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD hole: side porch and front lawn fold — not two more pairs', () {
       for (final phrase in ['side porch', 'front lawn']) {
         final feeling = 'I felt safe on the $phrase tonight';
