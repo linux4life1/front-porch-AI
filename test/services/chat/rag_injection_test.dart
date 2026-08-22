@@ -296,6 +296,9 @@ void main() {
       );
       expect(isReachingForQuote('You: can you quote that'), isTrue);
       expect(isReachingForQuote('You: remember what you said'), isTrue);
+      expect(isReachingForQuote('You: what did I promise'), isTrue);
+      expect(isReachingForQuote('You: exact words'), isTrue);
+      expect(isReachingForQuote('You: vows?'), isTrue);
     });
 
     test('normal path keeps one uncovered window; quote-reach keeps all', () {
@@ -372,6 +375,38 @@ void main() {
         swing,
       ], reason: 'one shared place/noun (porch) is not cover');
     });
+
+    test('HOLD r2: one shared spare token is not cover', () {
+      final fact = _mem(
+        'Nia: I still think about the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 1,
+      );
+      final kept = dropCoveredRagWindows(
+        [fact],
+        ['I still think about the spare room'],
+      );
+      expect(kept, [fact], reason: 'one shared noun (spare) is not cover');
+    });
+
+    test(
+      'HOLD r2: same-beat flowerpot gist still drops the covered window',
+      () {
+        final fact = _mem(
+          'Nia: I still think about the spare key under the third flowerpot',
+          sessionId: 's1',
+          pos: 1,
+        );
+        expect(
+          dropCoveredRagWindows(
+            [fact],
+            ['I still think about the spare key under the third flowerpot'],
+          ),
+          isEmpty,
+          reason: 'same-beat flowerpot gist must still drop that window',
+        );
+      },
+    );
 
     test(
       'HOLD: empty cover (Journal off / no gist this beat) does not cover-drop',

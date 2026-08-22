@@ -614,6 +614,33 @@ void main() {
       expect(kept, [fact], reason: 'one shared noun (spare) is not cover');
     });
 
+    test(
+      'HOLD r2: same-beat flowerpot gist still drops the covered window',
+      () {
+        final fact = _mem(kFactLine, pos: 1);
+        expect(
+          coverContentTokens(kFactLine)
+              .intersection(
+                coverContentTokens('I still think about the spare room'),
+              )
+              .length,
+          1,
+          reason: 'cover needs ≥2 content tokens — spare alone is not cover',
+        );
+        expect(
+          coverContentTokens(
+            kFactLine,
+          ).intersection(coverContentTokens(kJournalGist)).length,
+          greaterThanOrEqualTo(2),
+        );
+        expect(
+          dropCoveredRagWindows([fact], [kJournalGist]),
+          isEmpty,
+          reason: 'same-beat flowerpot gist must still drop that window',
+        );
+      },
+    );
+
     test('HOLD: no injected gist does not cover-drop', () {
       final fact = _mem(kFactLine, pos: 1);
       expect(dropCoveredRagWindows([fact], const []), [fact]);
@@ -676,6 +703,9 @@ void main() {
         );
         expect(isReachingForQuote('You: can you quote that'), isTrue);
         expect(isReachingForQuote('You: remember what you said'), isTrue);
+        expect(isReachingForQuote('You: what did I promise'), isTrue);
+        expect(isReachingForQuote('You: remember our wedding vows?'), isTrue);
+        expect(isReachingForQuote('You: vows?'), isTrue);
         final a = _mem(kFactLine, pos: 1);
         final b = _mem(kKiteWindow, pos: 9);
         expect(
@@ -929,6 +959,45 @@ void main() {
       expect(rag.contains('dropCoveredRagWindows('), isTrue);
       expect(rag.contains('t.journalCoverLines'), isTrue);
     });
+
+    test(
+      'HOLD r2: diary remember-when in remembered: does not expand sit-down',
+      () async {
+        await plantGistCard();
+        final diaryCue = composeRagQuery(
+          emotion: kEmotion,
+          fixation: kFixation,
+          hotJournalLine: 'I remember when we sat on the porch',
+          lastWords: 'You: $kLastUser',
+        );
+        expect(
+          diaryCue,
+          contains('remembered: I remember when we sat on the porch'),
+        );
+        expect(
+          isReachingForQuote('I remember when we sat on the porch'),
+          isFalse,
+          reason: 'diary remember-when is not quote-ask',
+        );
+        expect(isReachingForQuote('You: $kLastUser'), isFalse);
+        final result = await injection().buildJournalBlock(
+          characterId: kChar,
+          characterName: 'Nia',
+          userName: 'You',
+          queryText: diaryCue,
+          lastWords: 'You: $kLastUser',
+          messageCount: messages.length,
+        );
+        expect(
+          result.expandedPositions,
+          isEmpty,
+          reason:
+              'a diary remember-when sitting in remembered: must not '
+              'expand a sit-down turn',
+        );
+        expect(result.text, isNot(contains('exact words')));
+      },
+    );
 
     test(
       'HOLD r2: diary I-remember-where in the cued query does not expand',
