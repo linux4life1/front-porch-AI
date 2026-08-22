@@ -171,6 +171,14 @@ String lastWordsFromMessages(List<ChatMessage> messages) {
   return parts.join('\n');
 }
 
+/// Last spoken line only. Photo captions stay in [lastWordsFromMessages]
+/// for the retrieval query — they must not trip quote-ask.
+String lastSpokenLineFromMessages(List<ChatMessage> messages) {
+  if (messages.isEmpty) return '';
+  final last = messages.last;
+  return '${last.sender}: ${last.promptText}';
+}
+
 /// True only when they ASKED for the words — remember what you
 /// said/promised, what did I say/promise, exact words, can you quote,
 /// vows as a question. "Remember to lock the door?" and "Remember the
@@ -275,6 +283,14 @@ const _kCoverFiller = {
   'why',
   'our',
   'its',
+  'tonight',
+  'today',
+  'night',
+  'morning',
+  'evening',
+  'afternoon',
+  'yesterday',
+  'tomorrow',
 };
 
 Set<String> coverContentTokens(String s) =>
@@ -327,8 +343,48 @@ const String kRagQuoteHeader =
     '[Words they are reaching for, from earlier (already happened — '
     'quote only if asked):\n';
 
+/// Emotion, fixation, or a hot journal line — not last words alone.
+bool ragHasCues({
+  String emotion = '',
+  String fixation = '',
+  String hotJournalLine = '',
+}) =>
+    emotion.trim().isNotEmpty ||
+    fixation.trim().isNotEmpty ||
+    hotJournalLine.trim().isNotEmpty;
+
+/// Cue-less sit-down must not last-1 search. Quote-reach still retrieves.
+bool shouldRetrieveRag({
+  required bool hasCues,
+  required bool reachingForQuote,
+}) => hasCues || reachingForQuote;
+
+/// Plain turn: one short remembered line, not the multi-line transcript
+/// window. A single line is already short and stays as-is. Quote-reach
+/// uses the raw window via [buildRagMemoriesBlock].
+String rememberedLineFromWindow(String content) {
+  final lines = [
+    for (final raw in content.split('\n'))
+      if (raw.trim().isNotEmpty) raw.trim(),
+  ];
+  if (lines.isEmpty) return content.trim();
+  if (lines.length == 1) return lines.first;
+  String body(String line) {
+    final m = RegExp(r'^[^:\n]{1,40}:\s+(.*)').firstMatch(line);
+    return (m != null ? m.group(1)! : line).trim();
+  }
+
+  final bodies = [for (final l in lines) body(l)].where((b) => b.isNotEmpty);
+  return bodies.reduce(
+    (a, b) =>
+        coverContentTokens(b).length > coverContentTokens(a).length ? b : a,
+  );
+}
+
 /// Build the memories block. Day stamps stay display-only; packing order
 /// is the caller's (score-descending). Display order is chronological.
+/// Plain turn renders [rememberedLineFromWindow]; quote-reach keeps the
+/// raw window.
 String buildRagMemoriesBlock({
   required List<RetrievedMemory> memories,
   required String currentSessionId,
@@ -337,7 +393,7 @@ String buildRagMemoriesBlock({
 }) {
   if (memories.isEmpty) return '';
   String lineFor(RetrievedMemory m) => formatRagLine(
-    m.content,
+    reachingForQuote ? m.content : rememberedLineFromWindow(m.content),
     day: days[m],
     otherChat: m.sessionId != currentSessionId,
   );

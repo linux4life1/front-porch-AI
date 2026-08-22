@@ -60,6 +60,17 @@ extension ChatServiceGenerationRag on ChatService {
           lastWords: lastWordsFromMessages(_messages),
         );
         final queryMessages = t.ragQuery;
+        final reaching = isReachingForQuote(
+          lastSpokenLineFromMessages(_messages),
+        );
+        final skipCueLess = !shouldRetrieveRag(
+          hasCues: ragHasCues(
+            emotion: _characterEmotion,
+            fixation: _relationshipService.activeFixation,
+            hotJournalLine: t.ragHotJournalLine,
+          ),
+          reachingForQuote: reaching,
+        );
 
         // Scene Guests Phase 4: a guest turn retrieves the GUEST's own
         // episodic memories (keyed on the guest id), not the host's. The
@@ -90,15 +101,21 @@ extension ChatServiceGenerationRag on ChatService {
             ? groupRetrievalCount
             : _storageService.memorySettings.ragRetrievalCount;
 
-        final rawMemories = await _memoryService!.retrieve(
-          queryText: queryMessages,
-          sourceCharacterIds: sourceIds,
-          currentSessionId: _currentSessionId ?? '',
-          inContextStart: _history.basePosition + t.droppedMessages,
-          limit: retrievalLimit == 0 ? 9999 : retrievalLimit,
-          characterPriorities: currentGroupRAGPriorities,
-          sessionScopedCharacterIds: sessionScoped,
-        );
+        final List<RetrievedMemory> rawMemories;
+        if (skipCueLess) {
+          debugPrint('[RAG:Chat] Skipping memory retrieval — cue-less beat');
+          rawMemories = const [];
+        } else {
+          rawMemories = await _memoryService!.retrieve(
+            queryText: queryMessages,
+            sourceCharacterIds: sourceIds,
+            currentSessionId: _currentSessionId ?? '',
+            inContextStart: _history.basePosition + t.droppedMessages,
+            limit: retrievalLimit == 0 ? 9999 : retrievalLimit,
+            characterPriorities: currentGroupRAGPriorities,
+            sessionScopedCharacterIds: sessionScoped,
+          );
+        }
         // Two-tier memory dedupe: the journal expanded these exact lines
         // above — never pay for them twice.
         final afterExpand = RetrievedMemory.excludingPositions(
@@ -112,7 +129,6 @@ extension ChatServiceGenerationRag on ChatService {
           afterExpand,
           t.journalCoverLines,
         );
-        final reaching = isReachingForQuote(lastWordsFromMessages(_messages));
         final memories = capRagWindows(uncovered, reachingForQuote: reaching);
         if (memories.length < rawMemories.length) {
           debugPrint(
@@ -124,7 +140,9 @@ extension ChatServiceGenerationRag on ChatService {
         // retrieve() awaits checkAvailability first. Only then is
         // isOperational honest — gating on the flag *before* retrieve
         // skipped a cold engine and stamped a fake empty search.
-        if (rawMemories.isEmpty && !_memoryService!.isOperational) {
+        if (skipCueLess) {
+          // Journal gist can still inject. No last-1 search, no receipt.
+        } else if (rawMemories.isEmpty && !_memoryService!.isOperational) {
           t.ragReceipt = buildRagReceipt(
             found: 0,
             journalDeduped: 0,

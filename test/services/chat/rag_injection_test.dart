@@ -247,6 +247,28 @@ void main() {
     test('omits empty cues so a cue-less beat is just last words', () {
       expect(composeRagQuery(lastWords: 'You: evening'), 'You: evening');
     });
+
+    test('HOLD leftover: cue-less beat must not retrieve like last-1', () {
+      expect(ragHasCues(), isFalse);
+      expect(
+        ragHasCues(emotion: '', fixation: '', hotJournalLine: ''),
+        isFalse,
+      );
+      expect(ragHasCues(emotion: 'wistful'), isTrue);
+      expect(ragHasCues(fixation: 'the spare key'), isTrue);
+      expect(ragHasCues(hotJournalLine: 'I still think about the key'), isTrue);
+      expect(
+        shouldRetrieveRag(hasCues: false, reachingForQuote: false),
+        isFalse,
+        reason: 'cue-less sit-down skips last-1 search',
+      );
+      expect(
+        shouldRetrieveRag(hasCues: false, reachingForQuote: true),
+        isTrue,
+        reason: 'quote-reach still retrieves',
+      );
+      expect(shouldRetrieveRag(hasCues: true, reachingForQuote: false), isTrue);
+    });
   });
 
   group('lastWordsFromMessages', () {
@@ -276,6 +298,31 @@ void main() {
         expect(words, contains('[shared a photo: a red kite over the bay]'));
         expect(words, isNot(contains('old one')));
         expect(words, isNot(contains('You: look\nnice')));
+      },
+    );
+
+    test(
+      'HOLD leftover: quote-ask reads last spoken line, not photo captions',
+      () {
+        final msgs = [
+          ChatMessage(
+            text: 'look',
+            sender: 'You',
+            isUser: true,
+            metadata: {
+              'is_user_image': true,
+              'image_caption': 'remember our beach day',
+            },
+          ),
+          ChatMessage(text: 'Mind if I sit?', sender: 'You', isUser: true),
+        ];
+        final words = lastWordsFromMessages(msgs);
+        expect(words, contains('remember our beach day'));
+        expect(isReachingForQuote(words), isTrue);
+        final spoken = lastSpokenLineFromMessages(msgs);
+        expect(spoken, contains('Mind if I sit?'));
+        expect(spoken, isNot(contains('remember our beach day')));
+        expect(isReachingForQuote(spoken), isFalse);
       },
     );
   });
@@ -376,6 +423,29 @@ void main() {
       ], reason: 'one shared place/noun (porch) is not cover');
     });
 
+    test('HOLD leftover: porch+tonight is setting+time, not cover', () {
+      final swing = _mem(
+        'Nia: the porch swing creaked tonight',
+        sessionId: 's1',
+        pos: 2,
+      );
+      expect(
+        coverContentTokens('I felt safe on the porch tonight'),
+        isNot(contains('tonight')),
+      );
+      expect(
+        coverContentTokens('Nia: the porch swing creaked tonight'),
+        isNot(contains('tonight')),
+      );
+      final kept = dropCoveredRagWindows(
+        [swing],
+        ['I felt safe on the porch tonight'],
+      );
+      expect(kept, [
+        swing,
+      ], reason: 'tonight/today/night are filler — porch+tonight is not cover');
+    });
+
     test('HOLD r2: one shared spare token is not cover', () {
       final fact = _mem(
         'Nia: I still think about the spare key under the third flowerpot',
@@ -435,6 +505,40 @@ void main() {
         expect(block, contains(kRagRememberedHeader.trim()));
         expect(block, contains('- (Day 1) Nia: the swing creaked'));
         expect(block, isNot(contains('Exact earlier lines')));
+      },
+    );
+
+    test(
+      'HOLD leftover: plain turn is one remembered line, not the transcript',
+      () {
+        final m = _mem(
+          'You: the spare key lives under the third flowerpot\n'
+          'Nia: I still think about the spare key under the third flowerpot',
+          sessionId: 's1',
+          pos: 1,
+        );
+        final plain = buildRagMemoriesBlock(
+          memories: [m],
+          currentSessionId: 's1',
+          days: {m: 1},
+          reachingForQuote: false,
+        );
+        expect(plain, contains(kRagRememberedHeader.trim()));
+        expect(plain, contains('spare key'));
+        expect(plain, contains('flowerpot'));
+        expect(plain, isNot(contains('You: the spare key')));
+        expect(plain.split('\n').where((l) => l.startsWith('- ')).length, 1);
+        final quoted = buildRagMemoriesBlock(
+          memories: [m],
+          currentSessionId: 's1',
+          days: {m: 1},
+          reachingForQuote: true,
+        );
+        expect(quoted, contains(kRagQuoteHeader.trim()));
+        expect(
+          quoted,
+          contains('You: the spare key lives under the third flowerpot'),
+        );
       },
     );
 

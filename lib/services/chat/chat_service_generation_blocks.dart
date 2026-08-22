@@ -314,7 +314,7 @@ extension ChatServiceGenerationBlocks on ChatService {
         emotion: _characterEmotion,
         fixation: _relationshipService.activeFixation,
         hotJournalLine: t.ragHotJournalLine,
-        lastWords: lastWordsFromMessages(_messages),
+        lastWords: lastSpokenLineFromMessages(_messages),
       );
     }
 

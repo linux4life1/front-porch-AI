@@ -497,6 +497,11 @@ void main() {
         expect(block, contains(kFact));
         expect(block, contains(kRagRememberedHeader.trim()));
         expect(block, isNot(contains('Exact earlier lines')));
+        expect(
+          block,
+          isNot(contains(kFactUser)),
+          reason: 'HOLD leftover: remembered line, not the You:/Nia: window',
+        );
       },
     );
 
@@ -548,6 +553,12 @@ void main() {
       expect(block, contains(kRagRememberedHeader.trim()));
       expect(block, contains(kFact));
       expect(block, isNot(contains('Exact earlier lines')));
+      expect(
+        block,
+        isNot(contains(kFactUser)),
+        reason:
+            'HOLD leftover: plain turn must not inject the transcript window',
+      );
     });
 
     test(
@@ -603,6 +614,14 @@ void main() {
       expect(kept, [
         swing,
       ], reason: 'one shared place/noun (porch) is not cover');
+    });
+
+    test('HOLD leftover: porch+tonight is setting+time, not cover', () {
+      final swing = _mem('Nia: the porch swing creaked tonight', pos: 2);
+      expect(coverContentTokens(kPorchFeeling).contains('tonight'), isFalse);
+      expect(dropCoveredRagWindows([swing], [kPorchFeeling]), [
+        swing,
+      ], reason: 'tonight is filler — porch+tonight must not eat the window');
     });
 
     test('HOLD r2: one shared spare token is not cover', () {
@@ -937,9 +956,10 @@ void main() {
         isTrue,
       );
       expect(
-        blocks.contains('lastWords: lastWordsFromMessages(_messages)'),
+        blocks.contains('lastWords: lastSpokenLineFromMessages(_messages)'),
         isTrue,
-        reason: 'HOLD r2: expand gates on lastWords, same as RAG',
+        reason:
+            'HOLD leftover: expand/quote-ask use last spoken line, not captions',
       );
       final gate = blocks.indexOf(
         'if (_storageService.memorySettings.journalEnabled',
@@ -958,6 +978,9 @@ void main() {
       ).readAsStringSync();
       expect(rag.contains('dropCoveredRagWindows('), isTrue);
       expect(rag.contains('t.journalCoverLines'), isTrue);
+      expect(rag.contains('lastSpokenLineFromMessages(_messages)'), isTrue);
+      expect(rag.contains('shouldRetrieveRag('), isTrue);
+      expect(rag.contains('Skipping memory retrieval — cue-less beat'), isTrue);
     });
 
     test(
