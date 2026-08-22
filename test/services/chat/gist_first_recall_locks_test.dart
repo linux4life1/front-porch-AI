@@ -22,16 +22,19 @@
 // front/back/side, a pair list, or a colon that requires a space, goes red.
 // Screened/covered/wraparound must KEEP. the/a/an stay filler (no theporch).
 //
-// Cover-drop locks (whole-token subset plus a distinctive word, not leftover
-// 2-token overlap): a source-scan for raw contains() of one token in another
-// (key inside keyboard) MUST FAIL. Mood-only stems (felt/safe, still/think)
-// do not cover a longer beat. Shared place (front-garden / back-balcony /
-// side-driveway / screened-porch) KEEPS. Same-beat flowerpot gist DROPS
-// because the card names the flowerpot — flowerpot is distinctive. Function
-// words are one closed set (his/her/that/on/in/at do not mint compounds).
-// garden/balcony/driveway must not appear on the setting-noun / cover-filler
-// place list. Refuse leftover-intersection and raw-contains greens as
-// stand-alone.
+// Cover-drop locks (per-line whole-token subset AND shorter has a
+// distinctive token AND longer has no extra distinctive leftover): a
+// source-scan for raw contains() of one token in another (key inside
+// keyboard) MUST FAIL. Mood-only stems (felt/safe, still/think, loved,
+// worry) do not cover a longer beat. A prefix card (front garden, porch
+// swing) does not cover a bigger fact. Shared place (front-garden /
+// back-balcony / side-driveway / screened-porch) KEEPS. Same-beat
+// flowerpot gist DROPS because the card names the flowerpot — flowerpot
+// is distinctive. Function words are one closed set (his/her/that/on/in/at
+// do not mint compounds). No garden/loved list — garden/balcony/driveway
+// stay off the setting-noun / cover-filler place list, and loved/worry
+// are not a mood-cover list. Refuse leftover-intersection and raw-contains
+// greens as stand-alone.
 
 import 'dart:io';
 
@@ -193,6 +196,14 @@ const kStillThinkAboutIt = 'I still think about it';
 const kSwingTight = 'Nia:the swing';
 const kSwingSpaced = 'Nia: the swing';
 const kSwingBare = 'the swing';
+const kFrontGardenPrefix = 'the front garden';
+const kPorchSwingCard = 'The porch swing.';
+const kPorchSwingFlowerpot = 'Nia: the porch swing creaked by the flowerpot';
+const kLovedIt = 'I loved it';
+const kLovedFlowerpot = 'Nia: I loved the spare key under the third flowerpot';
+const kWorry = 'I worry';
+const kWorryFlowerpot =
+    'Nia: I worry about the spare key under the third flowerpot';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -1203,6 +1214,20 @@ void main() {
           'card does not cover a bigger fact',
     );
     expect(
+      src.contains(r"card.split('\n')"),
+      isTrue,
+      reason:
+          'cover is per-line whole-token subset — not a blob compare of '
+          'the whole window',
+    );
+    expect(
+      src.contains("'loved'") || src.contains("'worry'"),
+      isFalse,
+      reason:
+          'do not add a garden/loved list — cover is leftover-distinctive, '
+          'not a mood-word list',
+    );
+    expect(
       nearSlice.contains('.intersection('),
       isFalse,
       reason:
@@ -1630,6 +1655,147 @@ void main() {
         reason:
             'do not grow the fold-noun / place list with garden / balcony / '
             'driveway — adding them must fail this pin',
+      );
+    },
+  );
+
+  test(
+    'LOCK: prefix front-garden / porch-swing / loved / worry keep; flowerpot drops',
+    () async {
+      const cases = [
+        {
+          'tag': 'front garden',
+          'card': kFrontGardenPrefix,
+          'window': kFrontGardenSwing,
+          'kept': 'swing',
+        },
+        {
+          'tag': 'porch swing',
+          'card': kPorchSwingCard,
+          'window': kPorchSwingFlowerpot,
+          'kept': 'flowerpot',
+        },
+        {
+          'tag': 'I loved it',
+          'card': kLovedIt,
+          'window': kLovedFlowerpot,
+          'kept': 'flowerpot',
+        },
+        {
+          'tag': 'I worry',
+          'card': kWorry,
+          'window': kWorryFlowerpot,
+          'kept': 'flowerpot',
+        },
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']!;
+        final cardText = c['card']!;
+        final window = c['window']!;
+        final kept = c['kept']!;
+        final sessionId = 'sess-gistlock-prefixleftover-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-prefixleftover-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: Value(cardText),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: window,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 0,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+
+        await chat.sendMessage(kSit);
+
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason: 'cues are present — retrieve must run so cover-drop is real',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(cardText),
+          reason:
+              'the $tag prefix/mood card must inject or cover-drop was '
+              'never tested',
+        );
+        expect(prompt, contains(kRagRememberedHeader.trim()));
+        expect(
+          prompt,
+          contains(kept),
+          reason:
+              '"$tag" is a prefix/mood card — it must NOT cover a bigger '
+              'fact. Longer still has leftover distinctive "$kept". No '
+              'garden/loved list. Reverting leftover-distinctive goes red.',
+        );
+      }
+
+      final flowerCard = await seedOverflowSession(
+        sessionId: 'sess-gistlock-prefixleftover-flower',
+        charDbId: 'char-gistlock-prefixleftover-flower',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: const Value('sess-gistlock-prefixleftover-flower'),
+          characterId: Value(flowerCard.stableGroupId),
+          content: const Value(kGist),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      memory.retrieveCalls = 0;
+      memory.canned = [
+        RetrievedMemory(
+          content: kFactWindow,
+          characterId: 'Nia',
+          sessionId: 'sess-gistlock-prefixleftover-flower',
+          positionStart: 0,
+          positionEnd: 1,
+          score: 0.9,
+        ),
+      ];
+      llm.chatPrompts.clear();
+      await chat.sendMessage(kSit);
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'retrieve ran — a skip would fake the cover-drop',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final flower = llm.chatPrompts.last;
+      expect(
+        flower,
+        contains(kGist),
+        reason: 'same-beat flowerpot gist must inject',
+      );
+      expect(
+        flower,
+        isNot(contains(kRagRememberedHeader.trim())),
+        reason:
+            'same-beat flowerpot gist still DROPS — no extra distinctive '
+            'leftover. Prefix/mood KEEP above must not disable real cover.',
       );
     },
   );
