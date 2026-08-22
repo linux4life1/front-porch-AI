@@ -51,8 +51,7 @@ const kLastUser = 'Evening. Mind if I sit?';
 
 const kLiveNia = 'The cicadas started all at once tonight';
 const kLiveYou = 'The tomatoes came in early this year';
-const kRegurgWindow =
-    'Nia: $kLiveNia\nYou: $kLiveYou\nYou: $kLastUser';
+const kRegurgWindow = 'Nia: $kLiveNia\nYou: $kLiveYou\nYou: $kLastUser';
 
 const kKite = 'the red kite on the pier';
 const kKiteWindow = 'You: remember $kKite';
@@ -254,62 +253,68 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
 
-  group('history construction (fact off-screen, next line does not restate)', () {
-    final history = plantedHistory();
+  group(
+    'history construction (fact off-screen, next line does not restate)',
+    () {
+      final history = plantedHistory();
 
-    test('fact has left the visible budget AND the age gate', () {
-      const factEnd = 1;
-      expect(
-        factEnd < kInContextStart,
-        isTrue,
-        reason: 'fact window must sit before the visible-context boundary',
-      );
-      expect(
-        MemoryService.isWindowEligible(
-          candidateSessionId: kSession,
-          currentSessionId: kSession,
-          positionEnd: factEnd,
-          inContextStart: kInContextStart,
-        ),
-        isTrue,
-        reason:
-            'fact must also clear kRagMinAgeMessages '
-            '(${MemoryService.kRagMinAgeMessages}) — just-trimmed near-dups '
-            'are regurgitate, not memory',
-      );
-      expect(
-        MemoryService.kRagMinAgeMessages,
-        20,
-        reason: 'lock names the age floor; do not silently retune it here',
-      );
-    });
+      test('fact has left the visible budget AND the age gate', () {
+        const factEnd = 1;
+        expect(
+          factEnd < kInContextStart,
+          isTrue,
+          reason: 'fact window must sit before the visible-context boundary',
+        );
+        expect(
+          MemoryService.isWindowEligible(
+            candidateSessionId: kSession,
+            currentSessionId: kSession,
+            positionEnd: factEnd,
+            inContextStart: kInContextStart,
+          ),
+          isTrue,
+          reason:
+              'fact must also clear kRagMinAgeMessages '
+              '(${MemoryService.kRagMinAgeMessages}) — just-trimmed near-dups '
+              'are regurgitate, not memory',
+        );
+        expect(
+          MemoryService.kRagMinAgeMessages,
+          20,
+          reason: 'lock names the age floor; do not silently retune it here',
+        );
+      });
 
-    test('next user turn never restates the fact', () {
-      expect(history.last.text, kLastUser);
-      expect(history.last.isUser, isTrue);
-      expect(history.last.text.toLowerCase(), isNot(contains('flowerpot')));
-      expect(history.last.text.toLowerCase(), isNot(contains('spare key')));
-      expect(lastWordsFromMessages(history), isNot(contains('flowerpot')));
-      expect(lastWordsFromMessages(history), isNot(contains('spare key')));
-    });
-  });
+      test('next user turn never restates the fact', () {
+        expect(history.last.text, kLastUser);
+        expect(history.last.isUser, isTrue);
+        expect(history.last.text.toLowerCase(), isNot(contains('flowerpot')));
+        expect(history.last.text.toLowerCase(), isNot(contains('spare key')));
+        expect(lastWordsFromMessages(history), isNot(contains('flowerpot')));
+        expect(lastWordsFromMessages(history), isNot(contains('spare key')));
+      });
+    },
+  );
 
   group('cued query is not last-3 live lines', () {
     final history = plantedHistory();
 
-    test('composeRagQuery is emotion + fixation + hot journal + last words', () {
-      final q = cuedQuery();
-      expect(q, contains('feeling $kEmotion'));
-      expect(q, contains('on the mind: $kFixation'));
-      expect(q, contains('remembered: $kJournalGist'));
-      expect(q, contains(kLastUser));
-      expect(
-        q,
-        isNot(equals(lastThreeDump(history))),
-        reason: 'last-3 transcript dump is the regurgitate query',
-      );
-      expect(q, isNot(equals('You: $kLastUser')));
-    });
+    test(
+      'composeRagQuery is emotion + fixation + hot journal + last words',
+      () {
+        final q = cuedQuery();
+        expect(q, contains('feeling $kEmotion'));
+        expect(q, contains('on the mind: $kFixation'));
+        expect(q, contains('remembered: $kJournalGist'));
+        expect(q, contains(kLastUser));
+        expect(
+          q,
+          isNot(equals(lastThreeDump(history))),
+          reason: 'last-3 transcript dump is the regurgitate query',
+        );
+        expect(q, isNot(equals('You: $kLastUser')));
+      },
+    );
 
     test('lastWordsFromMessages is the latest line, not a last-3 dump', () {
       final words = lastWordsFromMessages(history);
@@ -320,23 +325,21 @@ void main() {
     });
 
     test('topHotJournalLine supplies the hot journal cue, ignores cold', () {
-      JournalMemoryData card({
-        required String content,
-        required double heat,
-      }) => JournalMemoryData(
-        id: content,
-        sessionId: kSession,
-        characterId: kChar,
-        content: content,
-        category: 'moment',
-        heat: heat,
-        accessCount: 0,
-        pinned: false,
-        dimensions: 0,
-        createdAt: DateTime(2026),
-        lastAccessedAt: DateTime(2026),
-        updatedAt: DateTime(2026),
-      );
+      JournalMemoryData card({required String content, required double heat}) =>
+          JournalMemoryData(
+            id: content,
+            sessionId: kSession,
+            characterId: kChar,
+            content: content,
+            category: 'moment',
+            heat: heat,
+            accessCount: 0,
+            pinned: false,
+            dimensions: 0,
+            createdAt: DateTime(2026),
+            lastAccessedAt: DateTime(2026),
+            updatedAt: DateTime(2026),
+          );
       expect(
         JournalPhysics.topHotJournalLine([
           card(content: kPorchFeeling, heat: 0.1),
@@ -519,7 +522,10 @@ void main() {
       final hits = await search(lastThreeDump(plantedHistory()));
       final dups = hits.where(namesLastThree).toList();
       if (dups.isEmpty) return; // last-3 retrieved nothing — also not remember
-      expect(dups.first.score, greaterThanOrEqualTo(MemoryService.kRagMinScore));
+      expect(
+        dups.first.score,
+        greaterThanOrEqualTo(MemoryService.kRagMinScore),
+      );
       expect(
         dups.first.content,
         isNot(contains('flowerpot')),
@@ -544,37 +550,75 @@ void main() {
       expect(block, isNot(contains('Exact earlier lines')));
     });
 
-    test('quote-reach still uses the quote header (verbatim expand allowed)', () {
-      expect(isReachingForQuote('You: remember where the spare key lives?'), isTrue);
-      expect(isReachingForQuote('You: $kLastUser'), isFalse);
-      final m = _mem(kFactWindow, pos: 1);
-      final block = buildRagMemoriesBlock(
-        memories: [m],
-        currentSessionId: kSession,
-        days: {m: 1},
-        reachingForQuote: true,
-      );
-      expect(block, contains(kRagQuoteHeader.trim()));
-      expect(block, contains(kFact));
-      expect(block, isNot(contains('Exact earlier lines')));
-    });
+    test(
+      'quote-reach still uses the quote header (verbatim expand allowed)',
+      () {
+        expect(
+          isReachingForQuote('You: remember where the spare key lives?'),
+          isTrue,
+        );
+        expect(isReachingForQuote('You: $kLastUser'), isFalse);
+        final m = _mem(kFactWindow, pos: 1);
+        final block = buildRagMemoriesBlock(
+          memories: [m],
+          currentSessionId: kSession,
+          days: {m: 1},
+          reachingForQuote: true,
+        );
+        expect(block, contains(kRagQuoteHeader.trim()));
+        expect(block, contains(kFact));
+        expect(block, isNot(contains('Exact earlier lines')));
+      },
+    );
 
-    test('cover-drop: journal card covering the beat drops that RAG window', () {
-      final covered = _mem(kFactLine, pos: 1);
-      final leftover = _mem(kKiteWindow, pos: 9);
-      final kept = dropCoveredRagWindows([covered, leftover], [kJournalGist]);
-      expect(kept.map((m) => m.content).toList(), [kKiteWindow]);
-    });
+    test(
+      'cover-drop: journal card covering the beat drops that RAG window',
+      () {
+        final covered = _mem(kFactLine, pos: 1);
+        final leftover = _mem(kKiteWindow, pos: 9);
+        final kept = dropCoveredRagWindows([covered, leftover], [kJournalGist]);
+        expect(kept.map((m) => m.content).toList(), [kKiteWindow]);
+      },
+    );
 
     test('one uncovered window still retrieves a fallen-off fact', () {
       final leftHistory = _mem(kFactLine, pos: 1);
       final kept = dropCoveredRagWindows([leftHistory], [kPorchFeeling]);
       expect(kept, [leftHistory]);
-      expect(
-        capRagWindows(kept, reachingForQuote: false),
-        [leftHistory],
-      );
+      expect(capRagWindows(kept, reachingForQuote: false), [leftHistory]);
     });
+
+    test('HOLD: lighthouse filler card does not eat the flowerpot fact', () {
+      final fact = _mem(kFactLine, pos: 1);
+      final kept = dropCoveredRagWindows(
+        [fact],
+        ['I still think about the lighthouse'],
+      );
+      expect(kept, [fact]);
+    });
+
+    test('HOLD: no injected gist does not cover-drop', () {
+      final fact = _mem(kFactLine, pos: 1);
+      expect(dropCoveredRagWindows([fact], const []), [fact]);
+    });
+
+    test(
+      'HOLD: spoken I-told-you is not quote-reach and does not dump tape',
+      () {
+        const spoken = 'You: I told you the tomatoes came in';
+        expect(isReachingForQuote(spoken), isFalse);
+        expect(
+          isReachingForQuote('You: she said the cicadas started'),
+          isFalse,
+        );
+        final a = _mem(kFactLine, pos: 1);
+        final b = _mem(kKiteWindow, pos: 9);
+        expect(
+          capRagWindows([a, b], reachingForQuote: isReachingForQuote(spoken)),
+          [a],
+        );
+      },
+    );
 
     test('normal path keeps one uncovered window; quote-reach keeps all', () {
       final a = _mem(kFactLine, pos: 1);
@@ -645,6 +689,14 @@ void main() {
         // The live query's last words never restated the fact.
         expect(cuedQuery(), contains(kLastUser));
         expect(kLastUser.toLowerCase(), isNot(contains('flowerpot')));
+        expect(
+          result.expandedPositions,
+          isEmpty,
+          reason:
+              'HOLD 3: a plain sit-down must stay gist — the cued query '
+              'contains the hot line so cosine alone would always expand',
+        );
+        expect(result.text, isNot(contains('exact words')));
       },
     );
 
@@ -673,17 +725,20 @@ void main() {
       },
     );
 
-    test('receipts still near the transcript do not expand (age gate)', () async {
-      await plantGistCard(positions: const [55]);
-      final result = await injection().buildJournalBlock(
-        characterId: kChar,
-        characterName: 'Nia',
-        userName: 'You',
-        queryText: 'You: remember where the spare key lives?',
-        messageCount: messages.length,
-      );
-      expect(result.expandedPositions, isEmpty);
-      expect(result.text, isNot(contains('exact words')));
-    });
+    test(
+      'receipts still near the transcript do not expand (age gate)',
+      () async {
+        await plantGistCard(positions: const [55]);
+        final result = await injection().buildJournalBlock(
+          characterId: kChar,
+          characterName: 'Nia',
+          userName: 'You',
+          queryText: 'You: remember where the spare key lives?',
+          messageCount: messages.length,
+        );
+        expect(result.expandedPositions, isEmpty);
+        expect(result.text, isNot(contains('exact words')));
+      },
+    );
   });
 }

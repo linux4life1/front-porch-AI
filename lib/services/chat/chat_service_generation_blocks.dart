@@ -304,7 +304,10 @@ extension ChatServiceGenerationBlocks on ChatService {
       final cards = speakerId.isEmpty
           ? const <JournalMemoryData>[]
           : await _journalStore.cardsFor(_currentSessionId!, speakerId);
-      t.journalCoverLines = [for (final c in cards) c.content];
+      // Cover-drop uses THIS-BEAT injected gist only (set after the
+      // journal block builds). The whole cabinet here would eat a
+      // fallen-off fact that shares filler with a cold card.
+      t.journalCoverLines = const [];
       t.ragHotJournalLine =
           JournalPhysics.topHotJournalLine(cards, _characterEmotion) ?? '';
       t.ragQuery = composeRagQuery(
@@ -337,6 +340,9 @@ extension ChatServiceGenerationBlocks on ChatService {
       );
       t.journalBlock = journal.text;
       t.expandedJournalPositions = journal.expandedPositions;
+      if (journal.text.isNotEmpty) {
+        t.journalCoverLines = journal.injectedContents;
+      }
     }
   }
 }

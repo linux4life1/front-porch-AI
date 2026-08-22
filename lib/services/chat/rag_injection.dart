@@ -171,26 +171,117 @@ String lastWordsFromMessages(List<ChatMessage> messages) {
   return parts.join('\n');
 }
 
-/// Lexical "they want the exact words" — remember / said / vows / etc.
-/// The 0.45 expand/RAG floor still gates retrieve(); this only chooses the
-/// quote frame vs the remembered-fact frame.
+/// True only when they ASKED for the words — "remember what you said",
+/// "what did I promise", "exact words", "vows?" as a question.
+/// Spoken report ("I told you the tomatoes came in", "she said the
+/// cicadas") is not quote-reach and must not dump every RAG window.
 bool isReachingForQuote(String lastWords) {
   final t = lastWords.toLowerCase();
-  return RegExp(
-    r'\b(remember|said|told|vows|promised|quoted?|exactly)\b',
-  ).hasMatch(t);
+  if (t.trim().isEmpty) return false;
+  if (RegExp(
+    r'\bwhat did (you|i|we|they|she|he) (say|tell|promise)\b',
+  ).hasMatch(t)) {
+    return true;
+  }
+  if (RegExp(r'\b(exact(ly)? words|word for word)\b').hasMatch(t)) {
+    return true;
+  }
+  if (RegExp(
+    r'\b(what you said|what i said|what you promised|what i promised)\b',
+  ).hasMatch(t)) {
+    return true;
+  }
+  if (RegExp(r'\bremember\b').hasMatch(t)) {
+    if (t.contains('?')) return true;
+    if (RegExp(
+      r'\bremember (what|when|where|how|who|the|our|my|your|that)\b',
+    ).hasMatch(t)) {
+      return true;
+    }
+  }
+  if (RegExp(r'\bvows\b').hasMatch(t) && t.contains('?')) return true;
+  return false;
 }
 
-/// Drop RAG windows a journal card already covers (token overlap ≥ 2).
-/// Position-overlap with expanded receipts is handled separately by
+/// Narrative filler that [itemNameTokens] still keeps (≥3 chars). Cover
+/// overlap must be content (flowerpot / lighthouse), not still/think/about.
+const _kCoverFiller = {
+  'still',
+  'think',
+  'about',
+  'just',
+  'like',
+  'very',
+  'really',
+  'then',
+  'when',
+  'what',
+  'this',
+  'that',
+  'with',
+  'from',
+  'have',
+  'been',
+  'were',
+  'they',
+  'them',
+  'their',
+  'there',
+  'here',
+  'some',
+  'more',
+  'than',
+  'into',
+  'over',
+  'also',
+  'only',
+  'even',
+  'much',
+  'such',
+  'being',
+  'because',
+  'would',
+  'could',
+  'should',
+  'did',
+  'does',
+  'dont',
+  'not',
+  'but',
+  'and',
+  'for',
+  'the',
+  'you',
+  'she',
+  'him',
+  'her',
+  'his',
+  'was',
+  'are',
+  'had',
+  'has',
+  'who',
+  'how',
+  'why',
+  'our',
+  'its',
+};
+
+Set<String> coverContentTokens(String s) =>
+    itemNameTokens(s).difference(_kCoverFiller);
+
+/// Drop RAG windows a THIS-BEAT injected journal gist already covers
+/// (any shared content token: lighthouse, flowerpot). Empty
+/// [journalCardContents] means Journal is off or no gist injected — do
+/// not cover-drop. Position-overlap with expanded receipts is
 /// [RetrievedMemory.excludingPositions]. Not uniqueness-by-shape.
 List<RetrievedMemory> dropCoveredRagWindows(
   List<RetrievedMemory> memories,
   Iterable<String> journalCardContents,
 ) {
   final cardTokenSets = [
-    for (final c in journalCardContents) itemNameTokens(c),
-  ].where((s) => s.length >= 2).toList();
+    for (final c in journalCardContents) coverContentTokens(c),
+  ].where((s) => s.isNotEmpty).toList();
   if (cardTokenSets.isEmpty) return memories;
   return [
     for (final m in memories)
@@ -199,10 +290,10 @@ List<RetrievedMemory> dropCoveredRagWindows(
 }
 
 bool _ragCoveredByJournal(String ragContent, List<Set<String>> cardTokenSets) {
-  final rag = itemNameTokens(ragContent);
-  if (rag.length < 2) return false;
+  final rag = coverContentTokens(ragContent);
+  if (rag.isEmpty) return false;
   for (final card in cardTokenSets) {
-    if (rag.intersection(card).length >= 2) return true;
+    if (rag.intersection(card).isNotEmpty) return true;
   }
   return false;
 }

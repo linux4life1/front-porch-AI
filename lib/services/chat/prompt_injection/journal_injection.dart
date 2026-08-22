@@ -84,14 +84,21 @@ class JournalInjection {
   /// [queryText] is the cued query used to resurface cold cards
   /// semantically (same composeRagQuery as RAG retrieval); empty
   /// skips cold retrieval entirely.
-  Future<({String text, Set<int> expandedPositions})> buildJournalBlock({
+  Future<
+    ({String text, Set<int> expandedPositions, List<String> injectedContents})
+  >
+  buildJournalBlock({
     required String characterId,
     required String characterName,
     required String userName,
     String queryText = '',
     int messageCount = 0,
   }) async {
-    const empty = (text: '', expandedPositions: <int>{});
+    const empty = (
+      text: '',
+      expandedPositions: <int>{},
+      injectedContents: <String>[],
+    );
     final sessionId = getSessionId();
     if (sessionId == null || characterId.isEmpty) return empty;
 
@@ -159,6 +166,7 @@ class JournalInjection {
     // cosine ones.
     final injected = [...pinned, ...hot, ...lexical, ...resurfaced];
     final lines = <String>[];
+    final injectedContents = <String>[];
     var usedChars = 0;
     const budgetChars = kHotSetTokenBudget * 4;
     for (final card in injected) {
@@ -167,20 +175,20 @@ class JournalInjection {
       if (usedChars + line.length > budgetChars && lines.isNotEmpty) break;
       usedChars += line.length;
       lines.add(line);
+      injectedContents.add(card.content);
     }
     if (lines.isEmpty) return empty;
 
     // Expand-memory (two-tier memory, living-time-features.md §8): when the
     // conversation clearly reaches for ONE remembered moment ("remember our
     // wedding vows?"), the card supplies the feeling and its receipts supply
-    // the exact words. Strictly gated: needs embeddings (same floor as cold
-    // resurfacing), a similarity above the expand threshold, and receipts
-    // old enough to be out of the visible transcript.
-    final (excerpt, expandedPositions) = _expandBestCard(
-      injected,
-      queryVector,
-      messageCount,
-    );
+    // the exact words. Strictly gated: quote-reach (isReachingForQuote),
+    // embeddings, cosine ≥ 0.45, and receipts old enough to be out of the
+    // visible transcript. A plain sit-down stays gist — the cued query
+    // contains the top hot line, so cosine alone would always expand it.
+    final (excerpt, expandedPositions) = isReachingForQuote(queryText)
+        ? _expandBestCard(injected, queryVector, messageCount)
+        : ('', <int>{});
 
     // Role frame (docs/design/prompt-state-injection.md §6): the journal is
     // the FEELINGS channel — when a card covers the same moment as the recap
@@ -227,7 +235,11 @@ class JournalInjection {
         '$userName — the feelings here are the truer guide:\n'
         '${lines.join('\n')}'
         '$excerpt\n]\n';
-    return (text: text, expandedPositions: expandedPositions);
+    return (
+      text: text,
+      expandedPositions: expandedPositions,
+      injectedContents: injectedContents,
+    );
   }
 
   /// Top-1 card the query is reaching for, expanded into trimmed verbatim

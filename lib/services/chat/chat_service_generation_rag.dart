@@ -182,8 +182,9 @@ extension ChatServiceGenerationRag on ChatService {
             included.add(m);
           }
           if (included.isNotEmpty) {
-            // Role frame (spec §6): RAG = exact earlier lines, reference
-            // only — the journal outranks it on feelings, the recap on plot.
+            // Role frame: RAG is a remembered-from-earlier fact that left
+            // history, or (quote-reach only) the words they asked for.
+            // Journal gist outranks it on feelings, the recap on plot.
             // Leading '\n' because this now follows the history transcript,
             // whose last line carries no trailing newline.
             String buildBlock(List<RetrievedMemory> mems) =>

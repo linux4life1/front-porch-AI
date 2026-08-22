@@ -284,6 +284,11 @@ void main() {
     test('remember/said/vows count as quote-reach; a plain beat does not', () {
       expect(isReachingForQuote('You: remember our wedding vows?'), isTrue);
       expect(isReachingForQuote('You: evening. mind if I sit?'), isFalse);
+      expect(
+        isReachingForQuote('You: I told you the tomatoes came in'),
+        isFalse,
+      );
+      expect(isReachingForQuote('Nia: she said the cicadas started'), isFalse);
     });
 
     test('normal path keeps one uncovered window; quote-reach keeps all', () {
@@ -323,6 +328,40 @@ void main() {
       );
       expect(kept, [leftHistory]);
     });
+
+    test(
+      'HOLD: filler still/think/about with a lighthouse card does not eat the flowerpot fact',
+      () {
+        final fact = _mem(
+          'Nia: I still think about the spare key under the third flowerpot',
+          sessionId: 's1',
+          pos: 1,
+        );
+        final kept = dropCoveredRagWindows(
+          [fact],
+          ['I still think about the lighthouse'],
+        );
+        expect(
+          kept,
+          [fact],
+          reason:
+              'cover overlap must be content (flowerpot / lighthouse), not '
+              'filler — this is the cabinet-card false drop',
+        );
+      },
+    );
+
+    test(
+      'HOLD: empty cover (Journal off / no gist this beat) does not cover-drop',
+      () {
+        final fact = _mem(
+          'Nia: the spare key lives under the third flowerpot',
+          sessionId: 's1',
+          pos: 1,
+        );
+        expect(dropCoveredRagWindows([fact], const []), [fact]);
+      },
+    );
   });
 
   group('buildRagMemoriesBlock', () {
