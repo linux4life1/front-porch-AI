@@ -514,6 +514,72 @@ void main() {
       },
     );
 
+    test('HOLD hole: short leftover and mixed span', () {
+      final died = _mem('Nia: the spare key died', sessionId: 's1', pos: 2);
+      expect(dropCoveredRagWindows([died], ['the spare key']), [
+        died,
+      ], reason: 'died is leftover even though length < 5');
+      final gone = _mem('Nia: the spare key is gone', sessionId: 's1', pos: 3);
+      expect(dropCoveredRagWindows([gone], ['the spare key']), [
+        gone,
+      ], reason: 'gone is leftover even though length < 5');
+      final fell = _mem(
+        'Nia: the third flowerpot fell',
+        sessionId: 's1',
+        pos: 4,
+      );
+      expect(dropCoveredRagWindows([fell], ['third flowerpot']), [
+        fell,
+      ], reason: 'fell is leftover — third flowerpot does not cover it');
+      for (final verb in ['hid', 'ran']) {
+        final m = _mem('Nia: the spare key $verb', sessionId: 's1', pos: 20);
+        expect(dropCoveredRagWindows([m], ['the spare key']), [
+          m,
+        ], reason: '$verb is leftover even though length < 5');
+      }
+      const gist =
+          'I still think about the spare key under the third flowerpot';
+      final creakedSame = _mem(
+        'Nia: I still think about the spare key under the third flowerpot that creaked',
+        sessionId: 's1',
+        pos: 5,
+      );
+      expect(
+        dropCoveredRagWindows([creakedSame], [gist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist + that creaked still drops',
+      );
+      final mixed = _mem(
+        'Nia: I still think about the spare key under the third flowerpot\n'
+        'Nia: the swing creaked',
+        sessionId: 's1',
+        pos: 6,
+      );
+      final kept = dropCoveredRagWindows([mixed], [gist]);
+      expect(kept, hasLength(1));
+      expect(
+        kept.first.content,
+        contains('swing'),
+        reason: 'uncovered swing line must reach the prompt',
+      );
+      expect(
+        kept.first.content,
+        isNot(contains('flowerpot')),
+        reason: 'covered flowerpot line is stripped, not the whole span',
+      );
+      final both = _mem(
+        'You: the spare key lives under the third flowerpot\n'
+        'Nia: I still think about the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 7,
+      );
+      expect(
+        dropCoveredRagWindows([both], [gist]),
+        isEmpty,
+        reason: 'same-beat two-line flowerpot window still drops',
+      );
+    });
+
     test('HOLD hole: prefix card does not cover a bigger fact', () {
       final gardenSwing = _mem(
         'Nia: the front garden swing creaked tonight',

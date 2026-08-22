@@ -1214,6 +1214,13 @@ void main() {
           'card does not cover a bigger fact',
     );
     expect(
+      src.contains('_uncoveredMemory') && src.contains('leftover'),
+      isTrue,
+      reason:
+          'short extras count as leftover; covered lines are stripped '
+          'so an uncovered swing line survives the span',
+    );
+    expect(
       src.contains(r"card.split('\n')"),
       isTrue,
       reason:

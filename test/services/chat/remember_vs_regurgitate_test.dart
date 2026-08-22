@@ -736,6 +736,53 @@ void main() {
       },
     );
 
+    test('HOLD hole: short leftover and mixed span', () {
+      expect(
+        dropCoveredRagWindows(
+          [_mem('Nia: the spare key died', pos: 2)],
+          ['the spare key'],
+        ),
+        isNot(isEmpty),
+        reason: 'died is leftover even though length < 5',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [_mem('Nia: the third flowerpot fell', pos: 3)],
+          ['third flowerpot'],
+        ),
+        isNot(isEmpty),
+        reason: 'fell is leftover',
+      );
+      const gist =
+          'I still think about the spare key under the third flowerpot';
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: I still think about the spare key under the third flowerpot that creaked',
+              pos: 4,
+            ),
+          ],
+          [gist],
+        ),
+        isEmpty,
+        reason: 'same-beat gist + that creaked still drops',
+      );
+      final kept = dropCoveredRagWindows(
+        [
+          _mem(
+            'Nia: I still think about the spare key under the third flowerpot\n'
+            'Nia: the swing creaked',
+            pos: 5,
+          ),
+        ],
+        [gist],
+      );
+      expect(kept, hasLength(1));
+      expect(kept.first.content, contains('swing'));
+      expect(kept.first.content, isNot(contains('flowerpot')));
+    });
+
     test('HOLD hole: prefix card does not cover a bigger fact', () {
       expect(
         dropCoveredRagWindows(

@@ -414,8 +414,6 @@ bool _lineCovers(List<String> a, List<String> b) {
   if (a.isEmpty || b.isEmpty) return false;
   final shorter = a.length <= b.length ? a : b;
   final longer = a.length <= b.length ? b : a;
-  if (!shorter.any(_isDistinctive)) return false;
-  if (!longer.toSet().containsAll(shorter)) return false;
   final shortD = {
     for (final w in shorter)
       if (_isDistinctive(w)) w,
@@ -424,7 +422,15 @@ bool _lineCovers(List<String> a, List<String> b) {
     for (final w in longer)
       if (_isDistinctive(w)) w,
   };
-  return longD.difference(shortD).isEmpty;
+  final distinctiveLeftover = longD.difference(shortD);
+  // Same-beat gist: three shared distinctive tokens. Extra words
+  // (creaked, lives) do not re-inject the flowerpot fact.
+  if (shortD.intersection(longD).length >= 3) return true;
+  if (!shorter.any(_isDistinctive)) return false;
+  if (!longer.toSet().containsAll(shorter)) return false;
+  final leftover = longer.toSet().difference(shorter.toSet());
+  // Stem leftover: died/gone/fell/hid/ran count even when length < 5.
+  return leftover.isEmpty && distinctiveLeftover.isEmpty;
 }
 
 bool _nearCover(String card, String window) {
@@ -436,9 +442,16 @@ bool _nearCover(String card, String window) {
     for (final raw in window.split('\n'))
       if (raw.trim().isNotEmpty) _coverWords(raw),
   ];
-  for (final c in cardLines) {
-    for (final w in winLines) {
-      if (_lineCovers(c, w)) return true;
+  if (winLines.isEmpty) return false;
+  return winLines.every((w) => cardLines.any((c) => _lineCovers(c, w)));
+}
+
+bool _lineCoveredByCards(String line, List<String> cards) {
+  final w = _coverWords(line);
+  for (final card in cards) {
+    for (final raw in card.split('\n')) {
+      if (raw.trim().isEmpty) continue;
+      if (_lineCovers(_coverWords(raw), w)) return true;
     }
   }
   return false;
@@ -446,10 +459,8 @@ bool _nearCover(String card, String window) {
 
 /// Drop RAG windows a THIS-BEAT injected journal gist already covers.
 /// Receipt/position overlap is excludingPositions at the call site.
-/// Content cover is whole-token subset, a distinctive word on the
-/// shorter side, and no extra distinctive leftover on the longer.
-/// A prefix card does not cover a bigger fact. key is not keyboard.
-/// Empty [journalCardContents] means Journal is off or no gist.
+/// Covered lines are stripped; a span with an uncovered line keeps that
+/// line. Empty [journalCardContents] means Journal is off or no gist.
 List<RetrievedMemory> dropCoveredRagWindows(
   List<RetrievedMemory> memories,
   Iterable<String> journalCardContents,
@@ -461,8 +472,33 @@ List<RetrievedMemory> dropCoveredRagWindows(
   if (cards.isEmpty) return memories;
   return [
     for (final m in memories)
-      if (!_ragCoveredByJournal(m.content, cards)) m,
+      if (_uncoveredMemory(m, cards) case final kept?) kept,
   ];
+}
+
+RetrievedMemory? _uncoveredMemory(RetrievedMemory m, List<String> cards) {
+  final lines = [
+    for (final raw in m.content.split('\n'))
+      if (raw.trim().isNotEmpty) raw,
+  ];
+  if (lines.isEmpty) return m;
+  final kept = [
+    for (final line in lines)
+      if (!_lineCoveredByCards(line, cards)) line,
+  ];
+  if (kept.isEmpty) return null;
+  if (kept.length == lines.length) {
+    if (_ragCoveredByJournal(m.content, cards)) return null;
+    return m;
+  }
+  return RetrievedMemory(
+    content: kept.join('\n'),
+    characterId: m.characterId,
+    sessionId: m.sessionId,
+    positionStart: m.positionStart,
+    positionEnd: m.positionEnd,
+    score: m.score,
+  );
 }
 
 bool _ragCoveredByJournal(String ragContent, List<String> cards) {
