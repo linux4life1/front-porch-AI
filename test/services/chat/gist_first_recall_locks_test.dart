@@ -38,10 +38,10 @@
 //
 // Short leftover is ANY extra content token on the longer side —
 // died/gone/fell/hid/ran count even when length < 5. "the spare key"
-// KEEPS died/gone; "third flowerpot" KEEPS fell. Same-beat leftover is
-// a closed paraphrase set (lives / hidden / creaked), not leftover==1.
-// Distinctive leftover is an extra fact (burned, lighthouse, swing).
-// Covered lines strip into contiguous runs; each run remaps its span.
+// KEEPS died/gone; "third flowerpot" KEEPS fell. Same-beat is interior
+// leftover (lives / tucked / buried) — no verb list. Suffix leftover
+// is an extra fact (burned, lighthouse, creaked, died, sat). Covered
+// lines strip into contiguous runs; each run remaps its span.
 
 import 'dart:io';
 
@@ -1261,11 +1261,18 @@ void main() {
           'died/gone/fell/hid/ran count even when length < 5',
     );
     expect(
-      src.contains('_kCoverParaphrase') && src.contains('shortD.length >= 3'),
+      src.contains('_minCoverWindow') && src.contains('leftover'),
       isTrue,
       reason:
-          'same-beat leftover is a closed paraphrase set (lives / hidden / '
-          'creaked), not leftover==1. Distinctive leftover is an extra fact',
+          'same-beat is interior leftover; suffix leftover is an extra fact. '
+          'No paraphrase verb list',
+    );
+    expect(
+      src.contains('_kCoverParaphrase') || src.contains('shortD.length >= 3'),
+      isFalse,
+      reason:
+          'the paraphrase set is a garden/loved list — delete it. '
+          'leftover.every(!distinctive) && shortD>=3 is leftover==1 for died/sat',
     );
     expect(
       src.contains('leftover.length == 1'),
@@ -1986,14 +1993,14 @@ void main() {
     () async {
       const cases = [
         {
-          'tag': 'that creaked',
-          'window': kGistThatCreaked,
-          'absent': 'that creaked',
-        },
-        {
           'tag': 'two-line lives-under',
           'window': kFactWindow,
           'absent': 'You: the spare key lives under the third flowerpot',
+        },
+        {
+          'tag': 'tucked under',
+          'window': 'Nia: the spare key tucked under the third flowerpot',
+          'absent': 'tucked',
         },
       ];
       for (var i = 0; i < cases.length; i++) {

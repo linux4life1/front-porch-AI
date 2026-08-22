@@ -380,6 +380,7 @@ Set<String> coverContentTokens(String s) =>
 String _normalizeCoverLine(String s) {
   var t = s.toLowerCase().replaceFirst(_kSpeakerPrefix, '');
   t = t.replaceAll(_kNonWord, ' ');
+  t = _foldPlaceCompounds(t);
   final kept = <String>[
     for (final w in t.split(_kSpaces))
       if (w.isNotEmpty &&
@@ -402,9 +403,6 @@ const _kJournalBoilerplate = {
   'remember',
 };
 
-/// Same-beat restatement. Not an extra fact. One closed set.
-const _kCoverParaphrase = {'lives', 'hidden', 'creaked'};
-
 bool _isDistinctive(String w) =>
     w.length >= 5 && !_kJournalBoilerplate.contains(w);
 
@@ -412,6 +410,46 @@ List<String> _coverWords(String s) {
   final line = _normalizeCoverLine(s);
   if (line.isEmpty) return const [];
   return line.split(' ');
+}
+
+/// Tightest span in [longer] that contains every token of [shorter].
+(int, int)? _minCoverWindow(List<String> longer, List<String> shorter) {
+  final need = <String, int>{};
+  for (final w in shorter) {
+    need[w] = (need[w] ?? 0) + 1;
+  }
+  var missing = shorter.length;
+  final got = <String, int>{};
+  var bestL = 0;
+  var bestR = longer.length;
+  var found = false;
+  var l = 0;
+  for (var r = 0; r < longer.length; r++) {
+    final w = longer[r];
+    final n = need[w];
+    if (n != null) {
+      final g = (got[w] ?? 0) + 1;
+      got[w] = g;
+      if (g <= n) missing--;
+    }
+    while (missing == 0 && l <= r) {
+      found = true;
+      if (r - l < bestR - bestL) {
+        bestL = l;
+        bestR = r;
+      }
+      final u = longer[l];
+      final nu = need[u];
+      if (nu != null) {
+        final g = got[u]!;
+        if (g <= nu) missing++;
+        got[u] = g - 1;
+      }
+      l++;
+    }
+  }
+  if (!found) return null;
+  return (bestL, bestR);
 }
 
 bool _lineCovers(List<String> a, List<String> b) {
@@ -428,17 +466,19 @@ bool _lineCovers(List<String> a, List<String> b) {
     for (final w in longer)
       if (_isDistinctive(w)) w,
   };
-  final leftover = {
-    for (final w in longer.toSet().difference(shorter.toSet()))
-      if (!_kCoverParaphrase.contains(w)) w,
-  };
+  final leftover = longer.toSet().difference(shorter.toSet());
   final distinctiveLeftover = longD.difference(shortD);
   if (leftover.isEmpty && distinctiveLeftover.isEmpty) return true;
-  // Paraphrase leftovers (lives / hidden / creaked) do not count.
-  // Short leftover on a complete gist is still the same beat (sat).
-  // Distinctive leftover is an extra fact (burned, lighthouse, swing).
   if (leftover.isEmpty) return true;
-  return leftover.every((w) => !_isDistinctive(w)) && shortD.length >= 3;
+  final span = _minCoverWindow(longer, shorter);
+  if (span == null) return false;
+  // Suffix leftover is an extra fact (burned, creaked, died, sat).
+  if (longer.sublist(span.$2 + 1).isNotEmpty) return false;
+  // Distinctive prefix leftover is an extra fact (lighthouse … gist).
+  if (longer.sublist(0, span.$1).any(_isDistinctive)) return false;
+  // Interior leftover is same-beat restatement (lives / tucked / buried).
+  // Short prefix leftover is the same beat (I sat on porch).
+  return true;
 }
 
 bool _nearCover(String card, String window) {

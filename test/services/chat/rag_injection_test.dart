@@ -546,8 +546,10 @@ void main() {
       );
       expect(
         dropCoveredRagWindows([creakedSame], [gist]),
-        isEmpty,
-        reason: 'same-beat flowerpot gist + that creaked still drops',
+        [creakedSame],
+        reason:
+            'suffix leftover is an extra fact — that creaked is not '
+            'same-beat just because creaked used to be on a list',
       );
       final mixed = _mem(
         'Nia: I still think about the spare key under the third flowerpot\n'
@@ -697,6 +699,47 @@ void main() {
         hasLength(1),
         reason: 'span ≠ line count must not keep the flowerpot pos',
       );
+    });
+
+    test('HOLD hole: interior restatement, suffix extra fact, no verb list', () {
+      const gist =
+          'I still think about the spare key under the third flowerpot';
+      for (final verb in ['tucked', 'buried', 'stays', 'rests']) {
+        final m = _mem(
+          'Nia: the spare key $verb under the third flowerpot',
+          sessionId: 's1',
+          pos: 8,
+        );
+        expect(
+          dropCoveredRagWindows([m], [gist]),
+          isEmpty,
+          reason: '"$verb under the third flowerpot" is interior same-beat',
+        );
+      }
+      final potCreaked = _mem(
+        'Nia: the spare key under the third flowerpot creaked',
+        sessionId: 's1',
+        pos: 9,
+      );
+      expect(dropCoveredRagWindows([potCreaked], [gist]), [
+        potCreaked,
+      ], reason: 'the pot creaked is a suffix extra fact');
+      final died = _mem(
+        'Nia: I still think about the spare key under the third flowerpot died',
+        sessionId: 's1',
+        pos: 11,
+      );
+      expect(dropCoveredRagWindows([died], [gist]), [
+        died,
+      ], reason: 'short suffix leftover on a 3-D gist is an extra fact');
+      final sat = _mem(
+        'Nia: I still think about the spare key under the third flowerpot sat',
+        sessionId: 's1',
+        pos: 12,
+      );
+      expect(dropCoveredRagWindows([sat], [gist]), [
+        sat,
+      ], reason: 'sat on the complete gist is a suffix extra fact');
     });
 
     test('HOLD hole: prefix card does not cover a bigger fact', () {

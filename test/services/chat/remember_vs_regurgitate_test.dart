@@ -765,8 +765,8 @@ void main() {
           ],
           [gist],
         ),
-        isEmpty,
-        reason: 'same-beat gist + that creaked still drops',
+        isNot(isEmpty),
+        reason: 'suffix leftover is an extra fact — that creaked keeps',
       );
       final kept = dropCoveredRagWindows(
         [
@@ -874,6 +874,52 @@ void main() {
       expect(
         gapKept.any((m) => m.positionStart <= 11 && m.positionEnd >= 11),
         isFalse,
+      );
+    });
+
+    test('HOLD hole: interior restatement, suffix extra fact, no verb list', () {
+      const gist =
+          'I still think about the spare key under the third flowerpot';
+      for (final verb in ['tucked', 'buried', 'stays', 'rests']) {
+        expect(
+          dropCoveredRagWindows(
+            [
+              _mem(
+                'Nia: the spare key $verb under the third flowerpot',
+                pos: 8,
+              ),
+            ],
+            [gist],
+          ),
+          isEmpty,
+          reason: '"$verb under" is interior same-beat',
+        );
+      }
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: the spare key under the third flowerpot creaked',
+              pos: 9,
+            ),
+          ],
+          [gist],
+        ),
+        isNot(isEmpty),
+        reason: 'the pot creaked is a suffix extra fact',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: I still think about the spare key under the third flowerpot died',
+              pos: 11,
+            ),
+          ],
+          [gist],
+        ),
+        isNot(isEmpty),
+        reason: 'short suffix leftover on a 3-D gist is an extra fact',
       );
     });
 
