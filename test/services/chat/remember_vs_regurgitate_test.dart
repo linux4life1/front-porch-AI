@@ -736,6 +736,56 @@ void main() {
       },
     );
 
+    test('HOLD hole: prefix card does not cover a bigger fact', () {
+      expect(
+        dropCoveredRagWindows(
+          [_mem('Nia: the front garden swing creaked tonight', pos: 2)],
+          ['the front garden'],
+        ),
+        isNot(isEmpty),
+        reason: 'front garden must not drop front-garden-swing',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [_mem('Nia: the porch swing creaked by the flowerpot', pos: 3)],
+          ['The porch swing.'],
+        ),
+        isNot(isEmpty),
+        reason: 'porch swing must not eat a flowerpot window',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: I loved the spare key under the third flowerpot',
+              pos: 1,
+            ),
+          ],
+          ['I loved it'],
+        ),
+        isNot(isEmpty),
+        reason: 'mood-only loved must not cover the flowerpot fact',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: I worry about the spare key under the third flowerpot',
+              pos: 4,
+            ),
+          ],
+          ['I worry'],
+        ),
+        isNot(isEmpty),
+        reason: 'mood-only worry must not cover the flowerpot fact',
+      );
+      expect(
+        dropCoveredRagWindows([_mem(kFactLine, pos: 1)], [kJournalGist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD hole: whole tokens + distinctive — key is not keyboard', () {
       expect(
         dropCoveredRagWindows(

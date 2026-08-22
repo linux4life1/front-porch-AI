@@ -410,20 +410,45 @@ List<String> _coverWords(String s) {
   return line.split(' ');
 }
 
-bool _nearCover(String card, String window) {
-  final a = _coverWords(card);
-  final b = _coverWords(window);
+bool _lineCovers(List<String> a, List<String> b) {
   if (a.isEmpty || b.isEmpty) return false;
   final shorter = a.length <= b.length ? a : b;
   final longer = a.length <= b.length ? b : a;
   if (!shorter.any(_isDistinctive)) return false;
-  return longer.toSet().containsAll(shorter);
+  if (!longer.toSet().containsAll(shorter)) return false;
+  final shortD = {
+    for (final w in shorter)
+      if (_isDistinctive(w)) w,
+  };
+  final longD = {
+    for (final w in longer)
+      if (_isDistinctive(w)) w,
+  };
+  return longD.difference(shortD).isEmpty;
+}
+
+bool _nearCover(String card, String window) {
+  final cardLines = [
+    for (final raw in card.split('\n'))
+      if (raw.trim().isNotEmpty) _coverWords(raw),
+  ];
+  final winLines = [
+    for (final raw in window.split('\n'))
+      if (raw.trim().isNotEmpty) _coverWords(raw),
+  ];
+  for (final c in cardLines) {
+    for (final w in winLines) {
+      if (_lineCovers(c, w)) return true;
+    }
+  }
+  return false;
 }
 
 /// Drop RAG windows a THIS-BEAT injected journal gist already covers.
 /// Receipt/position overlap is excludingPositions at the call site.
-/// Content cover is whole-token subset plus a distinctive word
-/// (length ≥ 5, not journal boilerplate). key is not inside keyboard.
+/// Content cover is whole-token subset, a distinctive word on the
+/// shorter side, and no extra distinctive leftover on the longer.
+/// A prefix card does not cover a bigger fact. key is not keyboard.
 /// Empty [journalCardContents] means Journal is off or no gist.
 List<RetrievedMemory> dropCoveredRagWindows(
   List<RetrievedMemory> memories,

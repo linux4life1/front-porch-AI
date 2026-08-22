@@ -1196,6 +1196,13 @@ void main() {
           'felt/safe/still/think/about/remember) and be a whole-token subset',
     );
     expect(
+      src.contains('longD.difference(shortD)'),
+      isTrue,
+      reason:
+          'longer must have no extra distinctive leftover — a prefix '
+          'card does not cover a bigger fact',
+    );
+    expect(
       nearSlice.contains('.intersection('),
       isFalse,
       reason:

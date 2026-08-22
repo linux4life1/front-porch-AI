@@ -485,6 +485,7 @@ void main() {
         expect(src.contains('bool _nearCover('), isTrue);
         expect(src.contains('_kJournalBoilerplate'), isTrue);
         expect(src.contains('containsAll'), isTrue);
+        expect(src.contains('longD.difference(shortD)'), isTrue);
         expect(
           src.contains('longer.contains(shorter)'),
           isFalse,
@@ -512,6 +513,66 @@ void main() {
         }
       },
     );
+
+    test('HOLD hole: prefix card does not cover a bigger fact', () {
+      final gardenSwing = _mem(
+        'Nia: the front garden swing creaked tonight',
+        sessionId: 's1',
+        pos: 2,
+      );
+      expect(dropCoveredRagWindows([gardenSwing], ['the front garden']), [
+        gardenSwing,
+      ], reason: 'front garden must not drop front-garden-swing');
+      final swingAndPot = _mem(
+        'Nia: the porch swing creaked by the flowerpot',
+        sessionId: 's1',
+        pos: 3,
+      );
+      expect(
+        dropCoveredRagWindows([swingAndPot], ['The porch swing.']),
+        [swingAndPot],
+        reason: 'porch swing must not drop a window that also names flowerpot',
+      );
+      final frontPorchSwing = _mem(
+        'Nia: I sat on the front porch swing',
+        sessionId: 's1',
+        pos: 4,
+      );
+      expect(
+        dropCoveredRagWindows([frontPorchSwing], ['I sat on her porch swing']),
+        [frontPorchSwing],
+        reason: '{porch, swing} must not drop front porch swing',
+      );
+      final lovedPot = _mem(
+        'Nia: I loved the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 1,
+      );
+      expect(dropCoveredRagWindows([lovedPot], ['I loved it']), [
+        lovedPot,
+      ], reason: 'mood-only loved must not cover a flowerpot fact');
+      final worryPot = _mem(
+        'Nia: I worry about the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 5,
+      );
+      expect(dropCoveredRagWindows([worryPot], ['I worry']), [
+        worryPot,
+      ], reason: 'mood-only worry must not cover a flowerpot fact');
+      final flower = _mem(
+        'Nia: I still think about the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 6,
+      );
+      expect(
+        dropCoveredRagWindows(
+          [flower],
+          ['I still think about the spare key under the third flowerpot'],
+        ),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
 
     test('HOLD hole: whole tokens + distinctive — key is not keyboard', () {
       final keyboard = _mem(
