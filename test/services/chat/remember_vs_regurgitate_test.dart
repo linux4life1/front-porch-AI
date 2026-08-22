@@ -597,6 +597,23 @@ void main() {
       expect(kept, [fact]);
     });
 
+    test('HOLD r2: porch feeling does not eat a porch-swing fact', () {
+      final swing = _mem('Nia: the porch swing creaked', pos: 2);
+      final kept = dropCoveredRagWindows([swing], [kPorchFeeling]);
+      expect(kept, [
+        swing,
+      ], reason: 'one shared place/noun (porch) is not cover');
+    });
+
+    test('HOLD r2: one shared spare token is not cover', () {
+      final fact = _mem(kFactLine, pos: 1);
+      final kept = dropCoveredRagWindows(
+        [fact],
+        ['I still think about the spare room'],
+      );
+      expect(kept, [fact], reason: 'one shared noun (spare) is not cover');
+    });
+
     test('HOLD: no injected gist does not cover-drop', () {
       final fact = _mem(kFactLine, pos: 1);
       expect(dropCoveredRagWindows([fact], const []), [fact]);
@@ -652,6 +669,13 @@ void main() {
         expect(isReachingForQuote('You: what did you promise?'), isTrue);
         expect(isReachingForQuote('You: what you promised'), isTrue);
         expect(isReachingForQuote('You: exact words'), isTrue);
+        expect(isReachingForQuote('You: Remember to lock the door?'), isFalse);
+        expect(
+          isReachingForQuote('You: Remember the tomatoes came in early?'),
+          isFalse,
+        );
+        expect(isReachingForQuote('You: can you quote that'), isTrue);
+        expect(isReachingForQuote('You: remember what you said'), isTrue);
         final a = _mem(kFactLine, pos: 1);
         final b = _mem(kKiteWindow, pos: 9);
         expect(
@@ -669,10 +693,10 @@ void main() {
           reason: 'spoken promised keeps the one-window cap',
         );
         expect(
-          capRagWindows(
-            [a, b],
-            reachingForQuote: isReachingForQuote('You: $kLastUser'),
-          ),
+          capRagWindows([
+            a,
+            b,
+          ], reachingForQuote: isReachingForQuote('You: $kLastUser')),
           [a],
           reason: 'plain sit-down is not quote-reach — cap stays one window',
         );
@@ -741,6 +765,7 @@ void main() {
           characterName: 'Nia',
           userName: 'You',
           queryText: cuedQuery(),
+          lastWords: 'You: $kLastUser',
           messageCount: messages.length,
         );
         expect(result.text, contains('spare key'));
@@ -780,6 +805,7 @@ void main() {
           characterName: 'Nia',
           userName: 'You',
           queryText: reaching,
+          lastWords: 'You: remember where the spare key lives?',
           messageCount: messages.length,
         );
         expect(result.text, contains(kJournalGist));
@@ -829,6 +855,7 @@ void main() {
           characterName: 'Nia',
           userName: 'You',
           queryText: sitDown,
+          lastWords: 'You: $kLastUser',
           messageCount: messages.length,
         );
         expect(result.injectedContents, contains(kPorchFeeling));
@@ -879,6 +906,11 @@ void main() {
         blocks.contains('t.journalCoverLines = journal.injectedContents;'),
         isTrue,
       );
+      expect(
+        blocks.contains('lastWords: lastWordsFromMessages(_messages)'),
+        isTrue,
+        reason: 'HOLD r2: expand gates on lastWords, same as RAG',
+      );
       final gate = blocks.indexOf(
         'if (_storageService.memorySettings.journalEnabled',
       );
@@ -899,6 +931,39 @@ void main() {
     });
 
     test(
+      'HOLD r2: diary I-remember-where in the cued query does not expand',
+      () async {
+        await plantGistCard();
+        final diaryCue = composeRagQuery(
+          emotion: kEmotion,
+          fixation: kFixation,
+          hotJournalLine: 'I remember where we sat on the porch',
+          lastWords: 'You: $kLastUser',
+        );
+        expect(
+          isReachingForQuote(diaryCue),
+          isTrue,
+          reason: 'composed query contains remember where — that is the trap',
+        );
+        expect(isReachingForQuote('You: $kLastUser'), isFalse);
+        final result = await injection().buildJournalBlock(
+          characterId: kChar,
+          characterName: 'Nia',
+          userName: 'You',
+          queryText: diaryCue,
+          lastWords: 'You: $kLastUser',
+          messageCount: messages.length,
+        );
+        expect(
+          result.expandedPositions,
+          isEmpty,
+          reason: 'expand must use lastWords, never the composed query',
+        );
+        expect(result.text, isNot(contains('exact words')));
+      },
+    );
+
+    test(
       'receipts still near the transcript do not expand (age gate)',
       () async {
         await plantGistCard(positions: const [55]);
@@ -907,6 +972,7 @@ void main() {
           characterName: 'Nia',
           userName: 'You',
           queryText: 'You: remember where the spare key lives?',
+          lastWords: 'You: remember where the spare key lives?',
           messageCount: messages.length,
         );
         expect(result.expandedPositions, isEmpty);

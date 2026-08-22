@@ -289,6 +289,13 @@ void main() {
         isFalse,
       );
       expect(isReachingForQuote('Nia: she said the cicadas started'), isFalse);
+      expect(isReachingForQuote('You: Remember to lock the door?'), isFalse);
+      expect(
+        isReachingForQuote('You: Remember the tomatoes came in early?'),
+        isFalse,
+      );
+      expect(isReachingForQuote('You: can you quote that'), isTrue);
+      expect(isReachingForQuote('You: remember what you said'), isTrue);
     });
 
     test('normal path keeps one uncovered window; quote-reach keeps all', () {
@@ -311,7 +318,7 @@ void main() {
       );
       final kept = dropCoveredRagWindows(
         [covered, leftover],
-        ['I still think about the lighthouse'],
+        ['I still think about the lighthouse on the cliff'],
       );
       expect(kept.map((m) => m.content).toList(), [leftover.content]);
     });
@@ -350,6 +357,21 @@ void main() {
         );
       },
     );
+
+    test('HOLD r2: porch feeling does not eat a porch-swing fact', () {
+      final swing = _mem(
+        'Nia: the porch swing creaked',
+        sessionId: 's1',
+        pos: 2,
+      );
+      final kept = dropCoveredRagWindows(
+        [swing],
+        ['I felt safe on the porch tonight'],
+      );
+      expect(kept, [
+        swing,
+      ], reason: 'one shared place/noun (porch) is not cover');
+    });
 
     test(
       'HOLD: empty cover (Journal off / no gist this beat) does not cover-drop',

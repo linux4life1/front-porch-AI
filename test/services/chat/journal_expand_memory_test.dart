@@ -102,6 +102,7 @@ void main() {
       characterName: 'Mara',
       userName: 'Sam',
       queryText: 'Sam: you remember when we had our wedding vows here?',
+      lastWords: 'Sam: you remember when we had our wedding vows here?',
       messageCount: messages.length,
     );
     // The feeling (the card) is present…
@@ -115,8 +116,7 @@ void main() {
     expect(result.expandedPositions, {10, 11});
   });
 
-  test('an unrelated query injects the card but never the verbatim',
-      () async {
+  test('an unrelated query injects the card but never the verbatim', () async {
     await plantWeddingCard();
     final result = await injection().buildJournalBlock(
       characterId: cid,
@@ -130,21 +130,20 @@ void main() {
     expect(result.expandedPositions, isEmpty);
   });
 
-  test('age gate: receipts still near the transcript do not expand',
-      () async {
+  test('age gate: receipts still near the transcript do not expand', () async {
     await plantWeddingCard(positions: const [55]);
     final result = await injection().buildJournalBlock(
       characterId: cid,
       characterName: 'Mara',
       userName: 'Sam',
       queryText: 'Sam: remember our wedding vows?',
+      lastWords: 'Sam: remember our wedding vows?',
       messageCount: messages.length,
     );
     expect(result.expandedPositions, isEmpty);
   });
 
-  test('no-embedder floor: block renders, expansion silently absent',
-      () async {
+  test('no-embedder floor: block renders, expansion silently absent', () async {
     store = JournalStore(getDb: () => db); // no embedText
     await db.insertJournalCard(
       JournalMemoriesCompanion(
@@ -160,6 +159,7 @@ void main() {
       characterName: 'Mara',
       userName: 'Sam',
       queryText: 'Sam: remember?',
+      lastWords: 'Sam: remember?',
       messageCount: messages.length,
     );
     expect(result.text, contains('a hot memory'));
@@ -190,11 +190,10 @@ void main() {
         score: 0.7,
       ),
     ];
-    final kept = RetrievedMemory.excludingPositions(
-      mems,
-      {10, 11},
-      currentSessionId: sid,
-    );
+    final kept = RetrievedMemory.excludingPositions(mems, {
+      10,
+      11,
+    }, currentSessionId: sid);
     expect(kept.map((m) => m.content), [
       'an unrelated passage',
       'cross-session source (different position space)',

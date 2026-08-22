@@ -171,10 +171,11 @@ String lastWordsFromMessages(List<ChatMessage> messages) {
   return parts.join('\n');
 }
 
-/// True only when they ASKED for the words — "remember what you said",
-/// "what did I promise", "exact words", "vows?" as a question.
-/// Spoken report ("I told you the tomatoes came in", "she said the
-/// cicadas") is not quote-reach and must not dump every RAG window.
+/// True only when they ASKED for the words — remember what you
+/// said/promised, what did I say/promise, exact words, can you quote,
+/// vows as a question. "Remember to lock the door?" and "Remember the
+/// tomatoes came in?" are reminders, not quote-reach. Spoken
+/// said/told/promised is not an ask.
 bool isReachingForQuote(String lastWords) {
   final t = lastWords.toLowerCase();
   if (t.trim().isEmpty) return false;
@@ -191,15 +192,24 @@ bool isReachingForQuote(String lastWords) {
   ).hasMatch(t)) {
     return true;
   }
-  if (RegExp(r'\bremember\b').hasMatch(t)) {
-    if (t.contains('?')) return true;
-    if (RegExp(
-      r'\bremember (what|when|where|how|who|the|our|my|your|that)\b',
-    ).hasMatch(t)) {
-      return true;
-    }
+  if (RegExp(r'\b((can you )?quote|quoted)\b').hasMatch(t)) {
+    return true;
   }
-  if (RegExp(r'\bvows\b').hasMatch(t) && t.contains('?')) return true;
+  if (RegExp(r'\bvows\b').hasMatch(t) && t.contains('?')) {
+    return true;
+  }
+  if (RegExp(
+    r'\bremember what (you|i|we|they|she|he) (said|told|promised)\b',
+  ).hasMatch(t)) {
+    return true;
+  }
+  // Recall-ask: remember where/how/who. Not "remember to" / "remember the".
+  if (RegExp(r'\bremember (where|how|who)\b').hasMatch(t)) {
+    return true;
+  }
+  if (RegExp(r'\bremember (our|my|your)\b').hasMatch(t) && t.contains('?')) {
+    return true;
+  }
   return false;
 }
 
@@ -271,17 +281,16 @@ Set<String> coverContentTokens(String s) =>
     itemNameTokens(s).difference(_kCoverFiller);
 
 /// Drop RAG windows a THIS-BEAT injected journal gist already covers
-/// (any shared content token: lighthouse, flowerpot). Empty
-/// [journalCardContents] means Journal is off or no gist injected — do
-/// not cover-drop. Position-overlap with expanded receipts is
-/// [RetrievedMemory.excludingPositions]. Not uniqueness-by-shape.
+/// (shared content tokens ≥ 2). One shared place/noun (porch, spare) is
+/// not cover. Empty [journalCardContents] means Journal is off or no
+/// gist injected — do not cover-drop. Not uniqueness-by-shape.
 List<RetrievedMemory> dropCoveredRagWindows(
   List<RetrievedMemory> memories,
   Iterable<String> journalCardContents,
 ) {
   final cardTokenSets = [
     for (final c in journalCardContents) coverContentTokens(c),
-  ].where((s) => s.isNotEmpty).toList();
+  ].where((s) => s.length >= 2).toList();
   if (cardTokenSets.isEmpty) return memories;
   return [
     for (final m in memories)
@@ -291,9 +300,9 @@ List<RetrievedMemory> dropCoveredRagWindows(
 
 bool _ragCoveredByJournal(String ragContent, List<Set<String>> cardTokenSets) {
   final rag = coverContentTokens(ragContent);
-  if (rag.isEmpty) return false;
+  if (rag.length < 2) return false;
   for (final card in cardTokenSets) {
-    if (rag.intersection(card).isNotEmpty) return true;
+    if (rag.intersection(card).length >= 2) return true;
   }
   return false;
 }

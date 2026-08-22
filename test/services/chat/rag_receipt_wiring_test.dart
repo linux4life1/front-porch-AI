@@ -272,7 +272,7 @@ void main() {
       photoMsg.activeMetadata!['is_user_image'] = true;
       photoMsg.activeMetadata!['image_caption'] = 'a red kite over the bay';
 
-      await chat.sendMessage('That photo was from our last trip, remember?');
+      await chat.sendMessage('That photo was from our last trip, remember what you said?');
 
       expect(
         memory.lastQuery,

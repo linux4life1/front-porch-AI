@@ -84,6 +84,9 @@ class JournalInjection {
   /// [queryText] is the cued query used to resurface cold cards
   /// semantically (same composeRagQuery as RAG retrieval); empty
   /// skips cold retrieval entirely.
+  /// [lastWords] is the live beat (same string RAG uses). Expand
+  /// gates on this — never on [queryText], which can contain a diary
+  /// "I remember when…" that is not an ask.
   Future<
     ({String text, Set<int> expandedPositions, List<String> injectedContents})
   >
@@ -92,6 +95,7 @@ class JournalInjection {
     required String characterName,
     required String userName,
     String queryText = '',
+    String lastWords = '',
     int messageCount = 0,
   }) async {
     const empty = (
@@ -186,7 +190,7 @@ class JournalInjection {
     // embeddings, cosine ≥ 0.45, and receipts old enough to be out of the
     // visible transcript. A plain sit-down stays gist — the cued query
     // contains the top hot line, so cosine alone would always expand it.
-    final (excerpt, expandedPositions) = isReachingForQuote(queryText)
+    final (excerpt, expandedPositions) = isReachingForQuote(lastWords)
         ? _expandBestCard(injected, queryVector, messageCount)
         : ('', <int>{});
 
