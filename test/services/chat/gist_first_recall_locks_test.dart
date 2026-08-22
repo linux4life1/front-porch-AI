@@ -226,6 +226,17 @@ const kFlowerpotAndSwing =
     'Nia: the spare key under the third flowerpot and the swing creaked';
 const kKeyboardOnFlowerpot =
     'Nia: the spare keyboard sits on the third flowerpot';
+const kGistBurned =
+    'Nia: I still think about the spare key under the third flowerpot burned';
+const kGistLighthouse =
+    'Nia: I still think about the spare key under the third flowerpot lighthouse';
+const kThirdFlowerpotLighthouse = 'Nia: the third flowerpot lighthouse';
+const kLivesHidden =
+    'Nia: the spare key lives hidden under the third flowerpot';
+const kThreeLineGap =
+    'Nia: the porch swing creaked tonight\n'
+    'Nia: I still think about the spare key under the third flowerpot\n'
+    'Nia: I sat on the front garden';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -1262,6 +1273,13 @@ void main() {
       reason:
           'leftover==1 on a 3-distinctive gist treats burned / lighthouse '
           'as paraphrase — leftover kind, not leftover count',
+    );
+    expect(
+      src.contains('leftover.length == 2'),
+      isFalse,
+      reason:
+          'flipping leftover==1 to leftover==2 is fake-green for burned / '
+          'lighthouse KEEP and lives-hidden DROP — leftover kind, not count',
     );
     expect(
       src.contains('shortD.intersection(longD).length >= 3'),
@@ -2358,4 +2376,393 @@ void main() {
       );
     },
   );
+
+  test(
+    'LOCK: leftover kind — burned / lighthouse KEEP; lives hidden DROPS',
+    () async {
+      Set<String> bodyTokens(String s) =>
+          coverContentTokens(s.replaceFirst(RegExp(r'^[^:\n]{1,40}:\s*'), ''));
+      expect(
+        bodyTokens(kGistBurned).difference(bodyTokens(kGist)),
+        {'burned'},
+        reason:
+            'burned is leftover count 1 — leftover==1 would DROP it. That '
+            'count is not a green. Distinctive leftover is an extra fact',
+      );
+      expect(
+        bodyTokens(kGistLighthouse).difference(bodyTokens(kGist)),
+        {'lighthouse'},
+        reason:
+            'lighthouse is leftover count 1 on the 3-distinctive gist — '
+            'leftover==1 would DROP it. That count is not a green',
+      );
+      expect(
+        bodyTokens(
+          kThirdFlowerpotLighthouse,
+        ).difference(bodyTokens(kThirdFlowerpot)),
+        {'lighthouse'},
+        reason:
+            'third-flowerpot × lighthouse is leftover count 1 — leftover==1 '
+            'without the shortD>=3 gate would DROP it. That count is not a green',
+      );
+      expect(
+        bodyTokens(kLivesHidden).difference(bodyTokens(kGist)),
+        {'lives', 'hidden'},
+        reason:
+            'lives+hidden is leftover count 2 — leftover==1 would KEEP it. '
+            'leftover==2 would DROP it. That flip is fake-green; DROP is '
+            'paraphrase kind (lives / hidden), not leftover==2',
+      );
+
+      const cases = [
+        {
+          'tag': 'flowerpot gist burned',
+          'card': kGist,
+          'window': kGistBurned,
+          'kept': 'burned',
+          'drop': false,
+        },
+        {
+          'tag': 'flowerpot gist lighthouse',
+          'card': kGist,
+          'window': kGistLighthouse,
+          'kept': 'lighthouse',
+          'drop': false,
+        },
+        {
+          'tag': 'third-flowerpot lighthouse',
+          'card': kThirdFlowerpot,
+          'window': kThirdFlowerpotLighthouse,
+          'kept': 'lighthouse',
+          'drop': false,
+        },
+        {
+          'tag': 'lives hidden',
+          'card': kGist,
+          'window': kLivesHidden,
+          'kept': 'hidden',
+          'drop': true,
+        },
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']! as String;
+        final cardText = c['card']! as String;
+        final window = c['window']! as String;
+        final kept = c['kept']! as String;
+        final drop = c['drop']! as bool;
+        final sessionId = 'sess-gistlock-leftoverkind-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-leftoverkind-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: Value(cardText),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: window,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 0,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+
+        await chat.sendMessage(kSit);
+
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason:
+              'cues are present — retrieve must run so leftover kind is real',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(cardText),
+          reason:
+              'the "$cardText" card must inject or leftover kind was '
+              'never tested',
+        );
+        if (drop) {
+          expect(
+            prompt,
+            isNot(contains(kRagRememberedHeader.trim())),
+            reason:
+                'same-beat leftover is a closed paraphrase set '
+                '(lives / hidden / creaked), not leftover==1 and not '
+                'leftover==2. "$tag" must DROP. Flipping ==1 to ==2 is '
+                'fake-green — DROP is kind, not count',
+          );
+          expect(
+            prompt,
+            isNot(contains(window)),
+            reason:
+                'lives hidden still DROPS — "$window" must not reach the prompt',
+          );
+        } else {
+          expect(prompt, contains(kRagRememberedHeader.trim()));
+          expect(
+            prompt,
+            contains(kept),
+            reason:
+                'distinctive leftover is an extra fact — "$tag" must KEEP '
+                '"$kept". leftover==1 on a 3-distinctive gist treats '
+                'burned / lighthouse as paraphrase and goes red here',
+          );
+        }
+      }
+    },
+  );
+
+  test('LOCK: stripped windows split into contiguous kept runs', () async {
+    const gapStart = 10;
+    const flowerpotPos = 11;
+    const gardenPos = 12;
+    final gapped = RetrievedMemory(
+      content: kThreeLineGap,
+      characterId: 'Nia',
+      sessionId: 'sess-gistlock-runs',
+      positionStart: gapStart,
+      positionEnd: gardenPos,
+      score: 0.9,
+    );
+    final gapKept = dropCoveredRagWindows([gapped], [kGist]);
+    expect(
+      gapKept,
+      hasLength(2),
+      reason:
+          'keep 0 and 2 of a 3-line span must be two runs — first-to-last '
+          'is one window that still owns the middle pos',
+    );
+    expect(gapKept.map((m) => m.positionStart).toList(), [gapStart, gardenPos]);
+    expect(
+      gapKept.any(
+        (m) => m.positionStart <= flowerpotPos && m.positionEnd >= flowerpotPos,
+      ),
+      isFalse,
+      reason:
+          'keep 0 and 2 of a 3-line span does NOT keep the middle pos. '
+          'first-to-last remaps onto 10–12 and that is the hole',
+    );
+    expect(
+      gapKept.first.content,
+      contains('swing'),
+      reason: 'run 0 is the kept swing',
+    );
+    expect(gapKept.first.content, isNot(contains('flowerpot')));
+    expect(
+      RetrievedMemory.excludingPositions(gapKept, {
+        flowerpotPos,
+      }, currentSessionId: 'sess-gistlock-runs'),
+      hasLength(2),
+      reason:
+          'excludingPositions on the flowerpot slice must not eat the '
+          'kept swing — each run remaps its own span',
+    );
+    expect(
+      RetrievedMemory.excludingPositions(
+        [gapped],
+        {flowerpotPos},
+        currentSessionId: 'sess-gistlock-runs',
+      ),
+      isEmpty,
+      reason:
+          'the unstripped 10–12 span still overlaps the flowerpot line — '
+          'split runs are what keep the swing',
+    );
+
+    const wideStart = 10;
+    const wideEnd = 13;
+    final wide = RetrievedMemory(
+      content: kGistPlusSwing,
+      characterId: 'Nia',
+      sessionId: 'sess-gistlock-widespan',
+      positionStart: wideStart,
+      positionEnd: wideEnd,
+      score: 0.9,
+    );
+    final wideKept = dropCoveredRagWindows([wide], [kGist]);
+    expect(wideKept, hasLength(1));
+    expect(
+      wideKept.first.positionStart,
+      12,
+      reason:
+          'span 10–13 is 4 messages / 2 lines — kept swing remaps via '
+          'line span onto 12–13, not the flowerpot 10–11',
+    );
+    expect(wideKept.first.positionEnd, 13);
+    expect(wideKept.first.content, contains(kSwingBody));
+    expect(wideKept.first.content, isNot(contains('flowerpot')));
+    expect(
+      RetrievedMemory.excludingPositions(wideKept, {
+        wideStart,
+        wideStart + 1,
+      }, currentSessionId: 'sess-gistlock-widespan'),
+      hasLength(1),
+      reason:
+          'message span ≠ line count — excludingPositions on the '
+          'flowerpot slice must not eat the remapped swing',
+    );
+    expect(
+      RetrievedMemory.excludingPositions(
+        [wide],
+        {wideStart, wideStart + 1},
+        currentSessionId: 'sess-gistlock-widespan',
+      ),
+      isEmpty,
+      reason: 'the unstripped 10–13 span still overlaps the flowerpot slice',
+    );
+
+    const sessionId = 'sess-gistlock-runs-god';
+    final card = await seedOverflowSession(
+      sessionId: sessionId,
+      charDbId: 'char-gistlock-runs-god',
+      emotion: kEmotion,
+      fixation: kFixation,
+    );
+    await db.insertJournalCard(
+      JournalMemoriesCompanion(
+        sessionId: const Value(sessionId),
+        characterId: Value(card.stableGroupId),
+        content: const Value(kGist),
+        category: const Value('about_us'),
+        heat: const Value(0.9),
+      ),
+    );
+    memory.canned = [
+      RetrievedMemory(
+        content: kThreeLineGap,
+        characterId: 'Nia',
+        sessionId: sessionId,
+        positionStart: gapStart,
+        positionEnd: gardenPos,
+        score: 0.9,
+      ),
+    ];
+
+    await chat.sendMessage('remember what you said about the swing?');
+
+    expect(
+      memory.retrieveCalls,
+      greaterThan(0),
+      reason: 'quote-reach must run so both kept runs reach the receipt',
+    );
+    expect(llm.chatPrompts, isNotEmpty);
+    final prompt = llm.chatPrompts.last;
+    expect(
+      prompt,
+      contains(kGist),
+      reason: 'the flowerpot gist must inject or run-split was never tested',
+    );
+    expect(prompt, contains(kRagQuoteHeader.trim()));
+    expect(
+      prompt,
+      contains('swing'),
+      reason: 'keep 0 of a 3-line span must still inject the swing run',
+    );
+    expect(
+      prompt,
+      contains('garden'),
+      reason: 'keep 2 of a 3-line span must still inject the garden run',
+    );
+    expect(
+      prompt,
+      isNot(contains(kThreeLineGap)),
+      reason:
+          'the raw 3-line span must not reach the prompt — middle '
+          'flowerpot line is stripped',
+    );
+
+    final receipt = chat.lastRagReceipt;
+    expect(receipt, isNotNull);
+    final injected = receipt!['injected'] as List;
+    expect(
+      injected,
+      hasLength(2),
+      reason: 'quote-reach keeps both remapped runs',
+    );
+    final poses = [for (final row in injected) (row as Map)['pos'] as int];
+    expect(poses, containsAll([gapStart, gardenPos]));
+    expect(
+      poses,
+      isNot(contains(flowerpotPos)),
+      reason:
+          'keep 0 and 2 of a 3-line span does NOT keep the middle pos '
+          'on the god-path receipt',
+    );
+    for (final row in injected) {
+      final preview = (row as Map)['preview'] as String;
+      expect(
+        preview,
+        isNot(contains('flowerpot')),
+        reason:
+            'receipt preview is a kept run, not the stripped flowerpot line',
+      );
+    }
+
+    const wideSession = 'sess-gistlock-widespan-god';
+    final wideCard = await seedOverflowSession(
+      sessionId: wideSession,
+      charDbId: 'char-gistlock-widespan-god',
+      emotion: kEmotion,
+      fixation: kFixation,
+    );
+    await db.insertJournalCard(
+      JournalMemoriesCompanion(
+        sessionId: const Value(wideSession),
+        characterId: Value(wideCard.stableGroupId),
+        content: const Value(kGist),
+        category: const Value('about_us'),
+        heat: const Value(0.9),
+      ),
+    );
+    memory.retrieveCalls = 0;
+    memory.canned = [
+      RetrievedMemory(
+        content: kGistPlusSwing,
+        characterId: 'Nia',
+        sessionId: wideSession,
+        positionStart: wideStart,
+        positionEnd: wideEnd,
+        score: 0.9,
+      ),
+    ];
+    llm.chatPrompts.clear();
+    await chat.sendMessage(kSit);
+    expect(memory.retrieveCalls, greaterThan(0));
+    expect(llm.chatPrompts, isNotEmpty);
+    final widePrompt = llm.chatPrompts.last;
+    expect(widePrompt, contains(kGist));
+    expect(widePrompt, contains(kRagRememberedHeader.trim()));
+    expect(widePrompt, contains(kSwingBody));
+    expect(widePrompt, isNot(contains(kGistPlusSwing)));
+    final wideReceipt = chat.lastRagReceipt;
+    expect(wideReceipt, isNotNull);
+    final wideRow = (wideReceipt!['injected'] as List).first as Map;
+    expect(
+      wideRow['pos'],
+      12,
+      reason:
+          'span ≠ line count remaps the kept swing onto pos 12, not '
+          'the flowerpot slice at 10',
+    );
+    expect(wideRow['pos'], isNot(equals(wideStart)));
+    final widePreview = wideRow['preview'] as String;
+    expect(widePreview, contains('swing'));
+    expect(widePreview, isNot(contains('flowerpot')));
+  });
 }
