@@ -602,6 +602,35 @@ void main() {
       expect(dropCoveredRagWindows([fact], const []), [fact]);
     });
 
+    test('HOLD: cover tokens are content, not still/think/about', () {
+      final fact = coverContentTokens(kFactLine);
+      final lighthouse = coverContentTokens(
+        'I still think about the lighthouse',
+      );
+      expect(fact.contains('still'), isFalse);
+      expect(fact.contains('think'), isFalse);
+      expect(fact.contains('about'), isFalse);
+      expect(lighthouse.contains('still'), isFalse);
+      expect(lighthouse.contains('think'), isFalse);
+      expect(lighthouse.contains('about'), isFalse);
+      expect(
+        lighthouse.intersection(fact),
+        isEmpty,
+        reason:
+            'unrelated lighthouse gist must not share a content token '
+            'with the flowerpot window',
+      );
+      expect(fact, contains('flowerpot'));
+      expect(lighthouse, contains('lighthouse'));
+      expect(
+        coverContentTokens(
+          'Nia: I still think about the lighthouse on the cliff',
+        ).intersection(lighthouse),
+        isNot(isEmpty),
+        reason: 'a matching lighthouse beat still covers on the content token',
+      );
+    });
+
     test(
       'HOLD: spoken I-told-you is not quote-reach and does not dump tape',
       () {
@@ -611,11 +640,41 @@ void main() {
           isReachingForQuote('You: she said the cicadas started'),
           isFalse,
         );
+        expect(
+          isReachingForQuote('You: I promised I would bring the tomatoes'),
+          isFalse,
+          reason: 'spoken promised is not an ask for the words',
+        );
+        expect(
+          isReachingForQuote('You: she promised the cicadas would start'),
+          isFalse,
+        );
+        expect(isReachingForQuote('You: what did you promise?'), isTrue);
+        expect(isReachingForQuote('You: what you promised'), isTrue);
+        expect(isReachingForQuote('You: exact words'), isTrue);
         final a = _mem(kFactLine, pos: 1);
         final b = _mem(kKiteWindow, pos: 9);
         expect(
           capRagWindows([a, b], reachingForQuote: isReachingForQuote(spoken)),
           [a],
+        );
+        expect(
+          capRagWindows(
+            [a, b],
+            reachingForQuote: isReachingForQuote(
+              'You: I promised I would bring the tomatoes',
+            ),
+          ),
+          [a],
+          reason: 'spoken promised keeps the one-window cap',
+        );
+        expect(
+          capRagWindows(
+            [a, b],
+            reachingForQuote: isReachingForQuote('You: $kLastUser'),
+          ),
+          [a],
+          reason: 'plain sit-down is not quote-reach — cap stays one window',
         );
       },
     );
@@ -690,6 +749,11 @@ void main() {
         expect(cuedQuery(), contains(kLastUser));
         expect(kLastUser.toLowerCase(), isNot(contains('flowerpot')));
         expect(
+          isReachingForQuote(cuedQuery()),
+          isFalse,
+          reason: 'HOLD 3: gist GREEN path is not a verbatim ask',
+        );
+        expect(
           result.expandedPositions,
           isEmpty,
           reason:
@@ -724,6 +788,115 @@ void main() {
         expect(result.expandedPositions, {0, 1});
       },
     );
+
+    test(
+      'HOLD: this-beat injected gist only — cold cabinet flowerpot does not cover-drop',
+      () async {
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: const Value(kSession),
+            characterId: const Value(kChar),
+            content: const Value(kPorchFeeling),
+            category: const Value('moment'),
+            emotionLabel: const Value('wistful'),
+            heat: const Value(0.9),
+          ),
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: const Value(kSession),
+            characterId: const Value(kChar),
+            content: const Value(kJournalGist),
+            category: const Value('about_us'),
+            emotionLabel: const Value('wistful'),
+            heat: const Value(0.1),
+          ),
+        );
+        await store.embedMissing(kSession, kChar);
+
+        final sitDown = composeRagQuery(
+          emotion: kEmotion,
+          fixation: 'the porch',
+          hotJournalLine: kPorchFeeling,
+          lastWords: 'You: $kLastUser',
+        );
+        expect(isReachingForQuote(sitDown), isFalse);
+        expect(sitDown.toLowerCase(), isNot(contains('flowerpot')));
+        expect(sitDown.toLowerCase(), isNot(contains('spare key')));
+
+        final result = await injection().buildJournalBlock(
+          characterId: kChar,
+          characterName: 'Nia',
+          userName: 'You',
+          queryText: sitDown,
+          messageCount: messages.length,
+        );
+        expect(result.injectedContents, contains(kPorchFeeling));
+        expect(
+          result.injectedContents,
+          isNot(contains(kJournalGist)),
+          reason:
+              'cold cabinet flowerpot must not ride this-beat cover — '
+              'that is the whole-cabinet false drop',
+        );
+        expect(result.expandedPositions, isEmpty);
+
+        final fact = _mem(kFactLine, pos: 1);
+        expect(
+          dropCoveredRagWindows([fact], result.injectedContents),
+          [fact],
+          reason:
+              'this-beat porch gist must not cover-drop the uncovered '
+              'flowerpot window',
+        );
+        expect(
+          dropCoveredRagWindows([fact], [kPorchFeeling, kJournalGist]),
+          isEmpty,
+          reason:
+              'whole cabinet WOULD drop the window — that is why cover '
+              'must be this-beat injected gist only',
+        );
+      },
+    );
+
+    test('HOLD: journal-off and this-beat cover wiring', () {
+      final blocks = File(
+        'lib/services/chat/chat_service_generation_blocks.dart',
+      ).readAsStringSync();
+      expect(
+        blocks.contains('t.journalCoverLines = const [];'),
+        isTrue,
+        reason: 'cover starts empty so Journal-off cannot cover-drop',
+      );
+      expect(
+        blocks.contains(
+          't.journalCoverLines = [for (final c in cards) c.content]',
+        ),
+        isFalse,
+        reason: 'whole cabinet must not become cover',
+      );
+      expect(
+        blocks.contains('t.journalCoverLines = journal.injectedContents;'),
+        isTrue,
+      );
+      final gate = blocks.indexOf(
+        'if (_storageService.memorySettings.journalEnabled',
+      );
+      final assign = blocks.indexOf(
+        't.journalCoverLines = journal.injectedContents;',
+      );
+      expect(gate, greaterThanOrEqualTo(0));
+      expect(
+        assign,
+        greaterThan(gate),
+        reason: 'injectedContents assignment is inside the journalEnabled gate',
+      );
+      final rag = File(
+        'lib/services/chat/chat_service_generation_rag.dart',
+      ).readAsStringSync();
+      expect(rag.contains('dropCoveredRagWindows('), isTrue);
+      expect(rag.contains('t.journalCoverLines'), isTrue);
+    });
 
     test(
       'receipts still near the transcript do not expand (age gate)',
