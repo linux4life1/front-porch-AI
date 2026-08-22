@@ -36,13 +36,9 @@
 // are not a mood-cover list. Refuse leftover-intersection and raw-contains
 // greens as stand-alone.
 //
-// Short leftover is ANY extra content token on the longer side —
-// died/gone/fell/hid/ran count even when length < 5. Leftover kind,
-// not position: short leftover and long distinctive leftover are extra
-// facts (any slot). Length 5-6 distinctive leftover is restatement
-// (any slot). leftover-empty is same-beat DROP. endsWith ned so burned
-// stays extra fact vs tucked/buried. Covered lines strip into
-// contiguous runs; each run remaps its span.
+// Joe lock: DROP only when leftover is empty. Anything with leftover
+// KEEP. No length band, position, paraphrase list, or ned exception.
+// Covered lines strip into contiguous runs; each run remaps its span.
 
 import 'dart:io';
 
@@ -160,6 +156,8 @@ const kGist = 'I still think about the spare key under the third flowerpot';
 const kEmotion = 'wistful';
 const kFixation = 'the spare key';
 const kSit = 'Evening. Mind if I sit?';
+const kGistWindow =
+    'Nia: I still think about the spare key under the third flowerpot';
 const kFactWindow =
     'You: the spare key lives under the third flowerpot\n'
     'Nia: I still think about the spare key under the third flowerpot';
@@ -495,7 +493,7 @@ void main() {
 
       memory.canned = [
         RetrievedMemory(
-          content: kFactWindow,
+          content: kGistWindow,
           characterId: 'Nia',
           sessionId: 'sess-gistlock-caption',
           positionStart: 0,
@@ -727,7 +725,7 @@ void main() {
       );
       memory.canned = [
         RetrievedMemory(
-          content: kFactWindow,
+          content: kGistWindow,
           characterId: 'Nia',
           sessionId: 'sess-gistlock-cover',
           positionStart: 0,
@@ -1108,7 +1106,7 @@ void main() {
     memory.retrieveCalls = 0;
     memory.canned = [
       RetrievedMemory(
-        content: kFactWindow,
+        content: kGistWindow,
         characterId: 'Nia',
         sessionId: 'sess-gistlock-anytoken-flower',
         positionStart: 0,
@@ -1294,12 +1292,11 @@ void main() {
           'died/gone/fell/hid/ran count even when length < 5',
     );
     expect(
-      src.contains('_isExtraFactLeftover') && src.contains('leftover'),
-      isTrue,
+      src.contains('_isExtraFactLeftover') || src.contains("endsWith('ned')"),
+      isFalse,
       reason:
-          'leftover kind, not position: short leftover and long distinctive '
-          'leftover are extra facts. Length 5-6 distinctive leftover is '
-          'restatement. No paraphrase verb list',
+          'Joe lock: leftover-empty only. No length-as-kind, no ned, '
+          'no extra-fact leftover helper',
     );
     expect(
       src.contains('_minCoverWindow'),
@@ -1342,16 +1339,13 @@ void main() {
         isFalse,
         reason:
             'no verb list — "$w" must not appear as a product string. '
-            'Length 5-6 distinctive leftover DROPS and long leftover KEEPS '
-            'without naming hidden/tucked/buried/stays/rests/lives',
+            'leftover-empty DROPS and leftover KEEP without naming those words',
       );
     }
     expect(
-      src.contains("endsWith('ned')"),
-      isTrue,
-      reason:
-          'burned (6) stays extra fact vs tucked/buried — kind uses '
-          "endsWith('ned'), not a burned list",
+      src.contains("endsWith('ned')") || src.contains('_isExtraFactLeftover'),
+      isFalse,
+      reason: 'no ned exception and no length-as-kind helper',
     );
     expect(
       src.contains('_kTimeFiller') &&
@@ -1587,7 +1581,7 @@ void main() {
       memory.retrieveCalls = 0;
       memory.canned = [
         RetrievedMemory(
-          content: kFactWindow,
+          content: kGistWindow,
           characterId: 'Nia',
           sessionId: 'sess-gistlock-flower-why',
           positionStart: 0,
@@ -1780,7 +1774,7 @@ void main() {
     memory.retrieveCalls = 0;
     memory.canned = [
       RetrievedMemory(
-        content: kFactWindow,
+        content: kGistWindow,
         characterId: 'Nia',
         sessionId: 'sess-gistlock-moodstem-flower',
         positionStart: 0,
@@ -1995,7 +1989,7 @@ void main() {
       memory.retrieveCalls = 0;
       memory.canned = [
         RetrievedMemory(
-          content: kFactWindow,
+          content: kGistWindow,
           characterId: 'Nia',
           sessionId: 'sess-gistlock-prefixleftover-flower',
           positionStart: 0,
@@ -2126,89 +2120,80 @@ void main() {
     },
   );
 
-  test(
-    'LOCK: same-beat 3 distinctive tokens still DROPS extras and lives-under',
-    () async {
-      const cases = [
-        {
-          'tag': 'two-line lives-under',
-          'window': kFactWindow,
-          'absent': 'You: the spare key lives under the third flowerpot',
-        },
-        {
-          'tag': 'tucked under',
-          'window': 'Nia: the spare key tucked under the third flowerpot',
-          'absent': 'tucked',
-        },
-        {'tag': 'buried under', 'window': kBuriedUnder, 'absent': 'buried'},
-        {'tag': 'stays under', 'window': kStaysUnder, 'absent': 'stays'},
-        {'tag': 'rests under', 'window': kRestsUnder, 'absent': 'rests'},
-      ];
-      for (var i = 0; i < cases.length; i++) {
-        final c = cases[i];
-        final tag = c['tag']!;
-        final window = c['window']!;
-        final absent = c['absent']!;
-        final sessionId = 'sess-gistlock-samebeat3-$i';
-        final card = await seedOverflowSession(
+  test('LOCK: leftover-empty only — tucked / lives-under KEEP', () async {
+    const cases = [
+      {
+        'tag': 'two-line lives-under',
+        'window': kFactWindow,
+        'absent': 'lives',
+      },
+      {
+        'tag': 'tucked under',
+        'window': 'Nia: the spare key tucked under the third flowerpot',
+        'absent': 'tucked',
+      },
+      {'tag': 'buried under', 'window': kBuriedUnder, 'absent': 'buried'},
+      {'tag': 'stays under', 'window': kStaysUnder, 'absent': 'stays'},
+      {'tag': 'rests under', 'window': kRestsUnder, 'absent': 'rests'},
+    ];
+    for (var i = 0; i < cases.length; i++) {
+      final c = cases[i];
+      final tag = c['tag']!;
+      final window = c['window']!;
+      final absent = c['absent']!;
+      final sessionId = 'sess-gistlock-samebeat3-$i';
+      final card = await seedOverflowSession(
+        sessionId: sessionId,
+        charDbId: 'char-gistlock-samebeat3-$i',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: Value(sessionId),
+          characterId: Value(card.stableGroupId),
+          content: const Value(kGist),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      memory.retrieveCalls = 0;
+      memory.canned = [
+        RetrievedMemory(
+          content: window,
+          characterId: 'Nia',
           sessionId: sessionId,
-          charDbId: 'char-gistlock-samebeat3-$i',
-          emotion: kEmotion,
-          fixation: kFixation,
-        );
-        await db.insertJournalCard(
-          JournalMemoriesCompanion(
-            sessionId: Value(sessionId),
-            characterId: Value(card.stableGroupId),
-            content: const Value(kGist),
-            category: const Value('about_us'),
-            heat: const Value(0.9),
-          ),
-        );
-        memory.retrieveCalls = 0;
-        memory.canned = [
-          RetrievedMemory(
-            content: window,
-            characterId: 'Nia',
-            sessionId: sessionId,
-            positionStart: 0,
-            positionEnd: 1,
-            score: 0.9,
-          ),
-        ];
-        llm.chatPrompts.clear();
+          positionStart: 0,
+          positionEnd: 1,
+          score: 0.9,
+        ),
+      ];
+      llm.chatPrompts.clear();
 
-        await chat.sendMessage(kSit);
+      await chat.sendMessage(kSit);
 
-        expect(
-          memory.retrieveCalls,
-          greaterThan(0),
-          reason: 'retrieve ran — a skip would fake the cover-drop',
-        );
-        expect(llm.chatPrompts, isNotEmpty);
-        final prompt = llm.chatPrompts.last;
-        expect(
-          prompt,
-          contains(kGist),
-          reason: 'same-beat flowerpot gist must inject',
-        );
-        expect(
-          prompt,
-          isNot(contains(kRagRememberedHeader.trim())),
-          reason:
-              'same-beat: 3 shared distinctive tokens still DROPS. '
-              'Flowerpot gist x $tag must not re-inject the covered window',
-        );
-        expect(
-          prompt,
-          isNot(contains(absent)),
-          reason:
-              'same-beat flowerpot gist x $tag DROPS — "$absent" must '
-              'not reach the prompt',
-        );
-      }
-    },
-  );
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'retrieve ran — a skip would fake the cover-drop',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final prompt = llm.chatPrompts.last;
+      expect(
+        prompt,
+        contains(kGist),
+        reason: 'same-beat flowerpot gist must inject',
+      );
+      expect(prompt, contains(kRagRememberedHeader.trim()));
+      expect(
+        prompt,
+        contains(absent),
+        reason:
+            'leftover-empty only — "$tag" has leftover so KEEP. '
+            '"$absent" must reach the prompt',
+      );
+    }
+  });
 
   test(
     'LOCK: covered lines are stripped — flowerpot gist + swing KEEPS swing',
@@ -2526,7 +2511,7 @@ void main() {
   );
 
   test(
-    'LOCK: leftover kind — burned / lighthouse KEEP; lives hidden DROPS',
+    'LOCK: leftover-empty only — burned / lighthouse / lives hidden KEEP',
     () async {
       Set<String> bodyTokens(String s) =>
           coverContentTokens(s.replaceFirst(RegExp(r'^[^:\n]{1,40}:\s*'), ''));
@@ -2589,7 +2574,7 @@ void main() {
           'card': kGist,
           'window': kLivesHidden,
           'kept': 'hidden',
-          'drop': true,
+          'drop': false,
         },
         {
           'tag': 'that creaked',
@@ -2678,16 +2663,13 @@ void main() {
             prompt,
             isNot(contains(kRagRememberedHeader.trim())),
             reason:
-                'same-beat is leftover-empty or length 5-6 distinctive '
-                'leftover (any slot) — no closed paraphrase/verb list. '
-                '"$tag" must DROP. A verb list of lives/hidden/creaked '
-                'or leftover==1/==2 is fake-green',
+                'leftover-empty only — "$tag" must DROP only if leftover '
+                'is empty. A length band or verb list is fake-green',
           );
           expect(
             prompt,
             isNot(contains(window)),
-            reason:
-                'lives hidden still DROPS — "$window" must not reach the prompt',
+            reason: 'leftover-empty only — "$window" must not reach the prompt',
           );
         } else {
           expect(prompt, contains(kRagRememberedHeader.trim()));
@@ -3011,263 +2993,257 @@ void main() {
     },
   );
 
-  test(
-    'LOCK: leftover kind any slot — suffix hidden DROP; interior burned KEEP; prefix hid KEEP',
-    () async {
-      Set<String> bodyTokens(String s) =>
-          coverContentTokens(s.replaceFirst(RegExp(r'^[^:\n]{1,40}:\s*'), ''));
-      expect(
-        bodyTokens(kSuffixHidden).difference(bodyTokens(kGist)),
-        {'hidden'},
-        reason:
-            'suffix hidden is the 9e61 hole — suffix leftover used to KEEP. '
-            'Length 5-6 distinctive leftover is restatement, any slot',
-      );
-      expect(
-        bodyTokens(kInteriorBurned).difference(bodyTokens(kGist)),
-        {'burned'},
-        reason:
-            'interior burned is the 9e61 hole — interior leftover used to '
-            'DROP. endsWith ned keeps burned as an extra fact, any slot',
-      );
-      expect(
-        bodyTokens(kPrefixHid).difference(bodyTokens(kGist)),
-        {'hid'},
-        reason:
-            'prefix hid is the 9e61 hole — short prefix used to DROP. '
-            'Short leftover is an extra fact, any slot',
-      );
-      expect(
-        bodyTokens(kPrefixHidden).difference(bodyTokens(kGist)),
-        {'hidden'},
-        reason:
-            'prefix hidden is the 9e61 hole — distinctive prefix used to '
-            'KEEP. Length 5-6 distinctive leftover is restatement, any slot',
-      );
+  test('LOCK: leftover-empty only — any leftover KEEP, any slot', () async {
+    Set<String> bodyTokens(String s) =>
+        coverContentTokens(s.replaceFirst(RegExp(r'^[^:\n]{1,40}:\s*'), ''));
+    expect(
+      bodyTokens(kSuffixHidden).difference(bodyTokens(kGist)),
+      {'hidden'},
+      reason:
+          'suffix hidden is the 9e61 hole — suffix leftover used to KEEP. '
+          'Length 5-6 distinctive leftover is restatement, any slot',
+    );
+    expect(
+      bodyTokens(kInteriorBurned).difference(bodyTokens(kGist)),
+      {'burned'},
+      reason:
+          'interior burned is the 9e61 hole — interior leftover used to '
+          'DROP. endsWith ned keeps burned as an extra fact, any slot',
+    );
+    expect(
+      bodyTokens(kPrefixHid).difference(bodyTokens(kGist)),
+      {'hid'},
+      reason:
+          'prefix hid is the 9e61 hole — short prefix used to DROP. '
+          'Short leftover is an extra fact, any slot',
+    );
+    expect(
+      bodyTokens(kPrefixHidden).difference(bodyTokens(kGist)),
+      {'hidden'},
+      reason:
+          'prefix hidden is the 9e61 hole — distinctive prefix used to '
+          'KEEP. Length 5-6 distinctive leftover is restatement, any slot',
+    );
 
-      const cases = [
-        {
-          'tag': 'suffix hidden',
-          'card': kGist,
-          'window': kSuffixHidden,
-          'kept': 'hidden',
-          'drop': true,
-        },
-        {
-          'tag': 'suffix tucked',
-          'card': kGist,
-          'window': kSuffixTucked,
-          'kept': 'tucked',
-          'drop': true,
-        },
-        {
-          'tag': 'suffix buried',
-          'card': kGist,
-          'window': kSuffixBuried,
-          'kept': 'buried',
-          'drop': true,
-        },
-        {
-          'tag': 'suffix stays',
-          'card': kGist,
-          'window': kSuffixStays,
-          'kept': 'stays',
-          'drop': true,
-        },
-        {
-          'tag': 'suffix rests',
-          'card': kGist,
-          'window': kSuffixRests,
-          'kept': 'rests',
-          'drop': true,
-        },
-        {
-          'tag': 'suffix lives',
-          'card': kGist,
-          'window': kSuffixLives,
-          'kept': 'lives',
-          'drop': true,
-        },
-        {
-          'tag': 'suffix lives-hidden',
-          'card': kGist,
-          'window': kSuffixLivesHidden,
-          'kept': 'hidden',
-          'drop': true,
-        },
-        {
-          'tag': 'interior burned',
-          'card': kGist,
-          'window': kInteriorBurned,
-          'kept': 'burned',
-          'drop': false,
-        },
-        {
-          'tag': 'interior lighthouse',
-          'card': kGist,
-          'window': kInteriorLighthouse,
-          'kept': 'lighthouse',
-          'drop': false,
-        },
-        {
-          'tag': 'interior creaked',
-          'card': kGist,
-          'window': kInteriorCreaked,
-          'kept': 'creaked',
-          'drop': false,
-        },
-        {
-          'tag': 'interior died',
-          'card': kGist,
-          'window': kInteriorDied,
-          'kept': 'died',
-          'drop': false,
-        },
-        {
-          'tag': 'interior sat',
-          'card': kGist,
-          'window': kInteriorSat,
-          'kept': 'sat',
-          'drop': false,
-        },
-        {
-          'tag': 'interior fell',
-          'card': kGist,
-          'window': kInteriorFell,
-          'kept': 'fell',
-          'drop': false,
-        },
-        {
-          'tag': 'interior hid',
-          'card': kGist,
-          'window': kInteriorHid,
-          'kept': 'hid',
-          'drop': false,
-        },
-        {
-          'tag': 'prefix hid',
-          'card': kGist,
-          'window': kPrefixHid,
-          'kept': 'hid',
-          'drop': false,
-        },
-        {
-          'tag': 'prefix sat',
-          'card': kGist,
-          'window': kPrefixSat,
-          'kept': 'sat',
-          'drop': false,
-        },
-        {
-          'tag': 'prefix died',
-          'card': kGist,
-          'window': kPrefixDied,
-          'kept': 'died',
-          'drop': false,
-        },
-        {
-          'tag': 'prefix hidden',
-          'card': kGist,
-          'window': kPrefixHidden,
-          'kept': 'hidden',
-          'drop': true,
-        },
-        {
-          'tag': 'prefix tucked',
-          'card': kGist,
-          'window': kPrefixTucked,
-          'kept': 'tucked',
-          'drop': true,
-        },
-        {
-          'tag': 'sat-on-porch',
-          'card': kThePorchSwing,
-          'window': kSatOnPorch,
-          'kept': 'sat',
-          'drop': false,
-        },
-      ];
-      for (var i = 0; i < cases.length; i++) {
-        final c = cases[i];
-        final tag = c['tag']! as String;
-        final cardText = c['card']! as String;
-        final window = c['window']! as String;
-        final kept = c['kept']! as String;
-        final drop = c['drop']! as bool;
-        final sessionId = 'sess-gistlock-anyslot-$i';
-        final card = await seedOverflowSession(
+    const cases = [
+      {
+        'tag': 'suffix hidden',
+        'card': kGist,
+        'window': kSuffixHidden,
+        'kept': 'hidden',
+        'drop': false,
+      },
+      {
+        'tag': 'suffix tucked',
+        'card': kGist,
+        'window': kSuffixTucked,
+        'kept': 'tucked',
+        'drop': false,
+      },
+      {
+        'tag': 'suffix buried',
+        'card': kGist,
+        'window': kSuffixBuried,
+        'kept': 'buried',
+        'drop': false,
+      },
+      {
+        'tag': 'suffix stays',
+        'card': kGist,
+        'window': kSuffixStays,
+        'kept': 'stays',
+        'drop': false,
+      },
+      {
+        'tag': 'suffix rests',
+        'card': kGist,
+        'window': kSuffixRests,
+        'kept': 'rests',
+        'drop': false,
+      },
+      {
+        'tag': 'suffix lives',
+        'card': kGist,
+        'window': kSuffixLives,
+        'kept': 'lives',
+        'drop': false,
+      },
+      {
+        'tag': 'suffix lives-hidden',
+        'card': kGist,
+        'window': kSuffixLivesHidden,
+        'kept': 'hidden',
+        'drop': false,
+      },
+      {
+        'tag': 'interior burned',
+        'card': kGist,
+        'window': kInteriorBurned,
+        'kept': 'burned',
+        'drop': false,
+      },
+      {
+        'tag': 'interior lighthouse',
+        'card': kGist,
+        'window': kInteriorLighthouse,
+        'kept': 'lighthouse',
+        'drop': false,
+      },
+      {
+        'tag': 'interior creaked',
+        'card': kGist,
+        'window': kInteriorCreaked,
+        'kept': 'creaked',
+        'drop': false,
+      },
+      {
+        'tag': 'interior died',
+        'card': kGist,
+        'window': kInteriorDied,
+        'kept': 'died',
+        'drop': false,
+      },
+      {
+        'tag': 'interior sat',
+        'card': kGist,
+        'window': kInteriorSat,
+        'kept': 'sat',
+        'drop': false,
+      },
+      {
+        'tag': 'interior fell',
+        'card': kGist,
+        'window': kInteriorFell,
+        'kept': 'fell',
+        'drop': false,
+      },
+      {
+        'tag': 'interior hid',
+        'card': kGist,
+        'window': kInteriorHid,
+        'kept': 'hid',
+        'drop': false,
+      },
+      {
+        'tag': 'prefix hid',
+        'card': kGist,
+        'window': kPrefixHid,
+        'kept': 'hid',
+        'drop': false,
+      },
+      {
+        'tag': 'prefix sat',
+        'card': kGist,
+        'window': kPrefixSat,
+        'kept': 'sat',
+        'drop': false,
+      },
+      {
+        'tag': 'prefix died',
+        'card': kGist,
+        'window': kPrefixDied,
+        'kept': 'died',
+        'drop': false,
+      },
+      {
+        'tag': 'prefix hidden',
+        'card': kGist,
+        'window': kPrefixHidden,
+        'kept': 'hidden',
+        'drop': false,
+      },
+      {
+        'tag': 'prefix tucked',
+        'card': kGist,
+        'window': kPrefixTucked,
+        'kept': 'tucked',
+        'drop': false,
+      },
+      {
+        'tag': 'sat-on-porch',
+        'card': kThePorchSwing,
+        'window': kSatOnPorch,
+        'kept': 'sat',
+        'drop': false,
+      },
+    ];
+    for (var i = 0; i < cases.length; i++) {
+      final c = cases[i];
+      final tag = c['tag']! as String;
+      final cardText = c['card']! as String;
+      final window = c['window']! as String;
+      final kept = c['kept']! as String;
+      final drop = c['drop']! as bool;
+      final sessionId = 'sess-gistlock-anyslot-$i';
+      final card = await seedOverflowSession(
+        sessionId: sessionId,
+        charDbId: 'char-gistlock-anyslot-$i',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: Value(sessionId),
+          characterId: Value(card.stableGroupId),
+          content: Value(cardText),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      memory.retrieveCalls = 0;
+      memory.canned = [
+        RetrievedMemory(
+          content: window,
+          characterId: 'Nia',
           sessionId: sessionId,
-          charDbId: 'char-gistlock-anyslot-$i',
-          emotion: kEmotion,
-          fixation: kFixation,
-        );
-        await db.insertJournalCard(
-          JournalMemoriesCompanion(
-            sessionId: Value(sessionId),
-            characterId: Value(card.stableGroupId),
-            content: Value(cardText),
-            category: const Value('about_us'),
-            heat: const Value(0.9),
-          ),
-        );
-        memory.retrieveCalls = 0;
-        memory.canned = [
-          RetrievedMemory(
-            content: window,
-            characterId: 'Nia',
-            sessionId: sessionId,
-            positionStart: 0,
-            positionEnd: 0,
-            score: 0.9,
-          ),
-        ];
-        llm.chatPrompts.clear();
+          positionStart: 0,
+          positionEnd: 0,
+          score: 0.9,
+        ),
+      ];
+      llm.chatPrompts.clear();
 
-        await chat.sendMessage(kSit);
+      await chat.sendMessage(kSit);
 
-        expect(
-          memory.retrieveCalls,
-          greaterThan(0),
-          reason:
-              'cues are present — retrieve must run so leftover kind is real',
-        );
-        expect(llm.chatPrompts, isNotEmpty);
-        final prompt = llm.chatPrompts.last;
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'cues are present — retrieve must run so leftover kind is real',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final prompt = llm.chatPrompts.last;
+      expect(
+        prompt,
+        contains(cardText),
+        reason:
+            'the "$cardText" card must inject or leftover kind was '
+            'never tested',
+      );
+      if (drop) {
         expect(
           prompt,
-          contains(cardText),
+          isNot(contains(kRagRememberedHeader.trim())),
           reason:
-              'the "$cardText" card must inject or leftover kind was '
-              'never tested',
+              'leftover-empty only — "$tag" must DROP only if leftover '
+              'is empty. A length band or verb list is fake-green',
         );
-        if (drop) {
-          expect(
-            prompt,
-            isNot(contains(kRagRememberedHeader.trim())),
-            reason:
-                'position is not kind — length 5-6 distinctive leftover '
-                'is restatement in any slot. "$tag" must DROP. A suffix-KEEP '
-                'or prefix-KEEP rule, or a hidden/tucked verb list, is '
-                'fake-green',
-          );
-          expect(
-            prompt,
-            isNot(contains(window)),
-            reason: '"$tag" still DROPS — "$window" must not reach the prompt',
-          );
-        } else {
-          expect(prompt, contains(kRagRememberedHeader.trim()));
-          expect(
-            prompt,
-            contains(kept),
-            reason:
-                'position is not kind — short leftover and long distinctive '
-                'leftover are extra facts in any slot. "$tag" must KEEP '
-                '"$kept". Interior-DROP, short-prefix-DROP, or sat-on-porch '
-                'DROP goes red here',
-          );
-        }
+        expect(
+          prompt,
+          isNot(contains(window)),
+          reason: '"$tag" still DROPS — "$window" must not reach the prompt',
+        );
+      } else {
+        expect(prompt, contains(kRagRememberedHeader.trim()));
+        expect(
+          prompt,
+          contains(kept),
+          reason:
+              'position is not kind — short leftover and long distinctive '
+              'leftover are extra facts in any slot. "$tag" must KEEP '
+              '"$kept". Interior-DROP, short-prefix-DROP, or sat-on-porch '
+              'DROP goes red here',
+        );
       }
-    },
-  );
+    }
+  });
 }

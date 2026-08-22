@@ -412,12 +412,6 @@ List<String> _coverWords(String s) {
   return line.split(' ');
 }
 
-bool _isExtraFactLeftover(String w) {
-  if (!_isDistinctive(w)) return true;
-  if (w.length >= 7) return true;
-  return w.endsWith('ned');
-}
-
 bool _lineCovers(List<String> card, List<String> window) {
   if (card.isEmpty || window.isEmpty) return false;
   if (!card.any(_isDistinctive)) return false;
@@ -432,10 +426,8 @@ bool _lineCovers(List<String> card, List<String> window) {
   };
   final leftover = window.toSet().difference(card.toSet());
   final distinctiveLeftover = longD.difference(shortD);
-  if (leftover.isEmpty && distinctiveLeftover.isEmpty) return true;
-  // Kind, not position. Short leftover and long distinctive leftover
-  // are extra facts. Length 5-6 distinctive leftover is restatement.
-  return leftover.isNotEmpty && leftover.every((w) => !_isExtraFactLeftover(w));
+  // Joe lock: DROP only when leftover is empty. Anything with leftover KEEP.
+  return leftover.isEmpty && distinctiveLeftover.isEmpty;
 }
 
 bool _nearCover(String card, String window) {

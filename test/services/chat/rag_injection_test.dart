@@ -575,10 +575,12 @@ void main() {
         sessionId: 's1',
         pos: 7,
       );
+      final keptBoth = dropCoveredRagWindows([both], [gist]);
+      expect(keptBoth, hasLength(1));
       expect(
-        dropCoveredRagWindows([both], [gist]),
-        isEmpty,
-        reason: 'same-beat two-line flowerpot window still drops',
+        keptBoth.first.content,
+        contains('lives'),
+        reason: 'lives is leftover — leftover-empty only, so this line KEEPS',
       );
     });
 
@@ -661,8 +663,8 @@ void main() {
       );
       expect(
         dropCoveredRagWindows([hidden], [gist]),
-        isEmpty,
-        reason: 'lives hidden is same-beat paraphrase, not leftover==2',
+        isNot(isEmpty),
+        reason: 'lives hidden has leftover — leftover-empty only, so KEEP',
       );
       final gapped = _mem(
         'Nia: the porch swing creaked tonight\n'
@@ -712,8 +714,8 @@ void main() {
         );
         expect(
           dropCoveredRagWindows([m], [gist]),
-          isEmpty,
-          reason: '"$verb under the third flowerpot" is interior same-beat',
+          isNot(isEmpty),
+          reason: '"$verb under" has leftover — leftover-empty only, so KEEP',
         );
       }
       final potCreaked = _mem(
@@ -756,8 +758,8 @@ void main() {
         );
         expect(
           dropCoveredRagWindows([suffix], [gist]),
-          isEmpty,
-          reason: '$verb as suffix is still same-beat restatement',
+          isNot(isEmpty),
+          reason: '$verb as suffix has leftover — leftover-empty only, so KEEP',
         );
       }
       expect(
@@ -771,8 +773,9 @@ void main() {
           ],
           [gist],
         ),
-        isEmpty,
-        reason: 'lives hidden as suffix is still same-beat',
+        isNot(isEmpty),
+        reason:
+            'lives hidden as suffix has leftover — leftover-empty only, so KEEP',
       );
       for (final extra in [
         'burned',
@@ -810,8 +813,8 @@ void main() {
         );
         expect(
           dropCoveredRagWindows([prefix], [gist]),
-          isEmpty,
-          reason: '$verb as prefix is still same-beat restatement',
+          isNot(isEmpty),
+          reason: '$verb as prefix has leftover — leftover-empty only, so KEEP',
         );
       }
     });

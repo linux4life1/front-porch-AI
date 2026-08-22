@@ -855,8 +855,8 @@ void main() {
           ],
           [gist],
         ),
-        isEmpty,
-        reason: 'lives hidden is same-beat paraphrase',
+        isNot(isEmpty),
+        reason: 'lives hidden has leftover — leftover-empty only, so KEEP',
       );
       final gapKept = dropCoveredRagWindows(
         [
@@ -891,8 +891,8 @@ void main() {
             ],
             [gist],
           ),
-          isEmpty,
-          reason: '"$verb under" is interior same-beat',
+          isNot(isEmpty),
+          reason: '"$verb under" has leftover — leftover-empty only, so KEEP',
         );
       }
       expect(
