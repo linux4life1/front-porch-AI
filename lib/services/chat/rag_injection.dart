@@ -291,13 +291,36 @@ const _kCoverFiller = {
   'afternoon',
   'yesterday',
   'tomorrow',
+  'porch',
+  'yard',
+  'lawn',
+  'deck',
+  'stoop',
+  'steps',
+  'patio',
+  'walk',
+  'path',
+  'my',
+  'your',
+  'on',
 };
 
 /// Any token immediately before a place noun is ONE token
-/// (screened porch, wraparound deck) so {screened, porch} is not cover.
-/// Articles stay articles — "the porch" does not become theporch.
-final _kPlaceNounCompound = RegExp(r'\b(\w+)\s+(porch|yard|lawn|deck|stoop)\b');
-const _kNoFoldBeforePlace = {'the', 'a', 'an'};
+/// (screened porch, wraparound deck). Particles stay particles.
+/// Setting nouns are cover filler, so front steps is not a new list.
+final _kPlaceNounCompound = RegExp(
+  r'\b(\w+)\s+(porch|yard|lawn|deck|stoop)\b',
+);
+const _kNoFoldBeforePlace = {
+  'the',
+  'a',
+  'an',
+  'this',
+  'my',
+  'our',
+  'your',
+  'on',
+};
 
 String _foldPlaceCompounds(String s) =>
     s.toLowerCase().replaceAllMapped(_kPlaceNounCompound, (m) {
@@ -310,8 +333,8 @@ Set<String> coverContentTokens(String s) =>
     itemNameTokens(_foldPlaceCompounds(s)).difference(_kCoverFiller);
 
 /// Drop RAG windows a THIS-BEAT injected journal gist already covers
-/// (shared content tokens ≥ 2). One shared place/noun (porch, spare) is
-/// not cover. Empty [journalCardContents] means Journal is off or no
+/// (shared content tokens ≥ 2). Setting nouns and this/my/our/your/on
+/// are filler, like tonight. Empty [journalCardContents] means Journal is off or no
 /// gist injected — do not cover-drop. Not uniqueness-by-shape.
 List<RetrievedMemory> dropCoveredRagWindows(
   List<RetrievedMemory> memories,
