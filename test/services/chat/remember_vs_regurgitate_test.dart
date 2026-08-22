@@ -637,6 +637,24 @@ void main() {
       ], reason: 'one shared place/noun (porch) is not cover');
     });
 
+    test('HOLD lock: front-porch compound is not cover', () {
+      final swing = _mem('Nia: the front porch swing creaked tonight', pos: 2);
+      expect(
+        dropCoveredRagWindows(
+          [swing],
+          ['I felt safe on the front porch tonight'],
+        ),
+        [swing],
+        reason: 'shared place-compound is not cover',
+      );
+      final fact = _mem(kFactLine, pos: 1);
+      expect(
+        dropCoveredRagWindows([fact], [kJournalGist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD leftover: porch+tonight is setting+time, not cover', () {
       final swing = _mem('Nia: the porch swing creaked tonight', pos: 2);
       expect(coverContentTokens(kPorchFeeling).contains('tonight'), isFalse);
@@ -982,6 +1000,26 @@ void main() {
         reason:
             'HOLD leftover: expand/quote-ask use last spoken line, not captions',
       );
+      final journalCall = blocks.indexOf(
+        '_journalInjection.buildJournalBlock(',
+      );
+      expect(journalCall, greaterThanOrEqualTo(0));
+      final journalSlice = blocks.substring(
+        journalCall,
+        (journalCall + 900).clamp(0, blocks.length),
+      );
+      expect(
+        journalSlice.contains(
+          'lastWords: lastSpokenLineFromMessages(_messages)',
+        ),
+        isTrue,
+        reason: 'HOLD lock 3: journal expand uses lastSpoken, never lastWords',
+      );
+      expect(
+        journalSlice.contains('lastWordsFromMessages'),
+        isFalse,
+        reason: 'HOLD lock 3: captions must not ride journal lastWords',
+      );
       final gate = blocks.indexOf(
         'if (_storageService.memorySettings.journalEnabled',
       );
@@ -1003,6 +1041,37 @@ void main() {
       expect(rag.contains('shouldRetrieveRag('), isTrue);
       expect(rag.contains('Skipping memory retrieval — cue-less beat'), isTrue);
     });
+
+    test(
+      'HOLD lock 3: caption lastWords would expand; lastSpoken sit does not',
+      () async {
+        await plantGistCard();
+        final msgs = [
+          ChatMessage(
+            text: 'look',
+            sender: 'You',
+            isUser: true,
+            metadata: {
+              'is_user_image': true,
+              'image_caption': 'remember our beach day',
+            },
+          ),
+          ChatMessage(text: kLastUser, sender: 'You', isUser: true),
+        ];
+        expect(isReachingForQuote(lastWordsFromMessages(msgs)), isTrue);
+        expect(isReachingForQuote(lastSpokenLineFromMessages(msgs)), isFalse);
+        final result = await injection().buildJournalBlock(
+          characterId: kChar,
+          characterName: 'Nia',
+          userName: 'You',
+          queryText: cuedQuery(),
+          lastWords: lastSpokenLineFromMessages(msgs),
+          messageCount: messages.length,
+        );
+        expect(result.expandedPositions, isEmpty);
+        expect(result.text, isNot(contains('exact words')));
+      },
+    );
 
     test(
       'HOLD r2: diary remember-when in remembered: does not expand sit-down',

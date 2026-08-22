@@ -293,8 +293,24 @@ const _kCoverFiller = {
   'tomorrow',
 };
 
+/// Place compounds count as ONE token so {front, porch} is not cover.
+const _kPlaceCompounds = [
+  'front porch',
+  'back porch',
+  'front yard',
+  'back yard',
+];
+
+String _foldPlaceCompounds(String s) {
+  var out = s.toLowerCase();
+  for (final phrase in _kPlaceCompounds) {
+    out = out.replaceAll(phrase, phrase.replaceAll(' ', ''));
+  }
+  return out;
+}
+
 Set<String> coverContentTokens(String s) =>
-    itemNameTokens(s).difference(_kCoverFiller);
+    itemNameTokens(_foldPlaceCompounds(s)).difference(_kCoverFiller);
 
 /// Drop RAG windows a THIS-BEAT injected journal gist already covers
 /// (shared content tokens ≥ 2). One shared place/noun (porch, spare) is
@@ -368,13 +384,17 @@ String rememberedLineFromWindow(String content) {
       if (raw.trim().isNotEmpty) raw.trim(),
   ];
   if (lines.isEmpty) return content.trim();
-  if (lines.length == 1) return lines.first;
   String body(String line) {
     final m = RegExp(r'^[^:\n]{1,40}:\s+(.*)').firstMatch(line);
     return (m != null ? m.group(1)! : line).trim();
   }
 
+  if (lines.length == 1) {
+    final one = body(lines.first);
+    return one.isEmpty ? lines.first : one;
+  }
   final bodies = [for (final l in lines) body(l)].where((b) => b.isNotEmpty);
+  if (bodies.isEmpty) return lines.first;
   return bodies.reduce(
     (a, b) =>
         coverContentTokens(b).length > coverContentTokens(a).length ? b : a,

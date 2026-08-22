@@ -408,6 +408,24 @@ void main() {
       },
     );
 
+    test('HOLD lock: front-porch compound is not cover', () {
+      final swing = _mem(
+        'Nia: the front porch swing creaked tonight',
+        sessionId: 's1',
+        pos: 2,
+      );
+      final feeling = 'I felt safe on the front porch tonight';
+      expect(
+        coverContentTokens(
+          feeling,
+        ).intersection(coverContentTokens(swing.content)),
+        {'frontporch'},
+      );
+      expect(dropCoveredRagWindows([swing], [feeling]), [
+        swing,
+      ], reason: 'shared place-compound {front, porch} is not cover');
+    });
+
     test('HOLD r2: porch feeling does not eat a porch-swing fact', () {
       final swing = _mem(
         'Nia: the porch swing creaked',
@@ -533,7 +551,8 @@ void main() {
           reachingForQuote: false,
         );
         expect(block, contains(kRagRememberedHeader.trim()));
-        expect(block, contains('- (Day 1) Nia: the swing creaked'));
+        expect(block, contains('- (Day 1) the swing creaked'));
+        expect(block, isNot(contains('Nia:')));
         expect(block, isNot(contains('Exact earlier lines')));
       },
     );
@@ -593,6 +612,29 @@ void main() {
         expect(line, contains('spare key'));
       },
     );
+
+    test('HOLD lock: single-line window strips the speaker prefix too', () {
+      expect(
+        rememberedLineFromWindow('Nia: the swing creaked'),
+        'the swing creaked',
+      );
+      final m = _mem('Nia: the swing creaked', sessionId: 's1', pos: 2);
+      final block = buildRagMemoriesBlock(
+        memories: [m],
+        currentSessionId: 's1',
+        days: {m: 1},
+        reachingForQuote: false,
+      );
+      expect(block, contains('- (Day 1) the swing creaked'));
+      expect(block, isNot(contains('Nia:')));
+      final quoted = buildRagMemoriesBlock(
+        memories: [m],
+        currentSessionId: 's1',
+        days: {m: 2},
+        reachingForQuote: true,
+      );
+      expect(quoted, contains('Nia: the swing creaked'));
+    });
 
     test('quote-reach uses the quote header; day stamp stays display-only', () {
       final m = _mem(

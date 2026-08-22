@@ -314,7 +314,7 @@ extension ChatServiceGenerationBlocks on ChatService {
         emotion: _characterEmotion,
         fixation: _relationshipService.activeFixation,
         hotJournalLine: t.ragHotJournalLine,
-        lastWords: lastSpokenLineFromMessages(_messages),
+        lastWords: lastWordsFromMessages(_messages),
       );
     }
 
@@ -336,7 +336,7 @@ extension ChatServiceGenerationBlocks on ChatService {
         // not the last-3 live lines. promptText still rides lastWords so
         // photo captions reach cold-resurface the way they reach RAG.
         queryText: t.ragQuery,
-        lastWords: lastWordsFromMessages(_messages),
+        lastWords: lastSpokenLineFromMessages(_messages),
         messageCount: _messages.length,
       );
       t.journalBlock = journal.text;
