@@ -223,6 +223,10 @@ const kGistThatCreaked =
 const kGistPlusSwing =
     'Nia: I still think about the spare key under the third flowerpot\n'
     'Nia: the swing creaked';
+const kFlowerpotAndSwing =
+    'Nia: the spare key under the third flowerpot and the swing creaked';
+const kKeyboardOnFlowerpot =
+    'Nia: the spare keyboard sits on the third flowerpot';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -2097,6 +2101,254 @@ void main() {
         reason:
             'the covered flowerpot line is stripped — the raw two-line '
             'span must not reach the prompt',
+      );
+    },
+  );
+
+  test(
+    'LOCK: two leftover words STAY — swing creaked / spare keyboard',
+    () async {
+      Set<String> distinctive(String s) => {
+        for (final w in coverContentTokens(s))
+          if (w.length >= 5 &&
+              !const {
+                'felt',
+                'safe',
+                'still',
+                'think',
+                'about',
+                'remember',
+              }.contains(w))
+            w,
+      };
+      expect(
+        distinctive(kGist).intersection(distinctive(kFlowerpotAndSwing)).length,
+        greaterThanOrEqualTo(3),
+        reason:
+            '3 shared distinctive tokens is the shortcut hole — that '
+            'match is not a green. Leftover count 2 (swing + creaked) '
+            'must KEEP',
+      );
+      expect(
+        distinctive(
+          kGist,
+        ).intersection(distinctive(kKeyboardOnFlowerpot)).length,
+        greaterThanOrEqualTo(3),
+        reason:
+            'spare+third+flowerpot is the 3-token shortcut hole — key '
+            'is not keyboard. That intersection is not a green',
+      );
+      expect(
+        'keyboard'.contains('key'),
+        isTrue,
+        reason:
+            'raw contains() of key inside keyboard is the other hole — '
+            'that match is not a green',
+      );
+
+      const cases = [
+        {
+          'tag': 'flowerpot and the swing creaked',
+          'window': kFlowerpotAndSwing,
+          'kept': 'swing',
+        },
+        {
+          'tag': 'spare keyboard sits on the third flowerpot',
+          'window': kKeyboardOnFlowerpot,
+          'kept': 'keyboard',
+        },
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']!;
+        final window = c['window']!;
+        final kept = c['kept']!;
+        final sessionId = 'sess-gistlock-twoleftover-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-twoleftover-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: const Value(kGist),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: window,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 0,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+
+        await chat.sendMessage(kSit);
+
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason:
+              'cues are present — retrieve must run so leftover KEEP is real',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(kGist),
+          reason:
+              'the flowerpot gist must inject or leftover KEEP was never tested',
+        );
+        expect(prompt, contains(kRagRememberedHeader.trim()));
+        expect(
+          prompt,
+          contains(kept),
+          reason:
+              'same-beat is leftover count 1, not a 3-distinctive shortcut. '
+              'Two leftover words STAY — "$tag" must KEEP "$kept". '
+              'Reverting to intersection>=3 drops this extra fact.',
+        );
+      }
+    },
+  );
+
+  test(
+    'LOCK: stripped span remaps pos — receipt skips the flowerpot line',
+    () async {
+      const sessionId = 'sess-gistlock-remap';
+      const flowerpotPos = 2;
+      const swingPos = 3;
+      final card = await seedOverflowSession(
+        sessionId: sessionId,
+        charDbId: 'char-gistlock-remap',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: const Value(sessionId),
+          characterId: Value(card.stableGroupId),
+          content: const Value(kGist),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      final canned = RetrievedMemory(
+        content: kGistPlusSwing,
+        characterId: 'Nia',
+        sessionId: sessionId,
+        positionStart: flowerpotPos,
+        positionEnd: swingPos,
+        score: 0.9,
+      );
+      memory.canned = [canned];
+
+      final remapped = dropCoveredRagWindows([canned], [kGist]);
+      expect(remapped, hasLength(1));
+      expect(
+        remapped.first.positionStart,
+        swingPos,
+        reason:
+            'span 2–3 matches the two-line window — kept swing remaps '
+            'onto pos 3, not the stripped flowerpot pos 2',
+      );
+      expect(remapped.first.positionEnd, swingPos);
+      expect(remapped.first.content, contains(kSwingBody));
+      expect(remapped.first.content, isNot(contains('flowerpot')));
+      expect(
+        RetrievedMemory.excludingPositions(remapped, {
+          flowerpotPos,
+        }, currentSessionId: sessionId),
+        hasLength(1),
+        reason:
+            'receipt / excludingPositions no longer treat the removed '
+            'flowerpot pos as this retrieval',
+      );
+      expect(
+        RetrievedMemory.excludingPositions(
+          [canned],
+          {flowerpotPos},
+          currentSessionId: sessionId,
+        ),
+        isEmpty,
+        reason:
+            'the unstripped 2–3 span still overlaps the flowerpot line — '
+            'remap is what keeps the swing',
+      );
+      final receiptFromRemap = buildRagReceipt(
+        found: 1,
+        journalDeduped: 0,
+        budgetTrimmed: 0,
+        injected: remapped,
+        days: {remapped.first: null},
+        currentSessionId: sessionId,
+      );
+      expect(
+        ((receiptFromRemap['injected'] as List).single as Map)['pos'],
+        swingPos,
+        reason: 'receipt pos is the remapped swing line, not flowerpot pos 2',
+      );
+
+      await chat.sendMessage(kSit);
+
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'cues are present — retrieve must run so remap is real',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final prompt = llm.chatPrompts.last;
+      expect(
+        prompt,
+        contains(kGist),
+        reason: 'the flowerpot gist must inject or remap was never tested',
+      );
+      expect(
+        prompt,
+        contains(kRagRememberedHeader.trim()),
+        reason: 'the swing line must still inject as a remembered fact',
+      );
+      expect(prompt, contains(kSwingBody));
+      expect(prompt, isNot(contains(kGistPlusSwing)));
+
+      final receipt = chat.lastRagReceipt;
+      expect(
+        receipt,
+        isNotNull,
+        reason: 'a kept swing line must stamp a receipt on the god path',
+      );
+      final injected = receipt!['injected'] as List;
+      expect(injected, isNotEmpty);
+      final row = injected.first as Map;
+      expect(
+        row['pos'],
+        swingPos,
+        reason:
+            'god-path receipt must report the remapped swing pos — the '
+            'removed flowerpot pos is no longer this retrieval',
+      );
+      expect(
+        row['pos'],
+        isNot(equals(flowerpotPos)),
+        reason: 'unstripped pos 2 on the receipt is the regression',
+      );
+      final preview = row['preview'] as String;
+      expect(preview, contains('swing'));
+      expect(
+        preview,
+        isNot(contains('flowerpot')),
+        reason:
+            'receipt preview is the kept swing line, not the stripped '
+            'flowerpot span',
       );
     },
   );
