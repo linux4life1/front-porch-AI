@@ -1134,7 +1134,7 @@ void main() {
     },
   );
 
-  test('LOCK: cover-drop is near-substring, not leftover 2-token overlap', () {
+  test('LOCK: cover-drop is whole-token subset plus a distinctive word', () {
     final src = File('lib/services/chat/rag_injection.dart').readAsStringSync();
     final dropAt = src.indexOf('List<RetrievedMemory> dropCoveredRagWindows');
     expect(
@@ -1159,10 +1159,17 @@ void main() {
     );
     expect(
       nearSlice.contains('longer.contains(shorter)'),
+      isFalse,
+      reason:
+          'unanchored contains() is the key⊂keyboard hole — cover is '
+          'whole-token subset plus a distinctive word',
+    );
+    expect(
+      src.contains('_kJournalBoilerplate') && src.contains('containsAll'),
       isTrue,
       reason:
-          'cover is a near-substring — longer.contains(shorter) after '
-          'normalize. A leftover-token intersection is not this lock.',
+          'shorter must have a distinctive token (length ≥ 5, not '
+          'felt/safe/still/think/about/remember) and be a whole-token subset',
     );
     expect(
       nearSlice.contains('.intersection('),

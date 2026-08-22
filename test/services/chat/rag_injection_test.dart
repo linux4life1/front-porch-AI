@@ -483,6 +483,13 @@ void main() {
           (coveredAt + 280).clamp(0, src.length),
         );
         expect(src.contains('bool _nearCover('), isTrue);
+        expect(src.contains('_kJournalBoilerplate'), isTrue);
+        expect(src.contains('containsAll'), isTrue);
+        expect(
+          src.contains('longer.contains(shorter)'),
+          isFalse,
+          reason: 'unanchored contains() is the key-inside-keyboard hole',
+        );
         expect(
           coveredSlice.contains('.intersection('),
           isFalse,
@@ -505,6 +512,46 @@ void main() {
         }
       },
     );
+
+    test('HOLD hole: whole tokens + distinctive — key is not keyboard', () {
+      final keyboard = _mem(
+        'Nia: I still think about the spare keyboard in the attic',
+        sessionId: 's1',
+        pos: 2,
+      );
+      expect(
+        dropCoveredRagWindows(
+          [keyboard],
+          ['I still think about the spare key'],
+        ),
+        [keyboard],
+        reason: 'key is not inside keyboard — whole tokens only',
+      );
+      final gardenKey = _mem(
+        'Nia: I felt safe on the front garden until the spare key went missing',
+        sessionId: 's1',
+        pos: 3,
+      );
+      expect(dropCoveredRagWindows([gardenKey], ['I felt safe tonight']), [
+        gardenKey,
+      ], reason: 'mood-only felt/safe must not cover a longer beat');
+      final flower = _mem(
+        'Nia: I still think about the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 1,
+      );
+      expect(dropCoveredRagWindows([flower], ['I still think about it']), [
+        flower,
+      ], reason: 'still/think boilerplate must not eat the flowerpot window');
+      expect(
+        dropCoveredRagWindows(
+          [flower],
+          ['I still think about the spare key under the third flowerpot'],
+        ),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
 
     test('HOLD hole: garden/balcony/driveway + his/her are not a new list', () {
       for (final phrase in ['front garden', 'back balcony', 'side driveway']) {

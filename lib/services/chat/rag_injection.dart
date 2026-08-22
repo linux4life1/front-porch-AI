@@ -390,21 +390,41 @@ String _normalizeCoverLine(String s) {
   return kept.join(' ');
 }
 
+/// Journal-mood leftovers. Length ≥ 5 is not enough if the word is one
+/// of these — "felt safe" / "still think" must not cover a longer beat.
+const _kJournalBoilerplate = {
+  'felt',
+  'safe',
+  'still',
+  'think',
+  'about',
+  'remember',
+};
+
+bool _isDistinctive(String w) =>
+    w.length >= 5 && !_kJournalBoilerplate.contains(w);
+
+List<String> _coverWords(String s) {
+  final line = _normalizeCoverLine(s);
+  if (line.isEmpty) return const [];
+  return line.split(' ');
+}
+
 bool _nearCover(String card, String window) {
-  final a = _normalizeCoverLine(card);
-  final b = _normalizeCoverLine(window);
+  final a = _coverWords(card);
+  final b = _coverWords(window);
   if (a.isEmpty || b.isEmpty) return false;
   final shorter = a.length <= b.length ? a : b;
   final longer = a.length <= b.length ? b : a;
-  if (shorter.split(' ').length < 2) return false;
-  return longer.contains(shorter);
+  if (!shorter.any(_isDistinctive)) return false;
+  return longer.toSet().containsAll(shorter);
 }
 
 /// Drop RAG windows a THIS-BEAT injected journal gist already covers.
 /// Receipt/position overlap is excludingPositions at the call site.
-/// Content cover is a near-substring of the normalized card and window,
-/// not leftover 2-token overlap. Empty [journalCardContents] means
-/// Journal is off or no gist injected — do not cover-drop.
+/// Content cover is whole-token subset plus a distinctive word
+/// (length ≥ 5, not journal boilerplate). key is not inside keyboard.
+/// Empty [journalCardContents] means Journal is off or no gist.
 List<RetrievedMemory> dropCoveredRagWindows(
   List<RetrievedMemory> memories,
   Iterable<String> journalCardContents,

@@ -736,6 +736,48 @@ void main() {
       },
     );
 
+    test('HOLD hole: whole tokens + distinctive — key is not keyboard', () {
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: I still think about the spare keyboard in the attic',
+              pos: 2,
+            ),
+          ],
+          ['I still think about the spare key'],
+        ),
+        isNot(isEmpty),
+        reason: 'key is not inside keyboard',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: I felt safe on the front garden until the spare key went missing',
+              pos: 3,
+            ),
+          ],
+          ['I felt safe tonight'],
+        ),
+        isNot(isEmpty),
+        reason: 'mood-only felt/safe must not cover',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [_mem(kFactLine, pos: 1)],
+          ['I still think about it'],
+        ),
+        isNot(isEmpty),
+        reason: 'still/think must not eat the flowerpot window',
+      );
+      expect(
+        dropCoveredRagWindows([_mem(kFactLine, pos: 1)], [kJournalGist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD hole: garden/balcony/driveway + his/her are not a new list', () {
       for (final phrase in ['front garden', 'back balcony', 'side driveway']) {
         final feeling = 'I felt safe on the $phrase tonight';
