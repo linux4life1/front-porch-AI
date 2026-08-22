@@ -384,7 +384,8 @@ String _normalizeCoverLine(String s) {
     for (final w in t.split(_kSpaces))
       if (w.isNotEmpty &&
           !_kFunctionWords.contains(w) &&
-          !_kTimeFiller.contains(w))
+          !_kTimeFiller.contains(w) &&
+          !_kJournalBoilerplate.contains(w))
         w,
   ];
   return kept.join(' ');
@@ -414,6 +415,8 @@ bool _lineCovers(List<String> a, List<String> b) {
   if (a.isEmpty || b.isEmpty) return false;
   final shorter = a.length <= b.length ? a : b;
   final longer = a.length <= b.length ? b : a;
+  if (!shorter.any(_isDistinctive)) return false;
+  if (!longer.toSet().containsAll(shorter)) return false;
   final shortD = {
     for (final w in shorter)
       if (_isDistinctive(w)) w,
@@ -422,15 +425,13 @@ bool _lineCovers(List<String> a, List<String> b) {
     for (final w in longer)
       if (_isDistinctive(w)) w,
   };
-  final distinctiveLeftover = longD.difference(shortD);
-  // Same-beat gist: three shared distinctive tokens. Extra words
-  // (creaked, lives) do not re-inject the flowerpot fact.
-  if (shortD.intersection(longD).length >= 3) return true;
-  if (!shorter.any(_isDistinctive)) return false;
-  if (!longer.toSet().containsAll(shorter)) return false;
   final leftover = longer.toSet().difference(shorter.toSet());
-  // Stem leftover: died/gone/fell/hid/ran count even when length < 5.
-  return leftover.isEmpty && distinctiveLeftover.isEmpty;
+  final distinctiveLeftover = longD.difference(shortD);
+  if (leftover.isEmpty && distinctiveLeftover.isEmpty) return true;
+  // One leftover word on a complete gist is same-beat paraphrase
+  // (that creaked, lives). Two leftover words are an extra fact
+  // (swing creaked). key is not keyboard. A stem does not cover died.
+  return leftover.length == 1 && shortD.length >= 3;
 }
 
 bool _nearCover(String card, String window) {
@@ -482,21 +483,27 @@ RetrievedMemory? _uncoveredMemory(RetrievedMemory m, List<String> cards) {
       if (raw.trim().isNotEmpty) raw,
   ];
   if (lines.isEmpty) return m;
-  final kept = [
-    for (final line in lines)
-      if (!_lineCoveredByCards(line, cards)) line,
+  final keptIdx = [
+    for (var i = 0; i < lines.length; i++)
+      if (!_lineCoveredByCards(lines[i], cards)) i,
   ];
-  if (kept.isEmpty) return null;
-  if (kept.length == lines.length) {
+  if (keptIdx.isEmpty) return null;
+  if (keptIdx.length == lines.length) {
     if (_ragCoveredByJournal(m.content, cards)) return null;
     return m;
   }
+  var start = m.positionStart;
+  var end = m.positionEnd;
+  if (end - start + 1 == lines.length) {
+    start = m.positionStart + keptIdx.first;
+    end = m.positionStart + keptIdx.last;
+  }
   return RetrievedMemory(
-    content: kept.join('\n'),
+    content: [for (final i in keptIdx) lines[i]].join('\n'),
     characterId: m.characterId,
     sessionId: m.sessionId,
-    positionStart: m.positionStart,
-    positionEnd: m.positionEnd,
+    positionStart: start,
+    positionEnd: end,
     score: m.score,
   );
 }

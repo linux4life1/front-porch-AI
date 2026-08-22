@@ -783,6 +783,52 @@ void main() {
       expect(kept.first.content, isNot(contains('flowerpot')));
     });
 
+    test('HOLD hole: extra fact on the line and stripped span', () {
+      const gist =
+          'I still think about the spare key under the third flowerpot';
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: the spare key under the third flowerpot and the swing creaked',
+              pos: 2,
+            ),
+          ],
+          [gist],
+        ),
+        isNot(isEmpty),
+        reason: 'swing creaked is a second fact',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [_mem('Nia: the spare keyboard sits on the third flowerpot', pos: 3)],
+          [gist],
+        ),
+        isNot(isEmpty),
+        reason: 'key is not keyboard',
+      );
+      final kept = dropCoveredRagWindows(
+        [
+          _mem(
+            'Nia: I still think about the spare key under the third flowerpot\n'
+            'Nia: the swing creaked',
+            pos: 2,
+            end: 3,
+          ),
+        ],
+        [gist],
+      );
+      expect(kept, hasLength(1));
+      expect(kept.first.positionStart, 3);
+      expect(kept.first.positionEnd, 3);
+      expect(
+        RetrievedMemory.excludingPositions(kept, {
+          2,
+        }, currentSessionId: kSession),
+        hasLength(1),
+      );
+    });
+
     test('HOLD hole: prefix card does not cover a bigger fact', () {
       expect(
         dropCoveredRagWindows(

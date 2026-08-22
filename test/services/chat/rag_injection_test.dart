@@ -580,6 +580,59 @@ void main() {
       );
     });
 
+    test('HOLD hole: extra fact on the line and stripped span', () {
+      const gist =
+          'I still think about the spare key under the third flowerpot';
+      final andSwing = _mem(
+        'Nia: the spare key under the third flowerpot and the swing creaked',
+        sessionId: 's1',
+        pos: 2,
+      );
+      expect(
+        dropCoveredRagWindows([andSwing], [gist]),
+        [andSwing],
+        reason:
+            'swing creaked is a second fact — 3 shared distinctive tokens '
+            'must not drop it',
+      );
+      final keyboard = _mem(
+        'Nia: the spare keyboard sits on the third flowerpot',
+        sessionId: 's1',
+        pos: 3,
+      );
+      expect(dropCoveredRagWindows([keyboard], [gist]), [
+        keyboard,
+      ], reason: 'key is not keyboard — 3 shared tokens must not skip that');
+      final mixed = _mem(
+        'Nia: I still think about the spare key under the third flowerpot\n'
+        'Nia: the swing creaked',
+        sessionId: 's1',
+        pos: 2,
+        end: 3,
+      );
+      final kept = dropCoveredRagWindows([mixed], [gist]);
+      expect(kept, hasLength(1));
+      expect(kept.first.content, contains('swing'));
+      expect(kept.first.positionStart, 3);
+      expect(kept.first.positionEnd, 3);
+      expect(
+        RetrievedMemory.excludingPositions(kept, {2}, currentSessionId: 's1'),
+        hasLength(1),
+        reason:
+            'stripped flowerpot line must not keep pos 2 — receipt / '
+            'excludingPositions treat the swing as this retrieval',
+      );
+      expect(
+        RetrievedMemory.excludingPositions(
+          [mixed],
+          {2},
+          currentSessionId: 's1',
+        ),
+        isEmpty,
+        reason: 'the unstripped 2–3 span still overlaps the flowerpot line',
+      );
+    });
+
     test('HOLD hole: prefix card does not cover a bigger fact', () {
       final gardenSwing = _mem(
         'Nia: the front garden swing creaked tonight',
