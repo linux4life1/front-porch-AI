@@ -703,16 +703,48 @@ void main() {
     });
 
     test('HOLD hole: setting nouns are filler — front steps / this-porch', () {
-      for (final phrase in ['front steps', 'back patio', 'screened porch']) {
+      for (final phrase in [
+        'front steps',
+        'back patio',
+        'screened porch',
+        'front walk',
+        'back path',
+      ]) {
         final feeling = 'I felt safe on the $phrase tonight';
         final swing = _mem('Nia: the $phrase swing creaked tonight', pos: 2);
         expect(dropCoveredRagWindows([swing], [feeling]), [
           swing,
         ], reason: 'feeling × $phrase swing must not cover-drop');
       }
+      for (final noun in [
+        'porch',
+        'yard',
+        'lawn',
+        'deck',
+        'stoop',
+        'steps',
+        'patio',
+        'walk',
+        'path',
+      ]) {
+        expect(
+          coverContentTokens('felt safe $noun'),
+          isNot(contains(noun)),
+          reason: '$noun is setting-noun filler',
+        );
+      }
       expect(
         coverContentTokens('this porch swing'),
         isNot(contains('thisporch')),
+      );
+      expect(coverContentTokens('my porch swing'), isNot(contains('myporch')));
+      expect(
+        coverContentTokens('our porch swing'),
+        isNot(contains('ourporch')),
+      );
+      expect(
+        coverContentTokens('your porch swing'),
+        isNot(contains('yourporch')),
       );
       expect(coverContentTokens('I sat on porch'), isNot(contains('onporch')));
       expect(
@@ -730,6 +762,22 @@ void main() {
         ),
         isEmpty,
         reason: 'same-beat my-porch swing still drops',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [_mem('Nia: our porch swing creaked tonight', pos: 5)],
+          ['Nia: the porch swing creaked tonight'],
+        ),
+        isEmpty,
+        reason: 'same-beat our-porch swing still drops',
+      );
+      expect(
+        dropCoveredRagWindows(
+          [_mem('Nia: your porch swing creaked tonight', pos: 6)],
+          ['Nia: the porch swing creaked tonight'],
+        ),
+        isEmpty,
+        reason: 'same-beat your-porch swing still drops',
       );
       expect(
         dropCoveredRagWindows(

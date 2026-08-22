@@ -161,6 +161,10 @@ const kFrontStepsFeeling = 'I felt safe on the front steps tonight';
 const kFrontStepsSwing = 'Nia: the front steps swing creaked tonight';
 const kBackPatioFeeling = 'I felt safe on the back patio tonight';
 const kBackPatioSwing = 'Nia: the back patio swing creaked tonight';
+const kFrontWalkFeeling = 'I felt safe on the front walk tonight';
+const kFrontWalkSwing = 'Nia: the front walk swing creaked tonight';
+const kBackPathFeeling = 'I felt safe on the back path tonight';
+const kBackPathSwing = 'Nia: the back path swing creaked tonight';
 const kSwingTight = 'Nia:the swing';
 const kSwingSpaced = 'Nia: the swing';
 const kSwingBare = 'the swing';
@@ -742,7 +746,11 @@ void main() {
           'set MUST FAIL — the product must not be that restricted list',
     );
     expect(
-      src.contains("'this'") && src.contains("'on'"),
+      src.contains("'this'") &&
+          src.contains("'my'") &&
+          src.contains("'our'") &&
+          src.contains("'your'") &&
+          src.contains("'on'"),
       isTrue,
       reason:
           'this/my/our/your/on stay particles — do not fold thisporch/onporch',
@@ -750,7 +758,8 @@ void main() {
     expect(
       src.contains("'steps'") &&
           src.contains("'patio'") &&
-          src.contains("'walk'"),
+          src.contains("'walk'") &&
+          src.contains("'path'"),
       isTrue,
       reason: 'setting nouns are cover filler — not a longer fold-noun list',
     );
@@ -789,6 +798,16 @@ void main() {
           'tag': 'back patio',
           'feeling': kBackPatioFeeling,
           'swing': kBackPatioSwing,
+        },
+        {
+          'tag': 'front walk',
+          'feeling': kFrontWalkFeeling,
+          'swing': kFrontWalkSwing,
+        },
+        {
+          'tag': 'back path',
+          'feeling': kBackPathFeeling,
+          'swing': kBackPathSwing,
         },
       ];
       for (var i = 0; i < cases.length; i++) {
