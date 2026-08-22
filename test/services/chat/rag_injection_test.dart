@@ -426,6 +426,44 @@ void main() {
       ], reason: 'shared place-compound {front, porch} is not cover');
     });
 
+    test('HOLD lock: front/back porch and yard fold to one token', () {
+      const compounds = {
+        'front porch': 'frontporch',
+        'back porch': 'backporch',
+        'front yard': 'frontyard',
+        'back yard': 'backyard',
+      };
+      for (final e in compounds.entries) {
+        final phrase = e.key;
+        final folded = e.value;
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem(
+          'Nia: the $phrase swing creaked tonight',
+          sessionId: 's1',
+          pos: 2,
+        );
+        expect(
+          coverContentTokens(feeling),
+          contains(folded),
+          reason: '"$phrase" must fold to one token ($folded)',
+        );
+        expect(
+          coverContentTokens(feeling),
+          isNot(contains(phrase.split(' ').first)),
+          reason: '"$phrase" must not stay two tokens',
+        );
+        expect(
+          coverContentTokens(
+            feeling,
+          ).intersection(coverContentTokens(swing.content)),
+          {folded},
+        );
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing is not cover');
+      }
+    });
+
     test('HOLD r2: porch feeling does not eat a porch-swing fact', () {
       final swing = _mem(
         'Nia: the porch swing creaked',

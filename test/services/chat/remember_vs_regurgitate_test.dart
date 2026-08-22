@@ -561,6 +561,29 @@ void main() {
       );
     });
 
+    test('HOLD lock: single-line window strips the speaker prefix too', () {
+      expect(
+        rememberedLineFromWindow('Nia: the swing creaked'),
+        'the swing creaked',
+      );
+      final m = _mem('Nia: the swing creaked', pos: 2);
+      final plain = buildRagMemoriesBlock(
+        memories: [m],
+        currentSessionId: kSession,
+        days: {m: 1},
+        reachingForQuote: false,
+      );
+      expect(plain, contains('- (Day 1) the swing creaked'));
+      expect(plain, isNot(contains('Nia:')));
+      final quoted = buildRagMemoriesBlock(
+        memories: [m],
+        currentSessionId: kSession,
+        days: {m: 2},
+        reachingForQuote: true,
+      );
+      expect(quoted, contains('Nia: the swing creaked'));
+    });
+
     test(
       'quote-reach still uses the quote header (verbatim expand allowed)',
       () {
@@ -647,6 +670,31 @@ void main() {
         [swing],
         reason: 'shared place-compound is not cover',
       );
+      final fact = _mem(kFactLine, pos: 1);
+      expect(
+        dropCoveredRagWindows([fact], [kJournalGist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
+    test('HOLD lock: front/back porch and yard fold to one token', () {
+      const compounds = {
+        'front porch': 'frontporch',
+        'back porch': 'backporch',
+        'front yard': 'frontyard',
+        'back yard': 'backyard',
+      };
+      for (final e in compounds.entries) {
+        final phrase = e.key;
+        final folded = e.value;
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem('Nia: the $phrase swing creaked tonight', pos: 2);
+        expect(coverContentTokens(feeling), contains(folded));
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing is not cover');
+      }
       final fact = _mem(kFactLine, pos: 1);
       expect(
         dropCoveredRagWindows([fact], [kJournalGist]),
