@@ -702,6 +702,40 @@ void main() {
       );
     });
 
+    test(
+      'HOLD lock: leftover 2-token overlap is not cover — hallway keeps',
+      () {
+        final hallway = _mem(
+          'Nia: the spare key lives in the hallway drawer',
+          pos: 2,
+        );
+        expect(
+          coverContentTokens(
+            hallway.content,
+          ).intersection(coverContentTokens(kJournalGist)).length,
+          greaterThanOrEqualTo(2),
+          reason:
+              'hallway shares leftover tokens ≥ 2 with the flowerpot gist — '
+              'if that were the cover rule this window would drop',
+        );
+        expect(
+          dropCoveredRagWindows([hallway], [kJournalGist]),
+          [hallway],
+          reason:
+              'shared leftover tokens ≥ 2 is NOT cover. A source-scan for '
+              '2-token intersection as the cover rule MUST FAIL.',
+        );
+        final flower = _mem(kFactLine, pos: 1);
+        expect(
+          dropCoveredRagWindows([flower], [kJournalGist]),
+          isEmpty,
+          reason:
+              'same-beat flowerpot gist DROPS because the card names the '
+              'flowerpot in the window (near-substring), not 2-token overlap',
+        );
+      },
+    );
+
     test('HOLD hole: garden/balcony/driveway + his/her are not a new list', () {
       for (final phrase in ['front garden', 'back balcony', 'side driveway']) {
         final feeling = 'I felt safe on the $phrase tonight';
@@ -718,6 +752,13 @@ void main() {
         coverContentTokens('her porch swing'),
         isNot(contains('herporch')),
       );
+      expect(
+        coverContentTokens('that porch swing'),
+        isNot(contains('thatporch')),
+      );
+      expect(coverContentTokens('off the porch'), isNot(contains('offporch')));
+      expect(coverContentTokens('in the porch'), isNot(contains('inporch')));
+      expect(coverContentTokens('at the porch'), isNot(contains('atporch')));
       final fact = _mem(kFactLine, pos: 1);
       expect(
         dropCoveredRagWindows([fact], [kJournalGist]),

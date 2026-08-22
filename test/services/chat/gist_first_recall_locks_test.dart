@@ -21,6 +21,15 @@
 // optional-space speaker strip are god-path locks here. An adj list of
 // front/back/side, a pair list, or a colon that requires a space, goes red.
 // Screened/covered/wraparound must KEEP. the/a/an stay filler (no theporch).
+//
+// Cover-drop locks (near-substring, not leftover 2-token overlap): a
+// source-scan for shared-content-tokens ≥ 2 as the cover rule MUST FAIL.
+// Shared place (front-garden / back-balcony / side-driveway / screened-porch)
+// KEEPS. Same-beat flowerpot gist DROPS because the card names the
+// flowerpot in the window — not because of 2-token overlap. Function
+// words are one closed set (his/her/that/on/in/at do not mint compounds).
+// garden/balcony/driveway must not appear on the setting-noun / cover-filler
+// place list. Refuse leftover-intersection greens as stand-alone.
 
 import 'dart:io';
 
@@ -171,6 +180,7 @@ const kBackBalconyFeeling = 'I felt safe on the back balcony tonight';
 const kBackBalconySwing = 'Nia: the back balcony swing creaked tonight';
 const kSideDrivewayFeeling = 'I felt safe on the side driveway tonight';
 const kSideDrivewaySwing = 'Nia: the side driveway swing creaked tonight';
+const kHallwaySpareKey = 'Nia: the spare key lives in the hallway drawer';
 const kSwingTight = 'Nia:the swing';
 const kSwingSpaced = 'Nia: the swing';
 const kSwingBare = 'the swing';
@@ -787,6 +797,17 @@ void main() {
       reason:
           'function words are one closed set — his/off/at do not mint compounds',
     );
+    expect(
+      src.contains("'her'") &&
+          src.contains("'that'") &&
+          src.contains("'on'") &&
+          src.contains("'in'") &&
+          src.contains("'at'"),
+      isTrue,
+      reason:
+          'function words are one closed set — his/her/that/on/in/at '
+          'do not mint compounds',
+    );
   });
 
   test(
@@ -1109,6 +1130,282 @@ void main() {
         contains(kSwingTight),
         reason:
             'quote-reach keeps the raw window, including Nia:the (no space)',
+      );
+    },
+  );
+
+  test('LOCK: cover-drop is near-substring, not leftover 2-token overlap', () {
+    final src = File('lib/services/chat/rag_injection.dart').readAsStringSync();
+    final dropAt = src.indexOf('List<RetrievedMemory> dropCoveredRagWindows');
+    expect(
+      dropAt,
+      greaterThanOrEqualTo(0),
+      reason: 'dropCoveredRagWindows must still exist',
+    );
+    final nearAt = src.indexOf('bool _nearCover(');
+    expect(
+      nearAt,
+      greaterThanOrEqualTo(0),
+      reason:
+          'cover is _nearCover (near-substring of the normalized card '
+          'and window), not leftover tokens',
+    );
+    final coveredAt = src.indexOf('bool _ragCoveredByJournal(');
+    expect(coveredAt, greaterThanOrEqualTo(0));
+
+    final nearSlice = src.substring(
+      nearAt,
+      (nearAt + 500).clamp(0, src.length),
+    );
+    expect(
+      nearSlice.contains('longer.contains(shorter)'),
+      isTrue,
+      reason:
+          'cover is a near-substring — longer.contains(shorter) after '
+          'normalize. A leftover-token intersection is not this lock.',
+    );
+    expect(
+      nearSlice.contains('.intersection('),
+      isFalse,
+      reason:
+          'a source-scan for 2-token intersection as the cover rule '
+          'MUST FAIL — product must not use shared-content-tokens ≥ 2',
+    );
+
+    final coveredSlice = src.substring(
+      coveredAt,
+      (coveredAt + 280).clamp(0, src.length),
+    );
+    expect(
+      coveredSlice.contains('_nearCover('),
+      isTrue,
+      reason: '_ragCoveredByJournal must call _nearCover',
+    );
+    expect(
+      coveredSlice.contains('.intersection('),
+      isFalse,
+      reason:
+          'a source-scan for 2-token intersection as the cover rule '
+          'MUST FAIL',
+    );
+    expect(
+      RegExp(r'intersection\s*\(').hasMatch(coveredSlice),
+      isFalse,
+      reason:
+          'product must not use shared-content-tokens ≥ 2 as the cover rule',
+    );
+
+    final dropEnd = src.indexOf('List<RetrievedMemory> capRagWindows', dropAt);
+    final dropSlice = src.substring(
+      dropAt,
+      dropEnd > dropAt ? dropEnd : (dropAt + 900).clamp(0, src.length),
+    );
+    expect(
+      dropSlice.contains('coverContentTokens'),
+      isFalse,
+      reason:
+          'dropCoveredRagWindows must not score leftover token overlap. '
+          'coverContentTokens stays on rememberedLineFromWindow only.',
+    );
+    expect(
+      dropSlice.contains('.intersection('),
+      isFalse,
+      reason:
+          'a source-scan for 2-token intersection as the cover rule '
+          'MUST FAIL',
+    );
+  });
+
+  test(
+    'LOCK: leftover 2-token spare+key hallway KEEPS; flowerpot name DROPS',
+    () async {
+      final card = await seedOverflowSession(
+        sessionId: 'sess-gistlock-leftover2',
+        charDbId: 'char-gistlock-leftover2',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: const Value('sess-gistlock-leftover2'),
+          characterId: Value(card.stableGroupId),
+          content: const Value(kGist),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      expect(
+        coverContentTokens(
+          kHallwaySpareKey,
+        ).intersection(coverContentTokens(kGist)).length,
+        greaterThanOrEqualTo(2),
+        reason:
+            'hallway shares leftover tokens ≥ 2 with the flowerpot gist — '
+            'if 2-token overlap were cover this window would drop. That '
+            'intersection is not a green.',
+      );
+      memory.canned = [
+        RetrievedMemory(
+          content: kHallwaySpareKey,
+          characterId: 'Nia',
+          sessionId: 'sess-gistlock-leftover2',
+          positionStart: 0,
+          positionEnd: 0,
+          score: 0.9,
+        ),
+      ];
+
+      await chat.sendMessage(kSit);
+
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'cues are present — retrieve must run so cover-drop is real',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final hallway = llm.chatPrompts.last;
+      expect(
+        hallway,
+        contains(kGist),
+        reason: 'the flowerpot gist must inject or cover-drop was never tested',
+      );
+      expect(hallway, contains(kRagRememberedHeader.trim()));
+      expect(
+        hallway,
+        contains('hallway'),
+        reason:
+            'shared leftover tokens ≥ 2 (spare+key) is NOT cover — the '
+            'hallway drawer window must KEEP. Reverting to 2-token '
+            'intersection as the cover rule goes red here.',
+      );
+
+      final flowerCard = await seedOverflowSession(
+        sessionId: 'sess-gistlock-flower-why',
+        charDbId: 'char-gistlock-flower-why',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: const Value('sess-gistlock-flower-why'),
+          characterId: Value(flowerCard.stableGroupId),
+          content: const Value(kGist),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      memory.retrieveCalls = 0;
+      memory.canned = [
+        RetrievedMemory(
+          content: kFactWindow,
+          characterId: 'Nia',
+          sessionId: 'sess-gistlock-flower-why',
+          positionStart: 0,
+          positionEnd: 1,
+          score: 0.9,
+        ),
+      ];
+      llm.chatPrompts.clear();
+      await chat.sendMessage(kSit);
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'retrieve ran — a skip would fake the cover-drop',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final flower = llm.chatPrompts.last;
+      expect(
+        flower,
+        contains(kGist),
+        reason: 'same-beat flowerpot gist must inject',
+      );
+      expect(
+        flower,
+        isNot(contains(kRagRememberedHeader.trim())),
+        reason:
+            'same-beat flowerpot gist DROPS because the card names the '
+            'flowerpot in the window (near-substring), not because of '
+            '2-token leftover overlap. The hallway pair above shares ≥2 '
+            'tokens and KEEPS — leftover intersection is not this drop.',
+      );
+      expect(
+        flower,
+        isNot(contains('You: the spare key lives under the third flowerpot')),
+      );
+    },
+  );
+
+  test('LOCK: function words are one closed set — his/her/that/on/in/at', () {
+    final src = File('lib/services/chat/rag_injection.dart').readAsStringSync();
+    final fnAt = src.indexOf('const _kFunctionWords = {');
+    expect(
+      fnAt,
+      greaterThanOrEqualTo(0),
+      reason:
+          'function words are one closed set — not grown one word at a time',
+    );
+    final fnEnd = src.indexOf('};', fnAt);
+    expect(fnEnd, greaterThan(fnAt));
+    final fn = src.substring(fnAt, fnEnd);
+    for (final w in ['his', 'her', 'that', 'on', 'in', 'at']) {
+      expect(
+        fn.contains("'$w'"),
+        isTrue,
+        reason:
+            "'$w' belongs in the closed function-word set — do not mint "
+            '${w}porch compounds',
+      );
+    }
+    expect(
+      src.contains('if (_kFunctionWords.contains(prep))'),
+      isTrue,
+      reason: 'place-fold consults the closed set — not a grown particle list',
+    );
+    expect(
+      src.contains('_kNoFoldBeforePlace'),
+      isFalse,
+      reason: 'do not grow a second no-fold list next to the closed set',
+    );
+  });
+
+  test(
+    'LOCK: garden/balcony/driveway must not sit on the setting-noun list',
+    () {
+      final src = File(
+        'lib/services/chat/rag_injection.dart',
+      ).readAsStringSync();
+      final fillerAt = src.indexOf('const _kCoverFiller = {');
+      expect(
+        fillerAt,
+        greaterThanOrEqualTo(0),
+        reason: 'the cover-filler / setting-noun list must still exist',
+      );
+      final fillerEnd = src.indexOf('};', fillerAt);
+      expect(fillerEnd, greaterThan(fillerAt));
+      final filler = src.substring(fillerAt, fillerEnd);
+      for (final w in ['garden', 'balcony', 'driveway']) {
+        expect(
+          filler.contains("'$w'"),
+          isFalse,
+          reason:
+              "'$w' must NOT appear on the setting-noun / cover-filler "
+              'place list. Adding it to that list must fail this pin.',
+        );
+      }
+      final foldAt = src.indexOf('_kPlaceNounCompound');
+      expect(foldAt, greaterThanOrEqualTo(0));
+      final foldSlice = src.substring(
+        foldAt,
+        (foldAt + 220).clamp(0, src.length),
+      );
+      expect(
+        foldSlice.contains('garden') ||
+            foldSlice.contains('balcony') ||
+            foldSlice.contains('driveway'),
+        isFalse,
+        reason:
+            'do not grow the fold-noun / place list with garden / balcony / '
+            'driveway — adding them must fail this pin',
       );
     },
   );

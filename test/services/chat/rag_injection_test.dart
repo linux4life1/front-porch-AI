@@ -32,6 +32,8 @@
 //   * drop the stamp from formatRagLine → the stamp tests go red
 //   * truncate nothing in buildRagReceipt → the preview-cap test goes red
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -425,6 +427,84 @@ void main() {
         swing,
       ], reason: 'shared place-compound {front, porch} is not cover');
     });
+
+    test(
+      'HOLD lock: leftover 2-token overlap is not cover — hallway keeps',
+      () {
+        const gist =
+            'I still think about the spare key under the third flowerpot';
+        final hallway = _mem(
+          'Nia: the spare key lives in the hallway drawer',
+          sessionId: 's1',
+          pos: 2,
+        );
+        expect(
+          coverContentTokens(
+            hallway.content,
+          ).intersection(coverContentTokens(gist)).length,
+          greaterThanOrEqualTo(2),
+          reason:
+              'hallway shares leftover tokens ≥ 2 with the flowerpot gist — '
+              'if that were the cover rule this window would drop',
+        );
+        expect(
+          dropCoveredRagWindows([hallway], [gist]),
+          [hallway],
+          reason:
+              'shared leftover tokens ≥ 2 is NOT cover — hallway is not a '
+              'near-substring of the flowerpot card. A source-scan for '
+              '2-token intersection as the cover rule MUST FAIL.',
+        );
+        final flower = _mem(
+          'Nia: I still think about the spare key under the third flowerpot',
+          sessionId: 's1',
+          pos: 1,
+        );
+        expect(
+          dropCoveredRagWindows([flower], [gist]),
+          isEmpty,
+          reason:
+              'same-beat flowerpot gist DROPS because the card names the '
+              'flowerpot in the window (near-substring), not 2-token overlap',
+        );
+      },
+    );
+
+    test(
+      'HOLD lock: cover-drop source is near-substring, not leftover tokens',
+      () {
+        final src = File(
+          'lib/services/chat/rag_injection.dart',
+        ).readAsStringSync();
+        final coveredAt = src.indexOf('bool _ragCoveredByJournal(');
+        expect(coveredAt, greaterThanOrEqualTo(0));
+        final coveredSlice = src.substring(
+          coveredAt,
+          (coveredAt + 280).clamp(0, src.length),
+        );
+        expect(src.contains('bool _nearCover('), isTrue);
+        expect(
+          coveredSlice.contains('.intersection('),
+          isFalse,
+          reason:
+              'a source-scan for 2-token intersection as the cover rule '
+              'MUST FAIL — product must not use shared-content-tokens ≥ 2',
+        );
+        expect(coveredSlice.contains('_nearCover('), isTrue);
+        final fillerAt = src.indexOf('const _kCoverFiller = {');
+        expect(fillerAt, greaterThanOrEqualTo(0));
+        final filler = src.substring(fillerAt, src.indexOf('};', fillerAt));
+        for (final w in ['garden', 'balcony', 'driveway']) {
+          expect(
+            filler.contains("'$w'"),
+            isFalse,
+            reason:
+                "'$w' must not appear on the setting-noun / cover-filler "
+                'place list',
+          );
+        }
+      },
+    );
 
     test('HOLD hole: garden/balcony/driveway + his/her are not a new list', () {
       for (final phrase in ['front garden', 'back balcony', 'side driveway']) {
