@@ -219,6 +219,16 @@ const kSpareKeyRan = 'Nia: the spare key ran';
 const kThirdFlowerpotFell = 'Nia: the third flowerpot fell';
 const kGistThatCreaked =
     'Nia: I still think about the spare key under the third flowerpot that creaked';
+const kPotCreaked = 'Nia: the spare key under the third flowerpot creaked';
+const kGistDied =
+    'Nia: I still think about the spare key under the third flowerpot died';
+const kGistSat =
+    'Nia: I still think about the spare key under the third flowerpot sat';
+const kBuriedUnder = 'Nia: the spare key buried under the third flowerpot';
+const kStaysUnder = 'Nia: the spare key stays under the third flowerpot';
+const kRestsUnder = 'Nia: the spare key rests under the third flowerpot';
+const kHerPorchSwing = 'I sat on her porch swing';
+const kSatFrontPorchSwing = 'Nia: I sat on the front porch swing';
 const kGistPlusSwing =
     'Nia: I still think about the spare key under the third flowerpot\n'
     'Nia: the swing creaked';
@@ -1275,6 +1285,44 @@ void main() {
           'leftover.every(!distinctive) && shortD>=3 is leftover==1 for died/sat',
     );
     expect(
+      src.contains('_kParaphrase') ||
+          src.contains('_kInteriorVerb') ||
+          src.contains('_kSameBeatVerb') ||
+          src.contains('_kRestateVerb') ||
+          src.contains('_kCoverVerb'),
+      isFalse,
+      reason:
+          'a source-scan that finds a new closed paraphrase/verb list '
+          '(besides the existing function-word set) MUST FAIL',
+    );
+    for (final w in ['tucked', 'buried', 'stays', 'rests']) {
+      expect(
+        src.contains("'$w'") || src.contains('"$w"'),
+        isFalse,
+        reason:
+            'no verb list — "$w" must not appear as a product string. '
+            'Interior leftover DROPS without naming tucked/buried/stays/rests',
+      );
+    }
+    final normAt = src.indexOf('String _normalizeCoverLine(');
+    expect(
+      normAt,
+      greaterThanOrEqualTo(0),
+      reason:
+          'cover normalize must still exist so place-compound fold has a home',
+    );
+    final normSlice = src.substring(
+      normAt,
+      (normAt + 400).clamp(0, src.length),
+    );
+    expect(
+      normSlice.contains('_foldPlaceCompounds'),
+      isTrue,
+      reason:
+          'place-compound fold belongs in cover normalize — frontporch '
+          'must not sit as interior leftover between shared tokens',
+    );
+    expect(
       src.contains('leftover.length == 1'),
       isFalse,
       reason:
@@ -2002,6 +2050,9 @@ void main() {
           'window': 'Nia: the spare key tucked under the third flowerpot',
           'absent': 'tucked',
         },
+        {'tag': 'buried under', 'window': kBuriedUnder, 'absent': 'buried'},
+        {'tag': 'stays under', 'window': kStaysUnder, 'absent': 'stays'},
+        {'tag': 'rests under', 'window': kRestsUnder, 'absent': 'rests'},
       ];
       for (var i = 0; i < cases.length; i++) {
         final c = cases[i];
@@ -2450,6 +2501,34 @@ void main() {
           'kept': 'hidden',
           'drop': true,
         },
+        {
+          'tag': 'that creaked',
+          'card': kGist,
+          'window': kGistThatCreaked,
+          'kept': 'creaked',
+          'drop': false,
+        },
+        {
+          'tag': 'pot creaked',
+          'card': kGist,
+          'window': kPotCreaked,
+          'kept': 'creaked',
+          'drop': false,
+        },
+        {
+          'tag': 'gist+died',
+          'card': kGist,
+          'window': kGistDied,
+          'kept': 'died',
+          'drop': false,
+        },
+        {
+          'tag': 'gist+sat',
+          'card': kGist,
+          'window': kGistSat,
+          'kept': 'sat',
+          'drop': false,
+        },
       ];
       for (var i = 0; i < cases.length; i++) {
         final c = cases[i];
@@ -2509,10 +2588,10 @@ void main() {
             prompt,
             isNot(contains(kRagRememberedHeader.trim())),
             reason:
-                'same-beat leftover is a closed paraphrase set '
-                '(lives / hidden / creaked), not leftover==1 and not '
-                'leftover==2. "$tag" must DROP. Flipping ==1 to ==2 is '
-                'fake-green — DROP is kind, not count',
+                'same-beat is INTERIOR leftover (tokens between first and '
+                'last shared token) — no closed paraphrase/verb list. '
+                '"$tag" must DROP. A verb list of lives/hidden/creaked '
+                'or leftover==1/==2 is fake-green',
           );
           expect(
             prompt,
@@ -2526,9 +2605,9 @@ void main() {
             prompt,
             contains(kept),
             reason:
-                'distinctive leftover is an extra fact — "$tag" must KEEP '
-                '"$kept". leftover==1 on a 3-distinctive gist treats '
-                'burned / lighthouse as paraphrase and goes red here',
+                'suffix leftover is an extra fact — "$tag" must KEEP '
+                '"$kept". that-creaked / pot-creaked / burned / died / sat '
+                'KEEP; leftover==1 or a creaked verb list goes red here',
           );
         }
       }
@@ -2772,4 +2851,72 @@ void main() {
     expect(widePreview, contains('swing'));
     expect(widePreview, isNot(contains('flowerpot')));
   });
+
+  test(
+    'LOCK: place-compound fold — frontporch is not interior leftover',
+    () async {
+      expect(
+        coverContentTokens(kSatFrontPorchSwing),
+        contains('frontporch'),
+        reason:
+            'cover normalize must fold front+porch so "front" is not an '
+            'interior leftover token between sat and swing',
+      );
+      expect(
+        coverContentTokens(kSatFrontPorchSwing),
+        isNot(contains('front')),
+        reason: 'frontporch is one token — "front" must not remain leftover',
+      );
+      final card = await seedOverflowSession(
+        sessionId: 'sess-gistlock-frontporch-fold',
+        charDbId: 'char-gistlock-frontporch-fold',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: const Value('sess-gistlock-frontporch-fold'),
+          characterId: Value(card.stableGroupId),
+          content: const Value(kHerPorchSwing),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      memory.canned = [
+        RetrievedMemory(
+          content: kSatFrontPorchSwing,
+          characterId: 'Nia',
+          sessionId: 'sess-gistlock-frontporch-fold',
+          positionStart: 0,
+          positionEnd: 0,
+          score: 0.9,
+        ),
+      ];
+
+      await chat.sendMessage(kSit);
+
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'cues are present — retrieve must run so the fold is real',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final prompt = llm.chatPrompts.last;
+      expect(
+        prompt,
+        contains(kHerPorchSwing),
+        reason:
+            'the porch-swing card must inject or fold KEEP was never tested',
+      );
+      expect(prompt, contains(kRagRememberedHeader.trim()));
+      expect(
+        prompt,
+        contains('front'),
+        reason:
+            'place-compound fold in cover normalize — "I sat on her porch '
+            'swing" must NOT drop "I sat on the front porch swing". Without '
+            'the fold, "front" is interior leftover and the window DROPS',
+      );
+    },
+  );
 }

@@ -921,6 +921,19 @@ void main() {
         isNot(isEmpty),
         reason: 'short suffix leftover on a 3-D gist is an extra fact',
       );
+      expect(
+        dropCoveredRagWindows(
+          [
+            _mem(
+              'Nia: I still think about the spare key under the third flowerpot sat',
+              pos: 12,
+            ),
+          ],
+          [gist],
+        ),
+        isNot(isEmpty),
+        reason: 'sat on the complete gist is a suffix extra fact',
+      );
     });
 
     test('HOLD hole: prefix card does not cover a bigger fact', () {
