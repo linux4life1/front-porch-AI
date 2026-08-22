@@ -293,21 +293,14 @@ const _kCoverFiller = {
   'tomorrow',
 };
 
-/// Place compounds count as ONE token so {front, porch} is not cover.
-const _kPlaceCompounds = [
-  'front porch',
-  'back porch',
-  'front yard',
-  'back yard',
-];
+/// Place-adjective + place-noun is ONE token so {side, porch} or
+/// {front, lawn} is not cover. Not a hardcoded pair list.
+final _kPlaceCompound = RegExp(
+  r'\b(front|back|side)\s+(porch|yard|lawn|deck|stoop)\b',
+);
 
-String _foldPlaceCompounds(String s) {
-  var out = s.toLowerCase();
-  for (final phrase in _kPlaceCompounds) {
-    out = out.replaceAll(phrase, phrase.replaceAll(' ', ''));
-  }
-  return out;
-}
+String _foldPlaceCompounds(String s) =>
+    s.toLowerCase().replaceAllMapped(_kPlaceCompound, (m) => '${m[1]}${m[2]}');
 
 Set<String> coverContentTokens(String s) =>
     itemNameTokens(_foldPlaceCompounds(s)).difference(_kCoverFiller);
@@ -385,7 +378,7 @@ String rememberedLineFromWindow(String content) {
   ];
   if (lines.isEmpty) return content.trim();
   String body(String line) {
-    final m = RegExp(r'^[^:\n]{1,40}:\s+(.*)').firstMatch(line);
+    final m = RegExp(r'^[^:\n]{1,40}:\s*(.*)').firstMatch(line);
     return (m != null ? m.group(1)! : line).trim();
   }
 

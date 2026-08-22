@@ -426,6 +426,44 @@ void main() {
       ], reason: 'shared place-compound {front, porch} is not cover');
     });
 
+    test('HOLD hole: side porch and front lawn fold — not two more pairs', () {
+      for (final phrase in [
+        'side porch',
+        'front lawn',
+        'side deck',
+        'back stoop',
+      ]) {
+        final folded = phrase.replaceAll(' ', '');
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem(
+          'Nia: the $phrase swing creaked tonight',
+          sessionId: 's1',
+          pos: 2,
+        );
+        expect(coverContentTokens(feeling), contains(folded));
+        expect(
+          coverContentTokens(feeling),
+          isNot(contains(phrase.split(' ').first)),
+        );
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing must not cover-drop');
+      }
+      final fact = _mem(
+        'Nia: I still think about the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 1,
+      );
+      expect(
+        dropCoveredRagWindows(
+          [fact],
+          ['I still think about the spare key under the third flowerpot'],
+        ),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD lock: front/back porch and yard fold to one token', () {
       const compounds = {
         'front porch': 'frontporch',
@@ -655,6 +693,11 @@ void main() {
       expect(
         rememberedLineFromWindow('Nia: the swing creaked'),
         'the swing creaked',
+      );
+      expect(
+        rememberedLineFromWindow('Nia:the swing creaked'),
+        'the swing creaked',
+        reason: 'optional space after the colon — Nia:the must strip',
       );
       final m = _mem('Nia: the swing creaked', sessionId: 's1', pos: 2);
       final block = buildRagMemoriesBlock(

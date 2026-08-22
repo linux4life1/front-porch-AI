@@ -566,6 +566,10 @@ void main() {
         rememberedLineFromWindow('Nia: the swing creaked'),
         'the swing creaked',
       );
+      expect(
+        rememberedLineFromWindow('Nia:the swing creaked'),
+        'the swing creaked',
+      );
       final m = _mem('Nia: the swing creaked', pos: 2);
       final plain = buildRagMemoriesBlock(
         memories: [m],
@@ -670,6 +674,26 @@ void main() {
         [swing],
         reason: 'shared place-compound is not cover',
       );
+      final fact = _mem(kFactLine, pos: 1);
+      expect(
+        dropCoveredRagWindows([fact], [kJournalGist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
+    test('HOLD hole: side porch and front lawn fold — not two more pairs', () {
+      for (final phrase in ['side porch', 'front lawn']) {
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem('Nia: the $phrase swing creaked tonight', pos: 2);
+        expect(
+          coverContentTokens(feeling),
+          contains(phrase.replaceAll(' ', '')),
+        );
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing must not cover-drop');
+      }
       final fact = _mem(kFactLine, pos: 1);
       expect(
         dropCoveredRagWindows([fact], [kJournalGist]),
