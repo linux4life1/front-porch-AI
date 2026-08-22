@@ -702,6 +702,30 @@ void main() {
       );
     });
 
+    test('HOLD hole: garden/balcony/driveway + his/her are not a new list', () {
+      for (final phrase in ['front garden', 'back balcony', 'side driveway']) {
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem('Nia: the $phrase swing creaked tonight', pos: 2);
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing must not cover-drop');
+      }
+      expect(
+        coverContentTokens('his porch swing'),
+        isNot(contains('hisporch')),
+      );
+      expect(
+        coverContentTokens('her porch swing'),
+        isNot(contains('herporch')),
+      );
+      final fact = _mem(kFactLine, pos: 1);
+      expect(
+        dropCoveredRagWindows([fact], [kJournalGist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD hole: setting nouns are filler — front steps / this-porch', () {
       for (final phrase in [
         'front steps',

@@ -165,6 +165,12 @@ const kFrontWalkFeeling = 'I felt safe on the front walk tonight';
 const kFrontWalkSwing = 'Nia: the front walk swing creaked tonight';
 const kBackPathFeeling = 'I felt safe on the back path tonight';
 const kBackPathSwing = 'Nia: the back path swing creaked tonight';
+const kFrontGardenFeeling = 'I felt safe on the front garden tonight';
+const kFrontGardenSwing = 'Nia: the front garden swing creaked tonight';
+const kBackBalconyFeeling = 'I felt safe on the back balcony tonight';
+const kBackBalconySwing = 'Nia: the back balcony swing creaked tonight';
+const kSideDrivewayFeeling = 'I felt safe on the side driveway tonight';
+const kSideDrivewaySwing = 'Nia: the side driveway swing creaked tonight';
 const kSwingTight = 'Nia:the swing';
 const kSwingSpaced = 'Nia: the swing';
 const kSwingBare = 'the swing';
@@ -768,6 +774,19 @@ void main() {
       isFalse,
       reason: 'do not grow the fold noun list with steps/patio and stop',
     );
+    expect(
+      src.contains("'garden'") ||
+          src.contains("'balcony'") ||
+          src.contains("'driveway'"),
+      isFalse,
+      reason: 'do not add garden/balcony/driveway to a noun list',
+    );
+    expect(
+      src.contains("'his'") && src.contains("'off'") && src.contains("'at'"),
+      isTrue,
+      reason:
+          'function words are one closed set — his/off/at do not mint compounds',
+    );
   });
 
   test(
@@ -808,6 +827,21 @@ void main() {
           'tag': 'back path',
           'feeling': kBackPathFeeling,
           'swing': kBackPathSwing,
+        },
+        {
+          'tag': 'front garden',
+          'feeling': kFrontGardenFeeling,
+          'swing': kFrontGardenSwing,
+        },
+        {
+          'tag': 'back balcony',
+          'feeling': kBackBalconyFeeling,
+          'swing': kBackBalconySwing,
+        },
+        {
+          'tag': 'side driveway',
+          'feeling': kSideDrivewayFeeling,
+          'swing': kSideDrivewaySwing,
         },
       ];
       for (var i = 0; i < cases.length; i++) {

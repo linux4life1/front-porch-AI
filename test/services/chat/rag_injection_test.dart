@@ -426,6 +426,52 @@ void main() {
       ], reason: 'shared place-compound {front, porch} is not cover');
     });
 
+    test('HOLD hole: garden/balcony/driveway + his/her are not a new list', () {
+      for (final phrase in ['front garden', 'back balcony', 'side driveway']) {
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem(
+          'Nia: the $phrase swing creaked tonight',
+          sessionId: 's1',
+          pos: 2,
+        );
+        expect(
+          coverContentTokens(feeling),
+          isNot(contains(phrase.replaceAll(' ', ''))),
+        );
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing must not cover-drop');
+      }
+      expect(
+        coverContentTokens('his porch swing'),
+        isNot(contains('hisporch')),
+      );
+      expect(
+        coverContentTokens('her porch swing'),
+        isNot(contains('herporch')),
+      );
+      expect(
+        coverContentTokens('that porch swing'),
+        isNot(contains('thatporch')),
+      );
+      expect(coverContentTokens('off the porch'), isNot(contains('offporch')));
+      expect(coverContentTokens('in the porch'), isNot(contains('inporch')));
+      expect(coverContentTokens('at the porch'), isNot(contains('atporch')));
+      final fact = _mem(
+        'Nia: I still think about the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 1,
+      );
+      expect(
+        dropCoveredRagWindows(
+          [fact],
+          ['I still think about the spare key under the third flowerpot'],
+        ),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD hole: setting nouns are filler — not a longer noun list', () {
       for (final phrase in [
         'front steps',

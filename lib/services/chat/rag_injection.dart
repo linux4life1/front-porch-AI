@@ -221,36 +221,114 @@ bool isReachingForQuote(String lastWords) {
   return false;
 }
 
-/// Narrative filler that [itemNameTokens] still keeps (≥3 chars). Cover
-/// overlap must be content (flowerpot / lighthouse), not still/think/about.
+/// Closed English function words (articles, possessives, prepositions,
+/// pronouns). Not grown one word at a time.
+const _kFunctionWords = {
+  'a',
+  'an',
+  'the',
+  'my',
+  'our',
+  'your',
+  'his',
+  'her',
+  'its',
+  'their',
+  'i',
+  'me',
+  'we',
+  'us',
+  'you',
+  'he',
+  'she',
+  'him',
+  'they',
+  'them',
+  'it',
+  'this',
+  'that',
+  'these',
+  'those',
+  'who',
+  'whom',
+  'what',
+  'which',
+  'on',
+  'in',
+  'at',
+  'off',
+  'to',
+  'from',
+  'of',
+  'for',
+  'with',
+  'by',
+  'as',
+  'into',
+  'onto',
+  'over',
+  'under',
+  'about',
+  'up',
+  'down',
+  'out',
+  'around',
+  'through',
+  'between',
+  'among',
+  'against',
+  'without',
+  'within',
+  'before',
+  'after',
+  'during',
+  'since',
+  'until',
+  'above',
+  'below',
+  'across',
+  'along',
+  'behind',
+  'beside',
+  'near',
+  'toward',
+  'towards',
+  'upon',
+  'and',
+  'but',
+  'or',
+  'nor',
+};
+
+const _kTimeFiller = {
+  'tonight',
+  'today',
+  'night',
+  'morning',
+  'evening',
+  'afternoon',
+  'yesterday',
+  'tomorrow',
+};
+
+/// Narrative leftover that [itemNameTokens] still keeps (≥3 chars).
 const _kCoverFiller = {
   'still',
   'think',
-  'about',
   'just',
   'like',
   'very',
   'really',
   'then',
   'when',
-  'what',
-  'this',
-  'that',
-  'with',
-  'from',
   'have',
   'been',
   'were',
-  'they',
-  'them',
-  'their',
   'there',
   'here',
   'some',
   'more',
   'than',
-  'into',
-  'over',
   'also',
   'only',
   'even',
@@ -265,32 +343,10 @@ const _kCoverFiller = {
   'does',
   'dont',
   'not',
-  'but',
-  'and',
-  'for',
-  'the',
-  'you',
-  'she',
-  'him',
-  'her',
-  'his',
   'was',
   'are',
   'had',
   'has',
-  'who',
-  'how',
-  'why',
-  'our',
-  'its',
-  'tonight',
-  'today',
-  'night',
-  'morning',
-  'evening',
-  'afternoon',
-  'yesterday',
-  'tomorrow',
   'porch',
   'yard',
   'lawn',
@@ -300,61 +356,73 @@ const _kCoverFiller = {
   'patio',
   'walk',
   'path',
-  'my',
-  'your',
-  'on',
+  ..._kFunctionWords,
+  ..._kTimeFiller,
 };
 
 /// Any token immediately before a place noun is ONE token
-/// (screened porch, wraparound deck). Particles stay particles.
-/// Setting nouns are cover filler, so front steps is not a new list.
-final _kPlaceNounCompound = RegExp(
-  r'\b(\w+)\s+(porch|yard|lawn|deck|stoop)\b',
-);
-const _kNoFoldBeforePlace = {
-  'the',
-  'a',
-  'an',
-  'this',
-  'my',
-  'our',
-  'your',
-  'on',
-};
+/// (screened porch, wraparound deck). Function words stay function words.
+final _kPlaceNounCompound = RegExp(r'\b(\w+)\s+(porch|yard|lawn|deck|stoop)\b');
+final _kSpeakerPrefix = RegExp(r'^[^:\n]{1,40}:\s*');
+final _kNonWord = RegExp(r'[^a-z0-9\s]+');
+final _kSpaces = RegExp(r'\s+');
 
 String _foldPlaceCompounds(String s) =>
     s.toLowerCase().replaceAllMapped(_kPlaceNounCompound, (m) {
       final prep = m[1]!;
-      if (_kNoFoldBeforePlace.contains(prep)) return m[0]!;
+      if (_kFunctionWords.contains(prep)) return m[0]!;
       return '$prep${m[2]}';
     });
 
 Set<String> coverContentTokens(String s) =>
     itemNameTokens(_foldPlaceCompounds(s)).difference(_kCoverFiller);
 
-/// Drop RAG windows a THIS-BEAT injected journal gist already covers
-/// (shared content tokens ≥ 2). Setting nouns and this/my/our/your/on
-/// are filler, like tonight. Empty [journalCardContents] means Journal is off or no
-/// gist injected — do not cover-drop. Not uniqueness-by-shape.
+String _normalizeCoverLine(String s) {
+  var t = s.toLowerCase().replaceFirst(_kSpeakerPrefix, '');
+  t = t.replaceAll(_kNonWord, ' ');
+  final kept = <String>[
+    for (final w in t.split(_kSpaces))
+      if (w.isNotEmpty &&
+          !_kFunctionWords.contains(w) &&
+          !_kTimeFiller.contains(w))
+        w,
+  ];
+  return kept.join(' ');
+}
+
+bool _nearCover(String card, String window) {
+  final a = _normalizeCoverLine(card);
+  final b = _normalizeCoverLine(window);
+  if (a.isEmpty || b.isEmpty) return false;
+  final shorter = a.length <= b.length ? a : b;
+  final longer = a.length <= b.length ? b : a;
+  if (shorter.split(' ').length < 2) return false;
+  return longer.contains(shorter);
+}
+
+/// Drop RAG windows a THIS-BEAT injected journal gist already covers.
+/// Receipt/position overlap is excludingPositions at the call site.
+/// Content cover is a near-substring of the normalized card and window,
+/// not leftover 2-token overlap. Empty [journalCardContents] means
+/// Journal is off or no gist injected — do not cover-drop.
 List<RetrievedMemory> dropCoveredRagWindows(
   List<RetrievedMemory> memories,
   Iterable<String> journalCardContents,
 ) {
-  final cardTokenSets = [
-    for (final c in journalCardContents) coverContentTokens(c),
-  ].where((s) => s.length >= 2).toList();
-  if (cardTokenSets.isEmpty) return memories;
+  final cards = [
+    for (final c in journalCardContents)
+      if (c.trim().isNotEmpty) c,
+  ];
+  if (cards.isEmpty) return memories;
   return [
     for (final m in memories)
-      if (!_ragCoveredByJournal(m.content, cardTokenSets)) m,
+      if (!_ragCoveredByJournal(m.content, cards)) m,
   ];
 }
 
-bool _ragCoveredByJournal(String ragContent, List<Set<String>> cardTokenSets) {
-  final rag = coverContentTokens(ragContent);
-  if (rag.length < 2) return false;
-  for (final card in cardTokenSets) {
-    if (rag.intersection(card).length >= 2) return true;
+bool _ragCoveredByJournal(String ragContent, List<String> cards) {
+  for (final card in cards) {
+    if (_nearCover(card, ragContent)) return true;
   }
   return false;
 }
