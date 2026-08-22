@@ -293,14 +293,18 @@ const _kCoverFiller = {
   'tomorrow',
 };
 
-/// Place-adjective + place-noun is ONE token so {side, porch} or
-/// {front, lawn} is not cover. Not a hardcoded pair list.
-final _kPlaceCompound = RegExp(
-  r'\b(front|back|side)\s+(porch|yard|lawn|deck|stoop)\b',
-);
+/// Any token immediately before a place noun is ONE token
+/// (screened porch, wraparound deck) so {screened, porch} is not cover.
+/// Articles stay articles — "the porch" does not become theporch.
+final _kPlaceNounCompound = RegExp(r'\b(\w+)\s+(porch|yard|lawn|deck|stoop)\b');
+const _kNoFoldBeforePlace = {'the', 'a', 'an'};
 
 String _foldPlaceCompounds(String s) =>
-    s.toLowerCase().replaceAllMapped(_kPlaceCompound, (m) => '${m[1]}${m[2]}');
+    s.toLowerCase().replaceAllMapped(_kPlaceNounCompound, (m) {
+      final prep = m[1]!;
+      if (_kNoFoldBeforePlace.contains(prep)) return m[0]!;
+      return '$prep${m[2]}';
+    });
 
 Set<String> coverContentTokens(String s) =>
     itemNameTokens(_foldPlaceCompounds(s)).difference(_kCoverFiller);

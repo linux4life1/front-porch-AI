@@ -682,6 +682,26 @@ void main() {
       );
     });
 
+    test('HOLD hole: screened porch folds without a new adj list', () {
+      final feeling = 'I felt safe on the screened porch tonight';
+      final swing = _mem(
+        'Nia: the screened porch swing creaked tonight',
+        pos: 2,
+      );
+      expect(coverContentTokens(feeling), contains('screenedporch'));
+      expect(coverContentTokens(feeling), isNot(contains('screened')));
+      expect(coverContentTokens('the porch'), isNot(contains('theporch')));
+      expect(dropCoveredRagWindows([swing], [feeling]), [
+        swing,
+      ], reason: 'feeling × screened-porch swing must not cover-drop');
+      final fact = _mem(kFactLine, pos: 1);
+      expect(
+        dropCoveredRagWindows([fact], [kJournalGist]),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD hole: side porch and front lawn fold — not two more pairs', () {
       for (final phrase in ['side porch', 'front lawn']) {
         final feeling = 'I felt safe on the $phrase tonight';

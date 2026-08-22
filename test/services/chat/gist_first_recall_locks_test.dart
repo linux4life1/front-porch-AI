@@ -17,9 +17,9 @@
 // prefix): still refuse those stand-alone greens. Journal lastWords is
 // scanned at the buildJournalBlock call, not composeRagQuery.
 //
-// Adj+noun place fold (front/back/side + porch/yard/lawn/deck/stoop) and
-// optional-space speaker strip are god-path locks here. A pair list of
-// front/back porch/yard, or a colon that requires a space, goes red.
+// Any-token-before-place-noun fold (porch/yard/lawn/deck/stoop) and
+// optional-space speaker strip are god-path locks here. An adj list of
+// front/back/side, a pair list, or a colon that requires a space, goes red.
 
 import 'dart:io';
 
@@ -148,6 +148,8 @@ const kSidePorchFeeling = 'I felt safe on the side porch tonight';
 const kSidePorchSwing = 'Nia: the side porch swing creaked tonight';
 const kFrontLawnFeeling = 'I felt safe on the front lawn tonight';
 const kFrontLawnSwing = 'Nia: the front lawn swing creaked tonight';
+const kScreenedPorchFeeling = 'I felt safe on the screened porch tonight';
+const kScreenedPorchSwing = 'Nia: the screened porch swing creaked tonight';
 const kSwingTight = 'Nia:the swing';
 const kSwingSpaced = 'Nia: the swing';
 const kSwingBare = 'the swing';
@@ -702,14 +704,19 @@ void main() {
     },
   );
 
-  test('LOCK 2: place fold is adj+noun, not a pair list', () {
+  test('LOCK 2: place fold is any token before a place noun', () {
     final src = File('lib/services/chat/rag_injection.dart').readAsStringSync();
     expect(
-      src.contains(r'(front|back|side)\s+(porch|yard|lawn|deck|stoop)'),
+      src.contains(r'(\w+)\s+(porch|yard|lawn|deck|stoop)'),
       isTrue,
       reason:
-          'place fold is adj+noun (front/back/side + porch/yard/lawn/'
-          'deck/stoop) — not two more hardcoded pairs',
+          'fold ANY token immediately before porch/yard/lawn/deck/stoop '
+          '— not an adj list and not a pair list',
+    );
+    expect(
+      src.contains(r'(front|back|side)'),
+      isFalse,
+      reason: 'must not be an adj list of front/back/side (or screened)',
     );
     expect(
       src.contains("'front porch':") || src.contains('"front porch":'),
@@ -731,6 +738,11 @@ void main() {
           'tag': 'front lawn',
           'feeling': kFrontLawnFeeling,
           'swing': kFrontLawnSwing,
+        },
+        {
+          'tag': 'screened porch',
+          'feeling': kScreenedPorchFeeling,
+          'swing': kScreenedPorchSwing,
         },
       ];
       for (var i = 0; i < cases.length; i++) {

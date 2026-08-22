@@ -426,6 +426,45 @@ void main() {
       ], reason: 'shared place-compound {front, porch} is not cover');
     });
 
+    test('HOLD hole: any token before a place noun folds — screened porch', () {
+      for (final phrase in [
+        'screened porch',
+        'covered porch',
+        'wraparound porch',
+      ]) {
+        final folded = phrase.replaceAll(' ', '');
+        final feeling = 'I felt safe on the $phrase tonight';
+        final swing = _mem(
+          'Nia: the $phrase swing creaked tonight',
+          sessionId: 's1',
+          pos: 2,
+        );
+        expect(coverContentTokens(feeling), contains(folded));
+        expect(
+          coverContentTokens(feeling),
+          isNot(contains(phrase.split(' ').first)),
+        );
+        expect(coverContentTokens('the porch'), contains('porch'));
+        expect(coverContentTokens('the porch'), isNot(contains('theporch')));
+        expect(dropCoveredRagWindows([swing], [feeling]), [
+          swing,
+        ], reason: 'feeling × $phrase swing must not cover-drop');
+      }
+      final fact = _mem(
+        'Nia: I still think about the spare key under the third flowerpot',
+        sessionId: 's1',
+        pos: 1,
+      );
+      expect(
+        dropCoveredRagWindows(
+          [fact],
+          ['I still think about the spare key under the third flowerpot'],
+        ),
+        isEmpty,
+        reason: 'same-beat flowerpot gist still drops',
+      );
+    });
+
     test('HOLD hole: side porch and front lawn fold — not two more pairs', () {
       for (final phrase in [
         'side porch',
