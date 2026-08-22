@@ -39,8 +39,10 @@
 // Short leftover is ANY extra content token on the longer side —
 // died/gone/fell/hid/ran count even when length < 5. Leftover kind,
 // not position: short leftover and long distinctive leftover are extra
-// facts. Length 5-6 distinctive leftover is restatement. Covered lines
-// strip into contiguous runs; each run remaps its span.
+// facts (any slot). Length 5-6 distinctive leftover is restatement
+// (any slot). leftover-empty is same-beat DROP. endsWith ned so burned
+// stays extra fact vs tucked/buried. Covered lines strip into
+// contiguous runs; each run remaps its span.
 
 import 'dart:io';
 
@@ -246,6 +248,28 @@ const kThreeLineGap =
     'Nia: the porch swing creaked tonight\n'
     'Nia: I still think about the spare key under the third flowerpot\n'
     'Nia: I sat on the front garden';
+const kSuffixHidden = 'Nia: the spare key under the third flowerpot hidden';
+const kSuffixTucked = 'Nia: the spare key under the third flowerpot tucked';
+const kSuffixBuried = 'Nia: the spare key under the third flowerpot buried';
+const kSuffixStays = 'Nia: the spare key under the third flowerpot stays';
+const kSuffixRests = 'Nia: the spare key under the third flowerpot rests';
+const kSuffixLives = 'Nia: the spare key under the third flowerpot lives';
+const kSuffixLivesHidden =
+    'Nia: the spare key under the third flowerpot lives hidden';
+const kInteriorBurned = 'Nia: the spare key burned under the third flowerpot';
+const kInteriorLighthouse =
+    'Nia: the spare key lighthouse under the third flowerpot';
+const kInteriorCreaked = 'Nia: the spare key creaked under the third flowerpot';
+const kInteriorDied = 'Nia: the spare key died under the third flowerpot';
+const kInteriorSat = 'Nia: the spare key sat under the third flowerpot';
+const kInteriorFell = 'Nia: the spare key fell under the third flowerpot';
+const kInteriorHid = 'Nia: the spare key hid under the third flowerpot';
+const kPrefixHid = 'Nia: hid the spare key under the third flowerpot';
+const kPrefixSat = 'Nia: sat the spare key under the third flowerpot';
+const kPrefixDied = 'Nia: died the spare key under the third flowerpot';
+const kPrefixHidden = 'Nia: hidden the spare key under the third flowerpot';
+const kPrefixTucked = 'Nia: tucked the spare key under the third flowerpot';
+const kSatOnPorch = 'I sat on porch; the swing creaked tonight';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -1294,21 +1318,82 @@ void main() {
           src.contains('_kInteriorVerb') ||
           src.contains('_kSameBeatVerb') ||
           src.contains('_kRestateVerb') ||
-          src.contains('_kCoverVerb'),
+          src.contains('_kCoverVerb') ||
+          src.contains('_kExtraFact') ||
+          src.contains('_kLeftoverKind'),
       isFalse,
       reason:
           'a source-scan that finds a new closed paraphrase/verb list '
           '(besides the existing function-word set) MUST FAIL',
     );
-    for (final w in ['tucked', 'buried', 'stays', 'rests']) {
+    for (final w in [
+      'hidden',
+      'tucked',
+      'buried',
+      'stays',
+      'rests',
+      'lives',
+      'creaked',
+      'burned',
+      'lighthouse',
+    ]) {
       expect(
         src.contains("'$w'") || src.contains('"$w"'),
         isFalse,
         reason:
             'no verb list — "$w" must not appear as a product string. '
-            'Interior leftover DROPS without naming tucked/buried/stays/rests',
+            'Length 5-6 distinctive leftover DROPS and long leftover KEEPS '
+            'without naming hidden/tucked/buried/stays/rests/lives',
       );
     }
+    expect(
+      src.contains("endsWith('ned')"),
+      isTrue,
+      reason:
+          'burned (6) stays extra fact vs tucked/buried — kind uses '
+          "endsWith('ned'), not a burned list",
+    );
+    expect(
+      src.contains('_kTimeFiller') &&
+          src.contains('_kJournalBoilerplate') &&
+          src.contains('_kCoverFiller'),
+      isTrue,
+      reason:
+          '_kTimeFiller, _kJournalBoilerplate, _kCoverFiller stay this '
+          'pass (not deleted, not grown)',
+    );
+    final timeAt = src.indexOf('const _kTimeFiller = {');
+    expect(timeAt, greaterThanOrEqualTo(0));
+    final timeEnd = src.indexOf('};', timeAt);
+    expect(
+      RegExp(r"'[a-z]+'").allMatches(src.substring(timeAt, timeEnd)).length,
+      8,
+      reason: '_kTimeFiller is not grown',
+    );
+    final jbAt = src.indexOf('const _kJournalBoilerplate = {');
+    expect(jbAt, greaterThanOrEqualTo(0));
+    final jbEnd = src.indexOf('};', jbAt);
+    expect(
+      RegExp(r"'[a-z]+'").allMatches(src.substring(jbAt, jbEnd)).length,
+      6,
+      reason: '_kJournalBoilerplate is not grown',
+    );
+    final coverAt = src.indexOf('const _kCoverFiller = {');
+    expect(coverAt, greaterThanOrEqualTo(0));
+    final coverEnd = src.indexOf('};', coverAt);
+    expect(
+      RegExp(r"'[a-z]+'").allMatches(src.substring(coverAt, coverEnd)).length,
+      43,
+      reason: '_kCoverFiller is not grown',
+    );
+    final fnAt = src.indexOf('const _kFunctionWords = {');
+    expect(fnAt, greaterThanOrEqualTo(0));
+    final fnEnd = src.indexOf('};', fnAt);
+    expect(
+      RegExp(r"'[a-z]+'").allMatches(src.substring(fnAt, fnEnd)).length,
+      74,
+      reason: 'function-word set unchanged',
+    );
     final normAt = src.indexOf('String _normalizeCoverLine(');
     expect(
       normAt,
@@ -2593,8 +2678,8 @@ void main() {
             prompt,
             isNot(contains(kRagRememberedHeader.trim())),
             reason:
-                'same-beat is INTERIOR leftover (tokens between first and '
-                'last shared token) — no closed paraphrase/verb list. '
+                'same-beat is leftover-empty or length 5-6 distinctive '
+                'leftover (any slot) — no closed paraphrase/verb list. '
                 '"$tag" must DROP. A verb list of lives/hidden/creaked '
                 'or leftover==1/==2 is fake-green',
           );
@@ -2610,9 +2695,10 @@ void main() {
             prompt,
             contains(kept),
             reason:
-                'suffix leftover is an extra fact — "$tag" must KEEP '
-                '"$kept". that-creaked / pot-creaked / burned / died / sat '
-                'KEEP; leftover==1 or a creaked verb list goes red here',
+                'short leftover and long distinctive leftover are extra '
+                'facts (any slot) — "$tag" must KEEP "$kept". that-creaked / '
+                'pot-creaked / burned / died / sat KEEP; leftover==1 or a '
+                'creaked verb list goes red here',
           );
         }
       }
@@ -2922,6 +3008,266 @@ void main() {
             'swing" must NOT drop "I sat on the front porch swing". Without '
             'the fold, "front" is interior leftover and the window DROPS',
       );
+    },
+  );
+
+  test(
+    'LOCK: leftover kind any slot — suffix hidden DROP; interior burned KEEP; prefix hid KEEP',
+    () async {
+      Set<String> bodyTokens(String s) =>
+          coverContentTokens(s.replaceFirst(RegExp(r'^[^:\n]{1,40}:\s*'), ''));
+      expect(
+        bodyTokens(kSuffixHidden).difference(bodyTokens(kGist)),
+        {'hidden'},
+        reason:
+            'suffix hidden is the 9e61 hole — suffix leftover used to KEEP. '
+            'Length 5-6 distinctive leftover is restatement, any slot',
+      );
+      expect(
+        bodyTokens(kInteriorBurned).difference(bodyTokens(kGist)),
+        {'burned'},
+        reason:
+            'interior burned is the 9e61 hole — interior leftover used to '
+            'DROP. endsWith ned keeps burned as an extra fact, any slot',
+      );
+      expect(
+        bodyTokens(kPrefixHid).difference(bodyTokens(kGist)),
+        {'hid'},
+        reason:
+            'prefix hid is the 9e61 hole — short prefix used to DROP. '
+            'Short leftover is an extra fact, any slot',
+      );
+      expect(
+        bodyTokens(kPrefixHidden).difference(bodyTokens(kGist)),
+        {'hidden'},
+        reason:
+            'prefix hidden is the 9e61 hole — distinctive prefix used to '
+            'KEEP. Length 5-6 distinctive leftover is restatement, any slot',
+      );
+
+      const cases = [
+        {
+          'tag': 'suffix hidden',
+          'card': kGist,
+          'window': kSuffixHidden,
+          'kept': 'hidden',
+          'drop': true,
+        },
+        {
+          'tag': 'suffix tucked',
+          'card': kGist,
+          'window': kSuffixTucked,
+          'kept': 'tucked',
+          'drop': true,
+        },
+        {
+          'tag': 'suffix buried',
+          'card': kGist,
+          'window': kSuffixBuried,
+          'kept': 'buried',
+          'drop': true,
+        },
+        {
+          'tag': 'suffix stays',
+          'card': kGist,
+          'window': kSuffixStays,
+          'kept': 'stays',
+          'drop': true,
+        },
+        {
+          'tag': 'suffix rests',
+          'card': kGist,
+          'window': kSuffixRests,
+          'kept': 'rests',
+          'drop': true,
+        },
+        {
+          'tag': 'suffix lives',
+          'card': kGist,
+          'window': kSuffixLives,
+          'kept': 'lives',
+          'drop': true,
+        },
+        {
+          'tag': 'suffix lives-hidden',
+          'card': kGist,
+          'window': kSuffixLivesHidden,
+          'kept': 'hidden',
+          'drop': true,
+        },
+        {
+          'tag': 'interior burned',
+          'card': kGist,
+          'window': kInteriorBurned,
+          'kept': 'burned',
+          'drop': false,
+        },
+        {
+          'tag': 'interior lighthouse',
+          'card': kGist,
+          'window': kInteriorLighthouse,
+          'kept': 'lighthouse',
+          'drop': false,
+        },
+        {
+          'tag': 'interior creaked',
+          'card': kGist,
+          'window': kInteriorCreaked,
+          'kept': 'creaked',
+          'drop': false,
+        },
+        {
+          'tag': 'interior died',
+          'card': kGist,
+          'window': kInteriorDied,
+          'kept': 'died',
+          'drop': false,
+        },
+        {
+          'tag': 'interior sat',
+          'card': kGist,
+          'window': kInteriorSat,
+          'kept': 'sat',
+          'drop': false,
+        },
+        {
+          'tag': 'interior fell',
+          'card': kGist,
+          'window': kInteriorFell,
+          'kept': 'fell',
+          'drop': false,
+        },
+        {
+          'tag': 'interior hid',
+          'card': kGist,
+          'window': kInteriorHid,
+          'kept': 'hid',
+          'drop': false,
+        },
+        {
+          'tag': 'prefix hid',
+          'card': kGist,
+          'window': kPrefixHid,
+          'kept': 'hid',
+          'drop': false,
+        },
+        {
+          'tag': 'prefix sat',
+          'card': kGist,
+          'window': kPrefixSat,
+          'kept': 'sat',
+          'drop': false,
+        },
+        {
+          'tag': 'prefix died',
+          'card': kGist,
+          'window': kPrefixDied,
+          'kept': 'died',
+          'drop': false,
+        },
+        {
+          'tag': 'prefix hidden',
+          'card': kGist,
+          'window': kPrefixHidden,
+          'kept': 'hidden',
+          'drop': true,
+        },
+        {
+          'tag': 'prefix tucked',
+          'card': kGist,
+          'window': kPrefixTucked,
+          'kept': 'tucked',
+          'drop': true,
+        },
+        {
+          'tag': 'sat-on-porch',
+          'card': kThePorchSwing,
+          'window': kSatOnPorch,
+          'kept': 'sat',
+          'drop': false,
+        },
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']! as String;
+        final cardText = c['card']! as String;
+        final window = c['window']! as String;
+        final kept = c['kept']! as String;
+        final drop = c['drop']! as bool;
+        final sessionId = 'sess-gistlock-anyslot-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-anyslot-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: Value(cardText),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: window,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 0,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+
+        await chat.sendMessage(kSit);
+
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason:
+              'cues are present — retrieve must run so leftover kind is real',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(cardText),
+          reason:
+              'the "$cardText" card must inject or leftover kind was '
+              'never tested',
+        );
+        if (drop) {
+          expect(
+            prompt,
+            isNot(contains(kRagRememberedHeader.trim())),
+            reason:
+                'position is not kind — length 5-6 distinctive leftover '
+                'is restatement in any slot. "$tag" must DROP. A suffix-KEEP '
+                'or prefix-KEEP rule, or a hidden/tucked verb list, is '
+                'fake-green',
+          );
+          expect(
+            prompt,
+            isNot(contains(window)),
+            reason: '"$tag" still DROPS — "$window" must not reach the prompt',
+          );
+        } else {
+          expect(prompt, contains(kRagRememberedHeader.trim()));
+          expect(
+            prompt,
+            contains(kept),
+            reason:
+                'position is not kind — short leftover and long distinctive '
+                'leftover are extra facts in any slot. "$tag" must KEEP '
+                '"$kept". Interior-DROP, short-prefix-DROP, or sat-on-porch '
+                'DROP goes red here',
+          );
+        }
+      }
     },
   );
 }
