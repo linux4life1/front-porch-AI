@@ -22,14 +22,16 @@
 // front/back/side, a pair list, or a colon that requires a space, goes red.
 // Screened/covered/wraparound must KEEP. the/a/an stay filler (no theporch).
 //
-// Cover-drop locks (near-substring, not leftover 2-token overlap): a
-// source-scan for shared-content-tokens ≥ 2 as the cover rule MUST FAIL.
-// Shared place (front-garden / back-balcony / side-driveway / screened-porch)
-// KEEPS. Same-beat flowerpot gist DROPS because the card names the
-// flowerpot in the window — not because of 2-token overlap. Function
+// Cover-drop locks (whole-token subset plus a distinctive word, not leftover
+// 2-token overlap): a source-scan for raw contains() of one token in another
+// (key inside keyboard) MUST FAIL. Mood-only stems (felt/safe, still/think)
+// do not cover a longer beat. Shared place (front-garden / back-balcony /
+// side-driveway / screened-porch) KEEPS. Same-beat flowerpot gist DROPS
+// because the card names the flowerpot — flowerpot is distinctive. Function
 // words are one closed set (his/her/that/on/in/at do not mint compounds).
 // garden/balcony/driveway must not appear on the setting-noun / cover-filler
-// place list. Refuse leftover-intersection greens as stand-alone.
+// place list. Refuse leftover-intersection and raw-contains greens as
+// stand-alone.
 
 import 'dart:io';
 
@@ -181,6 +183,13 @@ const kBackBalconySwing = 'Nia: the back balcony swing creaked tonight';
 const kSideDrivewayFeeling = 'I felt safe on the side driveway tonight';
 const kSideDrivewaySwing = 'Nia: the side driveway swing creaked tonight';
 const kHallwaySpareKey = 'Nia: the spare key lives in the hallway drawer';
+const kSpareKeyShort = 'I still think about the spare key';
+const kSpareKeyboard =
+    'Nia: I still think about the spare keyboard in the attic';
+const kFeltSafeTonight = 'I felt safe tonight';
+const kGardenKeyWindow =
+    'Nia: I felt safe on the front garden until the spare key went missing';
+const kStillThinkAboutIt = 'I still think about it';
 const kSwingTight = 'Nia:the swing';
 const kSwingSpaced = 'Nia: the swing';
 const kSwingBare = 'the swing';
@@ -1161,8 +1170,23 @@ void main() {
       nearSlice.contains('longer.contains(shorter)'),
       isFalse,
       reason:
-          'unanchored contains() is the key⊂keyboard hole — cover is '
+          'unanchored contains() is the key-inside-keyboard hole — cover is '
           'whole-token subset plus a distinctive word',
+    );
+    expect(
+      nearSlice.contains('.contains('),
+      isFalse,
+      reason:
+          'a raw contains() of one token in another (key inside keyboard) '
+          'MUST FAIL this pin — cover is whole-token set membership '
+          '(containsAll), not unanchored substring of key inside keyboard',
+    );
+    expect(
+      'keyboard'.contains('key'),
+      isTrue,
+      reason:
+          'this is the hole a raw contains() would take — that match is '
+          'not a green. Product must not treat key as inside keyboard.',
     );
     expect(
       src.contains('_kJournalBoilerplate') && src.contains('containsAll'),
@@ -1341,6 +1365,192 @@ void main() {
       );
     },
   );
+
+  test(
+    'LOCK: spare key does not cover-drop spare keyboard — whole tokens only',
+    () async {
+      expect(
+        'keyboard'.contains('key'),
+        isTrue,
+        reason:
+            'raw contains() of "key" inside "keyboard" is the hole — if '
+            'that were cover this window would drop. That contains is '
+            'not a green.',
+      );
+      final card = await seedOverflowSession(
+        sessionId: 'sess-gistlock-keyboard',
+        charDbId: 'char-gistlock-keyboard',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: const Value('sess-gistlock-keyboard'),
+          characterId: Value(card.stableGroupId),
+          content: const Value(kSpareKeyShort),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      memory.canned = [
+        RetrievedMemory(
+          content: kSpareKeyboard,
+          characterId: 'Nia',
+          sessionId: 'sess-gistlock-keyboard',
+          positionStart: 0,
+          positionEnd: 0,
+          score: 0.9,
+        ),
+      ];
+
+      await chat.sendMessage(kSit);
+
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'cues are present — retrieve must run so cover-drop is real',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final prompt = llm.chatPrompts.last;
+      expect(
+        prompt,
+        contains("Nia's private journal"),
+        reason: 'the spare-key gist must inject or cover-drop was never tested',
+      );
+      expect(prompt, contains(kRagRememberedHeader.trim()));
+      expect(
+        prompt,
+        contains('keyboard'),
+        reason:
+            'whole tokens only — "spare key" must NOT drop "spare '
+            'keyboard". A raw contains() of key inside keyboard goes red.',
+      );
+      expect(prompt, contains('attic'));
+    },
+  );
+
+  test('LOCK: mood-only stems do not cover garden/key or flowerpot', () async {
+    const cases = [
+      {
+        'tag': 'felt/safe',
+        'feeling': kFeltSafeTonight,
+        'window': kGardenKeyWindow,
+        'kept': 'garden',
+      },
+      {
+        'tag': 'still/think',
+        'feeling': kStillThinkAboutIt,
+        'window': kFactWindow,
+        'kept': 'flowerpot',
+      },
+    ];
+    for (var i = 0; i < cases.length; i++) {
+      final c = cases[i];
+      final tag = c['tag']!;
+      final feeling = c['feeling']!;
+      final window = c['window']!;
+      final kept = c['kept']!;
+      final sessionId = 'sess-gistlock-moodstem-$i';
+      final card = await seedOverflowSession(
+        sessionId: sessionId,
+        charDbId: 'char-gistlock-moodstem-$i',
+        emotion: kEmotion,
+        fixation: kFixation,
+      );
+      await db.insertJournalCard(
+        JournalMemoriesCompanion(
+          sessionId: Value(sessionId),
+          characterId: Value(card.stableGroupId),
+          content: Value(feeling),
+          category: const Value('about_us'),
+          heat: const Value(0.9),
+        ),
+      );
+      memory.retrieveCalls = 0;
+      memory.canned = [
+        RetrievedMemory(
+          content: window,
+          characterId: 'Nia',
+          sessionId: sessionId,
+          positionStart: 0,
+          positionEnd: 1,
+          score: 0.9,
+        ),
+      ];
+      llm.chatPrompts.clear();
+
+      await chat.sendMessage(kSit);
+
+      expect(
+        memory.retrieveCalls,
+        greaterThan(0),
+        reason: 'cues are present — retrieve must run so cover-drop is real',
+      );
+      expect(llm.chatPrompts, isNotEmpty);
+      final prompt = llm.chatPrompts.last;
+      expect(
+        prompt,
+        contains(feeling),
+        reason: 'the $tag mood card must inject or cover-drop was never tested',
+      );
+      expect(prompt, contains(kRagRememberedHeader.trim()));
+      expect(
+        prompt,
+        contains(kept),
+        reason:
+            'mood-only $tag stems do not cover — "$feeling" must NOT '
+            'drop the $kept window',
+      );
+    }
+
+    final flowerCard = await seedOverflowSession(
+      sessionId: 'sess-gistlock-moodstem-flower',
+      charDbId: 'char-gistlock-moodstem-flower',
+      emotion: kEmotion,
+      fixation: kFixation,
+    );
+    await db.insertJournalCard(
+      JournalMemoriesCompanion(
+        sessionId: const Value('sess-gistlock-moodstem-flower'),
+        characterId: Value(flowerCard.stableGroupId),
+        content: const Value(kGist),
+        category: const Value('about_us'),
+        heat: const Value(0.9),
+      ),
+    );
+    memory.retrieveCalls = 0;
+    memory.canned = [
+      RetrievedMemory(
+        content: kFactWindow,
+        characterId: 'Nia',
+        sessionId: 'sess-gistlock-moodstem-flower',
+        positionStart: 0,
+        positionEnd: 1,
+        score: 0.9,
+      ),
+    ];
+    llm.chatPrompts.clear();
+    await chat.sendMessage(kSit);
+    expect(
+      memory.retrieveCalls,
+      greaterThan(0),
+      reason: 'retrieve ran — a skip would fake the cover-drop',
+    );
+    expect(llm.chatPrompts, isNotEmpty);
+    final flower = llm.chatPrompts.last;
+    expect(
+      flower,
+      contains(kGist),
+      reason: 'same-beat flowerpot gist must inject',
+    );
+    expect(
+      flower,
+      isNot(contains(kRagRememberedHeader.trim())),
+      reason:
+          'same-beat flowerpot gist still DROPS — flowerpot is '
+          'distinctive. Mood-stem KEEP above must not disable real cover.',
+    );
+  });
 
   test('LOCK: function words are one closed set — his/her/that/on/in/at', () {
     final src = File('lib/services/chat/rag_injection.dart').readAsStringSync();
