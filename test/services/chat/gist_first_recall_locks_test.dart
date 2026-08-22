@@ -41,8 +41,12 @@
 // hidden/tucked/buried/stays/rests/lives/lives-hidden KEEP in prefix,
 // interior, AND suffix. Two-line lives-under: lives line KEEP, exact
 // gist line still strips. sat-on-porch KEEP. this/my/our/your-porch
-// swing DROP (function words do not mint leftover). Covered lines
-// strip into contiguous runs; each run remaps its span.
+// swing DROP (function words do not mint leftover). gist+safe / felt /
+// remember and gist+yesterday / tomorrow / morning / evening KEEP —
+// time filler and journal boilerplate no longer strip leftover.
+// porch-swing × tomorrow KEEP. without vs under still DROPS;
+// function-word set stays 74. Covered lines strip into contiguous
+// runs; each run remaps its span.
 
 import 'dart:io';
 
@@ -285,6 +289,23 @@ const kMyPorchSwing = 'Nia: my porch swing creaked tonight';
 const kOurPorchSwing = 'Nia: our porch swing creaked tonight';
 const kYourPorchSwing = 'Nia: your porch swing creaked tonight';
 const kSatOnPorch = 'I sat on porch; the swing creaked tonight';
+const kGistSafe =
+    'Nia: I still think about the spare key under the third flowerpot safe';
+const kGistFelt =
+    'Nia: I still think about the spare key under the third flowerpot felt';
+const kGistRemember =
+    'Nia: I still think about the spare key under the third flowerpot remember';
+const kGistYesterday =
+    'Nia: I still think about the spare key under the third flowerpot yesterday';
+const kGistTomorrow =
+    'Nia: I still think about the spare key under the third flowerpot tomorrow';
+const kGistMorning =
+    'Nia: I still think about the spare key under the third flowerpot morning';
+const kGistEvening =
+    'Nia: I still think about the spare key under the third flowerpot evening';
+const kPorchSwingTomorrow = 'Nia: the porch swing creaked tomorrow';
+const kGistWithout =
+    'Nia: I still think about the spare key without the third flowerpot';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -1431,6 +1452,42 @@ void main() {
           'time filler and journal boilerplate must not strip cover leftover '
           '— gist+safe / gist+yesterday are leftover KEEP',
     );
+    final leftoverAt = src.indexOf(
+      'final leftover = window.toSet().difference',
+    );
+    expect(
+      leftoverAt,
+      greaterThanOrEqualTo(0),
+      reason: 'Joe lock leftover is set-difference of cover tokens',
+    );
+    final leftoverSlice = src.substring(
+      leftoverAt,
+      (leftoverAt + 280).clamp(0, src.length),
+    );
+    expect(
+      leftoverSlice.contains('_kTimeFiller') ||
+          leftoverSlice.contains('_kJournalBoilerplate') ||
+          leftoverSlice.contains('_kCoverFiller'),
+      isFalse,
+      reason:
+          'leftover must not be filtered by time/journal/cover filler — '
+          'those sets used to erase gist+safe / gist+yesterday',
+    );
+    expect(
+      leftoverSlice.contains('leftover.isEmpty'),
+      isTrue,
+      reason: 'DROP only when leftover is empty',
+    );
+    expect(
+      src.contains('leftover.where') ||
+          src.contains('leftover.difference(_kTimeFiller') ||
+          src.contains('leftover.difference(_kJournalBoilerplate') ||
+          src.contains('leftover.difference(_kCoverFiller'),
+      isFalse,
+      reason:
+          'leftover tokens must not be filtered by filler sets after '
+          'the set-difference',
+    );
     expect(
       src.contains('leftover.length == 1'),
       isFalse,
@@ -1878,6 +1935,15 @@ void main() {
         reason:
             "'$w' belongs in the closed function-word set — do not mint "
             '${w}porch compounds',
+      );
+    }
+    for (final w in ['without', 'under']) {
+      expect(
+        fn.contains("'$w'"),
+        isTrue,
+        reason:
+            "'$w' stays in the closed function-word set — without vs "
+            'under still DROPS. Do not grow or shrink the set to flip that pin',
       );
     }
     expect(
@@ -3482,6 +3548,155 @@ void main() {
           isNot(contains(window)),
           reason: '"$tag" still DROPS — "$window" must not reach the prompt',
         );
+      }
+    },
+  );
+
+  test(
+    'LOCK: leftover-empty only — time/journal leftover KEEP; without still DROP',
+    () async {
+      const cases = [
+        {
+          'tag': 'gist+safe',
+          'card': kGist,
+          'window': kGistSafe,
+          'kept': 'safe',
+          'drop': false,
+        },
+        {
+          'tag': 'gist+felt',
+          'card': kGist,
+          'window': kGistFelt,
+          'kept': 'felt',
+          'drop': false,
+        },
+        {
+          'tag': 'gist+remember',
+          'card': kGist,
+          'window': kGistRemember,
+          'kept': 'remember',
+          'drop': false,
+        },
+        {
+          'tag': 'gist+yesterday',
+          'card': kGist,
+          'window': kGistYesterday,
+          'kept': 'yesterday',
+          'drop': false,
+        },
+        {
+          'tag': 'gist+tomorrow',
+          'card': kGist,
+          'window': kGistTomorrow,
+          'kept': 'tomorrow',
+          'drop': false,
+        },
+        {
+          'tag': 'gist+morning',
+          'card': kGist,
+          'window': kGistMorning,
+          'kept': 'morning',
+          'drop': false,
+        },
+        {
+          'tag': 'gist+evening',
+          'card': kGist,
+          'window': kGistEvening,
+          'kept': 'evening',
+          'drop': false,
+        },
+        {
+          'tag': 'porch-swing × tomorrow',
+          'card': kThePorchSwing,
+          'window': kPorchSwingTomorrow,
+          'kept': 'tomorrow',
+          'drop': false,
+        },
+        {
+          'tag': 'without vs under',
+          'card': kGist,
+          'window': kGistWithout,
+          'kept': 'without',
+          'drop': true,
+        },
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        final c = cases[i];
+        final tag = c['tag']! as String;
+        final cardText = c['card']! as String;
+        final window = c['window']! as String;
+        final kept = c['kept']! as String;
+        final drop = c['drop']! as bool;
+        final sessionId = 'sess-gistlock-fillerleftover-$i';
+        final card = await seedOverflowSession(
+          sessionId: sessionId,
+          charDbId: 'char-gistlock-fillerleftover-$i',
+          emotion: kEmotion,
+          fixation: kFixation,
+        );
+        await db.insertJournalCard(
+          JournalMemoriesCompanion(
+            sessionId: Value(sessionId),
+            characterId: Value(card.stableGroupId),
+            content: Value(cardText),
+            category: const Value('about_us'),
+            heat: const Value(0.9),
+          ),
+        );
+        memory.retrieveCalls = 0;
+        memory.canned = [
+          RetrievedMemory(
+            content: window,
+            characterId: 'Nia',
+            sessionId: sessionId,
+            positionStart: 0,
+            positionEnd: 0,
+            score: 0.9,
+          ),
+        ];
+        llm.chatPrompts.clear();
+
+        await chat.sendMessage(kSit);
+
+        expect(
+          memory.retrieveCalls,
+          greaterThan(0),
+          reason: 'cues are present — retrieve must run so cover-drop is real',
+        );
+        expect(llm.chatPrompts, isNotEmpty);
+        final prompt = llm.chatPrompts.last;
+        expect(
+          prompt,
+          contains(cardText),
+          reason:
+              'the "$cardText" card must inject or leftover KEEP/DROP was '
+              'never tested',
+        );
+        if (drop) {
+          expect(
+            prompt,
+            isNot(contains(kRagRememberedHeader.trim())),
+            reason:
+                'leftover-empty only — "$tag" must still DROP. Function '
+                'words do not mint leftover. Growing the set to KEEP '
+                'without goes red here',
+          );
+          expect(
+            prompt,
+            isNot(contains(window)),
+            reason: '"$tag" still DROPS — "$window" must not reach the prompt',
+          );
+        } else {
+          expect(prompt, contains(kRagRememberedHeader.trim()));
+          expect(
+            prompt,
+            contains(kept),
+            reason:
+                'time/journal leftover is leftover — "$tag" must KEEP '
+                '"$kept". Stripping leftover via _kTimeFiller / '
+                '_kJournalBoilerplate goes red here',
+          );
+        }
       }
     },
   );

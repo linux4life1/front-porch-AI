@@ -908,6 +908,18 @@ void main() {
       expect(dropCoveredRagWindows([tomorrow], [porch]), [
         tomorrow,
       ], reason: 'porch-swing × tomorrow is leftover, not leftover-empty');
+      final withoutWin = _mem(
+        'Nia: I still think about the spare key without the third flowerpot',
+        sessionId: 's1',
+        pos: 25,
+      );
+      expect(
+        dropCoveredRagWindows([withoutWin], [gist]),
+        isEmpty,
+        reason:
+            'without vs under still DROPS — both are function words. '
+            'Do not grow the set to make without KEEP',
+      );
     });
 
     test('HOLD hole: prefix card does not cover a bigger fact', () {
