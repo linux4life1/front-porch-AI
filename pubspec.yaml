@@ -35,7 +35,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
-  file_picker: ^11.0.3
+  file_picker: ^12.0.0
   path_provider: ^2.1.5
   archive: ^4.0.7
   google_fonts: ^8.2.1
@@ -51,7 +51,7 @@ dependencies:
   window_manager: ^0.5.1
   url_launcher: ^6.2.5
   qr_flutter: ^4.1.0
-  package_info_plus: ^9.0.0
+  package_info_plus: ^10.2.1
   audioplayers: ^6.5.1
   webdav_client: ^1.2.2
   googleapis: ^16.0.0
