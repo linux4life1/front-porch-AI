@@ -164,71 +164,80 @@ extension ChatServiceGreeting on ChatService {
     }
     _greetingEvalPending = false; // consume the pending flag
     debugPrint('[Realism] Running post-greeting baseline eval...');
-    _isProcessingGreeting = true;
-    notifyListeners();
-    try {
-      await Future.wait([
-        // delegates to _llmEvalEngine (step 9 thins; full bodies excised)
-        _evaluateEmotionalStateCall(),
-        Future.delayed(
-          _kEvalDispatchStagger,
-          () => _evaluateRelationshipCall(),
-        ),
-        // WHERE SHE IS WHEN THE STORY OPENS. The greeting IS the opening scene
-        // — "she is rocking in the armchair when you walk in" — so the baseline
-        // is the earliest moment the opening position can be read, and reading
-        // it here means the sidebar shows a position before the user has typed
-        // anything. It is the SAME seed the pre-turn path uses, and the seed
-        // is single-flight (see _seedOpeningPosture): this one is a head
-        // start, and a pre-turn dance that arrives while it is still in flight
-        // waits for this answer instead of asking again.
-        Future.delayed(_kEvalDispatchStagger * 2, () => _seedOpeningPosture()),
-      ]);
+    await runZoned(() async {
+      _isProcessingGreeting = true;
+      notifyListeners();
+      try {
+        await Future.wait([
+          // delegates to _llmEvalEngine (step 9 thins; full bodies excised)
+          _evaluateEmotionalStateCall(),
+          Future.delayed(
+            _kEvalDispatchStagger,
+            () => _evaluateRelationshipCall(),
+          ),
+          // WHERE SHE IS WHEN THE STORY OPENS. The greeting IS the opening scene
+          // — "she is rocking in the armchair when you walk in" — so the baseline
+          // is the earliest moment the opening position can be read, and reading
+          // it here means the sidebar shows a position before the user has typed
+          // anything. It is the SAME seed the pre-turn path uses, and the seed
+          // is single-flight (see _seedOpeningPosture): this one is a head
+          // start, and a pre-turn dance that arrives while it is still in flight
+          // waits for this answer instead of asking again.
+          Future.delayed(_kEvalDispatchStagger * 2, () => _seedOpeningPosture()),
+        ]);
 
-      if (_realismEvalCancelled ||
-          token != _greetingEvalGen ||
-          indexStamp != _greetingIndex) {
-        debugPrint('[Realism] Post-greeting eval cancelled or stale');
-        _realismEvalCancelled = false;
-        return;
-      }
-
-      // Check for cancellation after each eval
-      if (_realismEvalCancelled ||
-          token != _greetingEvalGen ||
-          indexStamp != _greetingIndex) {
-        debugPrint('[Realism] Post-greeting eval cancelled or stale');
-        _realismEvalCancelled =
-            false; // Reset the flag so future messages can proceed
-        return;
-      }
-
-      // Store initial emotion in metadata on the greeting message itself
-      if (_messages.isNotEmpty) {
-        _messages.first.activeMetadata ??= {};
-        if (_characterEmotion.isNotEmpty) {
-          _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
-          _messages.first.activeMetadata!['realism_state'] =
-              _captureRealismState();
+        if (_realismEvalCancelled ||
+            token != _greetingEvalGen ||
+            indexStamp != _greetingIndex) {
+          debugPrint('[Realism] Post-greeting eval cancelled or stale');
+          _realismEvalCancelled = false;
+          return;
         }
+
+        // Check for cancellation after each eval
+        if (_realismEvalCancelled ||
+            token != _greetingEvalGen ||
+            indexStamp != _greetingIndex) {
+          debugPrint('[Realism] Post-greeting eval cancelled or stale');
+          _realismEvalCancelled =
+              false; // Reset the flag so future messages can proceed
+          return;
+        }
+
+        // Store initial emotion in metadata on the greeting message itself
+        if (_messages.isNotEmpty) {
+          _messages.first.activeMetadata ??= {};
+          if (_characterEmotion.isNotEmpty) {
+            _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
+            _messages.first.activeMetadata!['realism_state'] =
+                _captureRealismState();
+          }
+        }
+        // Unauthored group RtR writes live scalars only unless we put them
+        // back in the member slot before persist / first-speaker load.
+        if (_activeGroup != null) {
+          _writeBackGreetingEvalToGroupSlots(evalChar);
+        }
+        await _saveChat();
+        notifyListeners();
+        debugPrint(
+          '[Realism] Post-greeting baseline: emotion=$_characterEmotion, bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}',
+        );
+      } catch (e) {
+        debugPrint('[Realism] Post-greeting eval failed: $e');
+      } finally {
+        // Do not finally-null [_greetingEvalToken]. A later eval overwrites
+        // the slot; nulling the later one used to make an older apply look live.
+        if (_activeGroup != null) {
+          _activeCharacter = previousActive;
+        }
+        _isProcessingGreeting = false;
+        notifyListeners();
       }
-      await _saveChat();
-      notifyListeners();
-      debugPrint(
-        '[Realism] Post-greeting baseline: emotion=$_characterEmotion, bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}',
-      );
-    } catch (e) {
-      debugPrint('[Realism] Post-greeting eval failed: $e');
-    } finally {
-      if (_greetingEvalToken == token) {
-        _greetingEvalToken = null;
-      }
-      if (_activeGroup != null) {
-        _activeCharacter = previousActive;
-      }
-      _isProcessingGreeting = false;
-      notifyListeners();
-    }
+    }, zoneValues: {
+      _kGreetingEvalToken: token,
+      _kGreetingEvalIndex: indexStamp,
+    });
   }
 
   /// Retroactive baseline eval — fires when Realism is enabled mid-conversation

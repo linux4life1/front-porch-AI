@@ -159,13 +159,23 @@ bool _realismEvalCancelled = false;
 /// [_runPostGreetingEval] cannot stomp a later swipe.
 int _greetingEvalGen = 0;
 
-/// Token captured when a greeting eval starts. Live apply checks this
-/// against [_greetingEvalGen]; a later swipe leaves the in-flight eval
-/// stale even if [_realismEvalCancelled] is the only other signal.
+/// Latest-started greeting eval id. Apply gates do not use this slot —
+/// they read the per-eval Zone token so a later eval cannot un-stale an
+/// earlier apply by overwriting or finally-nulling a single global.
 int? _greetingEvalToken;
 
-bool _isStaleGreetingEval() =>
-    _greetingEvalToken != null && _greetingEvalToken != _greetingEvalGen;
+const Object _kGreetingEvalToken = #_greetingEvalToken;
+const Object _kGreetingEvalIndex = #_greetingEvalIndex;
+
+/// Stale when THIS eval's captured token is no longer the live gen.
+/// [selectGreeting] always bumps [_greetingEvalGen], so a later swipe
+/// stale-gates the earlier apply without a shared nullable slot.
+/// A missing Zone token is not a greeting apply (normal turn evals).
+bool _isStaleGreetingEval() {
+  final token = Zone.current[_kGreetingEvalToken] as int?;
+  if (token == null) return false;
+  return token != _greetingEvalGen;
+}
 
 /// Set when [_runPostGreetingEval] passes its guards (not skipped solely
 /// because [_activeCharacter] is null). Tests prove group unauthored alts

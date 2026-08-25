@@ -740,4 +740,37 @@ void main() {
       );
     },
   );
+
+  test(
+    'empty first_mes: displayed 0 is alt[0]/seeds[0], not a null card overlay',
+    () {
+      final warm = GreetingRealismSeed(characterEmotion: 'warm');
+      final furious = GreetingRealismSeed(characterEmotion: 'furious');
+      expect(
+        greetingOverlayAt([warm, furious], 0),
+        isNull,
+        reason: 'first_mes-with-text still uses the card seed',
+      );
+      expect(greetingOverlayAt([warm, furious], 1), warm);
+      expect(
+        greetingOverlayAt([warm, furious], 0, firstMesEmpty: true),
+        warm,
+        reason: 'empty first_mes: Stay. is displayed 0 and reads seeds[0]',
+      );
+      expect(
+        greetingOverlayAt([warm, furious], 1, firstMesEmpty: true),
+        furious,
+        reason: 'empty first_mes: Get out. reads seeds[1], not leftover warm',
+      );
+      expect(
+        greetingHasAuthoredSeed(
+          hasCardExtensions: true,
+          seeds: [warm, furious],
+          greetingIndex: 0,
+          firstMesEmpty: true,
+        ),
+        isTrue,
+      );
+    },
+  );
 }

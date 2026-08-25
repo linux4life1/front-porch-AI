@@ -426,25 +426,45 @@ compactRewrittenGreetingAlts(
 ]) =>
     compactGreetingPairs(greetingSlotsFromRaw(alts), authoredSeeds ?? const []);
 
-/// Overlay for `allGreetings[index]`. Index 0 (first_mes) is always null —
-/// that opening uses the card-level fields. Alts are `seeds[index - 1]`.
+/// Overlay for `allGreetings[index]`.
+///
+/// When [firstMesEmpty] is false (non-empty first_mes), index 0 is always
+/// null — that opening uses the card-level fields — and alts are
+/// `seeds[index - 1]`. When first_mes is empty, `allGreetings` drops it so
+/// displayed 0 is alt[0] and must read `seeds[0]`.
 GreetingRealismSeed? greetingOverlayAt(
   List<GreetingRealismSeed?> seeds,
-  int greetingIndex,
-) {
+  int greetingIndex, {
+  bool firstMesEmpty = false,
+}) {
+  if (firstMesEmpty) {
+    if (greetingIndex < 0 || greetingIndex >= seeds.length) return null;
+    return seeds[greetingIndex];
+  }
   if (greetingIndex <= 0) return null;
   final i = greetingIndex - 1;
   if (i < 0 || i >= seeds.length) return null;
   return seeds[i];
 }
 
-/// Authored seed? First greet: any Front Porch extensions object counts.
-/// Alts: a non-null slot (including `{}`) counts; missing means read-the-room.
+/// Authored seed? First greet with a present first_mes: any Front Porch
+/// extensions object counts. When first_mes is empty, displayed 0 is an alt
+/// and uses the seed slot. Alts: a non-null slot (including `{}`) counts;
+/// missing means read-the-room.
 bool greetingHasAuthoredSeed({
   required bool hasCardExtensions,
   required List<GreetingRealismSeed?> seeds,
   required int greetingIndex,
+  bool firstMesEmpty = false,
 }) {
+  if (firstMesEmpty) {
+    return greetingOverlayAt(
+          seeds,
+          greetingIndex,
+          firstMesEmpty: true,
+        ) !=
+        null;
+  }
   if (greetingIndex <= 0) return hasCardExtensions;
   return greetingOverlayAt(seeds, greetingIndex) != null;
 }

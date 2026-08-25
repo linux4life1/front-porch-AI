@@ -119,8 +119,12 @@ List<VariantOption> buildVariantOptions(
 /// First greet keeps the card's starting emotion. Alternative greets get
 /// reading-the-room only when the author did **not** attach a greeting seed
 /// (null slot). An authored overlay — even `{}` inherit — skips the eval.
-bool shouldReadRoomForGreeting(int index, {bool hasAuthoredSeed = false}) =>
-    index > 0 && !hasAuthoredSeed;
+bool shouldReadRoomForGreeting(
+  int index, {
+  bool hasAuthoredSeed = false,
+  bool firstMesEmpty = false,
+}) =>
+    (index > 0 || firstMesEmpty) && !hasAuthoredSeed;
 
 /// Opening-message picker shows card greets only while the chat is still
 /// the opening (no user reply yet) and that message has no stored regen

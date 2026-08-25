@@ -93,6 +93,20 @@ extension ChatServiceGroupRealismHelpers on ChatService {
   String debugBuildPositionInjection() =>
       _behavioralInjection.buildPositionInjection();
 
+  /// Test-only: first-speaker [_loadGroupRealismIntoScalars] without a turn.
+  @visibleForTesting
+  void debugReloadFirstGroupSpeakerScalars() {
+    if (_groupCharacters.isEmpty) return;
+    _loadGroupRealismIntoScalars(
+      _getCharacterIdFromCard(_groupCharacters.first),
+    );
+  }
+
+  /// Test-only: emotion sitting in a group member slot (not live scalars).
+  @visibleForTesting
+  String debugGroupSlotEmotion(String charId) =>
+      _groupRealism[charId]?.emotion ?? '';
+
   // ── Per-character realism state access (group mode, typed — U7) ─────────
   /// The one write door to a member's typed state. Outside group mode it
   /// hands back a THROWAWAY object, so writes vanish — observationally the

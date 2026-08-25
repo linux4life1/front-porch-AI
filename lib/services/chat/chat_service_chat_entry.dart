@@ -412,16 +412,26 @@ extension ChatServiceChatEntry on ChatService {
                 _storageService.realismSettings.objectivesEnabled;
           }
 
-          if (_activeCharacter!.firstMessage.isNotEmpty) {
+          final opening = _activeCharacter!.allGreetings;
+          if (opening.isNotEmpty) {
             _messages.add(
               ChatMessage(
-                text: _buildFirstMessage(_activeCharacter!),
+                text: _buildFirstMessage(
+                  _activeCharacter!,
+                  greetingText: opening.first,
+                ),
                 sender: _activeCharacter!.name,
                 isUser: false,
               ),
             );
             // Scan first message for lore (thin delegation to extracted scanner).
             _lorebookScanner.scanLatest();
+            if (_activeCharacter!.firstMessage.trim().isEmpty) {
+              await _applyGreetingOpeningSeed(
+                card: _activeCharacter!,
+                index: 0,
+              );
+            }
           }
           // Note: for the direct 0-session setActiveCharacter path (fresh import via home grid <=1 session),
           // _greetingEvalPending is left false here. The post-greeting baseline eval is scheduled only

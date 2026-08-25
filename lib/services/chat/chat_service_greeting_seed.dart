@@ -89,7 +89,12 @@ extension ChatServiceGreetingSeed on ChatService {
     required int index,
   }) async {
     final ext = card.frontPorchExtensions;
-    final overlay = greetingOverlayAt(ext?.greetingSeeds ?? const [], index);
+    final firstMesEmpty = card.firstMessage.trim().isEmpty;
+    final overlay = greetingOverlayAt(
+      ext?.greetingSeeds ?? const [],
+      index,
+      firstMesEmpty: firstMesEmpty,
+    );
     final memberId = _activeGroup == null
         ? null
         : _getCharacterIdFromCard(card);
@@ -165,8 +170,13 @@ extension ChatServiceGreetingSeed on ChatService {
       hasCardExtensions: ext != null,
       seeds: ext?.greetingSeeds ?? const [],
       greetingIndex: index,
+      firstMesEmpty: firstMesEmpty,
     );
-    if (shouldReadRoomForGreeting(index, hasAuthoredSeed: authored) &&
+    if (shouldReadRoomForGreeting(
+          index,
+          hasAuthoredSeed: authored,
+          firstMesEmpty: firstMesEmpty,
+        ) &&
         _realismActiveThisMode) {
       _runPostGreetingEval();
     } else if (_realismActiveThisMode) {
@@ -199,7 +209,12 @@ extension ChatServiceGreetingSeed on ChatService {
   Future<void> _applyGroupCustomGreetingSeed(int index) async {
     final group = _activeGroup;
     if (group == null) return;
-    final overlay = greetingOverlayAt(group.greetingSeeds, index);
+    final firstMesEmpty = group.firstMessage.trim().isEmpty;
+    final overlay = greetingOverlayAt(
+      group.greetingSeeds,
+      index,
+      firstMesEmpty: firstMesEmpty,
+    );
     final time = parseGroupTimeSeed(
       group.defaultMemberRealismState,
       group.baselineRealismState,
@@ -258,12 +273,36 @@ extension ChatServiceGreetingSeed on ChatService {
       _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
     }
 
-    final authored = greetingOverlayAt(group.greetingSeeds, index) != null;
-    if (shouldReadRoomForGreeting(index, hasAuthoredSeed: authored) &&
+    final authored = greetingOverlayAt(
+          group.greetingSeeds,
+          index,
+          firstMesEmpty: firstMesEmpty,
+        ) !=
+        null;
+    if (shouldReadRoomForGreeting(
+          index,
+          hasAuthoredSeed: authored,
+          firstMesEmpty: firstMesEmpty,
+        ) &&
         _realismActiveThisMode) {
       _runPostGreetingEval();
     } else if (_realismActiveThisMode) {
       unawaited(_seedOpeningPosture().catchError((Object _) {}));
+    }
+  }
+
+  /// After unauthored group RtR, put live scalars back in the member slot
+  /// so persist + first-speaker [_loadGroupRealismIntoScalars] keep the eval.
+  void _writeBackGreetingEvalToGroupSlots(CharacterCard? evalChar) {
+    if (_activeGroup == null) return;
+    if (_activeGroup!.firstMessage.isNotEmpty) {
+      for (final c in _groupCharacters) {
+        _saveScalarsIntoGroupRealism(_getCharacterIdFromCard(c));
+      }
+      return;
+    }
+    if (evalChar != null) {
+      _saveScalarsIntoGroupRealism(_getCharacterIdFromCard(evalChar));
     }
   }
 

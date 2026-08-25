@@ -62,5 +62,17 @@ void main() {
     test('an authored overlay skips reading-the-room', () {
       expect(shouldReadRoomForGreeting(1, hasAuthoredSeed: true), isFalse);
     });
+
+    test('empty first_mes: displayed 0 Reads the Room when unauthored', () {
+      expect(shouldReadRoomForGreeting(0, firstMesEmpty: true), isTrue);
+      expect(
+        shouldReadRoomForGreeting(
+          0,
+          hasAuthoredSeed: true,
+          firstMesEmpty: true,
+        ),
+        isFalse,
+      );
+    });
   });
 }

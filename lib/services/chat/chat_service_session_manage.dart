@@ -715,15 +715,25 @@ extension ChatServiceSessionManage on ChatService {
       _groupManager?.resetTurnState();
     } else if (_activeCharacter != null) {
       // 1:1 mode
-      if (_activeCharacter!.firstMessage.isNotEmpty) {
+      final opening = _activeCharacter!.allGreetings;
+      if (opening.isNotEmpty) {
         _messages.add(
           ChatMessage(
-            text: _buildFirstMessage(_activeCharacter!),
+            text: _buildFirstMessage(
+              _activeCharacter!,
+              greetingText: opening.first,
+            ),
             sender: _activeCharacter!.name,
             isUser: false,
           ),
         );
         _lorebookScanner.scanLatest();
+        if (_activeCharacter!.firstMessage.trim().isEmpty) {
+          await _applyGreetingOpeningSeed(
+            card: _activeCharacter!,
+            index: 0,
+          );
+        }
       }
     }
 
