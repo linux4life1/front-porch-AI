@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
@@ -52,7 +53,8 @@ void main() {
     chat = ChatService(KoboldService(storage), personas, storage, worlds)
       ..setDatabase(db)
       ..setCharacterRepository(CharacterRepository(db, storage));
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await storage.initialized;
+    await storage.realismSettings.setPocketsEnabled(true);
   });
 
   tearDown(() async {
@@ -214,6 +216,151 @@ void main() {
       expect(chat.messages.first.text, 'Get out of my house.');
       expect(chat.timeService.timeOfDay, 'night');
       expect(chat.characterEmotion, 'furious');
+    },
+  );
+
+  Pockets? livePockets() {
+    final c = chat.activeCharacter;
+    if (c == null) return null;
+    return chat.pocketsFor(chat.characterIdFor(c));
+  }
+
+  test(
+    'angry alt overlays wardrobe; swipe 0 restores the card outfit',
+    () async {
+      final cardOutfit = Pockets.cardJsonFrom(
+        worn: const ['flour-dusted apron (well-worn)'],
+        carrying: const ['shop keys'],
+      );
+      final altOutfit = Pockets.cardJsonFrom(
+        worn: const ['rain-soaked coat'],
+        carrying: const ['house keys'],
+      );
+      await db.insertCharacter(
+        CharactersCompanion.insert(
+          id: 'char-wardrobe',
+          name: 'Nemu',
+          imagePath: const Value('/tmp/Nemu_w.png'),
+          firstMessage: const Value('Hello, friend.'),
+          alternateGreetings: const Value('["Get out."]'),
+        ),
+      );
+      final card = CharacterCard(
+        name: 'Nemu',
+        imagePath: '/tmp/Nemu_w.png',
+        firstMessage: 'Hello, friend.',
+        alternateGreetings: const ['Get out.'],
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          characterEmotion: 'warm',
+          emotionIntensity: 'mild',
+          shortTermBond: 20,
+          trustLevel: 10,
+          timeOfDay: 'morning',
+          needsSimEnabled: true,
+          needsBaselineHunger: 80,
+          inventory: cardOutfit,
+          greetingSeeds: [
+            GreetingRealismSeed(
+              characterEmotion: 'furious',
+              emotionIntensity: 'strong',
+              shortTermBond: -40,
+              trustLevel: -25,
+              timeOfDay: 'night',
+              needsBaselineHunger: 25,
+              inventory: altOutfit,
+            ),
+          ],
+        ),
+      )..dbId = 'char-wardrobe';
+      await chat.setActiveCharacter(card);
+
+      expect(chat.characterEmotion, 'warm');
+      expect(livePockets()!.worn.map((i) => i.name), contains('flour-dusted apron'));
+      expect(livePockets()!.carrying.map((i) => i.name), contains('shop keys'));
+
+      await chat.selectGreeting(1);
+
+      expect(chat.characterEmotion, 'furious');
+      expect(chat.relationshipService.affectionScore, -40);
+      expect(chat.needsSimulation.vector['hunger'], 25);
+      expect(chat.timeService.timeOfDay, 'night');
+      expect(livePockets()!.worn.map((i) => i.name), contains('rain-soaked coat'));
+      expect(livePockets()!.carrying.map((i) => i.name), contains('house keys'));
+      expect(livePockets()!.worn.map((i) => i.name), isNot(contains('flour-dusted apron')));
+
+      await chat.selectGreeting(0);
+
+      expect(chat.characterEmotion, 'warm');
+      expect(chat.relationshipService.affectionScore, 20);
+      expect(chat.needsSimulation.vector['hunger'], 80);
+      expect(chat.timeService.timeOfDay, 'morning');
+      expect(livePockets()!.worn.map((i) => i.name), contains('flour-dusted apron'));
+      expect(livePockets()!.carrying.map((i) => i.name), contains('shop keys'));
+    },
+  );
+
+  test(
+    'empty authored overlay does not wipe the card seed',
+    () async {
+      final cardOutfit = Pockets.cardJsonFrom(
+        worn: const ['flour-dusted apron (well-worn)'],
+        carrying: const ['shop keys'],
+      );
+      await db.insertCharacter(
+        CharactersCompanion.insert(
+          id: 'char-empty',
+          name: 'Nemu',
+          imagePath: const Value('/tmp/Nemu_e.png'),
+          firstMessage: const Value('Hello, friend.'),
+          alternateGreetings: const Value('["Get out."]'),
+        ),
+      );
+      final card = CharacterCard(
+        name: 'Nemu',
+        imagePath: '/tmp/Nemu_e.png',
+        firstMessage: 'Hello, friend.',
+        alternateGreetings: const ['Get out.'],
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          characterEmotion: 'warm',
+          emotionIntensity: 'mild',
+          shortTermBond: 20,
+          trustLevel: 10,
+          timeOfDay: 'morning',
+          needsSimEnabled: true,
+          needsBaselineHunger: 80,
+          inventory: cardOutfit,
+          greetingSeeds: const [GreetingRealismSeed()],
+        ),
+      )..dbId = 'char-empty';
+      await chat.setActiveCharacter(card);
+
+      expect(chat.characterEmotion, 'warm');
+      expect(chat.relationshipService.affectionScore, 20);
+      expect(chat.relationshipService.trustLevel, 10);
+      expect(chat.timeService.timeOfDay, 'morning');
+      expect(chat.needsSimulation.vector['hunger'], 80);
+      expect(livePockets()!.worn.map((i) => i.name), contains('flour-dusted apron'));
+
+      await chat.selectGreeting(1);
+
+      expect(chat.greetingIndex, 1);
+      expect(chat.messages.first.text, 'Get out.');
+      expect(
+        chat.characterEmotion,
+        'warm',
+        reason: 'empty {} overlay must inherit, not mute-wipe emotion',
+      );
+      expect(chat.relationshipService.affectionScore, 20);
+      expect(chat.relationshipService.trustLevel, 10);
+      expect(chat.timeService.timeOfDay, 'morning');
+      expect(chat.needsSimulation.vector['hunger'], 80);
+      expect(
+        livePockets()!.worn.map((i) => i.name),
+        contains('flour-dusted apron'),
+        reason: 'empty overlay must not strip the card wardrobe',
+      );
     },
   );
 }

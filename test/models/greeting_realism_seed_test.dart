@@ -142,4 +142,28 @@ void main() {
     expect(back.greetingSeeds.first!.shortTermBond, -40);
     expect(back.greetingSeeds.first!.needsBaselineHunger, 30);
   });
+
+  test('empty overlay inherits every card field including wardrobe', () {
+    const base = GreetingOpeningBase(
+      characterEmotion: 'warm',
+      emotionIntensity: 'mild',
+      shortTermBond: 20,
+      trustLevel: 10,
+      timeOfDay: 'morning',
+      needsBaselineHunger: 80,
+      inventory: {
+        'worn': [
+          {'name': 'flour-dusted apron'},
+        ],
+      },
+    );
+    final resolved = resolveGreetingOpening(base, const GreetingRealismSeed());
+    expect(resolved.characterEmotion, 'warm');
+    expect(resolved.emotionIntensity, 'mild');
+    expect(resolved.shortTermBond, 20);
+    expect(resolved.trustLevel, 10);
+    expect(resolved.timeOfDay, 'morning');
+    expect(resolved.needsBaselineHunger, 80);
+    expect(resolved.inventory, base.inventory);
+  });
 }
