@@ -293,6 +293,46 @@ void main() {
     },
   );
 
+  testWidgets('typed day 0 persist-clears to inherit, not ignored', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    GreetingRealismSeed? live = const GreetingRealismSeed(dayCount: 4);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return SingleChildScrollView(
+                child: GreetingSeedForm(
+                  seed: live,
+                  onChanged: (next) => setState(() => live = next),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dayField = find.byWidgetPredicate(
+      (w) => w is TextField && w.decoration?.hintText == 'inherit (day 1)',
+    );
+    expect(dayField, findsOneWidget);
+    await tester.enterText(dayField, '0');
+    await tester.pumpAndSettle();
+    expect(
+      live!.dayCount,
+      isNull,
+      reason: 'typed 0 must inherit-clear, not keep leftover 4',
+    );
+    expect(live!.dayCount, isNot(0), reason: '0 is inherit, not calendar day 0');
+  });
+
   testWidgets('bond/trust/needs sliders can return to inherit', (tester) async {
     tester.view.physicalSize = const Size(1400, 2400);
     tester.view.devicePixelRatio = 1.0;

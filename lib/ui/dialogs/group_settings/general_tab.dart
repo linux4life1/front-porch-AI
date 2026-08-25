@@ -133,8 +133,9 @@ class GroupGeneralTabState extends State<GroupGeneralTab>
     g.name = _nameController.text;
     g.scenario = _scenarioController.text;
     g.firstMessage = _firstMessageController.text;
-    g.alternateGreetings = List.from(_altGreetings);
-    g.greetingSeeds = List.from(_altGreetingSeeds);
+    final paired = compactGreetingPairs(_altGreetings, _altGreetingSeeds);
+    g.alternateGreetings = paired.greetings;
+    g.greetingSeeds = paired.seeds;
     g.turnOrder = _turnOrder;
     g.autoAdvance = _autoAdvance;
     g.directorMode = _directorModeDefault;

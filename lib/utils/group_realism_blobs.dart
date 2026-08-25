@@ -272,12 +272,7 @@ Map<String, dynamic> _groupOpeningAltsFragment(
 ({List<String> greetings, List<GreetingRealismSeed?> seeds})
 parseGroupOpeningPairs(String defaultMemberJson) {
   final map = _decodeGroupBlob(defaultMemberJson);
-  final raw = map['alternateGreetings'];
-  final greets = <String>[
-    if (raw is List)
-      for (final e in raw)
-        if (e is String) e,
-  ];
+  final greets = greetingSlotsFromRaw(map['alternateGreetings']);
   return compactGreetingPairs(greets, parseGreetingSeeds(map['greetingSeeds']));
 }
 

@@ -375,6 +375,55 @@ void main() {
   );
 
   test(
+    'frontPorchFromFields pairs dirty empty greet so furious does not land on Get out',
+    () {
+      final back = frontPorchFromFields({
+        'alternateGreetings': ['', 'Get out.'],
+        'greetingSeeds': [
+          {'characterEmotion': 'furious'},
+        ],
+      });
+      expect(
+        back.greetingSeeds,
+        isEmpty,
+        reason: "['', 'Get out.']+[furious] must not load furious onto Get out",
+      );
+      expect(greetingOverlayAt(back.greetingSeeds, 1), isNull);
+    },
+  );
+
+  test(
+    'JSON-null greet slots stay as placeholders so zip keeps furious on Get out',
+    () {
+      final slots = greetingSlotsFromRaw([null, 'Get out.']);
+      expect(slots, ['', 'Get out.']);
+      final paired = compactGreetingPairs(
+        slots,
+        parseGreetingSeeds([
+          null,
+          {'character_emotion': 'furious'},
+        ]),
+      );
+      expect(paired.greetings, ['Get out.']);
+      expect(
+        paired.seeds.single!.characterEmotion,
+        'furious',
+        reason: 'null greet dropped with its null seed; Get out keeps furious',
+      );
+
+      final web = frontPorchFromFields({
+        'alternateGreetings': [null, 'Get out.'],
+        'greetingSeeds': [
+          null,
+          {'characterEmotion': 'furious'},
+        ],
+      });
+      expect(web.greetingSeeds, hasLength(1));
+      expect(web.greetingSeeds.single!.characterEmotion, 'furious');
+    },
+  );
+
+  test(
     'characters.md pins first_mes, skip-RtR, {} vs null, swipe-0, groups 1:1',
     () {
       final md = File('docs/characters.md').readAsStringSync();

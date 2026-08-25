@@ -222,7 +222,7 @@ class V2CardService {
         return v is String && v.isNotEmpty ? [v] : const [];
       }
 
-      final rawAlts = strList(
+      final rawAlts = greetingSlotsFromRaw(
         data['alternate_greetings'] ?? jsonMap['alternate_greetings'],
       );
 

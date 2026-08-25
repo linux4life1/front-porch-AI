@@ -213,14 +213,19 @@ class GroupFacade {
     if (f['firstMessage'] is String) {
       g.firstMessage = f['firstMessage'] as String;
     }
-    if (f['alternateGreetings'] is List) {
-      g.alternateGreetings = [
-        for (final e in f['alternateGreetings'] as List)
-          if (e is String && e.trim().isNotEmpty) e,
-      ];
-    }
-    if (f.containsKey('greetingSeeds')) {
-      g.greetingSeeds = parseGreetingSeeds(f['greetingSeeds']);
+    if (f['alternateGreetings'] is List || f.containsKey('greetingSeeds')) {
+      final paired = compactGreetingPairs(
+        f['alternateGreetings'] is List
+            ? greetingSlotsFromRaw(f['alternateGreetings'])
+            : g.alternateGreetings,
+        f.containsKey('greetingSeeds')
+            ? parseGreetingSeeds(f['greetingSeeds'])
+            : g.greetingSeeds,
+      );
+      if (f['alternateGreetings'] is List) {
+        g.alternateGreetings = paired.greetings;
+      }
+      g.greetingSeeds = paired.seeds;
     }
     if (f['turnOrder'] is String) {
       g.turnOrder = f['turnOrder'] == 'random'

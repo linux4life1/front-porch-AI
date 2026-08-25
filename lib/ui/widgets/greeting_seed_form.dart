@@ -189,7 +189,7 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (v) {
                 final n = int.tryParse(v.trim());
-                if (v.trim().isEmpty) {
+                if (v.trim().isEmpty || n == 0) {
                   widget.onChanged(s.copyWith(dayCount: null));
                 } else if (n != null && n >= 1) {
                   widget.onChanged(s.copyWith(dayCount: n));

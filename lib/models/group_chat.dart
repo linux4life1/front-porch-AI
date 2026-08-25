@@ -157,6 +157,9 @@ class GroupChat {
       'director_mode': directorMode,
       'first_message': firstMessage,
       'alternate_greetings': alternateGreetings,
+      'greeting_seeds': [
+        for (final s in compactGreetingSeeds(greetingSeeds)) s?.toJson(),
+      ],
       'scenario': scenario,
       'system_prompt': systemPrompt,
       'default_member_realism_state': defaultMemberRealismState,
@@ -184,13 +187,7 @@ class GroupChat {
         : <String>[];
 
     final pairedOpening = compactGreetingPairs(
-      [
-        for (final e
-            in (json['alternate_greetings'] is List
-                ? json['alternate_greetings'] as List
-                : const []))
-          if (e is String) e,
-      ],
+      greetingSlotsFromRaw(json['alternate_greetings']),
       parseGreetingSeeds(json['greeting_seeds']),
     );
 

@@ -115,6 +115,37 @@ void main() {
     expect(card.worldNames, ['Sunset Row']);
   });
 
+  test(
+    'null greet slot stays aligned so furious stays on Get out',
+    () {
+      final card = service.parseCardJson(
+        jsonEncode(
+          cardWith({
+            'alternate_greetings': [null, 'Get out.'],
+            'extensions': {
+              'front_porch': {
+                'realism_engine': {
+                  'enabled': true,
+                  'greeting_seeds': [
+                    null,
+                    {'character_emotion': 'furious'},
+                  ],
+                },
+              },
+            },
+          }),
+        ),
+      );
+      expect(card, isNotNull);
+      expect(card!.alternateGreetings, ['Get out.']);
+      expect(
+        card.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
+        'furious',
+        reason: 'whereType skip of JSON-null would zip furious off Get out',
+      );
+    },
+  );
+
   test('input that is not a JSON object stays null (genuinely not a card)', () {
     expect(service.parseCardJson('[]'), isNull);
     expect(service.parseCardJson('"hello"'), isNull);

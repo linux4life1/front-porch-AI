@@ -354,6 +354,21 @@ List<GreetingRealismSeed?> parseGreetingSeeds(Object? raw) {
   ];
 }
 
+/// Keep JSON-null / non-string greet slots as empty placeholders so zip
+/// stays index-aligned; [compactGreetingPairs] then drops empty+seed together.
+/// Numbers coerce to string (V2 hostile cards); null stays `''`.
+List<String> greetingSlotsFromRaw(Object? raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final e in raw)
+      e == null
+          ? ''
+          : e is String
+          ? e
+          : e.toString(),
+  ];
+}
+
 /// Pad / trim so [seeds] is the same length as the alternate-greetings list.
 List<GreetingRealismSeed?> alignGreetingSeeds(
   List<GreetingRealismSeed?> seeds,

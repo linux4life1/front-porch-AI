@@ -22,6 +22,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings_dialog.dart';
+import 'package:front_porch_ai/ui/widgets/group_alternate_greetings_editor.dart';
 
 import '../../golden/support/fakes.dart';
 
@@ -100,4 +101,55 @@ void main() {
     expect(repo.saved, same(group));
     expect(repo.saved!.name, 'The New Fellowship');
   });
+
+  testWidgets(
+    'applyToLiveGroup compact-pairs dirty greets so live overlay is not mis-paired',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final group = GroupChat(
+        id: 'g-live-pair',
+        name: 'The House',
+        firstMessage: 'Come in.',
+      );
+      final chat = _ChatWithGroup(group);
+      addTearDown(chat.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: GroupGeneralTab(chatService: chat)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<GroupAlternateGreetingsEditor>(
+        find.byType(GroupAlternateGreetingsEditor),
+      );
+      final furious = GreetingRealismSeed(characterEmotion: 'furious');
+      editor.onChanged(['', 'Get out.'], [furious]);
+      await tester.pump();
+
+      tester
+          .state<GroupGeneralTabState>(find.byType(GroupGeneralTab))
+          .applyToLiveGroup();
+
+      expect(
+        group.alternateGreetings,
+        ['Get out.'],
+        reason: 'live write must compact, not keep the blank row',
+      );
+      expect(
+        group.greetingSeeds,
+        isEmpty,
+        reason: 'furious sat on the blank; live allGreetings must not see it on Get out',
+      );
+      expect(group.allGreetings, ['Come in.', 'Get out.']);
+      expect(
+        greetingOverlayAt(group.greetingSeeds, 1),
+        isNull,
+        reason: 'overlay index 1 is Get out — leftover furious would have landed here',
+      );
+    },
+  );
 }

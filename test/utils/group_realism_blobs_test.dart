@@ -250,6 +250,54 @@ void main() {
       );
 
       test(
+        'JSON-null greet slots stay aligned then compact keeps furious on Get out',
+        () {
+          const blob =
+              '{"alternateGreetings":[null,"Get out."],"greetingSeeds":[null,{"character_emotion":"furious"}]}';
+          expect(parseGroupAlternateGreetings(blob), ['Get out.']);
+          expect(
+            parseGroupGreetingSeeds(blob).single!.characterEmotion,
+            'furious',
+            reason: 'dropping the null greet first would lose or mis-zip furious',
+          );
+
+          final g = GroupChat.fromJson({
+            'id': 'g-null-slot',
+            'name': 'House',
+            'first_message': 'Come in.',
+            'alternate_greetings': [null, 'Get out.'],
+            'greeting_seeds': [
+              null,
+              {'character_emotion': 'furious'},
+            ],
+          });
+          expect(g.alternateGreetings, ['Get out.']);
+          expect(g.greetingSeeds.single!.characterEmotion, 'furious');
+        },
+      );
+
+      test('GroupChat.toJson/fromJson round-trips greeting_seeds', () {
+        final original = GroupChat(
+          id: 'g-persist-seeds',
+          name: 'House',
+          firstMessage: 'Come in.',
+          alternateGreetings: ['Get out.'],
+          greetingSeeds: [
+            GreetingRealismSeed(characterEmotion: 'furious'),
+          ],
+        );
+        final json = original.toJson();
+        expect(
+          json.containsKey('greeting_seeds'),
+          isTrue,
+          reason: 'toJson used to omit greeting_seeds and lose them on reload',
+        );
+        final back = GroupChat.fromJson(json);
+        expect(back.alternateGreetings, ['Get out.']);
+        expect(back.greetingSeeds.single!.characterEmotion, 'furious');
+      });
+
+      test(
         'blank greet row does not steal furious off Get out on the blob',
         () {
           final furious = GreetingRealismSeed(characterEmotion: 'furious');

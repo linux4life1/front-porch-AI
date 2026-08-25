@@ -123,9 +123,15 @@ FrontPorchExtensions frontPorchFromFields(
     // Same class of bug as inventory/storyStart: the React editor used to
     // omit greetingSeeds, and rebuilding without carrying the base wiped
     // per-alt opening state on every phone save.
-    greetingSeeds: fields.containsKey('greetingSeeds')
-        ? parseGreetingSeeds(fields['greetingSeeds'])
-        : b.greetingSeeds,
+    greetingSeeds: () {
+      if (!fields.containsKey('greetingSeeds')) return b.greetingSeeds;
+      final parsed = parseGreetingSeeds(fields['greetingSeeds']);
+      if (!fields.containsKey('alternateGreetings')) return parsed;
+      return compactGreetingPairs(
+        greetingSlotsFromRaw(fields['alternateGreetings']),
+        parsed,
+      ).seeds;
+    }(),
 
     // Realism Engine core.
     realismEnabled: asBool('realismEnabled', b.realismEnabled),
