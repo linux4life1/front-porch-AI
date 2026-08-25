@@ -123,34 +123,46 @@ extension ChatServiceSessionLoad on ChatService {
     final lastSession = sessions.reduce(
       (a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b,
     );
+    // Activate THIS row's persona before _currentSessionId is set and
+    // before overlay-reapply / any hydrate save. setActiveCharacter then
+    // loadSession used to stamp the still-live previous chat (Nightowl)
+    // onto the first row; loadSession then skipped flush (same id) and
+    // "restored" Nightowl. Default is unmoved — setActivePersona is
+    // chat-scoped. Keep loadSession's restore too.
+    await _activateSessionPersona(lastSession);
     // Stale unauthored RtR from a prior opening must not paint this hydrate.
     await _invalidateGreetingEval();
-    _currentSessionId = lastSession.id;
-    // Sanitizer + first paint need gen settings and the tail ONLY.
-    // Growth/worlds/scalars used to run first and kept the spinner up
-    // for the same beat as loading 11k messages.
-    _sessionGenSettings = ChatGenerationSettings.fromJsonString(
-      lastSession.generationSettings,
-    );
+    _preserveSessionPersonaOf[this] = true;
     try {
-      await _openSessionMessages(lastSession.id);
-    } catch (e) {
-      print('Error loading chat session: $e');
-    }
-    await _reloadChatWorldIds();
-    await _hydrateSessionScalars(lastSession);
+      _currentSessionId = lastSession.id;
+      // Sanitizer + first paint need gen settings and the tail ONLY.
+      // Growth/worlds/scalars used to run first and kept the spinner up
+      // for the same beat as loading 11k messages.
+      _sessionGenSettings = ChatGenerationSettings.fromJsonString(
+        lastSession.generationSettings,
+      );
+      try {
+        await _openSessionMessages(lastSession.id);
+      } catch (e) {
+        print('Error loading chat session: $e');
+      }
+      await _reloadChatWorldIds();
+      await _hydrateSessionScalars(lastSession);
 
-    // v30: Load live per-character group realism/needs (bond/trust/emotion/fixation/arousal/relationships/needs)
-    // from the session column (or fall back to group defaults). Must happen for group entry paths
-    // so that _groupRealism is populated before any eval, prompt injection, or UI read.
-    if (_activeGroup != null) {
-      _loadGroupRealismStateFromSession(lastSession);
-    } else {
-      // 1:1 session: the group realism column ('{}' for plain sessions) may
-      // carry persisted Scene Guest (Lite NPC) dbIds. Tolerant of legacy/empty.
-      _loadSceneGuestsFromSession(lastSession);
+      // v30: Load live per-character group realism/needs (bond/trust/emotion/fixation/arousal/relationships/needs)
+      // from the session column (or fall back to group defaults). Must happen for group entry paths
+      // so that _groupRealism is populated before any eval, prompt injection, or UI read.
+      if (_activeGroup != null) {
+        _loadGroupRealismStateFromSession(lastSession);
+      } else {
+        // 1:1 session: the group realism column ('{}' for plain sessions) may
+        // carry persisted Scene Guest (Lite NPC) dbIds. Tolerant of legacy/empty.
+        _loadSceneGuestsFromSession(lastSession);
+      }
+      await _reapplyOpeningOverlayIfNeeded();
+    } finally {
+      _preserveSessionPersonaOf[this] = false;
     }
-    await _reapplyOpeningOverlayIfNeeded();
 
     // Load messages
     // Zero secondary objective flags in loaded path of _loadLast (before callers do _loadActiveObjectives / _loadObjectivesForCurrentSpeaker); incomplete zeroing hygiene.
@@ -347,9 +359,9 @@ extension ChatServiceSessionLoad on ChatService {
   /// Callers keep what genuinely differs: group-realism/scene-guest branch,
   /// objectives zeroing (library path only), per-chat gen settings placement
   /// (must precede message hydration for the retroactive sanitizer), and the
-  /// persona activation (picker path only, by design — restoring a specific
-  /// chat restores its persona; a library tap must not silently switch the
-  /// user's persona).
+  /// persona activation. Both load paths restore the row's persona so a
+  /// hydrate save cannot stamp the previous chat's live persona onto the
+  /// row. The default is still unmoved (setActivePersona is chat-scoped).
   Future<void> _hydrateSessionScalars(Session s) async {
     _authorNote = s.authorNote;
     _authorNoteStrength = s.authorNoteDepth;
@@ -508,6 +520,17 @@ extension ChatServiceSessionLoad on ChatService {
     await _refreshGrowthCache();
   }
 
+  /// Chat-scoped only — never moves [UserPersonaService.defaultPersonaId].
+  Future<void> _activateSessionPersona(Session session) async {
+    final sessionPersonaId = session.userPersonaId;
+    final knownPersona =
+        sessionPersonaId != null &&
+        _userPersonaService.personas.any((p) => p.id == sessionPersonaId);
+    await _userPersonaService.setActivePersona(
+      knownPersona ? sessionPersonaId : _userPersonaService.defaultPersonaId,
+    );
+  }
+
   Future<void> loadSession(String sessionId) async {
     if (_activeCharacter == null && _activeGroup == null) return;
 
@@ -523,10 +546,12 @@ extension ChatServiceSessionLoad on ChatService {
     // "restore" whatever was already live. That broke "reopening a chat
     // restores its persona" everywhere (Rawhide E2E red since 6192ddc:
     // persona_default_test + persona_folder_test; the picker flow after
-    // setActiveCharacter hits it because _loadLastSession sets
-    // _currentSessionId without activating the persona — by design). The
-    // same-session transcript needs no flush here: turns persist when
-    // taken, and _waitForTurnToSettle has already drained the save chain.
+    // setActiveCharacter then loadSession used to hit it because
+    // _loadLastSession set _currentSessionId before activating the
+    // persona). The same-session transcript needs no flush here: turns
+    // persist when taken, and _waitForTurnToSettle has already drained
+    // the save chain. _loadLastSession now activates the row persona
+    // before any hydrate save; the restore below still runs.
     if (_currentSessionId != sessionId) {
       await flushPendingSaves();
       _clearTodayPointer();
@@ -549,13 +574,7 @@ extension ChatServiceSessionLoad on ChatService {
     // binding (pre-v25 rows) or one naming a persona that has since been
     // DELETED falls back to the default — not to whatever the previously-open
     // chat left behind, which is what the old silent no-op did.
-    final sessionPersonaId = session.userPersonaId;
-    final knownPersona =
-        sessionPersonaId != null &&
-        _userPersonaService.personas.any((p) => p.id == sessionPersonaId);
-    await _userPersonaService.setActivePersona(
-      knownPersona ? sessionPersonaId : _userPersonaService.defaultPersonaId,
-    );
+    await _activateSessionPersona(session);
 
     // Load per-chat generation settings override for this session (must
     // happen before the message loop so retroactive sanitization can

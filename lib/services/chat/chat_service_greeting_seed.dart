@@ -87,6 +87,7 @@ extension ChatServiceGreetingSeed on ChatService {
   Future<void> _applyGreetingOpeningSeed({
     required CharacterCard card,
     required int index,
+    bool scheduleEval = true,
   }) async {
     final ext = card.frontPorchExtensions;
     final firstMesEmpty = greetingFirstMesEmpty(card.firstMessage);
@@ -166,6 +167,7 @@ extension ChatServiceGreetingSeed on ChatService {
       _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
     }
 
+    if (!scheduleEval) return;
     final authored = greetingHasAuthoredSeed(
       hasCardExtensions: ext != null,
       seeds: ext?.greetingSeeds ?? const [],
@@ -206,7 +208,10 @@ extension ChatServiceGreetingSeed on ChatService {
   /// Custom group first_message + alts: one overlay fans out to the story
   /// clock and every member's opening slot. Unauthored alts Read the Room
   /// like 1:1; an authored overlay (including `{}`) skips.
-  Future<void> _applyGroupCustomGreetingSeed(int index) async {
+  Future<void> _applyGroupCustomGreetingSeed(
+    int index, {
+    bool scheduleEval = true,
+  }) async {
     final group = _activeGroup;
     if (group == null) return;
     final firstMesEmpty = greetingFirstMesEmpty(group.firstMessage);
@@ -273,6 +278,7 @@ extension ChatServiceGreetingSeed on ChatService {
       _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
     }
 
+    if (!scheduleEval) return;
     final authored =
         greetingOverlayAt(
           group.greetingSeeds,
@@ -317,12 +323,16 @@ extension ChatServiceGreetingSeed on ChatService {
         _activeGroup != null &&
         !greetingFirstMesEmpty(_activeGroup!.firstMessage);
     if (groupCustom) {
-      await _applyGroupCustomGreetingSeed(_greetingIndex);
+      await _applyGroupCustomGreetingSeed(_greetingIndex, scheduleEval: false);
       return;
     }
     final owner = _greetingOwnerCard() ?? _activeCharacter;
     if (owner != null) {
-      await _applyGreetingOpeningSeed(card: owner, index: _greetingIndex);
+      await _applyGreetingOpeningSeed(
+        card: owner,
+        index: _greetingIndex,
+        scheduleEval: false,
+      );
     }
   }
 }

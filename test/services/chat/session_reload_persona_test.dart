@@ -83,8 +83,12 @@ void main() {
     repo = CharacterRepository(db, storage);
     personas = UserPersonaService(db);
     chat =
-        ChatService(KoboldService(storage), personas, storage,
-            WorldRepository(storage, db))
+        ChatService(
+            KoboldService(storage),
+            personas,
+            storage,
+            WorldRepository(storage, db),
+          )
           ..setDatabase(db)
           ..setCharacterRepository(repo)
           ..testLlmServiceOverride = _InertLlm();
@@ -134,8 +138,92 @@ void main() {
     expect(
       (await db.getSessionById(sessionId))!.userPersonaId,
       porchy,
-      reason: 'the reload must not have rewritten the row binding first — '
+      reason:
+          'the reload must not have rewritten the row binding first — '
           'that is the write-before-read bug this suite pins',
     );
   });
+
+  // Matches persona_default_test E2E step 4: setActiveCharacter(first) then
+  // loadSession(A). The same-session pin above never hydrates via
+  // _loadLastSession while Nightowl is live, so it stays green if only
+  // loadSession's flush gate is correct.
+  test(
+    'setActiveCharacter then loadSession restores Porchy after a Nightowl new chat',
+    () async {
+      await personas.createPersona('Porchy', 'Porchy', 'porch tester', null);
+      final porchy = personas.persona.id;
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      await personas.createPersona('Nightowl', 'Nightowl', 'late shift', null);
+      final nightowl = personas.persona.id;
+      expect(nightowl, isNot(porchy));
+      await personas.setDefaultPersona(porchy);
+      await personas.setActivePersona(porchy);
+
+      Future<CharacterCard> seed(String name) async {
+        final card = CharacterCard(
+          name: name,
+          description: 'E2E-twin persona card.',
+          firstMessage: 'Evening. Pull up a chair.',
+          frontPorchExtensions: FrontPorchExtensions(
+            realismEnabled: false,
+            needsSimEnabled: false,
+            chaosModeEnabled: false,
+          ),
+        );
+        await repo.addCharacter(card);
+        return card;
+      }
+
+      final first = await seed('Porch Sitter');
+      final second = await seed('Late Riser');
+
+      await chat.setActiveCharacter(first);
+      await chat.startNewChat();
+      await chat.sendMessage('Still me, still here.');
+      final firstSessionId = chat.currentSessionId!;
+      expect((await db.getSessionById(firstSessionId))!.userPersonaId, porchy);
+      expect(personas.persona.id, porchy);
+
+      await personas.setDefaultPersona(nightowl);
+      expect(personas.persona.id, porchy);
+      expect(personas.defaultPersonaId, nightowl);
+
+      await chat.setActiveCharacter(second);
+      await chat.startNewChat();
+      expect(personas.persona.id, nightowl);
+      expect(personas.defaultPersonaId, nightowl);
+
+      expect(
+        (await db.getSessionById(firstSessionId))!.userPersonaId,
+        porchy,
+        reason: 'Nightowl new chat must not have rewritten chat A',
+      );
+
+      await chat.setActiveCharacter(first);
+      // Same write _loadLastSession overlay-reapply / flushPendingSaves can
+      // do after setting _currentSessionId while Nightowl is still live.
+      await chat.flushPendingSaves();
+      expect(
+        (await db.getSessionById(firstSessionId))!.userPersonaId,
+        porchy,
+        reason:
+            '_loadLastSession hydrate must not stamp live Nightowl onto chat A',
+      );
+
+      await chat.loadSession(firstSessionId);
+      expect(
+        personas.persona.id,
+        porchy,
+        reason:
+            'setActiveCharacter then loadSession must restore chat A\'s Porchy',
+      );
+      expect(
+        personas.defaultPersonaId,
+        nightowl,
+        reason: 'reopening a chat must not drag the default back',
+      );
+      expect((await db.getSessionById(firstSessionId))!.userPersonaId, porchy);
+    },
+  );
 }

@@ -18,6 +18,10 @@
 
 part of '../chat_service.dart';
 
+/// While [_loadLastSession] hydrates, [_doSaveChat] must not stamp the
+/// still-live previous chat's persona onto the row being loaded.
+final Expando<bool> _preserveSessionPersonaOf = Expando();
+
 /// Session-state load/save — scene-guest + group-realism hydration and _saveChat/_doSaveChat. Extracted verbatim (zero behaviour change) to shrink the god file.
 extension ChatServiceSessionState on ChatService {
   // v30: Load per-character group realism/needs state.
@@ -308,6 +312,18 @@ extension ChatServiceSessionState on ChatService {
       characterDbId = _activeCharacter!.dbId;
     }
 
+    // Hydrate must not overwrite the row's binding with the previous chat's
+    // still-live persona. A partial omit is not possible on insertOnConflict
+    // update (absent → default null), so keep the existing id when set.
+    var personaId = _userPersonaService.persona.id;
+    if (_preserveSessionPersonaOf[this] == true) {
+      final existing = await _db.getSessionById(sessionId);
+      final kept = existing?.userPersonaId;
+      if (kept != null && kept.isNotEmpty) {
+        personaId = kept;
+      }
+    }
+
     // Upsert session (INSERT OR REPLACE to avoid UNIQUE constraint errors)
     final timestamp = int.tryParse(sessionId) ?? 0;
     final createdAt = timestamp > 0
@@ -320,7 +336,7 @@ extension ChatServiceSessionState on ChatService {
         groupId: drift.Value(groupDbId),
         name: drift.Value(_sessionName),
         description: drift.Value(_sessionDescription),
-        userPersonaId: drift.Value(_userPersonaService.persona.id),
+        userPersonaId: drift.Value(personaId),
         authorNote: drift.Value(_authorNote),
         authorNoteDepth: drift.Value(_authorNoteStrength),
         summary: drift.Value(_summary.isEmpty ? null : _summary),
