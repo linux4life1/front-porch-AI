@@ -45,10 +45,14 @@ function render(initial: GreetingSeed | null, onEmit?: (next: GreetingSeed | nul
 
 function clickToggle(on: boolean) {
   const toggle = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
-  const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')!;
+  if (!toggle) {
+    throw new Error('Custom opening state toggle not found');
+  }
+  if (toggle.checked === on) return;
+  // React 18 wires checkbox onChange to the click path. Setting checked +
+  // dispatching a synthetic change does not emit (lastOf was undefined).
   act(() => {
-    desc.set!.call(toggle, on);
-    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    toggle.click();
   });
 }
 
