@@ -438,4 +438,24 @@ void main() {
       );
     },
   );
+
+  test(
+    'web/API call sites pair dirty greets through compactGreetingPairs',
+    () {
+      final fp = File('lib/services/web/util/realism_extensions_json.dart')
+          .readAsStringSync();
+      expect(fp.contains('compactGreetingPairs'), isTrue);
+      expect(fp.contains('greetingSlotsFromRaw'), isTrue);
+
+      final chars = File('lib/services/web/facade/character_facade.dart')
+          .readAsStringSync();
+      expect(chars.contains('compactGreetingPairs'), isTrue);
+      expect(chars.contains('greetingSlotsFromRaw'), isTrue);
+
+      final groups = File('lib/services/web/facade/group_facade.dart')
+          .readAsStringSync();
+      expect(groups.contains('compactGreetingPairs'), isTrue);
+      expect(groups.contains('greetingSlotsFromRaw'), isTrue);
+    },
+  );
 }

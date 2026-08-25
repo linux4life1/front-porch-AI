@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
@@ -94,5 +95,108 @@ void main() {
       expect(await facade.create({'name': '   '}), isNull);
       expect(await facade.create(const {}), isNull);
     });
+
+    test(
+      'create compact-pairs dirty empty greet so furious does not land on Get out',
+      () async {
+        final res = await facade.create({
+          'name': 'PairCreate',
+          'firstMessage': 'Come in.',
+          'alternateGreetings': ['', 'Get out.'],
+          'greetingSeeds': [
+            {'characterEmotion': 'furious'},
+          ],
+        });
+        expect(res, isNotNull);
+        final card = facade.cardByDbId(res!['id'] as String);
+        expect(card, isNotNull);
+        expect(card!.alternateGreetings, ['Get out.']);
+        expect(
+          card.frontPorchExtensions!.greetingSeeds,
+          isEmpty,
+          reason:
+              "['', 'Get out.']+[furious] must not load furious onto Get out",
+        );
+        expect(
+          greetingOverlayAt(card.frontPorchExtensions!.greetingSeeds, 1),
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'create JSON-null greet slot keeps furious on Get out',
+      () async {
+        final res = await facade.create({
+          'name': 'NullSlotCreate',
+          'firstMessage': 'Come in.',
+          'alternateGreetings': [null, 'Get out.'],
+          'greetingSeeds': [
+            null,
+            {'characterEmotion': 'furious'},
+          ],
+        });
+        expect(res, isNotNull);
+        final card = facade.cardByDbId(res!['id'] as String)!;
+        expect(card.alternateGreetings, ['Get out.']);
+        expect(
+          card.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
+          'furious',
+        );
+      },
+    );
+
+    test(
+      'update compact-pairs dirty empty greet so furious does not land on Get out',
+      () async {
+        final res = await facade.create({'name': 'PairUpdate'});
+        final id = res!['id'] as String;
+        expect(
+          await facade.update(id, {
+            'alternateGreetings': ['', 'Get out.'],
+            'greetingSeeds': [
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        final card = facade.cardByDbId(id)!;
+        expect(card.alternateGreetings, ['Get out.']);
+        expect(
+          card.frontPorchExtensions!.greetingSeeds,
+          isEmpty,
+          reason:
+              "['', 'Get out.']+[furious] must not load furious onto Get out",
+        );
+        expect(
+          greetingOverlayAt(card.frontPorchExtensions!.greetingSeeds, 1),
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'update JSON-null greet slot keeps furious on Get out',
+      () async {
+        final res = await facade.create({'name': 'NullSlotUpdate'});
+        final id = res!['id'] as String;
+        expect(
+          await facade.update(id, {
+            'alternateGreetings': [null, 'Get out.'],
+            'greetingSeeds': [
+              null,
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        final card = facade.cardByDbId(id)!;
+        expect(card.alternateGreetings, ['Get out.']);
+        expect(
+          card.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
+          'furious',
+        );
+      },
+    );
   });
 }
