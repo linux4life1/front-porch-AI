@@ -241,5 +241,112 @@ void main() {
         );
       },
     );
+
+    test(
+      'update explicit empty greetingSeeds stays authored-empty',
+      () async {
+        final res = await facade.create({
+          'name': 'AuthoredEmptySeeds',
+          'firstMessage': 'Come in.',
+          'alternateGreetings': ['Stay.'],
+          'greetingSeeds': [
+            {'characterEmotion': 'furious'},
+          ],
+        });
+        final id = res!['id'] as String;
+        expect(
+          facade
+              .cardByDbId(id)!
+              .frontPorchExtensions!
+              .greetingSeeds
+              .single!
+              .characterEmotion,
+          'furious',
+        );
+
+        expect(
+          await facade.update(id, {
+            'alternateGreetings': ['', 'Get out.'],
+            'greetingSeeds': [],
+          }),
+          isTrue,
+        );
+        final dirty = facade.cardByDbId(id)!;
+        expect(dirty.alternateGreetings, ['Get out.']);
+        expect(
+          dirty.frontPorchExtensions!.greetingSeeds,
+          isEmpty,
+          reason:
+              'explicit empty greetingSeeds is authored-empty, not leftover furious',
+        );
+        expect(
+          greetingOverlayAt(dirty.frontPorchExtensions!.greetingSeeds, 1),
+          isNull,
+        );
+
+        expect(
+          await facade.update(id, {
+            'alternateGreetings': ['Stay.'],
+            'greetingSeeds': [
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        expect(
+          facade
+              .cardByDbId(id)!
+              .frontPorchExtensions!
+              .greetingSeeds
+              .single!
+              .characterEmotion,
+          'furious',
+        );
+        expect(
+          await facade.update(id, {
+            'greetingSeeds': [],
+          }),
+          isTrue,
+        );
+        final emptied = facade.cardByDbId(id)!;
+        expect(emptied.alternateGreetings, ['Stay.']);
+        expect(
+          emptied.frontPorchExtensions!.greetingSeeds,
+          isEmpty,
+          reason: 'explicit empty is authored-empty, not dropped as omit',
+        );
+      },
+    );
+
+    test(
+      'update omitted alts keep base seeds',
+      () async {
+        final res = await facade.create({
+          'name': 'KeepBaseSeeds',
+          'firstMessage': 'Come in.',
+          'alternateGreetings': ['Stay.'],
+          'greetingSeeds': [
+            {'characterEmotion': 'furious'},
+          ],
+        });
+        final id = res!['id'] as String;
+        expect(
+          await facade.update(id, {
+            'trustLevel': 7,
+            'name': 'KeepBaseSeeds-renamed',
+          }),
+          isTrue,
+        );
+        final card = facade.cardByDbId(id)!;
+        expect(card.name, 'KeepBaseSeeds-renamed');
+        expect(card.alternateGreetings, ['Stay.']);
+        expect(
+          card.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
+          'furious',
+          reason: 'omitted alts must not wipe leftover base seeds',
+        );
+        expect(card.frontPorchExtensions!.trustLevel, 7);
+      },
+    );
   });
 }

@@ -434,6 +434,99 @@ void main() {
   );
 
   test(
+    'frontPorchFromFields explicit empty greetingSeeds stays authored-empty',
+    () {
+      final seeded = FrontPorchExtensions(greetingSeeds: [angry]);
+      final withAlts = frontPorchFromFields({
+        'alternateGreetings': ['', 'Get out.'],
+        'greetingSeeds': [],
+      }, base: seeded);
+      expect(
+        withAlts.greetingSeeds,
+        isEmpty,
+        reason:
+            'explicit empty greetingSeeds is authored-empty, not leftover furious',
+      );
+      expect(greetingOverlayAt(withAlts.greetingSeeds, 1), isNull);
+
+      final noAlts = frontPorchFromFields({
+        'greetingSeeds': [],
+        'trustLevel': 3,
+      }, base: seeded);
+      expect(
+        noAlts.greetingSeeds,
+        isEmpty,
+        reason: 'explicit empty is authored-empty, not dropped as omit',
+      );
+      expect(noAlts.trustLevel, 3);
+    },
+  );
+
+  test(
+    'frontPorchFromFields omitted alts keep base seeds',
+    () {
+      final seeded = FrontPorchExtensions(greetingSeeds: [angry]);
+      final back = frontPorchFromFields({
+        'trustLevel': 5,
+        'realismEnabled': true,
+      }, base: seeded);
+      expect(back.greetingSeeds, hasLength(1));
+      expect(
+        back.greetingSeeds.first!.characterEmotion,
+        'furious',
+        reason: 'omitted alts must not wipe leftover base seeds',
+      );
+      expect(back.trustLevel, 5);
+    },
+  );
+
+  test(
+    'omitted greetingSeeds become empty/null before compact at both call sites',
+    () {
+      final fp = File(
+        'lib/services/web/util/realism_extensions_json.dart',
+      ).readAsStringSync();
+      final omitted = RegExp(
+        r"if \(!fields\.containsKey\('greetingSeeds'\)\) \{([^}]+)\}",
+      ).firstMatch(fp);
+      expect(omitted, isNotNull);
+      final body = omitted!.group(1)!;
+      expect(
+        body.contains('if (!altsPresent) return b.greetingSeeds;'),
+        isTrue,
+        reason: 'omitted alts still keep base seeds',
+      );
+      expect(
+        body.contains('const []'),
+        isTrue,
+        reason: 'omitted seeds + alts compact against empty, not leftover',
+      );
+      expect(body.contains('compactGreetingPairs'), isTrue);
+      expect(
+        RegExp(r'compactGreetingPairs\([^)]*b\.greetingSeeds').hasMatch(body),
+        isFalse,
+        reason: 'must not compact against leftover base seeds',
+      );
+
+      final chars = File(
+        'lib/services/web/facade/character_facade.dart',
+      ).readAsStringSync();
+      final updateCompact = RegExp(
+        r"compactGreetingPairs\(\s*greetingSlotsFromRaw\(greetings\),\s*"
+        r"fields\.containsKey\('greetingSeeds'\)\s*"
+        r"\? parseGreetingSeeds\(fields\['greetingSeeds'\]\)\s*"
+        r": const \[\],",
+      );
+      expect(
+        updateCompact.hasMatch(chars),
+        isTrue,
+        reason:
+            'facade.update omitted seeds must pass empty to compact, not leftover',
+      );
+    },
+  );
+
+  test(
     'JSON-null greet slots stay as placeholders so zip keeps furious on Get out',
     () {
       final slots = greetingSlotsFromRaw([null, 'Get out.']);
