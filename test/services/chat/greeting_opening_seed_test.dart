@@ -1298,6 +1298,84 @@ void main() {
   );
 
   test(
+    'loadSession after delayed unauthored alt: fury must not paint loaded first_mes',
+    () async {
+      final llm = _PhasedGreetingLlm();
+      chat.testLlmServiceOverride = llm;
+      await db.insertCharacter(
+        CharactersCompanion.insert(
+          id: 'char-load-stale',
+          name: 'Nemu',
+          imagePath: const Value('/tmp/Nemu_load.png'),
+          firstMessage: const Value('Hello, friend.'),
+          alternateGreetings: const Value('["Get out."]'),
+        ),
+      );
+      final nemu = CharacterCard(
+        name: 'Nemu',
+        imagePath: '/tmp/Nemu_load.png',
+        firstMessage: 'Hello, friend.',
+        alternateGreetings: const ['Get out.'],
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          characterEmotion: 'warm',
+          emotionIntensity: 'mild',
+          shortTermBond: 20,
+          trustLevel: 10,
+          timeOfDay: 'morning',
+          needsSimEnabled: true,
+          needsBaselineHunger: 80,
+          greetingSeeds: const [null],
+        ),
+      )..dbId = 'char-load-stale';
+      await chat.setActiveCharacter(nemu);
+
+      expect(chat.characterEmotion, 'warm');
+      expect(chat.messages.first.text, 'Hello, friend.');
+      final openingSessionId = chat.currentSessionId!;
+
+      await chat.startNewChat();
+      expect(chat.messages.first.text, 'Hello, friend.');
+      expect(chat.currentSessionId, isNot(openingSessionId));
+
+      llm.delay = const Duration(milliseconds: 180);
+      llm.payload = '{"emotion":"furious","emotion_intensity":"strong"}';
+      testPostGreetingEvalEntered = false;
+      await chat.selectGreeting(1);
+      expect(chat.greetingIndex, 1);
+      expect(chat.messages.first.text, 'Get out.');
+      expect(
+        testPostGreetingEvalEntered,
+        isTrue,
+        reason: 'unauthored alt must start eval so a stale future exists',
+      );
+
+      await chat.loadSession(openingSessionId);
+      expect(chat.greetingIndex, 0);
+      expect(chat.messages.first.text, 'Hello, friend.');
+      expect(chat.characterEmotion, 'warm');
+      expect(chat.relationshipService.affectionScore, 20);
+      expect(chat.relationshipService.trustLevel, 10);
+      expect(chat.timeService.timeOfDay, 'morning');
+      expect(chat.needsSimulation.vector['hunger'], 80);
+
+      await Future<void>.delayed(const Duration(milliseconds: 360));
+
+      expect(
+        chat.characterEmotion,
+        'warm',
+        reason:
+            'delayed eval-1 must not paint fury onto loadSession first_mes',
+      );
+      expect(chat.messages.first.text, 'Hello, friend.');
+      expect(chat.relationshipService.affectionScore, 20);
+      expect(chat.relationshipService.trustLevel, 10);
+      expect(chat.timeService.timeOfDay, 'morning');
+      expect(chat.needsSimulation.vector['hunger'], 80);
+    },
+  );
+
+  test(
     'group blank first_mes + member empty first_mes opens Stay. with warm overlay',
     () async {
       final warm = GreetingRealismSeed(

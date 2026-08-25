@@ -123,6 +123,8 @@ extension ChatServiceSessionLoad on ChatService {
     final lastSession = sessions.reduce(
       (a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b,
     );
+    // Stale unauthored RtR from a prior opening must not paint this hydrate.
+    await _invalidateGreetingEval();
     _currentSessionId = lastSession.id;
     // Sanitizer + first paint need gen settings and the tail ONLY.
     // Growth/worlds/scalars used to run first and kept the spinner up
@@ -536,6 +538,12 @@ extension ChatServiceSessionLoad on ChatService {
 
     final session = await _db.getSessionById(sessionId);
     if (session == null) return;
+
+    // Any path that loads a new opening first_mes must bump _greetingEvalGen
+    // before hydrate / _reapplyOpeningOverlayIfNeeded. _waitForTurnToSettle
+    // only drains _isTurnBusy, so a delayed unauthored RtR would still have
+    // a live Zone token and paint fury onto the loaded opening.
+    await _invalidateGreetingEval();
 
     // Speak as the persona this chat was chatted under. A session with no
     // binding (pre-v25 rows) or one naming a persona that has since been

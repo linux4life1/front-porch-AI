@@ -156,8 +156,8 @@ const String kSpatialStancePreTurn = 'spatial_stance_pre_turn';
 bool _realismEvalCancelled = false;
 
 /// Bumped by [_invalidateGreetingEval] (selectGreeting, startNewChat,
-/// setActiveCharacter, setActiveGroup) so a late unawaited
-/// [_runPostGreetingEval] cannot stomp a later opening.
+/// setActiveCharacter, setActiveGroup, loadSession, _loadLastSession) so a
+/// late unawaited [_runPostGreetingEval] cannot stomp a later opening.
 int _greetingEvalGen = 0;
 
 const Object _kGreetingEvalToken = #_greetingEvalToken;
