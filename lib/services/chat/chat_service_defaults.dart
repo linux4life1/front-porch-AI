@@ -159,11 +159,6 @@ bool _realismEvalCancelled = false;
 /// [_runPostGreetingEval] cannot stomp a later swipe.
 int _greetingEvalGen = 0;
 
-/// Latest-started greeting eval id. Apply gates do not use this slot —
-/// they read the per-eval Zone token so a later eval cannot un-stale an
-/// earlier apply by overwriting or finally-nulling a single global.
-int? _greetingEvalToken;
-
 const Object _kGreetingEvalToken = #_greetingEvalToken;
 const Object _kGreetingEvalIndex = #_greetingEvalIndex;
 

@@ -156,7 +156,6 @@ extension ChatServiceGreeting on ChatService {
     if (evalChar == null && _activeGroup == null) return;
     testPostGreetingEvalEntered = true;
     final token = _greetingEvalGen;
-    _greetingEvalToken = token;
     final indexStamp = _greetingIndex;
     final previousActive = _activeCharacter;
     if (_activeCharacter == null && evalChar != null) {
@@ -226,8 +225,7 @@ extension ChatServiceGreeting on ChatService {
       } catch (e) {
         debugPrint('[Realism] Post-greeting eval failed: $e');
       } finally {
-        // Do not finally-null [_greetingEvalToken]. A later eval overwrites
-        // the slot; nulling the later one used to make an older apply look live.
+        // Per-eval Zone token only. Do not reintroduce a global slot.
         if (_activeGroup != null) {
           _activeCharacter = previousActive;
         }
