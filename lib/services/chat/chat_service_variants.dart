@@ -27,7 +27,8 @@ extension ChatServiceVariants on ChatService {
   List<String> get openingAllGreetings {
     if (isGroupMode) {
       final g = activeGroup;
-      if (g != null && g.firstMessage.isNotEmpty) return g.allGreetings;
+      if (g != null && !greetingFirstMesEmpty(g.firstMessage))
+        return g.allGreetings;
       if (messages.isEmpty) return const [];
       final cid = messages.first.characterId;
       if (cid == null || cid.isEmpty) return const [];
@@ -102,7 +103,8 @@ extension ChatServiceVariants on ChatService {
   /// back to index 0 restores the card/group base — it does not keep the
   /// previous alt's live mood. Re-selecting the same index is a no-op.
   List<String> _resolvedOpeningGreetings() {
-    if (_activeGroup != null && _activeGroup!.firstMessage.isNotEmpty) {
+    if (_activeGroup != null &&
+        !greetingFirstMesEmpty(_activeGroup!.firstMessage)) {
       return [
         for (final g in _activeGroup!.allGreetings)
           _macroResolver.resolve(
@@ -137,7 +139,8 @@ extension ChatServiceVariants on ChatService {
     if (index >= resolved.length) return;
     final old = _messages[0];
     final groupCustom =
-        _activeGroup != null && _activeGroup!.firstMessage.isNotEmpty;
+        _activeGroup != null &&
+        !greetingFirstMesEmpty(_activeGroup!.firstMessage);
     _messages[0] = ChatMessage(
       text: resolved[index],
       sender: groupCustom ? _activeGroup!.name : (old.sender),

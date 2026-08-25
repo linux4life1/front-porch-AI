@@ -137,8 +137,8 @@ class GroupChat {
   /// Custom group opener + alts. Empty when the group uses a member greet.
   List<String> get allGreetings {
     final greetings = <String>[
-      if (firstMessage.isNotEmpty) firstMessage,
-      ...alternateGreetings.where((g) => g.isNotEmpty),
+      if (firstMessage.trim().isNotEmpty) firstMessage,
+      ...alternateGreetings.where((g) => g.trim().isNotEmpty),
     ];
     return greetings;
   }

@@ -310,7 +310,7 @@ extension ChatServiceGroupEntry on ChatService {
         String greetingSender;
         String? greetingCharId;
 
-        if (group.firstMessage.isNotEmpty) {
+        if (!greetingFirstMesEmpty(group.firstMessage)) {
           // Use custom group first message — attribute to "Narrator" or group name
           greetingText = _macroResolver.resolve(
             group.firstMessage,
@@ -322,7 +322,7 @@ extension ChatServiceGroupEntry on ChatService {
         } else {
           // Fall back to first character's greeting
           final first = _groupCharacters.first;
-          greetingText = first.firstMessage.isNotEmpty
+          greetingText = !greetingFirstMesEmpty(first.firstMessage)
               ? _buildFirstMessage(first)
               : '';
           greetingSender = first.name;

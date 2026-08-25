@@ -773,4 +773,77 @@ void main() {
       );
     },
   );
+
+  test(
+    'whitespace-only first_mes pairs like empty: displayed 0 is seeds[0]',
+    () {
+      final warm = GreetingRealismSeed(characterEmotion: 'warm');
+      final furious = GreetingRealismSeed(characterEmotion: 'furious');
+      expect(greetingFirstMesEmpty(''), isTrue);
+      expect(greetingFirstMesEmpty('   '), isTrue);
+      expect(greetingFirstMesEmpty('\n'), isTrue);
+      expect(greetingFirstMesEmpty('  \n'), isTrue);
+      expect(greetingFirstMesEmpty('Hello'), isFalse);
+      expect(greetingFirstMesEmpty(' Hello '), isFalse);
+      expect(
+        greetingOverlayAt(
+          [warm, furious],
+          0,
+          firstMesEmpty: greetingFirstMesEmpty('   '),
+        ),
+        warm,
+        reason: "first_mes '   ': Stay. is displayed 0 and reads seeds[0]",
+      );
+      expect(
+        greetingOverlayAt(
+          [warm, furious],
+          1,
+          firstMesEmpty: greetingFirstMesEmpty('   '),
+        ),
+        furious,
+        reason: "first_mes '   ': Get out. reads seeds[1], not leftover warm",
+      );
+    },
+  );
+
+  test('CharacterCard.allGreetings drops whitespace-only first_mes', () {
+    final card = CharacterCard(
+      name: 'Nemu',
+      firstMessage: '   ',
+      alternateGreetings: const ['Stay.', 'Get out.'],
+    );
+    expect(card.allGreetings, ['Stay.', 'Get out.']);
+    expect(
+      CharacterCard(
+        name: 'Nemu',
+        firstMessage: 'Hello, friend.',
+        alternateGreetings: const ['Get out.'],
+      ).allGreetings,
+      ['Hello, friend.', 'Get out.'],
+      reason: 'real non-whitespace first_mes stays displayed 0',
+    );
+  });
+
+  test('GroupChat.allGreetings drops whitespace-only first_mes', () {
+    expect(
+      GroupChat(
+        id: 'g',
+        name: 'House',
+        firstMessage: '   ',
+        alternateGreetings: const ['Stay.', 'Get out.'],
+      ).allGreetings,
+      ['Stay.', 'Get out.'],
+    );
+    expect(
+      GroupChat(
+        id: 'g2',
+        name: 'House',
+        firstMessage: 'Come in.',
+        alternateGreetings: const ['Get out.'],
+      ).allGreetings,
+      ['Come in.', 'Get out.'],
+      reason: 'real non-whitespace group first_mes stays displayed 0',
+    );
+  });
+
 }

@@ -426,6 +426,9 @@ compactRewrittenGreetingAlts(
 ]) =>
     compactGreetingPairs(greetingSlotsFromRaw(alts), authoredSeeds ?? const []);
 
+/// True when first_mes is missing or whitespace-only. Same pairing as empty.
+bool greetingFirstMesEmpty(String firstMes) => firstMes.trim().isEmpty;
+
 /// Overlay for `allGreetings[index]`.
 ///
 /// When [firstMesEmpty] is false (non-empty first_mes), index 0 is always
@@ -458,12 +461,7 @@ bool greetingHasAuthoredSeed({
   bool firstMesEmpty = false,
 }) {
   if (firstMesEmpty) {
-    return greetingOverlayAt(
-          seeds,
-          greetingIndex,
-          firstMesEmpty: true,
-        ) !=
-        null;
+    return greetingOverlayAt(seeds, greetingIndex, firstMesEmpty: true) != null;
   }
   if (greetingIndex <= 0) return hasCardExtensions;
   return greetingOverlayAt(seeds, greetingIndex) != null;

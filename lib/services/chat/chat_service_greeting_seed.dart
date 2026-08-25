@@ -89,7 +89,7 @@ extension ChatServiceGreetingSeed on ChatService {
     required int index,
   }) async {
     final ext = card.frontPorchExtensions;
-    final firstMesEmpty = card.firstMessage.trim().isEmpty;
+    final firstMesEmpty = greetingFirstMesEmpty(card.firstMessage);
     final overlay = greetingOverlayAt(
       ext?.greetingSeeds ?? const [],
       index,
@@ -209,7 +209,7 @@ extension ChatServiceGreetingSeed on ChatService {
   Future<void> _applyGroupCustomGreetingSeed(int index) async {
     final group = _activeGroup;
     if (group == null) return;
-    final firstMesEmpty = group.firstMessage.trim().isEmpty;
+    final firstMesEmpty = greetingFirstMesEmpty(group.firstMessage);
     final overlay = greetingOverlayAt(
       group.greetingSeeds,
       index,
@@ -273,7 +273,8 @@ extension ChatServiceGreetingSeed on ChatService {
       _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
     }
 
-    final authored = greetingOverlayAt(
+    final authored =
+        greetingOverlayAt(
           group.greetingSeeds,
           index,
           firstMesEmpty: firstMesEmpty,
@@ -291,11 +292,13 @@ extension ChatServiceGreetingSeed on ChatService {
     }
   }
 
-  /// After unauthored group RtR, put live scalars back in the member slot
+  /// After unauthored group RtR, persist live scalars into the current cast
   /// so persist + first-speaker [_loadGroupRealismIntoScalars] keep the eval.
+  /// Member-greet and custom opener share this fan-out. Whitespace first_mes
+  /// is not a custom opener and must not write only [evalChar].
   void _writeBackGreetingEvalToGroupSlots(CharacterCard? evalChar) {
     if (_activeGroup == null) return;
-    if (_activeGroup!.firstMessage.isNotEmpty) {
+    if (_groupCharacters.isNotEmpty) {
       for (final c in _groupCharacters) {
         _saveScalarsIntoGroupRealism(_getCharacterIdFromCard(c));
       }
@@ -311,7 +314,8 @@ extension ChatServiceGreetingSeed on ChatService {
   Future<void> _reapplyOpeningOverlayIfNeeded() async {
     if (!_isOpeningGreetingChat) return;
     final groupCustom =
-        _activeGroup != null && _activeGroup!.firstMessage.isNotEmpty;
+        _activeGroup != null &&
+        !greetingFirstMesEmpty(_activeGroup!.firstMessage);
     if (groupCustom) {
       await _applyGroupCustomGreetingSeed(_greetingIndex);
       return;

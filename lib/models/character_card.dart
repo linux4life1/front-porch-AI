@@ -745,7 +745,7 @@ class CharacterCard {
   List<String> get allGreetings {
     final greetings = <String>[firstMessage];
     greetings.addAll(alternateGreetings);
-    return greetings.where((g) => g.isNotEmpty).toList();
+    return greetings.where((g) => g.trim().isNotEmpty).toList();
   }
 
   /// Replace [alternateGreetings] with rewritten [alts].

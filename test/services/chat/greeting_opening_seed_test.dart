@@ -951,7 +951,8 @@ void main() {
       expect(
         chat.characterEmotion,
         'warm',
-        reason: 'empty first_mes: displayed 0 is alt[0] and overlay is seeds[0]',
+        reason:
+            'empty first_mes: displayed 0 is alt[0] and overlay is seeds[0]',
       );
       expect(chat.relationshipService.affectionScore, 20);
 
@@ -966,6 +967,170 @@ void main() {
       );
       expect(chat.characterEmotion, isNot('warm'));
       expect(chat.relationshipService.affectionScore, -40);
+    },
+  );
+
+  test(
+    "whitespace first_mes '   ' pairs Stay./warm and Get out./furious",
+    () async {
+      await db.insertCharacter(
+        CharactersCompanion.insert(
+          id: 'char-ws-first',
+          name: 'Nemu',
+          imagePath: const Value('/tmp/Nemu_ws.png'),
+          firstMessage: const Value('   '),
+          alternateGreetings: const Value('["Stay.","Get out."]'),
+        ),
+      );
+      final card = CharacterCard(
+        name: 'Nemu',
+        imagePath: '/tmp/Nemu_ws.png',
+        firstMessage: '   ',
+        alternateGreetings: const ['Stay.', 'Get out.'],
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          characterEmotion: 'lonely',
+          emotionIntensity: 'mild',
+          shortTermBond: 5,
+          trustLevel: 5,
+          timeOfDay: 'morning',
+          needsSimEnabled: true,
+          needsBaselineHunger: 80,
+          greetingSeeds: [
+            GreetingRealismSeed(
+              characterEmotion: 'warm',
+              emotionIntensity: 'mild',
+              shortTermBond: 20,
+            ),
+            GreetingRealismSeed(
+              characterEmotion: 'furious',
+              emotionIntensity: 'strong',
+              shortTermBond: -40,
+            ),
+          ],
+        ),
+      )..dbId = 'char-ws-first';
+      await chat.setActiveCharacter(card);
+
+      expect(chat.openingAllGreetings, ['Stay.', 'Get out.']);
+      expect(chat.messages, isNotEmpty);
+      expect(chat.messages.first.text, 'Stay.');
+      expect(
+        chat.characterEmotion,
+        'warm',
+        reason:
+            "first_mes '   ': displayed 0 is alt[0] and overlay is seeds[0]",
+      );
+      expect(chat.relationshipService.affectionScore, 20);
+
+      await chat.selectGreeting(1);
+
+      expect(chat.greetingIndex, 1);
+      expect(chat.messages.first.text, 'Get out.');
+      expect(
+        chat.characterEmotion,
+        'furious',
+        reason: 'Get out. must read seeds[1], not leftover warm from seeds[0]',
+      );
+      expect(chat.characterEmotion, isNot('warm'));
+      expect(chat.relationshipService.affectionScore, -40);
+    },
+  );
+
+  test(
+    'member-greet unauthored RtR write-back persists eval into the whole cast',
+    () async {
+      chat.testLlmServiceOverride = _PhasedGreetingLlm()
+        ..payload = '{"emotion":"curious","emotion_intensity":"mild"}';
+      final blobs = buildGroupRealismBlobs(
+        seeds: {
+          'mem-a': defaultGroupMemberRealismSeed(),
+          'mem-b': defaultGroupMemberRealismSeed(),
+        },
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      await db.insertGroup(
+        GroupsCompanion.insert(
+          id: 'grp-member-rtr',
+          name: 'The House',
+          firstMessage: const Value(''),
+          defaultMemberRealismState: Value(blobs.defaultMemberJson),
+          baselineRealismState: Value(blobs.baselineJson),
+        ),
+      );
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-a',
+          groupId: 'grp-member-rtr',
+          name: 'Ana',
+          firstMessage: const Value('Hi.'),
+          alternateGreetings: const Value('["Who are you?"]'),
+        ),
+      );
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-b',
+          groupId: 'grp-member-rtr',
+          name: 'Bea',
+          firstMessage: const Value('Hey.'),
+        ),
+      );
+      final group = GroupChat(
+        id: 'grp-member-rtr',
+        name: 'The House',
+        firstMessage: '',
+        defaultMemberRealismState: blobs.defaultMemberJson,
+        baselineRealismState: blobs.baselineJson,
+      );
+      await chat.setActiveGroup(
+        group,
+        groupRepo: GroupChatRepository(storage, db),
+      );
+
+      expect(chat.messages, isNotEmpty);
+      expect(chat.messages.first.text, 'Hi.');
+      expect(chat.openingAllGreetings, ['Hi.', 'Who are you?']);
+
+      testPostGreetingEvalEntered = false;
+      await chat.selectGreeting(1);
+      expect(chat.greetingIndex, 1);
+      expect(chat.messages.first.text, 'Who are you?');
+      expect(
+        testPostGreetingEvalEntered,
+        isTrue,
+        reason: 'unauthored member-greet alt must reach RtR',
+      );
+
+      final deadline = DateTime.now().add(const Duration(seconds: 3));
+      while (chat.isProcessingGreeting && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(chat.isProcessingGreeting, isFalse);
+
+      expect(
+        chat.characterEmotion,
+        'curious',
+        reason: 'unauthored member-greet alt must keep the RtR result live',
+      );
+      for (final c in chat.groupCharacters) {
+        final id = chat.characterIdFor(c);
+        expect(
+          chat.debugGroupSlotEmotion(id),
+          'curious',
+          reason:
+              'member-greet RtR must persist into every current member slot, not only evalChar ($id)',
+        );
+      }
+
+      chat.debugReloadFirstGroupSpeakerScalars();
+      expect(
+        chat.characterEmotion,
+        'curious',
+        reason:
+            'first-speaker reload must not throw member-greet RtR away for inherit baseline',
+      );
     },
   );
 }

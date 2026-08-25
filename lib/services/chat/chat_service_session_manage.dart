@@ -143,7 +143,9 @@ extension ChatServiceSessionManage on ChatService {
     _messages.addAll(forkedMessages);
     _history.reset();
     _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
-    _computeAbsenceGap(const []); // fresh session — no real-world gap (Living Time §2)
+    _computeAbsenceGap(
+      const [],
+    ); // fresh session — no real-world gap (Living Time §2)
     // Forks stay in the parent chat's place: carry the world attachments so
     // the climate/setting follow (mid-chat climate spans reset to the world
     // default, like every other new session).
@@ -393,7 +395,9 @@ extension ChatServiceSessionManage on ChatService {
 
     // Create new session ID for the new chat
     _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
-    _computeAbsenceGap(const []); // fresh session — no real-world gap (Living Time §2)
+    _computeAbsenceGap(
+      const [],
+    ); // fresh session — no real-world gap (Living Time §2)
 
     // Clear memory sources to prevent old memories from being retrieved
     // Cross-character memory can still be re-selected by user after new chat starts
@@ -684,7 +688,7 @@ extension ChatServiceSessionManage on ChatService {
       String greetingSender;
       String? greetingCharId;
 
-      if (_activeGroup!.firstMessage.isNotEmpty) {
+      if (!greetingFirstMesEmpty(_activeGroup!.firstMessage)) {
         greetingText = _macroResolver.resolve(
           _activeGroup!.firstMessage,
           MacroContext(userName: _userPersonaService.persona.name),
@@ -694,7 +698,7 @@ extension ChatServiceSessionManage on ChatService {
         greetingCharId = null;
       } else {
         final first = _groupCharacters.first;
-        greetingText = first.firstMessage.isNotEmpty
+        greetingText = !greetingFirstMesEmpty(first.firstMessage)
             ? _buildFirstMessage(first)
             : '';
         greetingSender = first.name;
@@ -729,16 +733,15 @@ extension ChatServiceSessionManage on ChatService {
         );
         _lorebookScanner.scanLatest();
         if (_activeCharacter!.firstMessage.trim().isEmpty) {
-          await _applyGreetingOpeningSeed(
-            card: _activeCharacter!,
-            index: 0,
-          );
+          await _applyGreetingOpeningSeed(card: _activeCharacter!, index: 0);
         }
       }
     }
 
     _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
-    _computeAbsenceGap(const []); // fresh session — no real-world gap (Living Time §2)
+    _computeAbsenceGap(
+      const [],
+    ); // fresh session — no real-world gap (Living Time §2)
     // Seed chat worlds for the fresh session (group template or the
     // character's attached worlds — Living Worlds).
     await _seedChatWorldsForNewSession();
@@ -751,8 +754,9 @@ extension ChatServiceSessionManage on ChatService {
         groupId: _activeGroup?.id,
       );
       if (lastThemeJson != null) {
-        _sessionThemeOverrides =
-            ChatThemeOverrides.fromJsonString(lastThemeJson);
+        _sessionThemeOverrides = ChatThemeOverrides.fromJsonString(
+          lastThemeJson,
+        );
       }
     } catch (_) {
       _sessionThemeOverrides = ChatThemeOverrides();
