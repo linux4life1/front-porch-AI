@@ -523,6 +523,26 @@ void main() {
         reason:
             'facade.update omitted seeds must pass empty to compact, not leftover',
       );
+
+      final groups = File(
+        'lib/services/web/facade/group_facade.dart',
+      ).readAsStringSync();
+      final groupCompact = RegExp(
+        r"f\.containsKey\('greetingSeeds'\)\s*"
+        r"\? parseGreetingSeeds\(f\['greetingSeeds'\]\)\s*"
+        r": const \[\],",
+      );
+      expect(
+        groupCompact.hasMatch(groups),
+        isTrue,
+        reason:
+            'group updateSettings omitted seeds must pass empty to compact, not leftover',
+      );
+      expect(
+        RegExp(r': g\.greetingSeeds,').hasMatch(groups),
+        isFalse,
+        reason: 'must not compact alts-only against unpaired existing g.greetingSeeds',
+      );
     },
   );
 

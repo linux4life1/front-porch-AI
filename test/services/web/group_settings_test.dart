@@ -127,5 +127,142 @@ void main() {
         );
       },
     );
+
+    test(
+      'updateSettings clean alts-only POST drops leftover [furious] off Get out',
+      () async {
+        expect(
+          await facade.updateSettings('g1', {
+            'firstMessage': 'Come in.',
+            'alternateGreetings': ['Stay.'],
+            'greetingSeeds': [
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        expect(
+          groups.getById('g1')!.greetingSeeds.single!.characterEmotion,
+          'furious',
+        );
+        expect(
+          await facade.updateSettings('g1', {
+            'alternateGreetings': ['Get out.'],
+          }),
+          isTrue,
+        );
+        final g = groups.getById('g1')!;
+        expect(g.alternateGreetings, ['Get out.']);
+        expect(
+          g.greetingSeeds,
+          isEmpty,
+          reason:
+              "['Get out.'] omit seeds must not reuse unpaired existing [furious]",
+        );
+        expect(
+          greetingOverlayAt(g.greetingSeeds, 1),
+          isNull,
+          reason: 'Get out overlay is not leftover furious',
+        );
+      },
+    );
+
+    test(
+      'updateSettings dirty alts-only POST drops leftover [furious] off Get out',
+      () async {
+        expect(
+          await facade.updateSettings('g1', {
+            'firstMessage': 'Come in.',
+            'alternateGreetings': ['Stay.'],
+            'greetingSeeds': [
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        expect(
+          await facade.updateSettings('g1', {
+            'alternateGreetings': ['', 'Get out.'],
+          }),
+          isTrue,
+        );
+        final g = groups.getById('g1')!;
+        expect(g.alternateGreetings, ['Get out.']);
+        expect(
+          g.greetingSeeds,
+          isEmpty,
+          reason:
+              'dirty alts-only + existing [furious] must not load furious onto Get out',
+        );
+        expect(
+          greetingOverlayAt(g.greetingSeeds, 1),
+          isNull,
+          reason: 'Get out overlay is not leftover furious',
+        );
+      },
+    );
+
+    test(
+      'updateSettings explicit empty greetingSeeds stays authored-empty',
+      () async {
+        expect(
+          await facade.updateSettings('g1', {
+            'firstMessage': 'Come in.',
+            'alternateGreetings': ['Stay.'],
+            'greetingSeeds': [
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        expect(
+          await facade.updateSettings('g1', {
+            'alternateGreetings': ['Get out.'],
+            'greetingSeeds': [],
+          }),
+          isTrue,
+        );
+        final g = groups.getById('g1')!;
+        expect(g.alternateGreetings, ['Get out.']);
+        expect(
+          g.greetingSeeds,
+          isEmpty,
+          reason:
+              'explicit empty greetingSeeds is authored-empty, not leftover furious',
+        );
+        expect(greetingOverlayAt(g.greetingSeeds, 1), isNull);
+      },
+    );
+
+    test(
+      'updateSettings omitted alts keep base seeds',
+      () async {
+        expect(
+          await facade.updateSettings('g1', {
+            'firstMessage': 'Come in.',
+            'alternateGreetings': ['Stay.'],
+            'greetingSeeds': [
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        expect(
+          await facade.updateSettings('g1', {
+            'name': 'Renamed-keep-seeds',
+            'systemPrompt': 'Be terse.',
+          }),
+          isTrue,
+        );
+        final g = groups.getById('g1')!;
+        expect(g.name, 'Renamed-keep-seeds');
+        expect(g.alternateGreetings, ['Stay.']);
+        expect(
+          g.greetingSeeds.single!.characterEmotion,
+          'furious',
+          reason: 'omitted alts must not wipe leftover base seeds',
+        );
+      },
+    );
   });
 }

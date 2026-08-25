@@ -214,13 +214,17 @@ class GroupFacade {
       g.firstMessage = f['firstMessage'] as String;
     }
     if (f['alternateGreetings'] is List || f.containsKey('greetingSeeds')) {
+      // Seeds omitted + alts present: compact against empty/null, not unpaired
+      // base leftovers. Same three-way as character update: omitted seeds +
+      // alts → empty; omitted alts keep base (this block is not entered);
+      // present seeds (including []) pair as posted.
       final paired = compactGreetingPairs(
         f['alternateGreetings'] is List
             ? greetingSlotsFromRaw(f['alternateGreetings'])
             : g.alternateGreetings,
         f.containsKey('greetingSeeds')
             ? parseGreetingSeeds(f['greetingSeeds'])
-            : g.greetingSeeds,
+            : const [],
       );
       if (f['alternateGreetings'] is List) {
         g.alternateGreetings = paired.greetings;
