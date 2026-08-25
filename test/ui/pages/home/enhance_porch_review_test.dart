@@ -191,4 +191,35 @@ void main() {
     expect(save, contains('applyPorchLifeProposal'));
     expect(save.contains('ext.copyWith('), isFalse);
   });
+
+  test(
+    'accept new greet texts vs leftover ext.greetingSeeds drops furious on Get out',
+    () {
+      final leftover = [GreetingRealismSeed(characterEmotion: 'furious')];
+      // Review must compact against enhance-authored seeds (null here), not
+      // leftover source ext.greetingSeeds on the duplicate.
+      final paired = compactAcceptedEnhanceGreetings(['Get out.'], null);
+      expect(paired.greetings, ['Get out.']);
+      expect(
+        paired.seeds,
+        isEmpty,
+        reason:
+            "['Get out.'] omit seeds must not reuse unpaired leftover [furious]",
+      );
+      expect(
+        greetingOverlayAt(paired.seeds, 1),
+        isNull,
+        reason: 'Get out overlay is not leftover furious',
+      );
+      expect(leftover.single!.characterEmotion, 'furious');
+    },
+  );
+
+  test('accept new greet texts pairs a seed the enhance step authored', () {
+    final authored = [GreetingRealismSeed(characterEmotion: 'cold')];
+    final paired = compactAcceptedEnhanceGreetings(['Get out.'], authored);
+    expect(paired.greetings, ['Get out.']);
+    expect(paired.seeds.single!.characterEmotion, 'cold');
+    expect(greetingOverlayAt(paired.seeds, 1)!.characterEmotion, 'cold');
+  });
 }

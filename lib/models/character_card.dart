@@ -748,6 +748,27 @@ class CharacterCard {
     return greetings.where((g) => g.isNotEmpty).toList();
   }
 
+  /// Replace [alternateGreetings] with rewritten [alts].
+  ///
+  /// Seeds not authored with the rewrite compact against empty so leftover
+  /// source seeds cannot land on the new alts. A `copyWith` that only
+  /// replaces alts must pass the compacted seeds (or `[]`) — never silently
+  /// keep source [greetingSeeds]. Pass [authoredSeeds] when the rewrite
+  /// wrote seeds alongside the new alts.
+  void assignRewrittenAlternateGreetings(
+    List<String> alts, {
+    List<GreetingRealismSeed?>? authoredSeeds,
+  }) {
+    final paired = compactRewrittenGreetingAlts(alts, authoredSeeds);
+    alternateGreetings = paired.greetings;
+    final ext = frontPorchExtensions;
+    if (ext != null) {
+      ext.greetingSeeds = paired.seeds;
+    } else if (paired.seeds.isNotEmpty) {
+      frontPorchExtensions = FrontPorchExtensions(greetingSeeds: paired.seeds);
+    }
+  }
+
   Map<String, dynamic> toJson() {
     // Build extensions map: merge raw (third-party) keys with our namespace
     Map<String, dynamic>? extensions;

@@ -400,10 +400,7 @@ List<GreetingRealismSeed?> compactGreetingSeeds(
 /// Drop empty greet rows *and* the seed slot at the same index so compact
 /// never prefix-aligns a furious seed onto the wrong alt (Add / blank / Add).
 ({List<String> greetings, List<GreetingRealismSeed?> seeds})
-compactGreetingPairs(
-  List<String> greetings,
-  List<GreetingRealismSeed?> seeds,
-) {
+compactGreetingPairs(List<String> greetings, List<GreetingRealismSeed?> seeds) {
   final aligned = alignGreetingSeeds(seeds, greetings.length);
   final outG = <String>[];
   final outS = <GreetingRealismSeed?>[];
@@ -414,6 +411,20 @@ compactGreetingPairs(
   }
   return (greetings: outG, seeds: compactGreetingSeeds(outS));
 }
+
+/// Compact rewritten alternate greetings.
+///
+/// When [authoredSeeds] is omitted/null, pair against empty so leftover
+/// source seeds (enhance `copyWith` of the original, chargen base leftovers)
+/// cannot land furious on Get out. When enhance/chargen actually authored
+/// seeds alongside the new alts (including `[]`), pass those so they are
+/// not wiped.
+({List<String> greetings, List<GreetingRealismSeed?> seeds})
+compactRewrittenGreetingAlts(
+  List<String> alts, [
+  List<GreetingRealismSeed?>? authoredSeeds,
+]) =>
+    compactGreetingPairs(greetingSlotsFromRaw(alts), authoredSeeds ?? const []);
 
 /// Overlay for `allGreetings[index]`. Index 0 (first_mes) is always null —
 /// that opening uses the card-level fields. Alts are `seeds[index - 1]`.
@@ -437,7 +448,6 @@ bool greetingHasAuthoredSeed({
   if (greetingIndex <= 0) return hasCardExtensions;
   return greetingOverlayAt(seeds, greetingIndex) != null;
 }
-
 
 GreetingOpeningSnapshot resolveGreetingOpening(
   GreetingOpeningBase base,

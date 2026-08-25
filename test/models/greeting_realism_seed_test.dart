@@ -610,6 +610,134 @@ void main() {
           .readAsStringSync();
       expect(groups.contains('compactGreetingPairs'), isTrue);
       expect(groups.contains('greetingSlotsFromRaw'), isTrue);
+
+      final enhance = File(
+        'lib/services/chargen/character_gen_enhance.dart',
+      ).readAsStringSync();
+      expect(
+        enhance.contains('assignRewrittenAlternateGreetings'),
+        isTrue,
+        reason: 'enhance must assign rewritten alts via compact-empty, not bare =',
+      );
+      expect(
+        enhance.contains('greetingSeeds: compactRewrittenGreetingAlts'),
+        isTrue,
+        reason:
+            'copyWith after alt rewrite must pass compact-empty/authored seeds',
+      );
+
+      final chargen = File(
+        'lib/services/character_gen_service.dart',
+      ).readAsStringSync();
+      expect(
+        chargen.contains('assignRewrittenAlternateGreetings'),
+        isTrue,
+        reason: 'chargen must assign rewritten alts via compact-empty, not bare =',
+      );
+      expect(
+        chargen.contains('card.alternateGreetings = alts;'),
+        isFalse,
+        reason: 'bare alt assign keeps leftover source seeds',
+      );
+
+      final review = File(
+        'lib/ui/pages/home/enhance/enhance_review_body.dart',
+      ).readAsStringSync();
+      expect(
+        review.contains('ext?.greetingSeeds'),
+        isFalse,
+        reason: 'must not compact accepted greets against leftover copy seeds',
+      );
+      expect(review.contains('compactAcceptedEnhanceGreetings'), isTrue);
+      expect(
+        review.contains(
+          'widget.enhanced.frontPorchExtensions?.greetingSeeds',
+        ),
+        isTrue,
+        reason: 'review must pair against enhance-authored seeds, or empty',
+      );
+    },
+  );
+
+  test(
+    'compactRewrittenGreetingAlts omits leftover furious on Get out',
+    () {
+      final leftover = [angry];
+      final omitted = compactRewrittenGreetingAlts(['Get out.']);
+      expect(omitted.greetings, ['Get out.']);
+      expect(
+        omitted.seeds,
+        isEmpty,
+        reason: "['Get out.'] omit seeds must not reuse unpaired [furious]",
+      );
+      expect(
+        greetingOverlayAt(omitted.seeds, 1),
+        isNull,
+        reason: 'Get out overlay is not leftover furious',
+      );
+      expect(
+        leftover.single!.characterEmotion,
+        'furious',
+        reason: 'source leftover stays on the source list, not the compact',
+      );
+    },
+  );
+
+  test(
+    'compactRewrittenGreetingAlts pairs a seed the enhance step authored',
+    () {
+      final authored = [GreetingRealismSeed(characterEmotion: 'cold')];
+      final paired = compactRewrittenGreetingAlts(['Get out.'], authored);
+      expect(paired.greetings, ['Get out.']);
+      expect(paired.seeds.single!.characterEmotion, 'cold');
+      expect(
+        greetingOverlayAt(paired.seeds, 1)!.characterEmotion,
+        'cold',
+      );
+    },
+  );
+
+  test(
+    'assignRewrittenAlternateGreetings drops leftover source furious on Get out',
+    () {
+      final card = CharacterCard(
+        name: 'Nina',
+        alternateGreetings: ['Stay.'],
+        frontPorchExtensions: FrontPorchExtensions(greetingSeeds: [angry]),
+      );
+      card.assignRewrittenAlternateGreetings(['Get out.']);
+      expect(card.alternateGreetings, ['Get out.']);
+      expect(
+        card.frontPorchExtensions!.greetingSeeds,
+        isEmpty,
+        reason:
+            "['Get out.'] omit seeds must not reuse unpaired source [furious]",
+      );
+      expect(
+        greetingOverlayAt(card.frontPorchExtensions!.greetingSeeds, 1),
+        isNull,
+        reason: 'Get out overlay is not leftover furious',
+      );
+    },
+  );
+
+  test(
+    'assignRewrittenAlternateGreetings keeps a seed authored with the new alts',
+    () {
+      final card = CharacterCard(
+        name: 'Nina',
+        alternateGreetings: ['Stay.'],
+        frontPorchExtensions: FrontPorchExtensions(greetingSeeds: [angry]),
+      );
+      card.assignRewrittenAlternateGreetings(
+        ['Get out.'],
+        authoredSeeds: [GreetingRealismSeed(characterEmotion: 'cold')],
+      );
+      expect(card.alternateGreetings, ['Get out.']);
+      expect(
+        card.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
+        'cold',
+      );
     },
   );
 }

@@ -71,6 +71,9 @@ class _RoutedLlm extends LLMService {
       });
     }
     if (p.contains('Write an opening roleplay message')) {
+      if (p.contains('COMPLETELY DIFFERENT')) {
+        return 'Get out.';
+      }
       return 'The neon buzzed over the empty stools as I counted the till. '
           '"We\'re closed," I said — then saw it was {{user}} at the door.';
     }
@@ -283,4 +286,53 @@ void main() {
     expect(source.personality, 'Original personality of Nina.');
     expect(source.mesExample, contains('original example'));
   });
+
+  test(
+    'greetings rewrite to Get out drops leftover source furious',
+    () async {
+      final llm = _RoutedLlm();
+      final gen = CharacterGenService(llm);
+      final furious = GreetingRealismSeed(characterEmotion: 'furious');
+      final source = CharacterCard(
+        name: 'Nina',
+        description: 'Original description of Nina.',
+        personality: 'Original personality of Nina.',
+        scenario:
+            'Original scenario: a quiet bar after hours, {{user}} walks in.',
+        firstMessage: 'Original first message.',
+        mesExample: '<START>\n{{user}}: hi\n{{char}}: original example',
+        alternateGreetings: ['Stay.'],
+        frontPorchExtensions: FrontPorchExtensions(greetingSeeds: [furious]),
+      );
+      final result = await gen.enhanceCharacter(
+        source: source,
+        selection: const EnhanceSelection(
+          description: false,
+          personality: false,
+          exampleDialogue: false,
+          greetings: true,
+          porchLife: true,
+        ),
+        chatGrounding: _grounding,
+      );
+      expect(result, isNotNull);
+      expect(result!.alternateGreetings, ['Get out.']);
+      expect(
+        result.frontPorchExtensions!.greetingSeeds,
+        isEmpty,
+        reason:
+            "['Get out.'] omit seeds must not reuse unpaired source [furious]",
+      );
+      expect(
+        greetingOverlayAt(result.frontPorchExtensions!.greetingSeeds, 1),
+        isNull,
+        reason: 'Get out overlay is not leftover furious',
+      );
+      expect(
+        source.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
+        'furious',
+        reason: 'source leftover must stay on the original card',
+      );
+    },
+  );
 }

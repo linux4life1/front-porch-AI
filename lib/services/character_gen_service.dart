@@ -497,7 +497,9 @@ class CharacterGenService {
           alts.add(_cleanGreeting(altOutput));
         }
       }
-      card.alternateGreetings = alts;
+      // Seeds are not authored with these rewritten alts — compact against
+      // empty so leftover source furious cannot land on Get out.
+      card.assignRewrittenAlternateGreetings(alts);
     }
     if (_aborted || _generationEpoch != currentEpoch) return null;
 
