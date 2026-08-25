@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
+import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
@@ -189,6 +190,64 @@ void main() {
           'night',
         );
       });
+
+      test(
+        'dirty blob empty-greet drop is paired; prefix leftover stays off Get out',
+        () {
+          const prefixDirty =
+              '{"alternateGreetings":["","Get out."],"greetingSeeds":[{"character_emotion":"furious"}]}';
+          expect(parseGroupAlternateGreetings(prefixDirty), ['Get out.']);
+          expect(
+            parseGroupGreetingSeeds(prefixDirty),
+            isEmpty,
+            reason:
+                'furious sat on the blank row; unpaired drop would load it onto Get out',
+          );
+
+          const pairedDirty =
+              '{"alternateGreetings":["","Get out."],"greetingSeeds":[null,{"character_emotion":"furious"}]}';
+          expect(parseGroupAlternateGreetings(pairedDirty), ['Get out.']);
+          expect(
+            parseGroupGreetingSeeds(pairedDirty).first!.characterEmotion,
+            'furious',
+            reason: 'paired slot 1 stays on Get out',
+          );
+        },
+      );
+
+      test(
+        'GroupChat.fromJson pairs empty-greet drop with the seed index',
+        () {
+          final g = GroupChat.fromJson({
+            'id': 'g1',
+            'name': 'House',
+            'first_message': 'Come in.',
+            'alternate_greetings': ['', 'Get out.'],
+            'greeting_seeds': [
+              {'character_emotion': 'furious'},
+            ],
+          });
+          expect(g.alternateGreetings, ['Get out.']);
+          expect(
+            g.greetingSeeds,
+            isEmpty,
+            reason: 'prefix leftover must not load furious onto Get out',
+          );
+
+          final kept = GroupChat.fromJson({
+            'id': 'g2',
+            'name': 'House',
+            'first_message': 'Come in.',
+            'alternate_greetings': ['', 'Get out.'],
+            'greeting_seeds': [
+              null,
+              {'character_emotion': 'furious'},
+            ],
+          });
+          expect(kept.alternateGreetings, ['Get out.']);
+          expect(kept.greetingSeeds.single!.characterEmotion, 'furious');
+        },
+      );
 
       test(
         'blank greet row does not steal furious off Get out on the blob',

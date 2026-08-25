@@ -185,8 +185,10 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (v) {
-                final n = int.tryParse(v);
-                if (n != null && n >= 1) {
+                final n = int.tryParse(v.trim());
+                if (v.trim().isEmpty) {
+                  widget.onChanged(s.copyWith(dayCount: null));
+                } else if (n != null && n >= 1) {
                   widget.onChanged(s.copyWith(dayCount: n));
                 }
               },
@@ -342,20 +344,22 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
     required ValueChanged<String?> onChanged,
   }) {
     final selected = value != null && items.contains(value) ? value : null;
+    final inheritStyle = TextStyle(
+      color: AppColors.textTertiary(context).withValues(alpha: 0.6),
+      fontSize: 13,
+    );
     return _labeledField(
       context,
       label: label,
       child: DropdownButtonFormField<String>(
         key: ValueKey('$label-${selected ?? 'inherit'}'),
         initialValue: selected,
-        hint: Text(
-          hint,
-          style: TextStyle(
-            color: AppColors.textTertiary(context).withValues(alpha: 0.6),
-            fontSize: 13,
-          ),
-        ),
+        hint: Text(hint, style: inheritStyle),
         items: [
+          DropdownMenuItem<String>(
+            value: null,
+            child: Text(hint, style: inheritStyle),
+          ),
           for (final i in items)
             DropdownMenuItem(value: i, child: Text(i.replaceAll('_', ' '))),
         ],

@@ -269,19 +269,24 @@ Map<String, dynamic> _groupOpeningAltsFragment(
 /// Group-level alt openings (custom group first_message only). Stored next
 /// to the scene-time seed on `defaultMemberRealismState` so Group Cards
 /// round-trip without a schema bump — same home as timeOfDay/dayCount.
-List<String> parseGroupAlternateGreetings(String defaultMemberJson) {
-  final raw = _decodeGroupBlob(defaultMemberJson)['alternateGreetings'];
-  if (raw is! List) return const [];
-  return [
-    for (final e in raw)
-      if (e is String && e.trim().isNotEmpty) e,
+({List<String> greetings, List<GreetingRealismSeed?> seeds})
+parseGroupOpeningPairs(String defaultMemberJson) {
+  final map = _decodeGroupBlob(defaultMemberJson);
+  final raw = map['alternateGreetings'];
+  final greets = <String>[
+    if (raw is List)
+      for (final e in raw)
+        if (e is String) e,
   ];
+  return compactGreetingPairs(greets, parseGreetingSeeds(map['greetingSeeds']));
+}
+
+List<String> parseGroupAlternateGreetings(String defaultMemberJson) {
+  return parseGroupOpeningPairs(defaultMemberJson).greetings;
 }
 
 List<GreetingRealismSeed?> parseGroupGreetingSeeds(String defaultMemberJson) {
-  return parseGreetingSeeds(
-    _decodeGroupBlob(defaultMemberJson)['greetingSeeds'],
-  );
+  return parseGroupOpeningPairs(defaultMemberJson).seeds;
 }
 
 /// Patch alt greetings onto an existing group blob without touching perChar
