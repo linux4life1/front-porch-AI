@@ -165,6 +165,11 @@ extension ChatServiceChatPackage on ChatService {
       await _saveChat();
     }
 
+    // Stale unauthored RtR from a prior opening must not paint this import.
+    // _isTurnBusy does not wait _isProcessingGreeting, so a delayed eval
+    // is still in flight when the package transcript replaces first_mes.
+    await _invalidateGreetingEval();
+
     final decoded = await Isolate.run(() => decodeFpchatBytes(bytes));
     final root = decoded.chatJson;
     final kind = detectFpchatPayload(root);

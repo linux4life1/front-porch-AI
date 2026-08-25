@@ -315,7 +315,7 @@ extension ChatServiceGreeting on ChatService {
 
   /// Bump [_greetingEvalGen] and cancel any in-flight unauthored RtR so a
   /// late apply cannot paint the previous opening onto a newly loaded
-  /// first_mes (New Chat, switch character/group, swipe).
+  /// first_mes (New Chat, switch character/group, swipe, load, import, fork).
   Future<void> _invalidateGreetingEval() async {
     _greetingEvalGen++;
     await cancelRealismEval();

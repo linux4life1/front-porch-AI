@@ -111,6 +111,11 @@ extension ChatServiceSessionManage on ChatService {
     final tip = await _resolveHydratedIndex(messageIndex);
     if (tip == null) return;
 
+    // Near-miss: fork copies the live greeting so eval would land on the
+    // same alt, but this is a new session opening. Bump gen before the
+    // forked transcript is live.
+    await _invalidateGreetingEval();
+
     final oldSessionId = _currentSessionId!;
     _clearTodayPointer();
     final forkedMessages = _messages
