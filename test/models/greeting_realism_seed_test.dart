@@ -182,6 +182,19 @@ void main() {
     );
   });
 
+  test('leftover furious on a blank greet row does not land on Get out', () {
+    final furious = GreetingRealismSeed(characterEmotion: 'furious');
+    // Dirty ['', 'Get out.'] + [furious]: blank row drops WITH its seed slot.
+    final paired = compactGreetingPairs(['', 'Get out.'], [furious]);
+    expect(paired.greetings, ['Get out.']);
+    expect(
+      paired.seeds,
+      isEmpty,
+      reason:
+          'furious sat on the blank; unpaired prefix-align would load it onto Get out',
+    );
+  });
+
   test(
     'prefix-align after dropping empty greets is the bug compactGreetingPairs fixes',
     () {
@@ -215,6 +228,47 @@ void main() {
         paired.seeds[1]!.characterEmotion,
         'furious',
         reason: 'blank row must drop with its slot; furious stays on Get out.',
+      );
+    },
+  );
+
+  test(
+    'parseGroupAlternateGreetings and parseGroupGreetingSeeds share compactGreetingPairs',
+    () {
+      final blobs = File(
+        'lib/utils/group_realism_blobs.dart',
+      ).readAsStringSync();
+      final alt = RegExp(
+        r'List<String> parseGroupAlternateGreetings\(String defaultMemberJson\) \{([^}]+)\}',
+      ).firstMatch(blobs);
+      final seeds = RegExp(
+        r'List<GreetingRealismSeed\?> parseGroupGreetingSeeds\(String defaultMemberJson\) \{([^}]+)\}',
+      ).firstMatch(blobs);
+      expect(alt, isNotNull);
+      expect(seeds, isNotNull);
+      expect(
+        alt!.group(1),
+        contains('parseGroupOpeningPairs'),
+        reason: 'alts must not compact greetings without the paired seed slots',
+      );
+      expect(
+        seeds!.group(1),
+        contains('parseGroupOpeningPairs'),
+        reason: 'seeds must not parse greetingSeeds without the paired greets',
+      );
+      expect(
+        blobs.contains(
+          "return compactGreetingPairs(greets, parseGreetingSeeds(map['greetingSeeds']));",
+        ),
+        isTrue,
+        reason: 'the shared helper is the compactGreetingPairs pairing',
+      );
+
+      final group = File('lib/models/group_chat.dart').readAsStringSync();
+      expect(
+        group.contains('compactGreetingPairs'),
+        isTrue,
+        reason: 'GroupChat.fromJson must use the same pairing',
       );
     },
   );

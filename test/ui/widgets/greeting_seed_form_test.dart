@@ -186,7 +186,16 @@ void main() {
 
     await tester.enterText(find.widgetWithText(TextField, '4'), '');
     await tester.pumpAndSettle();
-    expect(live!.dayCount, isNull, reason: 'empty day number returns to inherit');
+    expect(
+      live!.dayCount,
+      isNull,
+      reason: 'empty day number returns to inherit',
+    );
+    expect(
+      live!.dayCount,
+      isNot(0),
+      reason: 'empty day must write null, not 0',
+    );
 
     await tester.tap(find.text('strong'));
     await tester.pumpAndSettle();
@@ -207,5 +216,80 @@ void main() {
       isNull,
       reason: 'time dropdown must offer inherit after a pick',
     );
+    expect(live!.dayCount, isNull);
+    expect(live!.emotionIntensity, isNull);
+    expect(live!.timeOfDay, isNull);
   });
+
+  testWidgets(
+    'set strong / night / day 4 then inherit-clear persists all three null',
+    (tester) async {
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      GreetingRealismSeed? live = const GreetingRealismSeed();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                return SingleChildScrollView(
+                  child: GreetingSeedForm(
+                    seed: live,
+                    onChanged: (next) => setState(() => live = next),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('inherit (mild)').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('strong').last);
+      await tester.pumpAndSettle();
+      expect(live!.emotionIntensity, 'strong');
+
+      await tester.tap(find.text('inherit (morning)').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('night').last);
+      await tester.pumpAndSettle();
+      expect(live!.timeOfDay, 'night');
+
+      final dayField = find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.hintText == 'inherit (day 1)',
+      );
+      await tester.enterText(dayField, '4');
+      await tester.pumpAndSettle();
+      expect(live!.dayCount, 4);
+
+      await tester.enterText(find.widgetWithText(TextField, '4'), '');
+      await tester.pumpAndSettle();
+      expect(
+        live!.dayCount,
+        isNull,
+        reason: 'empty day number writes null, not leftover 4 or 0',
+      );
+      expect(live!.dayCount, isNot(0));
+
+      await tester.tap(find.text('strong'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('inherit (mild)').last);
+      await tester.pumpAndSettle();
+      expect(live!.emotionIntensity, isNull);
+
+      await tester.tap(find.text('night'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('inherit (morning)').last);
+      await tester.pumpAndSettle();
+      expect(live!.timeOfDay, isNull);
+
+      expect(live!.emotionIntensity, isNull);
+      expect(live!.timeOfDay, isNull);
+      expect(live!.dayCount, isNull);
+    },
+  );
 }
