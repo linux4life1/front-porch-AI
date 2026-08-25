@@ -393,6 +393,47 @@ void main() {
   );
 
   test(
+    'frontPorchFromFields omitted seeds + dirty alts drop leftover base furious',
+    () {
+      final seeded = FrontPorchExtensions(greetingSeeds: [angry]);
+      final dirty = frontPorchFromFields({
+        'alternateGreetings': ['', 'Get out.'],
+      }, base: seeded);
+      expect(
+        dirty.greetingSeeds,
+        isEmpty,
+        reason:
+            'alts-only POST must compact against empty seeds, not keep unpaired [furious]',
+      );
+      expect(
+        greetingOverlayAt(dirty.greetingSeeds, 1),
+        isNull,
+        reason: 'Get out overlay must not be leftover furious',
+      );
+
+      final clean = frontPorchFromFields({
+        'alternateGreetings': ['Get out.'],
+      }, base: seeded);
+      expect(
+        clean.greetingSeeds,
+        isEmpty,
+        reason: "['Get out.'] omit seeds must not reuse unpaired base [furious]",
+      );
+      expect(greetingOverlayAt(clean.greetingSeeds, 1), isNull);
+
+      final authoredEmpty = frontPorchFromFields({
+        'alternateGreetings': ['', 'Get out.'],
+        'greetingSeeds': [],
+      }, base: seeded);
+      expect(
+        authoredEmpty.greetingSeeds,
+        isEmpty,
+        reason: 'explicit empty greetingSeeds is authored-empty, not keep base',
+      );
+    },
+  );
+
+  test(
     'JSON-null greet slots stay as placeholders so zip keeps furious on Get out',
     () {
       final slots = greetingSlotsFromRaw([null, 'Get out.']);

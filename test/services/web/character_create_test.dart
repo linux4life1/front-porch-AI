@@ -198,5 +198,48 @@ void main() {
         );
       },
     );
+
+    test(
+      'update dirty alts-only POST drops leftover [furious] off Get out',
+      () async {
+        final res = await facade.create({
+          'name': 'AltsOnlyUpdate',
+          'firstMessage': 'Come in.',
+          'alternateGreetings': ['Stay.'],
+          'greetingSeeds': [
+            {'characterEmotion': 'furious'},
+          ],
+        });
+        final id = res!['id'] as String;
+        expect(
+          facade
+              .cardByDbId(id)!
+              .frontPorchExtensions!
+              .greetingSeeds
+              .single!
+              .characterEmotion,
+          'furious',
+        );
+        expect(
+          await facade.update(id, {
+            'alternateGreetings': ['', 'Get out.'],
+          }),
+          isTrue,
+        );
+        final card = facade.cardByDbId(id)!;
+        expect(card.alternateGreetings, ['Get out.']);
+        expect(
+          card.frontPorchExtensions!.greetingSeeds,
+          isEmpty,
+          reason:
+              'dirty alts-only + existing [furious] must not load furious onto Get out',
+        );
+        expect(
+          greetingOverlayAt(card.frontPorchExtensions!.greetingSeeds, 1),
+          isNull,
+          reason: 'Get out overlay is not leftover furious',
+        );
+      },
+    );
   });
 }

@@ -122,11 +122,20 @@ FrontPorchExtensions frontPorchFromFields(
     favoriteAvatarId: b.favoriteAvatarId,
     // Same class of bug as inventory/storyStart: the React editor used to
     // omit greetingSeeds, and rebuilding without carrying the base wiped
-    // per-alt opening state on every phone save.
+    // per-alt opening state on every phone save. If the POST *does* rewrite
+    // alts but omits seeds, do not keep unpaired base leftovers — compact
+    // against empty/null so leftover furious cannot land on Get out.
     greetingSeeds: () {
-      if (!fields.containsKey('greetingSeeds')) return b.greetingSeeds;
+      final altsPresent = fields['alternateGreetings'] is List;
+      if (!fields.containsKey('greetingSeeds')) {
+        if (!altsPresent) return b.greetingSeeds;
+        return compactGreetingPairs(
+          greetingSlotsFromRaw(fields['alternateGreetings']),
+          const [],
+        ).seeds;
+      }
       final parsed = parseGreetingSeeds(fields['greetingSeeds']);
-      if (!fields.containsKey('alternateGreetings')) return parsed;
+      if (!altsPresent) return parsed;
       return compactGreetingPairs(
         greetingSlotsFromRaw(fields['alternateGreetings']),
         parsed,

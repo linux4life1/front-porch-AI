@@ -283,11 +283,15 @@ class CharacterFacade {
     if (tags is List) card.tags = tags.map((e) => e.toString()).toList();
     final greetings = fields['alternateGreetings'];
     if (greetings is List) {
+      // Seeds omitted + alts present: compact against empty/null, not unpaired
+      // base leftovers. Group updateSettings writes both; frontPorchFromFields
+      // below writes the compacted seeds so leftover furious cannot land on
+      // Get out.
       final paired = compactGreetingPairs(
         greetingSlotsFromRaw(greetings),
         fields.containsKey('greetingSeeds')
             ? parseGreetingSeeds(fields['greetingSeeds'])
-            : (card.frontPorchExtensions?.greetingSeeds ?? const []),
+            : const [],
       );
       card.alternateGreetings = paired.greetings;
     }
