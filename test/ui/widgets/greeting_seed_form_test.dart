@@ -297,11 +297,7 @@ void main() {
     tester.view.physicalSize = const Size(1400, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    GreetingRealismSeed? live = const GreetingRealismSeed(
-      shortTermBond: 20,
-      trustLevel: 10,
-      needsBaselineHunger: 25,
-    );
+    GreetingRealismSeed? live = const GreetingRealismSeed();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -322,25 +318,68 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    Future<void> clearBox(String shown) async {
-      final field = find.widgetWithText(TextField, shown);
-      expect(field, findsOneWidget);
+    Finder boxFor(String label) {
+      return find.descendant(
+        of: find.byWidgetPredicate(
+          (w) => w is SliderWithInput && w.label == label,
+        ),
+        matching: find.byType(TextField),
+      );
+    }
+
+    Future<void> authorBox(String label, String value) async {
+      final field = boxFor(label);
+      expect(field, findsOneWidget, reason: 'number box for $label');
+      await tester.enterText(field, value);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> inheritBox(String label) async {
+      final field = boxFor(label);
+      expect(field, findsOneWidget, reason: 'inherit box for $label');
       await tester.enterText(field, '');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
     }
 
-    await clearBox('20');
-    expect(live!.shortTermBond, isNull, reason: 'bond slider empty writes inherit');
+    await authorBox('Short-term bond', '20');
+    expect(live!.shortTermBond, 20);
+    await authorBox('Trust', '10');
+    expect(live!.trustLevel, 10);
+    await authorBox('Hunger', '25');
+    expect(live!.needsBaselineHunger, 25);
 
-    await clearBox('10');
-    expect(live!.trustLevel, isNull, reason: 'trust slider empty writes inherit');
+    await inheritBox('Short-term bond');
+    expect(
+      live!.shortTermBond,
+      isNull,
+      reason: 'bond empty number box writes inherit, not leftover 20 or 0',
+    );
+    expect(live!.shortTermBond, isNot(0));
 
-    await clearBox('25');
+    await inheritBox('Trust');
+    expect(
+      live!.trustLevel,
+      isNull,
+      reason: 'trust empty number box writes inherit, not leftover 10 or 0',
+    );
+    expect(live!.trustLevel, isNot(0));
+
+    await inheritBox('Hunger');
     expect(
       live!.needsBaselineHunger,
       isNull,
-      reason: 'needs slider empty writes inherit',
+      reason: 'needs empty number box writes inherit, not leftover 25 or 0',
     );
+    expect(live!.needsBaselineHunger, isNot(0));
+
+    await tester.pumpAndSettle();
+    expect(live!.shortTermBond, isNull);
+    expect(live!.trustLevel, isNull);
+    expect(live!.needsBaselineHunger, isNull);
+    expect(live!.shortTermBond, isNot(0));
+    expect(live!.trustLevel, isNot(0));
+    expect(live!.needsBaselineHunger, isNot(0));
   });
 }

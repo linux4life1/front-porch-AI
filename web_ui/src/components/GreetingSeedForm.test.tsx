@@ -122,4 +122,66 @@ describe('GreetingSeedForm Story begins and inherit', () => {
     expect(container.querySelector('input[type="date"]')).toBeTruthy();
     expect(container.querySelector('input[type="time"]')).toBeTruthy();
   });
+
+  it('bond/trust/needs sliders authored then inherit persist undefined, not 0', () => {
+    const emitted: Array<GreetingSeed | null> = [];
+    render({}, (next) => {
+      emitted.push(next);
+    });
+
+    function sliderRow(label: string): HTMLElement {
+      const rows = Array.from(container.querySelectorAll('.realism-slider')) as HTMLElement[];
+      const row = rows.find((el) => {
+        const first = el.querySelector('.realism-slider-head > span');
+        return first?.textContent === label;
+      });
+      expect(row, `slider row ${label}`).toBeTruthy();
+      return row!;
+    }
+
+    function setRange(label: string, value: number) {
+      const range = sliderRow(label).querySelector('input[type="range"]') as HTMLInputElement;
+      const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!;
+      act(() => {
+        desc.set!.call(range, String(value));
+        range.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    function clickInherit(label: string) {
+      const btn = sliderRow(label).querySelector('button.realism-badge.muted') as HTMLButtonElement;
+      expect(btn, `inherit button for ${label}`).toBeTruthy();
+      expect(btn.textContent).toBe('inherit');
+      act(() => {
+        btn.click();
+      });
+    }
+
+    setRange('Short-term bond', 20);
+    expect(emitted.at(-1)?.shortTermBond).toBe(20);
+    setRange('Trust', 10);
+    expect(emitted.at(-1)?.trustLevel).toBe(10);
+    setRange('Hunger', 25);
+    expect(emitted.at(-1)?.needsBaselineHunger).toBe(25);
+
+    clickInherit('Short-term bond');
+    expect(emitted.at(-1)?.shortTermBond).toBeUndefined();
+    expect(emitted.at(-1)?.shortTermBond).not.toBe(0);
+
+    clickInherit('Trust');
+    expect(emitted.at(-1)?.trustLevel).toBeUndefined();
+    expect(emitted.at(-1)?.trustLevel).not.toBe(0);
+
+    clickInherit('Hunger');
+    const last = emitted.at(-1)!;
+    expect(last.shortTermBond).toBeUndefined();
+    expect(last.trustLevel).toBeUndefined();
+    expect(last.needsBaselineHunger).toBeUndefined();
+    expect(last.shortTermBond).not.toBe(0);
+    expect(last.trustLevel).not.toBe(0);
+    expect(last.needsBaselineHunger).not.toBe(0);
+    expect(last.shortTermBond).not.toBe(20);
+    expect(last.trustLevel).not.toBe(10);
+    expect(last.needsBaselineHunger).not.toBe(25);
+  });
 });

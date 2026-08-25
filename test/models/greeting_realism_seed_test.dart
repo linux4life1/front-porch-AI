@@ -308,6 +308,69 @@ void main() {
       );
       expect(kept.greetingSeeds, hasLength(1));
       expect(kept.greetingSeeds.first!.characterEmotion, 'furious');
+
+      // Extra: fromJson must call compactGreetingPairs when alts are present.
+      final fromJsonSrc = File('lib/models/character_card.dart').readAsStringSync();
+      expect(
+        fromJsonSrc.contains(
+          'return compactGreetingPairs(alternateGreetings, parsed).seeds;',
+        ),
+        isTrue,
+        reason: '1:1 fromJson pairs through compactGreetingPairs, not prefix-align',
+      );
+    },
+  );
+
+  test(
+    'toJson/fromJson without alts keeps sparse seed holes',
+    () {
+      final ext = FrontPorchExtensions(
+        greetingSeeds: [
+          null,
+          GreetingRealismSeed(characterEmotion: 'furious'),
+          null,
+          const GreetingRealismSeed(),
+        ],
+      );
+      final json = ext.toJson();
+      final seedsJson =
+          (json['realism_engine'] as Map)['greeting_seeds'] as List;
+      expect(
+        seedsJson,
+        hasLength(4),
+        reason: 'toJson must keep internal holes; only trailing nulls compact',
+      );
+      expect(seedsJson[0], isNull);
+      expect(seedsJson[2], isNull);
+
+      final restored = FrontPorchExtensions.fromJson(json);
+      expect(
+        restored.greetingSeeds,
+        hasLength(4),
+        reason: 'no-alts fromJson must not compact-pair holes away',
+      );
+      expect(restored.greetingSeeds[0], isNull);
+      expect(restored.greetingSeeds[1]!.characterEmotion, 'furious');
+      expect(restored.greetingSeeds[2], isNull);
+      expect(restored.greetingSeeds[3], isNotNull);
+      expect(restored.greetingSeeds[3]!.isEmpty, isTrue);
+
+      final emptyAlts = FrontPorchExtensions.fromJson(
+        json,
+        alternateGreetings: const [],
+      );
+      expect(
+        emptyAlts.greetingSeeds,
+        hasLength(4),
+        reason: 'explicit empty alts must still preserve sparse seed holes',
+      );
+      expect(emptyAlts.greetingSeeds[0], isNull);
+      expect(emptyAlts.greetingSeeds[1]!.characterEmotion, 'furious');
+      expect(greetingOverlayAt(emptyAlts.greetingSeeds, 1), isNull);
+      expect(
+        greetingOverlayAt(emptyAlts.greetingSeeds, 2)!.characterEmotion,
+        'furious',
+      );
     },
   );
 
