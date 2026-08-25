@@ -5,6 +5,8 @@
 // greetingOverlayAt / resolveGreetingOpening existed, an angry alt inherited
 // the friend first_mes seed (or fired reading-the-room and never restored).
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
@@ -170,10 +172,7 @@ void main() {
   test('compactGreetingPairs drops empty greet rows with their seed slots', () {
     final furious = GreetingRealismSeed(characterEmotion: 'furious');
     // Add / blank / Add / "Get out." / seed furious
-    final paired = compactGreetingPairs(
-      ['', 'Get out.'],
-      [null, furious],
-    );
+    final paired = compactGreetingPairs(['', 'Get out.'], [null, furious]);
     expect(paired.greetings, ['Get out.']);
     expect(paired.seeds, hasLength(1));
     expect(
@@ -183,15 +182,56 @@ void main() {
     );
   });
 
-  test('prefix-align after dropping empty greets is the bug compactGreetingPairs fixes', () {
-    final furious = GreetingRealismSeed(characterEmotion: 'furious');
-    final greets = ['', 'Get out.'];
-    final alts = [for (final g in greets) if (g.trim().isNotEmpty) g];
-    final wrong = alignGreetingSeeds([null, furious], alts.length);
-    expect(
-      wrong.first,
-      isNull,
-      reason: 'old prefix-align drops furious; compactGreetingPairs must not',
-    );
-  });
+  test(
+    'prefix-align after dropping empty greets is the bug compactGreetingPairs fixes',
+    () {
+      final furious = GreetingRealismSeed(characterEmotion: 'furious');
+      final greets = ['', 'Get out.'];
+      final alts = [
+        for (final g in greets)
+          if (g.trim().isNotEmpty) g,
+      ];
+      final wrong = alignGreetingSeeds([null, furious], alts.length);
+      expect(
+        wrong.first,
+        isNull,
+        reason: 'old prefix-align drops furious; compactGreetingPairs must not',
+      );
+    },
+  );
+
+  test(
+    'a blank middle row does not pair its seed with neighboring Get out',
+    () {
+      final furious = GreetingRealismSeed(characterEmotion: 'furious');
+      final paired = compactGreetingPairs(
+        ['Come in.', '', 'Get out.'],
+        [null, GreetingRealismSeed(characterEmotion: 'stolen'), furious],
+      );
+      expect(paired.greetings, ['Come in.', 'Get out.']);
+      expect(paired.seeds, hasLength(2));
+      expect(paired.seeds[0], isNull);
+      expect(
+        paired.seeds[1]!.characterEmotion,
+        'furious',
+        reason: 'blank row must drop with its slot; furious stays on Get out.',
+      );
+    },
+  );
+
+  test(
+    'characters.md pins first_mes, skip-RtR, {} vs null, swipe-0, groups 1:1',
+    () {
+      final md = File('docs/characters.md').readAsStringSync();
+      expect(md.contains('first_mes'), isTrue);
+      expect(md.contains('Reads the Room'), isTrue);
+      expect(md.contains('including empty `{}`'), isTrue);
+      expect(md.contains('Swipe 0'), isTrue);
+      expect(md.contains('Groups match 1:1'), isTrue);
+      expect(
+        md.contains('must not write `{}` just because the seed toggle is on'),
+        isTrue,
+      );
+    },
+  );
 }

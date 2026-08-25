@@ -191,6 +191,31 @@ void main() {
       });
 
       test(
+        'blank greet row does not steal furious off Get out on the blob',
+        () {
+          final furious = GreetingRealismSeed(characterEmotion: 'furious');
+          final blobs = buildGroupRealismBlobs(
+            seeds: {'a': defaultGroupMemberRealismSeed()},
+            needsEnabled: true,
+            timeOfDay: 'morning',
+            dayCount: 1,
+            alternateGreetings: ['', 'Get out.'],
+            greetingSeeds: [null, furious],
+          );
+          expect(parseGroupAlternateGreetings(blobs.defaultMemberJson), [
+            'Get out.',
+          ]);
+          final seeds = parseGroupGreetingSeeds(blobs.defaultMemberJson);
+          expect(seeds, hasLength(1));
+          expect(
+            seeds.first!.characterEmotion,
+            'furious',
+            reason: 'compactGreetingPairs must keep furious on Get out.',
+          );
+        },
+      );
+
+      test(
         'reads the canonical top-level keys buildGroupRealismBlobs writes',
         () {
           final blobs = buildGroupRealismBlobs(

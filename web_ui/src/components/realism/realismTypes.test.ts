@@ -192,4 +192,13 @@ describe('compactGreetingPairs keeps seed on the surviving greet', () => {
     expect(paired.greetings).toEqual(['Get out.']);
     expect(paired.seeds).toEqual([{ characterEmotion: 'furious' }]);
   });
+
+  it('a blank middle row does not steal furious off Get out.', () => {
+    const paired = compactGreetingPairs(
+      ['Come in.', '', 'Get out.'],
+      [null, { characterEmotion: 'stolen' }, { characterEmotion: 'furious' }],
+    );
+    expect(paired.greetings).toEqual(['Come in.', 'Get out.']);
+    expect(paired.seeds).toEqual([null, { characterEmotion: 'furious' }]);
+  });
 });
