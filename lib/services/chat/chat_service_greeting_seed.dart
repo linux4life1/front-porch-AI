@@ -315,19 +315,37 @@ extension ChatServiceGreetingSeed on ChatService {
     }
   }
 
-  /// After reload restores the greeting cursor, re-apply that index's overlay
-  /// so swipe-committed emotion/bonds/needs/clock survive hydrate.
+  /// After reload restores the greeting cursor, re-apply that index's
+  /// *authored* overlay so swipe-committed fury / {} survive hydrate.
+  /// Unauthored (null) overlays must not write inherit over a persisted
+  /// RtR — load already hydrated curious; re-eval is the named leftover.
   Future<void> _reapplyOpeningOverlayIfNeeded() async {
     if (!_isOpeningGreetingChat) return;
     final groupCustom =
         _activeGroup != null &&
         !greetingFirstMesEmpty(_activeGroup!.firstMessage);
     if (groupCustom) {
+      final authored = greetingOverlayAt(
+            _activeGroup!.greetingSeeds,
+            _greetingIndex,
+            firstMesEmpty: false,
+          ) !=
+          null;
+      if (!authored) return;
       await _applyGroupCustomGreetingSeed(_greetingIndex, scheduleEval: false);
       return;
     }
     final owner = _greetingOwnerCard() ?? _activeCharacter;
     if (owner != null) {
+      final ext = owner.frontPorchExtensions;
+      final firstMesEmpty = greetingFirstMesEmpty(owner.firstMessage);
+      final authored = greetingHasAuthoredSeed(
+        hasCardExtensions: ext != null,
+        seeds: ext?.greetingSeeds ?? const [],
+        greetingIndex: _greetingIndex,
+        firstMesEmpty: firstMesEmpty,
+      );
+      if (!authored) return;
       await _applyGreetingOpeningSeed(
         card: owner,
         index: _greetingIndex,

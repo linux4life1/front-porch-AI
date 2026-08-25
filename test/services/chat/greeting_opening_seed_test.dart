@@ -906,6 +906,81 @@ void main() {
   );
 
   test(
+    'reopen after persisted unauthored RtR keeps curious, not inherit',
+    () async {
+      chat.testLlmServiceOverride = _PhasedGreetingLlm()
+        ..payload = '{"emotion":"curious","emotion_intensity":"mild"}';
+      final blobs = buildGroupRealismBlobs(
+        seeds: {
+          'mem-a': defaultGroupMemberRealismSeed(),
+          'mem-b': defaultGroupMemberRealismSeed(),
+        },
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+        alternateGreetings: const ['Who are you?'],
+        greetingSeeds: [null],
+      );
+      await db.insertGroup(
+        GroupsCompanion.insert(
+          id: 'grp-rtr-reopen',
+          name: 'The House',
+          firstMessage: const Value('Come in, friends.'),
+          defaultMemberRealismState: Value(blobs.defaultMemberJson),
+          baselineRealismState: Value(blobs.baselineJson),
+        ),
+      );
+      for (final m in [('mem-a', 'Ana'), ('mem-b', 'Bea')]) {
+        await db.insertGroupMember(
+          GroupMembersCompanion.insert(
+            id: m.$1,
+            groupId: 'grp-rtr-reopen',
+            name: m.$2,
+            firstMessage: const Value('Hi.'),
+          ),
+        );
+      }
+      final group = GroupChat(
+        id: 'grp-rtr-reopen',
+        name: 'The House',
+        firstMessage: 'Come in, friends.',
+        alternateGreetings: const ['Who are you?'],
+        greetingSeeds: const [null],
+        defaultMemberRealismState: blobs.defaultMemberJson,
+        baselineRealismState: blobs.baselineJson,
+      );
+      final repo = GroupChatRepository(storage, db);
+      await chat.setActiveGroup(group, groupRepo: repo);
+
+      testPostGreetingEvalEntered = false;
+      await chat.selectGreeting(1);
+      expect(chat.messages.first.text, 'Who are you?');
+      expect(testPostGreetingEvalEntered, isTrue);
+      final deadline = DateTime.now().add(const Duration(seconds: 3));
+      while (chat.isProcessingGreeting && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(chat.characterEmotion, 'curious');
+      final sessionId = chat.currentSessionId!;
+
+      await chat.setActiveGroup(group, groupRepo: repo);
+      await chat.loadSession(sessionId);
+      expect(chat.messages.first.text, 'Who are you?');
+      expect(
+        chat.characterEmotion,
+        'curious',
+        reason: 'reopen must keep persisted unauthored RtR, not inherit',
+      );
+      final firstId = chat.characterIdFor(chat.groupCharacters.first);
+      expect(
+        chat.debugGroupSlotEmotion(firstId),
+        'curious',
+        reason: 'member slots must still hold curious after reopen',
+      );
+    },
+  );
+
+  test(
     'empty first_mes pairs Stay./Get out. with warm/furious, no leftover warm',
     () async {
       await db.insertCharacter(
