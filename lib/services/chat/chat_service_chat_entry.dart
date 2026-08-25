@@ -131,6 +131,10 @@ extension ChatServiceChatEntry on ChatService {
       // About to throw the live list away. Write it first so a slow-path
       // reload cannot hydrate a row that is still missing this turn.
       await flushPendingSaves();
+      // Detach before swapping the owner. Anything that saves between
+      // `_activeCharacter =` and `_loadLastSession` used to rebind this
+      // row to the incoming card (history/E2E then loadSession-ed Nightowl).
+      _currentSessionId = null;
 
       // Reset AFK idle state when switching to a different chat
       _cancelIdleTimer();

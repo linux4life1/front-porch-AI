@@ -226,4 +226,88 @@ void main() {
       expect((await db.getSessionById(firstSessionId))!.userPersonaId, porchy);
     },
   );
+
+  // persona_default_test E2E step 4 + home_page_history _openHistorySession:
+  // setActiveCharacter(first) then loadSession(A), no flush in between.
+  // The service twin above inserts flushPendingSaves and stays green while
+  // the sandboxed E2E still times out on Nightowl. This is that reopen.
+  test(
+    'history reopen setActiveCharacter then loadSession restores Porchy with no flush',
+    () async {
+      await personas.createPersona('', 'Porchy', 'Sits on the steps.', null);
+      final porchy = personas.persona.id;
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      await personas.createPersona('', 'Nightowl', 'Up too late.', null);
+      final nightowl = personas.persona.id;
+      expect(nightowl, isNot(porchy));
+      await personas.setDefaultPersona(porchy);
+      await personas.setActivePersona(porchy);
+
+      Future<CharacterCard> seed(String name) async {
+        final card = CharacterCard(
+          name: name,
+          description: 'Exists only inside the persona-default E2E.',
+          firstMessage: 'Evening. Pull up a chair.',
+          frontPorchExtensions: FrontPorchExtensions(
+            realismEnabled: false,
+            needsSimEnabled: false,
+            chaosModeEnabled: false,
+          ),
+        );
+        await repo.addCharacter(card);
+        return card;
+      }
+
+      final first = await seed('Porch Sitter');
+      final second = await seed('Late Riser');
+
+      await chat.setActiveCharacter(first);
+      await chat.startNewChat();
+      await chat.sendMessage('Still me, still here.');
+      final firstSessionId = chat.currentSessionId!;
+      expect((await db.getSessionById(firstSessionId))!.userPersonaId, porchy);
+      expect(
+        (await db.getSessionById(firstSessionId))!.characterId,
+        first.dbId,
+      );
+
+      await personas.setDefaultPersona(nightowl);
+      expect(personas.persona.id, porchy);
+
+      await chat.setActiveCharacter(second);
+      await chat.startNewChat();
+      expect(personas.persona.id, nightowl);
+
+      final afterNightowl = await db.getSessionById(firstSessionId);
+      expect(
+        afterNightowl!.userPersonaId,
+        porchy,
+        reason: 'Nightowl New Chat must not stamp chat A',
+      );
+      expect(
+        afterNightowl.characterId,
+        first.dbId,
+        reason: 'Nightowl New Chat must not rebind chat A onto Late Riser',
+      );
+
+      await chat.setActiveCharacter(first);
+      expect(
+        personas.persona.id,
+        porchy,
+        reason:
+            '_loadLastSession (library / last-session path) must restore Porchy',
+      );
+
+      await chat.loadSession(firstSessionId);
+      expect(
+        personas.persona.id,
+        porchy,
+        reason:
+            'history reopen (setActiveCharacter then loadSession, no flush) '
+            'must restore chat A\'s Porchy',
+      );
+      expect(personas.defaultPersonaId, nightowl);
+      expect((await db.getSessionById(firstSessionId))!.userPersonaId, porchy);
+    },
+  );
 }

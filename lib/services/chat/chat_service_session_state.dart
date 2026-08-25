@@ -315,13 +315,23 @@ extension ChatServiceSessionState on ChatService {
     // Hydrate must not overwrite the row's binding with the previous chat's
     // still-live persona. A partial omit is not possible on insertOnConflict
     // update (absent → default null), so keep the existing id when set.
+    // Same for character/group: a save after `_activeCharacter =` but
+    // before session detach used to rebind chat A onto the incoming card.
     var personaId = _userPersonaService.persona.id;
+    final existing = await _db.getSessionById(sessionId);
     if (_preserveSessionPersonaOf[this] == true) {
-      final existing = await _db.getSessionById(sessionId);
       final kept = existing?.userPersonaId;
       if (kept != null && kept.isNotEmpty) {
         personaId = kept;
       }
+    }
+    final keptChar = existing?.characterId;
+    if (keptChar != null && keptChar.isNotEmpty) {
+      characterDbId = keptChar;
+    }
+    final keptGroup = existing?.groupId;
+    if (keptGroup != null && keptGroup.isNotEmpty) {
+      groupDbId = keptGroup;
     }
 
     // Upsert session (INSERT OR REPLACE to avoid UNIQUE constraint errors)

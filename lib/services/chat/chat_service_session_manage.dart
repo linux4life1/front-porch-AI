@@ -252,6 +252,10 @@ extension ChatServiceSessionManage on ChatService {
     if (_activeCharacter == null && _activeGroup == null) return;
     _clearTodayPointer();
 
+    // Persist the departing chat as whoever we still are. Switching to
+    // the default first let flushPendingSaves stamp Nightowl onto the
+    // open row (persona_default_test / history last-session reopen).
+    await flushPendingSaves();
     await _userPersonaService.setActivePersona(
       personaId ?? _userPersonaService.defaultPersonaId,
     );
@@ -343,8 +347,7 @@ extension ChatServiceSessionManage on ChatService {
     debugPrint(
       '[ChatService] 🟡 startNewChat: clearing messages (had ${_messages.length})',
     );
-    // The open session's last exchange may still be memory-only.
-    await flushPendingSaves();
+    // Departing row was flushed above, before the default persona switch.
     await _invalidateGreetingEval();
     _messages.clear();
     _history.reset();
