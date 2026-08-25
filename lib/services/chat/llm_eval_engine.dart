@@ -492,7 +492,7 @@ class LlmEvalEngine {
               },
             )) {
           // If a cancellation has been requested, terminate streaming gracefully.
-          if (getIsCancellingRealismEval()) {
+          if (getIsCancellingRealismEval() || getRealismEvalCancelled()) {
             debugPrint('[Realism] streaming terminated via cancel');
             cancelledDuringStream = true;
             break;
@@ -526,6 +526,10 @@ class LlmEvalEngine {
           response += '\n';
         }
 
+        if (getIsCancellingRealismEval() || getRealismEvalCancelled()) {
+          debugPrint('[Realism] eval cancelled after stream; drop live apply');
+          return null;
+        }
         break; // stream completed cleanly — exit retry loop
       } catch (e) {
         debugPrint('[Realism:Eval] Stream error on attempt ${attempt + 1}: $e');

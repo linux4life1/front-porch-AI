@@ -159,6 +159,14 @@ bool _realismEvalCancelled = false;
 /// [_runPostGreetingEval] cannot stomp a later swipe.
 int _greetingEvalGen = 0;
 
+/// Token captured when a greeting eval starts. Live apply checks this
+/// against [_greetingEvalGen]; a later swipe leaves the in-flight eval
+/// stale even if [_realismEvalCancelled] is the only other signal.
+int? _greetingEvalToken;
+
+bool _isStaleGreetingEval() =>
+    _greetingEvalToken != null && _greetingEvalToken != _greetingEvalGen;
+
 /// Set when [_runPostGreetingEval] passes its guards (not skipped solely
 /// because [_activeCharacter] is null). Tests prove group unauthored alts
 /// reach the eval path.

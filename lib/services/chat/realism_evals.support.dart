@@ -38,6 +38,7 @@ extension _RealismEvalSupport on RealismEvals {
     String text, {
     required bool applyArousal,
   }) async {
+    if (isEvalCancelled()) return;
     final emotionMatch = RegExp(
       r'"emotion"\s*:\s*"([^"]+)"',
     ).firstMatch(text);
@@ -73,6 +74,7 @@ extension _RealismEvalSupport on RealismEvals {
   /// narrative eval text. Extracted here so the batch apply path can reuse the exact same
   /// side-effect logic (and dedup) without growing god or duplicating the json+regex fallbacks.
   Future<void> _applyNarrativeResults(String text) async {
+    if (isEvalCancelled()) return;
     // Robust extraction (survives Director reprocess/correction which may reformat/partial JSON).
     // Inline (no new named helper/method per rules for god; private here in leaf is fine).
     // Parse JSON once (both keys live in the same payload) rather than twice.
@@ -258,6 +260,15 @@ extension _RealismEvalSupport on RealismEvals {
     String trustReason,
   })
   _parseAndApplyRelationshipDeltas(String text, {required bool applyArousal}) {
+    if (isEvalCancelled()) {
+      return (
+        bondDelta: 0,
+        trustDelta: 0,
+        arousalDelta: 0,
+        bondReason: '',
+        trustReason: '',
+      );
+    }
     // Bond / relationship delta (per prompt range)
     final relDelta = extractJsonInt(text, 'relationship_delta');
     int bondDelta = 0;

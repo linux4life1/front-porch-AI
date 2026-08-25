@@ -74,7 +74,8 @@ extension ChatServiceWiringEvals on ChatService {
         if (k != null) await k.ensureServerIdle();
       },
       getIsCancellingRealismEval: () => _isCancellingRealismEval,
-      getRealismEvalCancelled: () => _realismEvalCancelled,
+      getRealismEvalCancelled: () =>
+          _realismEvalCancelled || _isStaleGreetingEval(),
       getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},
       setPendingRealismMetadata: (v) => _pendingRealismMetadata = v,
       captureRealismState: _captureRealismState,
@@ -294,7 +295,10 @@ extension ChatServiceWiringEvals on ChatService {
       fireToolEval: _fireToolEval,
       probe: _toolProbe,
       getBackendIdentity: () => _evalBackendIdentity,
-      isEvalCancelled: () => _isCancellingRealismEval || _realismEvalCancelled,
+      isEvalCancelled: () =>
+          _isCancellingRealismEval ||
+          _realismEvalCancelled ||
+          _isStaleGreetingEval(),
       stripThinkBlocks: _stripThinkBlocks,
       extractJsonInt: _extractJsonInt,
       extractJsonBool: _extractJsonBool,

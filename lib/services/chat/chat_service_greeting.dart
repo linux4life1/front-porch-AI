@@ -156,6 +156,7 @@ extension ChatServiceGreeting on ChatService {
     if (evalChar == null && _activeGroup == null) return;
     testPostGreetingEvalEntered = true;
     final token = _greetingEvalGen;
+    _greetingEvalToken = token;
     final indexStamp = _greetingIndex;
     final previousActive = _activeCharacter;
     if (_activeCharacter == null && evalChar != null) {
@@ -219,6 +220,9 @@ extension ChatServiceGreeting on ChatService {
     } catch (e) {
       debugPrint('[Realism] Post-greeting eval failed: $e');
     } finally {
+      if (_greetingEvalToken == token) {
+        _greetingEvalToken = null;
+      }
       if (_activeGroup != null) {
         _activeCharacter = previousActive;
       }
