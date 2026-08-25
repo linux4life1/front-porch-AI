@@ -16,7 +16,7 @@ import 'package:front_porch_ai/ui/widgets/synced_text_field.dart';
 ///
 /// Off (null) = this alt still gets reading-the-room. On = authored seed:
 /// empty fields inherit the card/group defaults at chat start.
-class GreetingSeedForm extends StatelessWidget {
+class GreetingSeedForm extends StatefulWidget {
   final GreetingRealismSeed? seed;
   final ValueChanged<GreetingRealismSeed?> onChanged;
   final bool showNeeds;
@@ -30,6 +30,30 @@ class GreetingSeedForm extends StatelessWidget {
     this.showInventory = false,
   });
 
+  @override
+  State<GreetingSeedForm> createState() => _GreetingSeedFormState();
+}
+
+class _GreetingSeedFormState extends State<GreetingSeedForm> {
+  GreetingRealismSeed? _stash;
+  bool _uiOn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _stash = widget.seed;
+    _uiOn = widget.seed != null;
+  }
+
+  @override
+  void didUpdateWidget(covariant GreetingSeedForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.seed != null) {
+      _stash = widget.seed;
+      _uiOn = true;
+    }
+  }
+
   static const _times = [
     'dawn',
     'morning',
@@ -42,8 +66,8 @@ class GreetingSeedForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = seed != null;
-    final s = seed ?? const GreetingRealismSeed();
+    final enabled = _uiOn || widget.seed != null;
+    final s = widget.seed ?? const GreetingRealismSeed();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -68,7 +92,18 @@ class GreetingSeedForm extends StatelessWidget {
             ),
           ),
           value: enabled,
-          onChanged: (on) => onChanged(on ? const GreetingRealismSeed() : null),
+          onChanged: (on) {
+            if (on) {
+              setState(() => _uiOn = true);
+              // Restore last authored seed (calendar / {}). Fresh enable
+              // persists null — not {} — until a field is set.
+              widget.onChanged(_stash);
+            } else {
+              _stash = widget.seed ?? _stash;
+              setState(() => _uiOn = false);
+              widget.onChanged(null);
+            }
+          },
         ),
         if (enabled) ...[
           const SizedBox(height: 8),
@@ -77,7 +112,7 @@ class GreetingSeedForm extends StatelessWidget {
             label: 'Emotion',
             child: SyncedTextField(
               value: s.characterEmotion ?? '',
-              onChanged: (v) => onChanged(
+              onChanged: (v) => widget.onChanged(
                 s.copyWith(
                   characterEmotion: v.trim().isEmpty ? null : v.trim(),
                 ),
@@ -93,78 +128,83 @@ class GreetingSeedForm extends StatelessWidget {
           _dropdown(
             context,
             label: 'Intensity',
-            value: s.emotionIntensity ?? 'moderate',
+            value: s.emotionIntensity,
             items: _intensities,
-            onChanged: (v) => onChanged(s.copyWith(emotionIntensity: v)),
+            hint: 'inherit (mild)',
+            onChanged: (v) => widget.onChanged(s.copyWith(emotionIntensity: v)),
           ),
           const SizedBox(height: 8),
           SliderWithInput(
             label: 'Short-term bond',
             value: (s.shortTermBond ?? 0).toDouble(),
+            unset: s.shortTermBond == null,
             min: -300,
             max: 300,
             isInteger: true,
             divisions: 600,
             context: context,
-            onChanged: (v) => onChanged(s.copyWith(shortTermBond: v.round())),
+            onChanged: (v) => widget.onChanged(s.copyWith(shortTermBond: v.round())),
           ),
           SliderWithInput(
             label: 'Long-term bond',
             value: (s.longTermBond ?? 0).toDouble(),
+            unset: s.longTermBond == null,
             min: -300,
             max: 300,
             isInteger: true,
             divisions: 600,
             context: context,
-            onChanged: (v) => onChanged(s.copyWith(longTermBond: v.round())),
+            onChanged: (v) => widget.onChanged(s.copyWith(longTermBond: v.round())),
           ),
           SliderWithInput(
             label: 'Trust',
             value: (s.trustLevel ?? 0).toDouble(),
+            unset: s.trustLevel == null,
             min: -100,
             max: 100,
             isInteger: true,
             divisions: 200,
             context: context,
-            onChanged: (v) => onChanged(s.copyWith(trustLevel: v.round())),
+            onChanged: (v) => widget.onChanged(s.copyWith(trustLevel: v.round())),
           ),
           const SizedBox(height: 8),
           _dropdown(
             context,
             label: 'Time of day',
-            value: s.timeOfDay ?? 'morning',
+            value: s.timeOfDay,
             items: _times,
-            onChanged: (v) => onChanged(s.copyWith(timeOfDay: v)),
+            hint: 'inherit (morning)',
+            onChanged: (v) => widget.onChanged(s.copyWith(timeOfDay: v)),
           ),
           const SizedBox(height: 8),
           _labeledField(
             context,
             label: 'Day number',
             child: SyncedTextField(
-              value: (s.dayCount ?? 1).toString(),
+              value: s.dayCount?.toString() ?? '',
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (v) {
                 final n = int.tryParse(v);
                 if (n != null && n >= 1) {
-                  onChanged(s.copyWith(dayCount: n));
+                  widget.onChanged(s.copyWith(dayCount: n));
                 }
               },
               style: TextStyle(
                 color: AppColors.textPrimary(context),
                 fontSize: 14,
               ),
-              decoration: _deco(context, null),
+              decoration: _deco(context, 'inherit (day 1)'),
             ),
           ),
           const SizedBox(height: 8),
           StoryBeginsRow(
             storyStartDate: s.storyStartDate,
             onStoryStartDateChanged: (v) =>
-                onChanged(s.copyWith(storyStartDate: v)),
+                widget.onChanged(s.copyWith(storyStartDate: v)),
             storyStartTime: s.storyStartTime,
             onStoryStartTimeChanged: (v) =>
-                onChanged(s.copyWith(storyStartTime: v)),
+                widget.onChanged(s.copyWith(storyStartTime: v)),
           ),
           const SizedBox(height: 8),
           _labeledField(
@@ -172,7 +212,7 @@ class GreetingSeedForm extends StatelessWidget {
             label: 'Starting task',
             child: SyncedTextField(
               value: s.currentTask ?? '',
-              onChanged: (v) => onChanged(
+              onChanged: (v) => widget.onChanged(
                 s.copyWith(currentTask: v.trim().isEmpty ? null : v.trim()),
               ),
               style: TextStyle(
@@ -182,7 +222,7 @@ class GreetingSeedForm extends StatelessWidget {
               decoration: _deco(context, 'Optional in-voice objective'),
             ),
           ),
-          if (showNeeds) ...[
+          if (widget.showNeeds) ...[
             const SizedBox(height: 12),
             Text(
               'Needs baselines (0–100). Blank inherits the card.',
@@ -195,15 +235,16 @@ class GreetingSeedForm extends StatelessWidget {
               SliderWithInput(
                 label: need.$1,
                 value: (need.$2(s) ?? 80).toDouble(),
+                unset: need.$2(s) == null,
                 min: 0,
                 max: 100,
                 isInteger: true,
                 divisions: 100,
                 context: context,
-                onChanged: (v) => onChanged(need.$3(s, v.round())),
+                onChanged: (v) => widget.onChanged(need.$3(s, v.round())),
               ),
           ],
-          if (showInventory) ...[
+          if (widget.showInventory) ...[
             const SizedBox(height: 8),
             ChipListEditor(
               label: 'Wearing (this opening)',
@@ -289,30 +330,37 @@ class GreetingSeedForm extends StatelessWidget {
       worn: worn ?? _wornOf(s),
       carrying: carrying ?? _carryingOf(s),
     );
-    onChanged(s.copyWith(inventory: next.isEmpty ? null : next));
+    widget.onChanged(s.copyWith(inventory: next.isEmpty ? null : next));
   }
 
   Widget _dropdown(
     BuildContext context, {
     required String label,
-    required String value,
+    required String? value,
     required List<String> items,
-    required ValueChanged<String> onChanged,
+    required String hint,
+    required ValueChanged<String?> onChanged,
   }) {
+    final selected = value != null && items.contains(value) ? value : null;
     return _labeledField(
       context,
       label: label,
       child: DropdownButtonFormField<String>(
-        key: ValueKey('$label-$value'),
-        initialValue: items.contains(value) ? value : items.first,
+        key: ValueKey('$label-${selected ?? 'inherit'}'),
+        initialValue: selected,
+        hint: Text(
+          hint,
+          style: TextStyle(
+            color: AppColors.textTertiary(context).withValues(alpha: 0.6),
+            fontSize: 13,
+          ),
+        ),
         items: [
           for (final i in items)
             DropdownMenuItem(value: i, child: Text(i.replaceAll('_', ' '))),
         ],
-        onChanged: (v) {
-          if (v != null) onChanged(v);
-        },
-        decoration: _deco(context, null),
+        onChanged: onChanged,
+        decoration: _deco(context, hint),
         dropdownColor: AppColors.surfaceContainerOf(context),
         style: TextStyle(color: AppColors.textPrimary(context), fontSize: 14),
       ),

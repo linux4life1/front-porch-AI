@@ -17,7 +17,7 @@ import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
 import { RealismFormSection } from '../components/realism/RealismFormSection';
 import { useAdultThemes } from '../components/realism/useAdultThemes';
 import { NeedsFormSection } from '../components/realism/NeedsFormSection';
-import { type RealismValues, REALISM_DEFAULTS, inventoryToChips } from '../components/realism/realismTypes';
+import { type RealismValues, REALISM_DEFAULTS, compactGreetingPairs, inventoryToChips } from '../components/realism/realismTypes';
 
 interface Draft extends RealismValues {
   name: string;
@@ -66,10 +66,12 @@ export function CreateCharacterPage() {
     setSaving(true);
     setError('');
     try {
+      const paired = compactGreetingPairs(d.alternateGreetings, d.greetingSeeds);
       const res = await api.post<{ id: string; name: string }>('/api/characters/create', {
         ...d,
         tags: d.tags.split(',').map((t) => t.trim()).filter(Boolean),
-        alternateGreetings: d.alternateGreetings.filter((g) => g.trim()),
+        alternateGreetings: paired.greetings,
+        greetingSeeds: paired.seeds,
       });
       // Open the new character so creation is verifiable end-to-end.
       try {

@@ -155,6 +155,16 @@ const String kSpatialStancePreTurn = 'spatial_stance_pre_turn';
 // to the UI.
 bool _realismEvalCancelled = false;
 
+/// Bumped at the start of [selectGreeting] so a late unawaited
+/// [_runPostGreetingEval] cannot stomp a later swipe.
+int _greetingEvalGen = 0;
+
+/// Set when [_runPostGreetingEval] passes its guards (not skipped solely
+/// because [_activeCharacter] is null). Tests prove group unauthored alts
+/// reach the eval path.
+@visibleForTesting
+bool testPostGreetingEvalEntered = false;
+
 // GBNF grammar support for Realism Engine evals (incl. Needs simulation) removed
 // in the 0.9.8 clean port. All JSON outputs now rely on regex extraction + stop
 // sequences inside _fireLLMEval (no _buildKoboldGrammar, no _kGbnf* consts).

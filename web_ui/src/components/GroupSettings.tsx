@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { AltGreetingsEditor } from './AltGreetingsEditor';
-import { type GreetingSeed } from './realism/realismTypes';
+import { type GreetingSeed, compactGreetingPairs } from './realism/realismTypes';
 
 export interface GroupBlock {
   name: string;
@@ -100,13 +100,15 @@ export function GroupSettings({
           greetings={alts}
           onChange={(g) => {
             setAlts(g);
-            save({ alternateGreetings: g.filter((x) => x.trim()) });
+            const paired = compactGreetingPairs(g, seeds);
+            save({ alternateGreetings: paired.greetings, greetingSeeds: paired.seeds });
           }}
           seeds={seeds}
           showNeeds
           onSeedsChange={(s) => {
             setSeeds(s);
-            save({ greetingSeeds: s });
+            const paired = compactGreetingPairs(alts, s);
+            save({ alternateGreetings: paired.greetings, greetingSeeds: paired.seeds });
           }}
         />
         <h4 className="section-label">Per-member prompt overrides</h4>

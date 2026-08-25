@@ -127,6 +127,11 @@ extension ChatServiceVariants on ChatService {
     if (index < 0 || index >= allGreetings.length) return;
     if (index == _greetingIndex) return;
 
+    _greetingEvalGen++;
+    testPostGreetingEvalEntered = false;
+    await cancelRealismEval();
+    _realismEvalCancelled = false;
+
     _greetingIndex = index;
     final resolved = _resolvedOpeningGreetings();
     if (index >= resolved.length) return;

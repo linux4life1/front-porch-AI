@@ -106,9 +106,10 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
         needsDecayFun: _needsDecayFun,
         needsDecayHygiene: _needsDecayHygiene,
         needsDecayComfort: _needsDecayComfort,
-        greetingSeeds: compactGreetingSeeds(
-          alignGreetingSeeds(_altGreetingSeeds, _altGreetingControllers.length),
-        ),
+        greetingSeeds: compactGreetingPairs(
+          [for (final c in _altGreetingControllers) c.text],
+          _altGreetingSeeds,
+        ).seeds,
       );
 
       fpExt.ensureStableId();
@@ -122,10 +123,10 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
         mesExample: _exampleDialogueController.text,
         systemPrompt: _systemPromptController.text,
         postHistoryInstructions: _postHistoryController.text,
-        alternateGreetings: _altGreetingControllers
-            .map((c) => c.text)
-            .where((t) => t.trim().isNotEmpty)
-            .toList(),
+        alternateGreetings: compactGreetingPairs(
+          [for (final c in _altGreetingControllers) c.text],
+          _altGreetingSeeds,
+        ).greetings,
         tags: List.from(_tags),
         lorebook: _lorebookEntries.isNotEmpty
             ? Lorebook(entries: List.from(_lorebookEntries))

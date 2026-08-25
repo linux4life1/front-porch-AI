@@ -194,9 +194,8 @@ extension ChatServiceGreetingSeed on ChatService {
   }
 
   /// Custom group first_message + alts: one overlay fans out to the story
-  /// clock and every member's opening slot. Groups never had reading-the-room
-  /// on the opener (`_activeCharacter` is null), so unauthored alts inherit
-  /// the group baselines instead of calling the 1:1 eval path.
+  /// clock and every member's opening slot. Unauthored alts Read the Room
+  /// like 1:1; an authored overlay (including `{}`) skips.
   Future<void> _applyGroupCustomGreetingSeed(int index) async {
     final group = _activeGroup;
     if (group == null) return;
@@ -259,8 +258,28 @@ extension ChatServiceGreetingSeed on ChatService {
       _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
     }
 
-    if (_realismActiveThisMode) {
+    final authored = greetingOverlayAt(group.greetingSeeds, index) != null;
+    if (shouldReadRoomForGreeting(index, hasAuthoredSeed: authored) &&
+        _realismActiveThisMode) {
+      _runPostGreetingEval();
+    } else if (_realismActiveThisMode) {
       unawaited(_seedOpeningPosture().catchError((Object _) {}));
+    }
+  }
+
+  /// After reload restores the greeting cursor, re-apply that index's overlay
+  /// so swipe-committed emotion/bonds/needs/clock survive hydrate.
+  Future<void> _reapplyOpeningOverlayIfNeeded() async {
+    if (!_isOpeningGreetingChat) return;
+    final groupCustom =
+        _activeGroup != null && _activeGroup!.firstMessage.isNotEmpty;
+    if (groupCustom) {
+      await _applyGroupCustomGreetingSeed(_greetingIndex);
+      return;
+    }
+    final owner = _greetingOwnerCard() ?? _activeCharacter;
+    if (owner != null) {
+      await _applyGreetingOpeningSeed(card: owner, index: _greetingIndex);
     }
   }
 }

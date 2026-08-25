@@ -158,18 +158,17 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
       copy.scenario = accepted('scenario', copy.scenario);
       if (widget.selection.greetings && (_use['greetings'] ?? false)) {
         copy.firstMessage = _controllers['firstMessage']!.text.trim();
-        copy.alternateGreetings = [
-          for (var i = 0; i < widget.enhanced.alternateGreetings.length; i++)
-            _controllers['alt$i']!.text.trim(),
-        ]..removeWhere((g) => g.isEmpty);
         final ext = copy.frontPorchExtensions;
+        final greetingPairs = compactGreetingPairs(
+          [
+            for (var i = 0; i < widget.enhanced.alternateGreetings.length; i++)
+              _controllers['alt$i']!.text,
+          ],
+          ext?.greetingSeeds ?? const [],
+        );
+        copy.alternateGreetings = greetingPairs.greetings;
         if (ext != null) {
-          ext.greetingSeeds = compactGreetingSeeds(
-            alignGreetingSeeds(
-              ext.greetingSeeds,
-              copy.alternateGreetings.length,
-            ),
-          );
+          ext.greetingSeeds = greetingPairs.seeds;
         }
       }
       final loreEntries = widget.enhanced.lorebook?.entries ?? [];

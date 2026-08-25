@@ -166,4 +166,32 @@ void main() {
     expect(resolved.needsBaselineHunger, 80);
     expect(resolved.inventory, base.inventory);
   });
+
+  test('compactGreetingPairs drops empty greet rows with their seed slots', () {
+    final furious = GreetingRealismSeed(characterEmotion: 'furious');
+    // Add / blank / Add / "Get out." / seed furious
+    final paired = compactGreetingPairs(
+      ['', 'Get out.'],
+      [null, furious],
+    );
+    expect(paired.greetings, ['Get out.']);
+    expect(paired.seeds, hasLength(1));
+    expect(
+      paired.seeds.first!.characterEmotion,
+      'furious',
+      reason: 'furious must stay on Get out., not shift onto the blank row',
+    );
+  });
+
+  test('prefix-align after dropping empty greets is the bug compactGreetingPairs fixes', () {
+    final furious = GreetingRealismSeed(characterEmotion: 'furious');
+    final greets = ['', 'Get out.'];
+    final alts = [for (final g in greets) if (g.trim().isNotEmpty) g];
+    final wrong = alignGreetingSeeds([null, furious], alts.length);
+    expect(
+      wrong.first,
+      isNull,
+      reason: 'old prefix-align drops furious; compactGreetingPairs must not',
+    );
+  });
 }

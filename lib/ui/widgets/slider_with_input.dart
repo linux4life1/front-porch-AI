@@ -14,6 +14,7 @@ class SliderWithInput extends StatefulWidget {
     this.tooltip,
     this.isInteger = false,
     this.decimalPlaces = 2,
+    this.unset = false,
   });
 
   final String label;
@@ -26,6 +27,9 @@ class SliderWithInput extends StatefulWidget {
   final String? tooltip;
   final bool isInteger;
   final int decimalPlaces;
+  /// When true the number box stays empty and the slider is a visual rest
+  /// — inherit, not a fake authored 0 / 80.
+  final bool unset;
 
   @override
   State<SliderWithInput> createState() => _SliderWithInputState();
@@ -41,14 +45,8 @@ class _SliderWithInputState extends State<SliderWithInput> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    _controller = TextEditingController(
-      text: widget.isInteger
-          ? widget.value.toInt().toString()
-          : widget.value.toStringAsFixed(widget.decimalPlaces),
-    );
-    _formattedValue = widget.isInteger
-        ? widget.value.toInt().toString()
-        : widget.value.toStringAsFixed(widget.decimalPlaces);
+    _controller = TextEditingController(text: _textFor(widget));
+    _formattedValue = _textFor(widget);
 
     _focusNode.addListener(_onFocusChange);
   }
@@ -56,13 +54,9 @@ class _SliderWithInputState extends State<SliderWithInput> {
   @override
   void didUpdateWidget(covariant SliderWithInput oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value) {
-      _controller.text = widget.isInteger
-          ? widget.value.toInt().toString()
-          : widget.value.toStringAsFixed(widget.decimalPlaces);
-      _formattedValue = widget.isInteger
-          ? widget.value.toInt().toString()
-          : widget.value.toStringAsFixed(widget.decimalPlaces);
+    if (oldWidget.value != widget.value || oldWidget.unset != widget.unset) {
+      _controller.text = _textFor(widget);
+      _formattedValue = _textFor(widget);
     }
   }
 
@@ -80,9 +74,17 @@ class _SliderWithInputState extends State<SliderWithInput> {
     }
   }
 
+  String _textFor(SliderWithInput w) {
+    if (w.unset) return '';
+    return w.isInteger
+        ? w.value.toInt().toString()
+        : w.value.toStringAsFixed(w.decimalPlaces);
+  }
+
   void _commitValue() {
     final text = _controller.text.trim();
     if (text.isEmpty) {
+      if (widget.unset) return;
       _controller.text = _formattedValue;
       return;
     }
@@ -169,6 +171,7 @@ class _SliderWithInputState extends State<SliderWithInput> {
                   ),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.05),
+                  hintText: widget.unset ? 'inherit' : null,
                 ),
                 onSubmitted: (_) => _commitValue(),
               ),
@@ -176,7 +179,7 @@ class _SliderWithInputState extends State<SliderWithInput> {
           ],
         ),
         Slider(
-          value: _dragValue ?? widget.value,
+          value: _dragValue ?? (widget.unset ? widget.min : widget.value),
           min: widget.min,
           max: widget.max,
           divisions: widget.divisions,

@@ -148,6 +148,7 @@ extension ChatServiceSessionLoad on ChatService {
       // carry persisted Scene Guest (Lite NPC) dbIds. Tolerant of legacy/empty.
       _loadSceneGuestsFromSession(lastSession);
     }
+    await _reapplyOpeningOverlayIfNeeded();
 
     // Load messages
     // Zero secondary objective flags in loaded path of _loadLast (before callers do _loadActiveObjectives / _loadObjectivesForCurrentSpeaker); incomplete zeroing hygiene.
@@ -606,6 +607,7 @@ extension ChatServiceSessionLoad on ChatService {
         _loadGroupRealismStateFromSession(session);
       }
       await _hydrateSessionScalars(session);
+      await _reapplyOpeningOverlayIfNeeded();
 
       // Quests are keyed (character, CHAT) — so switching chats has to reload
       // them, exactly like the scalars above. Nothing did: `_activeObjectives`

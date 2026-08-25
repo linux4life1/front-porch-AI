@@ -85,10 +85,11 @@ extension CreatorEngine on CreatorState {
       card.firstMessage = firstMessageController.text;
       card.mesExample = exampleDialogueController.text;
       card.systemPrompt = systemPromptController.text;
-      card.alternateGreetings = [
-        for (final c in altGreetingControllers)
-          if (c.text.trim().isNotEmpty) c.text,
-      ];
+      final greetingPairs = compactGreetingPairs(
+        [for (final c in altGreetingControllers) c.text],
+        greetingSeeds,
+      );
+      card.alternateGreetings = greetingPairs.greetings;
 
       // Always build the V2.5 extensions — even when realism is disabled — so
       // configured realism/needs values AND the stable tracking id survive the
@@ -142,9 +143,7 @@ extension CreatorEngine on CreatorState {
         needsDecayFun: needsDecayFun,
         needsDecayHygiene: needsDecayHygiene,
         needsDecayComfort: needsDecayComfort,
-        greetingSeeds: compactGreetingSeeds(
-          alignGreetingSeeds(greetingSeeds, card.alternateGreetings.length),
-        ),
+        greetingSeeds: greetingPairs.seeds,
       );
       // Save is MULTI-SHOT now (the Portrait & Avatars panel persists before
       // it generates; Save & Finish updates the same card), so identity

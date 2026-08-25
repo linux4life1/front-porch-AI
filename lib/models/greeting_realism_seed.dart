@@ -382,6 +382,24 @@ List<GreetingRealismSeed?> compactGreetingSeeds(
   return seeds.sublist(0, end);
 }
 
+/// Drop empty greet rows *and* the seed slot at the same index so compact
+/// never prefix-aligns a furious seed onto the wrong alt (Add / blank / Add).
+({List<String> greetings, List<GreetingRealismSeed?> seeds})
+compactGreetingPairs(
+  List<String> greetings,
+  List<GreetingRealismSeed?> seeds,
+) {
+  final aligned = alignGreetingSeeds(seeds, greetings.length);
+  final outG = <String>[];
+  final outS = <GreetingRealismSeed?>[];
+  for (var i = 0; i < greetings.length; i++) {
+    if (greetings[i].trim().isEmpty) continue;
+    outG.add(greetings[i]);
+    outS.add(aligned[i]);
+  }
+  return (greetings: outG, seeds: compactGreetingSeeds(outS));
+}
+
 /// Overlay for `allGreetings[index]`. Index 0 (first_mes) is always null —
 /// that opening uses the card-level fields. Alts are `seeds[index - 1]`.
 GreetingRealismSeed? greetingOverlayAt(
@@ -404,6 +422,7 @@ bool greetingHasAuthoredSeed({
   if (greetingIndex <= 0) return hasCardExtensions;
   return greetingOverlayAt(seeds, greetingIndex) != null;
 }
+
 
 GreetingOpeningSnapshot resolveGreetingOpening(
   GreetingOpeningBase base,

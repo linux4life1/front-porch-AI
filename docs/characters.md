@@ -118,13 +118,22 @@ A quick tour of the fields, whether you're writing your own or editing an import
 | **Scenario** | The situation your story starts in | Where are you two, and why? |
 | **First Message** | The character's opening line | Long and atmospheric is fine |
 | **Example Dialogue** | Sample exchanges showing how they talk | **The single biggest lever** for a consistent voice — a handful of good exchanges works wonders |
-| **Alternate Greetings** | Extra possible openings | Flip between them when starting a chat |
+| **Alternate Greetings** | Extra possible openings | Flip between them when starting a chat. Each alt can carry a Realism/Needs overlay (see below) |
 | **System Prompt** | Hidden instructions for the AI, specific to this character | Optional; overrides the global one |
 | **Post-History Instructions** | A reminder slipped in after the recent chat history | Good for "always stay in character" style nudges |
 | **Tags** | Labels for search and filtering | |
 | **Lorebook** | World-knowledge notes that activate when their keywords come up in chat | Great for places, factions, and backstory the character should "know" |
 | **Worlds** | Shared settings attached to this character | See [Lorebooks & Worlds](user-guide.md#lorebooks--worlds) |
 | **TTS Voice** | A voice just for this character | Assigned per member in the group chat creator; it travels with the card and overrides your default voice wherever that character speaks |
+
+### Greeting seeds (per-alt opening state)
+
+The first message (`first_mes`) always uses the card-level Realism/Needs seed. Alternate greetings may each carry a sparse overlay:
+
+- **Null / missing slot** — unauthored. The engine **Reads the Room** from that greeting's text.
+- **Non-null overlay, including empty `{}`** — authored. Skips Read the Room. `{}` means inherit the card (or group) defaults; present keys override them.
+- **Swipe 0** restores that member/group baseline (the card seed on 1:1, the group blob baseline on a custom group opener).
+- **Groups match 1:1.** Unauthored group/member alts Read the Room the same way; authored overlays (including `{}`) still skip. The editor must not write `{}` just because the seed toggle is on with no fields set — that stays null until a field is authored.
 
 ### Macros
 

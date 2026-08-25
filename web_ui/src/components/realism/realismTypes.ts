@@ -330,3 +330,27 @@ export function decayDescription(v: number): string {
   if (v <= 12) return `Fast (${v})`;
   return `Very Fast (${v})`;
 }
+
+
+/** Drop empty greet rows and their paired seed slots together. */
+export function compactGreetingPairs(
+  greetings: string[],
+  seeds: (GreetingSeed | null)[],
+): { greetings: string[]; seeds: (GreetingSeed | null)[] } {
+  const n = greetings.length;
+  const aligned =
+    seeds.length === n
+      ? seeds
+      : seeds.length > n
+        ? seeds.slice(0, n)
+        : [...seeds, ...Array<GreetingSeed | null>(n - seeds.length).fill(null)];
+  const outG: string[] = [];
+  const outS: (GreetingSeed | null)[] = [];
+  for (let i = 0; i < n; i++) {
+    if (!greetings[i].trim()) continue;
+    outG.push(greetings[i]);
+    outS.push(aligned[i] ?? null);
+  }
+  while (outS.length && outS[outS.length - 1] == null) outS.pop();
+  return { greetings: outG, seeds: outS };
+}

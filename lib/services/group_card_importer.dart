@@ -22,6 +22,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/group_stable_id.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
 /// Outcome of importing a Group Card.
 class GroupImportResult {
@@ -320,6 +321,13 @@ class GroupCardImporter {
       defaultMemberRealismState: finalDefaultMember.isNotEmpty
           ? finalDefaultMember
           : '{}',
+      // Parse alts/seeds out of the blob so repo.save is a no-wipe round-trip.
+      alternateGreetings: parseGroupAlternateGreetings(
+        finalDefaultMember.isNotEmpty ? finalDefaultMember : '{}',
+      ),
+      greetingSeeds: parseGroupGreetingSeeds(
+        finalDefaultMember.isNotEmpty ? finalDefaultMember : '{}',
+      ),
       characterSystemPrompts: finalCharPrompts,
     );
 

@@ -18,7 +18,7 @@ import { RealismFormSection } from '../components/realism/RealismFormSection';
 import { useAdultThemes } from '../components/realism/useAdultThemes';
 import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { TokenBadge } from '../components/realism/controls';
-import { type RealismValues, realismFromDetail } from '../components/realism/realismTypes';
+import { type RealismValues, compactGreetingPairs, realismFromDetail } from '../components/realism/realismTypes';
 
 interface RawLore {
   name?: string;
@@ -145,11 +145,17 @@ export function CharacterEditPage() {
         systemPrompt: c.systemPrompt,
         postHistoryInstructions: c.postHistoryInstructions,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-        alternateGreetings: greetings.filter((g) => g.trim()),
-        worldNames,
-        ttsVoice,
-        lorebook: lore.filter((e) => e.key.trim() || e.content.trim()),
-        ...rv,
+        ...(() => {
+          const paired = compactGreetingPairs(greetings, rv.greetingSeeds);
+          return {
+            alternateGreetings: paired.greetings,
+            worldNames,
+            ttsVoice,
+            lorebook: lore.filter((e) => e.key.trim() || e.content.trim()),
+            ...rv,
+            greetingSeeds: paired.seeds,
+          };
+        })(),
       });
       navigate(-1);
     } catch (e) {

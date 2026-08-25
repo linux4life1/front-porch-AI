@@ -33,10 +33,11 @@ extension _EditCharacterSave on _EditCharacterPageState {
     widget.character.mesExample = _mesExampleController.text;
     widget.character.systemPrompt = _systemPromptController.text;
     widget.character.postHistoryInstructions = _postHistoryController.text;
-    widget.character.alternateGreetings = _altGreetingControllers
-        .map((c) => c.text)
-        .where((t) => t.isNotEmpty)
-        .toList();
+    final greetingPairs = compactGreetingPairs(
+      [for (final c in _altGreetingControllers) c.text],
+      _altGreetingSeeds,
+    );
+    widget.character.alternateGreetings = greetingPairs.greetings;
     widget.character.tags = List.from(_tags);
     // Empty clears the per-character override so the character
     // follows the global Settings voice again (null, not '', so
@@ -144,9 +145,7 @@ extension _EditCharacterSave on _EditCharacterPageState {
         // above ended up disagreeing.
         inventory: Pockets.cardJsonFrom(worn: _worn, carrying: _carrying),
         currentTask: _realismCurrentTask,
-        greetingSeeds: compactGreetingSeeds(
-          alignGreetingSeeds(_altGreetingSeeds, _altGreetingControllers.length),
-        ),
+        greetingSeeds: greetingPairs.seeds,
         realismVerificationEnabled: _realismVerificationEnabled,
         realismVerificationMaxReprocesses: _realismVerificationMaxReprocesses,
         realismVerificationStrictness: _realismVerificationStrictness,

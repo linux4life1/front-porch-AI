@@ -147,6 +147,15 @@ void main() {
     // setActiveCharacter already ran; loadSession rehydrates the same card.
     expect(chat.greetingIndex, 1, reason: 'cursor must survive reload');
     expect(chat.messages.first.text, 'Get out.');
+    expect(
+      chat.characterEmotion,
+      'furious',
+      reason: 'overlay emotion must survive reload, not first_mes friend',
+    );
+    expect(chat.relationshipService.affectionScore, -40);
+    expect(chat.relationshipService.trustLevel, -25);
+    expect(chat.timeService.timeOfDay, 'night');
+    expect(chat.needsSimulation.vector['hunger'], 25);
 
     // A second ChatService on the same DB (app restart) uses the same card.
     expect(card.alternateGreetings, isNotEmpty);
@@ -361,6 +370,161 @@ void main() {
         contains('flour-dusted apron'),
         reason: 'empty overlay must not strip the card wardrobe',
       );
+    },
+  );
+
+
+  test(
+    'group import/save with empty lists keeps blob angry alt+seed',
+    () async {
+      final angry = GreetingRealismSeed(
+        characterEmotion: 'furious',
+        emotionIntensity: 'strong',
+        shortTermBond: -40,
+      );
+      final blobs = buildGroupRealismBlobs(
+        seeds: {'mem-a': defaultGroupMemberRealismSeed()},
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+        alternateGreetings: const ['Get out.'],
+        greetingSeeds: [angry],
+      );
+      final blob = blobs.defaultMemberJson;
+      final repo = GroupChatRepository(storage, db);
+      // Import-equivalent: parse alts/seeds out of the blob (empty lists
+      // would wipe). Then save is a no-wipe round-trip.
+      final group = GroupChat(
+        id: 'grp-import-wipe',
+        name: 'The House',
+        firstMessage: 'Come in.',
+        alternateGreetings: parseGroupAlternateGreetings(blob),
+        greetingSeeds: parseGroupGreetingSeeds(blob),
+        defaultMemberRealismState: blob,
+        baselineRealismState: blobs.baselineJson,
+      );
+      await repo.save(group);
+      await repo.reload();
+      final loaded = repo.getById('grp-import-wipe')!;
+      expect(loaded.alternateGreetings, ['Get out.']);
+      expect(loaded.greetingSeeds.first!.characterEmotion, 'furious');
+      expect(loaded.greetingSeeds.first!.emotionIntensity, 'strong');
+    },
+  );
+
+  test(
+    'repo.save writes patched alts/seeds back onto the in-memory GroupChat',
+    () async {
+      final angry = GreetingRealismSeed(characterEmotion: 'furious');
+      final blobs = buildGroupRealismBlobs(
+        seeds: {'mem-a': defaultGroupMemberRealismSeed()},
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      final repo = GroupChatRepository(storage, db);
+      final group = GroupChat(
+        id: 'grp-mem-patch',
+        name: 'The House',
+        firstMessage: 'Come in.',
+        defaultMemberRealismState: blobs.defaultMemberJson,
+        baselineRealismState: blobs.baselineJson,
+      );
+      await repo.save(group);
+      group.alternateGreetings = ['Get out.'];
+      group.greetingSeeds = [angry];
+      await repo.save(group);
+      expect(
+        group.alternateGreetings,
+        ['Get out.'],
+        reason: 'same object, no reload',
+      );
+      expect(group.greetingSeeds.first!.characterEmotion, 'furious');
+      expect(
+        parseGroupAlternateGreetings(group.defaultMemberRealismState),
+        ['Get out.'],
+      );
+      expect(
+        repo.getById('grp-mem-patch')!.greetingSeeds.first!.characterEmotion,
+        'furious',
+      );
+    },
+  );
+
+  test(
+    'unauthored group custom alt reaches RtR; authored furious skips',
+    () async {
+      final angry = GreetingRealismSeed(
+        characterEmotion: 'furious',
+        emotionIntensity: 'strong',
+      );
+      final blobs = buildGroupRealismBlobs(
+        seeds: {
+          'mem-a': defaultGroupMemberRealismSeed(),
+          'mem-b': defaultGroupMemberRealismSeed(),
+        },
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+        alternateGreetings: const ['Get out of my house.', 'Who are you?'],
+        greetingSeeds: [angry, null],
+      );
+      await db.insertGroup(
+        GroupsCompanion.insert(
+          id: 'grp-rtr',
+          name: 'The House',
+          firstMessage: const Value('Come in, friends.'),
+          defaultMemberRealismState: Value(blobs.defaultMemberJson),
+          baselineRealismState: Value(blobs.baselineJson),
+        ),
+      );
+      for (final m in [('mem-a', 'Ana'), ('mem-b', 'Bea')]) {
+        await db.insertGroupMember(
+          GroupMembersCompanion.insert(
+            id: m.$1,
+            groupId: 'grp-rtr',
+            name: m.$2,
+            firstMessage: const Value('Hi.'),
+          ),
+        );
+      }
+      final group = GroupChat(
+        id: 'grp-rtr',
+        name: 'The House',
+        firstMessage: 'Come in, friends.',
+        alternateGreetings: const ['Get out of my house.', 'Who are you?'],
+        greetingSeeds: [angry, null],
+        defaultMemberRealismState: blobs.defaultMemberJson,
+        baselineRealismState: blobs.baselineJson,
+      );
+      await chat.setActiveGroup(
+        group,
+        groupRepo: GroupChatRepository(storage, db),
+      );
+
+      testPostGreetingEvalEntered = false;
+      await chat.selectGreeting(1);
+      expect(chat.characterEmotion, 'furious');
+      expect(
+        testPostGreetingEvalEntered,
+        isFalse,
+        reason: 'authored furious overlay must skip RtR',
+      );
+
+      testPostGreetingEvalEntered = false;
+      await chat.selectGreeting(2);
+      expect(chat.greetingIndex, 2);
+      expect(chat.messages.first.text, 'Who are you?');
+      expect(
+        testPostGreetingEvalEntered,
+        isTrue,
+        reason: 'unauthored group alt must reach eval, not skip for null _activeCharacter',
+      );
+
+      await chat.selectGreeting(0);
+      expect(chat.greetingIndex, 0);
+      expect(chat.messages.first.text, 'Come in, friends.');
+      expect(chat.timeService.timeOfDay, 'morning');
     },
   );
 }

@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import {
   REALISM_DEFAULTS,
   chipsToInventory,
+  compactGreetingPairs,
   inventoryToChips,
   realismFromDetail,
 } from './realismTypes';
@@ -182,5 +183,13 @@ describe('wardrobe chip text mirrors the Dart implementation', () => {
     expect(chipsToInventory(reopened.worn, reopened.carrying)).toEqual(first);
     expect(reopened.worn).toEqual(worn);
     expect(reopened.carrying).toEqual(carrying);
+  });
+});
+
+describe('compactGreetingPairs keeps seed on the surviving greet', () => {
+  it('drops the blank row and keeps furious on Get out.', () => {
+    const paired = compactGreetingPairs(['', 'Get out.'], [null, { characterEmotion: 'furious' }]);
+    expect(paired.greetings).toEqual(['Get out.']);
+    expect(paired.seeds).toEqual([{ characterEmotion: 'furious' }]);
   });
 });

@@ -129,6 +129,15 @@ class GroupChatRepository extends ChangeNotifier {
     // Full removal of the previous Path B transitional blob logic that merged it
     // into defaultMemberRealismState. defaultMemberRealismState is written as-is.
     // characterIds is legacy dead weight (always '[]' — membership is in group_members).
+    final patchedBlob = withGroupOpeningAlts(
+      group.defaultMemberRealismState,
+      alternateGreetings: group.alternateGreetings,
+      greetingSeeds: group.greetingSeeds,
+    );
+    // Same-session export / cache reads must see the patched alts/seeds.
+    group.defaultMemberRealismState = patchedBlob;
+    group.alternateGreetings = parseGroupAlternateGreetings(patchedBlob);
+    group.greetingSeeds = parseGroupGreetingSeeds(patchedBlob);
     final companion = GroupsCompanion(
       id: Value(group.id),
       stableId: Value(group.stableId),
@@ -140,13 +149,7 @@ class GroupChatRepository extends ChangeNotifier {
       firstMessage: Value(group.firstMessage),
       scenario: Value(group.scenario),
       systemPrompt: Value(group.systemPrompt),
-      defaultMemberRealismState: Value(
-        withGroupOpeningAlts(
-          group.defaultMemberRealismState,
-          alternateGreetings: group.alternateGreetings,
-          greetingSeeds: group.greetingSeeds,
-        ),
-      ),
+      defaultMemberRealismState: Value(patchedBlob),
       characterSystemPrompts: Value(jsonEncode(group.characterSystemPrompts)),
       chaosModeEnabled: Value(group.chaosModeEnabled),
       chaosNsfwEnabled: Value(group.chaosNsfwEnabled),
@@ -176,13 +179,7 @@ class GroupChatRepository extends ChangeNotifier {
           firstMessage: Value(group.firstMessage),
           scenario: Value(group.scenario),
           systemPrompt: Value(group.systemPrompt),
-          defaultMemberRealismState: Value(
-            withGroupOpeningAlts(
-              group.defaultMemberRealismState,
-              alternateGreetings: group.alternateGreetings,
-              greetingSeeds: group.greetingSeeds,
-            ),
-          ),
+          defaultMemberRealismState: Value(patchedBlob),
           characterSystemPrompts: Value(
             jsonEncode(group.characterSystemPrompts),
           ),

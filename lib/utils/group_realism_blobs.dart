@@ -258,16 +258,11 @@ Map<String, dynamic> _groupOpeningAltsFragment(
   List<String> alternateGreetings,
   List<GreetingRealismSeed?> greetingSeeds,
 ) {
-  final alts = [
-    for (final g in alternateGreetings)
-      if (g.trim().isNotEmpty) g,
-  ];
-  final seeds = compactGreetingSeeds(
-    alignGreetingSeeds(greetingSeeds, alts.length),
-  );
+  final paired = compactGreetingPairs(alternateGreetings, greetingSeeds);
   return {
-    if (alts.isNotEmpty) 'alternateGreetings': alts,
-    if (seeds.isNotEmpty) 'greetingSeeds': [for (final s in seeds) s?.toJson()],
+    if (paired.greetings.isNotEmpty) 'alternateGreetings': paired.greetings,
+    if (paired.seeds.isNotEmpty)
+      'greetingSeeds': [for (final s in paired.seeds) s?.toJson()],
   };
 }
 

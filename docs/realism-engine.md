@@ -57,7 +57,7 @@ You can control the Realism Engine at three levels:
 
 ![The settings page, where the Realism Engine defaults live](screenshots/new_settings.png)
 
-> **Tip:** The engine even runs once on the character's greeting — before you've typed anything — so the opening mood matches the opening message. You'll see a brief *"Reading the room..."* overlay when that happens. Alternate greetings can skip that and use an authored seed instead (Dialogue tab, under each alt): mood, bond, trust, clock, needs, and starting wardrobe for *that* opening. Swiping back to the first message restores the card defaults.
+> **Tip:** Front Porch cards keep the card's authored opening seed on the first message (`first_mes`) — that greeting does **not** Read the Room. Unauthored alternate greetings (a missing / null overlay slot) still do, so the opening mood matches *that* greeting. An authored seed on an alt — including an empty `{}` inherit — skips Read the Room and uses the seed (mood, bond, trust, clock, needs, wardrobe). Swiping back to the first message restores the card defaults. Groups match 1:1.
 
 ---
 

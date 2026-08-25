@@ -14,6 +14,7 @@ export function Slider({
   onChange,
   badge,
   step = 1,
+  unset = false,
 }: {
   label: string;
   min: number;
@@ -22,19 +23,24 @@ export function Slider({
   onChange: (v: number) => void;
   badge?: string;
   step?: number;
+  unset?: boolean;
 }) {
   return (
     <div className="realism-slider">
       <div className="realism-slider-head">
         <span>{label}</span>
-        {badge !== undefined && <span className="realism-badge">{badge}</span>}
+        {unset ? (
+          <span className="realism-badge muted">inherit</span>
+        ) : (
+          badge !== undefined && <span className="realism-badge">{badge}</span>
+        )}
       </div>
       <input
         type="range"
         min={min}
         max={max}
         step={step}
-        value={value}
+        value={unset ? min : value}
         onChange={(e) => onChange(parseInt(e.target.value, 10))}
       />
     </div>
@@ -70,16 +76,21 @@ export function SelectRow({
   value,
   options,
   onChange,
+  placeholder,
 }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   return (
     <label className="realism-field">
       <span>{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)}>
+        {placeholder !== undefined && (
+          <option value="">{placeholder}</option>
+        )}
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}

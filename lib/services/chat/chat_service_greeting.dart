@@ -147,7 +147,20 @@ extension ChatServiceGreeting on ChatService {
   /// Evaluates emotion + relationship baseline from the greeting message only.
   /// Runs once per new session, silently in the background.
   Future<void> _runPostGreetingEval() async {
-    if (!_realismEnabled || _activeCharacter == null) return;
+    if (!_realismEnabled) return;
+    final evalChar = _activeCharacter ??
+        _greetingOwnerCard() ??
+        (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
+    // Groups have a null _activeCharacter; still Read the Room when an
+    // unauthored opener reached this path.
+    if (evalChar == null && _activeGroup == null) return;
+    testPostGreetingEvalEntered = true;
+    final token = _greetingEvalGen;
+    final indexStamp = _greetingIndex;
+    final previousActive = _activeCharacter;
+    if (_activeCharacter == null && evalChar != null) {
+      _activeCharacter = evalChar;
+    }
     _greetingEvalPending = false; // consume the pending flag
     debugPrint('[Realism] Running post-greeting baseline eval...');
     _isProcessingGreeting = true;
@@ -171,15 +184,19 @@ extension ChatServiceGreeting on ChatService {
         Future.delayed(_kEvalDispatchStagger * 2, () => _seedOpeningPosture()),
       ]);
 
-      if (_realismEvalCancelled) {
-        debugPrint('[Realism] Post-greeting eval cancelled');
+      if (_realismEvalCancelled ||
+          token != _greetingEvalGen ||
+          indexStamp != _greetingIndex) {
+        debugPrint('[Realism] Post-greeting eval cancelled or stale');
         _realismEvalCancelled = false;
         return;
       }
 
       // Check for cancellation after each eval
-      if (_realismEvalCancelled) {
-        debugPrint('[Realism] Post-greeting eval cancelled');
+      if (_realismEvalCancelled ||
+          token != _greetingEvalGen ||
+          indexStamp != _greetingIndex) {
+        debugPrint('[Realism] Post-greeting eval cancelled or stale');
         _realismEvalCancelled =
             false; // Reset the flag so future messages can proceed
         return;
@@ -202,6 +219,9 @@ extension ChatServiceGreeting on ChatService {
     } catch (e) {
       debugPrint('[Realism] Post-greeting eval failed: $e');
     } finally {
+      if (_activeGroup != null) {
+        _activeCharacter = previousActive;
+      }
       _isProcessingGreeting = false;
       notifyListeners();
     }
