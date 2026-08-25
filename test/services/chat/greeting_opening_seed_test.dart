@@ -1544,4 +1544,189 @@ void main() {
       expect(chat.needsSimulation.vector['hunger'], 80);
     },
   );
+
+  test(
+    'group New Chat after completed unauthored fury reseeds inherit, not leftover fury',
+    () async {
+      final llm = _PhasedGreetingLlm();
+      chat.testLlmServiceOverride = llm;
+      final blobs = buildGroupRealismBlobs(
+        seeds: {
+          'mem-a': defaultGroupMemberRealismSeed(),
+          'mem-b': defaultGroupMemberRealismSeed(),
+        },
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+        alternateGreetings: const ['Get out.'],
+        greetingSeeds: const [null],
+      );
+      await db.insertGroup(
+        GroupsCompanion.insert(
+          id: 'grp-newchat-fury',
+          name: 'The House',
+          firstMessage: const Value('Come in, friends.'),
+          defaultMemberRealismState: Value(blobs.defaultMemberJson),
+          baselineRealismState: Value(blobs.baselineJson),
+        ),
+      );
+      for (final m in [('mem-a', 'Ana'), ('mem-b', 'Bea')]) {
+        await db.insertGroupMember(
+          GroupMembersCompanion.insert(
+            id: m.$1,
+            groupId: 'grp-newchat-fury',
+            name: m.$2,
+            firstMessage: const Value('Hi.'),
+          ),
+        );
+      }
+      final group = GroupChat(
+        id: 'grp-newchat-fury',
+        name: 'The House',
+        firstMessage: 'Come in, friends.',
+        alternateGreetings: const ['Get out.'],
+        greetingSeeds: const [null],
+        defaultMemberRealismState: blobs.defaultMemberJson,
+        baselineRealismState: blobs.baselineJson,
+      );
+      await chat.setActiveGroup(
+        group,
+        groupRepo: GroupChatRepository(storage, db),
+      );
+
+      expect(chat.messages.first.text, 'Come in, friends.');
+
+      llm.delay = Duration.zero;
+      llm.payload = '{"emotion":"furious","emotion_intensity":"strong"}';
+      testPostGreetingEvalEntered = false;
+      await chat.selectGreeting(1);
+      expect(chat.greetingIndex, 1);
+      expect(chat.messages.first.text, 'Get out.');
+      expect(
+        testPostGreetingEvalEntered,
+        isTrue,
+        reason: 'unauthored group alt must start RtR',
+      );
+
+      final deadline = DateTime.now().add(const Duration(seconds: 3));
+      while (chat.isProcessingGreeting && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(chat.isProcessingGreeting, isFalse);
+      expect(
+        chat.characterEmotion,
+        'furious',
+        reason: 'completed unauthored RtR must land fury before New Chat',
+      );
+
+      await chat.startNewChat();
+      expect(chat.greetingIndex, 0);
+      expect(chat.messages.first.text, 'Come in, friends.');
+      expect(
+        chat.characterEmotion,
+        isNot('furious'),
+        reason:
+            'New Chat custom opener must apply overlay 0 / inherit, not leftover fury',
+      );
+      expect(
+        ['', 'neutral'].contains(chat.characterEmotion),
+        isTrue,
+        reason: 'inherit/baseline (card inherit or member-seed), not leftover fury',
+      );
+      for (final c in chat.groupCharacters) {
+        final id = chat.characterIdFor(c);
+        expect(
+          chat.debugGroupSlotEmotion(id),
+          isNot('furious'),
+          reason: 'New Chat must reseed member slots, not leave fury ($id)',
+        );
+      }
+    },
+  );
+
+  test(
+    'member-greet New Chat after completed fury reseeds inherit, not leftover fury',
+    () async {
+      final llm = _PhasedGreetingLlm();
+      chat.testLlmServiceOverride = llm;
+      final blobs = buildGroupRealismBlobs(
+        seeds: {
+          'mem-a': defaultGroupMemberRealismSeed(),
+          'mem-b': defaultGroupMemberRealismSeed(),
+        },
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      await db.insertGroup(
+        GroupsCompanion.insert(
+          id: 'grp-member-newchat-fury',
+          name: 'The House',
+          firstMessage: const Value(''),
+          defaultMemberRealismState: Value(blobs.defaultMemberJson),
+          baselineRealismState: Value(blobs.baselineJson),
+        ),
+      );
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-a',
+          groupId: 'grp-member-newchat-fury',
+          name: 'Ana',
+          firstMessage: const Value('Hi.'),
+          alternateGreetings: const Value('["Get out."]'),
+        ),
+      );
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-b',
+          groupId: 'grp-member-newchat-fury',
+          name: 'Bea',
+          firstMessage: const Value('Hey.'),
+        ),
+      );
+      final group = GroupChat(
+        id: 'grp-member-newchat-fury',
+        name: 'The House',
+        firstMessage: '',
+        defaultMemberRealismState: blobs.defaultMemberJson,
+        baselineRealismState: blobs.baselineJson,
+      );
+      await chat.setActiveGroup(
+        group,
+        groupRepo: GroupChatRepository(storage, db),
+      );
+
+      expect(chat.messages.first.text, 'Hi.');
+      expect(chat.openingAllGreetings, ['Hi.', 'Get out.']);
+
+      llm.delay = Duration.zero;
+      llm.payload = '{"emotion":"furious","emotion_intensity":"strong"}';
+      testPostGreetingEvalEntered = false;
+      await chat.selectGreeting(1);
+      expect(chat.messages.first.text, 'Get out.');
+      expect(testPostGreetingEvalEntered, isTrue);
+
+      final deadline = DateTime.now().add(const Duration(seconds: 3));
+      while (chat.isProcessingGreeting && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(chat.isProcessingGreeting, isFalse);
+      expect(chat.characterEmotion, 'furious');
+
+      await chat.startNewChat();
+      expect(chat.messages.first.text, 'Hi.');
+      expect(chat.greetingIndex, 0);
+      expect(
+        chat.characterEmotion,
+        isNot('furious'),
+        reason:
+            'New Chat member-greet must apply overlay 0 / inherit, not leftover fury',
+      );
+      expect(
+        ['', 'neutral'].contains(chat.characterEmotion),
+        isTrue,
+        reason: 'inherit/baseline (card inherit or member-seed), not leftover fury',
+      );
+    },
+  );
 }

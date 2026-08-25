@@ -719,8 +719,12 @@ extension ChatServiceSessionManage on ChatService {
           ),
         );
         _lorebookScanner.scanLatest();
-        if (greetingFirstMesEmpty(_activeGroup!.firstMessage) &&
-            greetingFirstMesEmpty(_groupCharacters.first.firstMessage)) {
+        // Overlay 0 / inherit baseline into live emotion and slots.
+        // Previously only the empty-empty path applied seed, so leftover
+        // swipe fury survived New Chat on a custom opener or member-greet.
+        if (!greetingFirstMesEmpty(_activeGroup!.firstMessage)) {
+          await _applyGroupCustomGreetingSeed(0);
+        } else {
           await _applyGreetingOpeningSeed(
             card: _groupCharacters.first,
             index: 0,
