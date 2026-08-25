@@ -274,6 +274,44 @@ void main() {
   );
 
   test(
+    'FrontPorchExtensions.fromJson pairs empty-greet drop with compactGreetingPairs',
+    () {
+      final dirty = FrontPorchExtensions.fromJson(
+        {
+          'realism_engine': {
+            'enabled': true,
+            'greeting_seeds': [
+              {'character_emotion': 'furious'},
+            ],
+          },
+        },
+        alternateGreetings: ['', 'Get out.'],
+      );
+      expect(
+        dirty.greetingSeeds,
+        isEmpty,
+        reason: "['', 'Get out.']+[furious] must not load furious onto Get out",
+      );
+      expect(greetingOverlayAt(dirty.greetingSeeds, 1), isNull);
+
+      final kept = FrontPorchExtensions.fromJson(
+        {
+          'realism_engine': {
+            'enabled': true,
+            'greeting_seeds': [
+              null,
+              {'character_emotion': 'furious'},
+            ],
+          },
+        },
+        alternateGreetings: ['', 'Get out.'],
+      );
+      expect(kept.greetingSeeds, hasLength(1));
+      expect(kept.greetingSeeds.first!.characterEmotion, 'furious');
+    },
+  );
+
+  test(
     'characters.md pins first_mes, skip-RtR, {} vs null, swipe-0, groups 1:1',
     () {
       final md = File('docs/characters.md').readAsStringSync();

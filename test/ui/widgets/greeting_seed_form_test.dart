@@ -292,4 +292,55 @@ void main() {
       expect(live!.dayCount, isNull);
     },
   );
+
+  testWidgets('bond/trust/needs sliders can return to inherit', (tester) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    GreetingRealismSeed? live = const GreetingRealismSeed(
+      shortTermBond: 20,
+      trustLevel: 10,
+      needsBaselineHunger: 25,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return SingleChildScrollView(
+                child: GreetingSeedForm(
+                  seed: live,
+                  onChanged: (next) => setState(() => live = next),
+                  showNeeds: true,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> clearBox(String shown) async {
+      final field = find.widgetWithText(TextField, shown);
+      expect(field, findsOneWidget);
+      await tester.enterText(field, '');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+    }
+
+    await clearBox('20');
+    expect(live!.shortTermBond, isNull, reason: 'bond slider empty writes inherit');
+
+    await clearBox('10');
+    expect(live!.trustLevel, isNull, reason: 'trust slider empty writes inherit');
+
+    await clearBox('25');
+    expect(
+      live!.needsBaselineHunger,
+      isNull,
+      reason: 'needs slider empty writes inherit',
+    );
+  });
 }

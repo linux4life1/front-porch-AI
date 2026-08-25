@@ -222,6 +222,10 @@ class V2CardService {
         return v is String && v.isNotEmpty ? [v] : const [];
       }
 
+      final rawAlts = strList(
+        data['alternate_greetings'] ?? jsonMap['alternate_greetings'],
+      );
+
       // Parse V2.5 extensions (front_porch namespace + raw third-party keys)
       FrontPorchExtensions? fpExtensions;
       Map<String, dynamic>? rawExtensions;
@@ -232,6 +236,7 @@ class V2CardService {
           try {
             fpExtensions = FrontPorchExtensions.fromJson(
               Map<String, dynamic>.from(fp),
+              alternateGreetings: rawAlts,
             );
           } catch (e) {
             print('Card parse: ignoring malformed front_porch extensions: $e');
@@ -266,9 +271,10 @@ class V2CardService {
           data['post_history_instructions'] ??
               jsonMap['post_history_instructions'],
         ),
-        alternateGreetings: strList(
-          data['alternate_greetings'] ?? jsonMap['alternate_greetings'],
-        ),
+        alternateGreetings: compactGreetingPairs(
+          rawAlts,
+          fpExtensions?.greetingSeeds ?? const [],
+        ).greetings,
         tags: strList(data['tags'] ?? jsonMap['tags']),
         lorebook: lorebook,
         worldNames: strList(data['world_names'] ?? jsonMap['world_names']),

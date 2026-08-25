@@ -221,7 +221,10 @@ class GroupMember {
     FrontPorchExtensions? fpExt;
     if (frontPorchExtensions != null) {
       try {
-        fpExt = FrontPorchExtensions.fromJson(frontPorchExtensions!);
+        fpExt = FrontPorchExtensions.fromJson(
+          frontPorchExtensions!,
+          alternateGreetings: alternateGreetings,
+        );
       } catch (_) {}
     }
 

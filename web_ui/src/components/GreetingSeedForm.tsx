@@ -91,6 +91,7 @@ export function GreetingSeedForm({
             value={s.shortTermBond ?? 0}
             unset={s.shortTermBond === undefined}
             onChange={(n) => patch({ shortTermBond: n })}
+            onClear={() => patch({ shortTermBond: undefined })}
           />
           <Slider
             label="Long-term bond"
@@ -99,6 +100,7 @@ export function GreetingSeedForm({
             value={s.longTermBond ?? 0}
             unset={s.longTermBond === undefined}
             onChange={(n) => patch({ longTermBond: n })}
+            onClear={() => patch({ longTermBond: undefined })}
           />
           <Slider
             label="Trust"
@@ -107,6 +109,7 @@ export function GreetingSeedForm({
             value={s.trustLevel ?? 0}
             unset={s.trustLevel === undefined}
             onChange={(n) => patch({ trustLevel: n })}
+            onClear={() => patch({ trustLevel: undefined })}
           />
           <SelectRow
             label="Time of day"
@@ -170,6 +173,7 @@ export function GreetingSeedForm({
                   value={(s[key] as number | undefined) ?? 80}
                   unset={(s[key] as number | undefined) === undefined}
                   onChange={(n) => patch({ [key]: n })}
+                  onClear={() => patch({ [key]: undefined })}
                 />
               ))}
             </>

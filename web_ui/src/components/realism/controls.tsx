@@ -15,6 +15,7 @@ export function Slider({
   badge,
   step = 1,
   unset = false,
+  onClear,
 }: {
   label: string;
   min: number;
@@ -24,6 +25,7 @@ export function Slider({
   badge?: string;
   step?: number;
   unset?: boolean;
+  onClear?: () => void;
 }) {
   return (
     <div className="realism-slider">
@@ -31,6 +33,10 @@ export function Slider({
         <span>{label}</span>
         {unset ? (
           <span className="realism-badge muted">inherit</span>
+        ) : onClear ? (
+          <button type="button" className="realism-badge muted" onClick={onClear}>
+            inherit
+          </button>
         ) : (
           badge !== undefined && <span className="realism-badge">{badge}</span>
         )}

@@ -15,6 +15,7 @@ class SliderWithInput extends StatefulWidget {
     this.isInteger = false,
     this.decimalPlaces = 2,
     this.unset = false,
+    this.onCleared,
   });
 
   final String label;
@@ -30,6 +31,9 @@ class SliderWithInput extends StatefulWidget {
   /// When true the number box stays empty and the slider is a visual rest
   /// — inherit, not a fake authored 0 / 80.
   final bool unset;
+
+  /// Empty number box writes inherit (null) instead of restoring the last value.
+  final VoidCallback? onCleared;
 
   @override
   State<SliderWithInput> createState() => _SliderWithInputState();
@@ -84,6 +88,10 @@ class _SliderWithInputState extends State<SliderWithInput> {
   void _commitValue() {
     final text = _controller.text.trim();
     if (text.isEmpty) {
+      if (widget.onCleared != null) {
+        widget.onCleared!();
+        return;
+      }
       if (widget.unset) return;
       _controller.text = _formattedValue;
       return;

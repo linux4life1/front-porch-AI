@@ -144,6 +144,7 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
             divisions: 600,
             context: context,
             onChanged: (v) => widget.onChanged(s.copyWith(shortTermBond: v.round())),
+            onCleared: () => widget.onChanged(s.copyWith(shortTermBond: null)),
           ),
           SliderWithInput(
             label: 'Long-term bond',
@@ -155,6 +156,7 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
             divisions: 600,
             context: context,
             onChanged: (v) => widget.onChanged(s.copyWith(longTermBond: v.round())),
+            onCleared: () => widget.onChanged(s.copyWith(longTermBond: null)),
           ),
           SliderWithInput(
             label: 'Trust',
@@ -166,6 +168,7 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
             divisions: 200,
             context: context,
             onChanged: (v) => widget.onChanged(s.copyWith(trustLevel: v.round())),
+            onCleared: () => widget.onChanged(s.copyWith(trustLevel: null)),
           ),
           const SizedBox(height: 8),
           _dropdown(
@@ -244,6 +247,7 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
                 divisions: 100,
                 context: context,
                 onChanged: (v) => widget.onChanged(need.$3(s, v.round())),
+                onCleared: () => widget.onChanged(need.$4(s)),
               ),
           ],
           if (widget.showInventory) ...[
@@ -272,42 +276,50 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
           String,
           int? Function(GreetingRealismSeed),
           GreetingRealismSeed Function(GreetingRealismSeed, int),
+          GreetingRealismSeed Function(GreetingRealismSeed),
         )
       >[
         (
           'Hunger',
           (s) => s.needsBaselineHunger,
           (s, v) => s.copyWith(needsBaselineHunger: v),
+          (s) => s.copyWith(needsBaselineHunger: null),
         ),
         (
           'Bladder',
           (s) => s.needsBaselineBladder,
           (s, v) => s.copyWith(needsBaselineBladder: v),
+          (s) => s.copyWith(needsBaselineBladder: null),
         ),
         (
           'Energy',
           (s) => s.needsBaselineEnergy,
           (s, v) => s.copyWith(needsBaselineEnergy: v),
+          (s) => s.copyWith(needsBaselineEnergy: null),
         ),
         (
           'Social',
           (s) => s.needsBaselineSocial,
           (s, v) => s.copyWith(needsBaselineSocial: v),
+          (s) => s.copyWith(needsBaselineSocial: null),
         ),
         (
           'Fun',
           (s) => s.needsBaselineFun,
           (s, v) => s.copyWith(needsBaselineFun: v),
+          (s) => s.copyWith(needsBaselineFun: null),
         ),
         (
           'Hygiene',
           (s) => s.needsBaselineHygiene,
           (s, v) => s.copyWith(needsBaselineHygiene: v),
+          (s) => s.copyWith(needsBaselineHygiene: null),
         ),
         (
           'Comfort',
           (s) => s.needsBaselineComfort,
           (s, v) => s.copyWith(needsBaselineComfort: v),
+          (s) => s.copyWith(needsBaselineComfort: null),
         ),
       ];
 

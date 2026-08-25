@@ -404,7 +404,10 @@ class FrontPorchExtensions {
     };
   }
 
-  factory FrontPorchExtensions.fromJson(Map<String, dynamic> json) {
+  factory FrontPorchExtensions.fromJson(
+    Map<String, dynamic> json, {
+    List<String> alternateGreetings = const [],
+  }) {
     // `is Map` + copy rather than `as Map<String, dynamic>?`: jsonDecode always
     // hands back Map<String, dynamic>, but a card map BUILT IN DART (a group
     // member seed, a test fixture, anything assembled from literals) can be
@@ -493,7 +496,11 @@ class FrontPorchExtensions {
       chatFontFamily: realism['chat_font_family'] as String?,
 
       currentTask: realism['current_task'] as String? ?? '',
-      greetingSeeds: parseGreetingSeeds(realism['greeting_seeds']),
+      greetingSeeds: () {
+        final parsed = parseGreetingSeeds(realism['greeting_seeds']);
+        if (alternateGreetings.isEmpty) return parsed;
+        return compactGreetingPairs(alternateGreetings, parsed).seeds;
+      }(),
       tier: realism['tier'] as String?,
       favoriteAvatarId: realism['favorite_avatar_id'] as String?,
     );
