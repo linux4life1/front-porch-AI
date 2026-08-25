@@ -211,7 +211,7 @@ void main() {
         isNull,
         reason: 'Get out overlay is not leftover furious',
       );
-      expect(leftover.single!.characterEmotion, 'furious');
+      expect(leftover.single.characterEmotion, 'furious');
     },
   );
 

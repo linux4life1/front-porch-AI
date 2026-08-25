@@ -676,7 +676,7 @@ void main() {
         reason: 'Get out overlay is not leftover furious',
       );
       expect(
-        leftover.single!.characterEmotion,
+        leftover.single.characterEmotion,
         'furious',
         reason: 'source leftover stays on the source list, not the compact',
       );

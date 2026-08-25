@@ -12,6 +12,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GreetingSeedForm } from './GreetingSeedForm';
 import type { GreetingSeed } from './realism/realismTypes';
 
+function lastOf<T>(items: T[]): T | undefined {
+  return items[items.length - 1];
+}
+
 let container: HTMLDivElement;
 let root: Root;
 
@@ -93,11 +97,11 @@ describe('GreetingSeedForm Story begins and inherit', () => {
     );
 
     clickToggle(false);
-    expect(emitted.at(-1)).toBeNull();
+    expect(lastOf(emitted)).toBeNull();
     expect(container.querySelector('input[type="date"]')).toBeNull();
 
     clickToggle(true);
-    const restored = emitted.at(-1);
+    const restored = lastOf(emitted);
     expect(restored).toEqual({
       characterEmotion: 'furious',
       storyStartDate: '1887-06-01',
@@ -158,22 +162,22 @@ describe('GreetingSeedForm Story begins and inherit', () => {
     }
 
     setRange('Short-term bond', 20);
-    expect(emitted.at(-1)?.shortTermBond).toBe(20);
+    expect(lastOf(emitted)?.shortTermBond).toBe(20);
     setRange('Trust', 10);
-    expect(emitted.at(-1)?.trustLevel).toBe(10);
+    expect(lastOf(emitted)?.trustLevel).toBe(10);
     setRange('Hunger', 25);
-    expect(emitted.at(-1)?.needsBaselineHunger).toBe(25);
+    expect(lastOf(emitted)?.needsBaselineHunger).toBe(25);
 
     clickInherit('Short-term bond');
-    expect(emitted.at(-1)?.shortTermBond).toBeUndefined();
-    expect(emitted.at(-1)?.shortTermBond).not.toBe(0);
+    expect(lastOf(emitted)?.shortTermBond).toBeUndefined();
+    expect(lastOf(emitted)?.shortTermBond).not.toBe(0);
 
     clickInherit('Trust');
-    expect(emitted.at(-1)?.trustLevel).toBeUndefined();
-    expect(emitted.at(-1)?.trustLevel).not.toBe(0);
+    expect(lastOf(emitted)?.trustLevel).toBeUndefined();
+    expect(lastOf(emitted)?.trustLevel).not.toBe(0);
 
     clickInherit('Hunger');
-    const last = emitted.at(-1)!;
+    const last = lastOf(emitted)!;
     expect(last.shortTermBond).toBeUndefined();
     expect(last.trustLevel).toBeUndefined();
     expect(last.needsBaselineHunger).toBeUndefined();
