@@ -222,4 +222,78 @@ void main() {
     expect(paired.seeds.single!.characterEmotion, 'cold');
     expect(greetingOverlayAt(paired.seeds, 1)!.characterEmotion, 'cold');
   });
+
+  test(
+    'enhance_review_body accept leftover furious on duplicate does not land on Get out',
+    () {
+      final leftover = GreetingRealismSeed(characterEmotion: 'furious');
+      final copy = CharacterCard(
+        name: 'Nina (Enhanced)',
+        firstMessage: 'Stay.',
+        alternateGreetings: ['Stay.'],
+        frontPorchExtensions: FrontPorchExtensions(greetingSeeds: [leftover]),
+      );
+      final enhanced = CharacterCard(
+        name: 'Nina',
+        firstMessage: 'Hey.',
+        alternateGreetings: ['Get out.'],
+      );
+      final greetingPairs = compactAcceptedEnhanceGreetings(
+        enhanced.alternateGreetings,
+        enhanced.frontPorchExtensions?.greetingSeeds,
+      );
+      copy.alternateGreetings = greetingPairs.greetings;
+      copy.frontPorchExtensions!.greetingSeeds = greetingPairs.seeds;
+      expect(copy.alternateGreetings, ['Get out.']);
+      expect(
+        copy.frontPorchExtensions!.greetingSeeds,
+        isEmpty,
+        reason:
+            "accept ['Get out.'] must not load leftover duplicate [furious]",
+      );
+      expect(
+        greetingOverlayAt(copy.frontPorchExtensions!.greetingSeeds, 1),
+        isNull,
+        reason: 'Get out overlay is not leftover furious',
+      );
+      expect(leftover.characterEmotion, 'furious');
+    },
+  );
+
+  test(
+    'enhance_review_body accept authored enhance seeds still pair',
+    () {
+      final leftover = GreetingRealismSeed(characterEmotion: 'furious');
+      final copy = CharacterCard(
+        name: 'Nina (Enhanced)',
+        firstMessage: 'Stay.',
+        alternateGreetings: ['Stay.'],
+        frontPorchExtensions: FrontPorchExtensions(greetingSeeds: [leftover]),
+      );
+      final authored = [GreetingRealismSeed(characterEmotion: 'cold')];
+      final enhanced = CharacterCard(
+        name: 'Nina',
+        firstMessage: 'Hey.',
+        alternateGreetings: ['Get out.'],
+        frontPorchExtensions: FrontPorchExtensions(greetingSeeds: authored),
+      );
+      final greetingPairs = compactAcceptedEnhanceGreetings(
+        enhanced.alternateGreetings,
+        enhanced.frontPorchExtensions?.greetingSeeds,
+      );
+      copy.alternateGreetings = greetingPairs.greetings;
+      copy.frontPorchExtensions!.greetingSeeds = greetingPairs.seeds;
+      expect(copy.alternateGreetings, ['Get out.']);
+      expect(
+        copy.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
+        'cold',
+      );
+      expect(
+        greetingOverlayAt(copy.frontPorchExtensions!.greetingSeeds, 1)!
+            .characterEmotion,
+        'cold',
+      );
+      expect(leftover.characterEmotion, 'furious');
+    },
+  );
 }

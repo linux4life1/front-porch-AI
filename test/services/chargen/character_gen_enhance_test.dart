@@ -335,4 +335,70 @@ void main() {
       );
     },
   );
+
+  test(
+    'character_gen_enhance copyWith leftover furious does not land on Get out',
+    () {
+      final leftover = GreetingRealismSeed(characterEmotion: 'furious');
+      final sourceExt = FrontPorchExtensions(greetingSeeds: [leftover]);
+      final card = CharacterCard(
+        name: 'Nina',
+        alternateGreetings: ['Get out.'],
+      );
+      expect(
+        sourceExt.copyWith().greetingSeeds.single!.characterEmotion,
+        'furious',
+        reason: 'bare copyWith keeps leftover source [furious]',
+      );
+      card.frontPorchExtensions = sourceExt.copyWith(
+        greetingSeeds: compactRewrittenGreetingAlts(
+          card.alternateGreetings,
+          card.frontPorchExtensions?.greetingSeeds,
+        ).seeds,
+      );
+      expect(card.alternateGreetings, ['Get out.']);
+      expect(
+        card.frontPorchExtensions!.greetingSeeds,
+        isEmpty,
+        reason:
+            "copyWith(['Get out.'], omit seeds) must not load leftover [furious]",
+      );
+      expect(
+        greetingOverlayAt(card.frontPorchExtensions!.greetingSeeds, 1),
+        isNull,
+        reason: 'Get out overlay is not leftover furious',
+      );
+      expect(leftover.characterEmotion, 'furious');
+    },
+  );
+
+  test(
+    'character_gen_enhance copyWith authored seeds still pair on Get out',
+    () {
+      final leftover = GreetingRealismSeed(characterEmotion: 'furious');
+      final sourceExt = FrontPorchExtensions(greetingSeeds: [leftover]);
+      final authored = [GreetingRealismSeed(characterEmotion: 'cold')];
+      final card = CharacterCard(
+        name: 'Nina',
+        alternateGreetings: ['Get out.'],
+        frontPorchExtensions: FrontPorchExtensions(greetingSeeds: authored),
+      );
+      card.frontPorchExtensions = sourceExt.copyWith(
+        greetingSeeds: compactRewrittenGreetingAlts(
+          card.alternateGreetings,
+          card.frontPorchExtensions?.greetingSeeds,
+        ).seeds,
+      );
+      expect(card.alternateGreetings, ['Get out.']);
+      expect(
+        card.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
+        'cold',
+      );
+      expect(
+        greetingOverlayAt(card.frontPorchExtensions!.greetingSeeds, 1)!
+            .characterEmotion,
+        'cold',
+      );
+    },
+  );
 }

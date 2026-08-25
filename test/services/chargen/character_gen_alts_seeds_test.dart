@@ -5,6 +5,8 @@
 // not authored with the new alts. Leftover source [furious] must not land
 // on Get out.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 
@@ -52,6 +54,24 @@ void main() {
       expect(
         card.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
         'cold',
+      );
+    },
+  );
+
+  test(
+    'character_gen_service assign call site omits leftover source seeds',
+    () {
+      final src = File('lib/services/character_gen_service.dart')
+          .readAsStringSync();
+      expect(
+        src.contains('card.assignRewrittenAlternateGreetings(alts);'),
+        isTrue,
+        reason: 'chargen must assign rewritten alts via compact-empty',
+      );
+      expect(
+        src.contains('card.alternateGreetings = alts;'),
+        isFalse,
+        reason: 'bare alt assign keeps leftover source seeds',
       );
     },
   );
