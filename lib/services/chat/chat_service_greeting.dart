@@ -313,6 +313,15 @@ extension ChatServiceGreeting on ChatService {
     }
   }
 
+  /// Bump [_greetingEvalGen] and cancel any in-flight unauthored RtR so a
+  /// late apply cannot paint the previous opening onto a newly loaded
+  /// first_mes (New Chat, switch character/group, swipe).
+  Future<void> _invalidateGreetingEval() async {
+    _greetingEvalGen++;
+    await cancelRealismEval();
+    _realismEvalCancelled = false;
+  }
+
   /// Cycle the first message through alternate greetings.
   /// Commit-once: the same [selectGreeting] path the picker uses.
   Future<void> cycleGreeting(int direction) async {
@@ -335,5 +344,14 @@ extension ChatServiceGreeting on ChatService {
       ),
       section: 'firstMessage',
     );
+  }
+
+  /// First displayed member greet — same as 1:1 [CharacterCard.allGreetings].
+  /// Empty when the member has no usable opening (whitespace first_mes and
+  /// no alts). Group open must not gate on [CharacterCard.firstMessage] alone.
+  String _memberOpeningGreetingText(CharacterCard member) {
+    final opening = member.allGreetings;
+    if (opening.isEmpty) return '';
+    return _buildFirstMessage(member, greetingText: opening.first);
   }
 }

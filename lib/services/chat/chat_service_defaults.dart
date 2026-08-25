@@ -155,16 +155,17 @@ const String kSpatialStancePreTurn = 'spatial_stance_pre_turn';
 // to the UI.
 bool _realismEvalCancelled = false;
 
-/// Bumped at the start of [selectGreeting] so a late unawaited
-/// [_runPostGreetingEval] cannot stomp a later swipe.
+/// Bumped by [_invalidateGreetingEval] (selectGreeting, startNewChat,
+/// setActiveCharacter, setActiveGroup) so a late unawaited
+/// [_runPostGreetingEval] cannot stomp a later opening.
 int _greetingEvalGen = 0;
 
 const Object _kGreetingEvalToken = #_greetingEvalToken;
 const Object _kGreetingEvalIndex = #_greetingEvalIndex;
 
 /// Stale when THIS eval's captured token is no longer the live gen.
-/// [selectGreeting] always bumps [_greetingEvalGen], so a later swipe
-/// stale-gates the earlier apply without a shared nullable slot.
+/// [_invalidateGreetingEval] always bumps [_greetingEvalGen], so a later
+/// opening stale-gates the earlier apply without a shared nullable slot.
 /// A missing Zone token is not a greeting apply (normal turn evals).
 bool _isStaleGreetingEval() {
   final token = Zone.current[_kGreetingEvalToken] as int?;

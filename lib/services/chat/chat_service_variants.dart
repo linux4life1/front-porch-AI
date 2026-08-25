@@ -129,10 +129,8 @@ extension ChatServiceVariants on ChatService {
     if (index < 0 || index >= allGreetings.length) return;
     if (index == _greetingIndex) return;
 
-    _greetingEvalGen++;
+    await _invalidateGreetingEval();
     testPostGreetingEvalEntered = false;
-    await cancelRealismEval();
-    _realismEvalCancelled = false;
 
     _greetingIndex = index;
     final resolved = _resolvedOpeningGreetings();

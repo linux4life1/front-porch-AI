@@ -201,6 +201,7 @@ extension ChatServiceChatEntry on ChatService {
         '[ChatService] 🟡 setActiveCharacter: clearing messages '
         '(had ${_messages.length}) for ${character?.name}, loading session...',
       );
+      await _invalidateGreetingEval();
       _messages.clear();
       _greetingIndex = 0;
       _history.reset();

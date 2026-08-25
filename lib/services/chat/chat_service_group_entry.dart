@@ -117,6 +117,7 @@ extension ChatServiceGroupEntry on ChatService {
         '[ChatService] 🟡 setActiveGroup: clearing messages '
         '(had ${_messages.length}) for group ${group.name}',
       );
+      await _invalidateGreetingEval();
       _messages.clear();
       _greetingIndex = 0;
       _history.reset();
@@ -320,11 +321,9 @@ extension ChatServiceGroupEntry on ChatService {
           greetingSender = group.name;
           greetingCharId = null;
         } else {
-          // Fall back to first character's greeting
+          // Fall back to first member's allGreetings (same pairing as 1:1).
           final first = _groupCharacters.first;
-          greetingText = !greetingFirstMesEmpty(first.firstMessage)
-              ? _buildFirstMessage(first)
-              : '';
+          greetingText = _memberOpeningGreetingText(first);
           greetingSender = first.name;
           greetingCharId = _getCharacterIdFromCard(first);
         }
@@ -340,6 +339,13 @@ extension ChatServiceGroupEntry on ChatService {
           );
           // Thin delegation to scanner (group greeting scan).
           _lorebookScanner.scanLatest();
+          if (greetingFirstMesEmpty(group.firstMessage) &&
+              greetingFirstMesEmpty(_groupCharacters.first.firstMessage)) {
+            await _applyGreetingOpeningSeed(
+              card: _groupCharacters.first,
+              index: 0,
+            );
+          }
         }
         _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
         // Seed chat worlds from the group's template (Living Worlds).

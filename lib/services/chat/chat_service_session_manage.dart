@@ -340,6 +340,7 @@ extension ChatServiceSessionManage on ChatService {
     );
     // The open session's last exchange may still be memory-only.
     await flushPendingSaves();
+    await _invalidateGreetingEval();
     _messages.clear();
     _history.reset();
     _greetingIndex = 0;
@@ -683,7 +684,7 @@ extension ChatServiceSessionManage on ChatService {
     if (_activeGroup != null && _groupCharacters.isNotEmpty) {
       // Group mode: respect explicit group.firstMessage (custom group greeting set
       // by creator or Group Card) when present. Only fall back to the first
-      // participating character's firstMessage when the group has no custom opening.
+      // participating character's allGreetings when the group has no custom opening.
       String greetingText;
       String greetingSender;
       String? greetingCharId;
@@ -698,9 +699,7 @@ extension ChatServiceSessionManage on ChatService {
         greetingCharId = null;
       } else {
         final first = _groupCharacters.first;
-        greetingText = !greetingFirstMesEmpty(first.firstMessage)
-            ? _buildFirstMessage(first)
-            : '';
+        greetingText = _memberOpeningGreetingText(first);
         greetingSender = first.name;
         greetingCharId = _getCharacterIdFromCard(first);
       }
@@ -715,6 +714,13 @@ extension ChatServiceSessionManage on ChatService {
           ),
         );
         _lorebookScanner.scanLatest();
+        if (greetingFirstMesEmpty(_activeGroup!.firstMessage) &&
+            greetingFirstMesEmpty(_groupCharacters.first.firstMessage)) {
+          await _applyGreetingOpeningSeed(
+            card: _groupCharacters.first,
+            index: 0,
+          );
+        }
       }
       _groupManager?.resetTurnState();
     } else if (_activeCharacter != null) {

@@ -6,6 +6,7 @@
 // _applyGreetingOpeningSeed, selectGreeting only swapped text and either
 // kept the friend seed or overwrote it with reading-the-room, never restored.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -1130,6 +1131,254 @@ void main() {
         'curious',
         reason:
             'first-speaker reload must not throw member-greet RtR away for inherit baseline',
+      );
+    },
+  );
+
+  test(
+    'startNewChat after delayed unauthored alt: fury must not paint first_mes',
+    () async {
+      final llm = _PhasedGreetingLlm();
+      chat.testLlmServiceOverride = llm;
+      await db.insertCharacter(
+        CharactersCompanion.insert(
+          id: 'char-newchat-stale',
+          name: 'Nemu',
+          imagePath: const Value('/tmp/Nemu_newchat.png'),
+          firstMessage: const Value('Hello, friend.'),
+          alternateGreetings: const Value('["Get out."]'),
+        ),
+      );
+      final card = CharacterCard(
+        name: 'Nemu',
+        imagePath: '/tmp/Nemu_newchat.png',
+        firstMessage: 'Hello, friend.',
+        alternateGreetings: const ['Get out.'],
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          characterEmotion: 'warm',
+          emotionIntensity: 'mild',
+          shortTermBond: 20,
+          trustLevel: 10,
+          timeOfDay: 'morning',
+          needsSimEnabled: true,
+          needsBaselineHunger: 80,
+          greetingSeeds: const [null],
+        ),
+      )..dbId = 'char-newchat-stale';
+      await chat.setActiveCharacter(card);
+
+      expect(chat.characterEmotion, 'warm');
+      expect(chat.messages.first.text, 'Hello, friend.');
+
+      llm.delay = const Duration(milliseconds: 180);
+      llm.payload = '{"emotion":"furious","emotion_intensity":"strong"}';
+      testPostGreetingEvalEntered = false;
+      await chat.selectGreeting(1);
+      expect(chat.greetingIndex, 1);
+      expect(chat.messages.first.text, 'Get out.');
+      expect(
+        testPostGreetingEvalEntered,
+        isTrue,
+        reason: 'unauthored alt must start eval so a stale future exists',
+      );
+
+      await chat.startNewChat();
+      expect(chat.greetingIndex, 0);
+      expect(chat.messages.first.text, 'Hello, friend.');
+      expect(chat.characterEmotion, 'warm');
+      expect(chat.relationshipService.affectionScore, 20);
+      expect(chat.relationshipService.trustLevel, 10);
+      expect(chat.timeService.timeOfDay, 'morning');
+      expect(chat.needsSimulation.vector['hunger'], 80);
+
+      await Future<void>.delayed(const Duration(milliseconds: 360));
+
+      expect(
+        chat.characterEmotion,
+        'warm',
+        reason:
+            'delayed eval-1 must not paint fury onto New Chat first_mes',
+      );
+      expect(chat.messages.first.text, 'Hello, friend.');
+      expect(chat.relationshipService.affectionScore, 20);
+      expect(chat.relationshipService.trustLevel, 10);
+      expect(chat.timeService.timeOfDay, 'morning');
+      expect(chat.needsSimulation.vector['hunger'], 80);
+    },
+  );
+
+  test(
+    'setActiveCharacter after delayed unauthored alt: fury must not paint next first_mes',
+    () async {
+      final llm = _PhasedGreetingLlm();
+      chat.testLlmServiceOverride = llm;
+      await db.insertCharacter(
+        CharactersCompanion.insert(
+          id: 'char-switch-a',
+          name: 'Nemu',
+          imagePath: const Value('/tmp/Nemu_switch.png'),
+          firstMessage: const Value('Hello, friend.'),
+          alternateGreetings: const Value('["Get out."]'),
+        ),
+      );
+      await db.insertCharacter(
+        CharactersCompanion.insert(
+          id: 'char-switch-b',
+          name: 'Mira',
+          imagePath: const Value('/tmp/Mira_switch.png'),
+          firstMessage: const Value('Hello, friend.'),
+        ),
+      );
+      final nemu = CharacterCard(
+        name: 'Nemu',
+        imagePath: '/tmp/Nemu_switch.png',
+        firstMessage: 'Hello, friend.',
+        alternateGreetings: const ['Get out.'],
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          characterEmotion: 'warm',
+          emotionIntensity: 'mild',
+          shortTermBond: 20,
+          trustLevel: 10,
+          timeOfDay: 'morning',
+          needsSimEnabled: true,
+          needsBaselineHunger: 80,
+          greetingSeeds: const [null],
+        ),
+      )..dbId = 'char-switch-a';
+      await chat.setActiveCharacter(nemu);
+
+      llm.delay = const Duration(milliseconds: 180);
+      llm.payload = '{"emotion":"furious","emotion_intensity":"strong"}';
+      testPostGreetingEvalEntered = false;
+      await chat.selectGreeting(1);
+      expect(chat.messages.first.text, 'Get out.');
+      expect(testPostGreetingEvalEntered, isTrue);
+
+      final mira = CharacterCard(
+        name: 'Mira',
+        imagePath: '/tmp/Mira_switch.png',
+        firstMessage: 'Hello, friend.',
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          characterEmotion: 'warm',
+          emotionIntensity: 'mild',
+          shortTermBond: 20,
+          trustLevel: 10,
+          timeOfDay: 'morning',
+          needsSimEnabled: true,
+          needsBaselineHunger: 80,
+        ),
+      )..dbId = 'char-switch-b';
+      await chat.setActiveCharacter(mira);
+
+      expect(chat.messages.first.text, 'Hello, friend.');
+      expect(chat.characterEmotion, 'warm');
+      expect(chat.relationshipService.affectionScore, 20);
+      expect(chat.relationshipService.trustLevel, 10);
+      expect(chat.timeService.timeOfDay, 'morning');
+      expect(chat.needsSimulation.vector['hunger'], 80);
+
+      await Future<void>.delayed(const Duration(milliseconds: 360));
+
+      expect(
+        chat.characterEmotion,
+        'warm',
+        reason:
+            'delayed Nemu eval must not paint fury onto Mira first_mes',
+      );
+      expect(chat.messages.first.text, 'Hello, friend.');
+      expect(chat.activeCharacter?.name, 'Mira');
+      expect(chat.relationshipService.affectionScore, 20);
+      expect(chat.relationshipService.trustLevel, 10);
+      expect(chat.timeService.timeOfDay, 'morning');
+      expect(chat.needsSimulation.vector['hunger'], 80);
+    },
+  );
+
+  test(
+    'group blank first_mes + member empty first_mes opens Stay. with warm overlay',
+    () async {
+      final warm = GreetingRealismSeed(
+        characterEmotion: 'warm',
+        emotionIntensity: 'mild',
+        shortTermBond: 20,
+      );
+      final furious = GreetingRealismSeed(
+        characterEmotion: 'furious',
+        emotionIntensity: 'strong',
+        shortTermBond: -40,
+      );
+      final ext = FrontPorchExtensions(
+        realismEnabled: true,
+        characterEmotion: 'lonely',
+        emotionIntensity: 'mild',
+        shortTermBond: 5,
+        trustLevel: 5,
+        timeOfDay: 'morning',
+        needsSimEnabled: true,
+        needsBaselineHunger: 80,
+        greetingSeeds: [warm, furious],
+      );
+      final blobs = buildGroupRealismBlobs(
+        seeds: {'mem-nemu': defaultGroupMemberRealismSeed()},
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      await db.insertGroup(
+        GroupsCompanion.insert(
+          id: 'grp-blank-member',
+          name: 'The House',
+          firstMessage: const Value(''),
+          defaultMemberRealismState: Value(blobs.defaultMemberJson),
+          baselineRealismState: Value(blobs.baselineJson),
+        ),
+      );
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-nemu',
+          groupId: 'grp-blank-member',
+          name: 'Nemu',
+          firstMessage: const Value(''),
+          alternateGreetings: const Value('["Stay.","Get out."]'),
+          frontPorchExtensions: Value(jsonEncode(ext.toJson())),
+        ),
+      );
+      final group = GroupChat(
+        id: 'grp-blank-member',
+        name: 'The House',
+        firstMessage: '',
+        defaultMemberRealismState: blobs.defaultMemberJson,
+        baselineRealismState: blobs.baselineJson,
+      );
+      await chat.setActiveGroup(
+        group,
+        groupRepo: GroupChatRepository(storage, db),
+      );
+
+      expect(chat.messages, isNotEmpty, reason: 'member allGreetings must open');
+      expect(chat.messages.first.text, 'Stay.');
+      expect(chat.openingAllGreetings, ['Stay.', 'Get out.']);
+      expect(
+        chat.characterEmotion,
+        'warm',
+        reason: 'empty first_mes: displayed 0 is alt[0] and overlay is seeds[0]',
+      );
+      expect(chat.relationshipService.affectionScore, 20);
+
+      await chat.startNewChat();
+      expect(
+        chat.messages,
+        isNotEmpty,
+        reason: 'New Chat in the group must also use member allGreetings',
+      );
+      expect(chat.messages.first.text, 'Stay.');
+      expect(
+        chat.characterEmotion,
+        'warm',
+        reason: 'New Chat must re-apply Stay./warm, not open empty',
       );
     },
   );
