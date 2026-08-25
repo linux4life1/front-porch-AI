@@ -264,5 +264,112 @@ void main() {
         );
       },
     );
+
+    test(
+      'updateSettings dirty alts + explicit empty greetingSeeds stays authored-empty',
+      () async {
+        expect(
+          await facade.updateSettings('g1', {
+            'firstMessage': 'Come in.',
+            'alternateGreetings': ['Stay.'],
+            'greetingSeeds': [
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        expect(
+          await facade.updateSettings('g1', {
+            'alternateGreetings': ['', 'Get out.'],
+            'greetingSeeds': [],
+          }),
+          isTrue,
+        );
+        final g = groups.getById('g1')!;
+        expect(g.alternateGreetings, ['Get out.']);
+        expect(
+          g.greetingSeeds,
+          isEmpty,
+          reason:
+              'explicit [] on dirty alts is authored-empty, not leftover furious',
+        );
+        expect(greetingOverlayAt(g.greetingSeeds, 1), isNull);
+      },
+    );
+
+    test(
+      'updateSettings explicit empty greetingSeeds without alts stays authored-empty',
+      () async {
+        expect(
+          await facade.updateSettings('g1', {
+            'firstMessage': 'Come in.',
+            'alternateGreetings': ['Stay.'],
+            'greetingSeeds': [
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        expect(
+          await facade.updateSettings('g1', {
+            'greetingSeeds': [],
+          }),
+          isTrue,
+        );
+        final g = groups.getById('g1')!;
+        expect(g.alternateGreetings, ['Stay.']);
+        expect(
+          g.greetingSeeds,
+          isEmpty,
+          reason: 'explicit empty is authored-empty, not dropped as omit',
+        );
+        expect(greetingOverlayAt(g.greetingSeeds, 1), isNull);
+      },
+    );
+
+    test(
+      'updateSettings omitted seeds persist empty after reload and toJson/fromJson',
+      () async {
+        expect(
+          await facade.updateSettings('g1', {
+            'firstMessage': 'Come in.',
+            'alternateGreetings': ['Stay.'],
+            'greetingSeeds': [
+              {'characterEmotion': 'furious'},
+            ],
+          }),
+          isTrue,
+        );
+        expect(
+          await facade.updateSettings('g1', {
+            'alternateGreetings': ['Get out.'],
+          }),
+          isTrue,
+        );
+        await groups.reload();
+        final g = groups.getById('g1')!;
+        expect(g.alternateGreetings, ['Get out.']);
+        expect(
+          g.greetingSeeds,
+          isEmpty,
+          reason:
+              "reload after ['Get out.'] omit seeds must not load leftover furious",
+        );
+        expect(
+          greetingOverlayAt(g.greetingSeeds, 1),
+          isNull,
+          reason: 'persisted Get out overlay is not leftover furious',
+        );
+
+        final restored = GroupChat.fromJson(g.toJson());
+        expect(restored.alternateGreetings, ['Get out.']);
+        expect(
+          restored.greetingSeeds,
+          isEmpty,
+          reason: '1:1 apply/restore must not resurrect leftover furious',
+        );
+        expect(greetingOverlayAt(restored.greetingSeeds, 1), isNull);
+      },
+    );
   });
 }
