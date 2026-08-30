@@ -57,34 +57,39 @@ class TimeStrip extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Wrap(
-              spacing: 5,
-              runSpacing: 2,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Remaining pane width vs natural child widths (not monitor DPI).
+            return Wrap(
+              spacing: 6,
+              runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(timeEmoji(time), style: const TextStyle(fontSize: 13)),
-                Text(timeLabel(time), style: timeStyle),
-                Text('·', style: timeStyle),
-                Text(chat.timeService.displayClock, style: timeStyle),
-              ],
-            ),
-            Wrap(
-              spacing: 0,
-              runSpacing: 2,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (canNudge)
-                  _nudgeChevron(
-                    context: context,
-                    tooltip: 'Back 30 minutes',
-                    icon: Icons.chevron_left,
-                    delta: -1,
-                  ),
+                Wrap(
+                  spacing: 5,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(timeEmoji(time), style: const TextStyle(fontSize: 13)),
+                    Text(timeLabel(time), style: timeStyle),
+                    Text('·', style: timeStyle),
+                    Text(chat.timeService.displayClock, style: timeStyle),
+                    if (canNudge)
+                      _nudgeChevron(
+                        context: context,
+                        tooltip: 'Back 30 minutes',
+                        icon: Icons.chevron_left,
+                        delta: -1,
+                      ),
+                    if (canNudge)
+                      _nudgeChevron(
+                        context: context,
+                        tooltip: 'Forward 30 minutes',
+                        icon: Icons.chevron_right,
+                        delta: 1,
+                      ),
+                  ],
+                ),
                 GestureDetector(
                   onTap: () =>
                       StoryCalendarDialog.show(context, chatService: chat),
@@ -99,16 +104,9 @@ class TimeStrip extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (canNudge)
-                  _nudgeChevron(
-                    context: context,
-                    tooltip: 'Forward 30 minutes',
-                    icon: Icons.chevron_right,
-                    delta: 1,
-                  ),
               ],
-            ),
-          ],
+            );
+          },
         ),
         // Story weather (Living Time §3) — absent entirely when the feature
         // is gated off, so the strip is byte-identical for weather-off users.

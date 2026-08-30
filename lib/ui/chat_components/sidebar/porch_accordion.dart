@@ -121,58 +121,64 @@ class PorchAccordionState extends State<PorchAccordion> {
               borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                child: Row(
-                  children: [
-                    AnimatedRotation(
-                      turns: _expanded ? 0.25 : 0.0,
-                      duration: const Duration(milliseconds: 150),
-                      child: Icon(
-                        Icons.chevron_right,
-                        size: 16,
-                        color: AppColors.iconSecondary(context),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(widget.emoji, style: const TextStyle(fontSize: 13)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 2,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            widget.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: AppColors.textPrimary(context),
-                            ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AnimatedRotation(
+                          turns: _expanded ? 0.25 : 0.0,
+                          duration: const Duration(milliseconds: 150),
+                          child: Icon(
+                            Icons.chevron_right,
+                            size: 16,
+                            color: AppColors.iconSecondary(context),
                           ),
-                          if (widget.subtitle != null &&
-                              widget.subtitle!.isNotEmpty)
-                            Text(
-                              widget.subtitle!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppColors.textTertiary(context),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          widget.emoji,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 2,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                widget.title,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary(context),
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (widget.trailing != null)
-                      // Opaque so switch/gear taps never toggle expansion.
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {},
-                        child: widget.trailing!,
-                      ),
-                  ],
+                              if (widget.subtitle != null &&
+                                  widget.subtitle!.isNotEmpty)
+                                Text(
+                                  widget.subtitle!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textTertiary(context),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (widget.trailing != null)
+                          // Opaque so switch/gear taps never toggle expansion.
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {},
+                            child: widget.trailing!,
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),

@@ -106,6 +106,8 @@ void main() {
 
       for (final title in titles) {
         expect(find.text(title), findsOneWidget);
+        final text = tester.widget<Text>(find.text(title));
+        expect(text.overflow, isNot(TextOverflow.ellipsis));
       }
     },
   );
