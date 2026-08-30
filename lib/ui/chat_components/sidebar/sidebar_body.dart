@@ -85,6 +85,7 @@ class _SidebarBodyState extends State<SidebarBody> {
   final _characterStateKey = GlobalKey<CharacterStateGroupState>();
   final _journalAccordionKey = GlobalKey<PorchAccordionState>();
   final _objectivesKey = GlobalKey<PorchAccordionState>();
+  final _objectivesHeaderKey = GlobalKey();
   final _timeStripKey = GlobalKey();
 
   @override
@@ -111,7 +112,7 @@ class _SidebarBodyState extends State<SidebarBody> {
     // the tree until realismEnabled settles. Other sections consume
     // immediately after apply, as before.
     if (section == OpenSectionEnv.objectives) {
-      final ready = _objectivesKey.currentContext != null && !isLite;
+      final ready = _objectivesHeaderKey.currentContext != null && !isLite;
       if (!ready && _openSectionEnvRetries < _openSectionEnvMaxRetries) {
         _openSectionEnvRetries++;
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -136,7 +137,7 @@ class _SidebarBodyState extends State<SidebarBody> {
       expandJournal: () => _journalAccordionKey.currentState?.expand(),
       expandObjectives: () => _objectivesKey.currentState?.expand(),
       journalKey: _journalAccordionKey,
-      objectivesKey: _objectivesKey,
+      objectivesKey: _objectivesHeaderKey,
       timeStripKey: _timeStripKey,
       onOpenEdit: widget.onOpenEditFromEnv,
     );
@@ -226,6 +227,7 @@ class _SidebarBodyState extends State<SidebarBody> {
                     OpenSectionEnv.name == OpenSectionEnv.objectives))
               PorchAccordion(
                 key: _objectivesKey,
+                headerKey: _objectivesHeaderKey,
                 id: 'objectives',
                 emoji: '🎯',
                 title: 'Objectives',

@@ -69,7 +69,8 @@ class OpenSectionEnv {
         if (isGroup || isLite) return;
         collapseCharacterState?.call();
         collapseJournal?.call();
-        expandObjectives?.call();
+        // Stay collapsed: PASS is the title in the pane. Do not call
+        // expandObjectives (kept on the signature for call-site stability).
         afterExpanded(() => ensureKeyVisible(objectivesKey));
         return;
       case timestrip:

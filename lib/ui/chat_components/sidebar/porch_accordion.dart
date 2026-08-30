@@ -61,6 +61,11 @@ class PorchAccordion extends StatefulWidget {
   final ValueChanged<bool>? onExpansionChanged;
   final Widget child;
 
+  /// Header-row key (InkWell / title), not the accordion+child. OPEN_SECTION
+  /// objectives ensureVisible this so a tall body cannot overscroll onto
+  /// Story Tools. Journal keeps the widget [key] and does not pass this.
+  final Key? headerKey;
+
   const PorchAccordion({
     super.key,
     required this.id,
@@ -72,6 +77,7 @@ class PorchAccordion extends StatefulWidget {
     this.initiallyExpanded = false,
     this.onExpansionChanged,
     required this.child,
+    this.headerKey,
   });
 
   @override
@@ -129,6 +135,7 @@ class PorchAccordionState extends State<PorchAccordion> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             InkWell(
+              key: widget.headerKey,
               onTap: _toggle,
               borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
               child: Padding(

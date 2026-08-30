@@ -35,34 +35,38 @@ void main() {
     expect(keys.journal.currentContext, isNotNull);
   });
 
-  testWidgets('objectives collapses Character State and expands Objectives', (
+  testWidgets(
+    'objectives collapses Character State and Journal; stays collapsed',
+    (tester) async {
+      final keys = await _pumpAccordions(tester);
+      var expanded = 0;
+
+      OpenSectionEnv.apply(
+        section: OpenSectionEnv.objectives,
+        isGroup: false,
+        isLite: false,
+        objectivesInTree: true,
+        collapseCharacterState: () => keys.cs.currentState?.collapse(),
+        collapseJournal: () => keys.journal.currentState?.collapse(),
+        expandObjectives: () => expanded++,
+        objectivesKey: keys.objectivesHeader,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(keys.cs.currentState!.isExpanded, isFalse);
+      expect(keys.journal.currentState!.isExpanded, isFalse);
+      expect(keys.objectives.currentState!.isExpanded, isFalse);
+      expect(expanded, 0);
+      expect(keys.objectivesHeader.currentContext, isNotNull);
+    },
+  );
+
+  testWidgets('objectives still scrolls when the feature flag is off', (
     tester,
   ) async {
     final keys = await _pumpAccordions(tester);
-
-    OpenSectionEnv.apply(
-      section: OpenSectionEnv.objectives,
-      isGroup: false,
-      isLite: false,
-      objectivesInTree: true,
-      collapseCharacterState: () => keys.cs.currentState?.collapse(),
-      collapseJournal: () => keys.journal.currentState?.collapse(),
-      expandObjectives: () => keys.objectives.currentState?.expand(),
-      objectivesKey: keys.objectives,
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(keys.cs.currentState!.isExpanded, isFalse);
-    expect(keys.journal.currentState!.isExpanded, isFalse);
-    expect(keys.objectives.currentState!.isExpanded, isTrue);
-    expect(keys.objectives.currentContext, isNotNull);
-  });
-
-  testWidgets('objectives still expands when the feature flag is off', (
-    tester,
-  ) async {
-    final keys = await _pumpAccordions(tester);
+    var expanded = 0;
 
     OpenSectionEnv.apply(
       section: OpenSectionEnv.objectives,
@@ -70,15 +74,17 @@ void main() {
       isLite: false,
       objectivesInTree: false,
       collapseCharacterState: () => keys.cs.currentState?.collapse(),
-      expandObjectives: () => keys.objectives.currentState?.expand(),
-      objectivesKey: keys.objectives,
+      collapseJournal: () => keys.journal.currentState?.collapse(),
+      expandObjectives: () => expanded++,
+      objectivesKey: keys.objectivesHeader,
     );
     await tester.pump();
     await tester.pump();
 
     expect(keys.cs.currentState!.isExpanded, isFalse);
-    expect(keys.objectives.currentState!.isExpanded, isTrue);
-    expect(keys.objectives.currentContext, isNotNull);
+    expect(keys.objectives.currentState!.isExpanded, isFalse);
+    expect(expanded, 0);
+    expect(keys.objectivesHeader.currentContext, isNotNull);
   });
 
   testWidgets(
@@ -92,6 +98,7 @@ void main() {
         isGroup: true,
         isLite: false,
         objectivesInTree: true,
+        collapseCharacterState: () => keys.cs.currentState?.collapse(),
         expandObjectives: () => expanded++,
       );
       OpenSectionEnv.apply(
@@ -99,11 +106,30 @@ void main() {
         isGroup: false,
         isLite: true,
         objectivesInTree: true,
+        collapseCharacterState: () => keys.cs.currentState?.collapse(),
         expandObjectives: () => expanded++,
       );
       await tester.pump();
       await tester.pump();
       expect(expanded, 0);
+      expect(keys.cs.currentState!.isExpanded, isTrue);
+      expect(keys.objectives.currentState!.isExpanded, isFalse);
+
+      OpenSectionEnv.apply(
+        section: OpenSectionEnv.objectives,
+        isGroup: false,
+        isLite: false,
+        objectivesInTree: true,
+        collapseCharacterState: () => keys.cs.currentState?.collapse(),
+        collapseJournal: () => keys.journal.currentState?.collapse(),
+        expandObjectives: () => expanded++,
+        objectivesKey: keys.objectivesHeader,
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(expanded, 0);
+      expect(keys.cs.currentState!.isExpanded, isFalse);
+      expect(keys.journal.currentState!.isExpanded, isFalse);
       expect(keys.objectives.currentState!.isExpanded, isFalse);
     },
   );
@@ -122,6 +148,7 @@ void main() {
       expect(keys.cs.currentState!.isExpanded, isTrue);
       expect(keys.objectives.currentState!.isExpanded, isFalse);
 
+      var expanded = 0;
       OpenSectionEnv.apply(
         section: OpenSectionEnv.objectives,
         isGroup: false,
@@ -129,8 +156,8 @@ void main() {
         objectivesInTree: true,
         collapseCharacterState: () => keys.cs.currentState?.collapse(),
         collapseJournal: () => keys.journal.currentState?.collapse(),
-        expandObjectives: () => keys.objectives.currentState?.expand(),
-        objectivesKey: keys.objectives,
+        expandObjectives: () => expanded++,
+        objectivesKey: keys.objectivesHeader,
       );
       await tester.pump();
       await tester.pump();
@@ -139,13 +166,21 @@ void main() {
       // shrinks Journal and would leave a stale offset.
       await tester.pump();
 
+      expect(expanded, 0);
       expect(keys.journal.currentState!.isExpanded, isFalse);
       expect(keys.cs.currentState!.isExpanded, isFalse);
-      expect(keys.objectives.currentState!.isExpanded, isTrue);
+      expect(keys.objectives.currentState!.isExpanded, isFalse);
 
       final rect = tester.getRect(find.text('Objectives'));
       expect(rect.top, greaterThanOrEqualTo(0));
       expect(rect.bottom, lessThanOrEqualTo(surface.height));
+
+      // Story Tools (Places) sits after Objectives. A tall next sibling
+      // would park at the viewport top if ensureVisible targeted the
+      // accordion+child instead of the header row.
+      final placesRect = tester.getRect(find.text('Places'));
+      expect(placesRect.top, greaterThan(rect.top));
+      expect(placesRect.top, greaterThan(16));
     },
   );
 
@@ -191,12 +226,14 @@ class _Keys {
     required this.cs,
     required this.journal,
     required this.objectives,
+    required this.objectivesHeader,
     required this.timeStrip,
   });
 
   final GlobalKey<PorchAccordionState> cs;
   final GlobalKey<PorchAccordionState> journal;
   final GlobalKey<PorchAccordionState> objectives;
+  final GlobalKey objectivesHeader;
   final GlobalKey timeStrip;
 }
 
@@ -214,6 +251,7 @@ Future<_Keys> _pumpAccordions(
     cs: GlobalKey<PorchAccordionState>(),
     journal: GlobalKey<PorchAccordionState>(),
     objectives: GlobalKey<PorchAccordionState>(),
+    objectivesHeader: GlobalKey(),
     timeStrip: GlobalKey(),
   );
 
@@ -228,6 +266,7 @@ Future<_Keys> _pumpAccordions(
           width: 230,
           child: ListView(
             padding: const EdgeInsets.all(12),
+            cacheExtent: 2000,
             children: [
               Builder(
                 builder: (context) => PorchAccordion(
@@ -254,12 +293,23 @@ Future<_Keys> _pumpAccordions(
               Builder(
                 builder: (context) => PorchAccordion(
                   key: keys.objectives,
+                  headerKey: keys.objectivesHeader,
                   id: 'objectives',
                   emoji: '🎯',
                   title: 'Objectives',
                   accent: AppColors.porchHoneyOf(context),
                   initiallyExpanded: false,
-                  child: const SizedBox(height: 80),
+                  child: const SizedBox(height: 500),
+                ),
+              ),
+              Builder(
+                builder: (context) => PorchAccordion(
+                  id: 'places',
+                  emoji: '📍',
+                  title: 'Places',
+                  accent: AppColors.porchHoneyOf(context),
+                  initiallyExpanded: true,
+                  child: const SizedBox(height: 500),
                 ),
               ),
             ],
