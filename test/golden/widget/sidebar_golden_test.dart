@@ -257,8 +257,8 @@ void main() {
           ),
         ),
         group: 'sidebar',
-        name: 'porch_accordion_clamp_214',
-        surface: const Size(260, 360),
+        name: 'porch_accordion_clamp_230',
+        surface: const Size(280, 360),
       );
     },
   );

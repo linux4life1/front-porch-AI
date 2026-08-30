@@ -146,8 +146,8 @@ void main() {
                     // Real Character State trailing (character_state_group
                     // 122-157): 24-tall FittedBox Switch PLUS compact tune
                     // IconButton. Product nest is ListView pad 12 + header
-                    // pad 10. At 190 leftover was ~44px — under "Character"
-                    // (~59.5) and "Objectives" (~64) at 13 bold.
+                    // pad 10. Live 214 letter-wrapped Character; 230 is
+                    // the floor for whole-word wrap with this trailing.
                     trailing: _characterStateTrailing(),
                     child: const SizedBox.shrink(),
                   ),

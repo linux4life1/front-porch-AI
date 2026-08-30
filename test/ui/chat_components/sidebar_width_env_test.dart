@@ -16,6 +16,10 @@ void main() {
 
   test('SIDEBAR_WIDTH clamps to minWidth..maxWidth', () {
     expect(
+      SidebarTokens.widthFromEnvironment(defined: 230),
+      SidebarTokens.minWidth,
+    );
+    expect(
       SidebarTokens.widthFromEnvironment(defined: 214),
       SidebarTokens.minWidth,
     );
