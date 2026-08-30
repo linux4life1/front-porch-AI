@@ -5,6 +5,7 @@
 // without ellipsizing period/clock or accordion titles that still have room.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
@@ -22,6 +23,7 @@ Future<void> _pumpTight(
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
+      theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
       home: Scaffold(
         body: SizedBox(width: width, child: child),
       ),
@@ -77,6 +79,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
           home: Scaffold(
             body: Builder(
               builder: (context) => SizedBox(
@@ -105,10 +108,72 @@ void main() {
       await tester.pumpAndSettle();
 
       for (final title in titles) {
-        expect(find.text(title), findsOneWidget);
-        final text = tester.widget<Text>(find.text(title));
-        expect(text.overflow, isNot(TextOverflow.ellipsis));
+        _assertTitleWraps(tester, title);
       }
     },
   );
+
+  testWidgets(
+    'PorchAccordion titles wrap at sidebar clamp 150 with a trailing switch',
+    (tester) async {
+      const titles = ['Character State', 'Journal & Memory', 'Objectives'];
+      await _pumpTight(
+        tester,
+        Builder(
+          builder: (context) => Column(
+            children: [
+              for (final title in titles)
+                PorchAccordion(
+                  id: title,
+                  emoji: '🎭',
+                  title: title,
+                  subtitle: 'Fond · Trusting · Evening',
+                  accent: AppColors.porchTerracottaOf(context),
+                  // Character State's real chrome: 24-tall FittedBox Switch
+                  // (raw M3 Switch is 60px and leaves only ~38px — shorter
+                  // than "Memory"). Wrap is enough at clamp 150 with this.
+                  trailing: SizedBox(
+                    height: 24,
+                    child: FittedBox(
+                      child: Switch(value: true, onChanged: (_) {}),
+                    ),
+                  ),
+                  child: const SizedBox.shrink(),
+                ),
+            ],
+          ),
+        ),
+        width: 150,
+      );
+
+      for (final title in titles) {
+        _assertTitleWraps(tester, title);
+      }
+    },
+  );
+}
+
+void _assertTitleWraps(WidgetTester tester, String title) {
+  expect(find.text(title), findsOneWidget);
+  final text = tester.widget<Text>(find.text(title));
+  expect(text.overflow, isNot(TextOverflow.ellipsis));
+  expect(text.maxLines, anyOf(isNull, greaterThanOrEqualTo(2)));
+  final paragraph = tester.renderObject<RenderParagraph>(find.text(title));
+  expect(paragraph.didExceedMaxLines, isFalse);
+  final style = DefaultTextStyle.of(
+    tester.element(find.text(title)),
+  ).style.merge(text.style);
+  for (final word in title.split(' ')) {
+    final wordPainter = TextPainter(
+      text: TextSpan(text: word, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    expect(
+      wordPainter.width,
+      lessThanOrEqualTo(paragraph.size.width + 0.5),
+      reason:
+          '"$word" of "$title" must fit in remaining title width '
+          '(${paragraph.size.width.toStringAsFixed(1)}px)',
+    );
+  }
 }

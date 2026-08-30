@@ -30,9 +30,11 @@ import 'sidebar_tokens.dart';
 /// (the collapsed-state one-liner, e.g. "Fond · Trusting · Evening") that
 /// wraps under the title when the pane is tight + trailing widgets
 /// (switches/gears) that never toggle expansion. Title is the priority flex
-/// child — no Spacer stealing half the header — so "Journal & Memory" /
-/// "Objectives" / "Character State" stay whole whenever the header can hold
-/// them. Subtitle ellipsizes last.
+/// child — no Spacer stealing half the header — constrained to the remaining
+/// pane width after chevron + emoji + trailing so the string wraps (softWrap,
+/// no ellipsis) at the sidebar clamp instead of overflowing as an intrinsic
+/// Wrap child. "Journal & Memory" / "Objectives" / "Character State" stay
+/// whole whenever the header can hold them. Subtitle ellipsizes last.
 /// Expanded body sits under a hairline accent divider.
 ///
 /// Dumb/local-state by design: the parent (SidebarBody) resolves the
@@ -121,64 +123,75 @@ class PorchAccordionState extends State<PorchAccordion> {
               borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AnimatedRotation(
-                          turns: _expanded ? 0.25 : 0.0,
-                          duration: const Duration(milliseconds: 150),
-                          child: Icon(
-                            Icons.chevron_right,
-                            size: 16,
-                            color: AppColors.iconSecondary(context),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          widget.emoji,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Wrap(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedRotation(
+                      turns: _expanded ? 0.25 : 0.0,
+                      duration: const Duration(milliseconds: 150),
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: AppColors.iconSecondary(context),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(widget.emoji, style: const TextStyle(fontSize: 13)),
+                    const SizedBox(width: 6),
+                    // Remaining width after chevron + emoji + trailing (no
+                    // Spacer). Title is a constrained Text so the string
+                    // wraps; an unconstrained Wrap child would take its
+                    // intrinsic width and overflow at the 150 clamp.
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, titleConstraints) {
+                          final titleMax = titleConstraints.maxWidth;
+                          return Wrap(
                             spacing: 6,
                             runSpacing: 2,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Text(
-                                widget.title,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: AppColors.textPrimary(context),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(maxWidth: titleMax),
+                                child: Text(
+                                  widget.title,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: AppColors.textPrimary(context),
+                                  ),
                                 ),
                               ),
                               if (widget.subtitle != null &&
                                   widget.subtitle!.isNotEmpty)
-                                Text(
-                                  widget.subtitle!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.textTertiary(context),
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: titleMax,
+                                  ),
+                                  child: Text(
+                                    widget.subtitle!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.textTertiary(context),
+                                    ),
                                   ),
                                 ),
                             ],
-                          ),
-                        ),
-                        if (widget.trailing != null)
-                          // Opaque so switch/gear taps never toggle expansion.
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {},
-                            child: widget.trailing!,
-                          ),
-                      ],
-                    );
-                  },
+                          );
+                        },
+                      ),
+                    ),
+                    if (widget.trailing != null)
+                      // Opaque so switch/gear taps never toggle expansion.
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {},
+                        child: widget.trailing!,
+                      ),
+                  ],
                 ),
               ),
             ),

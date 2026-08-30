@@ -198,6 +198,34 @@ void main() {
     );
   });
 
+  testWidgets('PorchAccordion — Journal & Memory at clamp 150 with switch', (
+    tester,
+  ) async {
+    await expectThemedGoldens(
+      tester,
+      child: Builder(
+        builder: (context) => SizedBox(
+          width: 150,
+          child: PorchAccordion(
+            id: 'demo_clamp',
+            emoji: '📖',
+            title: 'Journal & Memory',
+            subtitle: 'Journal on · RAG on',
+            accent: AppColors.journalAccentOf(context),
+            trailing: SizedBox(
+              height: 24,
+              child: FittedBox(child: Switch(value: true, onChanged: (_) {})),
+            ),
+            child: const SizedBox.shrink(),
+          ),
+        ),
+      ),
+      group: 'sidebar',
+      name: 'porch_accordion_clamp_150',
+      surface: const Size(190, 180),
+    );
+  });
+
   testWidgets('PorchAccordion — long subtitle, wide title intact', (
     tester,
   ) async {
