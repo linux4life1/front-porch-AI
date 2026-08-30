@@ -12,15 +12,17 @@ import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_s
 import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/sidebar_tokens.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/needs_bar.dart';
 
 import '../../golden/support/fakes.dart';
 
 Future<void> _pumpTight(
   WidgetTester tester,
   Widget child, {
-  double width = SidebarTokens.minWidth,
+  double width = 180,
+  double height = 400,
 }) async {
-  await tester.binding.setSurfaceSize(Size(width + 40, 400));
+  await tester.binding.setSurfaceSize(Size(width + 40, height));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
@@ -145,7 +147,7 @@ void main() {
                     // 122-157): 24-tall FittedBox Switch PLUS compact tune
                     // IconButton. Product nest is ListView pad 12 + header
                     // pad 10. At 190 leftover was ~44px — under "Character"
-                    // (~60) and "Objectives" (~64) at 13 bold.
+                    // (~59.5) and "Objectives" (~64) at 13 bold.
                     trailing: _characterStateTrailing(),
                     child: const SizedBox.shrink(),
                   ),
@@ -154,10 +156,99 @@ void main() {
           ),
         ),
         width: SidebarTokens.minWidth,
+        height: 500,
       );
 
       for (final title in titles) {
         _assertTitleWraps(tester, title);
+      }
+    },
+  );
+
+  testWidgets(
+    'NeedsGrid at sidebar min inside ListView pad has no overflow at 100%',
+    (tester) async {
+      const needs = {
+        'hunger': 100,
+        'bladder': 100,
+        'energy': 100,
+        'social': 40,
+        'fun': 88,
+        'hygiene': 62,
+        'comfort': 30,
+      };
+
+      final overflows = await _overflowsDuring(tester, () async {
+        await _pumpTight(
+          tester,
+          Builder(
+            builder: (context) => Padding(
+              padding: const EdgeInsets.all(12),
+              child: PorchAccordion(
+                id: 'needs',
+                emoji: '🎭',
+                title: 'Character State',
+                accent: AppColors.porchTerracottaOf(context),
+                initiallyExpanded: true,
+                trailing: _characterStateTrailing(),
+                child: const NeedsGrid(needs: needs),
+              ),
+            ),
+          ),
+          width: SidebarTokens.minWidth,
+          height: 800,
+        );
+      });
+
+      expect(
+        overflows,
+        isEmpty,
+        reason:
+            'NeedsGrid overflowed at minWidth ${SidebarTokens.minWidth} '
+            'inside ListView pad 12. overflow=$overflows',
+      );
+      expect(find.text('100%'), findsWidgets);
+      for (final el in find.text('100%').evaluate()) {
+        final para = el.renderObject! as RenderParagraph;
+        expect(para.didExceedMaxLines, isFalse);
+      }
+    },
+  );
+
+  testWidgets(
+    'inner SidebarSubHeader words fit at sidebar min inside ListView pad',
+    (tester) async {
+      final cases = <(String, Widget)>[
+        ('Memory (RAG)', _memoryTrailing()),
+        ('Growth · Flora', _growthTrailing()),
+      ];
+
+      for (final (label, trailing) in cases) {
+        await _pumpTight(
+          tester,
+          Builder(
+            builder: (context) => Padding(
+              padding: const EdgeInsets.all(12),
+              child: PorchAccordion(
+                id: label,
+                emoji: '📖',
+                title: 'Journal & Memory',
+                accent: AppColors.porchHoneyOf(context),
+                initiallyExpanded: true,
+                child: SidebarSubHeader(
+                  icon: Icons.flag,
+                  label: label,
+                  accent: AppColors.porchHoneyOf(context),
+                  trailing: trailing,
+                ),
+              ),
+            ),
+          ),
+          width: SidebarTokens.minWidth,
+          height: 400,
+        );
+
+        _assertLabelWordsFit(tester, label);
       }
     },
   );
@@ -182,6 +273,89 @@ Widget _characterStateTrailing() {
   );
 }
 
+Widget _memoryTrailing() {
+  return SizedBox(
+    height: 28,
+    child: FittedBox(child: Switch(value: true, onChanged: (_) {})),
+  );
+}
+
+Widget _growthTrailing() {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      IconButton(
+        icon: const Icon(Icons.settings, size: 14),
+        visualDensity: VisualDensity.compact,
+        tooltip: 'Growth settings',
+        onPressed: () {},
+      ),
+      SizedBox(
+        height: 28,
+        child: FittedBox(child: Switch(value: true, onChanged: (_) {})),
+      ),
+    ],
+  );
+}
+
+Future<List<String>> _overflowsDuring(
+  WidgetTester tester,
+  Future<void> Function() body,
+) async {
+  final overflows = <String>[];
+  final old = FlutterError.onError;
+  FlutterError.onError = (details) {
+    final msg = details.exceptionAsString();
+    if (msg.toLowerCase().contains('overflowed')) {
+      overflows.add(msg.split('\n').first);
+    } else {
+      old?.call(details);
+    }
+  };
+  try {
+    await body();
+    final taken = tester.takeException();
+    if (taken != null) {
+      final msg = taken.toString();
+      if (msg.toLowerCase().contains('overflowed')) {
+        overflows.add(msg.split('\n').first);
+      } else {
+        fail('unexpected exception: $taken');
+      }
+    }
+  } finally {
+    FlutterError.onError = old;
+  }
+  return overflows;
+}
+
+void _assertLabelWordsFit(WidgetTester tester, String label) {
+  expect(find.text(label), findsOneWidget);
+  final text = tester.widget<Text>(find.text(label));
+  expect(text.overflow, isNot(TextOverflow.ellipsis));
+  final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+  expect(paragraph.didExceedMaxLines, isFalse);
+  final leftover = paragraph.constraints.maxWidth;
+  final style = DefaultTextStyle.of(
+    tester.element(find.text(label)),
+  ).style.merge(text.style);
+  for (final word in label.split(' ')) {
+    if (word.isEmpty) continue;
+    final wordPainter = TextPainter(
+      text: TextSpan(text: word, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    expect(
+      wordPainter.width,
+      lessThanOrEqualTo(leftover + 0.5),
+      reason:
+          '"$word" of "$label" must fit in remaining label width '
+          '(${leftover.toStringAsFixed(1)}px); '
+          'word is ${wordPainter.width.toStringAsFixed(1)}px',
+    );
+  }
+}
+
 void _assertTitleWraps(WidgetTester tester, String title) {
   expect(find.text(title), findsOneWidget);
   final text = tester.widget<Text>(find.text(title));
@@ -189,6 +363,9 @@ void _assertTitleWraps(WidgetTester tester, String title) {
   expect(text.maxLines, anyOf(isNull, greaterThanOrEqualTo(2)));
   final paragraph = tester.renderObject<RenderParagraph>(find.text(title));
   expect(paragraph.didExceedMaxLines, isFalse);
+  // size.width shrinks to the laid-out string; maxWidth is leftover after
+  // ListView pad + header pad + chevron/emoji/trailing.
+  final leftover = paragraph.constraints.maxWidth;
   final style = DefaultTextStyle.of(
     tester.element(find.text(title)),
   ).style.merge(text.style);
@@ -199,10 +376,11 @@ void _assertTitleWraps(WidgetTester tester, String title) {
     )..layout();
     expect(
       wordPainter.width,
-      lessThanOrEqualTo(paragraph.size.width + 0.5),
+      lessThanOrEqualTo(leftover + 0.5),
       reason:
           '"$word" of "$title" must fit in remaining title width '
-          '(${paragraph.size.width.toStringAsFixed(1)}px)',
+          '(${leftover.toStringAsFixed(1)}px); '
+          'word is ${wordPainter.width.toStringAsFixed(1)}px',
     );
   }
 }
