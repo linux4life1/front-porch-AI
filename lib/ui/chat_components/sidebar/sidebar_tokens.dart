@@ -68,7 +68,6 @@ class SidebarSubHeader extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,

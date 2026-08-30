@@ -300,9 +300,8 @@ class RealismFormSection extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: enabled
                         ? AppColors.formMasterAccent.withValues(alpha: 0.2)
-                        : AppColors.surfaceContainerOf(
-                            context,
-                          ).withValues(alpha: 0.6),
+                        : AppColors.surfaceContainerOf(context)
+                              .withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -479,7 +478,13 @@ class RealismFormSection extends StatelessWidget {
 
           // Needs Simulation (rendered separately when provided by caller).
           // ignore: use_null_aware_elements — '?' doesn't work in children lists
-          if (needsFormSection != null) needsFormSection!,
+          if (needsFormSection != null) ...[
+            needsFormSection!,
+            // Same 20px gap Starting Emotion always gets above its header.
+            // NeedsFormSection pads its own top (24), not its bottom, so this
+            // does not double-space.
+            const SizedBox(height: 20),
+          ],
 
           // Relationship Section
           _sectionHeader(
@@ -581,9 +586,8 @@ class RealismFormSection extends StatelessWidget {
                           decoration: InputDecoration(
                             hintText: 'e.g. curious, guarded, amused',
                             hintStyle: TextStyle(
-                              color: AppColors.textTertiary(
-                                context,
-                              ).withValues(alpha: 0.6),
+                              color: AppColors.textTertiary(context)
+                                  .withValues(alpha: 0.6),
                               fontSize: 13,
                             ),
                             border: InputBorder.none,
@@ -699,8 +703,7 @@ class RealismFormSection extends StatelessWidget {
                   buildToggleRow(
                     icon: Icons.verified_user,
                     label: 'Realism Verification (Director/Verifier)',
-                    subtitle:
-                        'Optional director thread validates realism deltas + needs JSON; supplies corrections + reason or re-feeds for reprocessing (extra eval cost; strong models recommended)',
+                    subtitle: 'Optional director thread validates realism deltas + needs JSON; supplies corrections + reason or re-feeds for reprocessing (extra eval cost; strong models recommended)',
                     value: realismVerificationEnabled,
                     onChanged: onRealismVerificationChanged,
                     context: context,
@@ -871,9 +874,8 @@ class RealismFormSection extends StatelessWidget {
         SliderTheme(
           data: SliderThemeData(
             activeTrackColor: color,
-            inactiveTrackColor: AppColors.borderOf(
-              context,
-            ).withValues(alpha: 0.3),
+            inactiveTrackColor: AppColors.borderOf(context)
+                .withValues(alpha: 0.3),
             thumbColor: color,
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),

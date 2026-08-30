@@ -19,15 +19,20 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
 import 'sidebar_tokens.dart';
 
 /// THE one collapsible card of the warm-porch sidebar (replaces the five
 /// hand-rolled InkWell+chevron headers, the lone ExpansionTile, the two
 /// always-open sections, and the headerless strip of the old design).
 ///
-/// Header: animated chevron + emoji glyph + bold title + optional ellipsized
-/// subtitle (the collapsed-state one-liner, e.g. "Fond · Trusting · Evening")
-/// + trailing widgets (switches/gears) that never toggle expansion.
+/// Header: animated chevron + emoji glyph + bold title + optional subtitle
+/// (the collapsed-state one-liner, e.g. "Fond · Trusting · Evening") that
+/// wraps under the title when the pane is tight + trailing widgets
+/// (switches/gears) that never toggle expansion. Title is the priority flex
+/// child — no Spacer stealing half the header — so "Journal & Memory" /
+/// "Objectives" / "Character State" stay whole whenever the header can hold
+/// them. Subtitle ellipsizes last.
 /// Expanded body sits under a hairline accent divider.
 ///
 /// Dumb/local-state by design: the parent (SidebarBody) resolves the
@@ -111,32 +116,34 @@ class PorchAccordionState extends State<PorchAccordion> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          InkWell(
-            onTap: _toggle,
-            borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-              child: Row(
-                children: [
-                  AnimatedRotation(
-                    turns: _expanded ? 0.25 : 0.0,
-                    duration: const Duration(milliseconds: 150),
-                    child: Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: AppColors.iconSecondary(context),
+            InkWell(
+              onTap: _toggle,
+              borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: Row(
+                  children: [
+                    AnimatedRotation(
+                      turns: _expanded ? 0.25 : 0.0,
+                      duration: const Duration(milliseconds: 150),
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: AppColors.iconSecondary(context),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(widget.emoji, style: const TextStyle(fontSize: 13)),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
+                    const SizedBox(width: 4),
+                    Text(widget.emoji, style: const TextStyle(fontSize: 13)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
                             widget.title,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
@@ -144,57 +151,52 @@ class PorchAccordionState extends State<PorchAccordion> {
                               color: AppColors.textPrimary(context),
                             ),
                           ),
-                        ),
-                        if (widget.subtitle != null &&
-                            widget.subtitle!.isNotEmpty) ...[
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
+                          if (widget.subtitle != null &&
+                              widget.subtitle!.isNotEmpty)
+                            Text(
                               widget.subtitle!,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 10,
                                 color: AppColors.textTertiary(context),
                               ),
                             ),
-                          ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  if (widget.trailing != null)
-                    // Opaque so switch/gear taps never toggle expansion.
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {},
-                      child: widget.trailing!,
-                    ),
-                ],
+                    if (widget.trailing != null)
+                      // Opaque so switch/gear taps never toggle expansion.
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {},
+                        child: widget.trailing!,
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 150),
-            alignment: Alignment.topCenter,
-            child: _expanded
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: accent.withValues(alpha: 0.2),
-                      ),
-                      Padding(
-                        padding: SidebarTokens.bodyPadding.copyWith(top: 10),
-                        child: widget.child,
-                      ),
-                    ],
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-        ],
+            AnimatedSize(
+              duration: const Duration(milliseconds: 150),
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: accent.withValues(alpha: 0.2),
+                        ),
+                        Padding(
+                          padding: SidebarTokens.bodyPadding.copyWith(top: 10),
+                          child: widget.child,
+                        ),
+                      ],
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ],
         ),
       ),
     );
