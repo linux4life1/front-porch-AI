@@ -123,7 +123,10 @@ void main() {
       tester,
       child: SizedBox(
         width: SidebarTokens.minWidth,
-        child: TimeStrip(chat: chat),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: TimeStrip(chat: chat),
+        ),
       ),
       group: 'sidebar',
       name: 'time_strip_morning_tight',
@@ -186,13 +189,16 @@ void main() {
       child: Builder(
         builder: (context) => SizedBox(
           width: SidebarTokens.minWidth,
-          child: PorchAccordion(
-            id: 'demo_tight',
-            emoji: '🎭',
-            title: 'Character State',
-            subtitle: 'Fond · Trusting · Evening',
-            accent: AppColors.porchTerracottaOf(context),
-            child: const Text('body'),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: PorchAccordion(
+              id: 'demo_tight',
+              emoji: '🎭',
+              title: 'Character State',
+              subtitle: 'Fond · Trusting · Evening',
+              accent: AppColors.porchTerracottaOf(context),
+              child: const Text('body'),
+            ),
           ),
         ),
       ),
@@ -251,7 +257,7 @@ void main() {
           ),
         ),
         group: 'sidebar',
-        name: 'porch_accordion_clamp_220',
+        name: 'porch_accordion_clamp_214',
         surface: const Size(260, 360),
       );
     },

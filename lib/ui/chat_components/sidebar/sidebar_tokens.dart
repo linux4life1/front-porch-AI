@@ -27,13 +27,14 @@ class SidebarTokens {
   SidebarTokens._();
 
   /// Narrowest the sidebar can stay open. Dragging below this snaps closed.
-  /// SidebarBody ListView pads 12 on each side, then the accordion header
-  /// pads 10. At 190 that left ~44px for the title after chevron, emoji, and
-  /// the real Character State trailing (FittedBox switch + compact tune gear)
-  /// — under "Character" (~60px) and "Objectives" (~64px) at 13 bold, so the
-  /// string letter-wrapped. 220 is the smallest width where those titles stay
-  /// whole words in that nest, plus a few px of slack.
-  static const double minWidth = 220;
+  /// SidebarBody ListView pads EdgeInsets.all(12), so the accordion is
+  /// minWidth-24. Header pad 10x2 + chevron + emoji + FittedBox switch +
+  /// compact tune gear then leave leftover for the title. At 190 leftover
+  /// was ~44px — under "Character" (~59.5) and "Objectives" (~64) at 13
+  /// bold, so those words letter-wrapped. 214 is the smallest pane where
+  /// those titles stay whole words with that trailing in the product nest,
+  /// plus a few px of slack (Objectives leftover ~68 vs 64).
+  static const double minWidth = 214;
 
   /// Drag-resize upper bound.
   static const double maxWidth = 600;
