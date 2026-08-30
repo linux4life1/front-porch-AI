@@ -26,6 +26,17 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 class SidebarTokens {
   SidebarTokens._();
 
+  /// Narrowest the sidebar can stay open. Dragging below this snaps closed.
+  /// At 150, pad 10×2 + chevron 16 + emoji + gaps + FittedBox switch + compact
+  /// tune gear left ~28px for the title — under the word "Character" (~60px
+  /// at 13 bold). Default overflow clips, so the string was not whole. This is
+  /// the smallest width where Character State title + that trailing still
+  /// shows every word whole when wrapped, plus a few px of slack.
+  static const double minWidth = 190;
+
+  /// Drag-resize upper bound.
+  static const double maxWidth = 600;
+
   /// Accordion / card corner radius.
   static const double cardRadius = 12;
 

@@ -42,6 +42,7 @@ import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/charac
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/summary_section.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/sidebar_tokens.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/author_note_section.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/chaos_panel.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/lorebook_panel.dart';
@@ -198,33 +199,57 @@ void main() {
     );
   });
 
-  testWidgets('PorchAccordion — Journal & Memory at clamp 150 with switch', (
-    tester,
-  ) async {
-    await expectThemedGoldens(
-      tester,
-      child: Builder(
-        builder: (context) => SizedBox(
-          width: 150,
-          child: PorchAccordion(
-            id: 'demo_clamp',
-            emoji: '📖',
-            title: 'Journal & Memory',
-            subtitle: 'Journal on · RAG on',
-            accent: AppColors.journalAccentOf(context),
-            trailing: SizedBox(
-              height: 24,
-              child: FittedBox(child: Switch(value: true, onChanged: (_) {})),
+  testWidgets(
+    'PorchAccordion — titles at sidebar min with Character State trailing',
+    (tester) async {
+      const titles = [
+        ('🎭', 'Character State'),
+        ('📖', 'Journal & Memory'),
+        ('🎯', 'Objectives'),
+      ];
+      await expectThemedGoldens(
+        tester,
+        child: Builder(
+          builder: (context) => SizedBox(
+            width: SidebarTokens.minWidth,
+            child: Column(
+              children: [
+                for (final (emoji, title) in titles)
+                  PorchAccordion(
+                    id: title,
+                    emoji: emoji,
+                    title: title,
+                    subtitle: 'Fond · Trusting · Evening',
+                    accent: AppColors.porchTerracottaOf(context),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          height: 24,
+                          child: FittedBox(
+                            child: Switch(value: true, onChanged: (_) {}),
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          iconSize: 15,
+                          icon: const Icon(Icons.tune),
+                          onPressed: () {},
+                        ),
+                      ],
+                    ),
+                    child: const SizedBox.shrink(),
+                  ),
+              ],
             ),
-            child: const SizedBox.shrink(),
           ),
         ),
-      ),
-      group: 'sidebar',
-      name: 'porch_accordion_clamp_150',
-      surface: const Size(190, 180),
-    );
-  });
+        group: 'sidebar',
+        name: 'porch_accordion_clamp_190',
+        surface: const Size(230, 340),
+      );
+    },
+  );
 
   testWidgets('PorchAccordion — long subtitle, wide title intact', (
     tester,

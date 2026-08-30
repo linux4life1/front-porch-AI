@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/sidebar_tokens.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import '../../golden/support/fakes.dart';
@@ -114,7 +115,7 @@ void main() {
   );
 
   testWidgets(
-    'PorchAccordion titles wrap at sidebar clamp 150 with a trailing switch',
+    'PorchAccordion titles wrap at sidebar min with Character State trailing',
     (tester) async {
       const titles = ['Character State', 'Journal & Memory', 'Objectives'];
       await _pumpTight(
@@ -129,27 +130,44 @@ void main() {
                   title: title,
                   subtitle: 'Fond · Trusting · Evening',
                   accent: AppColors.porchTerracottaOf(context),
-                  // Character State's real chrome: 24-tall FittedBox Switch
-                  // (raw M3 Switch is 60px and leaves only ~38px — shorter
-                  // than "Memory"). Wrap is enough at clamp 150 with this.
-                  trailing: SizedBox(
-                    height: 24,
-                    child: FittedBox(
-                      child: Switch(value: true, onChanged: (_) {}),
-                    ),
-                  ),
+                  // Real Character State trailing (character_state_group
+                  // 122-157): 24-tall FittedBox Switch PLUS compact tune
+                  // IconButton. At 150 that chrome left ~28px for the title
+                  // — under "Character" (~60) and "Objectives" (~64) at 13
+                  // bold, so the string clipped. Product path snaps closed
+                  // below SidebarTokens.minWidth; 150 is unreachable.
+                  trailing: _characterStateTrailing(),
                   child: const SizedBox.shrink(),
                 ),
             ],
           ),
         ),
-        width: 150,
+        width: SidebarTokens.minWidth,
       );
 
       for (final title in titles) {
         _assertTitleWraps(tester, title);
       }
     },
+  );
+}
+
+/// Character State's header trailing: FittedBox Switch + compact tune gear.
+Widget _characterStateTrailing() {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SizedBox(
+        height: 24,
+        child: FittedBox(child: Switch(value: true, onChanged: (_) {})),
+      ),
+      IconButton(
+        visualDensity: VisualDensity.compact,
+        iconSize: 15,
+        icon: const Icon(Icons.tune),
+        onPressed: () {},
+      ),
+    ],
   );
 }
 

@@ -32,7 +32,7 @@ import 'sidebar_tokens.dart';
 /// (switches/gears) that never toggle expansion. Title is the priority flex
 /// child — no Spacer stealing half the header — constrained to the remaining
 /// pane width after chevron + emoji + trailing so the string wraps (softWrap,
-/// no ellipsis) at the sidebar clamp instead of overflowing as an intrinsic
+/// no ellipsis) at the sidebar min instead of overflowing as an intrinsic
 /// Wrap child. "Journal & Memory" / "Objectives" / "Character State" stay
 /// whole whenever the header can hold them. Subtitle ellipsizes last.
 /// Expanded body sits under a hairline accent divider.
@@ -141,7 +141,7 @@ class PorchAccordionState extends State<PorchAccordion> {
                     // Remaining width after chevron + emoji + trailing (no
                     // Spacer). Title is a constrained Text so the string
                     // wraps; an unconstrained Wrap child would take its
-                    // intrinsic width and overflow at the 150 clamp.
+                    // intrinsic width and overflow at the sidebar min.
                     Expanded(
                       child: LayoutBuilder(
                         builder: (context, titleConstraints) {

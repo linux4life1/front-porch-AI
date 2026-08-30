@@ -52,8 +52,8 @@ class TimeStrip extends StatelessWidget {
     // Wrap, not a single ellipsizing Row: period and clock are complete
     // strings on every width. Wide pane keeps emoji + period + clock + date
     // + nudges on one row; a tight sidebar (resolution × window × dragged
-    // pane, clamp 150–600) drops date + nudges onto the next line instead of
-    // turning "Morning 10:00 AM" into "Morning 10...".
+    // pane, clamp SidebarTokens.minWidth–maxWidth) drops date + nudges onto
+    // the next line instead of turning "Morning 10:00 AM" into "Morning 10...".
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
