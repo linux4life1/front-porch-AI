@@ -147,11 +147,13 @@ class JournalInjection {
       for (final card in coldCards) {
         if (lexical.length >= JournalPhysics.kColdRetrievalLimit) break;
         if (JournalPhysics.itemCardMentioned(card, queryTokens) ||
-            JournalPhysics.episodeCardMentioned(card, queryTokens)) {
+            JournalPhysics.episodeCardMentioned(card, queryTokens) ||
+            JournalPhysics.birthdayCardMentioned(card, queryTokens)) {
           lexical.add(card);
         }
       }
       for (final card in lexical) {
+        if (JournalPhysics.isBirthdayCard(card)) continue;
         await store.rewarmCard(card);
       }
       if (lexical.isNotEmpty) {

@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'journal_physics.dart';
 
 /// Recap length instruction (words). The recap must stay plain prose —
 /// the growth pass and the prompt summaryBlock consume it directly.
@@ -73,7 +74,9 @@ String buildJournalPrompt({
       final feeling = c.emotionLabel == null ? '' : ', felt ${c.emotionLabel}';
       b.writeln(
         '[${i + 1}] (${c.category}$feeling'
-        '${c.pinned ? ', pinned' : ''}) ${c.content}',
+        '${c.pinned ? ', pinned' : ''}'
+        '${JournalPhysics.isBirthdayCard(c) ? ', locked calendar' : ''}) '
+        '${c.content}',
       );
     }
   }
@@ -93,7 +96,9 @@ String buildJournalPrompt({
   b.writeln(
     '- Edit in place: add new entries, revise entries that changed, retire '
     'entries that became wrong or irrelevant. Never restate an existing '
-    'entry as a new one — revise it instead.',
+    'entry as a new one — revise it instead. Do not retire or rewrite '
+    'locked calendar birthday entries — the date is identity, not a memory '
+    'of something that happened.',
   );
   b.writeln(
     '- Capture what mattered: add a memory for each promise made, thing '

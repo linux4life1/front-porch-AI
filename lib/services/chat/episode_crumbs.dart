@@ -135,6 +135,22 @@ String? speechImpulse({
       break;
     }
   }
+  // Birthday heat stays at 1.0 all day (calendar, not a cooling crumb).
+  // The 0.99 auto branch would therefore fire EVERY turn. Day-of uses
+  // the rare roll only; other days only if the conversation already
+  // named the birthday.
+  if (pick == null) {
+    JournalMemoryData? dayCard;
+    for (final c in injected) {
+      if (JournalPhysics.isBirthdayCard(c) && c.heat >= 0.99) {
+        dayCard = c;
+        break;
+      }
+    }
+    if (dayCard != null && seed.abs() % kSpeechImpulseEvery == 0) {
+      pick = dayCard;
+    }
+  }
   if (pick == null) {
     final tokens = itemNameTokens(lastWords);
     if (tokens.isEmpty) return null;
@@ -142,8 +158,13 @@ String? speechImpulse({
     pick = _bestOverlap(injected, tokens);
   }
   if (pick == null) return null;
+  final noList = JournalPhysics.isBirthdayCard(pick)
+      ? ' Do not list gifts they want. Do not make the birthday the topic '
+            'unless the conversation already touched it or a cake or present '
+            'is being handed over.'
+      : '';
   return 'On their mind — they may mention this if it fits, and must not '
-      'force it or open with a stock phrase: ${pick.content}';
+      'force it or open with a stock phrase: ${pick.content}.$noList';
 }
 
 JournalMemoryData? _bestOverlap(

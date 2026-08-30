@@ -293,7 +293,7 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
                                 ),
                               ),
                               const Spacer(),
-                              if (_secondaries.length < 2)
+                              if (_secondaries.length < kMaxSecondaryObjectives)
                                 TextButton.icon(
                                   onPressed: () =>
                                       _showAddDialog(isPrimary: false),
@@ -612,7 +612,7 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
                     targetCharacter: _focused,
                   );
                 }
-                if (_secondaries.length < 2) {
+                if (_secondaries.length < kMaxSecondaryObjectives) {
                   await widget.chatService.setObjective(
                     'A secondary supporting goal',
                     isPrimary: false,

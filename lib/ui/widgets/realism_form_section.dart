@@ -81,6 +81,10 @@ class RealismFormSection extends StatelessWidget {
   final List<int>? workDays;
   final ValueChanged<List<int>>? onWorkDaysChanged;
 
+  final String? birthday;
+  final ValueChanged<String>? onBirthdayChanged;
+  final DateTime? birthdayAgeAsOf;
+
   /// Likes & Dislikes, and the 18+ pair — same optional-pair convention as
   /// [ambitions]: pass values + callback or the section is absent, so surfaces
   /// that predate these fields keep compiling and rendering unchanged.
@@ -161,6 +165,9 @@ class RealismFormSection extends StatelessWidget {
     this.onHoursChanged,
     this.workDays,
     this.onWorkDaysChanged,
+    this.birthday,
+    this.onBirthdayChanged,
+    this.birthdayAgeAsOf,
     this.likes,
     this.onLikesChanged,
     this.dislikes,
@@ -780,6 +787,9 @@ class RealismFormSection extends StatelessWidget {
           onHoursChanged: onHoursChanged,
           workDays: workDays,
           onWorkDaysChanged: onWorkDaysChanged,
+          birthday: birthday,
+          onBirthdayChanged: onBirthdayChanged,
+          birthdayAgeAsOf: birthdayAgeAsOf,
           likes: likes,
           onLikesChanged: onLikesChanged,
           dislikes: dislikes,

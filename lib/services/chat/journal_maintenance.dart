@@ -464,6 +464,10 @@ class JournalMaintenance {
         case JournalOpAction.pin:
           final card = _cardForHandle(cards, op.handle);
           if (card == null) continue;
+          if (JournalPhysics.isBirthdayCard(card) &&
+              op.action != JournalOpAction.pin) {
+            continue;
+          }
           resolved.add(
             JournalProposedOp(
               action: op.action,

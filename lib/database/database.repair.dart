@@ -113,6 +113,8 @@ extension AppDatabaseMaintenance on AppDatabase {
         // of the two outcomes.
         'updated_at INTEGER NOT NULL DEFAULT 0',
         'deleted_at INTEGER',
+        // v50 — calendar birthday. NULL = unset.
+        'birthday TEXT',
       ],
       'objectives': [
         'chat_id TEXT', // v29 — the one that was actively crashing group objective loads

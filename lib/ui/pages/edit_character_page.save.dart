@@ -33,10 +33,9 @@ extension _EditCharacterSave on _EditCharacterPageState {
     widget.character.mesExample = _mesExampleController.text;
     widget.character.systemPrompt = _systemPromptController.text;
     widget.character.postHistoryInstructions = _postHistoryController.text;
-    final greetingPairs = compactGreetingPairs(
-      [for (final c in _altGreetingControllers) c.text],
-      _altGreetingSeeds,
-    );
+    final greetingPairs = compactGreetingPairs([
+      for (final c in _altGreetingControllers) c.text,
+    ], _altGreetingSeeds);
     widget.character.alternateGreetings = greetingPairs.greetings;
     widget.character.tags = List.from(_tags);
     // Empty clears the per-character override so the character
@@ -73,6 +72,7 @@ extension _EditCharacterSave on _EditCharacterPageState {
         _occupation.trim().isNotEmpty ||
         _occupationBrief.trim().isNotEmpty ||
         _hours.trim().isNotEmpty ||
+        _birthday.trim().isNotEmpty ||
         _likes.isNotEmpty ||
         _dislikes.isNotEmpty ||
         _intimateInto.isNotEmpty ||
@@ -121,6 +121,7 @@ extension _EditCharacterSave on _EditCharacterPageState {
         occupationBrief: _occupationBrief.trim(),
         hours: _hours.trim(),
         workDays: _workDays,
+        birthday: _birthday.trim(),
         likes: [
           for (final a in _likes)
             if (a.trim().isNotEmpty) a.trim(),

@@ -634,6 +634,7 @@ class ChatFacade {
           'title': p.title,
           'name': p.name,
           'persona': p.persona,
+          'birthday': p.birthday,
         };
       }
     }
@@ -650,6 +651,7 @@ class ChatFacade {
       f['name']?.toString() ?? 'User',
       f['persona']?.toString() ?? '',
       null,
+      birthday: f['birthday']?.toString() ?? '',
     );
     _notify();
     return true;
@@ -672,6 +674,7 @@ class ChatFacade {
         title: f.containsKey('title') ? f['title']?.toString() : null,
         name: f.containsKey('name') ? f['name']?.toString() : null,
         persona: f.containsKey('persona') ? f['persona']?.toString() : null,
+        birthday: f.containsKey('birthday') ? f['birthday']?.toString() : null,
       ),
     );
     _notify();

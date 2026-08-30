@@ -118,6 +118,7 @@ extension _CreatorCore on CreatorState {
     realismPlanLines = List<String>.from(ext.planLines);
     realismOccupation = ext.occupation;
     realismOccupationBrief = ext.occupationBrief;
+    realismBirthday = ext.birthday;
     realismHours = ext.hours;
     realismWorkDays = ext.workDays;
     realismLikes = List<String>.from(ext.likes);

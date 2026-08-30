@@ -130,6 +130,7 @@ A quick tour of the fields, whether you're writing your own or editing an import
 | **Likes / Dislikes** | Chip lists on Details | Separate from Personality prose. |
 | **Intimate into / not into** | Chip lists | Only if Settings → General → **18+ themes** is on. |
 | **Occupation** | Job, brief, hours, weekdays | Seeds [Clock In](porch-life.md#clock-in) for **new** chats. |
+| **Birthday** | Year, month, day (no Feb 29) | Story-calendar age. The Journal keeps one card that heats up before the day. |
 | **Worn / carrying** | Wardrobe + pockets on the card | Seeds Pockets. The **Pockets switch** still has to be on in the chat. |
 
 ### Greeting seeds (per-alt opening state)

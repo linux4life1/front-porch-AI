@@ -17,11 +17,16 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+part 'user_persona_dialog.edit_form.dart';
 
 class UserPersonaDialog extends StatefulWidget {
   const UserPersonaDialog({super.key});
@@ -39,6 +44,7 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
   late TextEditingController _nameController;
   late TextEditingController _personaController;
   String? _avatarPath;
+  String _birthday = '';
 
   @override
   void initState() {
@@ -64,8 +70,11 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
       _nameController.text = persona?.name ?? '';
       _personaController.text = persona?.persona ?? '';
       _avatarPath = persona?.avatarPath;
+      _birthday = persona?.birthday ?? '';
     });
   }
+
+  void _setBirthday(String v) => setState(() => _birthday = v);
 
   void _cancelEditing() {
     setState(() {
@@ -75,6 +84,7 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
       _nameController.clear();
       _personaController.clear();
       _avatarPath = null;
+      _birthday = '';
     });
   }
 
@@ -97,21 +107,21 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
       final service = Provider.of<UserPersonaService>(context, listen: false);
 
       if (_editingPersona != null) {
-        // Update
         final updated = _editingPersona!.copyWith(
           title: _titleController.text,
           name: _nameController.text,
           persona: _personaController.text,
           avatarPath: _avatarPath,
+          birthday: _birthday,
         );
         await service.updatePersona(updated);
       } else {
-        // Create
         await service.createPersona(
           _titleController.text,
           _nameController.text,
           _personaController.text,
           _avatarPath,
+          birthday: _birthday,
         );
       }
 
@@ -187,65 +197,68 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                           ? Border.all(color: AppColors.formMasterAccent)
                           : null,
                     ),
-                    child: ListTile(
-                      leading: PersonaColors.buildPersonaAvatar(
-                        avatarPath: persona.avatarPath,
-                        personaId: persona.id,
-                        radius: 20,
-                      ),
-                      title: Text(
-                        persona.displayLabel,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        leading: PersonaColors.buildPersonaAvatar(
+                          avatarPath: persona.avatarPath,
+                          personaId: persona.id,
+                          radius: 20,
                         ),
-                      ),
-                      subtitle: Text(
-                        persona.title.isNotEmpty
-                            ? persona.name
-                            : persona.persona.isNotEmpty
-                            ? (persona.persona.length > 40
-                                  ? '${persona.persona.substring(0, 37)}...'
-                                  : persona.persona)
-                            : '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!isActive)
-                            TextButton(
-                              onPressed: () => _useInThisChat(
-                                context,
-                                service,
-                                persona.id,
-                              ),
-                              child: const Text('Use in this chat'),
-                            ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit,
-                              size: 20,
-                              color: Colors.white70,
-                            ),
-                            onPressed: () => _startEditing(persona),
+                        title: Text(
+                          persona.displayLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
-                          if (service.personas.length > 1)
+                        ),
+                        subtitle: Text(
+                          persona.title.isNotEmpty
+                              ? persona.name
+                              : persona.persona.isNotEmpty
+                              ? (persona.persona.length > 40
+                                    ? '${persona.persona.substring(0, 37)}...'
+                                    : persona.persona)
+                              : '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isActive)
+                              TextButton(
+                                onPressed: () => _useInThisChat(
+                                  context,
+                                  service,
+                                  persona.id,
+                                ),
+                                child: const Text('Use in this chat'),
+                              ),
                             IconButton(
                               icon: const Icon(
-                                Icons.delete,
+                                Icons.edit,
                                 size: 20,
-                                color: Colors.redAccent,
+                                color: Colors.white70,
                               ),
-                              onPressed: () =>
-                                  _showDeleteConfirmation(context, persona),
+                              onPressed: () => _startEditing(persona),
                             ),
-                        ],
+                            if (service.personas.length > 1)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  size: 20,
+                                  color: Colors.redAccent,
+                                ),
+                                onPressed: () =>
+                                    _showDeleteConfirmation(context, persona),
+                              ),
+                          ],
+                        ),
+                        onTap: () =>
+                            _useInThisChat(context, service, persona.id),
                       ),
-                      onTap: () =>
-                          _useInThisChat(context, service, persona.id),
                     ),
                   );
                 },
@@ -268,251 +281,6 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildEditForm() {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _editingPersona == null ? 'Create Persona' : 'Edit Persona',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white54),
-                onPressed: _cancelEditing,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: _pickAvatar,
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    shape: BoxShape.circle,
-                    image: _avatarPath != null
-                        ? DecorationImage(
-                            image: FileImage(File(_avatarPath!)),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: _avatarPath == null
-                      ? const Icon(
-                          Icons.add_a_photo,
-                          size: 32,
-                          color: Colors.white54,
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _titleController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Title (optional)',
-                        hintText: 'Label to distinguish this persona',
-                        hintStyle: TextStyle(color: Colors.white30),
-                        labelStyle: TextStyle(color: Colors.white70),
-                        filled: true,
-                        fillColor: Color(0xFF374151),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _nameController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Name',
-                        hintText: 'Name sent to the AI',
-                        hintStyle: TextStyle(color: Colors.white30),
-                        labelStyle: TextStyle(color: Colors.white70),
-                        filled: true,
-                        fillColor: Color(0xFF374151),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) =>
-                          value?.isEmpty ?? true ? 'Name is required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    // Persona text — expandable
-                    Stack(
-                      children: [
-                        TextFormField(
-                          controller: _personaController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
-                            labelText: 'Persona Text',
-                            hintText:
-                                'Describe who you are — appearance, personality, background...',
-                            hintStyle: TextStyle(color: Colors.white30),
-                            labelStyle: TextStyle(color: Colors.white70),
-                            filled: true,
-                            fillColor: Color(0xFF374151),
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 4,
-                        ),
-                        Positioned(
-                          top: 4,
-                          right: 4,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => _showExpandPersonaDialog(),
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.formMasterAccent.withValues(
-                                    alpha: 0.15,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Icon(
-                                  Icons.open_in_full,
-                                  size: 16,
-                                  color: AppColors.formMasterAccent,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: _cancelEditing,
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-              const SizedBox(width: 16),
-              ElevatedButton(
-                onPressed: _savePersona,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.formMasterAccent,
-                  foregroundColor: AppColors.onChaosAccent,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                ),
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showExpandPersonaDialog() {
-    final tempController = TextEditingController(text: _personaController.text);
-    showDialog(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: const Color(0xFF1F2937),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 500),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    'Edit Persona Text',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: TextField(
-                  controller: tempController,
-                  style: const TextStyle(color: Colors.white),
-                  maxLines: null,
-                  decoration: const InputDecoration(
-                    hintText: 'Enter detailed persona info...',
-                    hintStyle: TextStyle(color: Colors.white30),
-                    filled: true,
-                    fillColor: Color(0xFF374151),
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.all(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () {
-                      _personaController.text = tempController.text;
-                      Navigator.of(dialogContext).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.formMasterAccent,
-                      foregroundColor: AppColors.onChaosAccent,
-                    ),
-                    child: const Text('Save'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -543,5 +311,4 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
       ),
     );
   }
-
 }

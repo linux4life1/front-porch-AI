@@ -5,6 +5,10 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🎂 **Birthdays** — set a year, month, and day on the character and on your persona (no February 29). The Journal keeps one card per person that heats up in the two weeks before, so they know how old everyone is without listing a wishlist. Both birthdays can fall on the same day. Objectives may freeze an outing from their likes. Same on the phone.
+
+- 🎯 **Four side quests** — a character can hold four side goals at once (was two), so a birthday outing does not kick something you already set. Same on the phone.
+
 - ⚡ **Realism / Journal / Growth tool calls are no longer the slow path** — they ask for the one function they need, use an eval-sized budget, and the overlay starts immediately. If your model still hates tools, Porch Life → Native tool calling off keeps the pill honest ("supported — using JSON") instead of pretending the model cannot. Same on the phone.
 
 - 🧠 **Evals and Continue on heretic / uncensored local models no longer think until the cap** — journal, objectives, and Needs checks were burning the token budget mid-thought and coming back empty; Continue was dumping a think block into the middle of the line. Character replies still think when Request thinking is on. Same on oMLX, LM Studio, llama.cpp, and Kobold. Same on the phone.

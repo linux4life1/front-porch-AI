@@ -328,6 +328,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     if (_storageService.memorySettings.journalEnabled &&
         t.guestSpeaker == null &&
         _currentSessionId != null) {
+      await _ensureBirthdayState();
       final journal = await _journalInjection.buildJournalBlock(
         characterId: _getCharacterIdFromCard(t.speakingCharacter),
         characterName: t.speakingCharacter.name,

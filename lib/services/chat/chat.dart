@@ -6,6 +6,7 @@
 // the ChatService generation/session helpers.
 
 export 'absence_tracker.dart';
+export 'birthday.dart';
 export 'afk_flavor.dart';
 export 'ambition_service.dart';
 export 'biome_preview.dart';

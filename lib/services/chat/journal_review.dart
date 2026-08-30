@@ -19,6 +19,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'journal_ops.dart';
+import 'journal_physics.dart';
 import 'journal_store.dart';
 
 /// The Journal — proposals + the ONE applier (docs/design/journal-memory.md
@@ -180,10 +181,15 @@ class JournalReview {
         case JournalOpAction.revise:
           final card = byId[op.cardId];
           if (card == null) continue;
+          if (JournalPhysics.isBirthdayCard(card)) continue;
           await store.reviseCard(card, content: op.text, feeling: op.feeling);
           break;
         case JournalOpAction.retire:
           if (op.cardId == null || !byId.containsKey(op.cardId)) continue;
+          final retiring = byId[op.cardId];
+          if (retiring != null && JournalPhysics.isBirthdayCard(retiring)) {
+            continue;
+          }
           await store.retireCard(op.cardId!);
           break;
         case JournalOpAction.pin:
@@ -230,7 +236,9 @@ class JournalReview {
       await onSaveChat();
     }
     onNotify();
-    debugPrint('[Journal] ✓ Review applied (${batch.totalProposals} proposal(s))');
+    debugPrint(
+      '[Journal] ✓ Review applied (${batch.totalProposals} proposal(s))',
+    );
   }
 
   /// Dismiss without writing: the window counts as handled (cursor advances)

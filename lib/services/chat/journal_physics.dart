@@ -131,6 +131,34 @@ class JournalPhysics {
   static bool isLedgerCard(JournalMemoryData card) =>
       isMilestone(card) || isPromise(card);
 
+  /// Calendar birthday identity. Heat is overwritten from the story clock
+  /// (not pass-cooled). One live card per owner (`self` / `user`). Not
+  /// ledger: when heat is up it belongs in the hot set.
+  static bool isBirthdayCard(JournalMemoryData card) =>
+      cardKind(card) == 'birthday';
+
+  static String? birthdayOwnerOf(JournalMemoryData card) {
+    final raw = card.metadata;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map ? decoded['owner'] as String? : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String? birthdayIsoOf(JournalMemoryData card) {
+    final raw = card.metadata;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map ? decoded['iso'] as String? : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Item-memory cards (2026-08-11): deterministic diary lines written from
   /// applied pocket events ("I set my keys down on the hallway table").
   /// NOT ledger-class on purpose — they cool at the full base rate (no
@@ -199,14 +227,27 @@ class JournalPhysics {
     }
   }
 
-  /// The keyword re-warm floor: does the recent turn NAME this item card's
+  static const Set<String> _birthdayCueTokens = {
+    'birthday',
+    'bday',
+    'born',
+    'turning',
+    'cake',
+  };
+
+  /// Keyword floor for a cold birthday card: the conversation named the
+  /// day, age, or a gift. No embeddings.
+  static bool birthdayCardMentioned(
+    JournalMemoryData card,
+    Set<String> queryTokens,
+  ) {
+    if (queryTokens.isEmpty || !isBirthdayCard(card)) return false;
+    return queryTokens.any(_birthdayCueTokens.contains);
+  }
+
+  /// Keyword re-warm floor: does the recent turn NAME this item card's
   /// item? Token-set intersection via the same [itemNameTokens] rule the
-  /// applier's matching uses — no embeddings involved, which is the point:
-  /// emotional memories have no reliable trigger words, but items have
-  /// names, so "where are my keys?" must resurface the keys card on every
-  /// install, sidecar or not. Cosine remains the oblique-reference upgrade
-  /// ("ready to head out?" warming the keys card without anyone saying
-  /// keys).
+  /// applier's matching uses — no embeddings.
   static bool itemCardMentioned(
     JournalMemoryData card,
     Set<String> queryTokens,
@@ -219,7 +260,9 @@ class JournalPhysics {
 
   /// One card's heat after one maintenance pass of cooling.
   static double cooledHeat(JournalMemoryData card) {
-    if (card.pinned || isLedgerCard(card)) return card.heat;
+    if (card.pinned || isLedgerCard(card) || isBirthdayCard(card)) {
+      return card.heat;
+    }
     final factor = switch (card.emotionIntensity) {
       'strong' => kStrongDecayFactor,
       'moderate' => kModerateDecayFactor,

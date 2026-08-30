@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 // The main view, list-card, edit-form, and hover-card builders live in these
 // `part of` files (extensions on _UserPersonaPageState, plus one library-
@@ -52,6 +53,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   late TextEditingController _nameController;
   late TextEditingController _personaController;
   String? _avatarPath;
+  String _birthday = '';
 
   late AnimationController _headerAnimController;
   late Animation<double> _headerGlowAnimation;
@@ -89,6 +91,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
       _nameController.text = persona?.name ?? '';
       _personaController.text = persona?.persona ?? '';
       _avatarPath = persona?.avatarPath;
+      _birthday = persona?.birthday ?? '';
     });
   }
 
@@ -100,6 +103,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
       _nameController.clear();
       _personaController.clear();
       _avatarPath = null;
+      _birthday = '';
     });
   }
 
@@ -128,6 +132,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
           name: _nameController.text,
           persona: personaText,
           avatarPath: _avatarPath,
+          birthday: _birthday,
         );
         await service.updatePersona(updated);
       } else {
@@ -136,6 +141,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
           _nameController.text,
           personaText,
           _avatarPath,
+          birthday: _birthday,
         );
       }
 

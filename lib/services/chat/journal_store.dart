@@ -127,7 +127,11 @@ class JournalStore {
       // history would evaporate on long diaries.
       JournalMemoryData? coldest;
       for (final card in existing) {
-        if (card.pinned || JournalPhysics.isLedgerCard(card)) continue;
+        if (card.pinned ||
+            JournalPhysics.isLedgerCard(card) ||
+            JournalPhysics.isBirthdayCard(card)) {
+          continue;
+        }
         if (coldest == null || card.heat < coldest.heat) coldest = card;
       }
       if (coldest != null) await db.deleteJournalCard(coldest.id);
@@ -151,9 +155,7 @@ class JournalStore {
           sourcePositions.isEmpty ? null : jsonEncode(sourcePositions),
         ),
         metadata: Value(meta.isEmpty ? null : jsonEncode(meta)),
-        heat: heat != null
-            ? Value(heat.clamp(0.0, 1.0))
-            : const Value.absent(),
+        heat: heat != null ? Value(heat.clamp(0.0, 1.0)) : const Value.absent(),
         pinned: Value(pinned),
       ),
     );
@@ -391,5 +393,69 @@ class JournalStore {
         ),
       );
     }
+  }
+
+  /// One live birthday card per owner (`self` / `user`). Rewrite in place
+  /// when the line or heat changes. Empty [iso] retires the live card.
+  Future<void> upsertBirthdayCard({
+    required String sessionId,
+    required String characterId,
+    required String ownerKey,
+    required String iso,
+    required String content,
+    required double heat,
+    required int maxCards,
+  }) async {
+    final db = getDb();
+    if (db == null) return;
+    final existing = await db.getJournalCards(sessionId, characterId);
+    JournalMemoryData? live;
+    for (final c in existing) {
+      if (JournalPhysics.isBirthdayCard(c) &&
+          JournalPhysics.birthdayOwnerOf(c) == ownerKey) {
+        live = c;
+        break;
+      }
+    }
+    if (iso.trim().isEmpty || content.isEmpty) {
+      if (live != null) await db.deleteJournalCard(live.id);
+      return;
+    }
+    final meta = jsonEncode({
+      'kind': 'birthday',
+      'owner': ownerKey,
+      'iso': iso,
+    });
+    final h = heat.clamp(0.0, 1.0);
+    if (live != null) {
+      final same =
+          live.content == content &&
+          (live.heat - h).abs() < 0.01 &&
+          live.metadata == meta;
+      if (same) return;
+      final textChanged = live.content != content;
+      await db.updateJournalCard(
+        live.id,
+        JournalMemoriesCompanion(
+          content: Value(content),
+          heat: Value(h),
+          metadata: Value(meta),
+          embedding: textChanged ? const Value(null) : const Value.absent(),
+          dimensions: textChanged ? const Value(0) : const Value.absent(),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      return;
+    }
+    await addCard(
+      sessionId: sessionId,
+      characterId: characterId,
+      content: content,
+      category: ownerKey == 'user' ? 'about_user' : 'moment',
+      kind: 'birthday',
+      extraMetadata: {'owner': ownerKey, 'iso': iso},
+      heat: h,
+      maxCards: maxCards,
+    );
   }
 }

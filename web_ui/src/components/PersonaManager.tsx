@@ -28,9 +28,10 @@ interface PersonaDetail {
   title: string;
   name: string;
   persona: string;
+  birthday?: string;
 }
 
-type EditState = { id: string | null; title: string; name: string; persona: string } | null;
+type EditState = { id: string | null; title: string; name: string; persona: string; birthday: string } | null;
 
 export function PersonaManager() {
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -60,14 +61,14 @@ export function PersonaManager() {
   const beginEdit = async (id: string) => {
     try {
       const d = await api.get<PersonaDetail>(`/api/personas/${id}/detail`);
-      setEdit({ id: d.id, title: d.title, name: d.name, persona: d.persona });
+      setEdit({ id: d.id, title: d.title, name: d.name, persona: d.persona, birthday: d.birthday ?? '' });
     } catch {
       setError('Could not load persona');
     }
   };
   const save = () => {
     if (!edit) return;
-    const body = { title: edit.title, name: edit.name, persona: edit.persona };
+    const body = { title: edit.title, name: edit.name, persona: edit.persona, birthday: edit.birthday };
     apply(
       edit.id
         ? api.post(`/api/personas/${edit.id}`, body)
@@ -83,7 +84,7 @@ export function PersonaManager() {
         <h3>User personas</h3>
         <button
           className="ghost"
-          onClick={() => setEdit({ id: null, title: '', name: 'User', persona: '' })}
+          onClick={() => setEdit({ id: null, title: '', name: 'User', persona: '', birthday: '' })}
         >
           + New
         </button>
@@ -135,6 +136,18 @@ export function PersonaManager() {
           <label>
             Name
             <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+          </label>
+          <label>
+            Birthday
+            <input
+              type="date"
+              value={edit.birthday}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (/^\d{4}-02-29$/.test(raw)) return;
+                setEdit({ ...edit, birthday: raw });
+              }}
+            />
           </label>
           <label>
             Persona

@@ -862,5 +862,18 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
           // already present (re-run / dual-version)
         }
       }
+
+      if (from < 50) {
+        // v49→v50: persona calendar birthday. NULL for every existing
+        // row is right — nobody had a stored birthday. Additive and
+        // nullable, so a downgrade to v49 keeps reading personas.
+        try {
+          await customStatement('ALTER TABLE personas ADD COLUMN birthday TEXT');
+          debugPrint('[DB] v50: added personas.birthday');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
+      }
+
   }
 }

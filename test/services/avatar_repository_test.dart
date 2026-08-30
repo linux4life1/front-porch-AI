@@ -84,7 +84,10 @@ void main() {
       //      never judged; the glance keeps the keyword fallback. The
       //      column itself is guarded by
       //      test/database/with_user_persist_migration_test.dart.
-      expect(db.schemaVersion, 49);
+      // v50: personas.birthday — calendar birthday YYYY-MM-DD. NULL means
+      //      unset. The column itself is guarded by
+      //      test/database/birthday_persona_migration_test.dart.
+      expect(db.schemaVersion, 50);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {
@@ -103,24 +106,27 @@ void main() {
       expect(await db.deleteJournalCardsForSession('s-test'), 1);
     });
 
-    test('groups table has stable_id column (v34) — nullable, round-trips', () async {
-      final base = DateTime.now().millisecondsSinceEpoch;
-      // Nullable: a group inserted without a stable id keeps it null.
-      final gid1 = 'grp-a-$base';
-      await db.insertGroup(GroupsCompanion.insert(id: gid1, name: 'G1'));
-      expect((await db.getGroupById(gid1))!.stableId, null);
+    test(
+      'groups table has stable_id column (v34) — nullable, round-trips',
+      () async {
+        final base = DateTime.now().millisecondsSinceEpoch;
+        // Nullable: a group inserted without a stable id keeps it null.
+        final gid1 = 'grp-a-$base';
+        await db.insertGroup(GroupsCompanion.insert(id: gid1, name: 'G1'));
+        expect((await db.getGroupById(gid1))!.stableId, null);
 
-      // Round-trips when provided.
-      final gid2 = 'grp-b-$base';
-      await db.insertGroup(
-        GroupsCompanion.insert(
-          id: gid2,
-          name: 'G2',
-          stableId: const Value('sid-xyz'),
-        ),
-      );
-      expect((await db.getGroupById(gid2))!.stableId, 'sid-xyz');
-    });
+        // Round-trips when provided.
+        final gid2 = 'grp-b-$base';
+        await db.insertGroup(
+          GroupsCompanion.insert(
+            id: gid2,
+            name: 'G2',
+            stableId: const Value('sid-xyz'),
+          ),
+        );
+        expect((await db.getGroupById(gid2))!.stableId, 'sid-xyz');
+      },
+    );
 
     test('characters table has prime_avatar_index column', () async {
       final charId = 'prime-test-${DateTime.now().millisecondsSinceEpoch}';

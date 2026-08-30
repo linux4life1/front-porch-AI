@@ -29,6 +29,11 @@ part of '../chat_service.dart';
 // `chat_service.dart`, so callers already importing the services barrel see
 // these automatically.
 
+/// Cap on active side quests (non-primary). Birthday outings for the
+/// character and for {{user}} both need a slot without kicking a quest
+/// the user already typed.
+const int kMaxSecondaryObjectives = 4;
+
 /// Default system prompt for group chats, designed to prevent characters
 /// from speaking for each other and maintain turn discipline.
 const String defaultGroupSystemPrompt =

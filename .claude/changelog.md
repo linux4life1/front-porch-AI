@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-08-29 — feat(birthday): Speak as… can set the persona birthday
+- **Why:** Persona page and web Settings had the date; the in-chat
+  Speak as… editor did not, so a persona created there had no birthday
+  until you left the chat.
+- **What:** Same BirthdayRow on the Speak as… create/edit form. Split
+  the dialog (already over 500) so the form lives in a part. Web Speak
+  as… is still switch-only; birthday stays on Settings PersonaManager.
+- **Files:** user_persona_dialog, user_persona_dialog.edit_form,
+  user_persona_dialog_birthday_test
+
+## 2026-08-29 — fix(birthday): skip diary rewrite on every send
+- **Why:** Calendar already knows story date vs birthday. Rewriting
+  Journal cards on every send (and Continue) was wasted work until
+  the two-week heat window.
+- **What:** BirthdayMath.needsRefresh: same story day skip; far-from-all
+  skip across quiet days; rewrite on identity change, first sync,
+  phase/age change, or daily while upcoming/today/justPast. Stamp
+  last-sync after a successful ensure.
+- **Files:** birthday.dart, chat_service_birthday.dart, birthday_test
+
+## 2026-08-29 — feat(objectives): four side quests
+- **Why:** Two slots filled if both birthdays planted outings; a user
+  quest got skipped. Four leaves room for both plus two typed quests.
+- **What:** kMaxSecondaryObjectives = 4. setObjective eviction, birthday
+  plant skip, 1:1 add button, group Add dialog share the const.
+- **Files:** chat_service_defaults, chat_service_objectives, birthday
+  plant, objective_add_goal, group_objectives_dialog
+
+## 2026-08-29 — feat(birthday): calendar birthday on card + persona
+- **Why:** Characters and the user should know how old they are and when
+  the day is coming, without a standing "ask for presents" prompt.
+- **What:** YYYY-MM-DD (no Feb 29). One live Journal card per owner; heat
+  from the story clock; rewrite in place on the next year. Frozen outing
+  via Objectives when there is room. Planner Today is not used — both
+  birthdays coexist in the diary. Web + desktop.
+- **Files:** birthday.dart, journal_*, personas.birthday v50, editors, web
+
 ## 2026-08-27 — fix(evals): skip tools for the rest of a send after an empty miss
 - **Why:** An aborted/empty tools attempt left the probe untested, so every
   remaining eval of the turn (and the next turn) paid tools PLUS JSON.

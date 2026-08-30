@@ -107,6 +107,14 @@ Short version: [FAQ](faq.md#how-does-time-work).
 
 ---
 
+## Birthdays
+
+Year, month, and day on the **character** (Porch Life chips) and on your **persona** (the Persona page, Speak as…, and the phone Settings persona editor). February 29 is not allowed.
+
+Age and “how many days” follow the **story calendar**, not your wall clock. The Journal keeps **one** card per person (`I'll be 28` becomes `I'll be 29` next year — it does not duplicate). That card heats up in the two weeks before; it is a background thought, not a shopping list. Quiet days far from a birthday do not rewrite the card, and neither does Continue — heat only moves once the story date is inside those two weeks, on the day, or the two days after. A cake or present in Pockets is a gift if you actually hand it over.
+
+Objectives: inside those two weeks they may get a frozen outing from their likes. Up to four side quests, so both birthdays can plant without kicking yours. Planner Today is not used — both birthdays live in the Journal, so they can fall on the same day. Off = they can still know the date from the diary when Journal is on.
+
 ## Clock In
 
 Occupation, weekdays, hours — on the character **Details** tab.

@@ -180,6 +180,11 @@ class RealismStep extends StatelessWidget {
                   state.realismWorkDays = v;
                   state.notify();
                 },
+                birthday: state.realismBirthday,
+                onBirthdayChanged: (v) {
+                  state.realismBirthday = v;
+                  state.notify();
+                },
                 likes: state.realismLikes,
                 onLikesChanged: (v) {
                   state.realismLikes = v;

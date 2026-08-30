@@ -116,6 +116,7 @@ extension CreatorEngine on CreatorState {
         occupationBrief: realismOccupationBrief,
         hours: realismHours,
         workDays: realismWorkDays,
+        birthday: realismBirthday,
         likes: realismLikes,
         dislikes: realismDislikes,
         intimateInto: realismIntimateInto,

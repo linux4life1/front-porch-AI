@@ -75,6 +75,7 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
         occupationBrief: _realismOccupationBrief,
         hours: _realismHours,
         workDays: _realismWorkDays,
+        birthday: _realismBirthday,
         likes: _realismLikes,
         dislikes: _realismDislikes,
         intimateInto: _realismIntimateInto,
@@ -238,6 +239,7 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
       _realismPlanLines = const [];
       _realismOccupation = '';
       _realismOccupationBrief = '';
+      _realismBirthday = '';
       _realismHours = '';
       _realismWorkDays = null;
       _realismLikes = const [];

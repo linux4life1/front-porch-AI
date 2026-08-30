@@ -162,8 +162,11 @@ extension ChatServiceObjectives on ChatService {
       }
     } else {
       final currentSecondaries = secondaryObjectives;
-      if (currentSecondaries.length >= 2) {
-        for (int i = 0; i < currentSecondaries.length - 1; i++) {
+      if (currentSecondaries.length >= kMaxSecondaryObjectives) {
+        // Oldest first (createdAt asc). Drop enough to leave room for the
+        // new one. Today insert does not use this door.
+        final drop = currentSecondaries.length - (kMaxSecondaryObjectives - 1);
+        for (var i = 0; i < drop; i++) {
           await _db.updateObjective(
             ObjectivesCompanion(
               id: drift.Value(currentSecondaries[i].id),

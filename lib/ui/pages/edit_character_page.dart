@@ -132,6 +132,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   String _occupationBrief = '';
   String _hours = '';
   List<int>? _workDays;
+  String _birthday = '';
 
   /// Likes & Dislikes and the 18+ pair — card-authored identity, same shape
   /// and same chip editor as [_ambitions].
@@ -309,6 +310,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         widget.character.frontPorchExtensions?.occupationBrief ?? '';
     _hours = widget.character.frontPorchExtensions?.hours ?? '';
     _workDays = widget.character.frontPorchExtensions?.workDays;
+    _birthday = widget.character.frontPorchExtensions?.birthday ?? '';
     _likes = List<String>.from(
       widget.character.frontPorchExtensions?.likes ?? const [],
     );

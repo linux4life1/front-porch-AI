@@ -132,6 +132,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   List<String> _realismPlanLines = const [];
   String _realismOccupation = '';
   String _realismOccupationBrief = '';
+  String _realismBirthday = '';
   String _realismHours = '';
   List<int>? _realismWorkDays;
   List<String> _realismLikes = const [];
