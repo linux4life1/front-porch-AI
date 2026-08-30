@@ -44,6 +44,7 @@ class OpenSectionEnv {
     required bool isLite,
     required bool objectivesInTree,
     VoidCallback? collapseCharacterState,
+    VoidCallback? collapseJournal,
     VoidCallback? expandCharacterState,
     VoidCallback? expandJournal,
     VoidCallback? expandObjectives,
@@ -67,6 +68,7 @@ class OpenSectionEnv {
       case objectives:
         if (isGroup || isLite) return;
         collapseCharacterState?.call();
+        collapseJournal?.call();
         expandObjectives?.call();
         afterExpanded(() => ensureKeyVisible(objectivesKey));
         return;
@@ -97,14 +99,23 @@ class OpenSectionEnv {
     Scrollable.ensureVisible(ctx, alignment: 0.0, duration: Duration.zero);
   }
 
-  /// Scroll the first [Text] whose data is [label] into view (Edit Details
-  /// Relationship header so Starting Emotion's +20 padding is on screen).
-  static void ensureLabelVisible(BuildContext context, String label) {
+  /// Key on the Relationship gap+header block in [RealismFormSection].
+  static const Key relationshipHeaderBlockKey = Key(
+    'relationship-header-block',
+  );
+
+  /// Scroll [relationshipHeaderBlockKey] into view via the overlay (the
+  /// Edit Character dialog), not a ChatPage-only walk. Alignment 0.0 parks
+  /// the 20px gap at the top of the Details body, below the TabBar.
+  static void ensureRelationshipHeaderVisible(BuildContext context) {
+    ensureKeyedVisible(context, relationshipHeaderBlockKey);
+  }
+
+  static void ensureKeyedVisible(BuildContext context, Key key) {
     Element? found;
     void visitor(Element element) {
       if (found != null) return;
-      final widget = element.widget;
-      if (widget is Text && widget.data == label) {
+      if (element.widget.key == key) {
         found = element;
         return;
       }

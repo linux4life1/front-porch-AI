@@ -46,6 +46,7 @@ void main() {
       isLite: false,
       objectivesInTree: true,
       collapseCharacterState: () => keys.cs.currentState?.collapse(),
+      collapseJournal: () => keys.journal.currentState?.collapse(),
       expandObjectives: () => keys.objectives.currentState?.expand(),
       objectivesKey: keys.objectives,
     );
@@ -53,6 +54,7 @@ void main() {
     await tester.pump();
 
     expect(keys.cs.currentState!.isExpanded, isFalse);
+    expect(keys.journal.currentState!.isExpanded, isFalse);
     expect(keys.objectives.currentState!.isExpanded, isTrue);
     expect(keys.objectives.currentContext, isNotNull);
   });
@@ -103,6 +105,47 @@ void main() {
       await tester.pump();
       expect(expanded, 0);
       expect(keys.objectives.currentState!.isExpanded, isFalse);
+    },
+  );
+
+  testWidgets(
+    'objectives collapses Journal so the title is on a short surface',
+    (tester) async {
+      const surface = Size(230, 400);
+      final keys = await _pumpAccordions(
+        tester,
+        startJournalExpanded: true,
+        journalChildHeight: 400,
+        surfaceSize: surface,
+      );
+      expect(keys.journal.currentState!.isExpanded, isTrue);
+      expect(keys.cs.currentState!.isExpanded, isTrue);
+      expect(keys.objectives.currentState!.isExpanded, isFalse);
+
+      OpenSectionEnv.apply(
+        section: OpenSectionEnv.objectives,
+        isGroup: false,
+        isLite: false,
+        objectivesInTree: true,
+        collapseCharacterState: () => keys.cs.currentState?.collapse(),
+        collapseJournal: () => keys.journal.currentState?.collapse(),
+        expandObjectives: () => keys.objectives.currentState?.expand(),
+        objectivesKey: keys.objectives,
+      );
+      await tester.pump();
+      await tester.pump();
+      // afterExpanded's ensureVisible runs in the second post-frame;
+      // one more zero-duration pump flushes the scroll before AnimatedSize
+      // shrinks Journal and would leave a stale offset.
+      await tester.pump();
+
+      expect(keys.journal.currentState!.isExpanded, isFalse);
+      expect(keys.cs.currentState!.isExpanded, isFalse);
+      expect(keys.objectives.currentState!.isExpanded, isTrue);
+
+      final rect = tester.getRect(find.text('Objectives'));
+      expect(rect.top, greaterThanOrEqualTo(0));
+      expect(rect.bottom, lessThanOrEqualTo(surface.height));
     },
   );
 
@@ -160,6 +203,9 @@ class _Keys {
 Future<_Keys> _pumpAccordions(
   WidgetTester tester, {
   bool startCsExpanded = true,
+  bool startJournalExpanded = false,
+  double journalChildHeight = 80,
+  Size surfaceSize = const Size(400, 700),
 }) async {
   final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
   addTearDown(chat.dispose);
@@ -171,7 +217,7 @@ Future<_Keys> _pumpAccordions(
     timeStrip: GlobalKey(),
   );
 
-  await tester.binding.setSurfaceSize(const Size(400, 700));
+  await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   await tester.pumpWidget(
@@ -201,8 +247,8 @@ Future<_Keys> _pumpAccordions(
                   emoji: '📖',
                   title: 'Journal & Memory',
                   accent: AppColors.porchHoneyOf(context),
-                  initiallyExpanded: false,
-                  child: const SizedBox(height: 80),
+                  initiallyExpanded: startJournalExpanded,
+                  child: SizedBox(height: journalChildHeight),
                 ),
               ),
               Builder(

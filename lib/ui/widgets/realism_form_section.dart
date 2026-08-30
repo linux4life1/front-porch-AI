@@ -202,6 +202,12 @@ class RealismFormSection extends StatelessWidget {
   /// Shared gap above Relationship and Starting Emotion headers.
   static const double sectionHeaderGap = 20;
 
+  /// 20px gap + Relationship header + card. OPEN_SECTION=edit scrolls this
+  /// so the gap sits below the Details TabBar instead of clipping under it.
+  static const Key relationshipHeaderBlockKey = Key(
+    'relationship-header-block',
+  );
+
   static const _timeOptions = [
     'dawn',
     'morning',
@@ -483,60 +489,66 @@ class RealismFormSection extends StatelessWidget {
           if (needsFormSection != null) needsFormSection!,
 
           // Relationship Section — one [sectionHeaderGap] above the header.
-          const SizedBox(height: sectionHeaderGap),
-          _sectionHeader(
-            Icons.favorite,
-            'Relationship',
-            AppColors.relationshipAccent,
-          ),
-          const SizedBox(height: 12),
-          Container(
-            key: const Key('relationship-card'),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.cardOf(context),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.borderOf(context)),
-            ),
-            child: Column(
-              children: [
-                // Short-Term Bond
-                _sliderRow(
-                  label: 'Short-Term Bond',
-                  value: shortTermBond,
-                  min: -300,
-                  max: 300,
-                  tierName: _shortTermTierName(shortTermBond),
-                  color: _bondColor(shortTermBond),
-                  onChanged: (v) => onShortTermBondChanged(v.round()),
-                  context: context,
+          Column(
+            key: relationshipHeaderBlockKey,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: sectionHeaderGap),
+              _sectionHeader(
+                Icons.favorite,
+                'Relationship',
+                AppColors.relationshipAccent,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                key: const Key('relationship-card'),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.cardOf(context),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.borderOf(context)),
                 ),
-                const SizedBox(height: 16),
-                // Long-Term Bond
-                _sliderRow(
-                  label: 'Long-Term Bond',
-                  value: longTermBond,
-                  min: -300,
-                  max: 300,
-                  tierName: _longTermTierName(longTermBond),
-                  color: _bondColor(longTermBond),
-                  onChanged: (v) => onLongTermBondChanged(v.round()),
-                  context: context,
+                child: Column(
+                  children: [
+                    // Short-Term Bond
+                    _sliderRow(
+                      label: 'Short-Term Bond',
+                      value: shortTermBond,
+                      min: -300,
+                      max: 300,
+                      tierName: _shortTermTierName(shortTermBond),
+                      color: _bondColor(shortTermBond),
+                      onChanged: (v) => onShortTermBondChanged(v.round()),
+                      context: context,
+                    ),
+                    const SizedBox(height: 16),
+                    // Long-Term Bond
+                    _sliderRow(
+                      label: 'Long-Term Bond',
+                      value: longTermBond,
+                      min: -300,
+                      max: 300,
+                      tierName: _longTermTierName(longTermBond),
+                      color: _bondColor(longTermBond),
+                      onChanged: (v) => onLongTermBondChanged(v.round()),
+                      context: context,
+                    ),
+                    const SizedBox(height: 16),
+                    // Trust Level
+                    _sliderRow(
+                      label: 'Trust Level',
+                      value: trustLevel,
+                      min: -100,
+                      max: 100,
+                      tierName: _trustLevelName(trustLevel),
+                      color: _trustColor(trustLevel),
+                      onChanged: (v) => onTrustLevelChanged(v.round()),
+                      context: context,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                // Trust Level
-                _sliderRow(
-                  label: 'Trust Level',
-                  value: trustLevel,
-                  min: -100,
-                  max: 100,
-                  tierName: _trustLevelName(trustLevel),
-                  color: _trustColor(trustLevel),
-                  onChanged: (v) => onTrustLevelChanged(v.round()),
-                  context: context,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: sectionHeaderGap),
 

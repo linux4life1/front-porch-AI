@@ -79,6 +79,8 @@ class _SidebarBodyState extends State<SidebarBody> {
   /// `--dart-define=OPEN_SECTION=…` applies once per process after ChatPage
   /// is showing. Static so a SidebarBody remount cannot re-fire.
   static bool _openSectionEnvConsumed = false;
+  static int _openSectionEnvRetries = 0;
+  static const int _openSectionEnvMaxRetries = 8;
 
   final _characterStateKey = GlobalKey<CharacterStateGroupState>();
   final _journalAccordionKey = GlobalKey<PorchAccordionState>();
@@ -99,20 +101,37 @@ class _SidebarBodyState extends State<SidebarBody> {
       _openSectionEnvConsumed = true;
       return;
     }
-    _openSectionEnvConsumed = true;
     final chat = widget.chatService;
     final isGroup = chat.isGroupMode;
     final isLite = !isGroup && !widget.focused.realismEnabled;
+    final section = OpenSectionEnv.name;
+
+    // Objectives: a first-frame isLite/null-key no-op must retry — UIC
+    // prefs can leave Journal expanded and the accordion may not be in
+    // the tree until realismEnabled settles. Other sections consume
+    // immediately after apply, as before.
+    if (section == OpenSectionEnv.objectives) {
+      final ready = _objectivesKey.currentContext != null && !isLite;
+      if (!ready && _openSectionEnvRetries < _openSectionEnvMaxRetries) {
+        _openSectionEnvRetries++;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _maybeApplyOpenSection();
+        });
+        return;
+      }
+    }
+
+    _openSectionEnvConsumed = true;
     OpenSectionEnv.apply(
-      section: OpenSectionEnv.name,
+      section: section,
       isGroup: isGroup,
       isLite: isLite,
       objectivesInTree:
           !isGroup &&
           !isLite &&
-          (chat.objectivesActive ||
-              OpenSectionEnv.name == OpenSectionEnv.objectives),
+          (chat.objectivesActive || section == OpenSectionEnv.objectives),
       collapseCharacterState: () => _characterStateKey.currentState?.collapse(),
+      collapseJournal: () => _journalAccordionKey.currentState?.collapse(),
       expandCharacterState: () => _characterStateKey.currentState?.expand(),
       expandJournal: () => _journalAccordionKey.currentState?.expand(),
       expandObjectives: () => _objectivesKey.currentState?.expand(),

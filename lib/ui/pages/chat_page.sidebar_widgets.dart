@@ -279,8 +279,8 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
 
   /// The ONE character editor (EditCharacterPage) in a dialog shell — full
   /// feature set with honest Save/Cancel; nothing persists until Save.
-  /// OPEN_SECTION=edit reuses this path and scrolls Relationship into view
-  /// (Starting Emotion sits just below it with the +20 padding). No Save.
+  /// OPEN_SECTION=edit reuses this path and scrolls the Relationship header
+  /// block (20px gap + header) below the Details tab. No Save.
   Future<void> _openEditCharacterDialog(
     CharacterCard character, {
     bool ensureRelationshipVisible = false,
@@ -309,7 +309,7 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          OpenSectionEnv.ensureLabelVisible(context, 'Relationship');
+          OpenSectionEnv.ensureRelationshipHeaderVisible(context);
         });
       });
     }
