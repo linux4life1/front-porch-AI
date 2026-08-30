@@ -246,7 +246,7 @@ class BirthdayMath {
     final t = text.trim();
     if (!t.startsWith('Birthday (')) return false;
     if (year != null && !t.contains(', $year)')) return false;
-    if (monthDay != null && monthDay.isNotEmpty && !t.contains(monthDay)) {
+    if (monthDay != null && monthDay.isNotEmpty && !t.contains('$monthDay,')) {
       return false;
     }
     return true;

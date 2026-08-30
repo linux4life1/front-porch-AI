@@ -429,6 +429,41 @@ void main() {
     });
   });
 
+  test('isBirthdayObjective does not prefix-match March 1 onto March 15', () {
+    const march15 = 'Birthday (March 15, 2027): have a good birthday with Sam';
+    const march1 = 'Birthday (March 1, 2027): have a good birthday with Sam';
+    const march20 = 'Birthday (March 20, 2027): have a good birthday with Sam';
+    expect(
+      BirthdayMath.isBirthdayObjective(march15, monthDay: 'March 1'),
+      isFalse,
+    );
+    expect(
+      BirthdayMath.isBirthdayObjective(march15, monthDay: 'March 15'),
+      isTrue,
+    );
+    expect(
+      BirthdayMath.isBirthdayObjective(march1, monthDay: 'March 1'),
+      isTrue,
+    );
+    expect(
+      BirthdayMath.isBirthdayObjective(march20, monthDay: 'March 2'),
+      isFalse,
+    );
+    expect(
+      BirthdayMath.outingShouldRetire(
+        march15,
+        phase: BirthdayPhase.far,
+        occurrenceYear: 2027,
+        monthDay: 'March 1',
+      ),
+      isFalse,
+    );
+    expect(
+      File('lib/services/chat/birthday.dart').readAsStringSync(),
+      contains("contains('\$monthDay,')"),
+    );
+  });
+
   test('ageAsOfStory prefers the authored ISO date', () {
     expect(BirthdayMath.ageAsOfStory('2020-06-01'), DateTime.utc(2020, 6, 1));
   });
