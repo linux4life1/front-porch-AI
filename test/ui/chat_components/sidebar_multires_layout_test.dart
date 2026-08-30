@@ -18,7 +18,7 @@ import '../../golden/support/fakes.dart';
 Future<void> _pumpTight(
   WidgetTester tester,
   Widget child, {
-  double width = 180,
+  double width = SidebarTokens.minWidth,
 }) async {
   await tester.binding.setSurfaceSize(Size(width + 40, 400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -40,7 +40,11 @@ void main() {
     final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
     addTearDown(chat.dispose);
 
-    await _pumpTight(tester, TimeStrip(chat: chat), width: 180);
+    await _pumpTight(
+      tester,
+      TimeStrip(chat: chat),
+      width: SidebarTokens.minWidth,
+    );
 
     final clock = chat.timeService.displayClock;
     final date =
@@ -63,7 +67,11 @@ void main() {
     final chat = FakeChatService(timeOfDay: 'late_morning', dayCount: 2);
     addTearDown(chat.dispose);
 
-    await _pumpTight(tester, TimeStrip(chat: chat), width: 180);
+    await _pumpTight(
+      tester,
+      TimeStrip(chat: chat),
+      width: SidebarTokens.minWidth,
+    );
 
     expect(find.text('Late Morning'), findsOneWidget);
     expect(find.text(chat.timeService.displayClock), findsOneWidget);
@@ -121,25 +129,28 @@ void main() {
       await _pumpTight(
         tester,
         Builder(
-          builder: (context) => Column(
-            children: [
-              for (final title in titles)
-                PorchAccordion(
-                  id: title,
-                  emoji: '🎭',
-                  title: title,
-                  subtitle: 'Fond · Trusting · Evening',
-                  accent: AppColors.porchTerracottaOf(context),
-                  // Real Character State trailing (character_state_group
-                  // 122-157): 24-tall FittedBox Switch PLUS compact tune
-                  // IconButton. At 150 that chrome left ~28px for the title
-                  // — under "Character" (~60) and "Objectives" (~64) at 13
-                  // bold, so the string clipped. Product path snaps closed
-                  // below SidebarTokens.minWidth; 150 is unreachable.
-                  trailing: _characterStateTrailing(),
-                  child: const SizedBox.shrink(),
-                ),
-            ],
+          builder: (context) => Padding(
+            // SidebarBody ListView(padding: EdgeInsets.all(12)).
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                for (final title in titles)
+                  PorchAccordion(
+                    id: title,
+                    emoji: '🎭',
+                    title: title,
+                    subtitle: 'Fond · Trusting · Evening',
+                    accent: AppColors.porchTerracottaOf(context),
+                    // Real Character State trailing (character_state_group
+                    // 122-157): 24-tall FittedBox Switch PLUS compact tune
+                    // IconButton. Product nest is ListView pad 12 + header
+                    // pad 10. At 190 leftover was ~44px — under "Character"
+                    // (~60) and "Objectives" (~64) at 13 bold.
+                    trailing: _characterStateTrailing(),
+                    child: const SizedBox.shrink(),
+                  ),
+              ],
+            ),
           ),
         ),
         width: SidebarTokens.minWidth,

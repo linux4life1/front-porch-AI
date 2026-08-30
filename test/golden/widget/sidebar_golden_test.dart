@@ -121,10 +121,13 @@ void main() {
     addTearDown(chat.dispose);
     await expectThemedGoldens(
       tester,
-      child: SizedBox(width: 180, child: TimeStrip(chat: chat)),
+      child: SizedBox(
+        width: SidebarTokens.minWidth,
+        child: TimeStrip(chat: chat),
+      ),
       group: 'sidebar',
       name: 'time_strip_morning_tight',
-      surface: const Size(220, 160),
+      surface: const Size(260, 160),
     );
   });
 
@@ -182,7 +185,7 @@ void main() {
       tester,
       child: Builder(
         builder: (context) => SizedBox(
-          width: 180,
+          width: SidebarTokens.minWidth,
           child: PorchAccordion(
             id: 'demo_tight',
             emoji: '🎭',
@@ -195,7 +198,7 @@ void main() {
       ),
       group: 'sidebar',
       name: 'porch_accordion_tight',
-      surface: const Size(220, 140),
+      surface: const Size(260, 140),
     );
   });
 
@@ -212,41 +215,44 @@ void main() {
         child: Builder(
           builder: (context) => SizedBox(
             width: SidebarTokens.minWidth,
-            child: Column(
-              children: [
-                for (final (emoji, title) in titles)
-                  PorchAccordion(
-                    id: title,
-                    emoji: emoji,
-                    title: title,
-                    subtitle: 'Fond · Trusting · Evening',
-                    accent: AppColors.porchTerracottaOf(context),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          height: 24,
-                          child: FittedBox(
-                            child: Switch(value: true, onChanged: (_) {}),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  for (final (emoji, title) in titles)
+                    PorchAccordion(
+                      id: title,
+                      emoji: emoji,
+                      title: title,
+                      subtitle: 'Fond · Trusting · Evening',
+                      accent: AppColors.porchTerracottaOf(context),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            child: FittedBox(
+                              child: Switch(value: true, onChanged: (_) {}),
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          iconSize: 15,
-                          icon: const Icon(Icons.tune),
-                          onPressed: () {},
-                        ),
-                      ],
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            iconSize: 15,
+                            icon: const Icon(Icons.tune),
+                            onPressed: () {},
+                          ),
+                        ],
+                      ),
+                      child: const SizedBox.shrink(),
                     ),
-                    child: const SizedBox.shrink(),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
         group: 'sidebar',
-        name: 'porch_accordion_clamp_190',
-        surface: const Size(230, 340),
+        name: 'porch_accordion_clamp_220',
+        surface: const Size(260, 360),
       );
     },
   );
