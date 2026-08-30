@@ -1,0 +1,198 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
+import 'package:front_porch_ai/ui/pages/home/open_section_env.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import '../../golden/support/fakes.dart';
+
+void main() {
+  testWidgets('journal collapses Character State and expands Journal header', (
+    tester,
+  ) async {
+    final keys = await _pumpAccordions(tester);
+    expect(keys.cs.currentState!.isExpanded, isTrue);
+    expect(keys.journal.currentState!.isExpanded, isFalse);
+
+    OpenSectionEnv.apply(
+      section: OpenSectionEnv.journal,
+      isGroup: false,
+      isLite: false,
+      objectivesInTree: true,
+      collapseCharacterState: () => keys.cs.currentState?.collapse(),
+      expandJournal: () => keys.journal.currentState?.expand(),
+      journalKey: keys.journal,
+    );
+    await tester.pump();
+
+    expect(keys.cs.currentState!.isExpanded, isFalse);
+    expect(keys.journal.currentState!.isExpanded, isTrue);
+  });
+
+  testWidgets('objectives collapses Character State and expands Objectives', (
+    tester,
+  ) async {
+    final keys = await _pumpAccordions(tester);
+
+    OpenSectionEnv.apply(
+      section: OpenSectionEnv.objectives,
+      isGroup: false,
+      isLite: false,
+      objectivesInTree: true,
+      collapseCharacterState: () => keys.cs.currentState?.collapse(),
+      expandObjectives: () => keys.objectives.currentState?.expand(),
+      objectivesKey: keys.objectives,
+    );
+    await tester.pump();
+
+    expect(keys.cs.currentState!.isExpanded, isFalse);
+    expect(keys.objectives.currentState!.isExpanded, isTrue);
+  });
+
+  testWidgets('objectives skips when the accordion is not in the tree', (
+    tester,
+  ) async {
+    final keys = await _pumpAccordions(tester);
+    var expanded = 0;
+
+    OpenSectionEnv.apply(
+      section: OpenSectionEnv.objectives,
+      isGroup: false,
+      isLite: false,
+      objectivesInTree: false,
+      expandObjectives: () => expanded++,
+    );
+    OpenSectionEnv.apply(
+      section: OpenSectionEnv.objectives,
+      isGroup: true,
+      isLite: false,
+      objectivesInTree: true,
+      expandObjectives: () => expanded++,
+    );
+    await tester.pump();
+    expect(expanded, 0);
+    expect(keys.objectives.currentState!.isExpanded, isFalse);
+  });
+
+  testWidgets('timestrip expands Character State and finds TimeStrip', (
+    tester,
+  ) async {
+    final keys = await _pumpAccordions(tester, startCsExpanded: false);
+    expect(find.byType(TimeStrip), findsNothing);
+
+    OpenSectionEnv.apply(
+      section: OpenSectionEnv.timestrip,
+      isGroup: false,
+      isLite: false,
+      objectivesInTree: true,
+      expandCharacterState: () => keys.cs.currentState?.expand(),
+      timeStripKey: keys.timeStrip,
+    );
+    await tester.pump();
+
+    expect(keys.cs.currentState!.isExpanded, isTrue);
+    expect(find.byType(TimeStrip), findsOneWidget);
+    expect(keys.timeStrip.currentContext, isNotNull);
+  });
+
+  testWidgets('timestrip skips lite chats where Character State is absent', (
+    tester,
+  ) async {
+    var expanded = 0;
+    OpenSectionEnv.apply(
+      section: OpenSectionEnv.timestrip,
+      isGroup: false,
+      isLite: true,
+      objectivesInTree: false,
+      expandCharacterState: () => expanded++,
+    );
+    expect(expanded, 0);
+  });
+}
+
+class _Keys {
+  _Keys({
+    required this.cs,
+    required this.journal,
+    required this.objectives,
+    required this.timeStrip,
+  });
+
+  final GlobalKey<PorchAccordionState> cs;
+  final GlobalKey<PorchAccordionState> journal;
+  final GlobalKey<PorchAccordionState> objectives;
+  final GlobalKey timeStrip;
+}
+
+Future<_Keys> _pumpAccordions(
+  WidgetTester tester, {
+  bool startCsExpanded = true,
+}) async {
+  final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
+  addTearDown(chat.dispose);
+
+  final keys = _Keys(
+    cs: GlobalKey<PorchAccordionState>(),
+    journal: GlobalKey<PorchAccordionState>(),
+    objectives: GlobalKey<PorchAccordionState>(),
+    timeStrip: GlobalKey(),
+  );
+
+  await tester.binding.setSurfaceSize(const Size(400, 700));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
+      home: Scaffold(
+        body: SizedBox(
+          width: 230,
+          child: ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              Builder(
+                builder: (context) => PorchAccordion(
+                  key: keys.cs,
+                  id: 'character_state',
+                  emoji: '🎭',
+                  title: 'Character State',
+                  accent: AppColors.porchTerracottaOf(context),
+                  initiallyExpanded: startCsExpanded,
+                  child: TimeStrip(key: keys.timeStrip, chat: chat),
+                ),
+              ),
+              Builder(
+                builder: (context) => PorchAccordion(
+                  key: keys.journal,
+                  id: 'journal_memory',
+                  emoji: '📖',
+                  title: 'Journal & Memory',
+                  accent: AppColors.porchHoneyOf(context),
+                  initiallyExpanded: false,
+                  child: const SizedBox(height: 80),
+                ),
+              ),
+              Builder(
+                builder: (context) => PorchAccordion(
+                  key: keys.objectives,
+                  id: 'objectives',
+                  emoji: '🎯',
+                  title: 'Objectives',
+                  accent: AppColors.porchHoneyOf(context),
+                  initiallyExpanded: false,
+                  child: const SizedBox(height: 80),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+  return keys;
+}

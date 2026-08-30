@@ -169,6 +169,14 @@ extension _ChatPageSidebar on _ChatPageState {
               onJumpToMessage: _jumpToMessage,
               resolveCharImage: _resolveCharImage,
               draft: _controller,
+              onOpenEditFromEnv: () {
+                unawaited(
+                  _openEditCharacterDialog(
+                    character,
+                    ensureRelationshipVisible: true,
+                  ),
+                );
+              },
             ),
           ),
         ],

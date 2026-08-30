@@ -252,6 +252,75 @@ void main() {
       }
     },
   );
+
+  testWidgets(
+    '4K window pumps keep titles whole with no overflow (no PNG goldens)',
+    (tester) async {
+      const windows = [Size(2560, 1440), Size(3840, 2160)];
+      const sidebars = [230.0, 300.0];
+      const titles = ['Character State', 'Journal & Memory', 'Objectives'];
+
+      for (final window in windows) {
+        for (final sidebarWidth in sidebars) {
+          final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
+          addTearDown(chat.dispose);
+
+          final overflows = await _overflowsDuring(tester, () async {
+            await tester.binding.setSurfaceSize(window);
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
+                home: Scaffold(
+                  body: Row(
+                    children: [
+                      const Spacer(),
+                      SizedBox(
+                        width: sidebarWidth,
+                        child: ListView(
+                          padding: const EdgeInsets.all(12),
+                          children: [
+                            for (final title in titles)
+                              Builder(
+                                builder: (context) => PorchAccordion(
+                                  id: title,
+                                  emoji: '🎭',
+                                  title: title,
+                                  subtitle: 'Fond · Trusting · Evening',
+                                  accent: AppColors.porchTerracottaOf(context),
+                                  initiallyExpanded: title == 'Character State',
+                                  trailing: _characterStateTrailing(),
+                                  child: title == 'Character State'
+                                      ? TimeStrip(chat: chat)
+                                      : const SizedBox.shrink(),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+          });
+
+          expect(
+            overflows,
+            isEmpty,
+            reason:
+                'overflow at window ${window.width.toInt()}x'
+                '${window.height.toInt()} sidebar '
+                '${sidebarWidth.toInt()}: $overflows',
+          );
+          for (final title in titles) {
+            _assertTitleWraps(tester, title);
+          }
+        }
+      }
+    },
+  );
 }
 
 /// Character State's header trailing: FittedBox Switch + compact tune gear.

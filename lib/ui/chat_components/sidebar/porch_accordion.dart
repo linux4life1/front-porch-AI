@@ -95,6 +95,16 @@ class PorchAccordionState extends State<PorchAccordion> {
     widget.onExpansionChanged?.call(true);
   }
 
+  /// Programmatically collapse (OPEN_SECTION journal/objectives hide the
+  /// default-expanded Character State so the target header is on screen).
+  void collapse() {
+    if (!_expanded) return;
+    setState(() => _expanded = false);
+    widget.onExpansionChanged?.call(false);
+  }
+
+  bool get isExpanded => _expanded;
+
   @override
   Widget build(BuildContext context) {
     final accent = widget.accent;

@@ -36,7 +36,7 @@ import 'summary_section.dart';
 /// Branch gating: Memory (RAG) is 1:1 full chats only; the Journal and
 /// Growth show everywhere except for lite scene guests (guests never
 /// journal; their rings grow in the background and surface if promoted).
-class JournalMemoryGroup extends StatelessWidget {
+class JournalMemoryGroup extends StatefulWidget {
   final ChatService chatService;
   final bool isGroup;
   final bool isLite;
@@ -65,48 +65,60 @@ class JournalMemoryGroup extends StatelessWidget {
   });
 
   @override
+  State<JournalMemoryGroup> createState() => JournalMemoryGroupState();
+}
+
+class JournalMemoryGroupState extends State<JournalMemoryGroup> {
+  final _accordionKey = GlobalKey<PorchAccordionState>();
+
+  void expand() => _accordionKey.currentState?.expand();
+
+  void collapse() => _accordionKey.currentState?.collapse();
+
+  @override
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
-    final showMemory = !isGroup && !isLite;
+    final showMemory = !widget.isGroup && !widget.isLite;
     final subtitle =
         'Journal ${storage.journalEnabled ? 'on' : 'off'}'
         '${showMemory ? ' · RAG ${storage.ragEnabled ? 'on' : 'off'}' : ''}';
 
     return PorchAccordion(
+      key: _accordionKey,
       id: 'journal_memory',
       emoji: '📖',
       title: 'Journal & Memory',
       subtitle: subtitle,
       accent: AppColors.journalAccentOf(context),
-      initiallyExpanded: initiallyExpanded,
-      onExpansionChanged: onExpansionChanged,
+      initiallyExpanded: widget.initiallyExpanded,
+      onExpansionChanged: widget.onExpansionChanged,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SummarySection(chatService: chatService),
-          if (!isLite) ...[
+          SummarySection(chatService: widget.chatService),
+          if (!widget.isLite) ...[
             const SizedBox(height: 12),
             JournalPanel(
-              chatService: chatService,
-              characterId: diaryOwnerId,
-              characterName: diaryOwnerName,
-              onJumpToMessage: onJumpToMessage,
+              chatService: widget.chatService,
+              characterId: widget.diaryOwnerId,
+              characterName: widget.diaryOwnerName,
+              onJumpToMessage: widget.onJumpToMessage,
             ),
           ],
           if (showMemory) ...[
             const SizedBox(height: 12),
             MemoryPanel(
-              chatService: chatService,
-              onJumpToMessage: onJumpToMessage,
+              chatService: widget.chatService,
+              onJumpToMessage: widget.onJumpToMessage,
             ),
           ],
-          if (!isLite) ...[
+          if (!widget.isLite) ...[
             const SizedBox(height: 12),
             GrowthPanel(
-              chatService: chatService,
-              characterId: diaryOwnerId,
-              characterName: diaryOwnerName,
-              onJumpToMessage: onJumpToMessage,
+              chatService: widget.chatService,
+              characterId: widget.diaryOwnerId,
+              characterName: widget.diaryOwnerName,
+              onJumpToMessage: widget.onJumpToMessage,
             ),
           ],
         ],

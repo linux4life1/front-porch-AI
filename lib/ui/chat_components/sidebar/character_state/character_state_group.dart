@@ -56,6 +56,9 @@ class CharacterStateGroup extends StatefulWidget {
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
 
+  /// OPEN_SECTION=timestrip scrolls this [TimeStrip], not the CS header.
+  final Key? timeStripKey;
+
   const CharacterStateGroup({
     super.key,
     required this.chat,
@@ -63,15 +66,20 @@ class CharacterStateGroup extends StatefulWidget {
     this.groupMemberCard,
     required this.initiallyExpanded,
     this.onExpansionChanged,
+    this.timeStripKey,
   });
 
   @override
-  State<CharacterStateGroup> createState() => _CharacterStateGroupState();
+  State<CharacterStateGroup> createState() => CharacterStateGroupState();
 }
 
-class _CharacterStateGroupState extends State<CharacterStateGroup> {
+class CharacterStateGroupState extends State<CharacterStateGroup> {
   bool _showSettings = false;
   final _accordionKey = GlobalKey<PorchAccordionState>();
+
+  void expand() => _accordionKey.currentState?.expand();
+
+  void collapse() => _accordionKey.currentState?.collapse();
 
   String _subtitle(ChatService chat) {
     if (widget.isGroup) {
@@ -326,7 +334,7 @@ class _CharacterStateGroupState extends State<CharacterStateGroup> {
           ],
           if (realismOn || widget.isGroup || clockRunning) ...[
             const SizedBox(height: 10),
-            TimeStrip(chat: chat),
+            TimeStrip(key: widget.timeStripKey, chat: chat),
             ListenableBuilder(
               listenable: chat,
               builder: (context, _) {
