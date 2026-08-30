@@ -485,4 +485,25 @@ void main() {
       contains('ageAsOf: storyDateOf(context)'),
     );
   });
+
+  test('persona import insert and duplicate rebuild persist birthday', () {
+    final src = File(
+      'lib/services/user_persona_service.dart',
+    ).readAsStringSync();
+    expect(src, contains('birthday: p.birthday'));
+    expect(
+      src,
+      contains(
+        'birthday: Value(toInsert.birthday.isEmpty ? null : toInsert.birthday)',
+      ),
+    );
+  });
+
+  test('group empty ISO stays empty, no library fallback', () {
+    final src = File(
+      'lib/services/chat/chat_service_birthday.dart',
+    ).readAsStringSync();
+    expect(src, contains('_birthdayIsoFor'));
+    expect(src, isNot(contains('originLibraryCardFor')));
+  });
 }

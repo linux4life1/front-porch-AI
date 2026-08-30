@@ -25,12 +25,10 @@ extension ChatServiceBirthday on ChatService {
     return [one];
   }
 
+  /// Empty on the member is a clear. Do not inherit the library
+  /// card — 1:1 empty retires, group empty must stay empty.
   String _birthdayIsoFor(CharacterCard card) {
-    final own = (card.frontPorchExtensions?.birthday ?? '').trim();
-    if (own.isNotEmpty) return own;
-    if (_activeGroup == null) return '';
-    return (originLibraryCardFor(card)?.frontPorchExtensions?.birthday ?? '')
-        .trim();
+    return (card.frontPorchExtensions?.birthday ?? '').trim();
   }
 
   /// Plant or rewrite the live birthday cards, then maybe a frozen outing.

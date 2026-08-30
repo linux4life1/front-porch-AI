@@ -528,6 +528,7 @@ class UserPersonaService extends ChangeNotifier {
         name: p.name,
         persona: p.persona,
         avatarPath: p.avatarPath,
+        birthday: p.birthday,
       );
     }
 
@@ -538,6 +539,7 @@ class UserPersonaService extends ChangeNotifier {
         name: Value(toInsert.name),
         persona: Value(toInsert.persona),
         avatarPath: Value(toInsert.avatarPath),
+        birthday: Value(toInsert.birthday.isEmpty ? null : toInsert.birthday),
         isActive: const Value(true),
       ),
     );
