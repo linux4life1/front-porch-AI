@@ -127,10 +127,6 @@ class _SidebarBodyState extends State<SidebarBody> {
       section: section,
       isGroup: isGroup,
       isLite: isLite,
-      objectivesInTree:
-          !isGroup &&
-          !isLite &&
-          (chat.objectivesActive || section == OpenSectionEnv.objectives),
       collapseCharacterState: () => _characterStateKey.currentState?.collapse(),
       collapseJournal: () => _journalAccordionKey.currentState?.collapse(),
       expandCharacterState: () => _characterStateKey.currentState?.expand(),

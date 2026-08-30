@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 
 /// Compile-time launch hook (`--dart-define=OPEN_SECTION=timestrip`).
 ///
@@ -34,15 +35,10 @@ class OpenSectionEnv {
   }
 
   /// Apply [section]. Empty is a no-op. Unknown tokens debugPrint and return.
-  ///
-  /// [objectivesInTree] stays on the signature for call-site stability.
-  /// Apply does not early-return on it: the accordion is still built for
-  /// OPEN_SECTION=objectives when the feature flag is off.
   static void apply({
     required String section,
     required bool isGroup,
     required bool isLite,
-    required bool objectivesInTree,
     VoidCallback? collapseCharacterState,
     VoidCallback? collapseJournal,
     VoidCallback? expandCharacterState,
@@ -66,6 +62,8 @@ class OpenSectionEnv {
         afterExpanded(() => ensureKeyVisible(journalKey));
         return;
       case objectives:
+        // Apply does not early-return when the feature flag is off: the
+        // accordion is still built for OPEN_SECTION=objectives.
         if (isGroup || isLite) return;
         collapseCharacterState?.call();
         collapseJournal?.call();
@@ -100,16 +98,12 @@ class OpenSectionEnv {
     Scrollable.ensureVisible(ctx, alignment: 0.0, duration: Duration.zero);
   }
 
-  /// Key on the Relationship gap+header block in [RealismFormSection].
-  static const Key relationshipHeaderBlockKey = Key(
-    'relationship-header-block',
-  );
-
-  /// Scroll [relationshipHeaderBlockKey] into view via the overlay (the
-  /// Edit Character dialog), not a ChatPage-only walk. Alignment 0.0 parks
-  /// the 20px gap at the top of the Details body, below the TabBar.
+  /// Scroll [RealismFormSection.relationshipHeaderBlockKey] into view via
+  /// the overlay (the Edit Character dialog), not a ChatPage-only walk.
+  /// Alignment 0.0 parks the 20px gap at the top of the Details body,
+  /// below the TabBar.
   static void ensureRelationshipHeaderVisible(BuildContext context) {
-    ensureKeyedVisible(context, relationshipHeaderBlockKey);
+    ensureKeyedVisible(context, RealismFormSection.relationshipHeaderBlockKey);
   }
 
   static void ensureKeyedVisible(BuildContext context, Key key) {

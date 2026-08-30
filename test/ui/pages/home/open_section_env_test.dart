@@ -30,7 +30,6 @@ void main() {
       section: OpenSectionEnv.edit,
       isGroup: false,
       isLite: false,
-      objectivesInTree: true,
       onOpenEdit: () => opened++,
     );
     expect(opened, 1);
@@ -39,14 +38,12 @@ void main() {
       section: OpenSectionEnv.edit,
       isGroup: true,
       isLite: false,
-      objectivesInTree: true,
       onOpenEdit: () => opened++,
     );
     OpenSectionEnv.apply(
       section: OpenSectionEnv.edit,
       isGroup: false,
       isLite: true,
-      objectivesInTree: true,
       onOpenEdit: () => opened++,
     );
     expect(opened, 1);
@@ -58,7 +55,6 @@ void main() {
       section: '',
       isGroup: false,
       isLite: false,
-      objectivesInTree: true,
       expandJournal: () => touched++,
       onOpenEdit: () => touched++,
     );

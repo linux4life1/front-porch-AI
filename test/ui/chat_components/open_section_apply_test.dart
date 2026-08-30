@@ -22,7 +22,6 @@ void main() {
       section: OpenSectionEnv.journal,
       isGroup: false,
       isLite: false,
-      objectivesInTree: true,
       collapseCharacterState: () => keys.cs.currentState?.collapse(),
       expandJournal: () => keys.journal.currentState?.expand(),
       journalKey: keys.journal,
@@ -45,7 +44,6 @@ void main() {
         section: OpenSectionEnv.objectives,
         isGroup: false,
         isLite: false,
-        objectivesInTree: true,
         collapseCharacterState: () => keys.cs.currentState?.collapse(),
         collapseJournal: () => keys.journal.currentState?.collapse(),
         expandObjectives: () => expanded++,
@@ -72,7 +70,6 @@ void main() {
       section: OpenSectionEnv.objectives,
       isGroup: false,
       isLite: false,
-      objectivesInTree: false,
       collapseCharacterState: () => keys.cs.currentState?.collapse(),
       collapseJournal: () => keys.journal.currentState?.collapse(),
       expandObjectives: () => expanded++,
@@ -97,7 +94,6 @@ void main() {
         section: OpenSectionEnv.objectives,
         isGroup: true,
         isLite: false,
-        objectivesInTree: true,
         collapseCharacterState: () => keys.cs.currentState?.collapse(),
         expandObjectives: () => expanded++,
       );
@@ -105,7 +101,6 @@ void main() {
         section: OpenSectionEnv.objectives,
         isGroup: false,
         isLite: true,
-        objectivesInTree: true,
         collapseCharacterState: () => keys.cs.currentState?.collapse(),
         expandObjectives: () => expanded++,
       );
@@ -119,7 +114,6 @@ void main() {
         section: OpenSectionEnv.objectives,
         isGroup: false,
         isLite: false,
-        objectivesInTree: true,
         collapseCharacterState: () => keys.cs.currentState?.collapse(),
         collapseJournal: () => keys.journal.currentState?.collapse(),
         expandObjectives: () => expanded++,
@@ -153,7 +147,6 @@ void main() {
         section: OpenSectionEnv.objectives,
         isGroup: false,
         isLite: false,
-        objectivesInTree: true,
         collapseCharacterState: () => keys.cs.currentState?.collapse(),
         collapseJournal: () => keys.journal.currentState?.collapse(),
         expandObjectives: () => expanded++,
@@ -194,7 +187,6 @@ void main() {
       section: OpenSectionEnv.timestrip,
       isGroup: false,
       isLite: false,
-      objectivesInTree: true,
       expandCharacterState: () => keys.cs.currentState?.expand(),
       timeStripKey: keys.timeStrip,
     );
@@ -214,7 +206,6 @@ void main() {
       section: OpenSectionEnv.timestrip,
       isGroup: false,
       isLite: true,
-      objectivesInTree: false,
       expandCharacterState: () => expanded++,
     );
     expect(expanded, 0);
