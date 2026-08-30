@@ -34,6 +34,10 @@ class OpenSectionEnv {
   }
 
   /// Apply [section]. Empty is a no-op. Unknown tokens debugPrint and return.
+  ///
+  /// [objectivesInTree] stays on the signature for call-site stability.
+  /// Apply does not early-return on it: the accordion is still built for
+  /// OPEN_SECTION=objectives when the feature flag is off.
   static void apply({
     required String section,
     required bool isGroup,
@@ -58,18 +62,18 @@ class OpenSectionEnv {
       case journal:
         collapseCharacterState?.call();
         expandJournal?.call();
-        _afterFrame(() => ensureKeyVisible(journalKey));
+        afterExpanded(() => ensureKeyVisible(journalKey));
         return;
       case objectives:
-        if (!objectivesInTree || isGroup || isLite) return;
+        if (isGroup || isLite) return;
         collapseCharacterState?.call();
         expandObjectives?.call();
-        _afterFrame(() => ensureKeyVisible(objectivesKey));
+        afterExpanded(() => ensureKeyVisible(objectivesKey));
         return;
       case timestrip:
         if (isLite) return;
         expandCharacterState?.call();
-        _afterFrame(() => ensureKeyVisible(timeStripKey));
+        afterExpanded(() => ensureKeyVisible(timeStripKey));
         return;
       case edit:
         if (isGroup || isLite) return;
@@ -78,8 +82,13 @@ class OpenSectionEnv {
     }
   }
 
-  static void _afterFrame(VoidCallback fn) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => fn());
+  /// Two nested post-frame callbacks so an expanded accordion body (TimeStrip
+  /// at the bottom of Character State, journal/objectives headers) is laid
+  /// out before [ensureKeyVisible].
+  static void afterExpanded(VoidCallback fn) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => fn());
+    });
   }
 
   static void ensureKeyVisible(GlobalKey? key) {

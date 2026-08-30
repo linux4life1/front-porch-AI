@@ -74,11 +74,15 @@ void main() {
         .getRect(find.byKey(const Key('needs-stub')))
         .bottom;
     final relationshipTop = tester.getRect(find.text('Relationship')).top;
-    expect(relationshipTop - needsBottom, 20);
+    expect(relationshipTop - needsBottom, RealismFormSection.sectionHeaderGap);
 
-    // Starting Emotion always had this gap after the Relationship card.
+    // Starting Emotion uses the same token above its header, measured from
+    // the bordered Relationship card — not a looser greaterThan.
+    final cardBottom = tester
+        .getRect(find.byKey(const Key('relationship-card')))
+        .bottom;
     final emotionTop = tester.getRect(find.text('Starting Emotion')).top;
-    expect(emotionTop, greaterThan(relationshipTop));
+    expect(emotionTop - cardBottom, RealismFormSection.sectionHeaderGap);
   });
 
   testWidgets('Relationship still has a 20px gap when Needs is absent', (
@@ -92,5 +96,11 @@ void main() {
 
     expect(find.text('Relationship'), findsOneWidget);
     expect(find.text('Starting Emotion'), findsOneWidget);
+
+    final cardBottom = tester
+        .getRect(find.byKey(const Key('relationship-card')))
+        .bottom;
+    final emotionTop = tester.getRect(find.text('Starting Emotion')).top;
+    expect(emotionTop - cardBottom, RealismFormSection.sectionHeaderGap);
   });
 }

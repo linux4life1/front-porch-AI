@@ -28,9 +28,11 @@ void main() {
       journalKey: keys.journal,
     );
     await tester.pump();
+    await tester.pump();
 
     expect(keys.cs.currentState!.isExpanded, isFalse);
     expect(keys.journal.currentState!.isExpanded, isTrue);
+    expect(keys.journal.currentContext, isNotNull);
   });
 
   testWidgets('objectives collapses Character State and expands Objectives', (
@@ -48,35 +50,61 @@ void main() {
       objectivesKey: keys.objectives,
     );
     await tester.pump();
+    await tester.pump();
 
     expect(keys.cs.currentState!.isExpanded, isFalse);
     expect(keys.objectives.currentState!.isExpanded, isTrue);
+    expect(keys.objectives.currentContext, isNotNull);
   });
 
-  testWidgets('objectives skips when the accordion is not in the tree', (
+  testWidgets('objectives still expands when the feature flag is off', (
     tester,
   ) async {
     final keys = await _pumpAccordions(tester);
-    var expanded = 0;
 
     OpenSectionEnv.apply(
       section: OpenSectionEnv.objectives,
       isGroup: false,
       isLite: false,
       objectivesInTree: false,
-      expandObjectives: () => expanded++,
-    );
-    OpenSectionEnv.apply(
-      section: OpenSectionEnv.objectives,
-      isGroup: true,
-      isLite: false,
-      objectivesInTree: true,
-      expandObjectives: () => expanded++,
+      collapseCharacterState: () => keys.cs.currentState?.collapse(),
+      expandObjectives: () => keys.objectives.currentState?.expand(),
+      objectivesKey: keys.objectives,
     );
     await tester.pump();
-    expect(expanded, 0);
-    expect(keys.objectives.currentState!.isExpanded, isFalse);
+    await tester.pump();
+
+    expect(keys.cs.currentState!.isExpanded, isFalse);
+    expect(keys.objectives.currentState!.isExpanded, isTrue);
+    expect(keys.objectives.currentContext, isNotNull);
   });
+
+  testWidgets(
+    'objectives skips group and lite where the accordion cannot exist',
+    (tester) async {
+      final keys = await _pumpAccordions(tester);
+      var expanded = 0;
+
+      OpenSectionEnv.apply(
+        section: OpenSectionEnv.objectives,
+        isGroup: true,
+        isLite: false,
+        objectivesInTree: true,
+        expandObjectives: () => expanded++,
+      );
+      OpenSectionEnv.apply(
+        section: OpenSectionEnv.objectives,
+        isGroup: false,
+        isLite: true,
+        objectivesInTree: true,
+        expandObjectives: () => expanded++,
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(expanded, 0);
+      expect(keys.objectives.currentState!.isExpanded, isFalse);
+    },
+  );
 
   testWidgets('timestrip expands Character State and finds TimeStrip', (
     tester,
@@ -92,6 +120,7 @@ void main() {
       expandCharacterState: () => keys.cs.currentState?.expand(),
       timeStripKey: keys.timeStrip,
     );
+    await tester.pump();
     await tester.pump();
 
     expect(keys.cs.currentState!.isExpanded, isTrue);

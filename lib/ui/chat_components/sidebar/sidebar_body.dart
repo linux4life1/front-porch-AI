@@ -81,7 +81,7 @@ class _SidebarBodyState extends State<SidebarBody> {
   static bool _openSectionEnvConsumed = false;
 
   final _characterStateKey = GlobalKey<CharacterStateGroupState>();
-  final _journalMemoryKey = GlobalKey<JournalMemoryGroupState>();
+  final _journalAccordionKey = GlobalKey<PorchAccordionState>();
   final _objectivesKey = GlobalKey<PorchAccordionState>();
   final _timeStripKey = GlobalKey();
 
@@ -107,12 +107,16 @@ class _SidebarBodyState extends State<SidebarBody> {
       section: OpenSectionEnv.name,
       isGroup: isGroup,
       isLite: isLite,
-      objectivesInTree: !isGroup && !isLite && chat.objectivesActive,
+      objectivesInTree:
+          !isGroup &&
+          !isLite &&
+          (chat.objectivesActive ||
+              OpenSectionEnv.name == OpenSectionEnv.objectives),
       collapseCharacterState: () => _characterStateKey.currentState?.collapse(),
       expandCharacterState: () => _characterStateKey.currentState?.expand(),
-      expandJournal: () => _journalMemoryKey.currentState?.expand(),
+      expandJournal: () => _journalAccordionKey.currentState?.expand(),
       expandObjectives: () => _objectivesKey.currentState?.expand(),
-      journalKey: _journalMemoryKey,
+      journalKey: _journalAccordionKey,
       objectivesKey: _objectivesKey,
       timeStripKey: _timeStripKey,
       onOpenEdit: widget.onOpenEditFromEnv,
@@ -175,7 +179,7 @@ class _SidebarBodyState extends State<SidebarBody> {
                 timeStripKey: _timeStripKey,
               ),
             JournalMemoryGroup(
-              key: _journalMemoryKey,
+              accordionKey: _journalAccordionKey,
               chatService: chat,
               isGroup: isGroup,
               isLite: isLite,
@@ -194,10 +198,13 @@ class _SidebarBodyState extends State<SidebarBody> {
             // Objectives: own leaf, collapsed by default — runs in the
             // background; expand when the user wants to steer the story.
             // 1:1 full chats only (same gate as the old Story Tools embed).
-            // Switched off (v45) ⇒ the panel is GONE, not disabled: a feature
-            // that costs a model call per check should leave no surface behind
-            // suggesting it is still working. The quests themselves are kept.
-            if (!isGroup && !isLite && chat.objectivesActive)
+            // Switched off (v45) ⇒ the panel is GONE, not disabled, except
+            // OPEN_SECTION=objectives still builds it so UIC can photograph
+            // the title when Flora boots with objectivesActive false.
+            if (!isGroup &&
+                !isLite &&
+                (chat.objectivesActive ||
+                    OpenSectionEnv.name == OpenSectionEnv.objectives))
               PorchAccordion(
                 key: _objectivesKey,
                 id: 'objectives',

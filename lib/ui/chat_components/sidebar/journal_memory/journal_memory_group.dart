@@ -52,6 +52,10 @@ class JournalMemoryGroup extends StatefulWidget {
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
 
+  /// Parent-owned key on [PorchAccordion] so OPEN_SECTION=journal can
+  /// expand and ensureVisible the TITLE, not the expanded body.
+  final GlobalKey<PorchAccordionState>? accordionKey;
+
   const JournalMemoryGroup({
     super.key,
     required this.chatService,
@@ -62,6 +66,7 @@ class JournalMemoryGroup extends StatefulWidget {
     required this.onJumpToMessage,
     required this.initiallyExpanded,
     this.onExpansionChanged,
+    this.accordionKey,
   });
 
   @override
@@ -69,7 +74,10 @@ class JournalMemoryGroup extends StatefulWidget {
 }
 
 class JournalMemoryGroupState extends State<JournalMemoryGroup> {
-  final _accordionKey = GlobalKey<PorchAccordionState>();
+  final _ownedAccordionKey = GlobalKey<PorchAccordionState>();
+
+  GlobalKey<PorchAccordionState> get _accordionKey =>
+      widget.accordionKey ?? _ownedAccordionKey;
 
   void expand() => _accordionKey.currentState?.expand();
 

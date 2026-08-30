@@ -199,6 +199,9 @@ class RealismFormSection extends StatelessWidget {
     this.onStoryStartTimeChanged,
   });
 
+  /// Shared gap above Relationship and Starting Emotion headers.
+  static const double sectionHeaderGap = 20;
+
   static const _timeOptions = [
     'dawn',
     'morning',
@@ -300,8 +303,9 @@ class RealismFormSection extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: enabled
                         ? AppColors.formMasterAccent.withValues(alpha: 0.2)
-                        : AppColors.surfaceContainerOf(context)
-                              .withValues(alpha: 0.6),
+                        : AppColors.surfaceContainerOf(
+                            context,
+                          ).withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -474,19 +478,12 @@ class RealismFormSection extends StatelessWidget {
         ], // end showTimeAndDay
 
         if (enabled) ...[
-          const SizedBox(height: 20),
-
           // Needs Simulation (rendered separately when provided by caller).
           // ignore: use_null_aware_elements — '?' doesn't work in children lists
-          if (needsFormSection != null) ...[
-            needsFormSection!,
-            // Same 20px gap Starting Emotion always gets above its header.
-            // NeedsFormSection pads its own top (24), not its bottom, so this
-            // does not double-space.
-            const SizedBox(height: 20),
-          ],
+          if (needsFormSection != null) needsFormSection!,
 
-          // Relationship Section
+          // Relationship Section — one [sectionHeaderGap] above the header.
+          const SizedBox(height: sectionHeaderGap),
           _sectionHeader(
             Icons.favorite,
             'Relationship',
@@ -494,6 +491,7 @@ class RealismFormSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Container(
+            key: const Key('relationship-card'),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppColors.cardOf(context),
@@ -540,7 +538,7 @@ class RealismFormSection extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: sectionHeaderGap),
 
           // Emotion Section
           _sectionHeader(
@@ -586,8 +584,9 @@ class RealismFormSection extends StatelessWidget {
                           decoration: InputDecoration(
                             hintText: 'e.g. curious, guarded, amused',
                             hintStyle: TextStyle(
-                              color: AppColors.textTertiary(context)
-                                  .withValues(alpha: 0.6),
+                              color: AppColors.textTertiary(
+                                context,
+                              ).withValues(alpha: 0.6),
                               fontSize: 13,
                             ),
                             border: InputBorder.none,
@@ -703,7 +702,8 @@ class RealismFormSection extends StatelessWidget {
                   buildToggleRow(
                     icon: Icons.verified_user,
                     label: 'Realism Verification (Director/Verifier)',
-                    subtitle: 'Optional director thread validates realism deltas + needs JSON; supplies corrections + reason or re-feeds for reprocessing (extra eval cost; strong models recommended)',
+                    subtitle:
+                        'Optional director thread validates realism deltas + needs JSON; supplies corrections + reason or re-feeds for reprocessing (extra eval cost; strong models recommended)',
                     value: realismVerificationEnabled,
                     onChanged: onRealismVerificationChanged,
                     context: context,
@@ -813,6 +813,7 @@ class RealismFormSection extends StatelessWidget {
 
   Widget _sectionHeader(IconData icon, String label, Color color) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, color: color, size: 18),
         const SizedBox(width: 8),
@@ -822,6 +823,7 @@ class RealismFormSection extends StatelessWidget {
             color: color,
             fontSize: 15,
             fontWeight: FontWeight.w600,
+            height: 1.0,
           ),
         ),
       ],
@@ -874,8 +876,9 @@ class RealismFormSection extends StatelessWidget {
         SliderTheme(
           data: SliderThemeData(
             activeTrackColor: color,
-            inactiveTrackColor: AppColors.borderOf(context)
-                .withValues(alpha: 0.3),
+            inactiveTrackColor: AppColors.borderOf(
+              context,
+            ).withValues(alpha: 0.3),
             thumbColor: color,
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
