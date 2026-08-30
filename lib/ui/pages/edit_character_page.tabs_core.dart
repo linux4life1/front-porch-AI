@@ -309,6 +309,9 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                   onWorkDaysChanged: (v) => rebuildState(() => _workDays = v),
                   birthday: _birthday,
                   onBirthdayChanged: (v) => rebuildState(() => _birthday = v),
+                  birthdayAgeAsOf: BirthdayMath.ageAsOfStory(
+                    _realismStoryStartDate,
+                  ),
                   likes: _likes,
                   onLikesChanged: (v) => rebuildState(() => _likes = v),
                   dislikes: _dislikes,

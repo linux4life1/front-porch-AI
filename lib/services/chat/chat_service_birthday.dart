@@ -149,10 +149,6 @@ extension ChatServiceBirthday on ChatService {
     required DateTime now,
   }) async {
     if (!objectivesActive) return;
-    if (reading.phase != BirthdayPhase.upcoming &&
-        reading.phase != BirthdayPhase.today) {
-      return;
-    }
     final year = BirthdayMath.occurrenceYear(reading, now);
     final title = BirthdayMath.objectiveTitleFor(
       monthDay: reading.birth.monthDay,
@@ -164,19 +160,44 @@ extension ChatServiceBirthday on ChatService {
       ownerId,
       chatId: _currentSessionId,
     );
+    var retired = false;
+    final leftover = <Objective>[];
     for (final o in existing) {
-      if (o.active &&
-          BirthdayMath.isBirthdayObjective(
-            o.objective,
-            year: year,
-            monthDay: reading.birth.monthDay,
-          )) {
+      if (!o.active) continue;
+      if (BirthdayMath.outingShouldRetire(
+        o.objective,
+        phase: reading.phase,
+        occurrenceYear: year,
+        monthDay: reading.birth.monthDay,
+      )) {
+        await _db.updateObjective(
+          ObjectivesCompanion(
+            id: drift.Value(o.id),
+            active: const drift.Value(false),
+          ),
+        );
+        retired = true;
+        continue;
+      }
+      leftover.add(o);
+    }
+    if (retired) await _loadActiveObjectives();
+    if (reading.phase != BirthdayPhase.upcoming &&
+        reading.phase != BirthdayPhase.today) {
+      return;
+    }
+    for (final o in leftover) {
+      if (BirthdayMath.isBirthdayObjective(
+        o.objective,
+        year: year,
+        monthDay: reading.birth.monthDay,
+      )) {
         return;
       }
     }
     final activeSecondaries = [
-      for (final o in existing)
-        if (o.active && !o.isPrimary) o,
+      for (final o in leftover)
+        if (!o.isPrimary) o,
     ];
     if (activeSecondaries.length >= kMaxSecondaryObjectives) return;
 

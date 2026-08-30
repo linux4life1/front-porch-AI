@@ -95,6 +95,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
     });
   }
 
+  void _setBirthday(String v) => setState(() => _birthday = v);
+
   void _cancelEditing() {
     setState(() {
       _isEditing = false;

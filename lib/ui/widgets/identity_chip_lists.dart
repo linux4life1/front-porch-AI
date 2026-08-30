@@ -63,6 +63,17 @@ bool plannerEnabledOf(BuildContext context) {
   }
 }
 
+/// Live story clock when a [ChatService] is in scope, else null so
+/// [BirthdayRow] can fall back. Settings and Speak as both claim
+/// "on the story date"; wall-clock was the silent miss.
+DateTime? storyDateOf(BuildContext context) {
+  try {
+    return Provider.of<ChatService>(context, listen: false).timeService.clock;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// The card-authored IDENTITY lists — Ambitions, Likes & Dislikes, and the 18+
 /// pair — every one of them a short list of short phrases edited as chips.
 ///

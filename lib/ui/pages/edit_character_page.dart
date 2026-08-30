@@ -25,7 +25,8 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show Pockets, BirthdayMath;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';

@@ -119,6 +119,7 @@ extension _UserPersonaDialogEditForm on _UserPersonaDialogState {
                   BirthdayRow(
                     iso: _birthday,
                     onChanged: _setBirthday,
+                    ageAsOf: storyDateOf(context),
                     helper:
                         'The story calendar uses this so they know how old '
                         'you are and when your birthday is. February 29 is '

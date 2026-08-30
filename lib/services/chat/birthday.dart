@@ -252,6 +252,42 @@ class BirthdayMath {
     return true;
   }
 
+  /// Last year's outing occupies the cap of 4 until we retire it.
+  /// Afterglow keeps this year. Far retires any leftover. Upcoming
+  /// and today retire other years only. Plant-guard still uses
+  /// [isBirthdayObjective] with [year] and does not evict others.
+  static bool outingShouldRetire(
+    String text, {
+    required BirthdayPhase phase,
+    required int occurrenceYear,
+    required String monthDay,
+  }) {
+    if (!isBirthdayObjective(text, monthDay: monthDay)) return false;
+    switch (phase) {
+      case BirthdayPhase.justPast:
+        return false;
+      case BirthdayPhase.far:
+        return true;
+      case BirthdayPhase.upcoming:
+      case BirthdayPhase.today:
+        return !isBirthdayObjective(
+          text,
+          year: occurrenceYear,
+          monthDay: monthDay,
+        );
+    }
+  }
+
+  /// Editor age line. Authored ISO story date, else the calendar
+  /// day the chat starts.
+  static DateTime ageAsOfStory(String? iso) {
+    final s = (iso ?? '').trim();
+    if (s.isEmpty) return StoryClock.todayAnchor();
+    final parsed = DateTime.tryParse(s);
+    if (parsed == null) return StoryClock.todayAnchor();
+    return StoryClock.dateOnly(parsed);
+  }
+
   /// Year of the upcoming (or today's) birthday against [storyNow].
   static int occurrenceYear(BirthdayReading reading, DateTime storyNow) {
     final now = StoryClock.dateOnly(storyNow);
