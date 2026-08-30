@@ -39,6 +39,16 @@ class SidebarTokens {
   /// Drag-resize upper bound.
   static const double maxWidth = 600;
 
+  /// Compile-time launch width (`--dart-define=SIDEBAR_WIDTH=214`).
+  /// Omit the define to keep the product default (300). 0 stays closed.
+  /// Any other positive value is clamped to [minWidth]..[maxWidth].
+  static double widthFromEnvironment({
+    int defined = const int.fromEnvironment('SIDEBAR_WIDTH', defaultValue: 300),
+  }) {
+    if (defined <= 0) return 0;
+    return defined.toDouble().clamp(minWidth, maxWidth);
+  }
+
   /// Accordion / card corner radius.
   static const double cardRadius = 12;
 

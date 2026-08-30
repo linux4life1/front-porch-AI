@@ -91,7 +91,7 @@ class _ChatPageState extends State<ChatPage> {
   // Prune marker: entries live until the session changes (or the page dies),
   // so a long-lived page can't accumulate every past chat's messages.
   String? _bubbleKeysSessionId;
-  double _sidebarWidth = 300;
+  double _sidebarWidth = SidebarTokens.widthFromEnvironment();
   int _inputMinLines = 1;
   double _dragAccumulator = 0;
   bool _isCallActive = false;
@@ -977,8 +977,11 @@ class _ChatPageState extends State<ChatPage> {
             color: AppColors.iconSecondary(context),
           ),
           tooltip: 'Toggle Sidebar',
-          onPressed: () =>
-              setState(() => _sidebarWidth = _sidebarWidth > 0 ? 0 : 300),
+          onPressed: () => setState(
+            () => _sidebarWidth = _sidebarWidth > 0
+                ? 0
+                : SidebarTokens.widthFromEnvironment(),
+          ),
         ),
         const SizedBox(width: 8),
       ],
