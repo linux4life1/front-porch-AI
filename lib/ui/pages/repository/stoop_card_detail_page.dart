@@ -605,6 +605,15 @@ class _StoopDetailPanelState extends State<_StoopDetailPanel> {
                         ),
                       ),
                     ],
+                    if (d.isWorld) ...[
+                      const SizedBox(width: 12),
+                      Wrap(
+                        spacing: 6,
+                        children: stoopWorldKindBadges(
+                          climateEnabled: stoopWorldClimateEnabled(d.card),
+                        ),
+                      ),
+                    ],
                     if (d.nsfw) ...[
                       const SizedBox(width: 12),
                       const StoopBadge(StoopBadgeKind.nsfw),

@@ -107,7 +107,10 @@ class _StoopCardTileState extends State<StoopCardTile> {
               children: [
                 if (card.modPick) const StoopBadge(StoopBadgeKind.pick),
                 if (card.isGroup) const StoopBadge(StoopBadgeKind.group),
-                if (card.isWorld) const StoopBadge(StoopBadgeKind.world),
+                if (card.isWorld)
+                  ...stoopWorldKindBadges(
+                    climateEnabled: stoopWorldClimateEnabled(card.card),
+                  ),
                 if (card.nsfw) const StoopBadge(StoopBadgeKind.nsfw),
               ],
             ),

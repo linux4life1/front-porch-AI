@@ -567,7 +567,10 @@ class _StoopBrowseViewState extends State<StoopBrowseView> {
           children: [
             const StoopBadge(StoopBadgeKind.featured),
             if (card.isGroup) const StoopBadge(StoopBadgeKind.group),
-            if (card.isWorld) const StoopBadge(StoopBadgeKind.world),
+            if (card.isWorld)
+              ...stoopWorldKindBadges(
+                climateEnabled: stoopWorldClimateEnabled(card.card),
+              ),
             if (card.nsfw) const StoopBadge(StoopBadgeKind.nsfw),
           ],
         ),

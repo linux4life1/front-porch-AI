@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'stoop_collapsible.dart';
 import 'stoop_identity_sections.dart';
 
+import 'package:front_porch_ai/services/backporch/stoop_card.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -25,8 +26,6 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// `extensions → front_porch → realism_engine`, and the lorebook under
 /// `character_book`. Each returns an empty box when its data is absent, so a
 /// character without that feature shows no empty section.
-
-
 
 /// A collapsible holding a plain text body. Renders nothing when [body] is blank.
 Widget stoopTextSection(
@@ -84,7 +83,8 @@ List<Widget> stoopStandardSections(
       context,
       'Advanced',
       [
-        if (s('system_prompt').isNotEmpty) 'System prompt:\n${s('system_prompt')}',
+        if (s('system_prompt').isNotEmpty)
+          'System prompt:\n${s('system_prompt')}',
         if (s('post_history_instructions').isNotEmpty)
           'Post-history:\n${s('post_history_instructions')}',
       ].join('\n\n'),
@@ -100,6 +100,7 @@ List<Widget> stoopWorldSections(
   Map<String, dynamic> card,
 ) {
   final name = (card['name'] ?? '').toString();
+  final climateOn = stoopWorldClimateEnabled(card);
   final biome = card['biome'];
   final climate = biome is Map
       ? [
@@ -118,8 +119,9 @@ List<Widget> stoopWorldSections(
   // Stranger-uploaded JSON: `is`-check, never `as` — a wrong-typed 'entries'
   // (string, map) crashed the whole detail panel (1.3 sweep).
   final rawEntries = lore is Map ? lore['entries'] : null;
-  final valid =
-      rawEntries is List ? rawEntries.whereType<Map>().toList() : const <Map>[];
+  final valid = rawEntries is List
+      ? rawEntries.whereType<Map>().toList()
+      : const <Map>[];
   return [
     stoopTextSection(
       context,
@@ -127,8 +129,18 @@ List<Widget> stoopWorldSections(
       (card['description'] ?? '').toString(),
       initiallyExpanded: true,
     ),
-    stoopTextSection(context, 'Climate', climate),
-    stoopTextSection(context, 'Traits', traitLines.join('\n')),
+    if (!climateOn)
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(
+          'Lore only -- no climate, weather, or place traits.',
+          style: TextStyle(color: stoopCream2(context), height: 1.5),
+        ),
+      )
+    else ...[
+      stoopTextSection(context, 'Climate', climate),
+      stoopTextSection(context, 'Traits', traitLines.join('\n')),
+    ],
     if (valid.isNotEmpty)
       stoopLorebookEntries(context, 'Lore (${valid.length})', valid, name),
   ];
@@ -153,7 +165,9 @@ Widget _defaultFirstMessage(
   if (greetings.isEmpty) return const SizedBox.shrink();
   return stoopTextSection(
     context,
-    greetings.length > 1 ? 'First message (${greetings.length})' : 'First message',
+    greetings.length > 1
+        ? 'First message (${greetings.length})'
+        : 'First message',
     greetings.join('\n\n———\n\n'),
   );
 }
@@ -266,10 +280,16 @@ Widget stoopLorebookSection(
   // Stranger JSON: `is`, never `as` (1.3 sweep — the sibling builders kept
   // crashing after the detail panel was hardened).
   final rawEntries = book is Map ? book['entries'] : null;
-  final valid =
-      rawEntries is List ? rawEntries.whereType<Map>().toList() : const <Map>[];
+  final valid = rawEntries is List
+      ? rawEntries.whereType<Map>().toList()
+      : const <Map>[];
   if (valid.isEmpty) return const SizedBox.shrink();
-  return stoopLorebookEntries(context, 'Lorebook (${valid.length})', valid, name);
+  return stoopLorebookEntries(
+    context,
+    'Lorebook (${valid.length})',
+    valid,
+    name,
+  );
 }
 
 /// Renders a collapsible list of lorebook entries (each with its trigger
@@ -296,10 +316,7 @@ Widget stoopLorebookEntries(
                 const SizedBox(height: 3),
                 Text(
                   stoopResolveMacros((e['content'] ?? '').toString(), name),
-                  style: TextStyle(
-                    color: stoopMute(context),
-                    height: 1.45,
-                  ),
+                  style: TextStyle(color: stoopMute(context), height: 1.45),
                 ),
               ],
             ),
@@ -366,10 +383,7 @@ Widget _kvList(BuildContext context, List<(String, String)> rows) {
                 width: 150,
                 child: Text(
                   k,
-                  style: TextStyle(
-                    color: stoopMute(context),
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: stoopMute(context), fontSize: 13),
                 ),
               ),
               Expanded(

@@ -31,6 +31,21 @@ const bool kStoopWorldsLive = true;
 /// solo+group server-side so already-shipped apps never receive a WORLD item.
 const String kStoopWorldTypes = 'solo,group,world';
 
+/// Climate/weather flag on a WORLD .fpworld envelope.
+///
+/// Reads `climate_enabled` / `climateEnabled` (bool or 0/1). Missing key
+/// means climate ON — old packages always shipped biome. Callers pass the
+/// payload already on the card; this does not hit the network.
+bool stoopWorldClimateEnabled(Map<String, dynamic> envelope) {
+  final raw = envelope.containsKey('climate_enabled')
+      ? envelope['climate_enabled']
+      : envelope['climateEnabled'];
+  if (raw == null) return true;
+  if (raw is bool) return raw;
+  if (raw is num) return raw != 0;
+  return true;
+}
+
 /// A creator reference as it appears on a card (`@handle`).
 class StoopCreatorRef {
   final String id;
@@ -73,6 +88,11 @@ class StoopCard {
   final String? originalCreator;
   final String? primaryAssetId;
 
+  /// WORLD listing payload: the .fpworld envelope when the list includes
+  /// `card`. Climate/lore pills read [stoopWorldClimateEnabled] from here.
+  /// Empty on SOLO/GROUP and on older list rows that omit the envelope.
+  final Map<String, dynamic> card;
+
   /// Approximate Llama token count of the card's content (server-computed), so
   /// the browser can show "how big is this" before download. Null on older
   /// records not yet backfilled.
@@ -91,6 +111,7 @@ class StoopCard {
     this.originalCreator,
     required this.primaryAssetId,
     this.tokenCount,
+    this.card = const {},
   });
 
   bool get isGroup => type == 'GROUP';
@@ -111,6 +132,7 @@ class StoopCard {
         originalCreator: originalCreator,
         primaryAssetId: primaryAssetId,
         tokenCount: tokenCount,
+        card: card,
       );
 
   factory StoopCard.fromJson(Map<String, dynamic> j) => StoopCard(
@@ -131,6 +153,9 @@ class StoopCard {
         : null,
     primaryAssetId: j['primaryAssetId'] as String?,
     tokenCount: (j['tokenCount'] as num?)?.toInt(),
+    card: j['card'] is Map
+        ? Map<String, dynamic>.from(j['card'] as Map)
+        : const {},
   );
 }
 

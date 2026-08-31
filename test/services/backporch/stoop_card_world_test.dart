@@ -61,4 +61,28 @@ void main() {
     expect(card.type, 'SOLO');
     expect(card.isWorld, isFalse);
   });
+
+  test('stoopWorldClimateEnabled missing key is ON', () {
+    expect(stoopWorldClimateEnabled({}), isTrue);
+    expect(stoopWorldClimateEnabled({'name': 'Old'}), isTrue);
+  });
+
+  test('stoopWorldClimateEnabled reads bool, camelCase, and 0/1', () {
+    expect(stoopWorldClimateEnabled({'climate_enabled': true}), isTrue);
+    expect(stoopWorldClimateEnabled({'climate_enabled': false}), isFalse);
+    expect(stoopWorldClimateEnabled({'climateEnabled': false}), isFalse);
+    expect(stoopWorldClimateEnabled({'climate_enabled': 0}), isFalse);
+    expect(stoopWorldClimateEnabled({'climate_enabled': 1}), isTrue);
+  });
+
+  test('StoopCard.fromJson keeps WORLD envelope for climate pills', () {
+    final card = StoopCard.fromJson({
+      'id': 'w1',
+      'name': 'Mars Colony',
+      'type': 'WORLD',
+      'card': {'climate_enabled': false},
+    });
+    expect(card.isWorld, isTrue);
+    expect(stoopWorldClimateEnabled(card.card), isFalse);
+  });
 }
