@@ -9,15 +9,20 @@
   `climate_enabled`; omitted empty envelopes default to lore-only while real
   legacy envelopes remain climate-on. Desktop tiles/heroes and web cards use
   that list-aware decision. Climate-off JSON/decode strips biome and traits;
-  web details hide leftovers too. Added focused desktop, model, and web
-  regression coverage.
+  web details hide leftovers too. One bool/0/1 reader now serves model,
+  package, and Stoop parsing, and narrow web badge rows wrap without clipping.
+  Added focused desktop, model, and web regression coverage.
 - **Files:** stoop_card.dart, stoop_card_tile.dart, stoop_browse_view.dart,
   world.dart, fp_world_package.dart, StoopCardTile.tsx,
   StoopCardSections.tsx, stoopCardBody.ts, stoopTypes.ts, styles.css,
   world_climate_leftovers_regression_test.dart,
   stoop_list_climate_regression_test.dart, stoopClimateRegression.test.tsx,
-  docs/Rawhide.md
-- **Commit:** pending
+  docs/Rawhide.md, assets/web_app
+- **Verification:** 5,165 non-golden Flutter tests and 118 host-Linux goldens;
+  195 web tests, typecheck, production build; Linux desktop build and the
+  sandboxed Stoop E2E. New behavior guards were each proven red before green.
+  The container gate could not run because its Docker image is unavailable.
+- **Commits:** 9b61dffe, ac660471, 69f62a96, c3048d88, dd931f93, 51cafdf7
 
 ## 2026-08-30 — feat(worlds): per-world climateEnabled lorebook-only flag
 - **Why:** Some worlds are a bookshelf of facts (Soul Society lore, a
