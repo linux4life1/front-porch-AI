@@ -154,7 +154,7 @@ void main() {
         find.byType(Switch).first,
         '$tag climate switch',
       );
-      _expectNotUnderFooter(
+      _expectFullyAboveFooter(
         tester,
         find.text('Climate'),
         '$tag Climate picker label',

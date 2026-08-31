@@ -105,7 +105,7 @@ extension _WorldDialogFrame on _WorldManagementPageState {
                   children: [
                     // Header
                     Container(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
@@ -164,7 +164,7 @@ extension _WorldDialogFrame on _WorldManagementPageState {
                     // Content
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 80),
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 80),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

@@ -229,7 +229,7 @@ extension _WorldBasicsSection on _WorldManagementPageState {
             onChanged: (v) => setDialogState(() => draft.climateEnabled = v),
           ),
           if (draft.climateEnabled) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             _buildClimateSection(ctx, draft, setDialogState),
           ],
           const SizedBox(height: 12),
