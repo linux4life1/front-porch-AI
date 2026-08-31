@@ -1,9 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { act } from 'react-dom/test-utils';
-import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
 import { StoopBadges } from '../components/stoop/StoopCardTile';
 import { StoopCardSections } from '../pages/stoop/StoopCardSections';
 import {
@@ -78,45 +77,29 @@ describe('Stoop WORLD climate boundaries', () => {
 });
 
 describe('Stoop WORLD climate surfaces', () => {
-  let container: HTMLDivElement;
-  let root: Root;
-
-  beforeEach(() => {
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    root = createRoot(container);
-  });
-
-  afterEach(() => {
-    act(() => root.unmount());
-    container.remove();
-  });
-
   it('labels list rows and detail sections as lore-only', () => {
-    act(() => {
-      root.render(<StoopBadges card={world({ climateEnabled: false })} />);
-    });
-    expect(container.textContent).toContain('World');
-    expect(container.textContent).toContain('Lore');
-    expect(container.textContent).not.toContain('Climate');
+    const badges = renderToStaticMarkup(
+      <StoopBadges card={world({ climateEnabled: false })} />,
+    );
+    expect(badges).toContain('World');
+    expect(badges).toContain('Lore');
+    expect(badges).not.toContain('Climate');
 
-    act(() => {
-      root.render(
-        <StoopCardSections
-          detail={detail({
-            description: 'Facts without weather.',
-            climate_enabled: false,
-            biome: { displayName: 'Leftover climate' },
-            place_traits: { gravity: 'low' },
-            lorebook: { entries: [] },
-          })}
-        />,
-      );
-    });
-    expect(container.textContent).toContain(
+    const sections = renderToStaticMarkup(
+      <StoopCardSections
+        detail={detail({
+          description: 'Facts without weather.',
+          climate_enabled: false,
+          biome: { displayName: 'Leftover climate' },
+          place_traits: { gravity: 'low' },
+          lorebook: { entries: [] },
+        })}
+      />,
+    );
+    expect(sections).toContain(
       'Lore only -- no climate, weather, or place traits.',
     );
-    expect(container.textContent).not.toContain('Leftover climate');
-    expect(container.textContent).not.toContain('Traits');
+    expect(sections).not.toContain('Leftover climate');
+    expect(sections).not.toContain('Traits');
   });
 });
