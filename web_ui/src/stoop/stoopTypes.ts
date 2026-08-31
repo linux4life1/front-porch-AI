@@ -61,6 +61,10 @@ export interface StoopCard {
   originalCreator?: string | null;
   primaryAssetId: string | null;
   tokenCount: number | null;
+  /** Additive WORLD list DTO fields; full card envelopes may be omitted. */
+  climateEnabled?: boolean | null;
+  climate_enabled?: boolean | null;
+  card?: Record<string, unknown>;
 }
 
 export interface StoopCommentReply {

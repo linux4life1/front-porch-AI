@@ -2039,6 +2039,8 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 .stoop-badge.pick { border: none; background: var(--accent); color: #241502; }
 .stoop-badge.group { border-color: var(--ok); color: var(--ok); }
 .stoop-badge.world { border-color: var(--accent); color: var(--accent); }
+.stoop-badge.climate { border-color: var(--ok); color: var(--ok); }
+.stoop-badge.lore { color: var(--text); }
 
 .stoop-detail-head { display: flex; gap: 16px; align-items: flex-start; }
 .stoop-detail-art { width: 140px; flex: none; }

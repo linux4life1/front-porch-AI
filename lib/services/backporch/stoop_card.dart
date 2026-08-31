@@ -89,9 +89,14 @@ class StoopCard {
   final String? primaryAssetId;
 
   /// WORLD listing payload: the .fpworld envelope when the list includes
-  /// `card`. Climate/lore pills read [stoopWorldClimateEnabled] from here.
-  /// Empty on SOLO/GROUP and on older list rows that omit the envelope.
+  /// `card`. Empty on SOLO/GROUP and on list rows that omit the envelope.
   final Map<String, dynamic> card;
+
+  /// WORLD list DTO climate flag when [card] is omitted.
+  ///
+  /// Null on older servers and non-WORLD rows. Both `climateEnabled` and
+  /// `climate_enabled` are accepted at the wire boundary.
+  final bool? climateEnabled;
 
   /// Approximate Llama token count of the card's content (server-computed), so
   /// the browser can show "how big is this" before download. Null on older
@@ -112,6 +117,7 @@ class StoopCard {
     required this.primaryAssetId,
     this.tokenCount,
     this.card = const {},
+    this.climateEnabled,
   });
 
   bool get isGroup => type == 'GROUP';
@@ -133,6 +139,7 @@ class StoopCard {
         primaryAssetId: primaryAssetId,
         tokenCount: tokenCount,
         card: card,
+        climateEnabled: climateEnabled,
       );
 
   factory StoopCard.fromJson(Map<String, dynamic> j) => StoopCard(
@@ -156,7 +163,26 @@ class StoopCard {
     card: j['card'] is Map
         ? Map<String, dynamic>.from(j['card'] as Map)
         : const {},
+    climateEnabled: switch (j['climateEnabled'] ?? j['climate_enabled']) {
+      final bool value => value,
+      final num value => value != 0,
+      _ => null,
+    },
   );
+}
+
+/// Climate/lore decision for a WORLD list row.
+///
+/// A flag inside a full envelope is authoritative. Otherwise the additive
+/// list DTO flag fills the gap left by bandwidth-trimmed rows. A genuinely
+/// old envelope remains climate-on through [stoopWorldClimateEnabled], while
+/// an omitted/empty envelope no longer invents climate.
+bool stoopCardClimateEnabled(StoopCard card) {
+  if (card.card.containsKey('climate_enabled') ||
+      card.card.containsKey('climateEnabled')) {
+    return stoopWorldClimateEnabled(card.card);
+  }
+  return card.climateEnabled ?? card.card.isNotEmpty;
 }
 
 /// A live counter update for one card, pushed over the Stoop socket whenever

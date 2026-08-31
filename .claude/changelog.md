@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-08-31 — fix(worlds): keep lore-only climate data behind wire boundaries
+- **Why:** Stoop list rows can omit the full `.fpworld` envelope, which made
+  the old-package missing-key default label every lore-only listing CLIMATE.
+  Climate-off model JSON and imports could also leak or restore biome and
+  place-trait values intentionally kept at rest for later re-enabling.
+- **What:** WORLD list DTOs now accept `climateEnabled` and
+  `climate_enabled`; omitted empty envelopes default to lore-only while real
+  legacy envelopes remain climate-on. Desktop tiles/heroes and web cards use
+  that list-aware decision. Climate-off JSON/decode strips biome and traits;
+  web details hide leftovers too. Added focused desktop, model, and web
+  regression coverage.
+- **Files:** stoop_card.dart, stoop_card_tile.dart, stoop_browse_view.dart,
+  world.dart, fp_world_package.dart, StoopCardTile.tsx,
+  StoopCardSections.tsx, stoopCardBody.ts, stoopTypes.ts, styles.css,
+  world_climate_leftovers_regression_test.dart,
+  stoop_list_climate_regression_test.dart, stoopClimateRegression.test.tsx,
+  docs/Rawhide.md
+- **Commit:** pending
+
 ## 2026-08-30 — feat(worlds): per-world climateEnabled lorebook-only flag
 - **Why:** Some worlds are a bookshelf of facts (Soul Society lore, a
   city gazetteer) and should not drag climate, weather, atmosphere, or

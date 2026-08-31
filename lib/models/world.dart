@@ -124,8 +124,8 @@ class World {
       'name': name,
       'description': description,
       'lorebook': lorebook.toJson(),
-      if (biomeId != null) 'biome_id': biomeId,
-      if (biomeJson != null) 'biome_json': biomeJson,
+      if (climateEnabled && biomeId != null) 'biome_id': biomeId,
+      if (climateEnabled && biomeJson != null) 'biome_json': biomeJson,
       if (coverImage != null) 'cover_image': coverImage,
       if (sourceId != null) 'source_id': sourceId,
       'format_version': formatVersion,
@@ -135,13 +135,17 @@ class World {
       if (avatarPath != null) 'avatar_path': avatarPath,
       'inject_description': injectDescription,
       'climate_enabled': climateEnabled,
-      if (placeTraits.isNotEmpty) 'place_traits': placeTraits,
+      if (climateEnabled && placeTraits.isNotEmpty) 'place_traits': placeTraits,
     };
   }
 
   factory World.fromJson(Map<String, dynamic> json) {
     final String name = json['name']?.toString() ?? 'Imported World';
     final String description = json['description']?.toString() ?? '';
+    final climateEnabled =
+        json['climate_enabled'] as bool? ??
+        json['climateEnabled'] as bool? ??
+        true;
 
     Lorebook lorebook;
     if (json['lorebook'] != null) {
@@ -157,10 +161,16 @@ class World {
       name: name,
       description: description,
       lorebook: lorebook,
-      biomeId: json['biome_id']?.toString() ?? json['biomeId']?.toString(),
-      biomeJson: json['biome_json'] is String
-          ? json['biome_json'] as String
-          : (json['biome_json'] is Map ? jsonEncode(json['biome_json']) : null),
+      biomeId: climateEnabled
+          ? json['biome_id']?.toString() ?? json['biomeId']?.toString()
+          : null,
+      biomeJson: climateEnabled
+          ? json['biome_json'] is String
+                ? json['biome_json'] as String
+                : (json['biome_json'] is Map
+                      ? jsonEncode(json['biome_json'])
+                      : null)
+          : null,
       coverImage: json['cover_image']?.toString() ?? json['cover']?.toString(),
       sourceId: json['source_id']?.toString() ?? json['sourceId']?.toString(),
       formatVersion:
@@ -174,14 +184,13 @@ class World {
           json['inject_description'] as bool? ??
           json['injectDescription'] as bool? ??
           true,
-      climateEnabled:
-          json['climate_enabled'] as bool? ??
-          json['climateEnabled'] as bool? ??
-          true,
-      placeTraits: json['place_traits'] is Map
-          ? Map<String, dynamic>.from(json['place_traits'] as Map)
-          : json['placeTraits'] is Map
-          ? Map<String, dynamic>.from(json['placeTraits'] as Map)
+      climateEnabled: climateEnabled,
+      placeTraits: climateEnabled
+          ? json['place_traits'] is Map
+                ? Map<String, dynamic>.from(json['place_traits'] as Map)
+                : json['placeTraits'] is Map
+                ? Map<String, dynamic>.from(json['placeTraits'] as Map)
+                : null
           : null,
     );
   }

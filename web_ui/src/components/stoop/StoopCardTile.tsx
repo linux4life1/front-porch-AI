@@ -7,6 +7,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { stoop } from '../../stoop/stoopApi';
+import { stoopCardClimateEnabled } from '../../stoop/stoopCardBody';
 import type { StoopCard } from '../../stoop/stoopTypes';
 import { StoopVerifiedBadge } from './StoopVerifiedBadge';
 
@@ -38,6 +39,8 @@ export function StoopCardArt({
 }
 
 export function StoopBadges({ card }: { card: StoopCard }) {
+  const climateEnabled =
+    card.type === 'WORLD' && stoopCardClimateEnabled(card);
   return (
     <span className="stoop-badges">
       {card.modPick && (
@@ -46,7 +49,16 @@ export function StoopBadges({ card }: { card: StoopCard }) {
         </span>
       )}
       {card.type === 'GROUP' && <span className="stoop-badge group">Group</span>}
-      {card.type === 'WORLD' && <span className="stoop-badge world">World</span>}
+      {card.type === 'WORLD' && (
+        <>
+          <span className="stoop-badge world">World</span>
+          <span
+            className={`stoop-badge ${climateEnabled ? 'climate' : 'lore'}`}
+          >
+            {climateEnabled ? 'Climate' : 'Lore'}
+          </span>
+        </>
+      )}
       {card.nsfw && <span className="stoop-badge nsfw">NSFW</span>}
     </span>
   );

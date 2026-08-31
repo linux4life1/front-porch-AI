@@ -123,9 +123,13 @@ FpWorldPackage decodeFpWorld(Map<String, dynamic> json) {
     lorebook = Lorebook(entries: []);
   }
 
+  final climateEnabled =
+      json['climate_enabled'] as bool? ??
+      json['climateEnabled'] as bool? ??
+      true;
   Map<String, dynamic>? biome;
   final rawBiome = json['biome'];
-  if (rawBiome is Map) {
+  if (climateEnabled && rawBiome is Map) {
     biome = Map<String, dynamic>.from(rawBiome);
   }
 
@@ -144,11 +148,8 @@ FpWorldPackage decodeFpWorld(Map<String, dynamic> json) {
       coverImage: cover,
       sourceId: meta['sourceId']?.toString() ?? id,
       formatVersion: formatVersion,
-      climateEnabled:
-          json['climate_enabled'] as bool? ??
-          json['climateEnabled'] as bool? ??
-          true,
-      placeTraits: json['place_traits'] is Map
+      climateEnabled: climateEnabled,
+      placeTraits: climateEnabled && json['place_traits'] is Map
           ? Map<String, dynamic>.from(json['place_traits'] as Map)
           : null,
     ),
