@@ -355,7 +355,7 @@ class WorldFacade {
           'biomeId': w.biomeJson != null
               ? 'custom'
               : (w.biomeId ?? 'temperate'),
-        'hasCustomClimate': w.biomeJson != null,
+        'hasCustomClimate': w.climateEnabled && w.biomeJson != null,
         'description': w.description,
       });
     }
@@ -375,7 +375,9 @@ class WorldFacade {
           {'id': b.id, 'displayName': b.displayName},
         for (final id in ids)
           if (_worlds.resolveWorld(id) case final w?)
-            if (w.biomeJson != null && Biome.tryParse(w.biomeJson) != null)
+            if (w.climateEnabled &&
+                w.biomeJson != null &&
+                Biome.tryParse(w.biomeJson) != null)
               {'id': 'world:${w.id}', 'displayName': '${w.name} (custom)'},
       ],
     };

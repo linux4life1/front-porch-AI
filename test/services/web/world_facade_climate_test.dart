@@ -185,10 +185,19 @@ void main() {
       });
       final wired = WorldFacade(repo, null, chat);
 
+      final template = Map<String, dynamic>.from(
+        wired.climates().firstWhere((c) => c['id'] == 'temperate')['template']
+            as Map,
+      );
+      template['id'] = 'custom';
+      template['seasonLabels'] = {'summer': 'High Sun'};
+
       expect(
         await wired.save({
           'name': 'Soul Society',
-          'climateEnabled': false,
+          'climateEnabled': true,
+          'biomeId': 'custom',
+          'biome': template,
           'entries': [
             {
               'name': 'Seireitei',
@@ -199,11 +208,25 @@ void main() {
         }),
         isTrue,
       );
+      // Toggle off; leftover biomeJson stays at rest (do not wipe).
+      expect(
+        await wired.save({'name': 'Soul Society', 'climateEnabled': false}),
+        isTrue,
+      );
       expect(
         await wired.save({
           'name': 'Karakura',
           'climateEnabled': true,
           'biomeId': 'temperate',
+        }),
+        isTrue,
+      );
+      expect(
+        await wired.save({
+          'name': 'Hueco Mundo',
+          'climateEnabled': true,
+          'biomeId': 'custom',
+          'biome': template,
         }),
         isTrue,
       );
@@ -223,18 +246,34 @@ void main() {
       final onId =
           wired.list().firstWhere((m) => m['name'] == 'Karakura')['id']
               as String;
+      final customOnId =
+          wired.list().firstWhere((m) => m['name'] == 'Hueco Mundo')['id']
+              as String;
 
-      final result = await wired.setChatPlaces([offId, onId]);
+      final result = await wired.setChatPlaces([offId, onId, customOnId]);
       expect(result['ok'], isTrue);
       final places = (result['places'] as List).cast<Map<String, dynamic>>();
-      expect(places, hasLength(2));
+      expect(places, hasLength(3));
 
       final off = places.firstWhere((p) => p['id'] == offId);
       expect(off.containsKey('biomeId'), isFalse);
       expect(off['biomeId'], isNot('temperate'));
+      expect(off['hasCustomClimate'], isFalse);
 
       final on = places.firstWhere((p) => p['id'] == onId);
       expect(on['biomeId'], 'temperate');
+      expect(on['hasCustomClimate'], isFalse);
+
+      final customOn = places.firstWhere((p) => p['id'] == customOnId);
+      expect(customOn['biomeId'], 'custom');
+      expect(customOn['hasCustomClimate'], isTrue);
+
+      final optionIds = (result['climateOptions'] as List)
+          .map((e) => (e as Map)['id'])
+          .toList();
+      expect(optionIds, isNot(contains('world:$offId')));
+      expect(optionIds, contains('world:$customOnId'));
+      expect(optionIds, isNot(contains('world:$onId')));
     },
   );
 }
