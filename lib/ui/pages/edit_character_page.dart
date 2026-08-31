@@ -480,10 +480,10 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
-    if (result == null || result.files.single.path == null) return;
+    if (result == null || result.files.isEmpty) return;
 
     try {
-      final content = await File(result.files.single.path!).readAsString();
+      final content = utf8.decode(await result.files.single.readAsBytes());
       final dynamic jsonData = jsonDecode(content);
 
       if (jsonData is! Map<String, dynamic>) {

@@ -473,10 +473,13 @@ class BackgroundSettingsDialog extends StatelessWidget {
                               category: PickerPrefs.catImage,
                               type: FileType.image,
                             );
-                            if (result != null &&
-                                result.files.single.path != null) {
+                            if (result != null && result.files.isNotEmpty) {
+                              final path = await PickerPrefs.localPathOrTemp(
+                                result.files.single,
+                              );
+                              if (path == null) return;
                               setState(() {
-                                selectedImagePath = result.files.single.path!;
+                                selectedImagePath = path;
                                 isUploading = false;
                               });
                             }

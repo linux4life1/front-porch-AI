@@ -95,9 +95,11 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
       allowMultiple: false,
     );
 
-    if (result != null && result.files.single.path != null) {
+    if (result != null && result.files.isNotEmpty) {
+      final path = await PickerPrefs.localPathOrTemp(result.files.single);
+      if (path == null) return;
       setState(() {
-        _avatarPath = result.files.single.path;
+        _avatarPath = path;
       });
     }
   }

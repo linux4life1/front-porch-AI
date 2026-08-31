@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -120,11 +119,10 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
-    if (result == null || result.files.single.path == null) return;
+    if (result == null || result.files.isEmpty) return;
 
     try {
-      final file = File(result.files.single.path!);
-      final jsonStr = await file.readAsString();
+      final jsonStr = utf8.decode(await result.files.single.readAsBytes());
       final Map<String, dynamic> json = jsonDecode(jsonStr);
 
       final Map<String, dynamic> source = (json['lorebook'] is Map)

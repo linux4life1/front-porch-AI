@@ -25,20 +25,13 @@ part of '../home_page.dart';
 extension _HomePageTransfer on _HomePageState {
 
   Future<void> _exportCharacter(BuildContext context, character) async {
-    String? outputFile = await PickerPrefs.saveFile(
+    String? outputFile = await PickerPrefs.saveFromBuilder(
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Character Card',
       fileName: '${character.name}.png',
       type: FileType.custom,
       allowedExtensions: ['png'],
-    );
-
-    if (outputFile != null) {
-      if (!outputFile.endsWith('.png')) {
-        outputFile += '.png';
-      }
-
-      try {
+      writeTemp: (path) async {
         final v2Service = V2CardService();
         // Bake the ★ starred avatar (a look/expression) as the card cover when
         // set; else the library portrait.
@@ -48,10 +41,14 @@ extension _HomePageTransfer on _HomePageState {
         ).coverImageFileFor(character);
         await v2Service.saveCardAsPng(
           character,
-          outputFile,
+          path,
           cover?.path ?? character.imagePath,
         );
+      },
+    );
 
+    if (outputFile != null) {
+      try {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
@@ -72,21 +69,18 @@ extension _HomePageTransfer on _HomePageState {
   /// accepts, just without the avatar image.
   Future<void> _exportCharacterJson(BuildContext context, character) async {
     final safeName = character.name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    String? outputFile = await PickerPrefs.saveFile(
+    String? outputFile = await PickerPrefs.saveFromBuilder(
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Character Card (JSON)',
       fileName: '$safeName.json',
       type: FileType.custom,
       allowedExtensions: ['json'],
+      writeTemp: (path) => V2CardService().saveCardAsJson(character, path),
     );
 
     if (outputFile == null) return;
-    if (!outputFile.toLowerCase().endsWith('.json')) {
-      outputFile += '.json';
-    }
 
     try {
-      await V2CardService().saveCardAsJson(character, outputFile);
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
@@ -220,30 +214,22 @@ extension _HomePageTransfer on _HomePageState {
     }
 
     final safeName = group.name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    String? outputFile = await PickerPrefs.saveFile(
+    String? outputFile = await PickerPrefs.saveFromBuilder(
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Group Card',
       fileName: '$safeName.group.png',
       type: FileType.custom,
       allowedExtensions: ['png'],
+      writeTemp: (path) => GroupCardExporter(
+        groupRepo,
+        storage,
+        db,
+        Provider.of<WorldRepository>(context, listen: false),
+      ).exportToFile(group, path),
     );
 
     if (outputFile != null) {
-      if (!outputFile.endsWith('.png')) {
-        outputFile += '.png';
-      }
-
       try {
-        // Fidelity logic (member avatar embedding, objectives snapshot,
-        // stable-id remap, GroupCard assembly) lives in the shared
-        // GroupCardExporter so the desktop and web export paths can't diverge.
-        await GroupCardExporter(
-          groupRepo,
-          storage,
-          db,
-          Provider.of<WorldRepository>(context, listen: false),
-        ).exportToFile(group, outputFile);
-
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Group card exported to $outputFile')),

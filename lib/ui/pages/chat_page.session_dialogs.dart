@@ -40,10 +40,10 @@ extension _ChatPageSessionDialogs on _ChatPageState {
         allowedExtensions: ['fpchat', 'json', 'jsonl'],
       );
 
-      if (result == null || result.files.single.path == null) return;
+      if (result == null || result.files.isEmpty) return;
 
-      final file = File(result.files.single.path!);
-      final bytes = await file.readAsBytes();
+      // path is null on web blob: / Android content:// — read bytes, don't skip.
+      final bytes = await result.files.single.readAsBytes();
 
       if (!mounted) return;
 
@@ -184,13 +184,13 @@ extension _ChatPageSessionDialogs on _ChatPageState {
         final fileName = '${characterName}_$timestamp.fpchat';
         final outPath = await PickerPrefs.saveFile(
           category: PickerPrefs.catExport,
+          bytes: bytes,
           dialogTitle: 'Export Full Front Porch Chat',
           fileName: fileName,
           type: FileType.custom,
           allowedExtensions: ['fpchat'],
         );
         if (outPath == null) return;
-        await File(outPath).writeAsBytes(bytes, flush: true);
       } else {
         final jsonl = chatService.exportToSillyTavern();
         if (jsonl == null) {
@@ -206,13 +206,13 @@ extension _ChatPageSessionDialogs on _ChatPageState {
         final fileName = '${characterName}_$timestamp.jsonl';
         final outPath = await PickerPrefs.saveFile(
           category: PickerPrefs.catExport,
+          bytes: Uint8List.fromList(utf8.encode(jsonl)),
           dialogTitle: 'Export SillyTavern JSONL',
           fileName: fileName,
           type: FileType.custom,
           allowedExtensions: ['jsonl', 'json'],
         );
         if (outPath == null) return;
-        await File(outPath).writeAsString(jsonl);
       }
 
       if (!mounted) return;

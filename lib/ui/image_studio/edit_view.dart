@@ -125,11 +125,8 @@ class _EditViewState extends State<EditView> {
       category: PickerPrefs.catImage,
       dialogTitle: 'Select a photo to edit',
       type: FileType.image,
-      withData: true,
     );
-    final bytes = (result != null && result.files.isNotEmpty)
-        ? result.files.first.bytes
-        : null;
+    final bytes = await result?.firstBytes();
     if (bytes != null && mounted) setState(() => _sourceBytes = bytes);
   }
 

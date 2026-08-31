@@ -54,8 +54,8 @@ The CI pin is **3.47.0** (Dart 3.13.0). What the 3.47 worktree probe said
 would resolve, now does:
 
 - `riverpod_generator` **4.0.8** + `drift_dev` **2.34.5** + `analyzer` **13.3**
-- `file_picker` **12** **does not** compile (`FilePickerResult` gone). Stay on 11.
-- `package_info_plus` 10 / `win32` 6 ride file_picker 12. Stay.
+- `file_picker` **≥12.1.1** compiles via `picker_prefs` (`FilePickerResult` shim, `pickFile()` for single picks). Not 12.0.0 (flags not forwarded) and not 12.1.0 (`skipEntitlementsChecks` is a no-op).
+- `package_info_plus` 10 / `win32` 6 ride file_picker 12. Landed together.
 - Syncfusion 34 / `xml` 7 still blocked by `webdav_client` 1.2.2.
   (`image` 4.9.2 resolved on xml 6 — the 4.9/xml-7 block is gone.)
 
@@ -63,12 +63,10 @@ would resolve, now does:
 
 | Package | Blocker |
 |---------|---------|
-| `file_picker` 12 | deletes `FilePickerResult`; we still use it |
-| `package_info_plus` ≥10 | needs `win32` ^6; `file_picker` 11 needs `win32` ^5 |
 | `syncfusion_flutter_pdf` ≥34 | needs `xml` ^7; `webdav_client` 1.2.2 needs `xml` ^6 |
 | ~~`flutter_markdown`~~ | **migrated** to `flutter_markdown_plus` (2026-07-28) |
 
-Majors that **did** land: `file_picker` 11, `record` 7, `grpc` 5, `flat_buffers` 25, `shelf_web_socket` 3.
+Majors that **did** land: `file_picker` 12.1.1, `package_info_plus` 10, `record` 7, `grpc` 5, `flat_buffers` 25, `shelf_web_socket` 3.
 
 ### Why it was unsolvable before
 

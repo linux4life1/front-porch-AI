@@ -116,9 +116,11 @@ class _UserPersonaPageState extends State<UserPersonaPage>
       allowMultiple: false,
     );
 
-    if (result != null && result.files.single.path != null) {
+    if (result != null && result.files.isNotEmpty) {
+      final path = await PickerPrefs.localPathOrTemp(result.files.single);
+      if (path == null) return;
       setState(() {
-        _avatarPath = result.files.single.path;
+        _avatarPath = path;
       });
     }
   }
@@ -180,7 +182,9 @@ class _UserPersonaPageState extends State<UserPersonaPage>
       allowedExtensions: ['json'],
     );
 
-    if (result != null && result.files.single.path != null) {
+    if (result != null && result.files.isNotEmpty) {
+      final jsonPath = await PickerPrefs.localPathOrTemp(result.files.single);
+      if (jsonPath == null) return;
       final service = Provider.of<UserPersonaService>(context, listen: false);
       final storage = Provider.of<StorageService>(context, listen: false);
       final avatarDir = storage.rootPath != null
@@ -188,7 +192,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
           : null;
 
       final imported = await service.importFromJsonFile(
-        result.files.single.path!,
+        jsonPath,
         avatarSaveDir: avatarDir,
       );
 
@@ -241,19 +245,18 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   }
 
   Future<void> _exportPersona(UserPersona persona) async {
-    String? outputFile = await PickerPrefs.saveFile(
+    final service = Provider.of<UserPersonaService>(context, listen: false);
+    String? outputFile = await PickerPrefs.saveFromBuilder(
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Persona',
       fileName:
           '${persona.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_')}_FPAIpersona.json',
       type: FileType.custom,
       allowedExtensions: ['json'],
+      writeTemp: (path) => service.exportPersonasToSTFormat([persona.id], path),
     );
 
     if (outputFile != null) {
-      if (!outputFile.endsWith('.json')) outputFile += '.json';
-      final service = Provider.of<UserPersonaService>(context, listen: false);
-      await service.exportPersonasToSTFormat([persona.id], outputFile);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -218,7 +218,7 @@ class _DataBankDialogState extends State<DataBankDialog> {
     );
 
     if (result == null || result.files.isEmpty) return;
-    final filePath = result.files.single.path;
+    final filePath = await PickerPrefs.localPathOrTemp(result.files.single);
     if (filePath == null) return;
 
     setState(() {

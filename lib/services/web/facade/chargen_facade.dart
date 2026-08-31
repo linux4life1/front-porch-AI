@@ -19,7 +19,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide World;
 import 'package:front_porch_ai/models/models.dart';
@@ -248,9 +248,8 @@ class ChargenFacade {
     List<int> bytes,
     String filename,
   ) async {
-    final file = PlatformFile(
+    final file = MemoryPlatformFile(
       name: filename,
-      size: bytes.length,
       bytes: Uint8List.fromList(bytes),
     );
     final text = await LoreExtractionService.extractAll(

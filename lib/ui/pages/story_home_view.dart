@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -492,15 +492,16 @@ class _StoryHomeViewState extends State<StoryHomeView> {
     try {
       final audiobook = await service.generateAudiobook(project);
       if (audiobook != null && mounted) {
+        final wav = await audiobook.file.readAsBytes();
         final String? outputFile = await PickerPrefs.saveFile(
           category: PickerPrefs.catExport,
+          bytes: wav,
           dialogTitle: 'Save Audiobook',
           fileName: 'audiobook_${project.title.replaceAll(' ', '_')}.wav',
           type: FileType.custom,
           allowedExtensions: ['wav'],
         );
         if (outputFile != null) {
-          await audiobook.file.copy(outputFile);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -529,13 +530,13 @@ class _StoryHomeViewState extends State<StoryHomeView> {
       if (epub != null && mounted) {
         final String? outputFile = await PickerPrefs.saveFile(
           category: PickerPrefs.catExport,
+          bytes: Uint8List.fromList(epub.bytes),
           dialogTitle: 'Save eBook',
           fileName: '${project.title.replaceAll(' ', '_')}.epub',
           type: FileType.custom,
           allowedExtensions: ['epub'],
         );
         if (outputFile != null) {
-          await File(outputFile).writeAsBytes(epub.bytes);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

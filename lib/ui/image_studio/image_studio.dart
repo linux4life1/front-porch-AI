@@ -404,11 +404,8 @@ class _ImageStudioState extends State<ImageStudio> {
       category: PickerPrefs.catImage,
       dialogTitle: 'Select a reference image',
       type: FileType.image,
-      withData: true,
     );
-    final bytes = (result != null && result.files.isNotEmpty)
-        ? result.files.first.bytes
-        : null;
+    final bytes = await result?.firstBytes();
     if (bytes != null && mounted) {
       setState(() => _referenceImageBytes = bytes);
     }

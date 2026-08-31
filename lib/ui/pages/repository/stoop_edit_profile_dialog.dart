@@ -94,9 +94,8 @@ class _EditProfileCardState extends State<_EditProfileCard> {
       dialogTitle: 'Choose a profile photo',
       type: FileType.custom,
       allowedExtensions: ['png', 'jpg', 'jpeg', 'webp'],
-      withData: true,
     );
-    final bytes = picked?.files.firstOrNull?.bytes;
+    final bytes = await picked?.firstBytes();
     if (bytes == null || !mounted) return;
     setState(() {
       _busy = true;
