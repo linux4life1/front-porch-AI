@@ -31,7 +31,8 @@ Map<String, dynamic> encodeFpWorld({
     // Single book today; array reserves multi-lorebook without a format break.
     'lorebook': loreJson,
     'lorebooks': [loreJson],
-    'biome': biome,
+    'biome': world.climateEnabled ? biome : null,
+    'climate_enabled': world.climateEnabled,
     // Additive: older apps ignore unknown envelope keys (mixed-fleet rule).
     if (world.placeTraits.isNotEmpty) 'place_traits': world.placeTraits,
     'meta': {
@@ -48,13 +49,14 @@ String encodeFpWorldString({
   Map<String, dynamic>? biome,
   String? author,
   String? appVersion,
-}) =>
-    const JsonEncoder.withIndent('  ').convert(encodeFpWorld(
-      world: world,
-      biome: biome,
-      author: author,
-      appVersion: appVersion,
-    ));
+}) => const JsonEncoder.withIndent('  ').convert(
+  encodeFpWorld(
+    world: world,
+    biome: biome,
+    author: author,
+    appVersion: appVersion,
+  ),
+);
 
 /// Result of parsing a .fpworld (or degenerate lorebook) file.
 class FpWorldPackage {
@@ -71,7 +73,8 @@ class FpWorldPackage {
 
 /// Parse .fpworld JSON, or a bare ST/Chub/FPAI lorebook as a degenerate world.
 FpWorldPackage decodeFpWorld(Map<String, dynamic> json) {
-  final isEnvelope = json.containsKey('formatVersion') ||
+  final isEnvelope =
+      json.containsKey('formatVersion') ||
       (json.containsKey('id') &&
           json.containsKey('name') &&
           (json.containsKey('lorebook') || json.containsKey('lorebooks')));
@@ -140,6 +143,10 @@ FpWorldPackage decodeFpWorld(Map<String, dynamic> json) {
       coverImage: cover,
       sourceId: meta['sourceId']?.toString() ?? id,
       formatVersion: formatVersion,
+      climateEnabled:
+          json['climate_enabled'] as bool? ??
+          json['climateEnabled'] as bool? ??
+          true,
       placeTraits: json['place_traits'] is Map
           ? Map<String, dynamic>.from(json['place_traits'] as Map)
           : null,

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-08-30 — feat(worlds): per-world climateEnabled lorebook-only flag
+- **Why:** Some worlds are a bookshelf of facts (Soul Society lore, a
+  city gazetteer) and should not drag climate, weather, atmosphere, or
+  gravity along. The weather machine was hard-wired to every world.
+- **What:** World.climateEnabled (default true). False = lorebook +
+  description only. DB v51 worlds.climate_enabled DEFAULT 1. Weather
+  getters return null when every attached world has climate off.
+  Injection skips atmosphere/gravity. Desktop + web toggle hides the
+  climate section and place-traits editor. .fpworld round-trips the
+  flag and tolerates a missing biome when off.
+- **Files:** world.dart, database v51, world_injection, accessors,
+  world_management_page, world_facade, WorldsPage, fp_world_package
+
 ## 2026-08-29 — feat(birthday): Speak as… can set the persona birthday
 - **Why:** Persona page and web Settings had the date; the in-chat
   Speak as… editor did not, so a persona created there had no birthday

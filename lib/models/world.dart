@@ -77,6 +77,11 @@ class World {
   /// library-label worlds default off).
   bool injectDescription;
 
+  /// When false, this world is lorebook + description only — no climate, no
+  /// weather, no atmosphere/gravity place traits. Default true so existing
+  /// worlds keep the weather machine plugged in.
+  bool climateEnabled;
+
   /// Raw place-traits map (one future-proof field: unknown keys survive a
   /// round-trip so older apps never strip newer traits — mixed-fleet rule).
   /// Read through the typed getters; write through the setters.
@@ -108,9 +113,10 @@ class World {
     this.linkedCharacterId,
     this.avatarPath,
     this.injectDescription = true,
+    this.climateEnabled = true,
     Map<String, dynamic>? placeTraits,
-  })  : id = id ?? const Uuid().v4(),
-        placeTraits = placeTraits ?? {};
+  }) : id = id ?? const Uuid().v4(),
+       placeTraits = placeTraits ?? {};
 
   Map<String, dynamic> toJson() {
     return {
@@ -128,6 +134,7 @@ class World {
       if (linkedCharacterId != null) 'linked_character_id': linkedCharacterId,
       if (avatarPath != null) 'avatar_path': avatarPath,
       'inject_description': injectDescription,
+      'climate_enabled': climateEnabled,
       if (placeTraits.isNotEmpty) 'place_traits': placeTraits,
     };
   }
@@ -153,26 +160,43 @@ class World {
       biomeId: json['biome_id']?.toString() ?? json['biomeId']?.toString(),
       biomeJson: json['biome_json'] is String
           ? json['biome_json'] as String
-          : (json['biome_json'] is Map
-              ? jsonEncode(json['biome_json'])
-              : null),
-      coverImage:
-          json['cover_image']?.toString() ?? json['cover']?.toString(),
+          : (json['biome_json'] is Map ? jsonEncode(json['biome_json']) : null),
+      coverImage: json['cover_image']?.toString() ?? json['cover']?.toString(),
       sourceId: json['source_id']?.toString() ?? json['sourceId']?.toString(),
-      formatVersion: (json['format_version'] as num?)?.toInt() ??
+      formatVersion:
+          (json['format_version'] as num?)?.toInt() ??
           (json['formatVersion'] as num?)?.toInt() ??
           1,
       linkedCharacterName: json['linked_character_name']?.toString(),
       linkedCharacterId: json['linked_character_id']?.toString(),
       avatarPath: json['avatar_path']?.toString(),
-      injectDescription: json['inject_description'] as bool? ??
+      injectDescription:
+          json['inject_description'] as bool? ??
           json['injectDescription'] as bool? ??
+          true,
+      climateEnabled:
+          json['climate_enabled'] as bool? ??
+          json['climateEnabled'] as bool? ??
           true,
       placeTraits: json['place_traits'] is Map
           ? Map<String, dynamic>.from(json['place_traits'] as Map)
           : json['placeTraits'] is Map
-              ? Map<String, dynamic>.from(json['placeTraits'] as Map)
-              : null,
+          ? Map<String, dynamic>.from(json['placeTraits'] as Map)
+          : null,
     );
   }
+}
+
+/// Whether weather/climate should run for a chat given its attached worlds.
+///
+/// - No attached worlds → true (legacy temperate default still runs).
+/// - Any attached world with [World.climateEnabled] → true.
+/// - Every attached world has climate off → false (lorebook-only bookshelf).
+bool attachedWorldsAllowClimate(Iterable<World> worlds) {
+  var sawAny = false;
+  for (final w in worlds) {
+    sawAny = true;
+    if (w.climateEnabled) return true;
+  }
+  return !sawAny;
 }

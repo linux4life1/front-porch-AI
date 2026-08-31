@@ -39,9 +39,8 @@ class WorldRepository extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   /// Places only — excludes legacy character-lore clones (should be empty after purge).
-  List<model.World> get placeWorlds => List.unmodifiable(
-        _worlds.where((w) => !isCharacterLinkedWorld(w)),
-      );
+  List<model.World> get placeWorlds =>
+      List.unmodifiable(_worlds.where((w) => !isCharacterLinkedWorld(w)));
 
   WorldRepository(this._storageService, this._db) {
     _firstLoad = loadWorlds();
@@ -131,6 +130,7 @@ class WorldRepository extends ChangeNotifier {
       biomeId: row.biomeId,
       biomeJson: row.biomeJson,
       injectDescription: row.injectDescription,
+      climateEnabled: row.climateEnabled,
       placeTraits: _tryDecodeMap(row.placeTraits),
     );
   }
@@ -160,6 +160,7 @@ class WorldRepository extends ChangeNotifier {
       biomeId: Value(world.biomeId),
       biomeJson: Value(world.biomeJson),
       injectDescription: Value(world.injectDescription),
+      climateEnabled: Value(world.climateEnabled),
       placeTraits: Value(
         world.placeTraits.isEmpty ? null : jsonEncode(world.placeTraits),
       ),
@@ -235,10 +236,7 @@ class WorldRepository extends ChangeNotifier {
 
     // Lossless edge case: export before hard delete (Claude review 2026-07-28).
     final recoveryDir = Directory(
-      p.join(
-        _storageService.worldsDir.path,
-        'recovered_character_lore_clones',
-      ),
+      p.join(_storageService.worldsDir.path, 'recovered_character_lore_clones'),
     );
     try {
       await recoveryDir.create(recursive: true);
@@ -253,12 +251,8 @@ class WorldRepository extends ChangeNotifier {
       // a failed export means this world is NOT touched this launch.
       try {
         final safe = _safeFileStem(w.name);
-        final idShort =
-            w.id.length >= 8 ? w.id.substring(0, 8) : w.id;
-        final out = p.join(
-          recoveryDir.path,
-          '${safe}_$idShort.fpworld',
-        );
+        final idShort = w.id.length >= 8 ? w.id.substring(0, 8) : w.id;
+        final out = p.join(recoveryDir.path, '${safe}_$idShort.fpworld');
         await exportFpWorld(w, out);
       } catch (e) {
         debugPrint(
@@ -371,10 +365,9 @@ class WorldRepository extends ChangeNotifier {
     // Places only — never re-create character-linked clones via save.
     world.linkedCharacterName = null;
     world.linkedCharacterId = null;
-    if (world.description
-        .trim()
-        .toLowerCase()
-        .startsWith('auto-imported from character card')) {
+    if (world.description.trim().toLowerCase().startsWith(
+      'auto-imported from character card',
+    )) {
       world.description = '';
     }
     final existing = await _db.getWorldById(world.id);
@@ -455,11 +448,13 @@ class WorldRepository extends ChangeNotifier {
   /// the resolved biome so importers get climate without built-ins, plus place
   /// traits, lore, and the cover image already carried by [model.World].
   Map<String, dynamic> fpWorldJson(model.World world) {
-    final biome = Biome.resolve(
-      biomeId: world.biomeId,
-      biomeJson: world.biomeJson,
-    );
-    return encodeFpWorld(world: world, biome: biome.toJson());
+    final biome = world.climateEnabled
+        ? Biome.resolve(
+            biomeId: world.biomeId,
+            biomeJson: world.biomeJson,
+          ).toJson()
+        : null;
+    return encodeFpWorld(world: world, biome: biome);
   }
 
   /// Export as .fpworld (full place package). Prefer this over ST-only.
@@ -473,11 +468,15 @@ class WorldRepository extends ChangeNotifier {
   /// Legacy ST world-info export (lore only).
   Future<void> exportWorld(model.World world, String outputPath) async {
     final file = File(outputPath);
-    await file.writeAsString(jsonEncode(encodeStWorldInfo(
-      world.lorebook,
-      name: world.name,
-      description: world.description,
-    )));
+    await file.writeAsString(
+      jsonEncode(
+        encodeStWorldInfo(
+          world.lorebook,
+          name: world.name,
+          description: world.description,
+        ),
+      ),
+    );
   }
 
   // ── Chat attachments ────────────────────────────────────────────────
@@ -541,7 +540,10 @@ class WorldRepository extends ChangeNotifier {
 
   Future<void> detachWorldFromChat(String chatId, String worldId) async {
     final ids = await getChatWorldIds(chatId);
-    await setChatWorlds(chatId, [for (final id in ids) if (id != worldId) id]);
+    await setChatWorlds(chatId, [
+      for (final id in ids)
+        if (id != worldId) id,
+    ]);
   }
 
   /// Attach worlds newly added to a CHARACTER onto that character's existing
@@ -571,7 +573,9 @@ class WorldRepository extends ChangeNotifier {
       unresolved: unresolved,
     );
     if (unresolved.isNotEmpty) {
-      debugPrint('[Worlds] unresolved refs on character $characterId: $unresolved');
+      debugPrint(
+        '[Worlds] unresolved refs on character $characterId: $unresolved',
+      );
     }
     if (ids.isEmpty) return const [];
 
@@ -583,8 +587,10 @@ class WorldRepository extends ChangeNotifier {
       touched.add(session.id);
     }
     if (touched.isNotEmpty) {
-      debugPrint('[Worlds] character $characterId worlds applied to '
-          '${touched.length} existing chat(s)');
+      debugPrint(
+        '[Worlds] character $characterId worlds applied to '
+        '${touched.length} existing chat(s)',
+      );
     }
     return touched;
   }

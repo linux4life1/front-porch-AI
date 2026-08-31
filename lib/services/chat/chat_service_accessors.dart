@@ -451,6 +451,15 @@ extension ChatServiceAccessors on ChatService {
     if (!_clockRunning || !_storageService.weatherEnabled) {
       return null;
     }
+    // Per-world plug: lorebook-only attached worlds silence the weather
+    // machine. Upcoming + segment getters already return null when this
+    // does, so one gate covers the whole pipeline.
+    final attached = <World>[
+      for (final id in _chatWorldIds) ?_worldRepository.resolveWorld(id),
+    ];
+    if (!attachedWorldsAllowClimate(attached)) {
+      return null;
+    }
     final seed = _currentSessionId;
     if (seed == null) return null;
     return WeatherEngine.weatherFor(

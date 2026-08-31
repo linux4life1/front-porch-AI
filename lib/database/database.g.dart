@@ -7773,6 +7773,21 @@ class $WorldsTable extends Worlds with TableInfo<$WorldsTable, World> {
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _climateEnabledMeta = const VerificationMeta(
+    'climateEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> climateEnabled = GeneratedColumn<bool>(
+    'climate_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("climate_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _placeTraitsMeta = const VerificationMeta(
     'placeTraits',
   );
@@ -7821,6 +7836,7 @@ class $WorldsTable extends Worlds with TableInfo<$WorldsTable, World> {
     biomeId,
     biomeJson,
     injectDescription,
+    climateEnabled,
     placeTraits,
     updatedAt,
     deletedAt,
@@ -7925,6 +7941,15 @@ class $WorldsTable extends Worlds with TableInfo<$WorldsTable, World> {
         ),
       );
     }
+    if (data.containsKey('climate_enabled')) {
+      context.handle(
+        _climateEnabledMeta,
+        climateEnabled.isAcceptableOrUnknown(
+          data['climate_enabled']!,
+          _climateEnabledMeta,
+        ),
+      );
+    }
     if (data.containsKey('place_traits')) {
       context.handle(
         _placeTraitsMeta,
@@ -8003,6 +8028,10 @@ class $WorldsTable extends Worlds with TableInfo<$WorldsTable, World> {
         DriftSqlType.bool,
         data['${effectivePrefix}inject_description'],
       )!,
+      climateEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}climate_enabled'],
+      )!,
       placeTraits: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}place_traits'],
@@ -8044,6 +8073,11 @@ class World extends DataClass implements Insertable<World> {
   /// Description injection opt-in; false for rows migrated from library labels.
   final bool injectDescription;
 
+  /// v51 — per-world climate/weather/atmosphere/gravity plug. Default ON so
+  /// every existing world keeps its weather machine; false is a lorebook-only
+  /// bookshelf world. SQLite INTEGER 1/0, same shape as [injectDescription].
+  final bool climateEnabled;
+
   /// v41 — place traits JSON (atmosphere/gravity enums + future trait keys;
   /// one flexible column so new traits never need another migration).
   final String? placeTraits;
@@ -8062,6 +8096,7 @@ class World extends DataClass implements Insertable<World> {
     this.biomeId,
     this.biomeJson,
     required this.injectDescription,
+    required this.climateEnabled,
     this.placeTraits,
     required this.updatedAt,
     this.deletedAt,
@@ -8095,6 +8130,7 @@ class World extends DataClass implements Insertable<World> {
       map['biome_json'] = Variable<String>(biomeJson);
     }
     map['inject_description'] = Variable<bool>(injectDescription);
+    map['climate_enabled'] = Variable<bool>(climateEnabled);
     if (!nullToAbsent || placeTraits != null) {
       map['place_traits'] = Variable<String>(placeTraits);
     }
@@ -8133,6 +8169,7 @@ class World extends DataClass implements Insertable<World> {
           ? const Value.absent()
           : Value(biomeJson),
       injectDescription: Value(injectDescription),
+      climateEnabled: Value(climateEnabled),
       placeTraits: placeTraits == null && nullToAbsent
           ? const Value.absent()
           : Value(placeTraits),
@@ -8165,6 +8202,7 @@ class World extends DataClass implements Insertable<World> {
       biomeId: serializer.fromJson<String?>(json['biomeId']),
       biomeJson: serializer.fromJson<String?>(json['biomeJson']),
       injectDescription: serializer.fromJson<bool>(json['injectDescription']),
+      climateEnabled: serializer.fromJson<bool>(json['climateEnabled']),
       placeTraits: serializer.fromJson<String?>(json['placeTraits']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -8186,6 +8224,7 @@ class World extends DataClass implements Insertable<World> {
       'biomeId': serializer.toJson<String?>(biomeId),
       'biomeJson': serializer.toJson<String?>(biomeJson),
       'injectDescription': serializer.toJson<bool>(injectDescription),
+      'climateEnabled': serializer.toJson<bool>(climateEnabled),
       'placeTraits': serializer.toJson<String?>(placeTraits),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -8205,6 +8244,7 @@ class World extends DataClass implements Insertable<World> {
     Value<String?> biomeId = const Value.absent(),
     Value<String?> biomeJson = const Value.absent(),
     bool? injectDescription,
+    bool? climateEnabled,
     Value<String?> placeTraits = const Value.absent(),
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
@@ -8225,6 +8265,7 @@ class World extends DataClass implements Insertable<World> {
     biomeId: biomeId.present ? biomeId.value : this.biomeId,
     biomeJson: biomeJson.present ? biomeJson.value : this.biomeJson,
     injectDescription: injectDescription ?? this.injectDescription,
+    climateEnabled: climateEnabled ?? this.climateEnabled,
     placeTraits: placeTraits.present ? placeTraits.value : this.placeTraits,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -8255,6 +8296,9 @@ class World extends DataClass implements Insertable<World> {
       injectDescription: data.injectDescription.present
           ? data.injectDescription.value
           : this.injectDescription,
+      climateEnabled: data.climateEnabled.present
+          ? data.climateEnabled.value
+          : this.climateEnabled,
       placeTraits: data.placeTraits.present
           ? data.placeTraits.value
           : this.placeTraits,
@@ -8278,6 +8322,7 @@ class World extends DataClass implements Insertable<World> {
           ..write('biomeId: $biomeId, ')
           ..write('biomeJson: $biomeJson, ')
           ..write('injectDescription: $injectDescription, ')
+          ..write('climateEnabled: $climateEnabled, ')
           ..write('placeTraits: $placeTraits, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -8299,6 +8344,7 @@ class World extends DataClass implements Insertable<World> {
     biomeId,
     biomeJson,
     injectDescription,
+    climateEnabled,
     placeTraits,
     updatedAt,
     deletedAt,
@@ -8319,6 +8365,7 @@ class World extends DataClass implements Insertable<World> {
           other.biomeId == this.biomeId &&
           other.biomeJson == this.biomeJson &&
           other.injectDescription == this.injectDescription &&
+          other.climateEnabled == this.climateEnabled &&
           other.placeTraits == this.placeTraits &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -8337,6 +8384,7 @@ class WorldsCompanion extends UpdateCompanion<World> {
   final Value<String?> biomeId;
   final Value<String?> biomeJson;
   final Value<bool> injectDescription;
+  final Value<bool> climateEnabled;
   final Value<String?> placeTraits;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
@@ -8354,6 +8402,7 @@ class WorldsCompanion extends UpdateCompanion<World> {
     this.biomeId = const Value.absent(),
     this.biomeJson = const Value.absent(),
     this.injectDescription = const Value.absent(),
+    this.climateEnabled = const Value.absent(),
     this.placeTraits = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -8372,6 +8421,7 @@ class WorldsCompanion extends UpdateCompanion<World> {
     this.biomeId = const Value.absent(),
     this.biomeJson = const Value.absent(),
     this.injectDescription = const Value.absent(),
+    this.climateEnabled = const Value.absent(),
     this.placeTraits = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -8391,6 +8441,7 @@ class WorldsCompanion extends UpdateCompanion<World> {
     Expression<String>? biomeId,
     Expression<String>? biomeJson,
     Expression<bool>? injectDescription,
+    Expression<bool>? climateEnabled,
     Expression<String>? placeTraits,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
@@ -8410,6 +8461,7 @@ class WorldsCompanion extends UpdateCompanion<World> {
       if (biomeId != null) 'biome_id': biomeId,
       if (biomeJson != null) 'biome_json': biomeJson,
       if (injectDescription != null) 'inject_description': injectDescription,
+      if (climateEnabled != null) 'climate_enabled': climateEnabled,
       if (placeTraits != null) 'place_traits': placeTraits,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -8430,6 +8482,7 @@ class WorldsCompanion extends UpdateCompanion<World> {
     Value<String?>? biomeId,
     Value<String?>? biomeJson,
     Value<bool>? injectDescription,
+    Value<bool>? climateEnabled,
     Value<String?>? placeTraits,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
@@ -8448,6 +8501,7 @@ class WorldsCompanion extends UpdateCompanion<World> {
       biomeId: biomeId ?? this.biomeId,
       biomeJson: biomeJson ?? this.biomeJson,
       injectDescription: injectDescription ?? this.injectDescription,
+      climateEnabled: climateEnabled ?? this.climateEnabled,
       placeTraits: placeTraits ?? this.placeTraits,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -8496,6 +8550,9 @@ class WorldsCompanion extends UpdateCompanion<World> {
     if (injectDescription.present) {
       map['inject_description'] = Variable<bool>(injectDescription.value);
     }
+    if (climateEnabled.present) {
+      map['climate_enabled'] = Variable<bool>(climateEnabled.value);
+    }
     if (placeTraits.present) {
       map['place_traits'] = Variable<String>(placeTraits.value);
     }
@@ -8526,6 +8583,7 @@ class WorldsCompanion extends UpdateCompanion<World> {
           ..write('biomeId: $biomeId, ')
           ..write('biomeJson: $biomeJson, ')
           ..write('injectDescription: $injectDescription, ')
+          ..write('climateEnabled: $climateEnabled, ')
           ..write('placeTraits: $placeTraits, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -19821,6 +19879,7 @@ typedef $$WorldsTableCreateCompanionBuilder =
       Value<String?> biomeId,
       Value<String?> biomeJson,
       Value<bool> injectDescription,
+      Value<bool> climateEnabled,
       Value<String?> placeTraits,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
@@ -19840,6 +19899,7 @@ typedef $$WorldsTableUpdateCompanionBuilder =
       Value<String?> biomeId,
       Value<String?> biomeJson,
       Value<bool> injectDescription,
+      Value<bool> climateEnabled,
       Value<String?> placeTraits,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
@@ -19912,6 +19972,11 @@ class $$WorldsTableFilterComposer
 
   ColumnFilters<bool> get injectDescription => $composableBuilder(
     column: $table.injectDescription,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get climateEnabled => $composableBuilder(
+    column: $table.climateEnabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -20000,6 +20065,11 @@ class $$WorldsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get climateEnabled => $composableBuilder(
+    column: $table.climateEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get placeTraits => $composableBuilder(
     column: $table.placeTraits,
     builder: (column) => ColumnOrderings(column),
@@ -20073,6 +20143,11 @@ class $$WorldsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get climateEnabled => $composableBuilder(
+    column: $table.climateEnabled,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get placeTraits => $composableBuilder(
     column: $table.placeTraits,
     builder: (column) => column,
@@ -20125,6 +20200,7 @@ class $$WorldsTableTableManager
                 Value<String?> biomeId = const Value.absent(),
                 Value<String?> biomeJson = const Value.absent(),
                 Value<bool> injectDescription = const Value.absent(),
+                Value<bool> climateEnabled = const Value.absent(),
                 Value<String?> placeTraits = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -20142,6 +20218,7 @@ class $$WorldsTableTableManager
                 biomeId: biomeId,
                 biomeJson: biomeJson,
                 injectDescription: injectDescription,
+                climateEnabled: climateEnabled,
                 placeTraits: placeTraits,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -20161,6 +20238,7 @@ class $$WorldsTableTableManager
                 Value<String?> biomeId = const Value.absent(),
                 Value<String?> biomeJson = const Value.absent(),
                 Value<bool> injectDescription = const Value.absent(),
+                Value<bool> climateEnabled = const Value.absent(),
                 Value<String?> placeTraits = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -20178,6 +20256,7 @@ class $$WorldsTableTableManager
                 biomeId: biomeId,
                 biomeJson: biomeJson,
                 injectDescription: injectDescription,
+                climateEnabled: climateEnabled,
                 placeTraits: placeTraits,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,

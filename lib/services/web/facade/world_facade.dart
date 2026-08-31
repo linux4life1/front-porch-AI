@@ -63,6 +63,7 @@ class WorldFacade {
               ? 'custom'
               : (w.biomeId ?? 'temperate'),
           'injectDescription': w.injectDescription,
+          'climateEnabled': w.climateEnabled,
           'coverImage': w.coverImage,
           'hasCover': w.coverImage != null && w.coverImage!.isNotEmpty,
           'linkedCharacterName': w.linkedCharacterName,
@@ -99,6 +100,7 @@ class WorldFacade {
           : (w.biomeId ?? 'temperate'),
       'biome': Biome.tryParse(w.biomeJson)?.toJson(),
       'injectDescription': w.injectDescription,
+      'climateEnabled': w.climateEnabled,
       'coverImage': w.coverImage,
       'linkedCharacterName': w.linkedCharacterName,
       'linkedCharacterId': w.linkedCharacterId,
@@ -136,7 +138,11 @@ class WorldFacade {
       world.name = name;
     }
     world.description = f['description']?.toString() ?? '';
-    if (!_applyClimate(world, f)) return false;
+    if (f.containsKey('climateEnabled')) {
+      world.climateEnabled = f['climateEnabled'] == true;
+    }
+    // Lorebook-only worlds do not need a valid biome to save.
+    if (world.climateEnabled && !_applyClimate(world, f)) return false;
     if (f.containsKey('injectDescription')) {
       world.injectDescription = f['injectDescription'] == true;
     }

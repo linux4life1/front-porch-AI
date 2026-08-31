@@ -5,6 +5,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 📚 **Lorebook-only worlds** — a place can be facts without weather. Flip off Climate, weather, and place traits and the world is description + lore only: no forecast, no sidebar chip, no atmosphere or gravity. Existing worlds stay as they were. Same on the phone.
+
 - 🎂 **Birthdays** — set a year, month, and day on the character and on your persona (no February 29). The Journal keeps one card per person that heats up in the two weeks before, so they know how old everyone is without listing a wishlist. Both birthdays can fall on the same day. Objectives may freeze an outing from their likes. Same on the phone.
 
 - 🎯 **Four side quests** — a character can hold four side goals at once (was two), so a birthday outing does not kick something you already set. Same on the phone.

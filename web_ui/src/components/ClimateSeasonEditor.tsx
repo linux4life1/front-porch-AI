@@ -25,11 +25,15 @@ export function ClimateSeasonEditor({
   biome,
   onChange,
   errors,
+  enabled = true,
 }: {
   biome: BiomeDraft;
   onChange: (next: BiomeDraft) => void;
   errors: string[];
+  /** WorldsPage hides this when the world's climateEnabled flag is off. */
+  enabled?: boolean;
 }) {
+  if (!enabled) return null;
   const rows = useMemo(() => rowsFromBiome(biome), [biome]);
   const emit = (next: SeasonRow[]) => onChange(applyRows(biome, next));
   const clash = (id: string) => errors.some((e) => e.includes(id));

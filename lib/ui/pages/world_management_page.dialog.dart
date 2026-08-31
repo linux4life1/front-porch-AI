@@ -33,11 +33,10 @@ part of 'world_management_page.dart';
 class _WorldDraft {
   _WorldDraft(World? world)
     : nameController = TextEditingController(text: world?.name ?? ''),
-      descController = TextEditingController(
-        text: world?.description ?? '',
-      ),
+      descController = TextEditingController(text: world?.description ?? ''),
       customBiomeJson = world?.biomeJson,
       injectDescription = world?.injectDescription ?? true,
+      climateEnabled = world?.climateEnabled ?? true,
       coverImage = world?.coverImage,
       atmosphere = world?.atmosphere ?? WorldAtmosphere.breathable,
       gravity = world?.gravity ?? WorldGravity.earth,
@@ -55,6 +54,7 @@ class _WorldDraft {
   String? customBiomeJson;
   String? selectedBiomeId;
   bool injectDescription;
+  bool climateEnabled;
   String? coverImage;
   // Place traits (standing facts; defaults are silent).
   WorldAtmosphere atmosphere;
@@ -116,12 +116,14 @@ extension _WorldDialogFrame on _WorldManagementPageState {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: AppColors.formMasterAccent
-                                  .withValues(alpha: 0.1),
+                              color: AppColors.formMasterAccent.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: AppColors.formMasterAccent
-                                    .withValues(alpha: 0.2),
+                                color: AppColors.formMasterAccent.withValues(
+                                  alpha: 0.2,
+                                ),
                               ),
                             ),
                             child: const Icon(
@@ -161,7 +163,12 @@ extension _WorldDialogFrame on _WorldManagementPageState {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Basic Info Section
-                        _buildBasicsSection(ctx, context, draft, setDialogState),
+                        _buildBasicsSection(
+                          ctx,
+                          context,
+                          draft,
+                          setDialogState,
+                        ),
 
                         const SizedBox(height: 24),
 
@@ -222,24 +229,33 @@ extension _WorldDialogFrame on _WorldManagementPageState {
                           } else {
                             newWorld.name = newName;
                           }
-                          newWorld.description = draft.descController.text.trim();
-                          // 'custom' ⇒ biomeJson carries the climate and
-                          // biomeId clears; a built-in clears any stale
-                          // custom JSON (Biome.resolve prefers JSON).
-                          newWorld.biomeId = draft.selectedBiomeId == 'custom'
-                              ? null
-                              : draft.selectedBiomeId;
-                          newWorld.biomeJson = draft.selectedBiomeId == 'custom'
-                              ? draft.customBiomeJson
-                              : null;
+                          newWorld.description = draft.descController.text
+                              .trim();
+                          newWorld.climateEnabled = draft.climateEnabled;
+                          // Lorebook-only worlds leave climate fields
+                          // untouched so a later re-enable restores them.
+                          if (draft.climateEnabled) {
+                            // 'custom' ⇒ biomeJson carries the climate and
+                            // biomeId clears; a built-in clears any stale
+                            // custom JSON (Biome.resolve prefers JSON).
+                            newWorld.biomeId = draft.selectedBiomeId == 'custom'
+                                ? null
+                                : draft.selectedBiomeId;
+                            newWorld.biomeJson =
+                                draft.selectedBiomeId == 'custom'
+                                ? draft.customBiomeJson
+                                : null;
+                            newWorld.atmosphere = draft.atmosphere;
+                            newWorld.gravity = draft.gravity;
+                          }
                           newWorld.injectDescription = draft.injectDescription;
                           newWorld.coverImage = draft.coverImage;
-                          newWorld.atmosphere = draft.atmosphere;
-                          newWorld.gravity = draft.gravity;
 
                           // Update lorebook entries
                           newWorld.lorebook.entries.clear();
-                          newWorld.lorebook.entries.addAll(draft.editingEntries);
+                          newWorld.lorebook.entries.addAll(
+                            draft.editingEntries,
+                          );
 
                           await repo.saveWorld(newWorld);
                           if (!ctx.mounted) return;

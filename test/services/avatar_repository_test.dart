@@ -87,7 +87,10 @@ void main() {
       // v50: personas.birthday — calendar birthday YYYY-MM-DD. NULL means
       //      unset. The column itself is guarded by
       //      test/database/birthday_persona_migration_test.dart.
-      expect(db.schemaVersion, 50);
+      // v51: worlds.climate_enabled — per-world climate/weather plug.
+      //      DEFAULT 1 so existing worlds keep climate. Guarded by
+      //      test/database/climate_enabled_migration_test.dart.
+      expect(db.schemaVersion, 51);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

@@ -244,6 +244,9 @@ extension AppDatabaseMaintenance on AppDatabase {
         'inject_description INTEGER NOT NULL DEFAULT 1',
         // v41
         'place_traits TEXT',
+        // v51 — climate/weather/atmosphere/gravity plug. DEFAULT 1 so
+        // existing worlds keep climate; 0 is a lorebook-only bookshelf.
+        'climate_enabled INTEGER NOT NULL DEFAULT 1',
       ],
       'group_members': [
         // Per current GroupMembers Dart definition + created_at (to match the repair-path CREATE TABLE).
