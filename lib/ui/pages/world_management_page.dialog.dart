@@ -174,6 +174,7 @@ extension _WorldDialogFrame on _WorldManagementPageState {
                               context,
                               draft,
                               setDialogState,
+                              compact: maxH < 640,
                             ),
 
                             const SizedBox(height: 24),

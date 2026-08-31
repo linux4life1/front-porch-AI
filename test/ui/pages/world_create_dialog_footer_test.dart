@@ -138,6 +138,16 @@ void main() {
         find.text('Climate'),
         '$tag Climate picker label',
       );
+      _expectFullyAboveFooter(
+        tester,
+        find.byKey(const Key('world-climate-picker')),
+        '$tag Climate picker dropdown',
+      );
+      _expectFullyAboveFooter(
+        tester,
+        find.text('Temperate'),
+        '$tag Climate picker Temperate',
+      );
       expect(tester.takeException(), isNull);
     });
 

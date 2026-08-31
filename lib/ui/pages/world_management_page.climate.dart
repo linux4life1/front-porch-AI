@@ -61,6 +61,7 @@ extension _WorldClimateSection on _WorldManagementPageState {
         ),
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
+          key: const Key('world-climate-picker'),
           // ignore: deprecated_member_use
           value: draft.selectedBiomeId ?? Biome.temperate.id,
           isExpanded: true,

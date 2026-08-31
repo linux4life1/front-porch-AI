@@ -34,10 +34,14 @@ extension _WorldBasicsSection on _WorldManagementPageState {
     BuildContext ctx,
     BuildContext pageContext,
     _WorldDraft draft,
-    StateSetter setDialogState,
-  ) {
+    StateSetter setDialogState, {
+    bool compact = false,
+  }) {
+    final gap = compact ? 8.0 : 16.0;
+    final pad = compact ? 8.0 : 20.0;
+    final thumb = compact ? 56.0 : 72.0;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(pad),
       decoration: BoxDecoration(
         color: AppColors.resolve(
           ctx,
@@ -70,7 +74,7 @@ extension _WorldBasicsSection on _WorldManagementPageState {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: gap),
           // Place cover (thumbnail on the Worlds grid; required on Stoop).
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -78,8 +82,8 @@ extension _WorldBasicsSection on _WorldManagementPageState {
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: SizedBox(
-                  width: 72,
-                  height: 72,
+                  width: thumb,
+                  height: thumb,
                   child: _coverThumb(ctx, draft.coverImage),
                 ),
               ),
@@ -158,7 +162,7 @@ extension _WorldBasicsSection on _WorldManagementPageState {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: gap),
           TextField(
             controller: draft.nameController,
             style: TextStyle(color: AppColors.textPrimary(ctx)),
@@ -187,11 +191,11 @@ extension _WorldBasicsSection on _WorldManagementPageState {
               contentPadding: const EdgeInsets.all(16),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: gap),
           TextField(
             controller: draft.descController,
             style: TextStyle(color: AppColors.textPrimary(ctx)),
-            maxLines: 3,
+            maxLines: compact ? 2 : 3,
             decoration: InputDecoration(
               labelText: 'Description (place prose)',
               labelStyle: TextStyle(color: AppColors.textSecondary(ctx)),
@@ -215,10 +219,10 @@ extension _WorldBasicsSection on _WorldManagementPageState {
                   width: 1.5,
                 ),
               ),
-              contentPadding: const EdgeInsets.all(16),
+              contentPadding: EdgeInsets.all(compact ? 12 : 16),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: gap),
           _draftSwitch(
             ctx,
             title: 'Climate, weather, and place traits',
