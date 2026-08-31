@@ -31,10 +31,11 @@ Map<String, dynamic> encodeFpWorld({
     // Single book today; array reserves multi-lorebook without a format break.
     'lorebook': loreJson,
     'lorebooks': [loreJson],
-    'biome': world.climateEnabled ? biome : null,
+    if (world.climateEnabled) 'biome': biome,
     'climate_enabled': world.climateEnabled,
     // Additive: older apps ignore unknown envelope keys (mixed-fleet rule).
-    if (world.placeTraits.isNotEmpty) 'place_traits': world.placeTraits,
+    if (world.climateEnabled && world.placeTraits.isNotEmpty)
+      'place_traits': world.placeTraits,
     'meta': {
       if (author != null && author.isNotEmpty) 'author': author,
       'createdAt': DateTime.now().toUtc().toIso8601String(),

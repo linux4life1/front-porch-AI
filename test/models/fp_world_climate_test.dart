@@ -31,7 +31,7 @@ void main() {
       );
       final json = encodeFpWorld(world: world, biome: null);
       expect(json['climate_enabled'], isFalse);
-      expect(json['biome'], isNull);
+      expect(json.containsKey('biome'), isFalse);
 
       final decoded = decodeFpWorld(json);
       expect(decoded.world.climateEnabled, isFalse);
@@ -57,6 +57,25 @@ void main() {
     expect(package.world.climateEnabled, isFalse);
     expect(package.biome, isNull);
   });
+
+  test(
+    'climate-off omits leftover place_traits even when they exist in memory',
+    () {
+      final world = World(
+        name: 'Soul Society',
+        lorebook: Lorebook(entries: []),
+        climateEnabled: false,
+        placeTraits: {'atmosphere': 'unbreathable', 'gravity': 'low'},
+      );
+      final json = encodeFpWorld(
+        world: world,
+        biome: {'id': 'temperate'},
+      );
+      expect(json.containsKey('biome'), isFalse);
+      expect(json.containsKey('place_traits'), isFalse);
+      expect(json['climate_enabled'], isFalse);
+    },
+  );
 
   test('older envelope without the key imports as climate on', () {
     final package = decodeFpWorld({

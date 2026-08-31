@@ -59,9 +59,10 @@ class WorldFacade {
           'name': w.name,
           'description': w.description,
           'entryCount': w.lorebook.entries.length,
-          'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
-              ? 'custom'
-              : (w.biomeId ?? 'temperate'),
+          if (w.climateEnabled)
+            'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
+                ? 'custom'
+                : (w.biomeId ?? 'temperate'),
           'injectDescription': w.injectDescription,
           'climateEnabled': w.climateEnabled,
           'coverImage': w.coverImage,
@@ -95,9 +96,10 @@ class WorldFacade {
       'id': w.id,
       'name': w.name,
       'description': w.description,
-      'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
-          ? 'custom'
-          : (w.biomeId ?? 'temperate'),
+      if (w.climateEnabled)
+        'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
+            ? 'custom'
+            : (w.biomeId ?? 'temperate'),
       'biome': Biome.tryParse(w.biomeJson)?.toJson(),
       'injectDescription': w.injectDescription,
       'climateEnabled': w.climateEnabled,
@@ -150,11 +152,13 @@ class WorldFacade {
       final raw = f['coverImage']?.toString();
       world.coverImage = (raw == null || raw.isEmpty) ? null : raw;
     }
-    if (f.containsKey('atmosphere')) {
-      world.atmosphere = worldAtmosphereFromName(f['atmosphere']?.toString());
-    }
-    if (f.containsKey('gravity')) {
-      world.gravity = worldGravityFromName(f['gravity']?.toString());
+    if (world.climateEnabled) {
+      if (f.containsKey('atmosphere')) {
+        world.atmosphere = worldAtmosphereFromName(f['atmosphere']?.toString());
+      }
+      if (f.containsKey('gravity')) {
+        world.gravity = worldGravityFromName(f['gravity']?.toString());
+      }
     }
     if (f['entries'] != null) {
       world.lorebook =

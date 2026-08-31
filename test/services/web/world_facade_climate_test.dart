@@ -70,11 +70,32 @@ void main() {
         (m) => m['name'] == 'Soul Society',
       );
       expect(listed['climateEnabled'], isFalse);
+      expect(listed['biomeId'], isNull);
 
       final detail = facade.detail('Soul Society')!;
       expect(detail['climateEnabled'], isFalse);
+      expect(detail['biomeId'], isNull);
       expect(detail['description'], contains('afterlife'));
       expect((detail['entries'] as List), hasLength(1));
+    },
+  );
+
+  test(
+    'save with climate off ignores leftover atmosphere/gravity payload',
+    () async {
+      expect(
+        await facade.save({
+          'name': 'Soul Society',
+          'climateEnabled': false,
+          'atmosphere': 'unbreathable',
+          'gravity': 'low',
+        }),
+        isTrue,
+      );
+      final detail = facade.detail('Soul Society')!;
+      expect(detail['climateEnabled'], isFalse);
+      expect(detail['atmosphere'], 'breathable');
+      expect(detail['gravity'], 'earth');
     },
   );
 
@@ -119,6 +140,8 @@ void main() {
       });
       final exported = facade.exportWorld('Soul Society')!;
       expect(exported['climate_enabled'], isFalse);
+      expect(exported.containsKey('biome'), isFalse);
+      expect(exported.containsKey('place_traits'), isFalse);
     },
   );
 }
