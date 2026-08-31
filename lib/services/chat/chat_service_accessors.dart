@@ -284,8 +284,9 @@ extension ChatServiceAccessors on ChatService {
     // self-guards on the token, so a stale resolve can't write the wrong chat.
     final token = _currentSessionId;
     scheduleMicrotask(() {
-      if (_sceneChanged(token) || _sceneGuest.busy || _sceneGuest.ids.isEmpty)
+      if (_sceneChanged(token) || _sceneGuest.busy || _sceneGuest.ids.isEmpty) {
         return;
+      }
       _resolveSceneGuestCards();
     });
   }

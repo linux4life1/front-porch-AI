@@ -67,27 +67,6 @@ void _expectFullyAboveFooter(
   );
 }
 
-void _expectNotUnderFooter(WidgetTester tester, Finder content, String reason) {
-  if (content.evaluate().isEmpty) return;
-  final c = tester.getRect(content);
-  final footer = tester.getRect(_createWorldBtn());
-  final body = tester.getRect(_scrollBody());
-  final painted = c.intersect(body);
-  if (painted.height <= 0.5 || painted.width <= 0.5) return;
-  expect(
-    c.bottom,
-    lessThanOrEqualTo(footer.top + 0.5),
-    reason:
-        '$reason: painted content.bottom ${c.bottom} > footer.top ${footer.top}',
-  );
-  expect(
-    c.overlaps(footer),
-    isFalse,
-    reason:
-        '$reason: painted content overlaps footer (content=$c footer=$footer)',
-  );
-}
-
 Future<void> _pumpPage(WidgetTester tester, Size window) async {
   tester.view.physicalSize = window;
   tester.view.devicePixelRatio = 1.0;
