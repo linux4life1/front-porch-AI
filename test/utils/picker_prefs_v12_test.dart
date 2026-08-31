@@ -194,4 +194,33 @@ void main() {
     expect(src, contains('bool allowMultiple = false'));
     expect(src, contains('FilePicker.pickFile('));
   });
+
+  test('no dart in lib/test/integration_test constructs PlatformFile', () {
+    final ctor = RegExp(r'(?<!Memory)PlatformFile\(');
+    for (final dir in ['lib', 'test', 'integration_test']) {
+      for (final f in Directory(dir)
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))) {
+        if (f.path.endsWith('picker_prefs_v12_test.dart')) continue;
+        for (final line in f.readAsStringSync().split('\n')) {
+          final t = line.trim();
+          if (t.startsWith('//') || t.startsWith('///') || t.startsWith('*')) {
+            continue;
+          }
+          if (t.contains("contains('PlatformFile")) continue;
+          if (ctor.hasMatch(t)) {
+            fail('${f.path}: still constructs PlatformFile: $t');
+          }
+        }
+      }
+    }
+  });
+
+  test('lorebook E2E uses MemoryPlatformFile shim', () {
+    final src =
+        File('integration_test/lorebook_import_test.dart').readAsStringSync();
+    expect(src, contains('MemoryPlatformFile('));
+    expect(RegExp(r'(?<!Memory)PlatformFile\(').hasMatch(src), isFalse);
+  });
 }
