@@ -37,7 +37,7 @@ dependencies:
   provider: ^6.1.5+1
   file_picker: ^11.0.3
   path_provider: ^2.1.5
-  archive: ^4.0.7
+  archive: ^4.2.0
   google_fonts: ^8.2.1
   image: ^4.7.2
   # Pure-Dart Draw Things gRPC client (replaces the Python dt_grpc_client
