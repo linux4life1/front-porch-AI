@@ -10,7 +10,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat_service.dart';
+import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/web/facade/world_facade.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 
@@ -74,7 +78,10 @@ void main() {
 
       final detail = facade.detail('Soul Society')!;
       expect(detail['climateEnabled'], isFalse);
-      expect(detail['biomeId'], isNull);
+      expect(detail.containsKey('biomeId'), isFalse);
+      expect(detail.containsKey('biome'), isFalse);
+      expect(detail.containsKey('atmosphere'), isFalse);
+      expect(detail.containsKey('gravity'), isFalse);
       expect(detail['description'], contains('afterlife'));
       expect((detail['entries'] as List), hasLength(1));
     },
@@ -94,8 +101,20 @@ void main() {
       );
       final detail = facade.detail('Soul Society')!;
       expect(detail['climateEnabled'], isFalse);
-      expect(detail['atmosphere'], 'breathable');
-      expect(detail['gravity'], 'earth');
+      expect(detail.containsKey('biome'), isFalse);
+      expect(detail.containsKey('biomeId'), isFalse);
+      expect(detail.containsKey('atmosphere'), isFalse);
+      expect(detail.containsKey('gravity'), isFalse);
+
+      // Payload was ignored: leftover defaults still sit at rest, visible
+      // again only after climate is re-enabled without atmosphere/gravity.
+      expect(
+        await facade.save({'name': 'Soul Society', 'climateEnabled': true}),
+        isTrue,
+      );
+      final on = facade.detail('Soul Society')!;
+      expect(on['atmosphere'], 'breathable');
+      expect(on['gravity'], 'earth');
     },
   );
 
@@ -142,6 +161,80 @@ void main() {
       expect(exported['climate_enabled'], isFalse);
       expect(exported.containsKey('biome'), isFalse);
       expect(exported.containsKey('place_traits'), isFalse);
+    },
+  );
+
+  test(
+    'chatPlaces omits biomeId for climate-off worlds (no temperate)',
+    () async {
+      late ChatService chat;
+      final storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_chatplaces_').path,
+      );
+      final repo = WorldRepository(storage, db);
+      await repo.loadWorlds();
+      chat = ChatService(
+        KoboldService(storage),
+        UserPersonaService(db),
+        storage,
+        repo,
+      )..setDatabase(db);
+      addTearDown(() {
+        chat.dispose();
+      });
+      final wired = WorldFacade(repo, null, chat);
+
+      expect(
+        await wired.save({
+          'name': 'Soul Society',
+          'climateEnabled': false,
+          'entries': [
+            {
+              'name': 'Seireitei',
+              'key': 'Seireitei',
+              'content': 'Walled city.',
+            },
+          ],
+        }),
+        isTrue,
+      );
+      expect(
+        await wired.save({
+          'name': 'Karakura',
+          'climateEnabled': true,
+          'biomeId': 'temperate',
+        }),
+        isTrue,
+      );
+
+      await chat.setActiveCharacter(
+        CharacterCard(
+          name: 'Alice',
+          description: 'Climate-off chatPlaces pin.',
+          firstMessage: 'The porch light hums.',
+        )..dbId = 'char-climate-alice',
+      );
+      expect(chat.currentSessionId, isNotNull);
+
+      final offId =
+          wired.list().firstWhere((m) => m['name'] == 'Soul Society')['id']
+              as String;
+      final onId =
+          wired.list().firstWhere((m) => m['name'] == 'Karakura')['id']
+              as String;
+
+      final result = await wired.setChatPlaces([offId, onId]);
+      expect(result['ok'], isTrue);
+      final places = (result['places'] as List).cast<Map<String, dynamic>>();
+      expect(places, hasLength(2));
+
+      final off = places.firstWhere((p) => p['id'] == offId);
+      expect(off.containsKey('biomeId'), isFalse);
+      expect(off['biomeId'], isNot('temperate'));
+
+      final on = places.firstWhere((p) => p['id'] == onId);
+      expect(on['biomeId'], 'temperate');
     },
   );
 }

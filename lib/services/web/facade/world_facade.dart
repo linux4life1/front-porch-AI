@@ -100,16 +100,15 @@ class WorldFacade {
         'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
             ? 'custom'
             : (w.biomeId ?? 'temperate'),
-      'biome': Biome.tryParse(w.biomeJson)?.toJson(),
+      if (w.climateEnabled) 'biome': Biome.tryParse(w.biomeJson)?.toJson(),
       'injectDescription': w.injectDescription,
       'climateEnabled': w.climateEnabled,
       'coverImage': w.coverImage,
       'linkedCharacterName': w.linkedCharacterName,
       'linkedCharacterId': w.linkedCharacterId,
       'entries': lorebookEntriesToJson(w.lorebook),
-      // Place traits (additive; older web bundles simply ignore these).
-      'atmosphere': w.atmosphere.name,
-      'gravity': w.gravity.name,
+      if (w.climateEnabled) 'atmosphere': w.atmosphere.name,
+      if (w.climateEnabled) 'gravity': w.gravity.name,
     };
   }
 
@@ -351,7 +350,11 @@ class WorldFacade {
         'name': w.name,
         // 'custom' is truthful for a place authoring its own climate —
         // reporting 'temperate' misled anything trusting this field.
-        'biomeId': w.biomeJson != null ? 'custom' : (w.biomeId ?? 'temperate'),
+        // Lorebook-only (climate-off) worlds omit biomeId entirely.
+        if (w.climateEnabled)
+          'biomeId': w.biomeJson != null
+              ? 'custom'
+              : (w.biomeId ?? 'temperate'),
         'hasCustomClimate': w.biomeJson != null,
         'description': w.description,
       });
