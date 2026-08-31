@@ -37,6 +37,20 @@ WorldAtmosphere worldAtmosphereFromName(String? name) =>
 WorldGravity worldGravityFromName(String? name) =>
     WorldGravity.values.asNameMap()[name?.toLowerCase()] ?? WorldGravity.earth;
 
+/// Read the additive world climate flag without making malformed aliases win.
+///
+/// Snake case is canonical, camel case is accepted for web DTOs, and bool or
+/// 0/1 values are tolerated at mixed-fleet boundaries. Null means neither
+/// spelling carried a usable value, so callers can choose their own fallback.
+bool? readWorldClimateEnabled(Map<String, dynamic> json) {
+  for (final key in const ['climate_enabled', 'climateEnabled']) {
+    final raw = json[key];
+    if (raw is bool) return raw;
+    if (raw is num) return raw != 0;
+  }
+  return null;
+}
+
 /// A portable *place*: lore (and later climate) that attaches to chats, not
 /// to characters. Stable [id] is the only durable reference; [name] is
 /// display-only (UNIQUE in DB, auto-renamed on import collision).
@@ -142,10 +156,7 @@ class World {
   factory World.fromJson(Map<String, dynamic> json) {
     final String name = json['name']?.toString() ?? 'Imported World';
     final String description = json['description']?.toString() ?? '';
-    final climateEnabled =
-        json['climate_enabled'] as bool? ??
-        json['climateEnabled'] as bool? ??
-        true;
+    final climateEnabled = readWorldClimateEnabled(json) ?? true;
 
     Lorebook lorebook;
     if (json['lorebook'] != null) {

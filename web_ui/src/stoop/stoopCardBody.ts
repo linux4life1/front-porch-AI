@@ -20,10 +20,11 @@ function str(card: CardMap, key: string): string {
 }
 
 function climateFlag(card: CardMap): boolean | undefined {
-  const raw =
-    'climate_enabled' in card ? card.climate_enabled : card.climateEnabled;
-  if (typeof raw === 'boolean') return raw;
-  if (typeof raw === 'number') return raw !== 0;
+  for (const key of ['climate_enabled', 'climateEnabled']) {
+    const raw = card[key];
+    if (typeof raw === 'boolean') return raw;
+    if (typeof raw === 'number') return raw !== 0;
+  }
   return undefined;
 }
 
@@ -35,12 +36,15 @@ export function stoopWorldClimateEnabled(card: CardMap): boolean {
 /** List rows with no envelope use the additive DTO flag and default off. */
 export function stoopCardClimateEnabled(card: StoopCard): boolean {
   const envelope = asMap(card.card) ?? {};
-  if ('climate_enabled' in envelope || 'climateEnabled' in envelope) {
-    return stoopWorldClimateEnabled(envelope);
-  }
+  const envelopeFlag = climateFlag(envelope);
+  if (envelopeFlag !== undefined) return envelopeFlag;
   return (
     climateFlag(card as unknown as CardMap) ??
-    Object.keys(envelope).length > 0
+    ('formatVersion' in envelope ||
+      'name' in envelope ||
+      'biome' in envelope ||
+      'lorebook' in envelope ||
+      'lorebooks' in envelope)
   );
 }
 

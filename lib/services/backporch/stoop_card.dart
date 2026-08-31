@@ -8,6 +8,8 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+import 'package:front_porch_ai/models/models.dart';
+
 import 'backporch_user.dart';
 
 /// Worlds on The Stoop — client readiness flag.
@@ -36,15 +38,8 @@ const String kStoopWorldTypes = 'solo,group,world';
 /// Reads `climate_enabled` / `climateEnabled` (bool or 0/1). Missing key
 /// means climate ON — old packages always shipped biome. Callers pass the
 /// payload already on the card; this does not hit the network.
-bool stoopWorldClimateEnabled(Map<String, dynamic> envelope) {
-  final raw = envelope.containsKey('climate_enabled')
-      ? envelope['climate_enabled']
-      : envelope['climateEnabled'];
-  if (raw == null) return true;
-  if (raw is bool) return raw;
-  if (raw is num) return raw != 0;
-  return true;
-}
+bool stoopWorldClimateEnabled(Map<String, dynamic> envelope) =>
+    readWorldClimateEnabled(envelope) ?? true;
 
 /// A creator reference as it appears on a card (`@handle`).
 class StoopCreatorRef {
@@ -163,11 +158,7 @@ class StoopCard {
     card: j['card'] is Map
         ? Map<String, dynamic>.from(j['card'] as Map)
         : const {},
-    climateEnabled: switch (j['climateEnabled'] ?? j['climate_enabled']) {
-      final bool value => value,
-      final num value => value != 0,
-      _ => null,
-    },
+    climateEnabled: readWorldClimateEnabled(j),
   );
 }
 
@@ -178,10 +169,8 @@ class StoopCard {
 /// old envelope remains climate-on through [stoopWorldClimateEnabled], while
 /// an omitted/empty envelope no longer invents climate.
 bool stoopCardClimateEnabled(StoopCard card) {
-  if (card.card.containsKey('climate_enabled') ||
-      card.card.containsKey('climateEnabled')) {
-    return stoopWorldClimateEnabled(card.card);
-  }
+  final envelopeFlag = readWorldClimateEnabled(card.card);
+  if (envelopeFlag != null) return envelopeFlag;
   return card.climateEnabled ?? card.card.isNotEmpty;
 }
 

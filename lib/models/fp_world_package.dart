@@ -123,10 +123,7 @@ FpWorldPackage decodeFpWorld(Map<String, dynamic> json) {
     lorebook = Lorebook(entries: []);
   }
 
-  final climateEnabled =
-      json['climate_enabled'] as bool? ??
-      json['climateEnabled'] as bool? ??
-      true;
+  final climateEnabled = readWorldClimateEnabled(json) ?? true;
   Map<String, dynamic>? biome;
   final rawBiome = json['biome'];
   if (climateEnabled && rawBiome is Map) {

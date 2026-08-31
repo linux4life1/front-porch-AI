@@ -43,11 +43,11 @@ function detail(card: Record<string, unknown>): StoopCardDetail {
 describe('Stoop WORLD climate boundaries', () => {
   it('uses list metadata without treating an omitted card as climate-on', () => {
     expect(stoopCardClimateEnabled(world())).toBe(false);
-    expect(stoopCardClimateEnabled(world({ climateEnabled: false }))).toBe(
-      false,
-    );
-    expect(stoopCardClimateEnabled(world({ climate_enabled: true }))).toBe(
+    expect(stoopCardClimateEnabled(world({ climateEnabled: true }))).toBe(
       true,
+    );
+    expect(stoopCardClimateEnabled(world({ climate_enabled: false }))).toBe(
+      false,
     );
   });
 
@@ -56,6 +56,18 @@ describe('Stoop WORLD climate boundaries', () => {
       stoopCardClimateEnabled(world({ card: { biome: { id: 'desert' } } })),
     ).toBe(true);
     expect(stoopWorldClimateEnabled({ biome: { id: 'desert' } })).toBe(true);
+    expect(
+      stoopWorldClimateEnabled({
+        climate_enabled: 'invalid',
+        climateEnabled: false,
+      }),
+    ).toBe(false);
+    expect(
+      stoopCardClimateEnabled({
+        ...world({ climateEnabled: false }),
+        card: { climate_enabled: 'invalid' },
+      }),
+    ).toBe(false);
     expect(
       stoopCardClimateEnabled({
         ...world({ climateEnabled: false }),

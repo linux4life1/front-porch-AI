@@ -65,6 +65,28 @@ void main() {
       expect(package.biome, isNull);
       expect(package.world.placeTraits, isEmpty);
     });
+
+    test('numeric zero and a fallback alias remain lore-only', () {
+      final world = World.fromJson({
+        'name': 'Lore Shelf',
+        'lorebook': {'entries': []},
+        'climate_enabled': 'invalid',
+        'climateEnabled': 0,
+        'biome_id': 'desert',
+      });
+      final package = decodeFpWorld({
+        'formatVersion': 1,
+        'name': 'Lore Shelf',
+        'lorebook': {'entries': []},
+        'climate_enabled': 0,
+        'biome': {'id': 'desert'},
+      });
+
+      expect(world.climateEnabled, isFalse);
+      expect(world.biomeId, isNull);
+      expect(package.world.climateEnabled, isFalse);
+      expect(package.biome, isNull);
+    });
   });
 
   group('climate-on compatibility', () {

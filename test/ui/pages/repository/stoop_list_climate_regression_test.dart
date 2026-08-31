@@ -57,26 +57,31 @@ Future<void> _pumpTile(WidgetTester tester, StoopCard card) async {
 void main() {
   group('Stoop WORLD list climate DTO', () {
     test('parses camel and snake flags without a card envelope', () {
-      final camel = StoopCard.fromJson({
-        'id': 'camel',
-        'type': 'WORLD',
-        'climateEnabled': false,
-      });
-      final snake = StoopCard.fromJson({
-        'id': 'snake',
-        'type': 'WORLD',
-        'climate_enabled': true,
-      });
+      final cards = StoopBrowsePage.fromJson({
+        'items': [
+          {'id': 'camel', 'type': 'WORLD', 'climateEnabled': true},
+          {'id': 'snake', 'type': 'WORLD', 'climate_enabled': false},
+        ],
+      }).items;
+      final camel = cards.first;
+      final snake = cards.last;
 
       expect(camel.card, isEmpty);
-      expect(camel.climateEnabled, isFalse);
-      expect(stoopCardClimateEnabled(camel), isFalse);
-      expect(snake.climateEnabled, isTrue);
-      expect(stoopCardClimateEnabled(snake), isTrue);
+      expect(camel.climateEnabled, isTrue);
+      expect(stoopCardClimateEnabled(camel), isTrue);
+      expect(snake.climateEnabled, isFalse);
+      expect(stoopCardClimateEnabled(snake), isFalse);
+
+      final liveCards = [snake];
       expect(
-        camel.withStats(score: 1, downloadCount: 2).climateEnabled,
-        isFalse,
+        const StoopCardStats(
+          cardId: 'snake',
+          score: 1,
+          downloadCount: 2,
+        ).applyTo(liveCards),
+        isTrue,
       );
+      expect(liveCards.single.climateEnabled, isFalse);
     });
 
     test('an omitted empty envelope never invents climate', () {
@@ -104,6 +109,12 @@ void main() {
           _world(card: {'climate_enabled': true}, climateEnabled: false),
         ),
         isTrue,
+      );
+      expect(
+        stoopCardClimateEnabled(
+          _world(card: {'climate_enabled': 'invalid'}, climateEnabled: false),
+        ),
+        isFalse,
       );
     });
   });
