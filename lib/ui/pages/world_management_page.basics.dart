@@ -18,8 +18,8 @@
 
 part of 'world_management_page.dart';
 
-/// Basic Information card for the create/edit World dialog: optional
-/// cover image (picker + thumbnail), name/description fields, and the
+/// Basic Information card for the create/edit World dialog: cover
+/// image (picker + thumbnail), name/description fields, and the
 /// inject-description toggle + place traits editor. The Climate picker is
 /// extracted separately (world_management_page.climate.dart) and embedded
 /// here at the same position it occupied before this split.
@@ -71,7 +71,7 @@ extension _WorldBasicsSection on _WorldManagementPageState {
             ],
           ),
           const SizedBox(height: 16),
-          // Optional place cover (thumbnail on the Worlds grid).
+          // Place cover (thumbnail on the Worlds grid; required on Stoop).
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -98,7 +98,7 @@ extension _WorldBasicsSection on _WorldManagementPageState {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Optional art for this place. Shown on the Worlds grid and packed into .fpworld.',
+                      'Shown on the Worlds grid and packed into .fpworld. Required to share on the Stoop.',
                       style: TextStyle(
                         fontSize: 10.5,
                         color: AppColors.textTertiary(ctx),
