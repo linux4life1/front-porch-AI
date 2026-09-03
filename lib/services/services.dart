@@ -28,8 +28,8 @@
 // import 'package:front_porch_ai/services/services.dart';
 // ```
 //
-// Consumers use this barrel for exported services. Files inside this directory
-// still import siblings directly to avoid importing their own barrel.
+// Direct imports of individual service files remain fully supported and are
+// the correct choice when only one or two niche services are needed.
 
 export 'desktop_spell_check_service.dart';
 export 'engine_health.dart';
@@ -73,8 +73,6 @@ export 'tts_service.dart';
 export 'tts_voice_info.dart';
 export 'stt_service.dart';
 export 'image_gen_service.dart';
-export 'avatar_gallery.dart';
-export 'portrait_promotion.dart';
 
 // Sync & data
 export 'v2_card_service.dart';
