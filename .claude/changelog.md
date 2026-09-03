@@ -16,7 +16,8 @@
   `test/ui/avatar_gallery_replace_portrait_test.dart`, `docs/Rawhide.md`.
 - **Verification:** New controller guard proven red on the stale name, then
   green; existing portrait identity/re-key suite also green.
-- **Commits:** `98db6a55` (guard), `11d71bae` (implementation).
+- **Commits:** `98db6a55` (main guard), `11d71bae` (implementation),
+  `63e68c76` (shared encoder cleanup), `6645be5d` (basename-change guard).
 
 ## 2026-09-02 — fix: medium follow-ups (image step-up, SPIN NOW, Discussion, expression nag, reunification members)
 - **Why:** Five leftovers from the 1.3 medium wave: (1) POST /api/image/config
