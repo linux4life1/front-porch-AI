@@ -31,24 +31,30 @@ class V2CardService {
   /// a reasonably-sized image ready for embedding.
   Future<img.Image> _resolveOrCreateAvatar(
     CharacterCard card,
-    String? sourceImagePath,
-  ) async {
+    String? sourceImagePath, {
+    Uint8List? sourceImageBytes,
+    bool requireSource = false,
+  }) async {
     img.Image? avatar;
 
     try {
-      if (sourceImagePath != null) {
+      if (sourceImageBytes != null) {
+        avatar = img.decodeImage(sourceImageBytes);
+      } else if (sourceImagePath != null) {
         final bytes = await File(sourceImagePath).readAsBytes();
         avatar = img.decodeImage(bytes);
       }
     } catch (_) {
-      // Corrupt / non-image bytes (or a format decoder that throws): fall
-      // through to the synthetic placeholder rather than failing the whole
-      // card write. Callers that bootstrap a portrait then re-embed via
-      // updateCharacter must not lose extensions over a bad decode.
+      // Corrupt / non-image bytes (or a format decoder that throws) use the
+      // caller-selected floor below: ordinary card writes synthesize a
+      // placeholder, while explicit portrait replacement rejects bad pixels.
       avatar = null;
     }
 
     if (avatar == null) {
+      if (requireSource) {
+        throw const FormatException('Could not decode replacement portrait');
+      }
       // No source image available (character with no avatar, or broken path).
       // Generate a pleasant deterministic placeholder from the name so the
       // character is always visually distinct and never a pure black/gray box.
@@ -110,15 +116,12 @@ class V2CardService {
       }
     }
 
-    img.Image? avatar;
-    try {
-      avatar = img.decodeImage(pixels);
-    } catch (_) {
-      avatar = null;
-    }
-    if (avatar == null) {
-      throw const FormatException('Could not decode replacement portrait');
-    }
+    final avatar = await _resolveOrCreateAvatar(
+      fallbackCard,
+      null,
+      sourceImageBytes: pixels,
+      requireSource: true,
+    );
 
     final pngBytes = PngMetadataUtils.encodeWithTextChunk(
       avatar,
