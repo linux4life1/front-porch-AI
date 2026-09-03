@@ -247,12 +247,19 @@ class AvatarGalleryController extends ChangeNotifier {
   /// Same helper the creator uses ([portraitWriteTarget]): folders and every
   /// filename-keyed table (objectives, RAG, Data Bank, Journal, Growth) key
   /// off the portrait basename, so a new `Name_<epoch>.png` silently orphans
-  /// those rows and Database Cleanup deletes them.
+  /// those rows and Database Cleanup deletes them. The old PNG's raw `chara`
+  /// payload rides onto the new pixels, while SQLite receives imagePath only.
   Future<void> replacePortrait(Uint8List bytes) => _run(() async {
+    final metadataSourcePath = portraitFile()?.path;
     final target = portraitWriteTarget(card: libraryCard, storage: storage);
-    await target.writeAsBytes(bytes);
+    await V2CardService().replacePortraitPixels(
+      fallbackCard: libraryCard,
+      outputPath: target.path,
+      pixels: bytes,
+      metadataSourcePath: metadataSourcePath,
+    );
     await FileImage(target).evict();
-    await repository.updateCharacter(libraryCard, notify: false);
+    await repository.updateCharacterImagePathOnly(libraryCard, notify: false);
     await _evictPortraitImage();
     _bumpMedia();
     _needsCloseBroadcast = true;

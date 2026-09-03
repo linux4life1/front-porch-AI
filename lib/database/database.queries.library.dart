@@ -128,14 +128,22 @@ extension AppDatabaseLibraryQueries on AppDatabase {
 
   /// Update ONLY the imagePath for a character (preserves all other data).
   ///
-  /// Callers that change the *basename* (not just strip a full path down to
-  /// the same file) MUST also [rekeyStableCharacterId]. Gallery replace
-  /// overwrites in place so this path stays a basename-only strip.
+  /// A basename change also re-keys every filename-keyed character row in the
+  /// same transaction. Normal gallery replacement overwrites in place, but an
+  /// external or missing portrait can still move into app storage.
   Future<void> updateCharacterImagePath(String id, String newPath) async {
-    await (update(characters)..where((c) => c.id.equals(id))).write(
-      CharactersCompanion(imagePath: Value(newPath)),
-    );
-    await bumpSyncVersion();
+    await transaction(() async {
+      final existing = await getCharacterById(id);
+      final fromId = stableGroupIdFrom(existing.imagePath, existing.name);
+      final toId = stableGroupIdFrom(newPath, existing.name);
+      await (update(characters)..where((c) => c.id.equals(id))).write(
+        CharactersCompanion(imagePath: Value(newPath)),
+      );
+      if (fromId != toId && fromId.isNotEmpty && toId.isNotEmpty) {
+        await rekeyStableCharacterId(fromId, toId);
+      }
+      await bumpSyncVersion();
+    });
   }
 
   /// Rewrite every filename-keyed row from [fromId] to [toId].

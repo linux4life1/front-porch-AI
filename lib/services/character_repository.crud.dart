@@ -288,6 +288,36 @@ extension CharacterRepositoryCrud on CharacterRepository {
     }
   }
 
+  /// Persist only [card]'s image path, without serializing its other fields
+  /// into either SQLite or the PNG.
+  ///
+  /// This is the gallery portrait-replacement path: the portrait writer has
+  /// already preserved the existing PNG `chara` payload. The database helper
+  /// re-keys filename-owned rows when a missing/external portrait requires a
+  /// genuinely new basename.
+  Future<void> updateCharacterImagePathOnly(
+    CharacterCard card, {
+    bool notify = true,
+  }) async {
+    final id = card.dbId;
+    final imagePath = card.imagePath;
+    if (id == null || imagePath == null) return;
+
+    _clearCoverCache();
+    _bumpCoverEpoch();
+    final fsPath = p.isAbsolute(imagePath)
+        ? imagePath
+        : _resolveImagePath(imagePath);
+    card.imagePath = fsPath;
+    await _db.updateCharacterImagePath(id, _toBasename(fsPath));
+
+    final index = _characters.indexWhere((candidate) => candidate.dbId == id);
+    if (index != -1) {
+      _characters[index].imagePath = fsPath;
+    }
+    if (notify) _notify();
+  }
+
   /// Update a character's image path and persist to DB + PNG.
   Future<void> setCharacterImagePath(
     CharacterCard card,

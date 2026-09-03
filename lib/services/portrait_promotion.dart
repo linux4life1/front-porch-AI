@@ -135,7 +135,9 @@ Future<String> promoteLookOverPortrait({
 /// original file isn't ours to touch, or a creator card saved without an
 /// avatar yet — a fresh `Characters/<safeName>_<epoch>.png` is created and
 /// its path stamped onto the card. Callers write the bytes, evict the image
-/// cache, and persist via updateCharacter (which re-embeds the V2 card data).
+/// cache, and persist the path. Callers that also change card data use
+/// updateCharacter; gallery replacement carries the existing `chara` payload
+/// forward and writes only imagePath.
 File portraitWriteTarget({
   required CharacterCard card,
   required StorageService storage,
