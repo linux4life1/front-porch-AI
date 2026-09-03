@@ -1,11 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Main settings dialog for a Group Chat.
 /// This is the central place for all per-group and per-character configuration.
@@ -42,10 +42,11 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
 
   /// Flushes the General tab's controllers onto the live group and persists.
   ///
-  /// Shared by Save and Done. Every other tab edits the live [GroupChat] as the
-  /// user types, so closing keeps those edits; General holds name / scenario /
-  /// first message / turn rules in controllers until this runs — which is why
-  /// the primary "Done" button used to throw away everything typed there.
+  /// Shared by Save, Done, and the X/Close paths. Every other tab edits the
+  /// live [GroupChat] as the user types, so closing keeps those edits; General
+  /// holds name / scenario / first message / turn rules in controllers until
+  /// this runs — which is why the header X and footer Close used to throw
+  /// away everything typed there with no warning.
   /// Returns true when the group was actually written to the repository.
   bool _commitEdits() {
     _generalTabKey.currentState?.applyToLiveGroup();
@@ -53,6 +54,49 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
     if (g == null || widget.groupRepo == null) return false;
     widget.groupRepo!.save(g);
     return true;
+  }
+
+  /// Header X / footer Close: if General is dirty, warn; Save applies then
+  /// pops, Discard pops without applying, Keep editing stays. Clean close
+  /// pops immediately. Done always commits (it is the primary apply+leave).
+  Future<void> _requestClose() async {
+    final dirty = _generalTabKey.currentState?.hasUnsavedChanges ?? false;
+    if (dirty) {
+      final choice = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surfaceOf(ctx),
+          title: Text(
+            'Unsaved General changes',
+            style: TextStyle(color: AppColors.textPrimary(ctx)),
+          ),
+          content: Text(
+            'Name, scenario, opening message, or turn rules have not been applied yet.',
+            style: TextStyle(color: AppColors.textSecondary(ctx)),
+          ),
+          actions: [
+            warmDialogCancel(ctx, label: 'Keep editing'),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'Discard',
+                style: TextStyle(color: AppColors.bondNegOf(ctx)),
+              ),
+            ),
+            warmDialogConfirm(
+              ctx,
+              label: 'Save',
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (choice == null) return;
+      if (choice) _commitEdits();
+    }
+    if (!mounted) return;
+    Navigator.pop(context);
   }
 
   @override
@@ -91,7 +135,7 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                       Icons.close,
                       color: AppColors.iconSecondary(context),
                     ),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _requestClose,
                   ),
                 ],
               ),
@@ -165,7 +209,7 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _requestClose,
                     child: Text(
                       'Close',
                       style: TextStyle(color: AppColors.textSecondary(context)),
@@ -209,5 +253,3 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
     );
   }
 }
-
-

@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { StoopBadges, StoopCardArt } from '../../components/stoop/StoopCardTile';
+import { StoopVerifiedBadge } from '../../components/stoop/StoopVerifiedBadge';
 import { stoop, stoopErrorText } from '../../stoop/stoopApi';
 import { useStoop } from '../../stoop/StoopContext';
 import { stoopCardKind, type CardMap } from '../../stoop/stoopCardBody';
@@ -109,6 +110,7 @@ export function StoopCardPage() {
           {detail.creator && (
             <Link to={`/stoop/creator/${encodeURIComponent(detail.creator.id)}`}>
               by {detail.creator.displayName}
+              <StoopVerifiedBadge verification={detail.creator.verification} />
             </Link>
           )}
           {detail.originalCreator && (

@@ -16,6 +16,7 @@ export interface WorldSummary {
   entryCount: number;
   biomeId?: string | null;
   injectDescription?: boolean;
+  climateEnabled?: boolean;
   coverImage?: string | null;
   hasCover?: boolean;
   linkedCharacterName?: string | null;
@@ -81,7 +82,9 @@ export function WorldCard({
           <span className="wsg-world-name" title={world.name}>
             {world.name}
           </span>
-          {world.biomeId && world.biomeId !== 'temperate' && (
+          {world.climateEnabled !== false &&
+            world.biomeId &&
+            world.biomeId !== 'temperate' && (
             <span className="wsg-linked" title={`Climate: ${world.biomeId}`}>
               🌡️ <span>{world.biomeId}</span>
             </span>

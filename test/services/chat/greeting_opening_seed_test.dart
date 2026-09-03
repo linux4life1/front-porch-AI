@@ -78,6 +78,14 @@ void _setupPathProviderMock() {
       });
 }
 
+
+/// Settle fire-and-forget Drift requests inside this test's zone.
+Future<void> _drainPendingDrift() async {
+  for (var i = 0; i < 50; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
@@ -88,7 +96,11 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    db = AppDatabase.forTesting();
+    // Same isolate: CI at 7cb122bf failed twice with Drift
+    // "Channel was closed before receiving a response" — a background
+    // isolate killed in the previous tearDown while persona load / porch
+    // import was still in flight. No isolate channel, nothing to race.
+    db = AppDatabase.forTesting(sameIsolate: true);
     storage = StorageService();
     final personas = UserPersonaService(db);
     final worlds = WorldRepository(storage, db);
@@ -101,7 +113,9 @@ void main() {
 
   tearDown(() async {
     chat.dispose();
+    await _drainPendingDrift();
     await db.close();
+    await _drainPendingDrift();
   });
 
   Future<CharacterCard> openFresh() async {
@@ -181,6 +195,9 @@ void main() {
   );
 
   test('reload recovers the greeting cursor from stamped metadata', () async {
+    // Pin: loadSession fires unawaited porch import. File setUp uses
+    // sameIsolate + tearDown drains/closes so this cannot flake as
+    // Drift "Channel was closed" (CI job 99190537433, twice).
     final card = await openFresh();
     await chat.selectGreeting(1);
     final sessionId = chat.currentSessionId!;

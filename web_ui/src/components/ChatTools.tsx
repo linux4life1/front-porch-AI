@@ -22,23 +22,10 @@ import { ContextBudgetModal } from './ContextBudgetModal';
 import { PocketAddRow } from './PocketAddRow';
 import { ExpandableText } from './ExpandableText';
 import { SummaryRecapField } from './SummaryRecapField';
+import { ObjectivesPanel, type ObjectiveView } from './ObjectivesPanel';
 
 export { TextField } from './SummaryRecapField';
 
-interface ObjectiveTask {
-  description: string;
-  completed: boolean;
-}
-interface ObjectiveView {
-  id: string;
-  objective: string;
-  isPrimary: boolean;
-  checkFrequency: number;
-  tasks: ObjectiveTask[];
-  // The ambition this quest is a step toward (schema v46). Optional: absent on
-  // older facades, and null for a situational quest that serves no ambition.
-  servedAmbition?: string | null;
-}
 interface ToolsState {
   realismEnabled: boolean;
   needsEnabled: boolean;
@@ -222,7 +209,6 @@ export function ChatTools({
   const [t, setT] = useState<ToolsState | null>(null);
   // Living Time §4: feedback line for "turn this chat into a story".
   const [storyMsg, setStoryMsg] = useState<string | null>(null);
-  const [goal, setGoal] = useState('');
   const [showCalendar, setShowCalendar] = useState(false);
   const [showBudget, setShowBudget] = useState(false);
   const [editingRecap, setEditingRecap] = useState(false);
@@ -256,8 +242,8 @@ export function ChatTools({
   }, [embeddingBusy, load]);
 
   // Every mutation endpoint returns the fresh (focus-scoped) tools state.
-  const apply = (p: Promise<ToolsState>) => {
-    void p.then(setT).catch(() => {});
+  const apply = (p: Promise<unknown>) => {
+    void (p as Promise<ToolsState>).then(setT).catch(() => {});
   };
   const settings = (fields: Record<string, unknown>) =>
     apply(api.post<ToolsState>(`/api/chat/tools/settings${q}`, fields));
@@ -642,119 +628,27 @@ export function ChatTools({
             <>
               <div className="stat-line"><span>Pressure</span><span className="muted">{t.chaos.pressure}%{t.chaos.hasPendingEvent ? ' · event ready' : ''}</span></div>
               <Toggle label="Allow NSFW events" value={t.chaos.nsfwEnabled} onChange={(v) => toggle('chaosNsfw', v)} />
+              <button
+                disabled={t.chaos.hasPendingEvent}
+                onClick={() => {
+                  void api.post('/api/chat/chance-time/spin').catch(() => {});
+                }}
+              >
+                {t.chaos.hasPendingEvent ? 'EVENT PENDING' : 'SPIN NOW'}
+              </button>
             </>
           )}
         </div>
       </details>
 
-      {t.objectives.enabled !== false && <details className="tool-section" open={checking}>
-        <summary>
-          Objectives{obj || t.objectives.secondary.length > 0 ? '' : ' (none)'}
-          {checking && <span className="obj-checking-tag"> · checking…</span>}
-        </summary>
-        <div className="tool-body">
-          {checking && (
-            <div className="obj-checking"><span className="proc-spinner sm" aria-hidden /> Checking objective &amp; task completion…</div>
-          )}
-          {obj ? (
-            <>
-              <div className="stat-line"><strong>{obj.objective}</strong></div>
-              {/* trim(), matching desktop AmbitionServedChip: a whitespace-only
-                  tag is truthy in JS and would render an empty 🧭 row. */}
-              {obj.servedAmbition?.trim() && (
-                <div className="obj-ambition" title={`A step toward: ${obj.servedAmbition.trim()}`}>
-                  🧭 {obj.servedAmbition.trim()}
-                </div>
-              )}
-              {obj.tasks.length > 0 && (
-                <ul className="task-list">
-                  {obj.tasks.map((task, i) => (
-                    <li key={i}>
-                      <label className="task-item">
-                        <input
-                          type="checkbox"
-                          checked={task.completed}
-                          onChange={() => apply(api.post<ToolsState>(`/api/chat/tools/task${q}`, { action: 'toggle', id: obj.id, taskIndex: i }))}
-                        />
-                        <span className={task.completed ? 'done' : ''}>{task.description}</span>
-                        <button className="icon-btn" title="Remove" onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/task${q}`, { action: 'remove', id: obj.id, taskIndex: i }))}>🗑</button>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="tool-row">
-                <button disabled={checking} onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'generate', id: obj.id }))}>
-                  Generate tasks
-                </button>
-                <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'clear', id: obj.id }))}>Clear</button>
-              </div>
-            </>
-          ) : (
-            <div className="tool-row">
-              <input
-                placeholder="Set a goal for this character…"
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
-              />
-              <button
-                className="primary"
-                disabled={!goal.trim()}
-                onClick={() => {
-                  apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'set', goal }));
-                  setGoal('');
-                }}
-              >
-                Set
-              </button>
-            </div>
-          )}
-          {t.objectives.secondary.length > 0 && (
-            <>
-              <div className="muted small side-quest-label">Side quests</div>
-              {t.objectives.secondary.map((sq) => {
-                const doneCount = sq.tasks.filter((x) => x.completed).length;
-                return (
-                  <div className="side-quest" key={sq.id}>
-                    <div className="stat-line">
-                      <strong>{sq.objective}</strong>
-                      {sq.tasks.length > 0 && <span className="muted">{doneCount}/{sq.tasks.length}</span>}
-                    </div>
-                    {sq.servedAmbition?.trim() && (
-                      <div className="obj-ambition" title={`A step toward: ${sq.servedAmbition.trim()}`}>
-                        🧭 {sq.servedAmbition.trim()}
-                      </div>
-                    )}
-                    {sq.tasks.length > 0 && (
-                      <ul className="task-list">
-                        {sq.tasks.map((task, i) => (
-                          <li key={i}>
-                            <label className="task-item">
-                              <input
-                                type="checkbox"
-                                checked={task.completed}
-                                onChange={() => apply(api.post<ToolsState>(`/api/chat/tools/task${q}`, { action: 'toggle', id: sq.id, taskIndex: i }))}
-                              />
-                              <span className={task.completed ? 'done' : ''}>{task.description}</span>
-                              <button className="icon-btn" title="Remove" onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/task${q}`, { action: 'remove', id: sq.id, taskIndex: i }))}>🗑</button>
-                            </label>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="tool-row">
-                      <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'promote', id: sq.id }))}>
-                        Make primary
-                      </button>
-                      <button onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/objective${q}`, { action: 'clear', id: sq.id }))}>Clear</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </div>
-      </details>}
+      <ObjectivesPanel
+        primary={obj}
+        secondary={t.objectives.secondary}
+        checking={checking}
+        enabled={t.objectives.enabled !== false}
+        query={q}
+        apply={apply}
+      />
 
       <details className="tool-section">
         <summary>Where we are</summary>

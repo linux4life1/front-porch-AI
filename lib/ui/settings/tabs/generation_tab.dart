@@ -228,6 +228,46 @@ class _GenerationTabState extends State<GenerationTab> {
           ),
           const SizedBox(height: 24),
 
+          // ── Model transport ────────────────────────────────────────────
+          const SectionHeader('Model transport'),
+          const SizedBox(height: 8),
+          Text(
+            'How the engine evaluations (Realism, Journal, Growth Rings) '
+            'talk to the model.',
+            style: TextStyle(
+              color: AppColors.textTertiary(context),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                'Native tool calling',
+                style: TextStyle(color: AppColors.textSecondary(context)),
+              ),
+              const Spacer(),
+              Switch(
+                value: !storage.preferTextEvals,
+                onChanged: (val) => storage.setPreferTextEvals(!val),
+                activeTrackColor: accent,
+              ),
+            ],
+          ),
+          Text(
+            'When on, Realism, Journal and Growth use native tool calls if '
+            'this model supports them — cleaner structured results, and on '
+            'the common local templates no slower than the JSON floor. When '
+            'off, every eval uses the JSON/XML floor even if the model can '
+            'speak tools. The sidebar pill still shows whether the model '
+            'can. Default on.',
+            style: TextStyle(
+              color: AppColors.textTertiary(context),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // ── Display Output ─────────────────────────────────────────────
           const SectionHeader('Display Output'),
           const SizedBox(height: 8),
@@ -270,8 +310,7 @@ class _GenerationTabState extends State<GenerationTab> {
           const SizedBox(height: 8),
           StopSequenceList(
             sequences: storage.stopSequences,
-            onSequencesChanged: (newList) =>
-                storage.setStopSequences(newList),
+            onSequencesChanged: (newList) => storage.setStopSequences(newList),
           ),
           const SizedBox(height: 24),
 
@@ -374,8 +413,7 @@ class _GenerationTabState extends State<GenerationTab> {
                       );
                       if (confirmed != true) return;
                     }
-                    storage.generationSettings
-                        .setSanitiseExistingHistory(val);
+                    storage.generationSettings.setSanitiseExistingHistory(val);
                     if (val && mounted) {
                       final chatService = Provider.of<ChatService>(
                         context,

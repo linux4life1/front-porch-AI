@@ -277,6 +277,47 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
     );
   }
 
+  /// The ONE character editor (EditCharacterPage) in a dialog shell — full
+  /// feature set with honest Save/Cancel; nothing persists until Save.
+  /// OPEN_SECTION=edit reuses this path and scrolls the Relationship header
+  /// block (20px gap + header) below the Details tab. No Save.
+  Future<void> _openEditCharacterDialog(
+    CharacterCard character, {
+    bool ensureRelationshipVisible = false,
+  }) async {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final opened = showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: 780,
+          height: MediaQuery.of(dialogCtx).size.height - 96,
+          child: EditCharacterPage(
+            character: character,
+            // Light refresh only — never the full setActiveCharacter dance,
+            // which cancels in-flight generation, full-reloads on rename,
+            // and leaves group mode.
+            onSaved: (saved) async =>
+                chatService.refreshActiveCharacterCard(saved),
+          ),
+        ),
+      ),
+    );
+    if (ensureRelationshipVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          OpenSectionEnv.ensureRelationshipHeaderVisible(context);
+        });
+      });
+    }
+    await opened;
+    if (!mounted) return;
+    rebuildState(() {});
+  }
+
   /// The "Main Settings" popup button — verbatim the second child of the old
   /// _buildRightSidebar Column.
   Widget _buildSidebarMainSettings(
@@ -314,42 +355,7 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
           onSelected: (value) async {
             switch (value) {
               case 'edit_character':
-                // The ONE character editor (EditCharacterPage) in a
-                // dialog shell — full feature set (realism, ambitions,
-                // token count) with honest Save/Cancel; nothing
-                // persists until Save. Replaces the deleted
-                // EditCharacterDialog (a ~73%-duplicate fork that
-                // saved colors/needs instantly and lacked the realism
-                // form). Chat colors live in UI Settings now.
-                final chatService = Provider.of<ChatService>(
-                  context,
-                  listen: false,
-                );
-                await showDialog(
-                  context: context,
-                  builder: (dialogCtx) => Dialog(
-                    insetPadding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 24,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: SizedBox(
-                      width: 780,
-                      height: MediaQuery.of(dialogCtx).size.height - 96,
-                      child: EditCharacterPage(
-                        character: character,
-                        // Light refresh only — never the full
-                        // setActiveCharacter dance, which cancels
-                        // in-flight generation, full-reloads on
-                        // rename, and leaves group mode.
-                        onSaved: (saved) async =>
-                            chatService.refreshActiveCharacterCard(saved),
-                      ),
-                    ),
-                  ),
-                );
-                if (!mounted) return;
-                rebuildState(() {});
+                await _openEditCharacterDialog(character);
                 break;
               case 'expressions':
                 final storage = Provider.of<StorageService>(
@@ -463,10 +469,7 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
           ],
           // Label inherits OutlinedButton foreground (textSecondary) —
           // hard-coded white70 was washed out on light sidebar paper (P3).
-          child: const Text(
-            'Main Settings',
-            textAlign: TextAlign.center,
-          ),
+          child: const Text('Main Settings', textAlign: TextAlign.center),
         ),
       ),
     );

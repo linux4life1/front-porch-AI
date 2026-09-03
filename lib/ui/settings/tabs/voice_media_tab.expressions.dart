@@ -103,7 +103,7 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
-                        'Could not start download. Check your internet connection.',
+                        'Download failed. Check your internet connection and try again.',
                       ),
                     ),
                   );

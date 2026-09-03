@@ -24,6 +24,9 @@ import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/planner_feature_row.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+import 'porch_life_defaults_note.dart';
+import 'porch_life_engine_card.dart';
+
 /// **Porch Life** — every "what makes characters feel alive" switch in one
 /// place, grouped by what it is, each saying plainly what it needs.
 ///
@@ -106,46 +109,7 @@ class PorchLifeTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        FeatureGroupCard(
-          title: 'The Engine',
-          subtitle: 'feelings about what you do',
-          rows: [
-            FeatureRow(
-              icon: Icons.theater_comedy,
-              label: 'Realism Engine',
-              need: FeatureNeed.core,
-              blurb:
-                  'Bond and trust, moods that carry between turns, physical '
-                  'state — how the character feels about what you just did. '
-                  'Needs, the story clock and desire all read from it; the '
-                  'rest of Porch Life runs with or without it, and every row '
-                  'says which it is.',
-              value: engineOn,
-              onChanged: (v) {
-                storage.setRealismDefault(v);
-                chat.setRealismEnabled(v);
-              },
-            ),
-            FeatureRow(
-              icon: Icons.favorite_outline,
-              label: 'Needs',
-              need: FeatureNeed.needs,
-              dependsOn: 'the Realism Engine',
-              satisfied: engineOn,
-              blurb:
-                  'Hunger, energy, comfort and the rest, Sims-style — they '
-                  'drift through a scene and colour how the character feels. '
-                  'The engine is what turns a need into a mood, so needs run '
-                  'with it or not at all. Individual chats can still switch '
-                  'them off in the sidebar.',
-              value: storage.needsSimDefault,
-              onChanged: (v) {
-                storage.realismSettings.setNeedsSimDefault(v);
-                chat.setNeedsSimEnabled(v);
-              },
-            ),
-          ],
-        ),
+        PorchLifeEngineCard(engineOn: engineOn, storage: storage, chat: chat),
 
         FeatureGroupCard(
           title: 'Time & World',
@@ -469,31 +433,7 @@ class PorchLifeTab extends StatelessWidget {
             ],
           ),
 
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerOf(context),
-            border: Border(
-              left: BorderSide(
-                color: AppColors.porchAmberOf(context),
-                width: 3,
-              ),
-            ),
-            borderRadius: const BorderRadius.only(
-              topRight: Radius.circular(10),
-              bottomRight: Radius.circular(10),
-            ),
-          ),
-          child: Text(
-            'These are the defaults new chats start from. Any single chat can '
-            'overrule them from its sidebar — Chaos Mode, Needs, Objectives '
-            'and Growth Rings all have a switch there for that one story.',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: AppColors.textSecondary(context),
-            ),
-          ),
-        ),
+        const PorchLifeDefaultsNote(),
       ],
     );
   }

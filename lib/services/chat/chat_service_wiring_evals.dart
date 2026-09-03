@@ -57,6 +57,7 @@ extension ChatServiceWiringEvals on ChatService {
       fireToolEval: _fireToolEval,
       probe: _toolProbe,
       getBackendIdentity: () => _evalBackendIdentity,
+      getPreferTextEvals: () => _storageService.realismSettings.preferTextEvals,
       getLlmService: () =>
           testLlmServiceOverride ??
           _llmProvider?.activeService ??
@@ -105,6 +106,9 @@ extension ChatServiceWiringEvals on ChatService {
               callToText: (resp) =>
                   realismToolCallToJson(PocketsEval.kPocketsTool, resp.calls),
               fireToolEval: _fireToolEval,
+              toolChoice: PocketsEval.kPocketsTool,
+              getPreferTextEvals: () =>
+                  _storageService.realismSettings.preferTextEvals,
               fireTextEval: (p, {onChunk}) => _fireLLMEval(
                 p,
                 repeatPenalty: kScalarEvalRepeatPenalty,
@@ -138,6 +142,9 @@ extension ChatServiceWiringEvals on ChatService {
                 resp.calls,
               ),
               fireToolEval: _fireToolEval,
+              toolChoice: ReplyFactsEval.kReplyFactsTool,
+              getPreferTextEvals: () =>
+                  _storageService.realismSettings.preferTextEvals,
               fireTextEval: (p, {onChunk}) => _fireLLMEval(
                 p,
                 repeatPenalty: kScalarEvalRepeatPenalty,
@@ -165,6 +172,9 @@ extension ChatServiceWiringEvals on ChatService {
               callToText: (resp) =>
                   realismToolCallToJson(ClimaxEval.kClimaxTool, resp.calls),
               fireToolEval: _fireToolEval,
+              toolChoice: ClimaxEval.kClimaxTool,
+              getPreferTextEvals: () =>
+                  _storageService.realismSettings.preferTextEvals,
               fireTextEval: (p, {onChunk}) => _fireLLMEval(
                 p,
                 repeatPenalty: kScalarEvalRepeatPenalty,
@@ -295,6 +305,7 @@ extension ChatServiceWiringEvals on ChatService {
       fireToolEval: _fireToolEval,
       probe: _toolProbe,
       getBackendIdentity: () => _evalBackendIdentity,
+      getPreferTextEvals: () => _storageService.realismSettings.preferTextEvals,
       isEvalCancelled: () =>
           _isCancellingRealismEval ||
           _realismEvalCancelled ||
@@ -538,35 +549,33 @@ extension ChatServiceWiringEvals on ChatService {
   /// as _fireLLMEval (low temp, reasoning off). All backends probe — local
   /// KoboldCpp included (Qwen3 etc. call tools fine); incapable models fall
   /// back to the XML floor.
-  Future<LlmToolResponse?> _fireToolEval(
-    String prompt,
-    List<Map<String, dynamic>> tools,
-  ) async {
+  Future<LlmToolResponse?> _fireToolEval(ToolEvalSpec spec) async {
     final service =
         testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
-    // [EvalTraffic]: the tool name is the label — free and precise on this
-    // lane, where every call carries its schema.
+    // [EvalTraffic]: label from the named choice, never tools.first — after
+    // kJudgeEvalTools that would always be report_relationship.
     final trafficWatch = Stopwatch()..start();
     void recordTraffic(LlmToolResponse? resp) => EvalTraffic.current.record(
-      label:
-          ((tools.firstOrNull?['function'] as Map?)?['name'] as String?) ??
-          'tool',
+      label: spec.toolChoice ?? 'tool',
       lane: 'tools',
-      promptChars: prompt.length,
+      promptChars: spec.prompt.length,
       outputChars: resp == null
           ? 0
           : resp.text.length +
                 resp.calls.fold(0, (a, c) => a + c.arguments.length * 16),
       ms: trafficWatch.elapsedMilliseconds,
     );
+    final timeout = spec.maxLength <= kScalarToolMaxTokens
+        ? kEvalStreamChunkTimeout
+        : kEvalToolCallTimeout;
     try {
       final resp = await service
           .generateWithTools(
             GenerationParams(
-              prompt: prompt,
-              maxLength: 4000,
+              prompt: spec.prompt,
+              maxLength: spec.maxLength,
               temperature: 0.1,
-              repeatPenalty: 1.15,
+              repeatPenalty: spec.repeatPenalty,
               topP: 0.5,
               xtcProbability: 0.0,
               reasoningEnabled: false,
@@ -582,16 +591,15 @@ extension ChatServiceWiringEvals on ChatService {
               // exclude path cannot swallow the JSON / tool call (Kimi 2.6).
               salvageReasoning: true,
               stopSequences: const [],
+              toolChoice: spec.toolChoice,
+              onChunk: spec.onChunk,
+              backendIdentity: _evalBackendIdentity,
+              stillWantTools: () =>
+                  _toolProbe.shouldPostAfterIdle(_evalBackendIdentity),
             ),
-            tools,
-            // Whole-call deadline: a backend that accepts the request and never
-            // answers (cold model reload after an idle unload, dead server queue,
-            // or the call queued behind a long generation like character
-            // creation) must not park a journal/realism pass forever. The timeout
-            // THROWS — isToolTransportFailure classifies it so verdict sites fall
-            // back to text for the round without branding the backend XML-only.
+            spec.tools,
           )
-          .timeout(kEvalToolCallTimeout);
+          .timeout(timeout);
       recordTraffic(resp);
       return resp;
     } on TimeoutException {
@@ -656,4 +664,16 @@ extension ChatServiceWiringEvals on ChatService {
 
   /// Re-probe the current backend+model's tool support (pill tap).
   Future<void> testToolCalling() => _toolSupportTester.test(force: true);
+
+  bool get toolCallingPaused =>
+      _toolProbe.isPausedUntilPing(_evalBackendIdentity);
+
+  /// Same object for chat-state and POST /api/chat/tool-test (additive keys).
+  Map<String, dynamic> get toolSupportJson => {
+    'state': toolCallSupport.name,
+    'testing': isTestingToolSupport,
+    'preferText': _storageService.realismSettings.preferTextEvals,
+    'paused': toolCallingPaused,
+    'checked': _toolSupportTester.checkedThisRun,
+  };
 }

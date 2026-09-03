@@ -109,6 +109,12 @@ extension _CreateCharacterRealismStep on _CreateCharacterPageState {
                 workDays: _realismWorkDays,
                 onWorkDaysChanged: (v) =>
                     rebuildState(() => _realismWorkDays = v),
+                birthday: _realismBirthday,
+                onBirthdayChanged: (v) =>
+                    rebuildState(() => _realismBirthday = v),
+                birthdayAgeAsOf: BirthdayMath.ageAsOfStory(
+                  _realismStoryStartDate,
+                ),
                 likes: _realismLikes,
                 onLikesChanged: (v) => rebuildState(() => _realismLikes = v),
                 dislikes: _realismDislikes,

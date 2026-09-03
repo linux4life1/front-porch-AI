@@ -60,6 +60,18 @@ const _llama3 = '''
 {% endfor %}
 ''';
 
+/// Heretic / uncensored Gemma-4: the switch exists, then a `{% set %}`
+/// overwrites it so request `enable_thinking:false` never reaches render.
+const _hereticGemma = '''
+{%- set enable_thinking = true %}
+{%- if enable_thinking is defined and enable_thinking -%}
+{{- '<|think|>' -}}
+{%- endif -%}
+{%- if not enable_thinking | default(false) -%}
+{{- '<|channel>thought\\n<channel|>' -}}
+{%- endif -%}
+''';
+
 void main() {
   group('detecting what a local template supports', () {
     test('a graded template (gpt-oss) reports graded', () {
@@ -74,7 +86,8 @@ void main() {
       expect(
         detectThinkingFromChatTemplate(_qwen3),
         ThinkingSupport.toggle,
-        reason: 'it carries <think> too — but enable_thinking is the more '
+        reason:
+            'it carries <think> too — but enable_thinking is the more '
             'specific control and it means Off genuinely works',
       );
     });
@@ -84,7 +97,8 @@ void main() {
       expect(
         detectThinkingFromChatTemplate(_harmonyNoEffort),
         ThinkingSupport.always,
-        reason: 'harmony reasoners never write <think>; missing the channel '
+        reason:
+            'harmony reasoners never write <think>; missing the channel '
             'marker would report a thinking model as having no thinking mode',
       );
     });
@@ -92,6 +106,28 @@ void main() {
     test('a plain instruct template reports none', () {
       expect(detectThinkingFromChatTemplate(_llama3), ThinkingSupport.none);
       expect(detectThinkingFromChatTemplate(''), ThinkingSupport.none);
+    });
+
+    test('heretic set-true is toggle (Off stays) AND hard-on', () {
+      expect(
+        detectThinkingFromChatTemplate(_hereticGemma),
+        ThinkingSupport.toggle,
+        reason:
+            'the template still mentions enable_thinking — locking Off '
+            'would hide a switch we can honour via thinking_budget: 0',
+      );
+      expect(chatTemplateHardEnablesThinking(_hereticGemma), isTrue);
+      expect(chatTemplateHardEnablesThinking(_qwen3), isFalse);
+      expect(
+        chatTemplateHardEnablesThinking(
+          '{%- if enable_thinking | default(true) -%}x{%- endif -%}',
+        ),
+        isFalse,
+        reason:
+            'default(true) only fires when the kwarg is missing; we always '
+            'send it, so this is not a hard-on overwrite',
+      );
+      expect(chatTemplateHardEnablesThinking(''), isFalse);
     });
   });
 
@@ -106,11 +142,9 @@ void main() {
         ThinkingSupport.always,
         ThinkingSupport.none,
       ]) {
-        expect(
-          effortsForThinkingSupport(s),
-          {'none'},
-          reason: '$s has no strength levels, so it must not advertise any',
-        );
+        expect(effortsForThinkingSupport(s), {
+          'none',
+        }, reason: '$s has no strength levels, so it must not advertise any');
       }
     });
 
@@ -127,14 +161,16 @@ void main() {
         effortsForThinkingSupport(ThinkingSupport.toggle),
         persist: false,
       );
-      expect(
-        reasoningEffortChipsFor('/models/graded.gguf'),
-        ['low', 'medium', 'high'],
-      );
+      expect(reasoningEffortChipsFor('/models/graded.gguf'), [
+        'low',
+        'medium',
+        'high',
+      ]);
       expect(
         reasoningEffortChipsFor('/models/toggle.gguf'),
         isEmpty,
-        reason: 'an on/off-only model must show NO strength chips — '
+        reason:
+            'an on/off-only model must show NO strength chips — '
             'decorative chips are exactly what this feature removes',
       );
     });
@@ -150,7 +186,8 @@ void main() {
       expect(
         reasoningEffortSupportedFor('/definitely/not/here/model.gguf'),
         isNull,
-        reason: 'an unreadable model must fall back to the generic chips, '
+        reason:
+            'an unreadable model must fall back to the generic chips, '
             'never to a guessed capability',
       );
     });
@@ -164,22 +201,28 @@ void main() {
       expect(ReasoningSupportResolver.instance.isResolved(''), isFalse);
     });
 
-    test('a miss is cached so a torn file is not re-read every rebuild',
-        () async {
-      ReasoningSupportResolver.instance.clearForTest();
-      const path = '/definitely/not/here/again.gguf';
-      await ReasoningSupportResolver.instance.resolveLocalGguf(path);
-      expect(
-        ReasoningSupportResolver.instance.isResolved(path),
-        isTrue,
-        reason: 'peek() is called from build — an uncached miss would hit the '
-            'filesystem on every frame',
-      );
-    });
+    test(
+      'a miss is cached so a torn file is not re-read every rebuild',
+      () async {
+        ReasoningSupportResolver.instance.clearForTest();
+        const path = '/definitely/not/here/again.gguf';
+        await ReasoningSupportResolver.instance.resolveLocalGguf(path);
+        expect(
+          ReasoningSupportResolver.instance.isResolved(path),
+          isTrue,
+          reason:
+              'peek() is called from build — an uncached miss would hit the '
+              'filesystem on every frame',
+        );
+      },
+    );
 
     test('peek never resolves on its own (it is the build-safe read)', () {
       ReasoningSupportResolver.instance.clearForTest();
-      expect(ReasoningSupportResolver.instance.peek('/some/model.gguf'), isNull);
+      expect(
+        ReasoningSupportResolver.instance.peek('/some/model.gguf'),
+        isNull,
+      );
       expect(
         ReasoningSupportResolver.instance.isResolved('/some/model.gguf'),
         isFalse,
@@ -210,7 +253,8 @@ void main() {
           thinkingDefault: null,
         ),
         ThinkingSupport.graded,
-        reason: 'gpt-oss on this machine reports thinking_default=null — '
+        reason:
+            'gpt-oss on this machine reports thinking_default=null — '
             'the template is the only honest graded signal',
       );
     });
@@ -232,14 +276,12 @@ void main() {
           thinkingDefault: false,
         ),
         ThinkingSupport.toggle,
-        reason: 'oMLX marked it as a thinking model; the engine still has '
+        reason:
+            'oMLX marked it as a thinking model; the engine still has '
             'enable_thinking even when the jinja never names it',
       );
       expect(
-        detectThinkingFromOmlxEntry(
-          chatTemplate: null,
-          thinkingDefault: true,
-        ),
+        detectThinkingFromOmlxEntry(chatTemplate: null, thinkingDefault: true),
         ThinkingSupport.toggle,
       );
     });
@@ -256,85 +298,125 @@ void main() {
 
     test('no template and no classification claims nothing', () {
       expect(
-        detectThinkingFromOmlxEntry(
-          chatTemplate: null,
-          thinkingDefault: null,
-        ),
+        detectThinkingFromOmlxEntry(chatTemplate: null, thinkingDefault: null),
         isNull,
       );
       expect(
-        detectThinkingFromOmlxEntry(
-          chatTemplate: '',
-          thinkingDefault: null,
-        ),
+        detectThinkingFromOmlxEntry(chatTemplate: '', thinkingDefault: null),
         isNull,
       );
     });
 
-    test('readChatTemplateFromModelDir prefers jinja over tokenizer_config',
-        () async {
-      final dir = await Directory.systemTemp.createTemp('fpai_omlx_tmpl_');
-      addTearDown(() => dir.delete(recursive: true));
-      await File('${dir.path}/chat_template.jinja').writeAsString(_harmony);
-      await File('${dir.path}/tokenizer_config.json').writeAsString(
-        jsonEncode({'chat_template': _llama3}),
-      );
-      expect(await readChatTemplateFromModelDir(dir.path), _harmony);
-    });
+    test(
+      'readChatTemplateFromModelDir prefers jinja over tokenizer_config',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('fpai_omlx_tmpl_');
+        addTearDown(() => dir.delete(recursive: true));
+        await File('${dir.path}/chat_template.jinja').writeAsString(_harmony);
+        await File(
+          '${dir.path}/tokenizer_config.json',
+        ).writeAsString(jsonEncode({'chat_template': _llama3}));
+        expect(await readChatTemplateFromModelDir(dir.path), _harmony);
+      },
+    );
 
-    test('resolveOmlx registers graded chips from a status + jinja pair',
-        () async {
-      final dir = await Directory.systemTemp.createTemp('fpai_omlx_res_');
-      addTearDown(() => dir.delete(recursive: true));
-      await File('${dir.path}/chat_template.jinja').writeAsString(_harmony);
+    test(
+      'resolveOmlx registers graded chips from a status + jinja pair',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('fpai_omlx_res_');
+        addTearDown(() => dir.delete(recursive: true));
+        await File('${dir.path}/chat_template.jinja').writeAsString(_harmony);
 
-      var hits = 0;
-      ReasoningSupportResolver.instance.httpClientFactory = () => MockClient(
-        (request) async {
-          hits++;
-          expect(request.url.path, '/v1/models/status');
-          return http.Response(
-            jsonEncode({
-              'models': [
-                {
-                  'id': 'GPT-OSS-120B-MLX-3.6bit',
-                  'model_path': dir.path,
-                  'thinking_default': null,
-                },
-              ],
-            }),
-            200,
-          );
-        },
-      );
+        var hits = 0;
+        ReasoningSupportResolver.instance.httpClientFactory = () =>
+            MockClient((request) async {
+              hits++;
+              expect(request.url.path, '/v1/models/status');
+              return http.Response(
+                jsonEncode({
+                  'models': [
+                    {
+                      'id': 'GPT-OSS-120B-MLX-3.6bit',
+                      'model_path': dir.path,
+                      'thinking_default': null,
+                    },
+                  ],
+                }),
+                200,
+              );
+            });
 
-      final verdict = await ReasoningSupportResolver.instance.resolveOmlx(
-        apiUrl: 'http://localhost:8000/v1',
-        modelName: 'GPT-OSS-120B-MLX-3.6bit',
-      );
-      expect(verdict, ThinkingSupport.graded);
-      expect(
-        reasoningEffortChipsFor('GPT-OSS-120B-MLX-3.6bit'),
-        ['low', 'medium', 'high'],
-      );
-      expect(hits, 1);
+        final verdict = await ReasoningSupportResolver.instance.resolveOmlx(
+          apiUrl: 'http://localhost:8000/v1',
+          modelName: 'GPT-OSS-120B-MLX-3.6bit',
+        );
+        expect(verdict, ThinkingSupport.graded);
+        expect(reasoningEffortChipsFor('GPT-OSS-120B-MLX-3.6bit'), [
+          'low',
+          'medium',
+          'high',
+        ]);
+        expect(hits, 1);
 
-      // Cached — a second resolve must not hit the network.
-      await ReasoningSupportResolver.instance.resolveOmlx(
-        apiUrl: 'http://localhost:8000/v1',
-        modelName: 'GPT-OSS-120B-MLX-3.6bit',
-      );
-      expect(hits, 1);
-    });
+        // Cached — a second resolve must not hit the network.
+        await ReasoningSupportResolver.instance.resolveOmlx(
+          apiUrl: 'http://localhost:8000/v1',
+          modelName: 'GPT-OSS-120B-MLX-3.6bit',
+        );
+        expect(hits, 1);
+      },
+    );
+
+    test(
+      'resolveOmlx registers heretic jinja as hard-on, not mandatory',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('fpai_omlx_heretic_');
+        addTearDown(() => dir.delete(recursive: true));
+        await File(
+          '${dir.path}/chat_template.jinja',
+        ).writeAsString(_hereticGemma);
+
+        ReasoningSupportResolver.instance.httpClientFactory = () =>
+            MockClient((request) async {
+              return http.Response(
+                jsonEncode({
+                  'models': [
+                    {
+                      'id': 'gemma-heretic',
+                      'model_path': dir.path,
+                      'thinking_default': false,
+                    },
+                  ],
+                }),
+                200,
+              );
+            });
+
+        final verdict = await ReasoningSupportResolver.instance.resolveOmlx(
+          apiUrl: 'http://localhost:8000/v1',
+          modelName: 'gemma-heretic',
+        );
+        expect(verdict, ThinkingSupport.toggle);
+        expect(reasoningTemplateForcesThinking('gemma-heretic'), isTrue);
+        expect(
+          reasoningEffortIsMandatory('gemma-heretic'),
+          isFalse,
+          reason: 'Off stays available — evals clamp via thinking_budget: 0',
+        );
+        expect(
+          thinkingBudgetClampForThinkOff('gemma-heretic', thinkOn: false),
+          0,
+        );
+      },
+    );
 
     test('a failed status fetch is not cached as a verdict', () async {
       var hits = 0;
-      ReasoningSupportResolver.instance.httpClientFactory = () => MockClient(
-        (request) async {
-          hits++;
-          return http.Response('nope', 500);
-        },
-      );
+      ReasoningSupportResolver.instance.httpClientFactory = () =>
+          MockClient((request) async {
+            hits++;
+            return http.Response('nope', 500);
+          });
       expect(
         await ReasoningSupportResolver.instance.resolveOmlx(
           apiUrl: 'http://localhost:8000/v1',
@@ -345,7 +427,8 @@ void main() {
       expect(
         ReasoningSupportResolver.instance.isResolved('anything'),
         isFalse,
-        reason: 'caching a downed server would brand the model unknown '
+        reason:
+            'caching a downed server would brand the model unknown '
             'for the rest of the session',
       );
       expect(
@@ -384,7 +467,8 @@ void main() {
       expect(
         supportedReasoningEffortsFromError(verbatim),
         {'none', 'minimal', 'low', 'medium', 'high', 'xhigh'},
-        reason: 'the live 0.4.21 string uses reasoning_effort (underscore) '
+        reason:
+            'the live 0.4.21 string uses reasoning_effort (underscore) '
             'and "Supported values:" without "are" — missing either '
             'would drop the listing on the floor',
       );
@@ -394,8 +478,9 @@ void main() {
       final dir = await Directory.systemTemp.createTemp('fpai_lms_find_');
       addTearDown(() => dir.delete(recursive: true));
       final pub = Directory('${dir.path}/lmstudio-community')..createSync();
-      await File('${pub.path}/Qwen2.5-0.5B-Instruct-Q8_0.gguf')
-          .writeAsBytes([0]);
+      await File(
+        '${pub.path}/Qwen2.5-0.5B-Instruct-Q8_0.gguf',
+      ).writeAsBytes([0]);
       await File('${pub.path}/mmproj-BF16.gguf').writeAsBytes([0]);
       await File('${pub.path}/Other-Model-Q8_0.gguf').writeAsBytes([0]);
 
@@ -409,58 +494,59 @@ void main() {
       expect(found, isNot(contains('mmproj')));
     });
 
-    test('resolveLmStudio registers none from a silent GGUF, never pokes',
-        () async {
-      final dir = await Directory.systemTemp.createTemp('fpai_lms_res_');
-      addTearDown(() => dir.delete(recursive: true));
-      final pub = Directory('${dir.path}/lmstudio-community')..createSync();
-      await File('${pub.path}/Qwen2.5-0.5B-Instruct-Q8_0.gguf')
-          .writeAsBytes(_buildGgufTemplate(_llama3));
-      lmStudioModelsRootOverride = dir.path;
+    test(
+      'resolveLmStudio registers none from a silent GGUF, never pokes',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('fpai_lms_res_');
+        addTearDown(() => dir.delete(recursive: true));
+        final pub = Directory('${dir.path}/lmstudio-community')..createSync();
+        await File(
+          '${pub.path}/Qwen2.5-0.5B-Instruct-Q8_0.gguf',
+        ).writeAsBytes(_buildGgufTemplate(_llama3));
+        lmStudioModelsRootOverride = dir.path;
 
-      var hits = 0;
-      var poked = false;
-      ReasoningSupportResolver.instance.httpClientFactory = () => MockClient(
-        (request) async {
-          hits++;
-          if (request.method == 'POST') poked = true;
-          expect(request.url.path, '/api/v0/models');
-          return http.Response(
-            jsonEncode({
-              'data': [
-                {
-                  'id': 'qwen2.5-0.5b-instruct',
-                  'type': 'llm',
-                  'publisher': 'lmstudio-community',
-                  'compatibility_type': 'gguf',
-                  'quantization': 'Q8_0',
-                  'state': 'not-loaded',
-                },
-              ],
-            }),
-            200,
-          );
-        },
-      );
+        var hits = 0;
+        var poked = false;
+        ReasoningSupportResolver.instance.httpClientFactory = () =>
+            MockClient((request) async {
+              hits++;
+              if (request.method == 'POST') poked = true;
+              expect(request.url.path, '/api/v0/models');
+              return http.Response(
+                jsonEncode({
+                  'data': [
+                    {
+                      'id': 'qwen2.5-0.5b-instruct',
+                      'type': 'llm',
+                      'publisher': 'lmstudio-community',
+                      'compatibility_type': 'gguf',
+                      'quantization': 'Q8_0',
+                      'state': 'not-loaded',
+                    },
+                  ],
+                }),
+                200,
+              );
+            });
 
-      final verdict = await ReasoningSupportResolver.instance.resolveLmStudio(
-        apiUrl: 'http://localhost:1234/v1',
-        modelName: 'qwen2.5-0.5b-instruct',
-      );
-      expect(verdict, ThinkingSupport.none);
-      expect(reasoningEffortChipsFor('qwen2.5-0.5b-instruct'), isEmpty);
-      expect(hits, 1);
-      expect(poked, isFalse, reason: 'a poke would JIT-load the model');
-    });
+        final verdict = await ReasoningSupportResolver.instance.resolveLmStudio(
+          apiUrl: 'http://localhost:1234/v1',
+          modelName: 'qwen2.5-0.5b-instruct',
+        );
+        expect(verdict, ThinkingSupport.none);
+        expect(reasoningEffortChipsFor('qwen2.5-0.5b-instruct'), isEmpty);
+        expect(hits, 1);
+        expect(poked, isFalse, reason: 'a poke would JIT-load the model');
+      },
+    );
 
     test('a failed LMS listing is not cached as a verdict', () async {
       var hits = 0;
-      ReasoningSupportResolver.instance.httpClientFactory = () => MockClient(
-        (request) async {
-          hits++;
-          return http.Response('nope', 404);
-        },
-      );
+      ReasoningSupportResolver.instance.httpClientFactory = () =>
+          MockClient((request) async {
+            hits++;
+            return http.Response('nope', 404);
+          });
       expect(
         await ReasoningSupportResolver.instance.resolveLmStudio(
           apiUrl: 'http://localhost:1234/v1',

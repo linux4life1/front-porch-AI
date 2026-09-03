@@ -101,4 +101,36 @@ class MemberOriginResolver {
       libraryCharacters: libraryCharacters,
     );
   }
+
+  /// Data Bank / memory-source identity for a group member.
+  ///
+  /// Library Data Bank rows and `characters.memory_sources` key by the
+  /// origin portrait basename (and the library row UUID). Group members
+  /// are copies whose private avatar is named after the member UUID, so
+  /// [CharacterCard.stableGroupId] on the shim is that UUID and never
+  /// matches. Prefer the stamped origin even if the library card is gone
+  /// (the Data Bank rows still live under that filename); fall back to
+  /// unique-name [resolve] for legacy members with no stamp.
+  static ({String? sourceId, String? libraryDbId}) libraryRagIdentity({
+    required String? originStableId,
+    required String? originLibraryDbId,
+    required String memberName,
+    required Iterable<CharacterCard> libraryCharacters,
+  }) {
+    final stamped = originStableId?.trim();
+    final stampedDb = originLibraryDbId?.trim();
+    final resolved = resolve(
+      stampedOriginStableId: originStableId,
+      memberName: memberName,
+      libraryCharacters: libraryCharacters,
+    );
+    return (
+      sourceId: (stamped != null && stamped.isNotEmpty)
+          ? stamped
+          : resolved?.stableGroupId,
+      libraryDbId: (stampedDb != null && stampedDb.isNotEmpty)
+          ? stampedDb
+          : resolved?.dbId,
+    );
+  }
 }

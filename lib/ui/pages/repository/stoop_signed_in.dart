@@ -15,6 +15,7 @@ import 'package:front_porch_ai/providers/auth_state.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_browse_view.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_home_view.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The fully signed-in Stoop: a Browse tab (the community grid) and a personal
@@ -30,6 +31,9 @@ class StoopSignedIn extends StatelessWidget {
     final displayName = context.select<AuthState, String>(
       (a) => a.user?.displayName ?? '',
     );
+    final verification = context.select<AuthState, String?>(
+      (a) => a.user?.verification,
+    );
     // Hub tab bar (.hub-tab): quiet labels, the active one amber with an
     // amber underline.
     return DefaultTabController(
@@ -39,9 +43,7 @@ class StoopSignedIn extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               color: stoopBg0(context),
-              border: Border(
-                bottom: BorderSide(color: stoopBorder(context)),
-              ),
+              border: Border(bottom: BorderSide(color: stoopBorder(context))),
             ),
             child: TabBar(
               labelColor: stoopAmberText(context),
@@ -54,11 +56,22 @@ class StoopSignedIn extends StatelessWidget {
                 Tab(
                   // Long names ellipsize instead of stretching the bar.
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 160),
-                    child: Text(
-                      displayName.isEmpty ? 'Mine' : '@$displayName',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    constraints: const BoxConstraints(maxWidth: 180),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            displayName.isEmpty ? 'Mine' : '@$displayName',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        StoopVerifiedBadge(
+                          verification: verification,
+                          size: 13,
+                        ),
+                      ],
                     ),
                   ),
                 ),

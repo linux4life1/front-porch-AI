@@ -29,6 +29,11 @@ part of '../chat_service.dart';
 // `chat_service.dart`, so callers already importing the services barrel see
 // these automatically.
 
+/// Cap on active side quests (non-primary). Birthday outings for the
+/// character and for {{user}} both need a slot without kicking a quest
+/// the user already typed.
+const int kMaxSecondaryObjectives = 4;
+
 /// Default system prompt for group chats, designed to prevent characters
 /// from speaking for each other and maintain turn discipline.
 const String defaultGroupSystemPrompt =
@@ -159,6 +164,20 @@ const String kWithUserPreTurn = 'with_user_pre_turn';
 // entire class in this patch, and is reset once the interruption is surfaced
 // to the UI.
 bool _realismEvalCancelled = false;
+
+/// Set when regenerate/continue abort in-flight post-gen evals (needs,
+/// climax, pockets, posture) so the rejected reply is not scored. Cleared
+/// once settling has exited.
+bool _postGenAbortRequested = false;
+
+/// Bumped on regen / settling abort so a fire-and-forget Journal or Growth
+/// pass started against the rejected window cannot apply (or fall through
+/// to XML) after abortGeneration tore the tools call down.
+int _memoryPassEpoch = 0;
+
+/// True while [sendMessage] is holding a typed line behind post-gen evals.
+/// The composer already cleared; the bubble is not in the list yet.
+bool _sendWaitingOnSettle = false;
 
 /// Bumped by [_invalidateGreetingEval] (selectGreeting, startNewChat,
 /// setActiveCharacter, setActiveGroup, loadSession, _loadLastSession,

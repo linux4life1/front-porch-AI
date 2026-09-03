@@ -111,8 +111,7 @@ extension CharacterRepositoryCrud on CharacterRepository {
       // would take another character's gallery with it. When ambiguous, leave
       // it (a small disk leak) rather than risk cross-character data loss.
       final shared = _characters.any(
-        (c) =>
-            c.dbId != character.dbId && _mediaFolderName(c.name) == safeName,
+        (c) => c.dbId != character.dbId && _mediaFolderName(c.name) == safeName,
       );
       if (safeName.isNotEmpty && !shared) {
         final mediaDir = Directory(
@@ -202,8 +201,11 @@ extension CharacterRepositoryCrud on CharacterRepository {
         // a failed move leaves the (pre-existing) blank-gallery bug (logged),
         // never the worse split-brain of "DB says new name, files under old".
         String? oldNameForMove;
+        String? oldImagePath;
         try {
-          oldNameForMove = (await _db.getCharacterById(card.dbId!)).name;
+          final existing = await _db.getCharacterById(card.dbId!);
+          oldNameForMove = existing.name;
+          oldImagePath = existing.imagePath;
         } catch (_) {
           oldNameForMove = null;
         }
@@ -211,30 +213,43 @@ extension CharacterRepositoryCrud on CharacterRepository {
         final dbImagePath = card.imagePath != null
             ? _toBasename(card.imagePath!)
             : null;
-        await _db.updateCharacter(
-          CharactersCompanion(
-            id: Value(card.dbId!),
-            name: Value(card.name),
-            description: Value(card.description),
-            personality: Value(card.personality),
-            scenario: Value(card.scenario),
-            firstMessage: Value(card.firstMessage),
-            mesExample: Value(card.mesExample),
-            systemPrompt: Value(card.systemPrompt),
-            postHistoryInstructions: Value(card.postHistoryInstructions),
-            alternateGreetings: Value(jsonEncode(card.alternateGreetings)),
-            tags: Value(jsonEncode(card.tags)),
-            imagePath: Value(dbImagePath),
-            ttsVoice: Value(card.ttsVoice),
-            lorebook: Value(
-              card.lorebook != null
-                  ? jsonEncode(card.lorebook!.toJson())
-                  : null,
-            ),
-            worldNames: Value(jsonEncode(card.worldNames)),
-            updatedAt: Value(DateTime.now()),
-          ),
+        final fromId = stableGroupIdFrom(
+          oldImagePath,
+          oldNameForMove ?? card.name,
         );
+        final toId = stableGroupIdFrom(dbImagePath, card.name);
+        await _db.transaction(() async {
+          await _db.updateCharacter(
+            CharactersCompanion(
+              id: Value(card.dbId!),
+              name: Value(card.name),
+              description: Value(card.description),
+              personality: Value(card.personality),
+              scenario: Value(card.scenario),
+              firstMessage: Value(card.firstMessage),
+              mesExample: Value(card.mesExample),
+              systemPrompt: Value(card.systemPrompt),
+              postHistoryInstructions: Value(card.postHistoryInstructions),
+              alternateGreetings: Value(jsonEncode(card.alternateGreetings)),
+              tags: Value(jsonEncode(card.tags)),
+              imagePath: Value(dbImagePath),
+              ttsVoice: Value(card.ttsVoice),
+              lorebook: Value(
+                card.lorebook != null
+                    ? jsonEncode(card.lorebook!.toJson())
+                    : null,
+              ),
+              worldNames: Value(jsonEncode(card.worldNames)),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
+          // Portrait basename IS the portable id for quests / RAG / Data Bank
+          // / Journal / Growth. Changing it without a re-key is the cleanup
+          // wipe the gallery used to trigger on "Replace portrait".
+          if (fromId != toId && fromId.isNotEmpty && toId.isNotEmpty) {
+            await _db.rekeyStableCharacterId(fromId, toId);
+          }
+        });
 
         // Move the gallery media to match the new name, AFTER the DB commit.
         // Best-effort: a failure here must not block the rename (the card text
@@ -271,6 +286,36 @@ extension CharacterRepositoryCrud on CharacterRepository {
         _notify();
       }
     }
+  }
+
+  /// Persist only [card]'s image path, without serializing its other fields
+  /// into either SQLite or the PNG.
+  ///
+  /// This is the gallery portrait-replacement path: the portrait writer has
+  /// already preserved the existing PNG `chara` payload. The database helper
+  /// re-keys filename-owned rows when a missing/external portrait requires a
+  /// genuinely new basename.
+  Future<void> updateCharacterImagePathOnly(
+    CharacterCard card, {
+    bool notify = true,
+  }) async {
+    final id = card.dbId;
+    final imagePath = card.imagePath;
+    if (id == null || imagePath == null) return;
+
+    _clearCoverCache();
+    _bumpCoverEpoch();
+    final fsPath = p.isAbsolute(imagePath)
+        ? imagePath
+        : _resolveImagePath(imagePath);
+    card.imagePath = fsPath;
+    await _db.updateCharacterImagePath(id, _toBasename(fsPath));
+
+    final index = _characters.indexWhere((candidate) => candidate.dbId == id);
+    if (index != -1) {
+      _characters[index].imagePath = fsPath;
+    }
+    if (notify) _notify();
   }
 
   /// Update a character's image path and persist to DB + PNG.

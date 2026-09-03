@@ -255,6 +255,7 @@ class SettingsFacade {
         'characterEvolutionEnabled':
             _storage.memorySettings.characterEvolutionEnabled,
         'realismDefault': _storage.realismSettings.realismDefault,
+        'preferTextEvals': _storage.realismSettings.preferTextEvals,
       },
       // Spell check language. The browser does its own spell checking, so the
       // web cannot reuse the desktop's engine — but it must obey the same
@@ -373,6 +374,10 @@ class SettingsFacade {
       if (aa is bool) await _storage.setAbsenceAckEnabled(aa);
       final ath = realism['absenceThresholdHours'];
       if (ath is int) await _storage.setAbsenceThresholdHours(ath);
+      final pt = realism['preferTextEvals'];
+      if (pt is bool) {
+        await _storage.realismSettings.setPreferTextEvals(pt);
+      }
     }
 
     final spellLanguage = body['spellCheckLanguage'];

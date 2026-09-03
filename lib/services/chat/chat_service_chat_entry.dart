@@ -49,6 +49,7 @@ extension ChatServiceChatEntry on ChatService {
       _activeCharacter = card;
     }
     refreshEnjoysLowHygieneFromActiveCharacter();
+    unawaited(_ensureBirthdayState());
     notifyListeners();
   }
 

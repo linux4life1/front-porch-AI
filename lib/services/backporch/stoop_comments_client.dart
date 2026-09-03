@@ -191,6 +191,7 @@ class MemoryStoopCommentsClient implements StoopCommentsClient {
       cardId: cardId,
       authorId: author.id,
       displayName: author.displayName,
+      verification: author.verification,
       authorAvatarAssetId: author.avatarAssetId,
       createdAt: now,
       body: trimmed,
@@ -303,6 +304,7 @@ class MemoryStoopCommentsClient implements StoopCommentsClient {
     final reply = StoopCommentReply(
       authorId: author.id,
       displayName: author.displayName,
+      verification: author.verification,
       authorAvatarAssetId: author.avatarAssetId,
       createdAt: now,
       body: trimmed,

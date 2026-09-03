@@ -39,7 +39,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
+import 'package:front_porch_ai/utils/picker_prefs.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -165,9 +165,8 @@ void main() {
       state.nameController.text = 'Sable Marrow';
       state.conceptController.text = 'A tide-house cartographer.';
       state.loreFiles = [
-        PlatformFile(
+        MemoryPlatformFile(
           name: 'compact.txt',
-          size: lore.length,
           bytes: Uint8List.fromList(utf8.encode(lore)),
         ),
       ];

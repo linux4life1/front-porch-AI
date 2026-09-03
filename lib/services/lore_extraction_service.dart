@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
@@ -110,16 +109,8 @@ class LoreExtractionService {
   /// Reads a PlatformFile either as a PDF using syncfusion or plain UTF-8 for everything else.
   static Future<String?> _extractFromFile(PlatformFile file) async {
     try {
-      Uint8List? bytes;
-      if (file.bytes != null) {
-        // Web / memory loaded
-        bytes = file.bytes;
-      } else if (file.path != null) {
-        // Desktop / Mobile
-        bytes = await File(file.path!).readAsBytes();
-      }
-
-      if (bytes == null || bytes.isEmpty) return null;
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return null;
 
       final extension = file.extension?.toLowerCase() ?? '';
 

@@ -174,6 +174,7 @@ extension ChatServiceControls on ChatService {
     await _timeService.nudgeTimePeriod(delta);
     // Day-ate journal rides TimeService.onStoryDayChanged.
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
+    unawaited(_ensureBirthdayState());
     await _saveChat();
     notifyListeners();
   }
@@ -186,6 +187,7 @@ extension ChatServiceControls on ChatService {
     await _timeService.setClockDirect(clock);
     // Day-ate journal rides TimeService.onStoryDayChanged.
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
+    unawaited(_ensureBirthdayState());
     await _saveChat();
     notifyListeners();
   }
@@ -195,6 +197,7 @@ extension ChatServiceControls on ChatService {
   Future<void> setStoryStartDate(DateTime date) async {
     if (!_realismEnabled) return;
     _timeService.setStartDate(date);
+    unawaited(_ensureBirthdayState());
     await _saveChat();
     notifyListeners();
   }
@@ -230,13 +233,13 @@ extension ChatServiceControls on ChatService {
     // first wins; a late second accept is a no-op instead of completing an
     // already-completed completer (which would throw a StateError).
     final completer = _chanceTimeCompleter;
-    if (completer == null || completer.isCompleted) return;
+    if (completer != null && completer.isCompleted) return;
     final display = event.replaceAll('{{char}}', charName);
     await _chaosModeService.applyPreparedEvent(display);
-    // Resume the paused sendMessage flow (UI coordination stays in god).
-    // Re-check: applyPreparedEvent awaited above, so the other surface could
-    // have completed it in the gap.
-    if (!completer.isCompleted) completer.complete();
+    _webChanceTimeEvent = null;
+    // Resume a parked send if one is waiting. Manual SPIN NOW has no
+    // completer — applying the injection is the whole point.
+    if (completer != null && !completer.isCompleted) completer.complete();
   }
 
   /// Per-turn auto-trigger check. Delegates to service (verbatim roll/pressure logic).

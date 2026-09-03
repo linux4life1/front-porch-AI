@@ -19,6 +19,7 @@ import 'package:front_porch_ai/ui/pages/repository/stoop_card_detail_page.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_card_tile.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_profile_header.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// A creator's public profile: the shared identity header (avatar, join date,
@@ -129,9 +130,18 @@ class _StoopCreatorPageState extends State<StoopCreatorPage> {
         foregroundColor: stoopCream(context),
         elevation: 0,
         shape: Border(bottom: BorderSide(color: stoopBorder(context))),
-        title: Text(
-          p?.displayName ?? 'Creator',
-          style: stoopDisplay(context, size: 19),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                p?.displayName ?? 'Creator',
+                style: stoopDisplay(context, size: 19),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (p != null)
+              StoopVerifiedBadge(verification: p.verification, size: 18),
+          ],
         ),
       ),
       body: _loading

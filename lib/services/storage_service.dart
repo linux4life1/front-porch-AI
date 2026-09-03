@@ -206,72 +206,65 @@ class StorageService extends ChangeNotifier {
     CharacterCard? c,
     ChatThemePreset? themePreset,
     ChatThemeOverrides? themeOverrides,
-  ]) =>
-      uiSettings.getUserBubbleColor(
-        c,
-        themePreset: themePreset,
-        themeOverrides: themeOverrides,
-      );
+  ]) => uiSettings.getUserBubbleColor(
+    c,
+    themePreset: themePreset,
+    themeOverrides: themeOverrides,
+  );
   Color getAiBubbleColor([
     CharacterCard? c,
     ChatThemePreset? themePreset,
     ChatThemeOverrides? themeOverrides,
-  ]) =>
-      uiSettings.getAiBubbleColor(
-        c,
-        themePreset: themePreset,
-        themeOverrides: themeOverrides,
-      );
+  ]) => uiSettings.getAiBubbleColor(
+    c,
+    themePreset: themePreset,
+    themeOverrides: themeOverrides,
+  );
   Color getDialogueColor([
     CharacterCard? c,
     ChatThemePreset? themePreset,
     ChatThemeOverrides? themeOverrides,
-  ]) =>
-      uiSettings.getDialogueColor(
-        c,
-        themePreset: themePreset,
-        themeOverrides: themeOverrides,
-      );
+  ]) => uiSettings.getDialogueColor(
+    c,
+    themePreset: themePreset,
+    themeOverrides: themeOverrides,
+  );
   Color getUserTextColor([
     CharacterCard? c,
     ChatThemePreset? themePreset,
     ChatThemeOverrides? themeOverrides,
-  ]) =>
-      uiSettings.getUserTextColor(
-        c,
-        themePreset: themePreset,
-        themeOverrides: themeOverrides,
-      );
+  ]) => uiSettings.getUserTextColor(
+    c,
+    themePreset: themePreset,
+    themeOverrides: themeOverrides,
+  );
   Color getAiTextColor([
     CharacterCard? c,
     ChatThemePreset? themePreset,
     ChatThemeOverrides? themeOverrides,
-  ]) =>
-      uiSettings.getAiTextColor(
-        c,
-        themePreset: themePreset,
-        themeOverrides: themeOverrides,
-      );
+  ]) => uiSettings.getAiTextColor(
+    c,
+    themePreset: themePreset,
+    themeOverrides: themeOverrides,
+  );
   String getChatFontFamily([
     CharacterCard? c,
     ChatThemePreset? themePreset,
     ChatThemeOverrides? themeOverrides,
-  ]) =>
-      uiSettings.getChatFontFamily(
-        c,
-        themePreset: themePreset,
-        themeOverrides: themeOverrides,
-      );
+  ]) => uiSettings.getChatFontFamily(
+    c,
+    themePreset: themePreset,
+    themeOverrides: themeOverrides,
+  );
   Color getActionColor([
     CharacterCard? c,
     ChatThemePreset? themePreset,
     ChatThemeOverrides? themeOverrides,
-  ]) =>
-      uiSettings.getActionColor(
-        c,
-        themePreset: themePreset,
-        themeOverrides: themeOverrides,
-      );
+  ]) => uiSettings.getActionColor(
+    c,
+    themePreset: themePreset,
+    themeOverrides: themeOverrides,
+  );
   Future<void> setIsDark(bool v) => uiSettings.setIsDark(v);
 
   // Web server
@@ -452,8 +445,7 @@ class StorageService extends ChangeNotifier {
   int get editSteps => imageGenSettings.editSteps;
   Future<void> setEditSteps(int v) => imageGenSettings.setEditSteps(v);
   double get editCfgScale => imageGenSettings.editCfgScale;
-  Future<void> setEditCfgScale(double v) =>
-      imageGenSettings.setEditCfgScale(v);
+  Future<void> setEditCfgScale(double v) => imageGenSettings.setEditCfgScale(v);
   int get editSampler => imageGenSettings.editSampler;
   Future<void> setEditSampler(int v) => imageGenSettings.setEditSampler(v);
   double get editShift => imageGenSettings.editShift;
@@ -661,6 +653,9 @@ class StorageService extends ChangeNotifier {
   OneShotMode get oneShotMode => realismSettings.oneShotMode;
   Future<void> setOneShotMode(OneShotMode v) =>
       realismSettings.setOneShotMode(v);
+  bool get preferTextEvals => realismSettings.preferTextEvals;
+  Future<void> setPreferTextEvals(bool v) =>
+      realismSettings.setPreferTextEvals(v);
   bool get realismDefault => realismSettings.realismDefault;
   Future<void> setRealismDefault(bool v) =>
       realismSettings.setRealismDefault(v);
@@ -685,8 +680,7 @@ class StorageService extends ChangeNotifier {
   Future<void> setAbsenceThresholdHours(int v) =>
       realismSettings.setAbsenceThresholdHours(v);
   bool get dreamsEnabled => realismSettings.dreamsEnabled;
-  Future<void> setDreamsEnabled(bool v) =>
-      realismSettings.setDreamsEnabled(v);
+  Future<void> setDreamsEnabled(bool v) => realismSettings.setDreamsEnabled(v);
   Future<void> setPassageOfTimeDefault(bool v) =>
       realismSettings.setPassageOfTimeDefault(v);
   bool get standaloneClockEnabled => realismSettings.standaloneClockEnabled;
@@ -846,10 +840,12 @@ class StorageService extends ChangeNotifier {
         await dir.create(recursive: true);
       } catch (e) {
         rootDirectoriesUnavailable = true;
-        debugPrint('[Storage] ⚠ could not create "${dir.path}" ($e). Staying '
-            'on this root anyway — the database is already open here, and '
-            'moving would leave every portrait and chat file resolving '
-            'somewhere the library\'s rows do not live.');
+        debugPrint(
+          '[Storage] ⚠ could not create "${dir.path}" ($e). Staying '
+          'on this root anyway — the database is already open here, and '
+          'moving would leave every portrait and chat file resolving '
+          'somewhere the library\'s rows do not live.',
+        );
       }
     }
 
@@ -914,8 +910,10 @@ class StorageService extends ChangeNotifier {
         DesktopSpellCheckService.activeLanguage = loadedSpell;
       }
     } catch (e, st) {
-      debugPrint('[Storage] ⚠ settings load failed ($e) — booting with '
-          'defaults for whatever did not load.\n$st');
+      debugPrint(
+        '[Storage] ⚠ settings load failed ($e) — booting with '
+        'defaults for whatever did not load.\n$st',
+      );
     }
 
     if (!_initCompleter.isCompleted) _initCompleter.complete();

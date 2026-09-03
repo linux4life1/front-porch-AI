@@ -22,6 +22,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
+import 'package:front_porch_ai/services/chat/needs_impact_zero.dart';
 import 'package:front_porch_ai/services/chat/realism_evals.dart'
     show
         kMinRelationshipDelta,
@@ -174,8 +176,11 @@ class RealismVerification {
       }
       if (reOut == null || reOut.trim().isEmpty) break;
 
-      final reRule = _applyRuleChecks(reOut, bundle, strict);
-      currentRaw = reRule.correctedRaw ?? reOut;
+      // Overlay, then rule-check the MERGE. A rewrite that omits
+      // relationship_delta used to pass as 0 and replace the original.
+      final merged = mergeEvalJson(currentRaw, reOut);
+      final reRule = _applyRuleChecks(merged, bundle, strict);
+      currentRaw = reRule.correctedRaw ?? merged;
       reason = reRule.reason.isNotEmpty ? reRule.reason : 'reprocessed';
       if (reRule.passed) {
         onVerificationPhase?.call(false);
@@ -203,19 +208,22 @@ class RealismVerification {
   /// This directly implements the user's suggestion and cuts verifier roundtrips
   /// from up to 5 to at most 1 when the feature is active on remote APIs.
   Future<Map<String, VerificationResult>> verifyBatch(
-    List<({
-      String evalKind,
-      String rawOutput,
-      String sceneResponse,
-      Map<String, dynamic>? preState,
-      CharacterCard? activeChar,
-      GroupChat? activeGroup,
-      List<ChatMessage>? recentMessages,
-      String? promptText,
-      Map<String, String>? injections,
-      int? strictnessOverride,
-      int? maxPassesOverride,
-    })> items,
+    List<
+      ({
+        String evalKind,
+        String rawOutput,
+        String sceneResponse,
+        Map<String, dynamic>? preState,
+        CharacterCard? activeChar,
+        GroupChat? activeGroup,
+        List<ChatMessage>? recentMessages,
+        String? promptText,
+        Map<String, String>? injections,
+        int? strictnessOverride,
+        int? maxPassesOverride,
+      })
+    >
+    items,
   ) async {
     if (items.isEmpty) return {};
 
@@ -223,7 +231,7 @@ class RealismVerification {
     if (!enabled) {
       return {
         for (final i in items)
-          i.evalKind: VerificationResult.accepted(raw: i.rawOutput, passes: 0)
+          i.evalKind: VerificationResult.accepted(raw: i.rawOutput, passes: 0),
       };
     }
 
@@ -240,9 +248,14 @@ class RealismVerification {
         'prompt': it.promptText ?? '',
         'injections': it.injections ?? const <String, String>{},
         'char_name': (it.activeChar ?? getActiveCharacter())?.name ?? '',
-        'char_personality': (it.activeChar ?? getActiveCharacter())?.personality ?? '',
-        'char_scenario': (it.activeChar ?? getActiveCharacter())?.scenario ?? '',
-        'char_frontPorch': (it.activeChar ?? getActiveCharacter())?.frontPorchExtensions?.toJson() ?? {},
+        'char_personality':
+            (it.activeChar ?? getActiveCharacter())?.personality ?? '',
+        'char_scenario':
+            (it.activeChar ?? getActiveCharacter())?.scenario ?? '',
+        'char_frontPorch':
+            (it.activeChar ?? getActiveCharacter())?.frontPorchExtensions
+                ?.toJson() ??
+            {},
         'group': {'name': (it.activeGroup ?? getActiveGroup())?.name ?? ''},
         'recent': (it.recentMessages ?? getMessages()).length,
         'strictness': it.strictnessOverride ?? getVerificationStrictness(),
@@ -250,9 +263,16 @@ class RealismVerification {
         'user': getUserName(),
       };
 
-      final rule = _applyRuleChecks(it.rawOutput, bundle, it.strictnessOverride ?? getVerificationStrictness());
+      final rule = _applyRuleChecks(
+        it.rawOutput,
+        bundle,
+        it.strictnessOverride ?? getVerificationStrictness(),
+      );
       if (rule.passed) {
-        results[it.evalKind] = VerificationResult.accepted(raw: it.rawOutput, passes: 0);
+        results[it.evalKind] = VerificationResult.accepted(
+          raw: it.rawOutput,
+          passes: 0,
+        );
       } else {
         needing.add(idx);
         results[it.evalKind] = VerificationResult.corrected(
@@ -265,7 +285,11 @@ class RealismVerification {
 
     if (needing.isEmpty) return results;
 
-    onVerificationPhase?.call(true, pass: 1, max: getVerificationMaxReprocesses());
+    onVerificationPhase?.call(
+      true,
+      pass: 1,
+      max: getVerificationMaxReprocesses(),
+    );
 
     // One combined critique for all that needed it.
     final critiquePrompt = _buildBatchCritiquePrompt(
@@ -290,7 +314,9 @@ class RealismVerification {
 
     // The model is instructed to return a flat JSON with keys = evalKind and values = the corrected raw for that kind.
     try {
-      final noFence = reOut.replaceAll(RegExp(r'```(?:json)?\s*|\s*```', dotAll: true), ' ').trim();
+      final noFence = reOut
+          .replaceAll(RegExp(r'```(?:json)?\s*|\s*```', dotAll: true), ' ')
+          .trim();
       final si = noFence.indexOf('{');
       final ei = noFence.lastIndexOf('}');
       if (si >= 0 && ei > si) {
@@ -298,10 +324,15 @@ class RealismVerification {
         if (obj is Map) {
           for (final entry in obj.entries) {
             final k = entry.key.toString();
-            final v = entry.value?.toString() ?? '';
+            final v = switch (entry.value) {
+              final Map m => jsonEncode(m),
+              final String s => s,
+              null => '',
+              final other => other.toString(),
+            };
             if (results.containsKey(k) && v.isNotEmpty) {
               results[k] = VerificationResult.corrected(
-                raw: v,
+                raw: mergeEvalJson(results[k]!.correctedRaw ?? '', v),
                 passes: 1,
                 reason: 'batch director correction',
               );
@@ -318,27 +349,40 @@ class RealismVerification {
   }
 
   String _buildBatchCritiquePrompt({
-    required List<({
-      String evalKind,
-      String rawOutput,
-      String sceneResponse,
-      Map<String, dynamic>? preState,
-      CharacterCard? activeChar,
-      GroupChat? activeGroup,
-      List<ChatMessage>? recentMessages,
-      String? promptText,
-      Map<String, String>? injections,
-      int? strictnessOverride,
-      int? maxPassesOverride,
-    })> items,
+    required List<
+      ({
+        String evalKind,
+        String rawOutput,
+        String sceneResponse,
+        Map<String, dynamic>? preState,
+        CharacterCard? activeChar,
+        GroupChat? activeGroup,
+        List<ChatMessage>? recentMessages,
+        String? promptText,
+        Map<String, String>? injections,
+        int? strictnessOverride,
+        int? maxPassesOverride,
+      })
+    >
+    items,
     required Map<String, VerificationResult> initialCorrections,
   }) {
     final buf = StringBuffer();
-    buf.writeln('You are the Realism Director reviewing a batch of realism eval outputs for consistency.');
-    buf.writeln('For each eval kind below, the "raw" is the model\'s structured output for that eval.');
-    buf.writeln('Apply the same rules as single verification (scene-faithful deltas, no contradictions with narrative/pre-state, inertia, etc.).');
-    buf.writeln('Return ONLY a flat JSON object with keys = the evalKind and values = the corrected raw string for that kind (or the original if no change needed).');
-    buf.writeln('Example: {"relationship": "{...corrected...}", "emotional_state": "{...}"}');
+    buf.writeln(
+      'You are the Realism Director reviewing a batch of realism eval outputs for consistency.',
+    );
+    buf.writeln(
+      'For each eval kind below, the "raw" is the model\'s structured output for that eval.',
+    );
+    buf.writeln(
+      'Apply the same rules as single verification (scene-faithful deltas, no contradictions with narrative/pre-state, inertia, etc.).',
+    );
+    buf.writeln(
+      'Return ONLY a flat JSON object with keys = the evalKind and values = the corrected raw string for that kind (or the original if no change needed).',
+    );
+    buf.writeln(
+      'Example: {"relationship": "{...corrected...}", "emotional_state": "{...}"}',
+    );
     buf.writeln();
 
     for (final it in items) {
@@ -347,7 +391,9 @@ class RealismVerification {
       buf.writeln('SCENE / RECENT:\n${it.sceneResponse}\n');
       buf.writeln('RAW OUTPUT:\n${it.rawOutput}\n');
       if (initialCorrections[it.evalKind] != null) {
-        buf.writeln('INITIAL RULE-BASED CORRECTION (if any):\n${initialCorrections[it.evalKind]!.correctedRaw ?? it.rawOutput}\n');
+        buf.writeln(
+          'INITIAL RULE-BASED CORRECTION (if any):\n${initialCorrections[it.evalKind]!.correctedRaw ?? it.rawOutput}\n',
+        );
       }
       buf.writeln('--- END ${it.evalKind} ---\n');
     }
@@ -407,11 +453,37 @@ class RealismVerification {
       // shrank correct negative reactions to smothering scenes).
       final charged =
           const [
-            'kiss', 'hug', 'love', 'affection', 'tender', 'embrace', 'gift',
-            'confess', 'tears', 'cry', 'blush', 'whisper', 'tremb', 'grip',
-            'slap', 'push', 'hate', 'angry', 'yell', 'shove', 'cold',
-            'betray', 'insult', 'mock', 'ignore', 'reject', 'threat',
-            'apolog', 'protect', 'sacrific', 'promise',
+            'kiss',
+            'hug',
+            'love',
+            'affection',
+            'tender',
+            'embrace',
+            'gift',
+            'confess',
+            'tears',
+            'cry',
+            'blush',
+            'whisper',
+            'tremb',
+            'grip',
+            'slap',
+            'push',
+            'hate',
+            'angry',
+            'yell',
+            'shove',
+            'cold',
+            'betray',
+            'insult',
+            'mock',
+            'ignore',
+            'reject',
+            'threat',
+            'apolog',
+            'protect',
+            'sacrific',
+            'promise',
           ].any(scene.contains) ||
           (scene.contains('smile') && scene.contains('you'));
       final absD = delta.abs();
@@ -535,6 +607,10 @@ class RealismVerification {
       }
     }
 
+    if (kind == 'needs_impact' && !needsImpactHasNonZeroDelta(raw)) {
+      return _RuleResult(false, 'all-zero needs impact', raw);
+    }
+
     // hunger_delta first: it is the key the needs eval actually emits — the
     // plain-'hunger' probe alone made this rule dead for every real output
     // (the strict-quote extractor never matched `"hunger_delta"`), found in
@@ -589,24 +665,31 @@ class RealismVerification {
         // silently, and only in chats that have verification switched on.
         ? ' Preserve full shape: include "proposed_objective" ("none" or short goal), "serves_ambition" (the ambition number the objective serves, or "none" — carry it through unchanged unless you changed the objective itself) and "fixation_topic" (persistent lingering/intrusive thought or "none"). Only correct unsupported values; keep well-supported fixations.'
         : (kind == 'needs_impact')
-            // The preserved shape is the shape something reads: the seven
-            // delta keys + reason. The climax verdict left this eval with
-            // Afterglow's own pass (2026-08-07), and as of 2026-08-10 the
-            // needs prompt no longer asks for it — a Director told to
-            // preserve a field the eval never emits would only invite the
-            // rewrite to invent it. (It used to also say "activities", a
-            // field nothing in the app has ever read.)
-            ? ' Preserve the needs delta keys (hunger_delta/energy_delta/etc or plain names) + reason. The model is trusted to interpret the full erotic narrative (physical descriptions, self-touch, leaking, charging/aching, dominance, power exchange) and assign reasonable deltas like the other realism evals (bond/emotion etc). Only correct if the numbers clearly contradict what is actually written in the scene or pre-state. Keep scene-faithful numbers.'
-            : '';
-    final emotionConstraint = (bundle['injections'] as Map<String, dynamic>?)?['emotion_constraint'] as String? ?? '';
-    final constraintText = emotionConstraint.isNotEmpty ? '\n$emotionConstraint\n' : '';
+        // The preserved shape is the shape something reads: the seven
+        // delta keys + reason. The climax verdict left this eval with
+        // Afterglow's own pass (2026-08-07), and as of 2026-08-10 the
+        // needs prompt no longer asks for it — a Director told to
+        // preserve a field the eval never emits would only invite the
+        // rewrite to invent it. (It used to also say "activities", a
+        // field nothing in the app has ever read.)
+        ? ' Preserve the needs delta keys (hunger_delta/energy_delta/etc or plain names) + reason. The model is trusted to interpret the full erotic narrative (physical descriptions, self-touch, leaking, charging/aching, dominance, power exchange) and assign reasonable deltas like the other realism evals (bond/emotion etc). Only correct if the numbers clearly contradict what is actually written in the scene or pre-state. Keep scene-faithful numbers.'
+        : (kind == 'oneShot')
+        ? ' Preserve full shape: include "relationship_delta", "trust_delta", "emotion", "emotion_intensity", "arousal_delta" (when the prompt asked for it), "proposed_objective", "fixation_topic", "reason". Only correct unsupported values; keep well-supported deltas. Omitted keys are not zeros.'
+        : '';
+    final emotionConstraint =
+        (bundle['injections'] as Map<String, dynamic>?)?['emotion_constraint']
+            as String? ??
+        '';
+    final constraintText = emotionConstraint.isNotEmpty
+        ? '\n$emotionConstraint\n'
+        : '';
     // Persona so the Director corrects subjectively (the eval's dossier when
     // available, else the raw card field). Without this it judged blind and
     // pushed deltas back toward generic-nice.
     final injPersona =
         ((bundle['injections'] as Map<String, dynamic>?)?['personality']
-                as String? ??
-            '')
+                    as String? ??
+                '')
             .trim();
     final personaRaw = injPersona.isNotEmpty
         ? injPersona

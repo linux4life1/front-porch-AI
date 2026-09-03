@@ -168,6 +168,19 @@ final List<Map<String, dynamic>> kNarrativeEvalTools = [
   ),
 ];
 
+/// Wire list for the three prefix-sharing pre-generation judges.
+///
+/// llama.cpp / Kobold jinja injects `tools` near the start of the rendered
+/// prompt. Three different one-tool lists tokenize three different prefixes
+/// and silently defeat `judgePrefix` + `_fireStaggeredRealismEvals`. One
+/// identical list + a named `tool_choice` keeps the templated prefix
+/// cacheable; `realismToolCallToJson` still filters by the expected name.
+final List<Map<String, dynamic>> kJudgeEvalTools = [
+  ...kRelationshipEvalTools,
+  ...kEmotionalEvalTools,
+  ...kNarrativeEvalTools,
+];
+
 final List<Map<String, dynamic>> kOneShotEvalTools = [
   _tool(
     kOneShotTool,

@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { StoopCardTile } from '../../components/stoop/StoopCardTile';
 import { StoopCreatorAvatar } from '../../components/stoop/StoopCreatorAvatar';
+import { StoopVerifiedBadge } from '../../components/stoop/StoopVerifiedBadge';
 import { stoop, stoopErrorText } from '../../stoop/stoopApi';
 import type { StoopCreator } from '../../stoop/stoopTypes';
 
@@ -65,7 +66,10 @@ export function StoopCreatorPage() {
       <div className="stoop-creator-head">
         <StoopCreatorAvatar assetId={creator.avatarAssetId} name={creator.displayName} size={56} />
         <div>
-          <h3>{creator.displayName}</h3>
+          <h3>
+            {creator.displayName}
+            <StoopVerifiedBadge verification={creator.verification} />
+          </h3>
           {since && <p className="muted stoop-small">On the porch since {since}</p>}
           <p className="muted">
             {creator.followers} follower{creator.followers === 1 ? '' : 's'}

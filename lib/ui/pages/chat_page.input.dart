@@ -267,6 +267,40 @@ extension _ChatPageInput on _ChatPageState {
             ),
           ),
 
+        // ── Send held behind post-gen evals ──────────────────────────────
+        // Composer already cleared; the bubble is added after settle. This
+        // strip sits on the input (bottom of the chat) so the wait does not
+        // look like a lost message.
+        if (chatService.isSendWaitingOnSettle)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: AppColors.surfaceContainerOf(context),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.porchAmberOf(context),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Got it — sending when the last reply is fully wrapped up.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary(context),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         // ── Slash-command helper ─────────────────────────────────────────
         // When the input is a command-in-progress ("/", "/cr", …) show the
         // matching commands above the bar; tap one to fill it in. Rendered in

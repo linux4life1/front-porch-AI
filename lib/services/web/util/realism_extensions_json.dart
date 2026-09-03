@@ -164,6 +164,7 @@ FrontPorchExtensions frontPorchFromFields(
     hours: asStr('hours', b.hours),
     occupationBrief: asStr('occupationBrief', b.occupationBrief),
     workDays: asWorkDays('workDays', b.workDays),
+    birthday: asStr('birthday', b.birthday),
     likes: asStrList('likes', b.likes),
     dislikes: asStrList('dislikes', b.dislikes),
     // The 18+ pair travels FLAT over this bridge (`intimateInto` /
@@ -255,6 +256,7 @@ Map<String, dynamic> frontPorchToJson(FrontPorchExtensions e) => {
   'hours': e.hours,
   'occupationBrief': e.occupationBrief,
   'workDays': e.workDays,
+  'birthday': e.birthday,
   'likes': e.likes,
   'dislikes': e.dislikes,
   'intimateInto': e.intimateInto,

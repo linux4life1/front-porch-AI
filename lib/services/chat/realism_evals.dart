@@ -33,7 +33,6 @@ import 'package:front_porch_ai/services/chat/realism_prompt_builder.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/today_line_tag.dart';
 import 'package:front_porch_ai/services/chat/realism_verification.dart';
-import 'package:front_porch_ai/services/llm_service.dart' show LlmToolResponse;
 import 'package:front_porch_ai/utils/utils.dart';
 
 // The per-eval delta limit constants (kMin/kMaxRelationshipDelta etc.) live in
@@ -147,13 +146,10 @@ class RealismEvals {
   // extractors → appliers), so one-shot/multi-call and 1:1/group parity hold
   // by construction. Backends that fail the probe fall back to the streaming
   // text path — probe memory is shared with the Journal + Growth passes.
-  final Future<LlmToolResponse?> Function(
-    String prompt,
-    List<Map<String, dynamic>> tools,
-  )
-  fireToolEval;
+  final Object fireToolEval;
   final ToolTransportProbe probe;
   final String Function() getBackendIdentity;
+  final bool Function()? getPreferTextEvals;
 
   /// Live cancel check for the (non-streaming) tools attempt: a user cancel
   /// aborts the backend request, which must read as "cancelled", never as
@@ -352,6 +348,7 @@ class RealismEvals {
     required this.fireToolEval,
     required this.probe,
     required this.getBackendIdentity,
+    this.getPreferTextEvals,
     required this.isEvalCancelled,
     required this.stripThinkBlocks,
     required this.extractJsonInt,

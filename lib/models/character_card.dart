@@ -127,6 +127,10 @@ class FrontPorchExtensions {
   String occupationBrief;
   List<int>? workDays;
 
+  /// Calendar birthday `YYYY-MM-DD`. Blank is omitted. Feb 29 is rejected
+  /// at parse. Age and "days away" are story-clock math, not wall-clock.
+  String birthday;
+
   /// What this character is drawn to, and what puts them off — short phrases,
   /// authored on the card. Identity like [ambitions]: they travel with it.
   ///
@@ -265,6 +269,7 @@ class FrontPorchExtensions {
     this.hours = '',
     this.occupationBrief = '',
     this.workDays,
+    this.birthday = '',
     this.likes = const [],
     this.dislikes = const [],
     this.intimateInto = const [],
@@ -349,6 +354,7 @@ class FrontPorchExtensions {
         if (hours.isNotEmpty) 'hours': hours,
         if (occupationBrief.isNotEmpty) 'occupationBrief': occupationBrief,
         if (hours.isNotEmpty && workDays != null) 'workDays': workDays,
+        if (birthday.isNotEmpty) 'birthday': birthday,
         'likes': likes,
         'dislikes': dislikes,
         // Nested so the 18+ pair can be stripped from a share as one object.
@@ -440,6 +446,7 @@ class FrontPorchExtensions {
       hours: realism['hours'] as String? ?? '',
       occupationBrief: realism['occupationBrief'] as String? ?? '',
       workDays: _workDays(realism),
+      birthday: realism['birthday'] as String? ?? '',
       likes: _phrases(realism['likes']),
       dislikes: _phrases(realism['dislikes']),
       intimateInto: _phrases(_intimate(realism)['into']),
@@ -529,6 +536,7 @@ class FrontPorchExtensions {
     String? hours,
     String? occupationBrief,
     List<int>? workDays,
+    String? birthday,
     List<String>? likes,
     List<String>? dislikes,
     List<String>? intimateInto,
@@ -594,6 +602,7 @@ class FrontPorchExtensions {
       hours: hours ?? this.hours,
       occupationBrief: occupationBrief ?? this.occupationBrief,
       workDays: workDays ?? this.workDays,
+      birthday: birthday ?? this.birthday,
       likes: likes ?? this.likes,
       dislikes: dislikes ?? this.dislikes,
       intimateInto: intimateInto ?? this.intimateInto,

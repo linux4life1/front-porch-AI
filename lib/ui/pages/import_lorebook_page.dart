@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -83,16 +82,16 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
-    final path = result?.files.single.path;
-    if (path == null) return;
+    if (result == null || result.files.isEmpty) return;
+    final pickedName = result.files.single.name;
     try {
-      final raw = jsonDecode(await File(path).readAsString());
+      final raw = jsonDecode(utf8.decode(await result.files.single.readAsBytes()));
       if (raw is! Map<String, dynamic>) {
         throw const FormatException('Not a JSON object');
       }
       final book = Lorebook.fromJson(raw);
       setState(() {
-        _fileName = path.split(Platform.pathSeparator).last;
+        _fileName = pickedName;
         _book = book;
         _summary = LorebookImportSummary.analyze(raw, book);
         _worldNameCtrl.text = _summary!.suggestedName;
@@ -102,7 +101,7 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
       });
     } catch (e) {
       setState(() {
-        _fileName = path.split(Platform.pathSeparator).last;
+        _fileName = pickedName;
         _book = null;
         _summary = null;
         _pickError =

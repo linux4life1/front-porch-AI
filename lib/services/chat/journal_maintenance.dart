@@ -27,6 +27,7 @@ import 'journal_prompt.dart';
 import 'journal_review.dart';
 import 'journal_store.dart';
 import 'pass_support.dart';
+import 'tool_eval_spec.dart';
 
 /// The Journal — the one periodic background job
 /// (docs/design/journal-memory.md §4.2). Replaces BOTH the old SummaryService
@@ -75,11 +76,12 @@ class JournalMaintenance {
   /// backend can't (or won't) speak tools and this run should use XML; a
   /// THROW is a transport failure (unreachable/aborted/timeout/busy) and
   /// must not brand the backend — see isToolTransportFailure.
-  final Future<LlmToolResponse?> Function(
-    String prompt,
-    List<Map<String, dynamic>> tools,
-  )
-  fireToolEval;
+  final Object fireToolEval;
+  final bool Function() getPreferTextEvals;
+
+  /// Regen bumps this; a pass started against the rejected window must not
+  /// apply, and must not fall through to XML after tools abort.
+  final int Function() getPassEpoch;
 
   final String Function(String) stripThinkBlocks;
 
@@ -128,6 +130,8 @@ class JournalMaintenance {
     required this.probe,
     required this.fireLLMEval,
     required this.fireToolEval,
+    this.getPreferTextEvals = preferTextEvalsOff,
+    this.getPassEpoch = passEpochNeverStale,
     required this.stripThinkBlocks,
     required this.getSessionId,
     required this.getActiveCharacter,
@@ -173,6 +177,7 @@ class JournalMaintenance {
     // used to clear it BEFORE calling, so a pass blocked by a parked review
     // (or an already-running pass) silently ate the kick.
     eventKickPending = false;
+    final epoch = getPassEpoch();
     // Set synchronously before the first await — the only re-entrancy guard
     // for this fire-and-forget per-turn hook.
     setIsPassRunning(true);
@@ -261,8 +266,9 @@ class JournalMaintenance {
           window: window,
           windowStart: start,
           includeRecap: recapOwed,
+          startedEpoch: epoch,
         );
-        if (exchange == null) {
+        if (exchange == null || getPassEpoch() != epoch) {
           debugPrint('[Journal] ✗ ${owner.name}: empty eval response');
           continue;
         }
@@ -355,6 +361,7 @@ class JournalMaintenance {
     required List<ChatMessage> window,
     required int windowStart,
     required bool includeRecap,
+    required int startedEpoch,
   }) async {
     String prompt({required bool toolsMode}) => buildJournalPrompt(
       ownerName: owner.name,
@@ -368,11 +375,19 @@ class JournalMaintenance {
     );
 
     final backend = getBackendIdentity();
-    if (!probe.isXmlOnly(backend)) {
+    if (probe.shouldFireTools(backend, preferTextEvals: getPreferTextEvals())) {
       LlmToolResponse? resp;
       var transportFailure = false;
       try {
-        resp = await fireToolEval(prompt(toolsMode: true), kJournalTools);
+        resp = await invokeToolEval(
+          fireToolEval,
+          ToolEvalSpec(
+            prompt: prompt(toolsMode: true),
+            tools: kJournalTools,
+            maxLength: kProseToolMaxTokens,
+            repeatPenalty: kProseToolRepeatPenalty,
+          ),
+        );
       } catch (e) {
         // Transport failure (unreachable backend, the call torn down by an
         // app-side abortGeneration — e.g. character creation clearing state —
@@ -394,11 +409,8 @@ class JournalMaintenance {
         if (ops.isNotEmpty || recap != null) return (ops, recap);
         if (resp.calls.isNotEmpty) {
           // It spoke tools; the calls just validated to nothing — an honest
-          // "nothing worth journaling" result, not a transport failure. The
-          // old fall-through branded the backend XML-only (the probe is
-          // shared with growth + every realism eval) and re-fired the whole
-          // pass over the fragile XML path, where local models invent
-          // memories. Mirrors growth's honest-empty handling.
+          // "nothing worth journaling" result, not a transport failure.
+          // Do NOT skip. Do NOT brand. Do NOT fall through to XML.
           return (const <JournalOp>[], null);
         }
         if (resp.text.trim().isNotEmpty) {
@@ -406,20 +418,20 @@ class JournalMaintenance {
           // ANSWERED and chose words over tools — real capability evidence.
           probe.markXmlOnly(backend);
           debugPrint('[Journal] Tools unavailable on $backend — using XML');
+        } else {
+          probe.noteInconclusive(backend);
         }
-        // Empty resp (no calls, no text): never a verdict — a KoboldCpp
-        // server-side abort completes an in-flight call as a clean empty
-        // 200, indistinguishable from "can't speak tools" (the Scene Guest
-        // "pill falls off" bug). Fall back to XML for THIS round; the next
-        // pass probes tools again.
-      } else if (!transportFailure) {
-        // Null resp: answered but nothing usable — same ambiguity as the
-        // empty 200 above; no verdict. Genuinely tool-less models are
-        // branded by the ToolSupportTester ping instead.
-        debugPrint('[Journal] Tools inconclusive on $backend — XML this round');
+      } else {
+        probe.noteInconclusive(backend);
+        if (!transportFailure) {
+          debugPrint(
+            '[Journal] Tools inconclusive on $backend — XML this round',
+          );
+        }
       }
     }
 
+    if (getPassEpoch() != startedEpoch) return null;
     final raw = await fireLLMEval(prompt(toolsMode: false));
     if (raw == null || raw.trim().isEmpty) return null;
     final text = stripThinkBlocks(raw);
@@ -461,6 +473,10 @@ class JournalMaintenance {
         case JournalOpAction.pin:
           final card = _cardForHandle(cards, op.handle);
           if (card == null) continue;
+          if (JournalPhysics.isPassLockedCard(card) &&
+              op.action != JournalOpAction.pin) {
+            continue;
+          }
           resolved.add(
             JournalProposedOp(
               action: op.action,
@@ -476,7 +492,10 @@ class JournalMaintenance {
     return resolved;
   }
 
-  JournalMemoryData? _cardForHandle(List<JournalMemoryData> cards, int? handle) {
+  JournalMemoryData? _cardForHandle(
+    List<JournalMemoryData> cards,
+    int? handle,
+  ) {
     if (handle == null || handle < 1 || handle > cards.length) return null;
     return cards[handle - 1];
   }
@@ -553,7 +572,6 @@ class JournalMaintenance {
         if (found != null) break;
       }
     }
-    return found ??
-        (getCurrentStoryDay(), getCurrentStoryClockIso());
+    return found ?? (getCurrentStoryDay(), getCurrentStoryClockIso());
   }
 }

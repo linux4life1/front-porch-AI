@@ -45,9 +45,30 @@ class ModelFetch {
     }
   }
 
+  /// Reject a body that cannot be a real model file: a truncated stream
+  /// (received != Content-Length) or a body smaller than [minBytes] (a CDN
+  /// error page, not weights). Returns the rejection reason, or null when
+  /// valid. [expectedBytes] ≤ 0 means the server omitted Content-Length.
+  static String? validateDownload({
+    required int receivedBytes,
+    required int expectedBytes,
+    int minBytes = 1,
+  }) {
+    if (expectedBytes > 0 && receivedBytes != expectedBytes) {
+      return 'download truncated ($receivedBytes of $expectedBytes bytes)';
+    }
+    if (receivedBytes < minBytes) {
+      return 'download implausibly small ($receivedBytes bytes, need $minBytes)';
+    }
+    return null;
+  }
+
   /// Streams [url] to [dest]. Skips files that are already fully
-  /// downloaded. [onProgress] receives (bytesDone, bytesTotal) for THIS
-  /// file; total is -1 when the server doesn't say.
+  /// downloaded (size ≥ [minBytes]). [onProgress] receives (bytesDone,
+  /// bytesTotal) for THIS file; total is -1 when the server doesn't say.
+  ///
+  /// A truncated or undersized body is deleted, never renamed onto [dest],
+  /// so the next attempt is not skip-poisoned by an HTML error page.
   ///
   /// Retries transient failures: HuggingFace's CDN intermittently serves
   /// 504s (verified in the field — one hiccup used to kill a whole model
@@ -56,11 +77,17 @@ class ModelFetch {
     String url,
     File dest, {
     void Function(int done, int total)? onProgress,
+    int minBytes = 1,
   }) async {
     const attempts = 3;
     for (var attempt = 1; ; attempt++) {
       try {
-        return await _fetchOnce(url, dest, onProgress: onProgress);
+        return await _fetchOnce(
+          url,
+          dest,
+          onProgress: onProgress,
+          minBytes: minBytes,
+        );
       } catch (_) {
         if (attempt >= attempts) rethrow;
         await Future.delayed(Duration(seconds: attempt));
@@ -72,9 +99,14 @@ class ModelFetch {
     String url,
     File dest, {
     void Function(int done, int total)? onProgress,
+    int minBytes = 1,
   }) async {
-    if (dest.existsSync() && dest.lengthSync() > 0) return;
+    if (dest.existsSync()) {
+      if (dest.lengthSync() >= minBytes) return;
+      _deleteQuiet(dest);
+    }
     final client = _client();
+    final part = File('${dest.path}.part');
     try {
       final req = await client.getUrl(Uri.parse(url));
       final res = await req.close();
@@ -83,7 +115,6 @@ class ModelFetch {
       }
       final total = res.contentLength;
       await dest.parent.create(recursive: true);
-      final part = File('${dest.path}.part');
       final sink = part.openWrite();
       var done = 0;
       var lastReport = 0;
@@ -101,11 +132,30 @@ class ModelFetch {
       } finally {
         await sink.close();
       }
+      final invalid = validateDownload(
+        receivedBytes: done,
+        expectedBytes: total,
+        minBytes: minBytes,
+      );
+      if (invalid != null) {
+        _deleteQuiet(part);
+        _deleteQuiet(dest);
+        throw HttpException('$invalid for $url');
+      }
       await part.rename(dest.path);
       onProgress?.call(done, total);
     } finally {
       client.close();
+      if (part.existsSync()) {
+        _deleteQuiet(part);
+      }
     }
+  }
+
+  static void _deleteQuiet(File f) {
+    try {
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {}
   }
 
   /// Downloads a `.tar.bz2` model bundle (progress 0–0.85) and extracts it

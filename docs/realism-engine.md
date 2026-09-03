@@ -49,11 +49,11 @@ The whole system is optional and **off by default**. When it's off, no extra eva
 
 You can control the Realism Engine at three levels:
 
-**1. In Settings (your default for new chats).** Open Settings → General and switch on **Enable Realism Mode**. That's the default for new conversations, and it reveals the sub-toggles that ride with it: NSFW Cooldown, Automatic Passage of Time, Story Weather (plus a °F/°C switch), Dreams, and the welcome-back recap options.
+**1. In Settings (your default for new chats).** Open Settings → **Porch Life** (not General) and switch on **Realism Engine**. That's the default for new conversations. Journal, the story clock, Chaos, Pockets, and Objectives each have their **own** switch on that same tab — they no longer hide when Realism is off. Afterglow (older name: NSFW Cooldown), weather, Dreams, and the welcome-back recap live there too.
 
-**2. On the character card.** The character creator and character editor both have a Realism Engine panel where you can set the opening state of a brand-new chat: starting short-term bond, long-term bond and trust, the opening emotion and its intensity, the time of day, the day number, and even the calendar date and clock time the story begins at. The same panel holds the optional features (NSFW Cooldown System, Chaos Mode, the Director) and the character's needs baselines. These settings only seed *new* conversations — existing chats keep the state they've already built up.
+**2. On the character card.** The character creator and character editor both have a Realism Engine panel where you can set the opening state of a brand-new chat: starting short-term bond, long-term bond and trust, the opening emotion and its intensity, the time of day, the day number, and even the calendar date and clock time the story begins at. The same panel holds the optional features (**Afterglow**, Chaos Mode, the Director) and the character's needs baselines. These settings only seed *new* conversations — existing chats keep the state they've already built up.
 
-**3. In the chat itself.** In a one-on-one chat, the sidebar's **🎭 Character State** card has the master switch right in its header, and switching it on mid-conversation makes the engine read back through the conversation so it can catch up instead of starting cold. A group chat's header doesn't carry that switch — the group's master toggle is **Realism Engine for this group**, in **Group Settings → Realism**. Either way, the small **tune** icon in the Character State header opens a Simulation settings flyout with the per-chat sub-toggles: **Needs Simulation**, **Automatic Passage of Time**, **One-Shot Eval**, and **NSFW Enhancements**.
+**3. In the chat itself.** In a one-on-one chat, the sidebar's **🎭 Character State** card has the master switch right in its header, and switching it on mid-conversation makes the engine read back through the conversation so it can catch up instead of starting cold. A group chat's header doesn't carry that switch — the group's master toggle is **Realism Engine for this group**, in **Group Settings → Realism**. Either way, the small **tune** icon in the Character State header opens a Simulation settings flyout with the per-chat sub-toggles: **Needs Simulation**, **Automatic Passage of Time**, **One-Shot Eval** (Auto / On / Off), and **Afterglow** (older name: NSFW Enhancements).
 
 ![The settings page, where the Realism Engine defaults live](screenshots/new_settings.png)
 
@@ -125,18 +125,19 @@ None of the mechanics ever appear in the chat itself — no numbers, no "cooldow
 
 ## The Passage of Time
 
-With **Automatic Passage of Time** on, the story runs on a real clock and a real calendar.
+With **Automatic Passage of Time** on, the story runs on a real clock and a real calendar — **the story's**, not yours. The date is not allowed to follow the real-world calendar when you reopen the chat.
 
-- **Time moves every single turn.** After each exchange the engine asks how long that exchange actually took and advances the clock by that much — a glance across a room might be two minutes, a long drive a couple of hours. A single turn can never move the clock more than **three hours**; bigger jumps are what new days and out-of-character skips are for.
-- **It can never freeze and it can never run away.** If the model fumbles the question, the clock drifts a deterministic five minutes instead of stalling. If it somehow hasn't moved for twelve turns, the app snaps the scene to the next period on its own.
-- **Six periods, real dates.** Dawn, morning, late morning, afternoon, evening, and night follow the actual hour. Rolling past midnight advances the day, and the sidebar shows both halves of the picture: *Morning · 9:00 AM* on the left, *Wed, Mar 3 · Day 3* on the right. Sleeping and waking in the story can also start a new day — but only when the scene really says so, so a model can't invent a sunrise out of nowhere.
+- **Time moves after each reply.** The engine asks how long that exchange took and advances the clock. A glance might be two minutes, a long drive a couple of hours. A single turn can never move the clock more than **three hours** (180 minutes); bigger jumps are new days and out-of-character skips. **Continue does not tick.** Regen/swipe rewind, then judge again.
+- **It can never freeze and it can never run away.** If the model fumbles the question, the clock drifts **five minutes**. If it hasn't moved for **twelve** turns, the app snaps to the next period.
+- **Six periods, real dates.** Dawn (6:00), morning (9:00), late morning (11:30), afternoon (2:30), evening (6:30), night (10:30). Rolling past midnight advances the story day. The sidebar shows both halves: *Morning · 9:00 AM* and *Wed, Mar 3 · Day 3*.
+- **Realism Engine off:** Passage of Time still has its own switch, but the nested **Keep the clock running without the engine** must also be on or the clock holds still (one extra model call per turn). Dummy steps: [FAQ](faq.md#how-does-time-work).
 
 **You stay in control:**
 
-- Type an out-of-character note like `(OOC: we drive for several hours)` and the clock jumps immediately, with a small time-skip chip on the next reply.
-- Use the **‹ ›** chevrons next to the date in the sidebar to nudge the scene back or forward one period by hand.
-- Tap the date itself to open the **Story Calendar** — a month grid where you can set the current story date and time, see when the story began, and tap any marked day to read what the character remembers from it.
-- Set the story's opening date and clock time on the character card, so a period piece starts in 1887 instead of today.
+- Type an out-of-character skip (`(OOC: several hours later)`, “the next morning”, “slept through the night”, …). “Let's go to bed” is a scene, not a skip. Night skips land morning. Full phrase list: [FAQ → skip](faq.md#how-do-i-skip-time).
+- **‹ ›** next to the date — one period.
+- Tap the date → **Story Calendar**.
+- Opening date/time on the character card (new chats only).
 
 Even with the clock switched off, the engine keeps light track of *where* everyone is — sitting on the windowsill, standing in the rain — so characters stay physically grounded between turns instead of teleporting around the scene.
 

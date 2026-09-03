@@ -18,8 +18,8 @@
 
 part of 'world_management_page.dart';
 
-/// Basic Information card for the create/edit World dialog: optional
-/// cover image (picker + thumbnail), name/description fields, and the
+/// Basic Information card for the create/edit World dialog: cover
+/// image (picker + thumbnail), name/description fields, and the
 /// inject-description toggle + place traits editor. The Climate picker is
 /// extracted separately (world_management_page.climate.dart) and embedded
 /// here at the same position it occupied before this split.
@@ -34,23 +34,23 @@ extension _WorldBasicsSection on _WorldManagementPageState {
     BuildContext ctx,
     BuildContext pageContext,
     _WorldDraft draft,
-    StateSetter setDialogState,
-  ) {
+    StateSetter setDialogState, {
+    bool compact = false,
+  }) {
+    final gap = compact ? 8.0 : 16.0;
+    final pad = compact ? 8.0 : 20.0;
+    final thumb = compact ? 56.0 : 72.0;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(pad),
       decoration: BoxDecoration(
         color: AppColors.resolve(
           ctx,
           AppColors.surfaceContainer.withValues(alpha: 0.3),
-          AppColors.surfaceContainerLight.withValues(
-            alpha: 0.6,
-          ),
+          AppColors.surfaceContainerLight.withValues(alpha: 0.6),
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.borderOf(
-            ctx,
-          ).withValues(alpha: 0.2),
+          color: AppColors.borderOf(ctx).withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -74,24 +74,23 @@ extension _WorldBasicsSection on _WorldManagementPageState {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Optional place cover (thumbnail on the Worlds grid).
+          SizedBox(height: gap),
+          // Place cover (thumbnail on the Worlds grid; required on Stoop).
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: SizedBox(
-                  width: 72,
-                  height: 72,
+                  width: thumb,
+                  height: thumb,
                   child: _coverThumb(ctx, draft.coverImage),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Cover image',
@@ -103,7 +102,7 @@ extension _WorldBasicsSection on _WorldManagementPageState {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Optional art for this place. Shown on the Worlds grid and packed into .fpworld.',
+                      'Shown on the Worlds grid and packed into .fpworld. Required to share on the Stoop.',
                       style: TextStyle(
                         fontSize: 10.5,
                         color: AppColors.textTertiary(ctx),
@@ -115,8 +114,7 @@ extension _WorldBasicsSection on _WorldManagementPageState {
                       children: [
                         TextButton.icon(
                           onPressed: () async {
-                            final bytes =
-                                await pickImageBytes();
+                            final bytes = await pickImageBytes();
                             if (bytes == null) return;
                             // Decode+resize+JPEG of a
                             // multi-MB photo — off the UI
@@ -127,9 +125,7 @@ extension _WorldBasicsSection on _WorldManagementPageState {
                             );
                             if (encoded == null) {
                               if (pageContext.mounted) {
-                                ScaffoldMessenger.of(
-                                  pageContext,
-                                ).showSnackBar(
+                                ScaffoldMessenger.of(pageContext).showSnackBar(
                                   const SnackBar(
                                     content: Text(
                                       'Could not use that image (unsupported or too large).',
@@ -139,31 +135,23 @@ extension _WorldBasicsSection on _WorldManagementPageState {
                               }
                               return;
                             }
-                            setDialogState(
-                              () => draft.coverImage = encoded,
-                            );
+                            setDialogState(() => draft.coverImage = encoded);
                           },
-                          icon: const Icon(
-                            Icons.image_outlined,
-                            size: 16,
-                          ),
+                          icon: const Icon(Icons.image_outlined, size: 16),
                           label: const Text('Choose…'),
                           style: TextButton.styleFrom(
-                            foregroundColor:
-                                AppColors.formMasterAccent,
+                            foregroundColor: AppColors.formMasterAccent,
                           ),
                         ),
                         if (draft.coverImage != null &&
                             draft.coverImage!.isNotEmpty)
                           TextButton(
-                            onPressed: () => setDialogState(
-                              () => draft.coverImage = null,
-                            ),
+                            onPressed: () =>
+                                setDialogState(() => draft.coverImage = null),
                             child: Text(
                               'Remove',
                               style: TextStyle(
-                                color: AppColors
-                                    .textTertiary(ctx),
+                                color: AppColors.textTertiary(ctx),
                               ),
                             ),
                           ),
@@ -174,34 +162,24 @@ extension _WorldBasicsSection on _WorldManagementPageState {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: gap),
           TextField(
             controller: draft.nameController,
-            style: TextStyle(
-              color: AppColors.textPrimary(ctx),
-            ),
+            style: TextStyle(color: AppColors.textPrimary(ctx)),
             decoration: InputDecoration(
               labelText: 'World Name',
-              labelStyle: TextStyle(
-                color: AppColors.textSecondary(ctx),
-              ),
+              labelStyle: TextStyle(color: AppColors.textSecondary(ctx)),
               hintText: 'Enter a name for this world',
-              hintStyle: TextStyle(
-                color: AppColors.textTertiary(ctx),
-              ),
+              hintStyle: TextStyle(color: AppColors.textTertiary(ctx)),
               filled: true,
               fillColor: AppColors.surfaceContainerOf(ctx),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.borderOf(ctx),
-                ),
+                borderSide: BorderSide(color: AppColors.borderOf(ctx)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.borderOf(ctx),
-                ),
+                borderSide: BorderSide(color: AppColors.borderOf(ctx)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -213,36 +191,26 @@ extension _WorldBasicsSection on _WorldManagementPageState {
               contentPadding: const EdgeInsets.all(16),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: gap),
           TextField(
             controller: draft.descController,
-            style: TextStyle(
-              color: AppColors.textPrimary(ctx),
-            ),
-            maxLines: 3,
+            style: TextStyle(color: AppColors.textPrimary(ctx)),
+            maxLines: compact ? 2 : 3,
             decoration: InputDecoration(
               labelText: 'Description (place prose)',
-              labelStyle: TextStyle(
-                color: AppColors.textSecondary(ctx),
-              ),
+              labelStyle: TextStyle(color: AppColors.textSecondary(ctx)),
               hintText:
                   'What it feels like to be here — reaches the story when enabled',
-              hintStyle: TextStyle(
-                color: AppColors.textTertiary(ctx),
-              ),
+              hintStyle: TextStyle(color: AppColors.textTertiary(ctx)),
               filled: true,
               fillColor: AppColors.surfaceContainerOf(ctx),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.borderOf(ctx),
-                ),
+                borderSide: BorderSide(color: AppColors.borderOf(ctx)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.borderOf(ctx),
-                ),
+                borderSide: BorderSide(color: AppColors.borderOf(ctx)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -251,62 +219,85 @@ extension _WorldBasicsSection on _WorldManagementPageState {
                   width: 1.5,
                 ),
               ),
-              contentPadding: const EdgeInsets.all(16),
+              contentPadding: EdgeInsets.all(compact ? 12 : 16),
             ),
           ),
-          const SizedBox(height: 16),
-          _buildClimateSection(ctx, draft, setDialogState),
+          SizedBox(height: gap),
+          _draftSwitch(
+            ctx,
+            title: 'Climate, weather, and place traits',
+            subtitle:
+                'Off = lorebook and description only — no forecast, '
+                'no atmosphere or gravity',
+            value: draft.climateEnabled,
+            onChanged: (v) => setDialogState(() => draft.climateEnabled = v),
+          ),
+          if (draft.climateEnabled) ...[
+            const SizedBox(height: 8),
+            _buildClimateSection(ctx, draft, setDialogState),
+          ],
           const SizedBox(height: 12),
-          // Row+Switch (not SwitchListTile): ListTile ink
-          // paints on the nearest Material, and this
-          // section sits inside a DecoratedBox fill.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          _draftSwitch(
+            ctx,
+            title: 'Inject description into story',
+            subtitle: 'Place prose reaches the model each turn',
+            value: draft.injectDescription,
+            onChanged: (v) => setDialogState(() => draft.injectDescription = v),
+          ),
+          if (draft.climateEnabled) ...[
+            const SizedBox(height: 16),
+            PlaceTraitsEditor(
+              atmosphere: draft.atmosphere,
+              gravity: draft.gravity,
+              onAtmosphere: (v) => setDialogState(() => draft.atmosphere = v),
+              onGravity: (v) => setDialogState(() => draft.gravity = v),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Row+Switch (not SwitchListTile): ListTile ink paints on the nearest
+  /// Material, and this section sits inside a DecoratedBox fill.
+  Widget _draftSwitch(
+    BuildContext ctx, {
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Inject description into story',
-                      style: TextStyle(
-                        color: AppColors.textPrimary(ctx),
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Place prose reaches the model each turn',
-                      style: TextStyle(
-                        color: AppColors.textTertiary(ctx),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
+              Text(
+                title,
+                style: TextStyle(
+                  color: AppColors.textPrimary(ctx),
+                  fontSize: 13,
                 ),
               ),
-              Switch(
-                value: draft.injectDescription,
-                activeThumbColor:
-                    AppColors.formMasterAccent,
-                onChanged: (v) => setDialogState(
-                  () => draft.injectDescription = v,
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: AppColors.textTertiary(ctx),
+                  fontSize: 11,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          PlaceTraitsEditor(
-            atmosphere: draft.atmosphere,
-            gravity: draft.gravity,
-            onAtmosphere: (v) =>
-                setDialogState(() => draft.atmosphere = v),
-            onGravity: (v) =>
-                setDialogState(() => draft.gravity = v),
-          ),
-        ],
-      ),
+        ),
+        Switch(
+          value: value,
+          activeThumbColor: AppColors.formMasterAccent,
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 

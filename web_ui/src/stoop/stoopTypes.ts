@@ -9,6 +9,8 @@ export interface StoopUser {
   id: string;
   email: string;
   displayName: string;
+  /** Additive: gold = owner, blue = trusted uploader. Absent on older servers. */
+  verification?: 'gold' | 'blue' | null;
   role: 'USER' | 'MOD' | 'OWNER';
   ageVerified: boolean;
   /** Absent on older servers — treat missing as verified (nothing to nag). */
@@ -29,6 +31,7 @@ export interface StoopUser {
 export interface StoopCreatorRef {
   id: string;
   displayName: string;
+  verification?: 'gold' | 'blue' | null;
 }
 
 /**
@@ -58,11 +61,16 @@ export interface StoopCard {
   originalCreator?: string | null;
   primaryAssetId: string | null;
   tokenCount: number | null;
+  /** Additive WORLD list DTO fields; full card envelopes may be omitted. */
+  climateEnabled?: boolean | null;
+  climate_enabled?: boolean | null;
+  card?: Record<string, unknown>;
 }
 
 export interface StoopCommentReply {
   authorId: string;
   displayName: string;
+  verification?: 'gold' | 'blue' | null;
   authorAvatarAssetId?: string | null;
   createdAt: string;
   body: string;
@@ -74,6 +82,7 @@ export interface StoopComment {
   cardId: string;
   authorId: string;
   displayName: string;
+  verification?: 'gold' | 'blue' | null;
   authorAvatarAssetId?: string | null;
   createdAt: string;
   body: string;
@@ -102,6 +111,7 @@ export interface StoopCardDetail extends StoopCard {
 export interface StoopCreator {
   id: string;
   displayName: string;
+  verification?: 'gold' | 'blue' | null;
   followers: number;
   following: boolean;
   isMe: boolean;
@@ -117,6 +127,7 @@ export interface StoopCreator {
 export interface StoopFollowedCreator {
   id: string;
   displayName: string;
+  verification?: 'gold' | 'blue' | null;
   followers: number;
   avatarAssetId?: string | null;
 }

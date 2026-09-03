@@ -334,7 +334,7 @@ extension ChatServiceWiringInjection on ChatService {
 
     for (final id in _chatWorldIds) {
       final w = pick(id);
-      if (w == null) continue;
+      if (w == null || !w.climateEnabled) continue;
       if (w.biomeId != null || w.biomeJson != null) {
         return resolveFor(w);
       }
@@ -343,7 +343,7 @@ extension ChatServiceWiringInjection on ChatService {
     if (group != null) {
       for (final ref in group.worldIds) {
         final w = pick(ref);
-        if (w == null) continue;
+        if (w == null || !w.climateEnabled) continue;
         if (w.biomeId != null || w.biomeJson != null) {
           return resolveFor(w);
         }

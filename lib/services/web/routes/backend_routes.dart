@@ -266,10 +266,15 @@ class WebBackendRoutes {
   Future<shelf.Response> _imageUpdateConfig(shelf.Request r) async {
     final body = await _json(r);
     // Same stored remote URL/key as POST /api/settings — a session cookie
-    // must not redirect image generation either.
-    if (remoteCredentialWriteNeedsStepUp(
+    // must not redirect image generation either. Local A1111 / Comfy /
+    // Draw Things hosts are the same class of SSRF.
+    final cfg = _image!.config();
+    if (imageConfigWriteNeedsStepUp(
       body,
-      currentRemoteApiUrl: '${_image!.config()['remoteApiUrl'] ?? ''}',
+      currentRemoteApiUrl: '${cfg['remoteApiUrl'] ?? ''}',
+      currentLocalUrl: '${cfg['localUrl'] ?? ''}',
+      currentComfyUrl: '${cfg['comfyUrl'] ?? ''}',
+      currentDrawThingsHost: '${cfg['drawThingsHost'] ?? ''}',
     )) {
       final denied = await denyUnlessSteppedUp(
         auth: _deps.auth,

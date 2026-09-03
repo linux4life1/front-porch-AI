@@ -8,6 +8,10 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+import 'package:front_porch_ai/models/models.dart';
+
+import 'backporch_user.dart';
+
 /// Worlds on The Stoop — client readiness flag.
 ///
 /// Portable places (.fpworld packages) ride the SAME card endpoints as a third
@@ -29,15 +33,31 @@ const bool kStoopWorldsLive = true;
 /// solo+group server-side so already-shipped apps never receive a WORLD item.
 const String kStoopWorldTypes = 'solo,group,world';
 
+/// Climate/weather flag on a WORLD .fpworld envelope.
+///
+/// Reads `climate_enabled` / `climateEnabled` (bool or 0/1). Missing key
+/// means climate ON — old packages always shipped biome. Callers pass the
+/// payload already on the card; this does not hit the network.
+bool stoopWorldClimateEnabled(Map<String, dynamic> envelope) =>
+    readWorldClimateEnabled(envelope) ?? true;
+
 /// A creator reference as it appears on a card (`@handle`).
 class StoopCreatorRef {
   final String id;
   final String displayName;
-  const StoopCreatorRef({required this.id, required this.displayName});
+
+  /// Hub verification badge: `gold`, `blue`, or null (none / older server).
+  final String? verification;
+  const StoopCreatorRef({
+    required this.id,
+    required this.displayName,
+    this.verification,
+  });
 
   factory StoopCreatorRef.fromJson(Map<String, dynamic> j) => StoopCreatorRef(
     id: j['id'] as String? ?? '',
     displayName: j['displayName'] as String? ?? '',
+    verification: stoopVerificationOf(j['verification']),
   );
 }
 
@@ -63,6 +83,16 @@ class StoopCard {
   final String? originalCreator;
   final String? primaryAssetId;
 
+  /// WORLD listing payload: the .fpworld envelope when the list includes
+  /// `card`. Empty on SOLO/GROUP and on list rows that omit the envelope.
+  final Map<String, dynamic> card;
+
+  /// WORLD list DTO climate flag when [card] is omitted.
+  ///
+  /// Null on older servers and non-WORLD rows. Both `climateEnabled` and
+  /// `climate_enabled` are accepted at the wire boundary.
+  final bool? climateEnabled;
+
   /// Approximate Llama token count of the card's content (server-computed), so
   /// the browser can show "how big is this" before download. Null on older
   /// records not yet backfilled.
@@ -81,6 +111,8 @@ class StoopCard {
     this.originalCreator,
     required this.primaryAssetId,
     this.tokenCount,
+    this.card = const {},
+    this.climateEnabled,
   });
 
   bool get isGroup => type == 'GROUP';
@@ -101,6 +133,8 @@ class StoopCard {
         originalCreator: originalCreator,
         primaryAssetId: primaryAssetId,
         tokenCount: tokenCount,
+        card: card,
+        climateEnabled: climateEnabled,
       );
 
   factory StoopCard.fromJson(Map<String, dynamic> j) => StoopCard(
@@ -121,7 +155,23 @@ class StoopCard {
         : null,
     primaryAssetId: j['primaryAssetId'] as String?,
     tokenCount: (j['tokenCount'] as num?)?.toInt(),
+    card: j['card'] is Map
+        ? Map<String, dynamic>.from(j['card'] as Map)
+        : const {},
+    climateEnabled: readWorldClimateEnabled(j),
   );
+}
+
+/// Climate/lore decision for a WORLD list row.
+///
+/// A flag inside a full envelope is authoritative. Otherwise the additive
+/// list DTO flag fills the gap left by bandwidth-trimmed rows. A genuinely
+/// old envelope remains climate-on through [stoopWorldClimateEnabled], while
+/// an omitted/empty envelope no longer invents climate.
+bool stoopCardClimateEnabled(StoopCard card) {
+  final envelopeFlag = readWorldClimateEnabled(card.card);
+  if (envelopeFlag != null) return envelopeFlag;
+  return card.climateEnabled ?? card.card.isNotEmpty;
 }
 
 /// A live counter update for one card, pushed over the Stoop socket whenever

@@ -1,12 +1,488 @@
 # Changelog
 
-## 2026-08-26 — release: v1.3.1 Clock In promote notes
-- **Why:** In-app What's New and the GitHub README must name the patch
-  before the tag. Release body is the first ## section of docs/main.md.
-- **What:** Clock In headlines (work, time, with-you, Flutter 3.47).
-  The rest under Fixes and improvements. README banner + Work & Time
-  section. 1.3 Pockets kept below.
-- **Files:** docs/main.md, README.md
+## 2026-09-03 — fix(gallery): portrait replacement preserves card data
+- **Why:** Gallery Replace portrait overwrote the right file, then ran the full
+  character writer. Repository cards do not hydrate PNG-only credits, so that
+  second write rebuilt `chara` without creator fields and could flush stale
+  name, description, personality, or lore values into SQLite.
+- **What:** Carry the original raw `chara` payload onto the new pixels and
+  persist only the normalized image path while retaining the existing large
+  portrait size cap. A genuine basename change still re-keys Journal, Growth,
+  quests, Data Bank, and RAG rows transactionally.
+- **Files:** `lib/services/v2_card_service.dart`,
+  `lib/services/character_repository.crud.dart`,
+  `lib/database/database.queries.library.dart`,
+  `lib/services/portrait_promotion.dart`,
+  `lib/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart`,
+  `test/ui/avatar_gallery_replace_portrait_test.dart`, `docs/Rawhide.md`.
+- **Verification:** New controller guard proven red on the stale name, then
+  green; existing portrait identity/re-key suite also green.
+- **Commits:** `98db6a55` (main guard), `11d71bae` (implementation),
+  `63e68c76` (shared encoder cleanup), `6645be5d` (basename-change guard),
+  `1d0f4f36` (size-cap preservation).
+
+## 2026-09-02 — fix: medium follow-ups (image step-up, SPIN NOW, Discussion, expression nag, reunification members)
+- **Why:** Five leftovers from the 1.3 medium wave: (1) POST /api/image/config
+  did not step-up local A1111/Comfy/Draw Things hosts; (2) web Chaos had no
+  SPIN NOW; (3) Discussion treated a failed comments fetch as an empty
+  thread; (4) expression ONNX download failed silently with no retry nag;
+  (5) reunification copied the groups row but not group_members.
+- **What:** imageConfigWriteNeedsStepUp + web StepUpFields for local hosts;
+  POST /api/chat/chance-time/spin + SPIN NOW; Discussion fail-closed on
+  === true and 403; triggerOnnxDownload awaits and nags; reunification
+  copies group_members. Guard proven red (A1111 URL skipped step-up) then
+  green.
+- **Files:** step_up.dart, backend_routes.dart, ImageGen.tsx, ChatTools.tsx,
+  chat_routes.dart, chat_facade.dart, chat_service_controls.dart,
+  chat_service_turn_flow.dart, StoopDiscussion.tsx, expression_classifier.dart,
+  onnx_emotion_classifier.dart, voice_media_tab.expressions.dart,
+  db_reunification_service.dart, db_reunification_insert.dart, tests,
+  docs/Rawhide.md
+- **Verification:** image_config_step_up_test + medium_followups_scan_test
+  proven red then green; npm lint/test; vite build.
+
+## 2026-09-02 — fix(models): reject truncated/tiny downloads; delete the bad file
+- **Why:** ModelFetch skipped any dest with length > 0, so a 2 KB CDN
+  error page (or a truncated stream) became "the model" and poisoned
+  every retry. Whisper and Caption had the same skip. Verify-fail left
+  the junk on disk.
+- **What:** validateDownload (Content-Length vs received + size floor).
+  Undersized dest is deleted before fetch. Whisper ONNX floor 1 MB;
+  Caption floor 1/4 advertised size. Verify fail purges implausible
+  files. Guard proven red (skip-if-present returned success on a 20-byte
+  "onnx") then green.
+- **Files:** model_fetch.dart, sherpa_whisper_engine.dart, stt_service.dart,
+  local_caption_service.dart, model_fetch_validation_test.dart,
+  docs/Rawhide.md
+- **Verification:** model_fetch_validation_test proven red then green.
+
+## 2026-09-02 — fix(web): Objectives NSFW switch, task count, and add-task
+- **Why:** Desktop Objectives sidebar has NSFW Tasks, a generate count
+  (3–10), and a manual add-task row. The phone POSTed generate with
+  neither nsfw nor taskCount (route defaulted to 5 SFW) and had no
+  add-task field even though /task action=add already existed.
+- **What:** Extracted ObjectivesPanel; generate sends taskCount + nsfw;
+  Add posts /task action=add. Guard proven red then green.
+- **Files:** ObjectivesPanel.tsx, ObjectivesPanel.test.tsx, ChatTools.tsx,
+  docs/Rawhide.md
+- **Verification:** vitest ObjectivesPanel proven red then green; npm
+  lint + test; vite build (bundle the PWA).
+
+## 2026-09-02 — fix(ui): Group Settings X/Close warn instead of discarding General
+- **Why:** Header X and footer Close did a bare Navigator.pop. General holds
+  name / scenario / opening / turn rules in controllers until apply, so
+  renaming a group and hitting X threw the rename away with no warning.
+  Done already commits; this was the remaining discard path.
+- **What:** Dirty X/Close warn (Keep editing / Discard / Save). Save applies
+  then closes. Discard closes without applying. Clean Close pops immediately.
+  Outside tap is no longer dismissible. Web Group settings saves on blur —
+  no close button. Guard proven red then green.
+- **Files:** group_settings_dialog.dart, general_tab.dart,
+  chat_page.session_dialogs.dart, group_settings_close_commits_test.dart,
+  docs/Rawhide.md
+- **Verification:** group_settings_close_commits_test proven red then green.
+
+## 2026-09-02 — fix(ui): New Chat Cancel and Advanced Prompts readable in light mode
+- **Why:** New Chat's Cancel was Colors.white54 and Create Character's
+  Advanced Prompts tile was white38/white54. Both vanish on warm paper.
+- **What:** Cancel/confirm use warmDialog helpers; Advanced Prompts uses
+  AppColors.textSecondary/iconSecondary. Guard proven red (white54 still
+  in those files) then green.
+- **Files:** chat_page.session_dialogs.dart,
+  create_character_page.steps_core.dart, light_mode_labels_test.dart,
+  docs/Rawhide.md
+- **Verification:** light_mode_labels_test proven red then green.
+
+## 2026-09-02 — fix(stoop): asset token is per web session, cleared on logout
+- **Why:** <img> tags cannot send X-Stoop-Token, so the relay remembered
+  the last authenticated Stoop token on StoopFacade as a single process-wide
+  field. Two browsers on the same host shared it, and logout never forgot
+  it — avatars kept loading as the previous account.
+- **What:** Remember/lookup/clear by fpa_session cookie. Cookie-less calls
+  never store. Stoop logout and web logout both clear. Guard proven red
+  (session B used tok-A; logout left 200) then green.
+- **Files:** stoop_facade.dart, stoop_routes.dart, auth_routes.dart,
+  stoop_asset_token_session_test.dart, stoop_routes_test.dart (existing
+  remember test now sends the session cookie — the old assertion was the
+  process-wide bug), docs/Rawhide.md
+- **Verification:** stoop_asset_token_session_test proven red then green.
+
+## 2026-09-02 — fix(pockets): eraser drops pending just-noticed intros
+- **Why:** Adding an item queues a one-shot surprise or gift reaction.
+  Erasing it before they speak left that intro queued, so the next reply
+  still noticed or accepted keys that were already gone.
+- **What:** removePocketItem drops matching pending intros for this chat
+  (name or display). Web uses the same ChatService method. Guard proven
+  red (surprise still in the prompt) then green.
+- **Files:** chat_service_pockets.dart, pocket_eraser_intro_test.dart,
+  docs/Rawhide.md
+- **Verification:** pocket_eraser_intro_test proven red then green.
+
+## 2026-09-02 — fix(afk): group idle stamps the chosen speaker's needs
+- **Why:** Group AFK captured needs_pre_turn_vector from the live scalar
+  (whoever last spoke) before picking who would write. The chip then
+  subtracted the previous speaker from the idle speaker.
+- **What:** After the AFK clock snap, pick the present speaker, load that
+  member's scalars, then stamp the baseline. Generate is forced onto that
+  same member. Guard proven red (scan without pick-before-stamp) then green.
+- **Files:** chat_service_idle_autonomous.dart,
+  group_afk_needs_baseline_test.dart, docs/Rawhide.md
+- **Verification:** group_afk_needs_baseline_test proven red then green.
+
+## 2026-09-02 — fix(time): AFK skip owns the clock before the post-reply eval
+- **Why:** AFK snaps the clock by the away pace, then generates a reply.
+  The post-reply time eval added minutes on top because advanceTimePeriods
+  never set the skip-owns-clock flag OOC skip uses. Away hours plus
+  another 5–15 minutes stacked every idle turn.
+- **What:** advanceTimePeriods sets _oocSkipMovedClockThisTurn when it
+  actually moves. Guard proven red (11:30 became 11:35) then green.
+- **Files:** time_service.dart, afk_clock_ownership_test.dart,
+  docs/Rawhide.md
+- **Verification:** afk_clock_ownership_test proven red then green.
+
+## 2026-09-02 — fix(chat): recap and Continue RAG honor tail-open
+- **Why:** Opening a long chat loads the last 24 rows. Recap suppression
+  treated droppedMessages == 0 as "the whole chat is visible", so a
+  fitted tail-open dropped the recap covering the unseen start. Continue
+  skipped RAG by zeroing droppedMessages; the same tail-open OR of
+  basePosition made that skip a no-op.
+- **What:** recapIsRedundant is dropped==0 AND basePosition==0. Continue
+  RAG skip is a mode branch before retrieve. Guard proven red (redundant
+  at base 976; scan without the mode branch) then green.
+- **Files:** recap_injection.dart, chat_service_generation_plan.dart,
+  chat_service_generation_rag.dart, recap_tail_open_test.dart,
+  docs/Rawhide.md
+- **Verification:** recap_tail_open_test proven red then green.
+
+## 2026-09-02 — fix(pockets): fork 1:1 to group copies live pockets
+- **Why:** Collapse copies the survivor's kit back onto `_pockets`. Fork
+  captured realism, flags, journal, rings, and quests, then setActiveGroup
+  cleared the 1:1 scalar and never planted it on the host member. She
+  walked into the group empty-handed.
+- **What:** Capture `_pockets` in hostState regardless of realism; carry
+  writes it through setPocketsFor onto the host member. Guard proven red
+  (carried null without the apply) then green.
+- **Files:** chat_service_group_membership.dart, chat_service_cast.dart,
+  fork_pockets_carry_test.dart, docs/Rawhide.md
+- **Verification:** fork_pockets_carry_test proven red then green.
+
+## 2026-09-02 — fix(rag): group Data Bank/Sources key by library filename
+- **Why:** Group members are copies whose private avatar is named after the
+  member UUID. Retrieve added that UUID as a Data Bank source and looked
+  up memorySources via getCharacterById(member UUID), which is not a
+  library row. 1:1 Data Bank and Sources never matched in a group.
+- **What:** libraryRagIdentity prefers originStableId / originLibraryDbId
+  (unique-name fallback for legacy). Group retrieve uses those ids and
+  session-scopes them so 1:1 embeddings cannot bleed. Guard proven red
+  (member UUID miss / call site still walked _getCharacterIdFromCard)
+  then green.
+- **Files:** member_origin_resolver.dart, chat_service_generation_rag.dart,
+  group_rag_identity_test.dart, docs/Rawhide.md
+- **Verification:** group_rag_identity_test proven red then green.
+
+## 2026-09-02 — fix(rag): embed windows use persist positions, not the tail 0..N
+- **Why:** A send during the 24-row tail-load numbered embed windows from
+  the in-memory list (0, 1, 2…). Those ranges were treated as already
+  embedded, so the real start of a long chat was never stored, and old
+  lines got today's story-day.
+- **What:** Live embed waits for history backfill (Journal already does)
+  and passes `_history.basePosition` as positionOffset. Import backfill
+  does the same. Guard proven red (stored 0) then green (stored 976).
+- **Files:** memory_service.dart, chat_service_turn_flow.dart,
+  chat_service_chat_package.dart, memory_embed_position_offset_test.dart,
+  docs/Rawhide.md
+- **Verification:** memory_embed_position_offset_test proven red then green.
+
+## 2026-09-02 — fix(growth): rejecting distill adds keeps the legacy blob
+- **Why:** Distill is supposed to keep injecting the legacy personality blob
+  until starter rings actually land. Review-first Apply with every add
+  unchecked still archived the blob. Injection then had neither blob nor
+  rings.
+- **What:** archiveLegacyBlob only runs when at least one distill add was
+  accepted (`adds > 0`). Guard proven red (blob null) then green.
+- **Files:** growth_review.dart, growth_distill_reject_test.dart,
+  docs/Rawhide.md
+- **Verification:** growth_distill_reject_test proven red then green.
+
+## 2026-09-02 — fix(journal): regen cancels in-flight Journal/Growth apply
+- **Why:** Journal/Growth passes are fire-and-forget after a reply. Regen
+  aborts the tools call; that abort was treated as "try XML instead," so
+  the old pass could still cool cards, apply edits, and write recap on
+  the rejected window.
+- **What:** Regen bumps `_memoryPassEpoch`. Both passes capture the epoch
+  at start and skip XML + apply when it changes. Generic transport
+  failure without a regen still XML-falls-back (existing tests). Guard
+  proven red (XML prompt list non-empty) then green.
+- **Files:** journal_maintenance.dart, growth_service.dart,
+  chat_service_reprocess.dart, chat_service_defaults.dart,
+  chat_service_wiring_memory.dart, tool_eval_spec.dart,
+  journal_pass_epoch_test.dart, docs/Rawhide.md
+- **Verification:** journal_pass_epoch_test + journal_test + growth_test.
+
+## 2026-09-02 — fix(journal): pass cannot retire item or ledger cards
+- **Why:** Item-memory and ledger cards are written deterministically from
+  pockets / promises. The periodic pass listed them as editable and would
+  apply LLM retire/revise. Only birthday was locked. After the next
+  interval, pockets still held the item while the diary no longer knew
+  where it was.
+- **What:** `JournalPhysics.isPassLockedCard` covers birthday + item +
+  ledger. Resolve, apply, prompt, and cap trim all skip those for
+  revise/retire (pin still allowed). Guard proven red (keys card gone)
+  then green.
+- **Files:** journal_physics.dart, journal_maintenance.dart,
+  journal_review.dart, journal_store.dart, journal_prompt.dart,
+  journal_pass_lock_test.dart, docs/Rawhide.md
+- **Verification:** journal_pass_lock_test proven red then green.
+
+## 2026-09-02 — fix(swipe): buried swipe no longer deletes later Journal/Growth/RAG
+- **Why:** Swiping an older (not-last) reply is navigation: pockets and bond
+  stay put. Journal/Growth/RAG still treated it as a suffix rewrite and
+  hard-deleted receipt-backed memories of later messages that stayed on
+  screen. Item cards planted by that swipe were not replanted unless it
+  was the tip.
+- **What:** `_commitSwipeIndex` gates `_invalidateJournalFrom` on `isTip`
+  (same rule pockets/realism already use). Buried swipe only replants that
+  variant's item cards. Tip swipe still purges + replants.
+- **Files:** chat_service_message_ops.dart, swipe_buried_journal_test.dart,
+  docs/Rawhide.md
+- **Verification:** swipe_buried_journal_test proven red (later diary empty
+  without the gate) then green.
+
+## 2026-09-02 — fix(identity): replace portrait no longer wipes Journal/Growth/quests/RAG
+- **Why:** Gallery "Replace portrait" wrote a new `Name_<timestamp>.png` and
+  stored that filename as the character's portable ID. Objectives, RAG
+  embeddings, Data Bank, Journal, and Growth all key off that filename.
+  Lookups missed immediately; Database Cleanup then deleted the old-filename
+  rows as orphans. The chat transcript survived (UUID). The memories did not.
+  The creator already overwrites portraits in place; gallery replace did not.
+- **What:** Gallery replace now uses `portraitWriteTarget` (overwrite in
+  place). `updateCharacter` re-keys every filename-keyed table when the
+  basename actually changes (first in-app portrait / setCharacterImagePath).
+  Guard proven red (orphans=1 without the call site) then green.
+- **Files:** avatar_gallery_dialog.dart, avatar_gallery_controller.dart,
+  character_repository.crud.dart, character_repository.dart,
+  database.queries.library.dart, portrait_replace_identity_test.dart,
+  docs/Rawhide.md
+- **Verification:** portrait_replace_identity_test (3 cases); call-site test
+  red without rekey then green with it.
+
+## 2026-09-01 — fix(needs): all-zero tools JSON retries text
+- **Why:** Tools models fill the seven required needs `*_delta` ints with
+  0. That counted as a successful call, so the text path never ran and
+  chips were only tickDecay (Jennifer custom rates −1/−2). Other swipes
+  on the same reply had bladder +60..+73 from the text-shaped answers.
+  All-zero is not a valid scene reading — there is always some movement
+  past the tick.
+- **What:** After a tools needs call, if every delta is 0, fire one text
+  retry, then one repair pass. Prompt no longer invites all-zero.
+  Director rejects all-zero needs_impact. Guard proven red then green.
+- **Files:** needs_impact_zero.dart, llm_eval_engine.dart,
+  realism_verification.dart, chat.dart, needs_zero_tools_retry_test.dart,
+  director_rewrite_omission_test.dart, docs/Rawhide.md
+- **Verification:** needs_zero_tools_retry_test +
+  director_rewrite_omission_test + llm_eval_engine_test;
+  flutter analyze on touched paths.
+
+## 2026-09-01 — fix(realism): Director rewrite no longer wipes regen chips
+- **Why:** Jennifer's last two regens (bond already 300) had
+  `realism_verification: corrected/reprocessed` and no bond/trust/arousal
+  chips. One-shot Auto on a tools model + Director: a |delta|>12 at high
+  bond always reprocesses; the text rewrite often omitted
+  `relationship_delta`; missing was treated as 0 so the rule check PASSES
+  and the incomplete JSON replaced the original. Same class as the
+  narrative "a field omitted here is a field the parse never sees" comment.
+- **What:** Overlay the rewrite onto the original JSON (omitted ≠ 0;
+  explicit 0 still wins). Rule-check the merge. oneShot structHint now
+  asks to keep the full shape. Guard proven red (relationship_delta null)
+  then green.
+- **Files:** eval_json_merge.dart, realism_verification.dart, chat.dart,
+  director_rewrite_omission_test.dart, docs/Rawhide.md
+- **Verification:** director_rewrite_omission_test + realism_verification_test
+  + director_rules_reachable_test; flutter analyze on touched paths clean.
+
+## 2026-08-31 — fix(evals): empty non-local streams fail fast
+- **Why:** `fireLLMEval` retried a completed-but-empty stream for every
+  backend, then `continue`d into the 3s connection-drop delay. Each
+  unmatched eval (With-you on ScriptedLlm, posture on a fake that does
+  not answer it) stalled 5s. Chat wiring tests hit the 2-minute timeout.
+- **What:** Empty retry is local-only (thinking-model `<think>` prefill).
+  Thrown stream errors still retry after the drop pause on any backend.
+  Settle durations are injectable. New guard proven red (calls==2, ~5s)
+  then green (calls==1, <800ms).
+- **Files:** llm_eval_engine.dart, eval_empty_stream_retry_test.dart
+- **Verification:** posture_after_reply_test + regen_cancel_state_restore_test
+  + llm_eval_engine_test + the new file; flutter analyze --no-pub clean.
+
+## 2026-08-31 — fix(worlds): keep lore-only climate data behind wire boundaries
+- **Why:** Stoop list rows can omit the full `.fpworld` envelope, which made
+  the old-package missing-key default label every lore-only listing CLIMATE.
+  Climate-off model JSON and imports could also leak or restore biome and
+  place-trait values intentionally kept at rest for later re-enabling.
+- **What:** WORLD list DTOs now accept `climateEnabled` and
+  `climate_enabled`; omitted empty envelopes default to lore-only while real
+  legacy envelopes remain climate-on. Desktop tiles/heroes and web cards use
+  that list-aware decision. Climate-off JSON/decode strips biome and traits;
+  web details hide leftovers too. One bool/0/1 reader now serves model,
+  package, and Stoop parsing, and narrow web badge rows wrap without clipping.
+  Added focused desktop, model, and web regression coverage.
+- **Files:** stoop_card.dart, stoop_card_tile.dart, stoop_browse_view.dart,
+  world.dart, fp_world_package.dart, StoopCardTile.tsx,
+  StoopCardSections.tsx, stoopCardBody.ts, stoopTypes.ts, styles.css,
+  world_climate_leftovers_regression_test.dart,
+  stoop_list_climate_regression_test.dart, stoopClimateRegression.test.tsx,
+  docs/Rawhide.md, assets/web_app
+- **Verification:** 5,165 non-golden Flutter tests and 118 host-Linux goldens;
+  195 web tests, typecheck, production build; Linux desktop build and the
+  sandboxed Stoop E2E. New behavior guards were each proven red before green.
+  The container gate could not run because its Docker image is unavailable.
+- **Commits:** 9b61dffe, ac660471, 69f62a96, c3048d88, dd931f93, 51cafdf7
+
+## 2026-08-30 — feat(worlds): per-world climateEnabled lorebook-only flag
+- **Why:** Some worlds are a bookshelf of facts (Soul Society lore, a
+  city gazetteer) and should not drag climate, weather, atmosphere, or
+  gravity along. The weather machine was hard-wired to every world.
+- **What:** World.climateEnabled (default true). False = lorebook +
+  description only. DB v51 worlds.climate_enabled DEFAULT 1. Weather
+  getters return null when every attached world has climate off.
+  Injection skips atmosphere/gravity. Desktop + web toggle hides the
+  climate section and place-traits editor. .fpworld round-trips the
+  flag and tolerates a missing biome when off.
+- **Files:** world.dart, database v51, world_injection, accessors,
+  world_management_page, world_facade, WorldsPage, fp_world_package
+
+## 2026-08-29 — feat(birthday): Speak as… can set the persona birthday
+- **Why:** Persona page and web Settings had the date; the in-chat
+  Speak as… editor did not, so a persona created there had no birthday
+  until you left the chat.
+- **What:** Same BirthdayRow on the Speak as… create/edit form. Split
+  the dialog (already over 500) so the form lives in a part. Web Speak
+  as… is still switch-only; birthday stays on Settings PersonaManager.
+- **Files:** user_persona_dialog, user_persona_dialog.edit_form,
+  user_persona_dialog_birthday_test
+
+## 2026-08-29 — fix(birthday): skip diary rewrite on every send
+- **Why:** Calendar already knows story date vs birthday. Rewriting
+  Journal cards on every send (and Continue) was wasted work until
+  the two-week heat window.
+- **What:** BirthdayMath.needsRefresh: same story day skip; far-from-all
+  skip across quiet days; rewrite on identity change, first sync,
+  phase/age change, or daily while upcoming/today/justPast. Stamp
+  last-sync after a successful ensure.
+- **Files:** birthday.dart, chat_service_birthday.dart, birthday_test
+
+## 2026-08-29 — feat(objectives): four side quests
+- **Why:** Two slots filled if both birthdays planted outings; a user
+  quest got skipped. Four leaves room for both plus two typed quests.
+- **What:** kMaxSecondaryObjectives = 4. setObjective eviction, birthday
+  plant skip, 1:1 add button, group Add dialog share the const.
+- **Files:** chat_service_defaults, chat_service_objectives, birthday
+  plant, objective_add_goal, group_objectives_dialog
+
+## 2026-08-29 — feat(birthday): calendar birthday on card + persona
+- **Why:** Characters and the user should know how old they are and when
+  the day is coming, without a standing "ask for presents" prompt.
+- **What:** YYYY-MM-DD (no Feb 29). One live Journal card per owner; heat
+  from the story clock; rewrite in place on the next year. Frozen outing
+  via Objectives when there is room. Planner Today is not used — both
+  birthdays coexist in the diary. Web + desktop.
+- **Files:** birthday.dart, journal_*, personas.birthday v50, editors, web
+
+## 2026-08-27 — fix(evals): skip tools for the rest of a send after an empty miss
+- **Why:** An aborted/empty tools attempt left the probe untested, so every
+  remaining eval of the turn (and the next turn) paid tools PLUS JSON.
+- **What:** noteInconclusive sets skip-this-send only (three empty judges
+  in one send do not pause). endUserSend counts consecutive skipped
+  SENDS and pauses at 2. Regen retries because skip is cleared and is
+  only honored while a send is open. stillWantTools after Kobold FIFO
+  is shouldPostAfterIdle, never live prefer-text (the ping shares the
+  door). Journal/Growth honest-empty is not skip.
+- **Files:** pass_support (already in the named-choice PR), kobold_service,
+  tool_skip_pause_test
+
+## 2026-08-27 — fix(evals): identical tools list on the three prefix-sharing judges
+- **Why:** Dart prompts shared judgePrefix, but each judge sent a different
+  one-tool `tools` array. Kobold jinja injects tools at the start of the
+  rendered prompt, so calls 2 and 3 re-prefilled the whole dossier.
+- **What:** kJudgeEvalTools = relationship + emotional + narrative. Selector
+  remains spec.toolChoice. One-shot / post-gen unchanged. Wire test pins
+  list identity, call sites, both-door HTTP payload, and three distinct
+  EvalTraffic names.
+- **Files:** realism_tools, realism_evals.calls, judge_tools_wire_test
+
+## 2026-08-27 — fix(evals): named tool_choice on the in-flight eval callback
+- **Why:** Scalar evals sent `tool_choice: auto` with a 4000-token
+  non-streaming budget; Kobold prefix-cache could not hit across judges,
+  and empty tools attempts retried forever. SAMF needed a JSON override
+  that did not lie about capability.
+- **What:** ToolEvalSpec carries toolChoice; one attachTools builder +
+  style probe (named→required→auto on tool_choice 400s, unrelated 400
+  returned to the door). Scalar 512/1.0, Journal/Growth 4000/1.15/auto,
+  ping 64 + report_ping, chargen named set_porch_life. preferTextEvals
+  (default off) + pill "supported — using JSON". One-shot Auto treats
+  override as tools-not-in-use. Overlay start chunk from
+  fireStructuredEval. beginUserSend/endUserSend around sendMessage turn
+  body. Existing (p,t) tests kept compiling via invokeToolEval.
+- **Files:** openai_tool_payload, tool_choice_style_probe, tool_eval_spec,
+  pass_support, wiring_evals, journal/growth, tester, chargen, Porch Life
+  Model transport row, ChatInsight pill, settings/chat facades
+
+## 2026-08-27 — fix(needs): scoped reprocess evals only ticked needs
+- **Why:** Ticking Energy still ran the full seven-need tools+text+retry
+  stack (four oMLX jobs).
+- **What:** Scoped reprocess asks only for those `_delta` keys, skips the
+  tools transport (fixed 7-field schema), one text eval.
+- **Files:** llm_eval_engine, needs_impact_evaluator, llm_eval_engine_test,
+  needs_impact_evaluator_test
+
+## 2026-08-27 — fix(llm): heretic jinja was ignoring think-off on evals and Continue
+- **Why:** Forks that `{% set enable_thinking = true %}` overwrite the
+  request `enable_thinking:false` Continue, call mode, and every eval
+  already send. Evals thought until max_tokens and parsed empty;
+  Continue dumped a think block into the middle of the line.
+- **What:** Detect the `{% set %}` from templates we already read (oMLX
+  jinja, LMS GGUF, Kobold GGUF). When thinkOn is false, send
+  `thinking_budget: 0` (oMLX / llama.cpp force-close). Stock Gemma that
+  honours the kwarg does not get the field. Local URLs use
+  isLocalRemoteUrl so LAN LM Studio / llama.cpp get enable_thinking.
+  Kick the template read at backend sync. Request thinking on is
+  untouched.
+- **Files:** reasoning_support, reasoning_effort, open_router_service,
+  openai_chat_stream, kobold_service, llm_provider,
+  thinking_budget_clamp_test, reasoning_support_test
+
+## 2026-08-26 — feat(stoop): Twitter/X verified silhouette on creator handles
+- **Why:** Backend now sends additive `verification: gold|blue|null` on
+  creator + `/auth/me`. The hub website already draws the Twitter/X
+  starburst+check; in-app Dart and web_ui still showed a bare handle.
+- **What:** Parse gold/blue (anything else = none). CustomPainter + the
+  same SVG path/fills as `website/src/stoop/ui.js` `verifiedMark`. Badge
+  next to handles on profile, creator page, tiles, detail, browse hero,
+  following chips, signed-in tab. Comments skipped (JSON has no field).
+  Web PWA matches. No flutter_svg.
+- **Files:** backporch_user/stoop_card/stoop_creator, AppColors
+  stoopCheckGold/Blue, stoop_verified_badge, StoopVerifiedBadge.tsx,
+  stoop handle call sites, stoop_verification_test
+
+## 2026-08-26 — fix(chat): show when a send is held behind post-gen evals
+- **Why:** Send during needs/climax/pockets scoring clears the composer
+  immediately and only appends the bubble after settle, so the line looks
+  lost until evals finish.
+- **What:** Flag + bottom banner "Got it — sending when the last reply is
+  fully wrapped up." Desktop input strip and web composer. Does not
+  append the user bubble early (chips attach to last message).
+- **Files:** chat_service_send, generation_stream, chat_page.input,
+  chat_facade, ChatComposer, styles.css, regen_aborts_settling_test
+
+## 2026-08-26 — fix(chat): regen aborts in-flight post-gen evals
+- **Why:** After a reply streamed, needs/climax/pockets still held the
+  turn busy. The regen button stayed visible but returned immediately,
+  so a tap while oMLX was prefilling a needs eval did nothing.
+- **What:** Regen aborts the in-flight eval, skip applying it to the
+  rejected reply, then generate. Continue waits (it keeps the text).
+  Streaming still refuses (Stop first). Web uses the same ChatService
+  methods.
+- **Files:** chat_service_message_ops, generation_postgen, reprocess,
+  defaults, regen_aborts_settling_test
 
 ## 2026-08-26 — docs: v1.3.1 Clock In on the long-form release notes
 - **Why:** Promoting Rawhide to main as v1.3.1. release-notes.md still

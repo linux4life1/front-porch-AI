@@ -387,6 +387,9 @@ extension ChatServiceRealismEvals on ChatService {
                     resp.calls,
                   ),
                   fireToolEval: _fireToolEval,
+                  toolChoice: WithUserEval.kWithUserTool,
+                  getPreferTextEvals: () =>
+                      _storageService.realismSettings.preferTextEvals,
                   fireTextEval: (p, {onChunk}) => _fireLLMEval(
                     p,
                     repeatPenalty: kScalarEvalRepeatPenalty,

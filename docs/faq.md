@@ -1,185 +1,295 @@
 # Frequently Asked Questions
 
-Straight answers to the questions I get most often. If yours isn't here, the [Discord community](https://discord.gg/e4tET6rpdv) is friendly and fast.
+Short answers. Where to click. What has to be running first.
+
+If this page doesn’t cover it, try [Troubleshooting](troubleshooting.md). Still stuck? The [Discord](https://discord.gg/e4tET6rpdv) is friendly.
 
 ---
 
 ## Table of Contents
 
-### General
-- [Is Front Porch AI free?](#is-front-porch-ai-free)
-- [Is my data private?](#is-my-data-private)
-- [What platforms are supported?](#what-platforms-are-supported)
-- [Do I need an internet connection?](#do-i-need-an-internet-connection)
-- [What's the difference between Stable and Nightly builds?](#whats-the-difference-between-stable-and-nightly-builds)
+### Start here
+- [Is it free?](#is-it-free)
+- [Does it spy on me?](#does-it-spy-on-me)
+- [What computer do I need?](#what-computer-do-i-need)
+- [Do I need the internet?](#do-i-need-the-internet)
+- [Stable vs Nightly?](#stable-vs-nightly)
 
-### AI & Models
-- [What AI models can I use?](#what-ai-models-can-i-use)
-- [How do I choose a model?](#how-do-i-choose-a-model)
-- [Can I use OpenAI / Claude / Google models?](#can-i-use-openai--claude--google-models)
-- [Why is the AI slow?](#why-is-the-ai-slow)
-- [Why does the AI repeat itself?](#why-does-the-ai-repeat-itself)
+### Chat
+- [The AI won't talk](#the-ai-wont-talk)
+- [How do I pick a model?](#how-do-i-pick-a-model)
+- [Can I use ChatGPT / Claude / Gemini?](#can-i-use-chatgpt--claude--gemini)
+- [It's slow](#its-slow)
+- [It repeats itself](#it-repeats-itself)
+- [The character is acting wrong](#the-character-is-acting-wrong)
+- [Where do I get characters?](#where-do-i-get-characters)
+- [SillyTavern / Backyard cards?](#sillytavern--backyard-cards)
 
-### Characters
-- [Where can I find characters?](#where-can-i-find-characters)
-- [Can I use my SillyTavern or Backyard AI characters?](#can-i-use-my-sillytavern-or-backyard-ai-characters)
-- [Why isn't my character acting right?](#why-isnt-my-character-acting-right)
+### Pictures (Image Studio)
+- [I don't see a picture button](#i-dont-see-a-picture-button)
+- [How do pictures actually work?](#how-do-pictures-actually-work)
+- [Draw Things (Mac)](#draw-things-mac)
+- [ComfyUI](#comfyui)
+- [Automatic1111 / Forge](#automatic1111--forge)
+- [Cloud pictures (Remote API)](#cloud-pictures-remote-api)
+- [Create vs Edit](#create-vs-edit)
+- [It says not connected](#it-says-not-connected)
+- [Edit / expression check is grey](#edit--expression-check-is-grey)
 
 ### The Stoop
 - [What is The Stoop?](#what-is-the-stoop)
-- [Can I share Worlds too?](#can-i-share-worlds-too)
+- [Do I need an account?](#do-i-need-an-account)
+- [Why was my upload blocked?](#why-was-my-upload-blocked)
+- [Worlds / Places](#worlds--places)
+- [Comments, reports, gold/blue checks](#comments-reports-goldblue-checks)
+- [Forgot password](#forgot-password)
 - [What data does The Stoop collect?](#what-data-does-the-stoop-collect)
 
-### Voice
-- [Why isn't the voice (TTS) working?](#why-isnt-the-voice-tts-working)
-- [How do I get better-sounding voices?](#how-do-i-get-better-sounding-voices)
-- [Why does voice call mode send my message too early?](#why-does-voice-call-mode-send-my-message-too-early)
-
-### Realism Engine
+### Living characters
+- [Where did the switches go?](#where-did-the-switches-go)
+- [How does time work?](#how-does-time-work)
+- [Why isn't the clock moving?](#why-isnt-the-clock-moving)
+- [How do I skip time?](#how-do-i-skip-time)
+- [Why does it say they're at work?](#why-does-it-say-theyre-at-work)
+- [What are Pockets?](#what-are-pockets)
 - [What is the Realism Engine?](#what-is-the-realism-engine)
-- [Does the Realism Engine slow down my chats?](#does-the-realism-engine-slow-down-my-chats)
-- [How do I reset a character's bond and trust?](#how-do-i-reset-a-characters-bond-and-trust)
+- [Does Realism make chat slow?](#does-realism-make-chat-slow)
+- [Reset bond / trust](#reset-bond--trust)
 
-### Your Data & Devices
-- [How do backups work?](#how-do-backups-work)
-- [Where is my data stored?](#where-is-my-data-stored)
-- [Can I chat from my phone or another computer?](#can-i-chat-from-my-phone-or-another-computer)
-- [Can I sync between two computers?](#can-i-sync-between-two-computers)
-- [How do updates work?](#how-do-updates-work)
-- [How do I report a bug?](#how-do-i-report-a-bug)
+### Voice
+- [No sound](#no-sound)
+- [Better voices](#better-voices)
+- [Voice call cuts me off](#voice-call-cuts-me-off)
 
----
+### Other buttons people ask about
+- [AI Enhance](#ai-enhance)
+- [Arrows on the portrait](#arrows-on-the-portrait)
+- [AFK / they keep talking while I'm away](#afk--they-keep-talking-while-im-away)
+- [Where do I set their job?](#where-do-i-set-their-job)
+- [Custom weather / seasons](#custom-weather--seasons)
+- [Porch Stories — how do I start?](#porch-stories--how-do-i-start)
+- [Import a lorebook](#import-a-lorebook)
+- [Reprocess Needs](#reprocess-needs)
+- [Scan & Clean vs Reclaim](#scan--clean-vs-reclaim)
 
-## General
-
-### Is Front Porch AI free?
-
-Yes — completely free and open-source (AGPL-3.0 license). Download it, use it, modify it, share it. There's no paid tier, no subscription, and no account required for the app itself.
-
-A few *optional* third-party services have their own costs if you choose to use them — for example OpenRouter (remote AI models, pay per use) or ElevenLabs (premium cloud voices). Everything built into the app is free.
-
-### Is my data private?
-
-**Yes.** Front Porch AI is local-first: your characters, chats, memories, and settings live in a folder on your computer, and using the app offline sends nothing anywhere. There are no ads, no trackers, and no crash reporting.
-
-Three optional features involve the internet, and only if you turn them on:
-
-- **Remote AI APIs** (OpenRouter and similar) — your prompts go to that provider. Check their privacy policy.
-- **Cloud voices** (ElevenLabs, OpenAI) — the text being spoken goes to that provider.
-- **The Stoop** — the community character hub. It's the only part of the app that involves an online account or collects anything at all — see [What data does The Stoop collect?](#what-data-does-the-stoop-collect)
-
-The full details are in the [Privacy Policy](https://github.com/linux4life1/front-porch-AI/blob/main/PRIVACY.md).
-
-### What platforms are supported?
-
-- **Windows** 10 and 11 — a normal `.exe` installer
-- **macOS** 12 Monterey or newer — a signed, Apple-notarized `.pkg`. Apple Silicon (M-series) runs local models natively; Intel Macs can run the app, but local models are switched off there — the app says so and you switch yourself to **Remote API** in Settings → Backend
-- **Linux** — the APT repo, the RPM repo, the AUR, or a standalone `.deb`, `.rpm`, AppImage, or `.tar.gz`
-
-See the [Installation Guide](install.md) for step-by-step instructions.
-
-### Do I need an internet connection?
-
-Only for the initial setup: downloading the app, the AI engine, and a model. After that, everything core works fully offline — chatting, memory, local voices, image generation with a local backend, all of it.
-
-Most of it needs nothing installed alongside it: speech, listening, emotion detection, and memory all run inside the app itself — no Python, no helper programs. There are two exceptions. The first is the AI engine for local models: the app downloads KoboldCpp for you and runs it as a local server, which you start and stop from Settings → Backend. The second is local image generation, which happens in a separate program you install and run yourself — Draw Things, ComfyUI, or an Automatic1111-style server. The app never downloads or launches that one; you just point it at the address the program is listening on.
-
-You need to be online for: remote AI APIs, cloud voices, The Stoop, and downloading new models or voices.
-
-### What's the difference between Stable and Nightly builds?
-
-- **Stable** is the recommended download — tested, polished releases. The current one is **v1.2.0, "Occupy Mars"** (released 2026-08-01). The things that used to be nightly-only are in it, including The Stoop and changing a chat's cast on the fly with `/join`.
-- **Nightly** builds come fresh from active development most days. You get new features first, but you may also hit rough edges.
-
-Nightlies keep their data in a completely separate folder (`FrontPorchAI-Beta` — leftover name) with their own settings, so trying one never touches your stable characters and chats.
-
-One thing to know before you switch: on nightlies the Backups & Restore page opens but its contents are replaced by a notice, so there is no way to browse or roll back a snapshot there. The automatic snapshots themselves keep running.
+### Phone, backups, updates
+- [Chat from my phone](#chat-from-my-phone)
+- [What's missing on the phone?](#whats-missing-on-the-phone)
+- [Backups](#backups)
+- [Where is my data?](#where-is-my-data)
+- [Two computers](#two-computers)
+- [Updates](#updates)
+- [Report a bug](#report-a-bug)
 
 ---
 
-## AI & Models
+## Start here
 
-### What AI models can I use?
+### Is it free?
 
-**Local models (recommended for privacy):** any model in **GGUF format** — the standard file format for AI models that run on your own computer. That covers essentially every popular open model family: Llama, Mistral, Qwen, Gemma, Phi, DeepSeek, and many more. The built-in **Model Manager** (*Manage Models* in the sidebar) lets you search Hugging Face and download them without leaving the app.
+Yes. No subscription. No account for chatting.
 
-**Remote models:** with an API key you can use OpenRouter (which offers hundreds of models including the biggest frontier ones), or any other OpenAI-compatible service.
+Optional paid stuff if *you* turn it on: OpenRouter (cloud AI, pay per use), ElevenLabs (fancy voices). The app itself is free.
 
-### How do I choose a model?
+### Does it spy on me?
 
-The app detects your hardware automatically and suggests sensible settings, but here's the plain-English version:
+No ads. No trackers. Chats stay on your computer.
 
-| Your computer | Good starting point |
+The only internet bits, and only if you turn them on:
+
+1. Cloud AI (OpenRouter etc.) — your prompts go there.
+2. Cloud voices — the text being spoken goes there.
+3. [The Stoop](#what-is-the-stoop) — that's the only Front Porch account.
+
+[Privacy Policy](https://github.com/linux4life1/front-porch-AI/blob/main/PRIVACY.md).
+
+### What computer do I need?
+
+- **Windows** 10 or 11
+- **Mac** — macOS 12 Monterey or newer. Apple Silicon (M1+) can run local models. **Intel Macs cannot.** On Intel, open Settings → Backend and pick **OpenAI-Compatible API** yourself. The app will not do that for you.
+- **Linux** — APT, RPM, AUR, AppImage, `.deb` / `.rpm`
+
+8 GB RAM minimum, 16 GB nicer. A GPU helps. No GPU is fine with a small model or a remote API.
+
+Step-by-step install: [Installation](install.md). First-run walkthrough: [Getting Started](getting-started.md).
+
+### Do I need the internet?
+
+To download the app, the AI engine, and a model — yes.
+
+After that, chatting, memory, and local voices work offline.
+
+**Two extra programs you might run yourself:**
+
+1. **KoboldCpp** — talks to local chat models. The app **downloads and starts this for you** (Settings → Backend).
+2. **A picture program** — Draw Things, ComfyUI, or Automatic1111/Forge. Front Porch **does not** install or start that. You do. Then you point Image Studio at it.
+
+You need the internet for: cloud AI, cloud voices, The Stoop, downloading new models.
+
+### Stable vs Nightly?
+
+- **Stable** — the one you should install. Current is **v1.3.1, "Clock In"**.
+- **Nightly** — new stuff, rougher. Uses a **different folder** (`FrontPorchAI-Beta`) so it cannot eat your real library. On nightlies, Backups & Restore shows a notice (auto-snapshots still run; you just can't click restore there).
+
+---
+
+## Chat
+
+### The AI won't talk
+
+Do this in order:
+
+1. Settings → **Backend**. If it says local isn't running, hit **Start Backend**.
+2. You need a **model**. Sidebar → **Manage Models** → download a GGUF. Dropping a `.gguf` in the models folder also works.
+3. **Intel Mac?** Local will never work. Settings → Backend → **OpenAI-Compatible API** + a URL/key.
+4. Still nothing? [Troubleshooting](troubleshooting.md#the-ai-engine-wont-start).
+
+### How do I pick a model?
+
+Sidebar → **Manage Models**. The app estimates if it fits *before* you download.
+
+| Your computer | Start here |
 |---|---|
-| 6–8 GB of GPU memory | A 7–9B model at Q4 quality — great balance of speed and personality |
-| 12–16 GB of GPU memory | A 12–24B model — noticeably better writing and consistency |
-| 24 GB or more | 32B and up — excellent reasoning and character depth |
-| Apple Silicon Mac (16 GB+) | Most 7–13B models run beautifully |
-| No dedicated GPU | A small 3–7B model, or use a remote API |
+| 6–8 GB GPU | 7–9B at **Q4** |
+| 12–16 GB GPU | 12–14B at Q4 |
+| 24 GB+ GPU | bigger quantized models |
+| Apple Silicon 16 GB+ | 7–13B |
+| No GPU | 3–7B, or a remote API |
 
-Two terms you'll see everywhere:
+**7B / 13B** = size (bigger = smarter, hungrier). **Q4** = compression (Q4 is the sweet spot). Start small. Modern 8B models are good at roleplay.
 
-- **"7B", "13B" etc.** — the model's size in billions of parameters. Bigger is smarter but needs more memory and runs slower.
-- **"Q4", "Q5" etc.** — quantization, i.e. how compressed the model file is. Q4 or Q5 is the sweet spot; quality loss is tiny and the memory savings are huge.
+### Can I use ChatGPT / Claude / Gemini?
 
-The Model Manager estimates whether a model fits your GPU *before* you download it. When in doubt, start small — modern 8B models are shockingly good at roleplay.
+Yes, through **OpenRouter** (one key, lots of models) or any OpenAI-compatible URL. Settings → **Backend**. That is *your* key and *their* bill.
 
-### Can I use OpenAI / Claude / Google models?
+### It's slow
 
-Yes. Add an **OpenRouter** key in Settings → Backend and you get access to virtually every major model through one account. You can also point the app at any OpenAI-compatible service (Nano-GPT and self-hosted servers included). Remote models work with everything — the Realism Engine, memory, voices, all of it.
+Usually the model is too big and spilled into regular RAM.
 
-### Why is the AI slow?
+- Smaller model, or Q4 instead of Q8
+- Settings → Advanced → lower **GPU Layers**
+- Check it actually sees your GPU: [GPU not detected](troubleshooting.md#gpu-not-detected)
+- Giant context (16k+) is slow even on a good card
 
-Almost always one of these:
+### It repeats itself
 
-- **The model is too big for your GPU**, so part of it spills over to regular RAM, which is much slower. Fix: use a smaller model or a more compressed version (Q4 instead of Q6/Q8), or lower the context size.
-- **Too many GPU layers** — lower **GPU Layers** in Settings → Advanced so the model actually fits.
-- **The app is running on CPU** without you realizing. Settings → Advanced shows the GPU it detected and a memory gauge; if the name is wrong or missing, see [Troubleshooting → GPU not detected](troubleshooting.md#gpu-not-detected).
-- **Very large context sizes** (16k+) cost speed and memory even before the model starts writing.
+Settings → **Generation**: Temperature ~0.8–1.1, Repeat Penalty ~1.05–1.15, DRY Strength ~0.8.
 
-See [Troubleshooting → Generation is slow](troubleshooting.md#generation-is-extremely-slow) for the full checklist.
+Also: thin character cards (no example dialogue) repeat. Add examples. Some models just suck at this — try another.
 
-### Why does the AI repeat itself?
+### The character is acting wrong
 
-Usually fixable with settings:
+1. Card is thin — add examples and a real personality.
+2. Model too small.
+3. Temperature way too low or way too high. Try 0.85–1.0.
+4. Settings → **General** → system prompt fighting the card. Clear it or use a preset.
+5. Realism Engine off — no leftover mood between turns. Settings → **Porch Life**.
 
-- Raise **Temperature** a little (0.8–1.1 works well for roleplay).
-- Raise **Repeat Penalty** slightly (1.05–1.15).
-- Try **DRY Strength** at around 0.8 — it catches repeated *phrases*, not just repeated words, which is usually what makes a character feel stuck.
-- Check the character card — missing or weak **example dialogue** is the number-one cause of repetitive characters. A few good example exchanges work wonders.
-- Some models are simply repetitive, especially at heavy compression. Try a different one — personality varies a lot between model families.
+### Where do I get characters?
+
+1. Sidebar → **The Stoop** (or [hub.frontporchai.app](https://hub.frontporchai.app)) → download.
+2. Home → **Import Cards** (PNG or JSON from any site).
+3. **AI Create** on the home screen (one-line idea → a card).
+4. Discord.
+
+### SillyTavern / Backyard cards?
+
+Yes. **Import Cards** for PNG/JSON. **Import Backyard AI** for `.byaf`. Lorebooks have their own import wizard.
 
 ---
 
-## Characters
+## Pictures (Image Studio)
 
-### Where can I find characters?
+**Front Porch does not draw the picture.** It sends a prompt to **another program** (or a cloud image API) that you already have running. Your *chat* model is not the picture-maker.
 
-- **The Stoop** — the community hub built right into the app: browse, follow creators, and download with one tap. It ships in the stable release.
-- **Import a card file** — download a card (PNG or JSON) from any character site in your normal browser, then use **Import Cards** on the home screen and it lands straight in your library.
-- **Anywhere character cards are shared** — Front Porch AI reads standard V2/V2.5 character card files (PNG or JSON), the same format the whole community uses.
-- **Make your own** — the AI Character Creator goes from a one-line idea to a finished card, or walks you through it trait by trait if you'd rather steer. There's a fully manual step-by-step creator too.
-- **The Discord** — people share cards and ideas in the [community Discord](https://discord.gg/e4tET6rpdv).
+### I don't see a picture button
 
-### Can I use my SillyTavern or Backyard AI characters?
+1. Settings → **Voice & Media** → **Image Generation** → **on**. Until this is on, the ✨ button is **hidden**.
+2. Open a **chat**. ✨ is in the bar at the bottom.
+3. Full Image Studio is **desktop**. Phone: **Models** can still generate one picture, or type `/image` in chat.
 
-Yes, directly:
+### How do pictures actually work?
 
-- **SillyTavern cards** (PNG or JSON) import perfectly — **Import Cards** on the home screen takes many files at once, and **Import Folder** takes a whole directory.
-- **Backyard AI archives** (`.byaf` files) have their own importer (**Import Backyard AI**), so your characters aren't stranded in that format.
-- **Lorebooks** from SillyTavern, Chub, NovelAI, AgnAI and RisuAI come in through their own preview wizard.
+**Two programs.**
 
-Everything you create or edit is saved as standard, portable character cards too — no lock-in in either direction.
+| Program | Job |
+|---|---|
+| Front Porch | Chat, ✨ Studio, send the prompt |
+| Draw Things / ComfyUI / A1111 / Forge / a cloud image API | Actually paint the pixels |
 
-### Why isn't my character acting right?
+Recipe:
 
-In rough order of likelihood:
+1. Turn **Image Generation** on (above).
+2. **Start the picture program** and load an image model in *that* program. Leave it running.
+3. Open a chat → ✨.
+4. Pick the matching backend chip (Draw Things, ComfyUI, Automatic1111, or Remote).
+5. Wait until the card says **connected** (it lists how many models it found). If it doesn't, [It says not connected](#it-says-not-connected).
+6. Pick **Create**, pick a subject (Freeform / Character / You), hit **Generate**.
 
-1. **The card is thin.** A character with no example dialogue and a two-line description gives the AI almost nothing to work with. Add example exchanges and specifics.
-2. **The model is too small** for a subtle personality. Try a larger or newer model.
-3. **Sampler settings are off.** Extremely low temperature makes characters robotic; extremely high makes them incoherent. Start at 0.85–1.0.
-4. **A global system prompt is fighting the card.** If you've customized the system prompt in Settings → General, it can override character instructions.
-5. **The Realism Engine is off.** Without it, characters have no persistent emotional state between turns. Turning it on adds bond, trust, mood, and memory of how your story has been going — see the [Realism Engine guide](realism-engine.md).
+URL and model lists live **inside the Studio**, not on the Voice & Media switch.
+
+### Draw Things (Mac)
+
+Mac only. Windows/Linux will not show this chip unless you already saved it.
+
+1. Open Draw Things.
+2. Turn on its **gRPC server**.
+3. Default: host `127.0.0.1`, port **7859**.
+4. Load an image model in Draw Things.
+5. In Studio, tap **Draw Things**. Wait for connected.
+
+**Edit** tab: use **Use recommended** on the recipe strip. Weird CFG on Qwen-Image-Edit often returns a **blank** image.
+
+### ComfyUI
+
+1. Start ComfyUI. Default address: `http://127.0.0.1:8188`.
+2. Load a workflow / model there.
+3. Studio → **ComfyUI**. Wait for connected.
+
+**Edit:** pick a built-in recipe, or **Upload your own** workflow.
+
+### Automatic1111 / Forge
+
+1. Start the WebUI **with `--api`**. Without `--api`, Front Porch cannot talk to it.
+2. Default address: `http://127.0.0.1:7860`.
+3. Studio → **AUTOMATIC1111** (Forge uses this same chip).
+4. Wait for connected.
+
+### Cloud pictures (Remote API)
+
+This is **not free**, and it is **not a separate key**.
+
+It uses the **same** URL + API key as Settings → **Backend** (OpenRouter etc.). If that key is empty, Generate will look fine and then do nothing useful.
+
+Studio → **Remote**. Pick an *image* model from the list (not your chat GGUF).
+
+### Create vs Edit
+
+- **Create** — brand-new picture from a prompt.
+- **Edit** — change a picture you already have. Needs an **edit** image model (Qwen-Image-Edit, Flux Kontext, …). A normal “make a picture” checkpoint will not do Edit. The app tells you why; it will not silently fake it.
+
+`/image` in chat = “picture this scene.” `/image me`, `/image char`, `/image raw …` exist too. If **Review AI prompts** is on, `/image` pauses so you can edit the prompt first.
+
+### It says not connected
+
+Read the grey hint on the card:
+
+- Draw Things — is gRPC on? Port 7859?
+- ComfyUI — is it running on 8188?
+- A1111 — did you start it with **`--api`**?
+- Remote — is Settings → Backend filled in?
+
+Then hit **Retry**. The picture program must stay open.
+
+### Edit / expression check is grey
+
+**Edit:** wrong *image* model. Switch the image model, not the chat model.
+
+**Expression pack QC** (the app looking at faces): your *chat* model must be able to **see** pictures (vision GGUF + mmproj in Model Settings → Vision, or a vision API). “Couldn't check vision” usually means the server is still loading — wait, retry.
+
+Starter pack = 8 faces. Full = 28. You need a **base portrait** first.
+
+Full walkthrough: [Image Studio](image-studio.md).
 
 ---
 
@@ -187,150 +297,300 @@ In rough order of likelihood:
 
 ### What is The Stoop?
 
-The Stoop is a community character hub built into the app, and it ships in the stable release. Browse featured and moderator-picked cards, follow creators you like, vote, and download characters — including entire group casts with their lorebooks and Realism state intact — straight into your library. You can also browse it in any web browser at [hub.frontporchai.app](https://hub.frontporchai.app).
+A character shop built into the app (sidebar → **The Stoop**) and the web ([hub.frontporchai.app](https://hub.frontporchai.app)).
 
-Your name on The Stoop is a real profile page: your picture, when you joined, your followers and lifetime stats, a short bio, up to four links, and your uploads underneath as an art grid. Every other creator gets the same page. A **confirmed email address** is what unlocks the parts of an account other people can see — a profile picture and sharing your own cards — so drive-by accounts can't post pictures at all.
+Download a single, a whole group, or a Place. Uploads wait for a moderator. Strictly 18+. Suggestive cards stay hidden until you tap 🔞.
 
-It's opt-in, needs a free account, and is strictly 18+. Suggestive and 18+ cards stay hidden until you turn them on yourself. The rest of the app stays 100% local whether or not you ever open The Stoop.
+The rest of Front Porch never needs this.
 
-### Can I share Worlds too?
+### Do I need an account?
 
-Yes. A Place you've built — its lore, its cover art, and its climate (your own weather names and emoji, temperature bands, atmosphere and gravity) — can be posted to The Stoop exactly like a character, and downloading one imports it straight into your Worlds list. You can also hand the file to someone directly: the Worlds page has an **Import Place** button, and each place has its own **Export .fpworld** action.
+**No** to look and download on the **web hub**.
 
-One catch worth knowing before you send a file to a friend: **opening a `.fpworld` needs Front Porch AI 1.2 or newer.** Older installs can't import them, so if a place won't open, updating is the fix.
+**Yes** to follow, vote, comment, report, or share.
+
+**Confirmed email** (click the link they send) to: share, profile picture, comment, report. Banner → send again. Check spam. Don't mash the button.
+
+Throwaway emails are rejected. If the rules page (AUP) updates, you'll have to tick it again.
+
+Share from the **desktop** wizard, or drop a PNG/JSON on the hub. Phone **cannot** upload.
+
+### Why was my upload blocked?
+
+1. Email not confirmed.
+2. Incomplete card — first message + scenario + description *or* personality + **a picture**. Groups: every member needs a name, identity, **and** avatar. Places: climate + **cover**.
+3. Intimate prefs filled in → the listing is 18+. A *member* with prefs 18+'s the **whole group**.
+4. Still **Pending** — that is not a reject. Read the note if it says Not approved / Taken down.
+
+Also: the card has to be a real character (not a blank), readable, no porn cover on a SFW listing, credit **Original creator** if it isn't yours.
+
+Stoop **groups** only open in Front Porch. Solo V2 cards work in SillyTavern; the Realism extras do not.
+
+### Worlds / Places
+
+Yes, share them. Download lands in Worlds. File export is `.fpworld` (needs app **1.2+**). Updating a Place = new listing. Characters/groups can update in place. Hub cap ~**8 MB**.
+
+### Comments, reports, gold/blue checks
+
+Comments are **off** until the creator turns them on. Confirmed email to post. No links. You can report a comment.
+
+**Report** on a card: sign in, confirm email, pick a category, **write a reason**. Guests don't even see the button.
+
+Starburst check (not a circle): **gold** = owner, **blue** = someone they trust. You cannot buy or apply. ★ Mod's Pick = a mod featured it.
+
+### Forgot password
+
+Sign-in → **Forgot password?** → email → link lasts **45 minutes**. 2FA still needed after reset. Stoop 2FA ≠ the phone-web 2FA.
 
 ### What data does The Stoop collect?
 
-Only if you sign in and use it:
+Only if you sign in: email, name, 18+ tick, hashed password, optional profile, the cards you upload, votes/downloads, a hashed IP + install id for bans (90 days), optional anonymous “what GPU do people have” ping (off switch on signup).
 
-- **Your account info** — email, display name, your 18+ confirmation, and a securely hashed password.
-- **Your public profile, if you fill one in** — profile picture, bio, and links. All optional.
-- **What you upload** — the cards you choose to share, obviously — plus account activity like votes and downloads.
-- **Anti-abuse signals** — a salted, one-way *hash* of your IP address (never the raw IP) and an anonymous per-install id, used only to enforce bans and stop ban-evasion. These are automatically deleted after 90 days, and they're a condition of having an account: if you'd rather they weren't collected, don't make one — the rest of Front Porch works fully without it.
-- **An anonymous stats ping** — your operating system and app version, your language setting, and your graphics card's name and how much memory it has, so I know what hardware to prioritize. The server sorts the card into a coarse tier (e.g. "NVIDIA · 8–12 GB") and never stores an IP. It's on by default but there's an off switch right on the sign-up screen and in Account settings. It never includes your chats or your characters.
+Never: your chats. Delete the account from the app to wipe Stoop data. [Privacy](https://github.com/linux4life1/front-porch-AI/blob/main/PRIVACY.md).
 
-Never collected: your conversations, your characters (unless you upload them), or anything from offline use. You can permanently delete your Stoop account from inside the app at any time, which erases your account, your uploads, your votes, and your messages. Full details: [Privacy Policy](https://github.com/linux4life1/front-porch-AI/blob/main/PRIVACY.md).
+---
+
+## Living characters
+
+### Where did the switches go?
+
+**Settings → Porch Life.** Not General.
+
+Journal, clock, Chaos, Pockets, Objectives each have **their own** switch. Realism is not the master key. Full list: [Porch Life](porch-life.md).
+
+**18+ themes** is still Settings → **General**.
+
+### How does time work?
+
+The story has **its own clock**. It is **not** your wall clock and it does **not** follow today's real date.
+
+**Turn it on:** Settings → **Porch Life** → **Passage of Time**.
+
+That row does **not** need the Realism Engine. Two different cases:
+
+| Realism Engine | What the clock does |
+|---|---|
+| **On** | Clock is judged as part of work the engine already does. No extra switch. |
+| **Off** | Passage of Time being on is **not enough**. You must also turn on **Keep the clock running without the engine** (the small switch under that row). That costs **one extra AI call per turn**. Leave it off and the clock **holds still**. |
+
+**What “auto” means**
+
+1. You send a message. They reply.
+2. **After** the reply, the app asks the AI: “how many minutes did that beat take?”
+3. The clock moves by that amount. Next speaker is told the new time.
+
+- A hello might be 2 minutes. A long drive might be two hours.
+- **Hard cap: 180 minutes (3 hours) per turn.** Bigger jumps are skips (below), not auto.
+- If that AI call fails or returns garbage: the clock creeps **5 minutes**. It never freezes on a failed call.
+- If it still hasn't moved after **12 turns**, the app hops to the next time of day by itself.
+- **Continue does not tick.** Same beat. New message = new beat.
+- **Regenerate / swipe** rewind the clock to before that reply, then judge again. It will not double-advance.
+- In a **group**, one clock for the whole scene (guests included).
+
+**What you see**
+
+Sidebar **Character State**: something like **Morning · 9:00 AM** and **Wed, Mar 3 · Day 3**.
+
+Six periods (and the time they land on if the app only knows the period):
+
+| Period | About |
+|---|---|
+| Dawn | 6:00 |
+| Morning | 9:00 |
+| Late morning | 11:30 |
+| Afternoon | 2:30 |
+| Evening | 6:30 |
+| Night | 10:30 |
+
+Past midnight = next **story** day. Sleeping through the night in-scene can start a morning — only when the scene actually says so.
+
+Set the **opening date and clock** on the character card if this is 1887, not “today.” Existing chats keep the clock they already have.
+
+**What rides on the clock**
+
+- **Story Weather** — needs Passage of Time.
+- **Dreams** — needs Journal **and** Passage of Time (🌙 banner after a story night).
+- **Clock In** (job/hours) — uses this clock. “They're at work” is the occupation feature, not a stuck clock.
+- **Planner** — needs Time + Objectives + Journal.
+
+[Porch Life](porch-life.md). Deep numbers: [Realism Engine](realism-engine.md#the-passage-of-time).
+
+### Why isn't the clock moving?
+
+Do these in order:
+
+1. Settings → **Porch Life** → **Passage of Time** is on (and the **chat** didn't override it off in Character State → tune).
+2. Realism Engine **off**? Then **Keep the clock running without the engine** must be on, or the clock is supposed to sit still.
+3. You hit **Continue** — that does not advance time. Send a new message.
+4. No model / backend not running — auto time is an AI question. It cannot judge minutes without a model.
+5. You expected a 6-hour jump from one reply — auto **cannot** do that. [Skip](#how-do-i-skip-time).
+
+### How do I skip time?
+
+Auto will never jump more than **three hours**. For “next morning” / “a week later,” you skip.
+
+**1. Type it (fastest)**
+
+Works if the message looks like a skip, including:
+
+- `(OOC: several hours later)` / `[OOC] skip ahead` / `OOC: time skip`
+- “a few hours”, “hours later”, “the next morning”, “the next day”, “a week later”, “next week”, “a month later”
+- “slept through the night”, “sleep until morning”, “woke up”
+
+“Let's go to bed” is **a scene**, not a skip. A **finished** night is.
+
+A night skip lands **morning**, can restore energy a bit (hunger/bladder stay). You'll see a small **time-skip chip** on the next reply.
+
+**2. Nudge one period**
+
+**‹ ›** next to the date in Character State — back or forward one bucket (dawn → morning → …).
+
+**3. Set the clock exactly**
+
+**Tap the date** → **Story Calendar**. Pick the day and the time. Days with memories are marked; tap one to read what they remember.
+
+AFK / Dynamic Responses can also eat story-time per scene (hours / half day / full day) — that is the AFK gear, not the calendar.
+
+### Why does it say they're at work?
+
+**Clock In.** They have a job and hours on the **story** clock. Skip a turn during a shift → banner. Night skip lets them rest. They can still talk to you from work (“with you” is scored after they speak).
+
+Not a stuck clock. Change hours, skip to after the shift, or turn occupation off. [Clock In](porch-life.md#clock-in).
+
+### What are Pockets?
+
+Clothes and stuff they carry. Own switch on Porch Life. Does **not** need Realism. Journal → **Belongings**. [Pockets](porch-life.md#pockets--wardrobe).
+
+### What is the Realism Engine?
+
+Optional. Mood, bond, trust, needs, goals. **Off** by default on new singles; **on** by default on new groups. The **story clock is a separate switch** (Passage of Time) — it is not “the engine.” Full tour: [Realism Engine](realism-engine.md).
+
+### Does Realism make chat slow?
+
+A bit. Extra short AI questions after each turn. Character State gear → **One-Shot Eval**: **Auto** (fuse when the backend can), **On**, or **Off**. Or turn Realism off.
+
+### Reset bond / trust
+
+Start a **new chat**. There is no reset inside an old one. Editor “starting values” only affect chats you start *after* you change them.
 
 ---
 
 ## Voice
 
-### Why isn't the voice (TTS) working?
+### No sound
 
-- **First use downloads voice files.** The default local engine (Kokoro) fetches its voice bundle (roughly 380 MB once unpacked) the first time you use it. Give it a minute and watch for the progress indicator.
-- **Wrong engine selected** — check Settings → Voice & Media. Kokoro is the local default; ElevenLabs and OpenAI need an API key and internet.
-- **A character has a voice from a different engine.** If you switched engines, a voice assigned under the old one isn't available anymore and the app quietly substitutes one that is: on Piper it falls back to your global Piper voice, while Kokoro picks the nearest voice it actually has (same language and gender where it can). Either way the character stops sounding like themselves, so pick a voice again for the engine you're on now.
+First time, Kokoro downloads ~380 MB. Wait.
 
-More fixes in [Troubleshooting → Voice](troubleshooting.md#tts-not-producing-sound).
+Settings → **Voice & Media**. Kokoro = free local. ElevenLabs/OpenAI = key + internet.
 
-### How do I get better-sounding voices?
+If you switched engines, pick the character's voice again (old engine voices don't exist on the new one).
 
-- **Best free local:** Kokoro (the default) — over 50 voices, surprisingly natural, fully offline.
-- **Best overall (paid):** ElevenLabs — extremely natural and expressive, needs an API key.
-- **Lots of distinct voices:** Piper — lightweight and fast, handy for giving every group member their own voice.
-- **Bring your own Piper voice:** open the **Voice Model Browser** and hit **Add custom voice** to import a raw Piper `.onnx` file (with its matching `.onnx.json` sitting next to it). No conversion step, and the voice then shows up everywhere the built-in ones do. This importer is desktop-only by design — there's no web equivalent.
-- **Per-character voices:** a character can carry its own voice instead of the global one — pick one per member while you're building a group chat, or let it ride along in an imported card. Their own voice always wins over the global default.
+### Better voices
 
-### Why does voice call mode send my message too early?
+Kokoro = best free. ElevenLabs = best paid. Piper = lots of distinct voices (import `.onnx` + `.onnx.json` on **desktop**). Each character can have their own voice.
 
-Voice call mode listens for a pause: once you've spoken, about two seconds of silence tells it you're done, and it sends the transcription. It also samples the room's background noise for a moment when the call starts, to learn what "quiet" sounds like on your setup.
+### Voice call cuts me off
 
-If it keeps cutting you off or triggering on background noise:
-
-- Use a headset — laptop microphones pick up fans and keyboards easily.
-- Lower your microphone gain in your OS settings.
-- End and restart the call — it re-measures the background noise fresh each time.
-- You can always press the **Send** button in the call screen to send manually instead of waiting for the pause detection.
+It sends after ~2 seconds of silence. Headset. Lower mic gain. Hang up and call again. Or tap **Send** yourself. **Phone has no Voice Call** — only hold-to-talk, and only on HTTPS.
 
 ---
 
-## Realism Engine
+## Other buttons people ask about
 
-### What is the Realism Engine?
+### AI Enhance
 
-The optional system that makes characters feel *alive* over time instead of resetting every message. With it on, a character:
+Home screen → **right-click the character** → **AI Enhance**. Pick a chat. It interviews you, you tick what to rewrite, it saves **Name (Enhanced)**. You can bring those chats along. It is **not** in Porch Life.
 
-- carries a **mood** that shifts naturally and lingers between turns
-- builds (or loses) **bond** (−300 to +300) and **trust** (−100 to +100) with you, which changes how open they are
-- experiences the **passage of time** — the story clock moves forward on every turn, on a real calendar, with its own weather and seasons
-- can develop **fixations**, pursue their own **objectives**, and grow in ways you can actually read back (**Growth Rings**) over long stories
-- can live with Sims-style **needs** — hunger, energy, social, fun, hygiene, comfort, and more
+### Arrows on the portrait
 
-New characters have it off by default and it's configurable per character; new group chats start with it on. The [Realism Engine guide](realism-engine.md) covers all of it.
+◀ ▶ on the sidebar face = different **looks** from the Avatar Gallery for *this chat*. Not the mood/expression pack.
 
-### Does the Realism Engine slow down my chats?
+### AFK / they keep talking while I'm away
 
-Honestly: yes, somewhat — it's not free. After each turn, the engine asks the AI a few short background questions ("how did that land emotionally?", "did time pass?"). On a local model those run one after another and typically add a few seconds per turn; on remote APIs they run in parallel and the cost is smaller.
+**One-on-one:** sidebar **Story Tools** → **Dynamic Responses**. The gear: reply every 30–300 seconds, stop after 1–10 scenes, how much *story time* each scene eats (a few hours / half day / full day). Typing cancels it.
 
-Ways to reduce it:
+**Groups:** that panel is hidden. Use `/afk` (see [User Guide slash table](user-guide.md#slash-commands)).
 
-- Turn on **One-Shot Eval** in the chat sidebar's **Character State** section, which fuses those background questions into a single call. It's marked experimental because it can be less accurate on very small models.
-- Use a fast model — the evaluations are short, so speed matters more than size.
-- Turn the Realism Engine off for characters or scenes where you don't need it.
+### Where do I set their job?
 
-### How do I reset a character's bond and trust?
+Open the character → **Details**: Occupation, a short brief, hours, which weekdays. That is Clock In. Skip a turn during those hours → “at work” banner.
 
-Start a **new chat** — Realism state (bond, trust, mood, time, needs) belongs to the conversation, and a fresh chat starts from the character's saved starting values. There's currently no reset button inside an ongoing chat.
+Likes / dislikes are **chip lists** on Details, not the personality paragraph. Intimate into/not-into only show if Settings → General → **18+ themes** is on. Worn / carrying on the card *seeds* Pockets; you still need the Pockets switch in the chat.
 
-You can also edit a character's *starting* Realism values in the character editor — but those only apply to chats started after the change; existing conversations keep their history.
+### Custom weather / seasons
+
+Worlds → edit the Place → climate editor. **2 to 8** seasons (not stuck at 4). Each season has a start month/day — overlap blocks save. Day–night swing = how hard it cools after sundown. You can start from a built-in biome. Atmosphere: Breathable / Thin / Unbreathable / Hostile. Gravity: Earth / Low / High / Micro.
+
+### Porch Stories — how do I start?
+
+Backend must be running. Home → Porch Stories → new project. Steps: **Engine → Concept → Style → Format → Cast → Review**. If you ticked “use chat history,” a Distiller pass runs *before* the bible so it tracks what actually happened. Then Architect (bible) → Act Structurer → scene beats → prose. Chat → **Turn Into a Story…** is the shortcut (desktop).
+
+### Import a lorebook
+
+**Import Lorebook** (not the same as importing a character): pick a file → send it to a new Place, characters, a group, or the current chat. You can also pull another card's lore into this character from the editor.
+
+Same-name import asks **skip / replace / keep both**. One-file Import Cards can ask for tags; bulk folder import does not.
+
+SillyTavern **SQLite** import is a real path too (characters + chats), not only PNG/JSON.
+
+### Reprocess Needs
+
+Turned Needs on mid-chat, or an eval went weird: **Reprocess Needs Deltas** rebuilds Needs history from that conversation. [Porch Life](porch-life.md#reprocess-needs).
+
+### Scan & Clean vs Reclaim
+
+Settings → **Advanced**:
+
+- **Scan & Clean** — orphan avatars, leftover embeddings, dead sessions.
+- **Reclaim Disk Space** — old sidecar leftovers. Different button. Do not mix them up.
 
 ---
 
-## Your Data & Devices
+## Phone, backups, updates
 
-### How do backups work?
+### Chat from my phone
 
-Automatically, and always on. The app snapshots your database every **30 minutes** and keeps two tiers:
+1. Desktop: Settings → **Advanced** → **Web Server** → on.
+2. Same Wi-Fi: open `http://YOUR-PC:8085`.
+3. First visit: create a web login. Away from home / not localhost: also type the **setup code** from that Settings page.
+4. Desktop must stay on. It is the brain.
 
-- the **10 most recent** snapshots (fine-grained undo for the last few hours), plus
-- **one snapshot per day for the last 7 days** (a rolling week of restore points)
+Add to Home Screen: Android may pop a banner; iPhone is Share → Add to Home Screen.
 
-Old ones are pruned automatically so it never grows unbounded. If the database is ever damaged, a restore screen appears on launch and recovery is one click. You can also make one yourself, or restore an older snapshot, from **Backups & Restore** in the sidebar. Since 1.2, restoring doesn't need a relaunch — the app picks the restored database straight back up. If that live reload ever fails, it tells you and asks you to close and reopen Front Porch AI.
+Away from home: Tailscale (phone has a **Remote** page: HTTPS, optional ngrok, QR).
 
-Two caveats worth being precise about:
+### What's missing on the phone?
 
-- **A backup is the database and nothing else.** It captures what the database holds — your chats, memories, and Realism history — and not the separate files sitting on disk beside it: character card PNGs, avatar images, or your downloaded AI models. So a restore will *not* undo a deleted character, because deleting one also removes its picture from disk and no backup brings that file back.
-- **On nightlies the Backups & Restore page opens but its contents are replaced by a notice**, so there is no way to browse or roll back a snapshot there. The automatic snapshots themselves keep running.
+**Desktop only:** full Image Studio (Create/Edit/packs), Voice Call, Suggest Actions, attach a photo, Stoop **upload**, Backups, Scan & Clean, Turn Into a Story.
 
-For an extra off-machine copy, just copy your whole `FrontPorchAI` folder somewhere safe — that's everything.
+Phone **can** still make a picture from **Models** or `/image`. Mic needs **HTTPS** (`http://192.168…` will refuse the microphone).
 
-### Where is my data stored?
+[Web & Phone](web-phone.md).
 
-Everything lives in one folder you control:
+### Backups
 
-- **Windows:** `Documents\FrontPorchAI\`
-- **macOS / Linux:** `~/Documents/FrontPorchAI/`
+Automatic every 30 minutes. Last 10 + one per day for 7 days. Sidebar → **Backups & Restore**. Since 1.2, restore usually doesn't need a restart.
 
-(Nightlies use `FrontPorchAI-Beta` instead — leftover name — so they never touch stable data.)
+A backup is the **database** (chats, memories). It does **not** put back a deleted character PNG or your GGUF files. Copy the whole `FrontPorchAI` folder for a full spare.
 
-Inside you'll find your database, character cards, and backups (in `KoboldManager/`), your downloaded AI models (`models/`), plus folders for chats, worlds, and the AI engine itself. Copy the whole folder and you've backed up everything.
+Nightlies: restore UI is hidden; auto snapshots still run.
 
-### Can I chat from my phone or another computer?
+### Where is my data?
 
-Yes. The app has a built-in **web server**: turn it on in Settings → Advanced, then open `http://<your-computer's-address>:8085` in any browser on the same network — phone, tablet, laptop. You get a full interface for chatting, and on a phone you can add it to your home screen so it behaves like an app.
+- Windows: `Documents\FrontPorchAI\`
+- Mac / Linux: `~/Documents/FrontPorchAI/`
+- Nightly: `FrontPorchAI-Beta`
 
-Three things to know:
+Change the folder: Settings → **Advanced** → Data directory.
 
-- It's password-protected. You create the login the first time you open it in a browser, and two-factor is there if you want it. If you ever lose access, the desktop app can reset the web login for you.
-- Your desktop computer does all the actual work (it's running the AI), so it needs to stay on.
-- It's designed for your home network. For access away from home, a personal VPN like Tailscale is the safe way to reach it.
+### Two computers
 
-### Can I sync between two computers?
+No cloud sync (it was deleted on purpose). Copy the `FrontPorchAI` folder, or use the web server from the other machine.
 
-No — the old Cloud Sync feature (Google Drive / WebDAV) is **gone**. It could occasionally resurrect deleted data across devices, so I removed it; automatic local backups are the replacement safety net.
+### Updates
 
-To move to another machine: copy your `FrontPorchAI` folder over, or export/import individual character cards. Both are reliable. And if what you actually want is to *use* your library from a second device rather than duplicate it, turn on the built-in web server and reach your desktop from the other machine's browser — see [Can I chat from my phone or another computer?](#can-i-chat-from-my-phone-or-another-computer)
+Windows/Mac: in-app “What's New.” Linux APT/RPM: normal system update. AppImage: in-app too. AUR is behind (1.1.2 vs current 1.3.1) — use APT/RPM/AppImage if you want Places files.
 
-### How do updates work?
+### Report a bug
 
-- **Windows / macOS:** the app checks for updates and shows a "What's New" dialog when one is available; download and install from there (or grab it from [GitHub Releases](https://github.com/linux4life1/front-porch-AI/releases)).
-- **Linux (APT/RPM):** updates arrive through your normal system updates — `apt upgrade` or `dnf upgrade`.
-- **Linux (AUR):** `yay -Syu` as usual — but right now the AUR package is a full release behind (it's on 1.1.2 while stable is 1.2.0). Pushes to it are being refused on the AUR side and I don't have an ETA, so this won't fix itself in a day or two. If you want the current release, use the APT or RPM repo, the AppImage, or a standalone `.deb`/`.rpm` from [GitHub Releases](https://github.com/linux4life1/front-porch-AI/releases). It also means an AUR install can't open `.fpworld` place files yet, since those need 1.2 or newer.
-- **Linux (AppImage):** the in-app updater works here too, the same way it does on Windows and macOS.
-
-### How do I report a bug?
-
-- [GitHub Issues](https://github.com/linux4life1/front-porch-AI/issues) — best for anything reproducible.
-- [Discord](https://discord.gg/e4tET6rpdv) — best for "is it just me?" questions and quick help.
-
-If the app misbehaves, launching it from a terminal shows error messages that make bug reports ten times more useful. See [Troubleshooting](troubleshooting.md) first — your issue may already have a fix.
+[GitHub Issues](https://github.com/linux4life1/front-porch-AI/issues) or [Discord](https://discord.gg/e4tET6rpdv). Run from a terminal if you can — the errors help. [Troubleshooting](troubleshooting.md) first.

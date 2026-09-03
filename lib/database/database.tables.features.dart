@@ -19,12 +19,21 @@ class Worlds extends Table {
   IntColumn get formatVersion => integer().withDefault(const Constant(1))();
   TextColumn get sourceId => text().nullable()();
   TextColumn get linkedCharacterId => text().nullable()();
+
   /// Built-in biome id; null ⇒ temperate.
   TextColumn get biomeId => text().nullable()();
+
   /// Full custom biome JSON (phase 2); null when using a built-in.
   TextColumn get biomeJson => text().nullable()();
+
   /// Description injection opt-in; false for rows migrated from library labels.
   BoolColumn get injectDescription =>
+      boolean().withDefault(const Constant(true))();
+
+  /// v51 — per-world climate/weather/atmosphere/gravity plug. Default ON so
+  /// every existing world keeps its weather machine; false is a lorebook-only
+  /// bookshelf world. SQLite INTEGER 1/0, same shape as [injectDescription].
+  BoolColumn get climateEnabled =>
       boolean().withDefault(const Constant(true))();
 
   /// v41 — place traits JSON (atmosphere/gravity enums + future trait keys;
@@ -134,8 +143,9 @@ class JournalMemories extends Table {
   /// trade-off MessageEmbeddings.positionStart/End already makes).
   TextColumn get sourceMessageIds => text().nullable()();
   TextColumn get content => text()(); // the memory, first person
-  TextColumn get category =>
-      text().withDefault(const Constant('moment'))(); // about_user/about_us/moment/promise
+  TextColumn get category => text().withDefault(
+    const Constant('moment'),
+  )(); // about_user/about_us/moment/promise
   TextColumn get emotionLabel => text().nullable()(); // current feeling
   TextColumn get emotionIntensity =>
       text().nullable()(); // mild/moderate/strong
@@ -151,7 +161,8 @@ class JournalMemories extends Table {
   DateTimeColumn get lastAccessedAt =>
       dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
-  TextColumn get metadata => text().nullable()(); // JSON pouch (additive future)
+  TextColumn get metadata =>
+      text().nullable()(); // JSON pouch (additive future)
 
   @override
   Set<Column> get primaryKey => {id};
@@ -171,8 +182,9 @@ class GrowthRings extends Table {
   TextColumn get sessionId => text()(); // scoping key — rings never cross chats
   TextColumn get characterId => text()(); // ring owner (stableGroupId)
   TextColumn get content => text()(); // one sentence, {{char}}/{{user}} macros
-  TextColumn get category =>
-      text().withDefault(const Constant('trait'))(); // trait/stance/habit/skill/scar/archive
+  TextColumn get category => text().withDefault(
+    const Constant('trait'),
+  )(); // trait/stance/habit/skill/scar/archive
   RealColumn get strength => real().withDefault(
     const Constant(0.3),
   )(); // 0..1; tiers derived in GrowthPhysics (emerging/developing/established)
@@ -188,7 +200,8 @@ class GrowthRings extends Table {
   DateTimeColumn get lastReinforcedAt =>
       dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
-  TextColumn get metadata => text().nullable()(); // JSON pouch (additive future)
+  TextColumn get metadata =>
+      text().nullable()(); // JSON pouch (additive future)
 
   @override
   Set<Column> get primaryKey => {id};
@@ -345,7 +358,8 @@ class WebAuthCredentials extends Table {
   TextColumn get id => text()(); // always 'local' for the single host account
   TextColumn get username => text()();
   TextColumn get passwordHash => text()(); // Argon2id PHC string (hashlib)
-  TextColumn get totpSecret => text().nullable()(); // base32, only if 2FA set up
+  TextColumn get totpSecret =>
+      text().nullable()(); // base32, only if 2FA set up
   BoolColumn get totpEnabled => boolean().withDefault(const Constant(false))();
   TextColumn get recoveryCodes =>
       text().nullable()(); // JSON array of Argon2id-hashed single-use codes

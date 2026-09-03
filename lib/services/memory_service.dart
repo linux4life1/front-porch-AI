@@ -225,6 +225,7 @@ class MemoryService extends ChangeNotifier {
     required String characterId,
     required List<String> formattedMessages,
     required int totalMessageCount,
+    int positionOffset = 0,
     int? maxWindows,
     bool Function()? shouldContinue,
   }) {
@@ -237,6 +238,7 @@ class MemoryService extends ChangeNotifier {
         characterId: characterId,
         formattedMessages: formattedMessages,
         totalMessageCount: totalMessageCount,
+        positionOffset: positionOffset,
         maxWindows: maxWindows,
         shouldContinue: shouldContinue,
       ),
@@ -248,6 +250,7 @@ class MemoryService extends ChangeNotifier {
     required String characterId,
     required List<String> formattedMessages,
     required int totalMessageCount,
+    required int positionOffset,
     int? maxWindows,
     bool Function()? shouldContinue,
   }) async {
@@ -294,7 +297,10 @@ class MemoryService extends ChangeNotifier {
         i += windowSize
       ) {
         final end = (i + windowSize - 1).clamp(0, formattedMessages.length - 1);
-        final range = (i, end);
+        // Persist positions — never the in-memory 0..N of a 24-row tail.
+        final persistStart = i + positionOffset;
+        final persistEnd = end + positionOffset;
+        final range = (persistStart, persistEnd);
 
         if (existingRanges.contains(range)) {
           continue; // Already embedded
@@ -303,7 +309,11 @@ class MemoryService extends ChangeNotifier {
         final windowText = formattedMessages.sublist(i, end + 1).join('\n');
         final cleanedText = _cleanForEmbedding(windowText);
         if (cleanedText.isEmpty) continue; // Skip if only think blocks
-        newWindows.add((start: i, end: end, text: cleanedText));
+        newWindows.add((
+          start: persistStart,
+          end: persistEnd,
+          text: cleanedText,
+        ));
         if (maxWindows != null && newWindows.length >= maxWindows) {
           // Peek whether any further missing range exists without cleaning.
           for (
@@ -315,7 +325,10 @@ class MemoryService extends ChangeNotifier {
               0,
               formattedMessages.length - 1,
             );
-            if (!existingRanges.contains((j, jEnd))) {
+            if (!existingRanges.contains((
+              j + positionOffset,
+              jEnd + positionOffset,
+            ))) {
               cappedDiscovery = true;
               break;
             }

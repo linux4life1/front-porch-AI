@@ -18,7 +18,10 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:image/image.dart' as img;
+
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -28,24 +31,30 @@ class V2CardService {
   /// a reasonably-sized image ready for embedding.
   Future<img.Image> _resolveOrCreateAvatar(
     CharacterCard card,
-    String? sourceImagePath,
-  ) async {
+    String? sourceImagePath, {
+    Uint8List? sourceImageBytes,
+    bool requireSource = false,
+  }) async {
     img.Image? avatar;
 
     try {
-      if (sourceImagePath != null) {
+      if (sourceImageBytes != null) {
+        avatar = img.decodeImage(sourceImageBytes);
+      } else if (sourceImagePath != null) {
         final bytes = await File(sourceImagePath).readAsBytes();
         avatar = img.decodeImage(bytes);
       }
     } catch (_) {
-      // Corrupt / non-image bytes (or a format decoder that throws): fall
-      // through to the synthetic placeholder rather than failing the whole
-      // card write. Callers that bootstrap a portrait then re-embed via
-      // updateCharacter must not lose extensions over a bad decode.
+      // Corrupt / non-image bytes (or a format decoder that throws) use the
+      // caller-selected floor below: ordinary card writes synthesize a
+      // placeholder, while explicit portrait replacement rejects bad pixels.
       avatar = null;
     }
 
     if (avatar == null) {
+      if (requireSource) {
+        throw const FormatException('Could not decode replacement portrait');
+      }
       // No source image available (character with no avatar, or broken path).
       // Generate a pleasant deterministic placeholder from the name so the
       // character is always visually distinct and never a pure black/gray box.
@@ -74,17 +83,51 @@ class V2CardService {
   ) async {
     final avatar = await _resolveOrCreateAvatar(card, sourceImagePath);
 
-    // Encode character data to Base64
-    // V2 Spec: 'chara' chunk containing base64 encoded JSON (V2 envelope)
-    final jsonStr = jsonEncode(_buildCardV2Envelope(card));
-    final base64Str = base64Encode(utf8.encode(jsonStr));
+    final pngBytes = PngMetadataUtils.encodeWithTextChunk(
+      avatar,
+      'chara',
+      _encodeCharaData(card),
+    );
+    await File(outputPath).writeAsBytes(pngBytes);
+  }
 
-    // Add tEXt chunk
-    avatar.textData ??= {};
-    avatar.textData!['chara'] = base64Str;
+  /// Replaces a card PNG's portrait pixels without rebuilding its card data
+  /// from a potentially partial in-memory [fallbackCard].
+  ///
+  /// The existing raw `chara` payload is carried forward from
+  /// [metadataSourcePath], even when the output path is new. A card with no
+  /// readable payload falls back to [fallbackCard] so the replacement still
+  /// produces a valid character-card PNG.
+  Future<void> replacePortraitPixels({
+    required CharacterCard fallbackCard,
+    required String outputPath,
+    required Uint8List pixels,
+    String? metadataSourcePath,
+  }) async {
+    String? charaData;
+    if (metadataSourcePath != null) {
+      try {
+        charaData = await _readCharaData(metadataSourcePath);
+      } catch (e) {
+        print(
+          '[V2CardService] Could not preserve portrait card metadata; '
+          'using the in-memory card: $e',
+        );
+      }
+    }
 
-    // Save to file
-    final pngBytes = img.encodePng(avatar);
+    final avatar = await _resolveOrCreateAvatar(
+      fallbackCard,
+      null,
+      sourceImageBytes: pixels,
+      requireSource: true,
+    );
+
+    final pngBytes = PngMetadataUtils.encodeWithTextChunk(
+      avatar,
+      'chara',
+      charaData ?? _encodeCharaData(fallbackCard),
+    );
     await File(outputPath).writeAsBytes(pngBytes);
   }
 
@@ -101,16 +144,14 @@ class V2CardService {
   ) async {
     final avatar = await _resolveOrCreateAvatar(card, sourceImagePath);
 
-    final jsonStr = jsonEncode(_buildCardV2Envelope(card));
-    final base64Str = base64Encode(utf8.encode(jsonStr));
-
-    avatar.textData ??= {};
-    avatar.textData!['chara'] = base64Str;
-
-    return img.encodePng(avatar);
+    return PngMetadataUtils.encodeWithTextChunk(
+      avatar,
+      'chara',
+      _encodeCharaData(card),
+    );
   }
 
-  Future<CharacterCard?> readCard(String path) async {
+  Future<String?> _readCharaData(String path) async {
     // Seek through the chunk table first. The card JSON is a few KB in a header
     // chunk, but the file around it is megabytes of artwork — opening a library
     // of 120 cards used to pull ~142 MB off disk (501-743 ms measured, and
@@ -121,13 +162,7 @@ class V2CardService {
       path,
       'chara',
     );
-
-    if (charaData != null) {
-      return parseCardJson(
-        utf8.decode(base64Decode(charaData)),
-        imagePath: path,
-      );
-    }
+    if (charaData != null) return charaData;
 
     // Fall back to the whole-file paths for anything the chunk walk could not
     // satisfy — a malformed chunk table, or metadata the `image` package can
@@ -154,6 +189,11 @@ class V2CardService {
       }
     }
 
+    return charaData;
+  }
+
+  Future<CharacterCard?> readCard(String path) async {
+    final charaData = await _readCharaData(path);
     if (charaData == null) return null;
 
     final jsonStr = utf8.decode(base64Decode(charaData));
@@ -179,6 +219,11 @@ class V2CardService {
       'spec_version': '2.0',
       'data': card.toJson(),
     };
+  }
+
+  String _encodeCharaData(CharacterCard card) {
+    final jsonStr = jsonEncode(_buildCardV2Envelope(card));
+    return base64Encode(utf8.encode(jsonStr));
   }
 
   /// Writes [card] as a standalone Character Card V2 JSON file. The structure is

@@ -20,6 +20,7 @@ import 'package:front_porch_ai/ui/pages/repository/stoop_avatar.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_card_detail_page.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_card_tile.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The community browse experience, in the hub's porch-at-dusk dress:
@@ -524,9 +525,7 @@ class _StoopBrowseViewState extends State<StoopBrowseView> {
                           clipBehavior: Clip.antiAlias,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(9),
-                            border: Border.all(
-                              color: AppColors.stoopBorderHi,
-                            ),
+                            border: Border.all(color: AppColors.stoopBorderHi),
                             boxShadow: const [
                               BoxShadow(
                                 color: Color(0x66000000),
@@ -568,7 +567,10 @@ class _StoopBrowseViewState extends State<StoopBrowseView> {
           children: [
             const StoopBadge(StoopBadgeKind.featured),
             if (card.isGroup) const StoopBadge(StoopBadgeKind.group),
-            if (card.isWorld) const StoopBadge(StoopBadgeKind.world),
+            if (card.isWorld)
+              ...stoopWorldKindBadges(
+                climateEnabled: stoopCardClimateEnabled(card),
+              ),
             if (card.nsfw) const StoopBadge(StoopBadgeKind.nsfw),
           ],
         ),
@@ -577,22 +579,28 @@ class _StoopBrowseViewState extends State<StoopBrowseView> {
           card.name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: stoopDisplay(
-            context,
-            size: 26,
-            color: AppColors.stoopCream,
-          ),
+          style: stoopDisplay(context, size: 26, color: AppColors.stoopCream),
         ),
         if (card.creator != null) ...[
           const SizedBox(height: 3),
-          Text(
-            '@${card.creator!.displayName}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.stoopCream2,
-              fontSize: 12.5,
-            ),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  '@${card.creator!.displayName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.stoopCream2,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ),
+              StoopVerifiedBadge(
+                verification: card.creator!.verification,
+                size: 13,
+              ),
+            ],
           ),
         ],
         if (card.summary.isNotEmpty) ...[
@@ -601,10 +609,7 @@ class _StoopBrowseViewState extends State<StoopBrowseView> {
             stoopResolveMacros(card.summary, card.name),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.stoopCream2,
-              height: 1.45,
-            ),
+            style: const TextStyle(color: AppColors.stoopCream2, height: 1.45),
           ),
         ],
         const SizedBox(height: 12),

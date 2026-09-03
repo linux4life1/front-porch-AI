@@ -45,6 +45,7 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/services/chat/llm_eval_engine.dart';
+import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 
@@ -412,6 +413,102 @@ void main() {
       },
     );
 
+    test('scoped reprocess asks only ticked needs and skips tools', () async {
+      var toolCalls = 0;
+      List<GenerationParams> captured = [];
+      final e = LlmEvalEngine(
+        getActiveCharacter: () =>
+            CharacterCard(name: 'testchar', personality: 'friendly'),
+        getActiveGroup: () => null,
+        getIsObserverMode: () => false,
+        getUserName: () => 'User',
+        getRealismEnabled: () => true,
+        getMessages: () => const [],
+        fireToolEval: (prompt, tools) async {
+          toolCalls++;
+          return null;
+        },
+        probe: ToolTransportProbe(),
+        getBackendIdentity: () => 'test',
+        getLlmService: () => _FakeLlmService((p) {
+          captured.add(p);
+          return Stream.value('{"energy_delta": 20, "reason": "rested"}');
+        }),
+        getIsLocal: () => false,
+        getKoboldService: () => null,
+        reconnectIfAlive: () async {},
+        ensureServerIdle: () async {},
+        getIsCancellingRealismEval: () => false,
+        getRealismEvalCancelled: () => false,
+        relationshipService: RelationshipService(
+          onNotify: () {},
+          onSaveChat: () async {},
+          getIsGroupActive: () => false,
+          getObserverMode: () => false,
+          getGroupCharacterCount: () => 0,
+          getShouldTrackInterCharacterRelationships: () => false,
+          getCurrentSpeakerIdForRealism: () => '',
+          getCurrentGroupMemberIds: () => {},
+          getOtherGroupMemberIds: (_) => [],
+          getOtherGroupMemberIdToLowerName: (_) => {},
+          getRecentExchangeLowerText: () => '',
+          getMessageCount: () => 0,
+          getIsGroupRealismActive: () => false,
+          getGroupAffectionScore: (_, {defaultValue = 0}) => 0,
+          setGroupAffectionScore: (_, __) {},
+          getGroupLongTermScore: (_, {defaultValue = 0}) => 0,
+          setGroupLongTermScore: (_, __) {},
+          getGroupTrustLevel: (_, {defaultValue = 0}) => 0,
+          setGroupTrustLevel: (_, __) {},
+          getGroupFixation: (_, {defaultValue = ''}) => '',
+          setGroupFixation: (_, __) {},
+          getGroupFixationLifespan: (_, {defaultValue = 0}) => 0,
+          setGroupFixationLifespan: (_, __) {},
+          getGroupRelationshipTier: (_, {defaultValue = 0}) => 0,
+          setGroupRelationshipTier: (_, __) {},
+          getGroupLongTermTier: (_, {defaultValue = 0}) => 0,
+          setGroupLongTermTier: (_, __) {},
+          getGroupSpatialStance: (_, {defaultValue = ''}) => '',
+          setGroupSpatialStance: (_, __) {},
+          getGroupInterCharacterRelationships: (_) => const {},
+          setGroupInterCharacterRelationships: (_, __) {},
+        ),
+        getPendingRealismMetadata: () => null,
+        setPendingRealismMetadata: (_) {},
+        captureRealismState: ({preTurn}) => {},
+        getCharacterEmotion: () => '',
+        setCharacterEmotion: (_) {},
+        getEmotionIntensity: () => '',
+        setEmotionIntensity: (_) {},
+      );
+      await e.evaluateNeedsImpactCall(
+        'she napped on the sofa',
+        strength: 1,
+        userCritique: 'energy should have gone up',
+        previousDeltas: {'energy': -4, 'hunger': -2},
+        onlyNeeds: const {'energy'},
+      );
+      expect(
+        toolCalls,
+        0,
+        reason: 'scoped reprocess must not fire the 7-field tool',
+      );
+      expect(
+        captured,
+        hasLength(1),
+        reason: 'one text eval, not tools+text+retry',
+      );
+      final prompt = captured.single.prompt;
+      expect(prompt, contains('Reconsider ONLY energy'));
+      expect(prompt, contains('"energy_delta"'));
+      expect(
+        prompt,
+        isNot(contains('all seven _delta keys')),
+        reason: 'must not ask the model to re-roll hunger/hygiene/etc.',
+      );
+      expect(prompt, isNot(contains('"hunger_delta": 8')));
+    });
+
     test(
       'fireLLMEval no longer sets the EOS band-aid (chat template applied)',
       () async {
@@ -451,13 +548,16 @@ void main() {
       },
     );
 
-    test('evaluateNeedsImpactCall returns null for think-only output', () async {
-      final e = createTestLlmEvalEngine(
-        getLlmJson: () => '<think>reasoning only</think>',
-      );
-      final res = await e.evaluateNeedsImpactCall('scene', strength: 1);
-      expect(res, isNull);
-    });
+    test(
+      'evaluateNeedsImpactCall returns null for think-only output',
+      () async {
+        final e = createTestLlmEvalEngine(
+          getLlmJson: () => '<think>reasoning only</think>',
+        );
+        final res = await e.evaluateNeedsImpactCall('scene', strength: 1);
+        expect(res, isNull);
+      },
+    );
 
     // (error paths test for objective excised to step 11 dedicated as part of task.)
   });

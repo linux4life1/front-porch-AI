@@ -160,6 +160,7 @@ class OnnxEmotionClassifier implements ExpressionClassifier {
     return ModelFetch.fetch(
       url,
       dest,
+      minBytes: name.endsWith('.onnx') ? 1024 * 1024 : 1,
       onProgress: (done, total) => onProgress?.call(
         OnnxDownloadProgress(file: name, downloaded: done, total: total),
       ),

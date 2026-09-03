@@ -21,7 +21,8 @@ import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show Pockets, BirthdayMath;
 import 'package:front_porch_ai/ui/avatar_creation/avatar_generation_panel.dart';
 import 'package:front_porch_ai/ui/dialogs/lorebook_entry_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -132,6 +133,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   List<String> _realismPlanLines = const [];
   String _realismOccupation = '';
   String _realismOccupationBrief = '';
+  String _realismBirthday = '';
   String _realismHours = '';
   List<int>? _realismWorkDays;
   List<String> _realismLikes = const [];

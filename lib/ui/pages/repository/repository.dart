@@ -44,6 +44,7 @@ export 'stoop_standards.dart';
 export 'stoop_tag_selector.dart';
 export 'stoop_twofa_sheet.dart';
 export 'stoop_upload_page.dart';
+export 'stoop_verified_badge.dart';
 export 'stoop_verify_banner.dart';
 export 'stoop_wizard_steps.dart';
 export 'stoop_world_share.dart';

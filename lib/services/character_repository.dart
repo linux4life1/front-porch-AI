@@ -30,9 +30,9 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 // The Drift row class collides with the model of the same name (hidden above),
 // so the grouped-avatar map names the row type through a prefix.
-import 'package:front_porch_ai/database/database.dart' as rows
-    show AvatarImage;
-import 'package:front_porch_ai/utils/utils.dart' show StartupTrace;
+import 'package:front_porch_ai/database/database.dart' as rows show AvatarImage;
+import 'package:front_porch_ai/utils/utils.dart'
+    show StartupTrace, stableGroupIdFrom;
 
 part 'character_repository.crud.dart';
 part 'character_repository.import.dart';

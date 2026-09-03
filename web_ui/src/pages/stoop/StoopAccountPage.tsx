@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StoopCardArt, StoopCardTile } from '../../components/stoop/StoopCardTile';
 import { StoopCreatorAvatar } from '../../components/stoop/StoopCreatorAvatar';
+import { StoopVerifiedBadge } from '../../components/stoop/StoopVerifiedBadge';
 import { stoop, StoopError, stoopErrorText } from '../../stoop/stoopApi';
 import { useStoop } from '../../stoop/StoopContext';
 import type { StoopCard, StoopFollowedCreator, StoopMine } from '../../stoop/stoopTypes';
@@ -503,6 +504,7 @@ export function StoopAccountPage() {
                 <Link to={`/stoop/creator/${encodeURIComponent(c.id)}`}>
                   <StoopCreatorAvatar assetId={c.avatarAssetId} name={c.displayName} size={24} />{' '}
                   {c.displayName}
+                  <StoopVerifiedBadge verification={c.verification} />
                 </Link>
                 <span className="muted">
                   {c.followers} follower{c.followers === 1 ? '' : 's'}

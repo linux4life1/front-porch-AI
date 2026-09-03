@@ -1,9 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// A character-card comment. Payload NEVER includes email or verification
-// state — only public identity + body + tombstone flag. A comment may carry
-// at most one owner reply (no thread tree).
+// A character-card comment. Payload NEVER includes email — only public
+// identity (handle, avatar, optional gold/blue verification) + body + tombstone.
+
+import 'package:front_porch_ai/services/backporch/backporch_user.dart';
 
 /// One-level owner reply glued under a [StoopComment].
 class StoopCommentReply {
@@ -11,6 +12,7 @@ class StoopCommentReply {
 
   /// Public handle / display name. Shown as `@handle`.
   final String displayName;
+  final String? verification;
   final String? authorAvatarAssetId;
   final DateTime createdAt;
 
@@ -21,6 +23,7 @@ class StoopCommentReply {
   const StoopCommentReply({
     required this.authorId,
     required this.displayName,
+    this.verification,
     this.authorAvatarAssetId,
     required this.createdAt,
     required this.body,
@@ -31,6 +34,7 @@ class StoopCommentReply {
       StoopCommentReply(
         authorId: authorId,
         displayName: displayName,
+        verification: verification,
         authorAvatarAssetId: authorAvatarAssetId,
         createdAt: createdAt,
         body: body ?? this.body,
@@ -44,6 +48,7 @@ class StoopCommentReply {
             (j['displayName'] as String?) ??
             (j['authorHandle'] as String?) ??
             '',
+        verification: stoopVerificationOf(j['verification']),
         authorAvatarAssetId: j['authorAvatarAssetId'] as String?,
         createdAt: j['createdAt'] is String
             ? DateTime.tryParse(j['createdAt'] as String) ??
@@ -53,10 +58,11 @@ class StoopCommentReply {
         deleted: j['deleted'] == true,
       );
 
-  /// Wire shape. Deliberately omits email and verification.
+  /// Wire shape. Deliberately omits email.
   Map<String, dynamic> toJson() => {
     'authorId': authorId,
     'displayName': displayName,
+    if (verification != null) 'verification': verification,
     if (authorAvatarAssetId != null) 'authorAvatarAssetId': authorAvatarAssetId,
     'createdAt': createdAt.toUtc().toIso8601String(),
     'body': deleted ? '' : body,
@@ -72,6 +78,7 @@ class StoopComment {
 
   /// Public handle / display name. Shown as `@handle`.
   final String displayName;
+  final String? verification;
   final String? authorAvatarAssetId;
   final DateTime createdAt;
 
@@ -87,6 +94,7 @@ class StoopComment {
     required this.cardId,
     required this.authorId,
     required this.displayName,
+    this.verification,
     this.authorAvatarAssetId,
     required this.createdAt,
     required this.body,
@@ -103,6 +111,7 @@ class StoopComment {
     cardId: cardId,
     authorId: authorId,
     displayName: displayName,
+    verification: verification,
     authorAvatarAssetId: authorAvatarAssetId,
     createdAt: createdAt,
     body: body ?? this.body,
@@ -116,6 +125,7 @@ class StoopComment {
     authorId: (j['authorId'] as String?) ?? '',
     displayName:
         (j['displayName'] as String?) ?? (j['authorHandle'] as String?) ?? '',
+    verification: stoopVerificationOf(j['verification']),
     authorAvatarAssetId: j['authorAvatarAssetId'] as String?,
     createdAt: j['createdAt'] is String
         ? DateTime.tryParse(j['createdAt'] as String) ??
@@ -130,12 +140,13 @@ class StoopComment {
         : null,
   );
 
-  /// Wire shape. Deliberately omits email and verification.
+  /// Wire shape. Deliberately omits email.
   Map<String, dynamic> toJson() => {
     'id': id,
     'cardId': cardId,
     'authorId': authorId,
     'displayName': displayName,
+    if (verification != null) 'verification': verification,
     if (authorAvatarAssetId != null) 'authorAvatarAssetId': authorAvatarAssetId,
     'createdAt': createdAt.toUtc().toIso8601String(),
     'body': deleted ? '' : body,

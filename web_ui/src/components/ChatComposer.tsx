@@ -55,6 +55,8 @@ export function ChatComposer({
   onSend,
   onStop,
   isGenerating,
+  isSettlingTurn = false,
+  isSendWaitingOnSettle = false,
   canMic,
   onDraftChange,
   cast,
@@ -65,6 +67,8 @@ export function ChatComposer({
   onSend: (text: string) => void;
   onStop: () => void;
   isGenerating: boolean;
+  isSettlingTurn?: boolean;
+  isSendWaitingOnSettle?: boolean;
   canMic: boolean;
   /** Live draft mirror for the lorebook "would trigger next" preview. */
   onDraftChange?: (text: string) => void;
@@ -164,6 +168,12 @@ export function ChatComposer({
     if (bd && ta) bd.scrollTop = ta.scrollTop;
   };
 
+  const [heldLocal, setHeldLocal] = useState(false);
+  const held = heldLocal || isSendWaitingOnSettle;
+  useEffect(() => {
+    if (!isSettlingTurn && !isSendWaitingOnSettle) setHeldLocal(false);
+  }, [isSettlingTurn, isSendWaitingOnSettle]);
+
   const send = () => {
     const text = draft.trim();
     if (!text) return;
@@ -171,10 +181,17 @@ export function ChatComposer({
     setSlashDismissed(false);
     setMentionDismissed(false);
     setCaret(0);
+    if (isSettlingTurn) setHeldLocal(true);
     onSend(text);
   };
 
   return (
+    <div className="chat-composer-wrap">
+    {held && (
+      <div className="send-held-banner" role="status">
+        Got it — sending when the last reply is fully wrapped up.
+      </div>
+    )}
     <div className="chat-input">
       {showSlash && (
         <div className="slash-cheatsheet" role="listbox" aria-label="Chat commands">
@@ -296,6 +313,7 @@ export function ChatComposer({
           Send
         </button>
       )}
+    </div>
     </div>
   );
 }

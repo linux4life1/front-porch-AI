@@ -38,6 +38,8 @@ class ToolCallingPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final testing = chatService.isTestingToolSupport;
     final support = chatService.toolCallSupport;
+    final preferText = chatService.toolSupportJson['preferText'] == true;
+    final paused = chatService.toolCallingPaused;
 
     final Color accent;
     final IconData icon;
@@ -48,6 +50,16 @@ class ToolCallingPill extends StatelessWidget {
       icon = Icons.build_circle_outlined;
       label = 'Tool calling: testing…';
       detail = 'Asking the model for a tool call';
+    } else if (paused) {
+      accent = AppColors.porchAmberOf(context);
+      icon = Icons.pause_circle_outline;
+      label = 'Tool calling: paused this run';
+      detail = 'Empty answers this session — tap to retry';
+    } else if (support == ToolCallSupport.supported && preferText) {
+      accent = AppColors.porchAmberOf(context);
+      icon = Icons.check_circle_outline;
+      label = 'Tool calling: supported — using JSON';
+      detail = 'You turned native tool calls off in Generation settings';
     } else {
       switch (support) {
         case ToolCallSupport.supported:
@@ -74,8 +86,9 @@ class ToolCallingPill extends StatelessWidget {
           '(Realism, Journal, Growth Rings) with native tool calls. Models '
           'without tool calling automatically use a text fallback — chats '
           'still work, structured results are just a bit less reliable. '
-          'Tap to retest; retests also run automatically when you switch '
-          'models or backends.',
+          'Turn Native tool calling off under Generation settings to prefer '
+          'JSON even when tools work. Tap to retest; retests also run '
+          'automatically when you switch models or backends.',
       waitDuration: const Duration(milliseconds: 400),
       child: Material(
         color: Colors.transparent,

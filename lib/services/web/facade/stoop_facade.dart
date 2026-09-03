@@ -81,12 +81,35 @@ class StoopFacade {
   /// `replaceFirst` maps http→ws and https→wss.
   String get messageSocketUrl => '${baseUrl.replaceFirst('http', 'ws')}/ws';
 
-  // The most recent Stoop token seen on an authenticated call. <img> tags
-  // can't attach headers, so GET /api/stoop/assets/<id> falls back to this.
-  // In-memory only — never persisted — and the web UI always calls /me before
-  // rendering any grid, which warms it. Single-account web auth means there is
-  // exactly one browser identity to remember.
-  String? _assetToken;
+  // <img> tags can't attach X-Stoop-Token, so GET /api/stoop/assets/<id>
+  // falls back to the Stoop token last seen on an authenticated call for
+  // THIS web session (fpa_session cookie). In-memory only — never
+  // persisted — and never process-wide: two browsers on the same host
+  // must not share a token, and logout must forget it.
+  final Map<String, String> _assetTokensByWebSession = {};
+
+  /// Remember [token] for [webSession] so cookie-authenticated <img> fetches
+  /// can load avatars. No-op when either is blank — never a process-wide slot.
+  void rememberAssetToken({String? webSession, String? token}) {
+    final sid = webSession?.trim() ?? '';
+    final tok = token?.trim() ?? '';
+    if (sid.isEmpty || tok.isEmpty) return;
+    _assetTokensByWebSession[sid] = tok;
+  }
+
+  /// Drop the remembered token for [webSession] (Stoop logout or web logout).
+  void clearAssetToken(String? webSession) {
+    final sid = webSession?.trim() ?? '';
+    if (sid.isEmpty) return;
+    _assetTokensByWebSession.remove(sid);
+  }
+
+  String? _tokenForAsset({String? headerToken, String? webSession}) {
+    if (headerToken != null && headerToken.isNotEmpty) return headerToken;
+    final sid = webSession?.trim() ?? '';
+    if (sid.isEmpty) return null;
+    return _assetTokensByWebSession[sid];
+  }
 
   /// Relay a JSON call to the Stoop backend and hand back the raw upstream
   /// status + body. [query] is the already-encoded query string to append.
@@ -95,9 +118,10 @@ class StoopFacade {
     required String upstreamPath,
     String? query,
     String? token,
+    String? webSession,
     Map<String, dynamic>? jsonBody,
   }) async {
-    if (token != null && token.isNotEmpty) _assetToken = token;
+    rememberAssetToken(webSession: webSession, token: token);
     var uri = Uri.parse('$baseUrl$upstreamPath');
     if (query != null && query.isNotEmpty) uri = uri.replace(query: query);
     final client = http.Client();
@@ -126,8 +150,9 @@ class StoopFacade {
     required String token,
     required Uint8List bytes,
     required String contentType,
+    String? webSession,
   }) async {
-    _assetToken = token;
+    rememberAssetToken(webSession: webSession, token: token);
     // Default to jpg, not png: the web client's canvas crop always emits
     // JPEG, so a stripped/unknown Content-Type is still almost surely jpeg.
     final ext = contentType.contains('png')
@@ -148,13 +173,14 @@ class StoopFacade {
 
   /// Fetch a card asset (avatar) for serving to the browser. [token] comes
   /// from the request header when the client fetches via JS; `<img>` tags
-  /// fall back to the remembered token. Returns null when no token is known
-  /// yet (the route answers 401 and the image simply hides).
+  /// fall back to the token remembered for [webSession]. Returns null when
+  /// no token is known yet (the route answers 401 and the image simply hides).
   Future<(int status, Uint8List bytes, String contentType)?> assetBytes(
     String assetId, {
     String? token,
+    String? webSession,
   }) async {
-    final t = (token != null && token.isNotEmpty) ? token : _assetToken;
+    final t = _tokenForAsset(headerToken: token, webSession: webSession);
     if (t == null || t.isEmpty) return null;
     final client = http.Client();
     try {
@@ -191,8 +217,9 @@ class StoopFacade {
     String token,
     String cardId, {
     String? clientType,
+    String? webSession,
   }) async {
-    _assetToken = token;
+    rememberAssetToken(webSession: webSession, token: token);
     final characters = _characters;
     final groups = _groups;
     if (characters == null || groups == null) {

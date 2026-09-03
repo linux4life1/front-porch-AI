@@ -4,6 +4,8 @@
 // Pure readers for Stoop card JSON so the detail page can show group members
 // and world climate/lore the same way desktop does.
 
+import type { StoopCard } from './stoopTypes';
+
 export type CardMap = Record<string, unknown>;
 
 function asMap(v: unknown): CardMap | undefined {
@@ -15,6 +17,35 @@ function asMap(v: unknown): CardMap | undefined {
 function str(card: CardMap, key: string): string {
   const v = card[key];
   return typeof v === 'string' ? v.trim() : '';
+}
+
+function climateFlag(card: CardMap): boolean | undefined {
+  for (const key of ['climate_enabled', 'climateEnabled']) {
+    const raw = card[key];
+    if (typeof raw === 'boolean') return raw;
+    if (typeof raw === 'number') return raw !== 0;
+  }
+  return undefined;
+}
+
+/** Full .fpworld envelopes without the additive flag are legacy climate-on. */
+export function stoopWorldClimateEnabled(card: CardMap): boolean {
+  return climateFlag(card) ?? true;
+}
+
+/** List rows with no envelope use the additive DTO flag and default off. */
+export function stoopCardClimateEnabled(card: StoopCard): boolean {
+  const envelope = asMap(card.card) ?? {};
+  const envelopeFlag = climateFlag(envelope);
+  if (envelopeFlag !== undefined) return envelopeFlag;
+  return (
+    climateFlag(card as unknown as CardMap) ??
+    ('formatVersion' in envelope ||
+      'name' in envelope ||
+      'biome' in envelope ||
+      'lorebook' in envelope ||
+      'lorebooks' in envelope)
+  );
 }
 
 export function stoopMembers(card: CardMap): CardMap[] {
@@ -39,6 +70,7 @@ export function stoopGreetings(card: CardMap): string[] {
 }
 
 export function stoopWorldClimate(card: CardMap): string {
+  if (!stoopWorldClimateEnabled(card)) return '';
   const biome = asMap(card.biome);
   if (!biome) return '';
   const name = typeof biome.displayName === 'string' ? biome.displayName.trim() : '';
@@ -52,6 +84,7 @@ export function stoopWorldClimate(card: CardMap): string {
 }
 
 export function stoopWorldTraits(card: CardMap): string[] {
+  if (!stoopWorldClimateEnabled(card)) return [];
   const traits = asMap(card.place_traits);
   if (!traits) return [];
   return Object.entries(traits).map(

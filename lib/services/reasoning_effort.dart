@@ -98,6 +98,13 @@ bool isLocalRemoteUrl(String url) {
 /// Models that reject turning thinking off (catalog `mandatory` or a 400).
 final Set<String> kMandatoryReasoningModels = <String>{};
 
+/// Local models whose chat template `{% set enable_thinking = true %}` so
+/// a request `enable_thinking:false` is overwritten at render. Off still
+/// works: local servers that honour llama.cpp / oMLX `thinking_budget`
+/// force-close the think block at 0 tokens. Keyed by oMLX/LMS model id
+/// or the Kobold GGUF path — same keys [ReasoningSupportResolver] uses.
+final Set<String> kHardOnThinkingModels = <String>{};
+
 /// DeepSeek-on-Nano `:thinking` 400: none / high / max (Discord 2026-07-18).
 /// Same pair is GLM-5.2's native ladder (Together / Z.ai). Not a universal
 /// `:thinking` menu — that suffix is Nano's "use the thinking variant" tag.
@@ -287,6 +294,39 @@ void rememberMandatoryReasoning(String model, {bool persist = true}) {
   }
 }
 
+/// Remember that [model]'s template hard-sets thinking on. Never persisted
+/// — a local path / oMLX id is not portable, and the template is re-read
+/// next launch.
+void rememberHardOnThinking(String model) {
+  if (model.isEmpty) return;
+  if (kHardOnThinkingModels.add(model)) _bumpReasoningEffortCatalog();
+}
+
+void forgetHardOnThinking(String model) {
+  if (model.isEmpty) return;
+  if (kHardOnThinkingModels.remove(model)) _bumpReasoningEffortCatalog();
+}
+
+/// True when this model's jinja overwrites `enable_thinking` to on.
+bool reasoningTemplateForcesThinking(String model) =>
+    model.isNotEmpty && kHardOnThinkingModels.contains(model);
+
+/// `thinking_budget: 0` when the app asked for thinking off on a local
+/// model whose jinja would ignore `enable_thinking:false`, or null to omit.
+///
+/// [thinkOn] is the same bit the payload already uses (`reasoningEnabled &&
+/// reasoningMaxTokens != 0`). Continue, call mode, and every eval pass
+/// false; a normal reply with Request thinking on passes true and is
+/// untouched. Sending 0 on a stock Gemma-4 that already honours the kwarg
+/// attaches oMLX's closer processor and can leak a second `<channel|>`
+/// into the answer, so this is also gated on
+/// [reasoningTemplateForcesThinking].
+int? thinkingBudgetClampForThinkOff(String model, {required bool thinkOn}) {
+  if (thinkOn) return null;
+  if (!reasoningTemplateForcesThinking(model)) return null;
+  return 0;
+}
+
 /// Wired by [attachReasoningEffortMenuStore] so this file does not import disk.
 void Function(String model, {required bool probed})?
 persistReasoningEffortMenuHook;
@@ -315,5 +355,6 @@ void rememberReasoningProfileFromCatalog(String model, Object? reasoning) {
 void clearReasoningEffortCatalog() {
   kLearnedReasoningEffortsByModel.clear();
   kMandatoryReasoningModels.clear();
+  kHardOnThinkingModels.clear();
   _bumpReasoningEffortCatalog();
 }

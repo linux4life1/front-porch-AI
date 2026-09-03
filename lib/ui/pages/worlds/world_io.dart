@@ -66,19 +66,16 @@ Future<void> exportFpWorldFlow(
   WorldRepository repo,
   World world,
 ) async {
-  String? outputFile = await PickerPrefs.saveFile(
+  String? outputFile = await PickerPrefs.saveFromBuilder(
     category: PickerPrefs.catExport,
     dialogTitle: 'Export World (.fpworld)',
     fileName: '${world.name}.fpworld',
     type: FileType.custom,
     allowedExtensions: ['fpworld', 'json'],
+    writeTemp: (path) => repo.exportFpWorld(world, path),
   );
   if (outputFile == null) return;
-  if (!outputFile.endsWith('.fpworld') && !outputFile.endsWith('.json')) {
-    outputFile += '.fpworld';
-  }
   try {
-    await repo.exportFpWorld(world, outputFile);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Exported place package to $outputFile')),

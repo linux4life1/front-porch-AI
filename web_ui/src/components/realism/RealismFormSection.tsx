@@ -218,6 +218,8 @@ export function RealismFormSection({
 
           <WorkFields v={v} set={set} />
 
+          <BirthdayFields v={v} set={set} />
+
           {/* ── Likes & Dislikes ── mirrors identity_chip_lists.dart. Two
               plain (non-accent) chip lists, exactly as the sketch draws them. */}
           <ChipList
@@ -374,6 +376,35 @@ function WorkFields({ v, set }: { v: RealismValues; set: Patch }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function BirthdayFields({ v, set }: { v: RealismValues; set: Patch }) {
+  return (
+    <div className="realism-field work-identity">
+      <span className="realism-head" style={{ margin: 0 }}>Birthday</span>
+      <p className="muted small" style={{ margin: '4px 0 8px' }}>
+        Year, month, and day on the story calendar. February 29 is not allowed.
+      </p>
+      <label className="realism-field">
+        <span>Date</span>
+        <input
+          data-testid="birthday-date"
+          type="date"
+          value={v.birthday || ''}
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (/^\d{4}-02-29$/.test(raw)) return;
+            set({ birthday: raw });
+          }}
+        />
+      </label>
+      {v.birthday && (
+        <button className="link-btn" type="button" onClick={() => set({ birthday: '' })}>
+          Clear
+        </button>
+      )}
     </div>
   );
 }

@@ -122,10 +122,7 @@ class _ObjectiveAddGoalState extends State<ObjectiveAddGoal> {
         ],
         AppTextField(
           controller: _goalController,
-          style: TextStyle(
-            color: AppColors.textPrimary(context),
-            fontSize: 11,
-          ),
+          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 11),
           decoration: objectiveFieldDecoration(
             context,
             hasNoQuest ? 'Set a starting quest...' : 'Add new goal...',
@@ -157,7 +154,11 @@ class _ObjectiveAddGoalState extends State<ObjectiveAddGoal> {
               child: const Text('As Primary'),
             ),
             ElevatedButton(
-              onPressed: () => _submitGoal(isPrimary: false),
+              onPressed:
+                  chatService.secondaryObjectives.length >=
+                      kMaxSecondaryObjectives
+                  ? null
+                  : () => _submitGoal(isPrimary: false),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.surfaceContainerOf(context),
                 foregroundColor: AppColors.textPrimary(context),

@@ -184,9 +184,9 @@ class GrowthReview {
           break;
       }
     }
-    if (owner.distilled) {
-      // The blob's growth now lives in rings — archive the original text as
-      // a pinned Past-growth entry and clear the dormant session fields.
+    if (owner.distilled && adds > 0) {
+      // Distill keeps injecting the blob until starter rings actually land.
+      // Review-first Apply with every add unchecked must not throw it away.
       await store.archiveLegacyBlob(
         sessionId,
         owner.ownerId,
@@ -218,7 +218,9 @@ class GrowthReview {
     _pending = null;
     await onApplied();
     onNotify();
-    debugPrint('[Growth] ✓ Review applied (${batch.totalProposals} proposal(s))');
+    debugPrint(
+      '[Growth] ✓ Review applied (${batch.totalProposals} proposal(s))',
+    );
   }
 
   /// Dismiss without writing: the window counts as handled (cursor advances)

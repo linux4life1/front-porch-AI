@@ -88,6 +88,22 @@ ThinkingSupport detectThinkingFromChatTemplate(String chatTemplate) {
   return ThinkingSupport.none;
 }
 
+/// True when the template *overwrites* `enable_thinking` to on, so a request
+/// `enable_thinking:false` never reaches the render. Heretic / uncensored
+/// Gemma-4 forks do this as `{%- set enable_thinking = true %}` (documented
+/// in those READMEs as the way to force thinking). The Off switch still
+/// exists — [thinkingBudgetClampForThinkOff] is what actually stops them.
+///
+/// Deliberately does NOT match `| default(true)`: that only fires when the
+/// kwarg is missing, and we always send it.
+final _hardOnThinkingSet = RegExp(
+  r'\{%-?\s*set\s+enable_thinking\s*=\s*true\s*-?%\}',
+  caseSensitive: false,
+);
+
+bool chatTemplateHardEnablesThinking(String chatTemplate) =>
+    chatTemplate.isNotEmpty && _hardOnThinkingSet.hasMatch(chatTemplate);
+
 /// The effort set [support] implies, in the app's shared vocabulary.
 ///
 /// `toggle` and `always`-without-grading resolve to `{none}` on purpose: the
@@ -172,8 +188,9 @@ class ReasoningSupportResolver {
     if (_cache.containsKey(modelPath)) return _cache[modelPath];
 
     ThinkingSupport? support;
+    String? template;
     try {
-      final template = await readChatTemplate(modelPath);
+      template = await readChatTemplate(modelPath);
       if (template != null) {
         support = detectThinkingFromChatTemplate(template);
       }
@@ -181,7 +198,9 @@ class ReasoningSupportResolver {
       support = null; // unreadable file → unknown, chips stay generic
     }
     _cache[modelPath] = support;
-    if (support != null) _remember(modelPath, support);
+    if (support != null) {
+      _remember(modelPath, support, chatTemplate: template);
+    }
     return support;
   }
 
@@ -234,7 +253,9 @@ class ReasoningSupportResolver {
       thinkingDefault: entry['thinking_default'],
     );
     _cache[modelName] = support;
-    if (support != null) _remember(modelName, support);
+    if (support != null) {
+      _remember(modelName, support, chatTemplate: template);
+    }
     return support;
   }
 
@@ -271,7 +292,7 @@ class ReasoningSupportResolver {
     }
   }
 
-  void _remember(String key, ThinkingSupport support) {
+  void _remember(String key, ThinkingSupport support, {String? chatTemplate}) {
     rememberReasoningEffortsForModel(
       key,
       effortsForThinkingSupport(support),
@@ -279,6 +300,14 @@ class ReasoningSupportResolver {
     );
     if (support == ThinkingSupport.always) {
       rememberMandatoryReasoning(key, persist: false);
+    }
+    // Hard-on is independent of the verdict: a heretic Gemma template still
+    // *mentions* enable_thinking (so it is `toggle` — Off stays in the UI)
+    // while the `{% set %}` makes the kwarg a no-op.
+    if (chatTemplate != null && chatTemplateHardEnablesThinking(chatTemplate)) {
+      rememberHardOnThinking(key);
+    } else {
+      forgetHardOnThinking(key);
     }
   }
 
@@ -333,7 +362,9 @@ class ReasoningSupportResolver {
         ? null
         : detectThinkingFromChatTemplate(template);
     _cache[modelName] = support;
-    if (support != null) _remember(modelName, support);
+    if (support != null) {
+      _remember(modelName, support, chatTemplate: template);
+    }
     return support;
   }
 

@@ -38,6 +38,37 @@ bool remoteCredentialWriteNeedsStepUp(
   return apiKey != null && apiKey.isNotEmpty;
 }
 
+/// True when POST /api/image/config would persist a new remote URL/key **or**
+/// a new local image-gen host (A1111 / Comfy / Draw Things). A stolen
+/// session cookie must not redirect generation at any of those.
+bool imageConfigWriteNeedsStepUp(
+  Map<String, dynamic> body, {
+  required String currentRemoteApiUrl,
+  required String currentLocalUrl,
+  required String currentComfyUrl,
+  required String currentDrawThingsHost,
+}) {
+  if (remoteCredentialWriteNeedsStepUp(
+    body,
+    currentRemoteApiUrl: currentRemoteApiUrl,
+  )) {
+    return true;
+  }
+  if (body['localUrl'] is String &&
+      body['localUrl'].toString() != currentLocalUrl) {
+    return true;
+  }
+  if (body['comfyUrl'] is String &&
+      body['comfyUrl'].toString() != currentComfyUrl) {
+    return true;
+  }
+  if (body['drawThingsHost'] is String &&
+      body['drawThingsHost'].toString() != currentDrawThingsHost) {
+    return true;
+  }
+  return false;
+}
+
 /// True when a preview call (`apiUrl` / `apiKey`) would use a host or key
 /// other than the already-saved remote credentials.
 ///

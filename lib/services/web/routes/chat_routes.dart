@@ -43,6 +43,7 @@ class WebChatRoutes {
     router.post('/api/chat/start-fresh', _startFresh);
     router.post('/api/chat/send', _send);
     router.post('/api/chat/chance-time/accept', _acceptChanceTime);
+    router.post('/api/chat/chance-time/spin', _spinChanceTime);
     router.post('/api/chat/stop', _stop);
     router.post('/api/chat/regenerate', _regenerate);
     router.post('/api/chat/cancel-realism', _cancelRealism);
@@ -252,6 +253,15 @@ class WebChatRoutes {
   /// pre-picked pending event, so the client just says "go".
   Future<shelf.Response> _acceptChanceTime(shelf.Request request) async {
     await _facade.acceptChanceTime();
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  shelf.Response _spinChanceTime(shelf.Request request) {
+    if (!_facade.requestChanceTimeSpin()) {
+      return JsonResponse.badRequest(
+        'Chaos is off or an event is already pending',
+      );
+    }
     return JsonResponse.ok({'status': 'ok'});
   }
 

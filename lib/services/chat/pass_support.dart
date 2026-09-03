@@ -19,6 +19,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
 import 'package:front_porch_ai/services/llm_service.dart'
     show LlmToolResponse, isToolTransportFailure;
 import 'package:front_porch_ai/services/storage/settings/realism_settings.dart'
@@ -51,9 +52,7 @@ List<CharacterCard> resolvePassOwners({
     for (final guest in guests) {
       final gid = idOf(guest);
       if (gid.isEmpty || gid == activeId) continue;
-      final spoke = window.any(
-        (m) => !m.isUser && m.characterId == gid,
-      );
+      final spoke = window.any((m) => !m.isUser && m.characterId == gid);
       if (spoke) owners.add(guest);
     }
     return owners;
@@ -105,12 +104,16 @@ bool resolveOneShotMode({
   required bool isLocal,
   required ToolCallSupport toolSupport,
   bool callMode = false,
-}) => switch (mode) {
-  OneShotMode.on => true,
-  OneShotMode.off =>
-    callMode && !isLocal && toolSupport == ToolCallSupport.supported,
-  OneShotMode.auto => !isLocal && toolSupport == ToolCallSupport.supported,
-};
+  bool preferTextEvals = false,
+}) {
+  final toolsInUse =
+      !preferTextEvals && toolSupport == ToolCallSupport.supported;
+  return switch (mode) {
+    OneShotMode.on => true,
+    OneShotMode.off => callMode && !isLocal && toolsInUse,
+    OneShotMode.auto => !isLocal && toolsInUse,
+  };
+}
 
 /// Per-run memory of which backend identities can (or can't) speak the
 /// OpenAI tools protocol — shared by every tool-negotiating consumer (the
@@ -124,8 +127,18 @@ bool resolveOneShotMode({
 class ToolTransportProbe extends ChangeNotifier {
   /// true = tools confirmed working, false = XML/text-only.
   final Map<String, bool> _verdicts = {};
+  final Set<String> _skipThisSend = {};
+  final Map<String, int> _consecutiveInconclusive = {};
+  final Set<String> _pausedUntilPing = {};
+  bool _inUserSend = false;
 
   bool isXmlOnly(String backendIdentity) => _verdicts[backendIdentity] == false;
+
+  bool isPausedUntilPing(String backendIdentity) =>
+      _pausedUntilPing.contains(backendIdentity);
+
+  bool isSkippedThisSend(String backendIdentity) =>
+      _skipThisSend.contains(backendIdentity);
 
   void markXmlOnly(String backendIdentity) {
     if (_verdicts[backendIdentity] == false) return;
@@ -133,17 +146,80 @@ class ToolTransportProbe extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Prefer-text override + skip/pause/xml-only. Journal/Growth and
+  /// [fireStructuredEval] consult this before attempting tools.
+  bool shouldFireTools(String id, {required bool preferTextEvals}) {
+    if (preferTextEvals) return false;
+    return shouldPostAfterIdle(id);
+  }
+
+  /// FIFO re-check / ping door. Skip, pause, xml-only — **not** prefer-text.
+  /// `_fireToolEval` is also ToolSupportTester's ping. Passing live
+  /// preferTextEvals here would make a pill tap with Native tool calling
+  /// off never POST `report_ping`.
+  ///
+  /// Skip is honored only while a [beginUserSend] is open, so existing
+  /// unit tests that fire two evals on one probe (no send) still re-probe,
+  /// and the ping door is never silenced by leftover skip.
+  bool shouldPostAfterIdle(String id) {
+    if (isXmlOnly(id)) return false;
+    if (_pausedUntilPing.contains(id)) return false;
+    if (_inUserSend && _skipThisSend.contains(id)) return false;
+    return true;
+  }
+
+  void beginUserSend() {
+    _inUserSend = true;
+    _skipThisSend.clear();
+  }
+
+  /// Count consecutive empty SENDS, then clear skip so regen retries tools.
+  void endUserSend(String id) {
+    if (_skipThisSend.contains(id)) {
+      final n = (_consecutiveInconclusive[id] ?? 0) + 1;
+      _consecutiveInconclusive[id] = n;
+      if (n >= 2) {
+        _pausedUntilPing.add(id);
+        notifyListeners();
+      }
+    } else {
+      _consecutiveInconclusive[id] = 0;
+    }
+    _skipThisSend.clear();
+    _inUserSend = false;
+  }
+
+  /// Intra-send skip only. Do NOT increment consecutive here — three
+  /// empty judges in one send must not pause.
+  void noteInconclusive(String id) {
+    final wasEmpty = _skipThisSend.isEmpty;
+    _skipThisSend.add(id);
+    if (wasEmpty) notifyListeners();
+  }
+
   /// A tools-mode request on [backendIdentity] came back with real tool
-  /// calls — the transport is confirmed working.
+  /// calls — the transport is confirmed working. Clears skip/consecutive
+  /// **before** the already-supported early return. Pause is only [reset].
   void markSupported(String backendIdentity) {
+    _consecutiveInconclusive[backendIdentity] = 0;
+    _skipThisSend.remove(backendIdentity);
     if (_verdicts[backendIdentity] == true) return;
     _verdicts[backendIdentity] = true;
     notifyListeners();
   }
 
   /// Forget the verdict (manual retest / model reloaded under the same key).
+  /// `|` not `||`: a supported identity's pill tap must still drop pause.
   void reset(String backendIdentity) {
-    if (_verdicts.remove(backendIdentity) != null) notifyListeners();
+    // `|` not `||`: a supported identity's pill tap must still drop pause.
+    final droppedVerdict = _verdicts.remove(backendIdentity) != null;
+    final droppedSkip = _skipThisSend.remove(backendIdentity);
+    final droppedPause = _pausedUntilPing.remove(backendIdentity);
+    final droppedConsecutive =
+        _consecutiveInconclusive.remove(backendIdentity) != null;
+    if (droppedVerdict | droppedSkip | droppedPause | droppedConsecutive) {
+      notifyListeners();
+    }
   }
 
   ToolCallSupport supportFor(String backendIdentity) =>
@@ -177,11 +253,7 @@ Future<String?> fireStructuredEval({
   required List<Map<String, dynamic>> tools,
   required String Function({required bool toolsMode}) buildPrompt,
   required String? Function(LlmToolResponse resp) callToText,
-  required Future<LlmToolResponse?> Function(
-    String prompt,
-    List<Map<String, dynamic>> tools,
-  )
-  fireToolEval,
+  required Object fireToolEval,
   required Future<String?> Function(
     String prompt, {
     void Function(String)? onChunk,
@@ -189,11 +261,27 @@ Future<String?> fireStructuredEval({
   fireTextEval,
   bool Function()? isCancelled,
   void Function(String)? onChunk,
+  String? toolChoice,
+  int maxLength = kScalarToolMaxTokens,
+  double repeatPenalty = kScalarToolRepeatPenalty,
+  bool Function()? getPreferTextEvals,
 }) async {
-  if (!probe.isXmlOnly(backendIdentity)) {
+  final preferText = getPreferTextEvals?.call() ?? false;
+  if (probe.shouldFireTools(backendIdentity, preferTextEvals: preferText)) {
     var inconclusive = false;
     try {
-      final resp = await fireToolEval(buildPrompt(toolsMode: true), tools);
+      onChunk?.call('⏳ $debugLabel…\n');
+      final resp = await invokeToolEval(
+        fireToolEval,
+        ToolEvalSpec(
+          prompt: buildPrompt(toolsMode: true),
+          tools: tools,
+          toolChoice: toolChoice,
+          maxLength: maxLength,
+          repeatPenalty: repeatPenalty,
+          onChunk: onChunk,
+        ),
+      );
       if (isCancelled?.call() ?? false) return null;
       if (resp != null) {
         final text = callToText(resp);
@@ -234,13 +322,20 @@ Future<String?> fireStructuredEval({
       // and are filtered instead of branding the backend XML-only.
       inconclusive = isToolTransportFailure(e);
     }
-    if (!inconclusive) {
+    if (inconclusive) {
+      probe.noteInconclusive(backendIdentity);
+      debugPrint(
+        '[Eval:Tools] skipping (this-send) on $backendIdentity ($debugLabel)',
+      );
+    } else {
       probe.markXmlOnly(backendIdentity);
       debugPrint(
         '[Eval:Tools] Tools unavailable on $backendIdentity — using text '
         '($debugLabel)',
       );
     }
+  } else if (preferText) {
+    debugPrint('[Eval:Tools] skipping (override) on $backendIdentity');
   }
   return fireTextEval(buildPrompt(toolsMode: false), onChunk: onChunk);
 }

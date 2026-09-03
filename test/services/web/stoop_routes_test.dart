@@ -221,18 +221,33 @@ void main() {
   test(
     'asset requests fall back to the token remembered from earlier calls',
     () async {
+      // Remembered token is per web session (fpa_session cookie), never
+      // process-wide — two browsers on one host must not share it.
+      const cookie = 'fpa_session=sess-9';
       // No token known yet → 401, upstream untouched.
-      final cold = await send('GET', '/api/stoop/assets/a1');
+      final cold = await send(
+        'GET',
+        '/api/stoop/assets/a1',
+        headers: {'cookie': cookie},
+      );
       expect(cold.statusCode, 401);
       expect(hits, isEmpty);
 
-      // An authenticated call teaches the facade the token…
-      await send('GET', '/api/stoop/me', headers: {'x-stoop-token': 'tok-9'});
+      // An authenticated call teaches the facade the token for THIS session…
+      await send(
+        'GET',
+        '/api/stoop/me',
+        headers: {'x-stoop-token': 'tok-9', 'cookie': cookie},
+      );
 
-      // …then a header-less <img> fetch succeeds with it.
+      // …then a header-less <img> fetch (cookies still sent) succeeds with it.
       upstreamContentType = 'image/png';
       upstreamBody = 'PNGBYTES';
-      final warm = await send('GET', '/api/stoop/assets/a1');
+      final warm = await send(
+        'GET',
+        '/api/stoop/assets/a1',
+        headers: {'cookie': cookie},
+      );
       expect(warm.statusCode, 200);
       expect(warm.headers['content-type'], startsWith('image/png'));
       expect(hits.last.path, '/assets/a1/raw');

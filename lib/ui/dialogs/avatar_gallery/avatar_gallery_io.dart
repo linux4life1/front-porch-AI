@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
@@ -50,11 +49,7 @@ Future<Uint8List?> pickZipBytes() async {
 }
 
 Future<Uint8List?> _firstBytes(FilePickerResult? result) async {
-  if (result == null || result.files.isEmpty) return null;
-  final f = result.files.first;
-  if (f.bytes != null) return f.bytes!;
-  if (f.path != null) return File(f.path!).readAsBytes();
-  return null;
+  return result?.firstBytes();
 }
 
 /// One recognized emotion sprite from a pack.

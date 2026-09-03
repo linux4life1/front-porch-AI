@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Card completeness checklist for Stoop uploads. Mirrors
-// backporch-server/src/lib/card-completeness.ts and website/src/stoop/completeness.js
+// backporch-server/src/lib/card-completeness.ts and site/src/stoop/completeness.js
 // so the app, hub, and API reject the same incomplete shells (empty first
 // message / persona / scenario; worlds need climate; lorebook is optional).
 

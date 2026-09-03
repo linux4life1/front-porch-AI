@@ -279,6 +279,7 @@ class CreatorState extends ChangeNotifier {
   List<String> realismPlanLines = const [];
   String realismOccupation = '';
   String realismOccupationBrief = '';
+  String realismBirthday = '';
   String realismHours = '';
   List<int>? realismWorkDays;
 

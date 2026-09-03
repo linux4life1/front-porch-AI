@@ -140,7 +140,7 @@ extension ChatServiceChatPackage on ChatService {
   Future<({bool fullRestore, String? warning})> importChatPackage(
     Uint8List bytes, {
     Future<bool> Function(String packageName, String activeName)?
-        onCharacterMismatch,
+    onCharacterMismatch,
   }) async {
     if (_activeCharacter == null && _activeGroup == null) {
       throw Exception('No active character or group');
@@ -158,7 +158,7 @@ extension ChatServiceChatPackage on ChatService {
   Future<({bool fullRestore, String? warning})> _importChatPackageBody(
     Uint8List bytes,
     Future<bool> Function(String packageName, String activeName)?
-        onCharacterMismatch,
+    onCharacterMismatch,
   ) async {
     // Preserve the currently open chat before replacing in-memory messages.
     if (_currentSessionId != null && _messages.isNotEmpty) {
@@ -233,11 +233,10 @@ extension ChatServiceChatPackage on ChatService {
               'Package was exported for group '
               '"${pkgChar['group_name'] ?? pkgGroupId}" but open group is '
               '"${_activeGroup!.name}" — importing dialogue only.';
-        } else if (!openIsGroup &&
-            _activeCharacter != null &&
-            !pkgIsGroup) {
+        } else if (!openIsGroup && _activeCharacter != null && !pkgIsGroup) {
           final activeId = _activeCharacter!.stableGroupId;
-          final mismatch = (pkgId.isNotEmpty && pkgId != activeId) ||
+          final mismatch =
+              (pkgId.isNotEmpty && pkgId != activeId) ||
               (pkgName.isNotEmpty &&
                   pkgName.toLowerCase() !=
                       _activeCharacter!.name.toLowerCase());
@@ -357,7 +356,9 @@ extension ChatServiceChatPackage on ChatService {
         dest = await igs.saveImageToDisk(bytes, preferred);
       }
       if (dest == null) {
-        final dir = Directory(path.join(_storageService.chatsDir.path, 'images'));
+        final dir = Directory(
+          path.join(_storageService.chatsDir.path, 'images'),
+        );
         await dir.create(recursive: true);
         dest = path.join(dir.path, preferred);
         var n = 1;
@@ -387,8 +388,7 @@ extension ChatServiceChatPackage on ChatService {
     if (from == null || to == null || from == to) return rows;
     return [
       for (final r in rows)
-        if (r is Map &&
-            (r['character_id'] as String? ?? '').trim() == from)
+        if (r is Map && (r['character_id'] as String? ?? '').trim() == from)
           {...Map<String, dynamic>.from(r), 'character_id': to}
         else
           r,
@@ -405,7 +405,8 @@ extension ChatServiceChatPackage on ChatService {
       final cid = (m['character_id'] as String? ?? '').trim();
       final content = (m['content'] as String? ?? '').trim();
       if (cid.isEmpty || content.isEmpty) continue;
-      final sources = (m['source_message_ids'] as List?)
+      final sources =
+          (m['source_message_ids'] as List?)
               ?.map((e) => (e as num).toInt())
               .toList() ??
           const <int>[];
@@ -426,8 +427,8 @@ extension ChatServiceChatPackage on ChatService {
         extraMetadata: m['metadata'] is String
             ? null
             : (m['metadata'] is Map
-                ? Map<String, dynamic>.from(m['metadata'] as Map)
-                : null),
+                  ? Map<String, dynamic>.from(m['metadata'] as Map)
+                  : null),
       );
     }
   }
@@ -449,7 +450,10 @@ extension ChatServiceChatPackage on ChatService {
     final charId = _getCharacterId();
     if (charId.isEmpty) return;
 
+    await _awaitHistoryHydrated();
+    if (_currentSessionId != sid) return;
     final formatted = _formatMessagesForRagEmbedding(_messages);
+    final offset = _history.basePosition;
     // Bound wall-clock work: each successful window resets stall; null-embed
     // / abort only retry a limited number of times so we never busy-spin the
     // event loop (Muse review of 03d46d9a).
@@ -481,6 +485,7 @@ extension ChatServiceChatPackage on ChatService {
           characterId: charId,
           formattedMessages: formatted,
           totalMessageCount: formatted.length,
+          positionOffset: offset,
           maxWindows: 1,
           shouldContinue: () => !_isGenerating && _currentSessionId == sid,
         );

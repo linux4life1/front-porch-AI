@@ -17,6 +17,7 @@ import {
   stoopLoreEntries,
   stoopMembers,
   stoopWorldClimate,
+  stoopWorldClimateEnabled,
   stoopWorldTraits,
   type CardMap,
 } from '../../stoop/stoopCardBody';
@@ -226,19 +227,30 @@ function GroupBody({ card, name }: { card: CardMap; name: string }) {
 }
 
 function WorldBody({ card }: { card: CardMap }) {
+  const climateEnabled = stoopWorldClimateEnabled(card);
   const traits = stoopWorldTraits(card);
   return (
     <>
       <Section title="About this place" body={textOf(card, 'description')} />
-      <Section title="Climate" body={stoopWorldClimate(card)} />
-      {traits.length > 0 && (
+      {climateEnabled ? (
+        <>
+          <Section title="Climate" body={stoopWorldClimate(card)} />
+          {traits.length > 0 && (
+            <section className="card stoop-section">
+              <h4>Traits</h4>
+              <ul className="stoop-ambitions">
+                {traits.map((t, i) => (
+                  <li key={i}>{t}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
+      ) : (
         <section className="card stoop-section">
-          <h4>Traits</h4>
-          <ul className="stoop-ambitions">
-            {traits.map((t, i) => (
-              <li key={i}>{t}</li>
-            ))}
-          </ul>
+          <p className="muted">
+            Lore only -- no climate, weather, or place traits.
+          </p>
         </section>
       )}
       <LoreSection card={card} title="Lore" />

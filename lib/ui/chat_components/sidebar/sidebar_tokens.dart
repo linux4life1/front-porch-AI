@@ -26,6 +26,28 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 class SidebarTokens {
   SidebarTokens._();
 
+  /// Narrowest the sidebar can stay open. Dragging below this snaps closed.
+  /// SidebarBody ListView pads EdgeInsets.all(12), so the accordion is
+  /// minWidth-24. Header pad 10x2 + chevron + emoji + FittedBox switch +
+  /// compact tune gear then leave leftover for the title. Live 214
+  /// letter-wrapped Character (`Characte` / `r State`) even with that
+  /// trailing. 230 is the smallest pane where Character / State stay two
+  /// whole-word lines with switch AND gear in the product nest.
+  static const double minWidth = 230;
+
+  /// Drag-resize upper bound.
+  static const double maxWidth = 600;
+
+  /// Compile-time launch width (`--dart-define=SIDEBAR_WIDTH=230`).
+  /// Omit the define to keep the product default (300). 0 stays closed.
+  /// Any other positive value is clamped to [minWidth]..[maxWidth].
+  static double widthFromEnvironment({
+    int defined = const int.fromEnvironment('SIDEBAR_WIDTH', defaultValue: 300),
+  }) {
+    if (defined <= 0) return 0;
+    return defined.toDouble().clamp(minWidth, maxWidth);
+  }
+
   /// Accordion / card corner radius.
   static const double cardRadius = 12;
 
@@ -68,7 +90,6 @@ class SidebarSubHeader extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,

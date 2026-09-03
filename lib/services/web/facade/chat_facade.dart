@@ -184,6 +184,7 @@ class ChatFacade {
       // Additive (mixed-fleet safe): older web clients ignore it; newer ones
       // can distinguish "streaming tokens" from "still settling".
       'isSettlingTurn': _chat.isSettlingTurn,
+      'isSendWaitingOnSettle': _chat.isSendWaitingOnSettle,
       // Overlay while setActiveCharacter/Group hydrates (navigate-first open).
       'isLoadingSession': _chat.isLoadingSession,
       'isBackfillingHistory': _chat.isBackfillingHistory,
@@ -271,10 +272,7 @@ class ChatFacade {
       'imagePromptReview': ?_chat.pendingImagePromptReview,
       // Tool-calling verdict for the current backend+model (desktop sidebar
       // pill parity). Retest via POST /api/chat/tool-test. Additive field.
-      'toolSupport': {
-        'state': _chat.toolCallSupport.name,
-        'testing': _chat.isTestingToolSupport,
-      },
+      'toolSupport': _chat.toolSupportJson,
       // Per-chat theme overrides (preset + font/color/background/border).
       'themeOverrides': _chat.sessionThemeOverrides.toJson(),
       // LLM backend connection (not a one-off request). Additive; older
@@ -295,10 +293,7 @@ class ChatFacade {
   /// pill's tap-to-retest). Returns the fresh verdict.
   Future<Map<String, dynamic>> testToolCalling() async {
     await _chat.testToolCalling();
-    return {
-      'state': _chat.toolCallSupport.name,
-      'testing': _chat.isTestingToolSupport,
-    };
+    return _chat.toolSupportJson;
   }
 
   /// The unified cast as JSON. Each entry carries enough to render a roster
@@ -475,6 +470,10 @@ class ChatFacade {
     _notify();
   }
 
+  /// Manual SPIN NOW. Parks a pre-picked event; the web reveal modal
+  /// opens via the chance_time WS edge (isAwaitingChanceTime).
+  bool requestChanceTimeSpin() => _chat.requestManualChanceTime();
+
   /// Escape hatch for the realism-processing overlay's "Cancel Realism" button —
   /// aborts an in-flight Realism eval (mirrors the desktop overlay action).
   void cancelRealismEval() {
@@ -639,6 +638,7 @@ class ChatFacade {
           'title': p.title,
           'name': p.name,
           'persona': p.persona,
+          'birthday': p.birthday,
         };
       }
     }
@@ -655,6 +655,7 @@ class ChatFacade {
       f['name']?.toString() ?? 'User',
       f['persona']?.toString() ?? '',
       null,
+      birthday: f['birthday']?.toString() ?? '',
     );
     _notify();
     return true;
@@ -677,6 +678,7 @@ class ChatFacade {
         title: f.containsKey('title') ? f['title']?.toString() : null,
         name: f.containsKey('name') ? f['name']?.toString() : null,
         persona: f.containsKey('persona') ? f['persona']?.toString() : null,
+        birthday: f.containsKey('birthday') ? f['birthday']?.toString() : null,
       ),
     );
     _notify();

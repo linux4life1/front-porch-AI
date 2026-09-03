@@ -90,8 +90,16 @@ extension ChatServiceSend on ChatService {
     // captured callerHeldSettling=true and wedged _isTurnBusy for the
     // session.
     try {
+      if (_isPostGenerating) {
+        _sendWaitingOnSettle = true;
+        notifyListeners();
+      }
       await _waitForTurnToSettle();
     } finally {
+      if (_sendWaitingOnSettle) {
+        _sendWaitingOnSettle = false;
+        notifyListeners();
+      }
       if (!sendGate.isCompleted) sendGate.complete();
     }
     if (_isGenerating) return;
@@ -153,331 +161,338 @@ extension ChatServiceSend on ChatService {
       return;
     }
 
-    // Sending a real message ends the /exit undo window. A pending full-member
-    // exit commits now (real removal + any collapse to a 1:1) so this turn runs
-    // in the settled cast; lite-guest undo state is just cleared.
-    await _commitPendingMemberExit();
-    _clearExitUndo();
+    _toolProbe.beginUserSend();
+    try {
+      // Sending a real message ends the /exit undo window. A pending full-member
+      // exit commits now (real removal + any collapse to a 1:1) so this turn runs
+      // in the settled cast; lite-guest undo state is just cleared.
+      await _commitPendingMemberExit();
+      _clearExitUndo();
 
-    // Save the attachment to disk only now that every guard has passed — the
-    // composer passes bytes, not a path, so a guard bail above can't orphan a
-    // file. Null when there are no bytes / the image service isn't wired.
-    final imagePath = await _persistTurnImage(imageBytes);
+      // Save the attachment to disk only now that every guard has passed — the
+      // composer passes bytes, not a path, so a guard bail above can't orphan a
+      // file. Null when there are no bytes / the image service isn't wired.
+      final imagePath = await _persistTurnImage(imageBytes);
 
-    final senderName = _userPersonaService.persona.name;
-    final userMsg = ChatMessage(
-      text: text,
-      sender: senderName,
-      isUser: true,
-      metadata: imagePath != null
-          ? {'is_user_image': true, 'image_path': imagePath}
-          : null,
-    );
-    // Session token for the caption writes below — captured NOW so a chat
-    // switch anywhere during the (long) turn voids the stamp+save.
-    final sessionToken = _currentSessionId;
-    _messages.add(userMsg);
-    await _saveChat();
-    notifyListeners();
-
-    // ── Dreams (Living Time §1) — a night passed, so the dream surfaces
-    // before this morning's exchange. The text was PRE-GENERATED at the end
-    // of the turn whose clock crossed the night (_maybeKickDreamPrefetch,
-    // called from the post-generation phase), so this await is on an
-    // almost-always-completed future and the send path no longer waits on a
-    // model call (eval review item 6 — dreams were one of the two calls
-    // still blocking a send). Owner rules, insertion position, the journal
-    // card and the silent-skip floor are unchanged.
-    //
-    // The bookkeeping call here is anchor-only (nothing at entry consumes
-    // pending any more): it runs BEFORE this turn's pre-generation clock
-    // advance, so the first turn after a chat load anchors on the pre-advance
-    // day exactly as the old design did. Without it the first post-generation
-    // kick would anchor AFTER the advance and a night crossed on that very
-    // first turn would be missed.
-    _dreamService.checkRollover(
-      sessionId: _currentSessionId,
-      dayCount: _timeService.dayCount,
-    );
-    final parkedDream = _dreamService.takePrefetch(_currentSessionId);
-    if (parkedDream != null) {
-      try {
-        final dream = await parkedDream.dream;
-        if (_sceneChanged(sessionToken)) return;
-        if (dream != null) {
-          _messages.insert(
-            _messages.length - 1,
-            ChatMessage(
-              text: dream,
-              sender: parkedDream.ownerName,
-              isUser: false,
-              characterId: parkedDream.ownerCharacterId,
-              metadata: {'is_dream': true},
-            ),
-          );
-          notifyListeners();
-          await _journalStore.addCard(
-            sessionId: sessionToken!,
-            characterId: parkedDream.ownerId,
-            content: dream,
-            category: 'moment',
-            kind: 'dream',
-            emotionLabel: _characterEmotion.isEmpty ? null : _characterEmotion,
-            storyDay: _timeService.dayCount,
-            storyClock: _timeService.storyClockIso,
-            maxCards: _storageService.memorySettings.journalMaxCards,
-          );
-          await _saveChat();
-        }
-      } catch (e) {
-        debugPrint('[Dreams] skipped: $e');
-      }
-    }
-
-    // ── Blind-model photo fallback: caption BEFORE generating ───────────────
-    // Vision-capable models return true immediately (their pixels ride along
-    // and their caption runs post-turn); blind models run the offline
-    // captioner so this turn's history already carries the gist. Returns false
-    // when the scene changed during the (multi-second) caption await — abort
-    // rather than run decay/realism/generation against a newly loaded chat.
-    if (imagePath != null) {
-      final stillHere = await runBlindPhotoCaption(
-        userMsg,
-        imagePath,
-        sessionToken,
+      final senderName = _userPersonaService.persona.name;
+      final userMsg = ChatMessage(
+        text: text,
+        sender: senderName,
+        isUser: true,
+        metadata: imagePath != null
+            ? {'is_user_image': true, 'image_path': imagePath}
+            : null,
       );
-      if (!stillHere) return;
-    }
+      // Session token for the caption writes below — captured NOW so a chat
+      // switch anywhere during the (long) turn voids the stamp+save.
+      final sessionToken = _currentSessionId;
+      _messages.add(userMsg);
+      await _saveChat();
+      notifyListeners();
 
-    // Reset the idle timer — user is interacting
-    _cancelIdleTimer();
-
-    // Clear the new chat flag after first user message to allow memory retrieval
-    if (_isNewChat) {
-      _isNewChat = false;
-      debugPrint('[sendMessage] Cleared new chat flag, memories now allowed');
-    }
-
-    // {{idle_duration}} clock: the user just spoke.
-    _lastUserMessageAt = DateTime.now();
-
-    // Scan for lore keywords (thin to scanner; the user message is already
-    // in _messages, so the scanner windows over recent history from there).
-    _lorebookScanner.scanLatest();
-
-    // ── Clear consumed chaos event from the previous turn ───────────────
-    // Only clear if the event was already delivered in a response.
-    // This preserves manual-spin events that haven't been used yet.
-    // Delegated to service (core state moved).
-    _chaosModeService.clearDeliveredPendingIfAny();
-    // Clear Mafia force-ack only after a prior turn *showed* it and the user
-    // is now continuing (regen of that AI reply still re-injects until here).
-    unawaited(_porchMemoryImport.clearAfterAcceptedUserTurn());
-
-    // ── OOC Time-Skip Detection ───────────────────────────────────────────
-    // The standalone clock is added as a second driver rather than folding
-    // both into _clockRunning: that getter is broader than the old condition
-    // (it stays true in Director mode and during AFK), so using it here would
-    // silently start honouring "(OOC: skip to morning)" in engine-ON states
-    // that ignore it today. Additive only — every case that worked still
-    // works, plus the one the user asked for.
-    if (_realismActiveThisMode || _standaloneClockActive) {
-      final before = _timeService.clock;
-      await _timeService.detectOocTimeSkip(text);
-      final after = _timeService.clock;
-      if (after != before &&
-          isNightSkip(stripQuotedSpeech(text).toLowerCase())) {
-        _applyNightSkipRestore();
-      }
-      await _maybeMintEpisodeCrumbs(before, after);
-    }
-
-    // ── Direct-address turn routing (both cast surfaces) ─────────────────
-    // 1:1: "@Evelyn …" anywhere (or a vocative — "Evelyn - can you clarify…")
-    // routes this turn to the GUEST via the parity-safe guest path; the host
-    // turn and its prep below (chaos tick/wheel, decay, pre-gen eval) are
-    // skipped — guests carry ZERO Realism/Needs, the host simply didn't take
-    // a turn. Fixes the "responds twice per message" Discord report
-    // (2026-07-28). Group: "@Member" forces that member as this turn's
-    // speaker (inside the call; returns null — the turn proceeds normally).
-    // Decision logic lives in the scene-guest leaf.
-    final addressedGuest = _directAddressRoutedGuest(userMsg.promptText);
-
-    // ── Chaos Mode: check + pause for wheel if triggered ─────────────────
-    // Guard + tick delegated (pendingInjection check via service getter).
-    if (addressedGuest == null &&
-        _chaosModeService.chaosModeEnabled &&
-        _chaosModeService.pendingChaosInjection == null) {
-      if (checkAndTickChaosPressure()) {
-        // Create a completer so sendMessage pauses here until the wheel resolves
-        _chanceTimeCompleter = Completer<void>();
-        _chanceTimePendingTrigger = true;
-        // Pre-pick the one event the web/mobile reveal modal shows + accepts
-        // (the desktop spins its own wheel instead — same pool, same accept).
-        final webWheel = _chaosModeService.spinWheelEvents();
-        _webChanceTimeEvent = webWheel.isNotEmpty
-            ? webWheel.first
-            : 'Fate intervenes in an unexpected way.';
-        notifyListeners(); // UI observes this to show the wheel
-        // Wait for the user to spin + accept fate (completes in applyChanceTimeResult)
-        await _chanceTimeCompleter!.future;
-        _chanceTimeCompleter = null;
-        _webChanceTimeEvent = null;
-      }
-    }
-
-    // Note: depth decrement happens after AI response completes (see _generateResponse finalization).
-    // This ensures lore triggered by the user message is visible in the current turn's prompt.
-
-    // Voice call safe speed lane: swap to the fast call model BEFORE the
-    // pre-generation work below, so the objective check, the realism judges
-    // and the standalone clock all answer on it — not just the reply. The
-    // helper self-gates (call mode + remote + a call model picked); guests
-    // are excluded because a routed guest turn skips the host prep entirely.
-    // The request phase adopts the swap into the turn's restore machinery;
-    // the cancel return below and the callMode setter release an orphaned one.
-    if (addressedGuest == null) _enterCallEvalModelSwap();
-
-    // Check objective task completion BEFORE generating response
-    // so the AI gets the updated task in its prompt
-    await _maybeCheckTaskCompletionSync();
-
-    // Evaluate realism systems before generating response
-    // Capture pre-turn needs vector (before decay + fulfillment) so that
-    // regenerateLastMessage() and the post-generation delta computation
-    // can use the same delta-revert mechanism the classic realism fields
-    // (bond/trust/arousal) use.
-    Map<String, int>? preTurnVector;
-    if (_realismActiveThisMode && addressedGuest == null) {
-      if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
-        preTurnVector = Map<String, int>.from(_needsSimulation.vector);
-        _pendingRealismMetadata ??= {};
-        _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
-      }
-
-      // Short-term bond decay: 1:1 host only. In group mode the speaker isn't
-      // picked yet — the old call here fell back to the FIRST member under
-      // random turn order, so member #1 absorbed everyone's decay. The group
-      // tick now lives per-speaker inside _evaluateRealismForUpcomingSpeaker,
-      // on the pinned speaker's own cadence counter (mirrors needs + nsfw).
-      if (_activeGroup == null) {
-        _applyMoodDecay();
-      }
-      // Needs decay for 1:1 always here. For group non-observer, speaker-specific decay
-      // (respecting the actual picked speaker for random turn order) is applied inside
-      // _evaluateRealismForUpcomingSpeaker after _pickNextGroupCharacter has run.
-      if (_activeGroup == null || _observerMode || !_needsSimEnabled) {
-        _needsSimulation.tickDecay();
-      } else {
-        // Group non-obs + needs on: decay is applied per-speaker inside the
-        // single eval path (_evaluateRealismForUpcomingSpeaker).
-      }
-      // Refractory tick for the 1:1 host only. In group mode the speaker
-      // hasn't been picked yet — decrementing here mutated whichever member's
-      // scalars were still loaded from LAST turn, and the tick was then
-      // discarded by _loadGroupRealismIntoScalars, so group cooldowns never
-      // actually counted down. The group tick now lives per-speaker in
-      // _evaluateRealismForUpcomingSpeaker, right after that speaker's
-      // scalars are loaded (mirroring the per-speaker needs decay).
-      if (_activeGroup == null) {
-        _nsfwService.decrementCooldownIfActive();
-      }
-
-      // Single-path bridge: realism evaluation now runs inside _generateResponse
-      // for EVERY speaker (1:1 host or group member) via
-      // _evaluateRealismForUpcomingSpeaker.
+      // ── Dreams (Living Time §1) — a night passed, so the dream surfaces
+      // before this morning's exchange. The text was PRE-GENERATED at the end
+      // of the turn whose clock crossed the night (_maybeKickDreamPrefetch,
+      // called from the post-generation phase), so this await is on an
+      // almost-always-completed future and the send path no longer waits on a
+      // model call (eval review item 6 — dreams were one of the two calls
+      // still blocking a send). Owner rules, insertion position, the journal
+      // card and the silent-skip floor are unchanged.
       //
-      // No cast-store mirror for the 1:1 host: its scalar fields are already the
-      // canonical realism store (loaded by loadSession, decayed just above), and the
-      // per-character _groupRealism map is group-only — its writes no-op when
-      // _activeGroup == null. Mirroring was a no-op, and the eval path deliberately
-      // does NOT reload the host from that empty map (doing so reset
-      // bond/trust/emotion/needs to defaults). See _evaluateRealismForUpcomingSpeaker.
-      if (_activeGroup == null && _activeCharacter != null) {
-        // Run the SINGLE eval path for the host now — on a fresh user turn only.
-        // (Regen/continue call _generateResponse directly, bypassing this, so the
-        // host is not re-evaluated; cancellation is caught by the check below,
-        // before generation — preserving the cancel-aborts-generation escape.)
-        await _evaluateRealismForUpcomingSpeaker(_activeCharacter!);
-      }
-    } else if (_standaloneClockActive && addressedGuest == null) {
-      // Standalone clock: announce the current time in the prompt; the
-      // post-reply decide lives in _finalizeGenerationTurn with the engine
-      // path (bucket brigade, Scene Guests included). Only stamp the user
-      // turn's story day here so RAG can ground retrieved lines.
-      if (_messages.isNotEmpty) {
-        final last = _messages.last;
-        if (last.isUser) {
-          last.metadata = {
-            ...?last.metadata,
-            'story_day': _timeService.dayCount,
-          };
+      // The bookkeeping call here is anchor-only (nothing at entry consumes
+      // pending any more): it runs BEFORE this turn's pre-generation clock
+      // advance, so the first turn after a chat load anchors on the pre-advance
+      // day exactly as the old design did. Without it the first post-generation
+      // kick would anchor AFTER the advance and a night crossed on that very
+      // first turn would be missed.
+      _dreamService.checkRollover(
+        sessionId: _currentSessionId,
+        dayCount: _timeService.dayCount,
+      );
+      final parkedDream = _dreamService.takePrefetch(_currentSessionId);
+      if (parkedDream != null) {
+        try {
+          final dream = await parkedDream.dream;
+          if (_sceneChanged(sessionToken)) return;
+          if (dream != null) {
+            _messages.insert(
+              _messages.length - 1,
+              ChatMessage(
+                text: dream,
+                sender: parkedDream.ownerName,
+                isUser: false,
+                characterId: parkedDream.ownerCharacterId,
+                metadata: {'is_dream': true},
+              ),
+            );
+            notifyListeners();
+            await _journalStore.addCard(
+              sessionId: sessionToken!,
+              characterId: parkedDream.ownerId,
+              content: dream,
+              category: 'moment',
+              kind: 'dream',
+              emotionLabel: _characterEmotion.isEmpty
+                  ? null
+                  : _characterEmotion,
+              storyDay: _timeService.dayCount,
+              storyClock: _timeService.storyClockIso,
+              maxCards: _storageService.memorySettings.journalMaxCards,
+            );
+            await _saveChat();
+          }
+        } catch (e) {
+          debugPrint('[Dreams] skipped: $e');
         }
       }
-      await _saveChat();
-      notifyListeners();
-    }
 
-    // If cancellation was requested during realism evaluation, abort generation
-    if (_realismEvalCancelled) {
-      // The turn dies before the request phase can adopt the call-model
-      // swap — put the main model back ourselves.
-      _exitCallEvalModelSwap();
-      await _saveChat();
-      _realismEvalCancelled = false;
-      notifyListeners();
-      return;
-    }
+      // ── Blind-model photo fallback: caption BEFORE generating ───────────────
+      // Vision-capable models return true immediately (their pixels ride along
+      // and their caption runs post-turn); blind models run the offline
+      // captioner so this turn's history already carries the gist. Returns false
+      // when the scene changed during the (multi-second) caption await — abort
+      // rather than run decay/realism/generation against a newly loaded chat.
+      if (imagePath != null) {
+        final stillHere = await runBlindPhotoCaption(
+          userMsg,
+          imagePath,
+          sessionToken,
+        );
+        if (!stillHere) return;
+      }
 
-    if (addressedGuest != null) {
-      await generateGuestTurn(addressedGuest);
-    } else {
-      await _generateResponse(GenerationMode.normal);
-    }
-    // Backend-down abort: no response was generated, so none of the
-    // post-turn work below may run — no idle-timer arming, no chip attach,
-    // no guest chime-ins against the notice text (pre-move parity: the old
-    // in-sendMessage guard returned before all of this).
-    if (_messages.isNotEmpty && _messages.last.text == _kBackendDownNotice) {
-      return;
-    }
-    // First exchange complete — arm idle timer
-    _hasCompletedExchange = true;
-    if (_storageService.generationSettings.dynamicResponses) {
-      debugPrint(
-        '[DynamicResponses] First exchange done, arming idle timer (interval=${_storageService.generationSettings.dynamicResponseInterval}s)',
+      // Reset the idle timer — user is interacting
+      _cancelIdleTimer();
+
+      // Clear the new chat flag after first user message to allow memory retrieval
+      if (_isNewChat) {
+        _isNewChat = false;
+        debugPrint('[sendMessage] Cleared new chat flag, memories now allowed');
+      }
+
+      // {{idle_duration}} clock: the user just spoke.
+      _lastUserMessageAt = DateTime.now();
+
+      // Scan for lore keywords (thin to scanner; the user message is already
+      // in _messages, so the scanner windows over recent history from there).
+      _lorebookScanner.scanLatest();
+
+      // ── Clear consumed chaos event from the previous turn ───────────────
+      // Only clear if the event was already delivered in a response.
+      // This preserves manual-spin events that haven't been used yet.
+      // Delegated to service (core state moved).
+      _chaosModeService.clearDeliveredPendingIfAny();
+      // Clear Mafia force-ack only after a prior turn *showed* it and the user
+      // is now continuing (regen of that AI reply still re-injects until here).
+      unawaited(_porchMemoryImport.clearAfterAcceptedUserTurn());
+
+      // ── OOC Time-Skip Detection ───────────────────────────────────────────
+      // The standalone clock is added as a second driver rather than folding
+      // both into _clockRunning: that getter is broader than the old condition
+      // (it stays true in Director mode and during AFK), so using it here would
+      // silently start honouring "(OOC: skip to morning)" in engine-ON states
+      // that ignore it today. Additive only — every case that worked still
+      // works, plus the one the user asked for.
+      if (_realismActiveThisMode || _standaloneClockActive) {
+        final before = _timeService.clock;
+        await _timeService.detectOocTimeSkip(text);
+        final after = _timeService.clock;
+        if (after != before &&
+            isNightSkip(stripQuotedSpeech(text).toLowerCase())) {
+          _applyNightSkipRestore();
+        }
+        await _maybeMintEpisodeCrumbs(before, after);
+      }
+
+      // ── Direct-address turn routing (both cast surfaces) ─────────────────
+      // 1:1: "@Evelyn …" anywhere (or a vocative — "Evelyn - can you clarify…")
+      // routes this turn to the GUEST via the parity-safe guest path; the host
+      // turn and its prep below (chaos tick/wheel, decay, pre-gen eval) are
+      // skipped — guests carry ZERO Realism/Needs, the host simply didn't take
+      // a turn. Fixes the "responds twice per message" Discord report
+      // (2026-07-28). Group: "@Member" forces that member as this turn's
+      // speaker (inside the call; returns null — the turn proceeds normally).
+      // Decision logic lives in the scene-guest leaf.
+      final addressedGuest = _directAddressRoutedGuest(userMsg.promptText);
+
+      // ── Chaos Mode: check + pause for wheel if triggered ─────────────────
+      // Guard + tick delegated (pendingInjection check via service getter).
+      if (addressedGuest == null &&
+          _chaosModeService.chaosModeEnabled &&
+          _chaosModeService.pendingChaosInjection == null) {
+        if (checkAndTickChaosPressure()) {
+          // Create a completer so sendMessage pauses here until the wheel resolves
+          _chanceTimeCompleter = Completer<void>();
+          _chanceTimePendingTrigger = true;
+          // Pre-pick the one event the web/mobile reveal modal shows + accepts
+          // (the desktop spins its own wheel instead — same pool, same accept).
+          final webWheel = _chaosModeService.spinWheelEvents();
+          _webChanceTimeEvent = webWheel.isNotEmpty
+              ? webWheel.first
+              : 'Fate intervenes in an unexpected way.';
+          notifyListeners(); // UI observes this to show the wheel
+          // Wait for the user to spin + accept fate (completes in applyChanceTimeResult)
+          await _chanceTimeCompleter!.future;
+          _chanceTimeCompleter = null;
+          _webChanceTimeEvent = null;
+        }
+      }
+
+      // Note: depth decrement happens after AI response completes (see _generateResponse finalization).
+      // This ensures lore triggered by the user message is visible in the current turn's prompt.
+
+      // Voice call safe speed lane: swap to the fast call model BEFORE the
+      // pre-generation work below, so the objective check, the realism judges
+      // and the standalone clock all answer on it — not just the reply. The
+      // helper self-gates (call mode + remote + a call model picked); guests
+      // are excluded because a routed guest turn skips the host prep entirely.
+      // The request phase adopts the swap into the turn's restore machinery;
+      // the cancel return below and the callMode setter release an orphaned one.
+      if (addressedGuest == null) _enterCallEvalModelSwap();
+
+      // Check objective task completion BEFORE generating response
+      // so the AI gets the updated task in its prompt
+      await _maybeCheckTaskCompletionSync();
+
+      // Evaluate realism systems before generating response
+      // Capture pre-turn needs vector (before decay + fulfillment) so that
+      // regenerateLastMessage() and the post-generation delta computation
+      // can use the same delta-revert mechanism the classic realism fields
+      // (bond/trust/arousal) use.
+      Map<String, int>? preTurnVector;
+      if (_realismActiveThisMode && addressedGuest == null) {
+        if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
+          preTurnVector = Map<String, int>.from(_needsSimulation.vector);
+          _pendingRealismMetadata ??= {};
+          _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
+        }
+
+        // Short-term bond decay: 1:1 host only. In group mode the speaker isn't
+        // picked yet — the old call here fell back to the FIRST member under
+        // random turn order, so member #1 absorbed everyone's decay. The group
+        // tick now lives per-speaker inside _evaluateRealismForUpcomingSpeaker,
+        // on the pinned speaker's own cadence counter (mirrors needs + nsfw).
+        if (_activeGroup == null) {
+          _applyMoodDecay();
+        }
+        // Needs decay for 1:1 always here. For group non-observer, speaker-specific decay
+        // (respecting the actual picked speaker for random turn order) is applied inside
+        // _evaluateRealismForUpcomingSpeaker after _pickNextGroupCharacter has run.
+        if (_activeGroup == null || _observerMode || !_needsSimEnabled) {
+          _needsSimulation.tickDecay();
+        } else {
+          // Group non-obs + needs on: decay is applied per-speaker inside the
+          // single eval path (_evaluateRealismForUpcomingSpeaker).
+        }
+        // Refractory tick for the 1:1 host only. In group mode the speaker
+        // hasn't been picked yet — decrementing here mutated whichever member's
+        // scalars were still loaded from LAST turn, and the tick was then
+        // discarded by _loadGroupRealismIntoScalars, so group cooldowns never
+        // actually counted down. The group tick now lives per-speaker in
+        // _evaluateRealismForUpcomingSpeaker, right after that speaker's
+        // scalars are loaded (mirroring the per-speaker needs decay).
+        if (_activeGroup == null) {
+          _nsfwService.decrementCooldownIfActive();
+        }
+
+        // Single-path bridge: realism evaluation now runs inside _generateResponse
+        // for EVERY speaker (1:1 host or group member) via
+        // _evaluateRealismForUpcomingSpeaker.
+        //
+        // No cast-store mirror for the 1:1 host: its scalar fields are already the
+        // canonical realism store (loaded by loadSession, decayed just above), and the
+        // per-character _groupRealism map is group-only — its writes no-op when
+        // _activeGroup == null. Mirroring was a no-op, and the eval path deliberately
+        // does NOT reload the host from that empty map (doing so reset
+        // bond/trust/emotion/needs to defaults). See _evaluateRealismForUpcomingSpeaker.
+        if (_activeGroup == null && _activeCharacter != null) {
+          // Run the SINGLE eval path for the host now — on a fresh user turn only.
+          // (Regen/continue call _generateResponse directly, bypassing this, so the
+          // host is not re-evaluated; cancellation is caught by the check below,
+          // before generation — preserving the cancel-aborts-generation escape.)
+          await _evaluateRealismForUpcomingSpeaker(_activeCharacter!);
+        }
+      } else if (_standaloneClockActive && addressedGuest == null) {
+        // Standalone clock: announce the current time in the prompt; the
+        // post-reply decide lives in _finalizeGenerationTurn with the engine
+        // path (bucket brigade, Scene Guests included). Only stamp the user
+        // turn's story day here so RAG can ground retrieved lines.
+        if (_messages.isNotEmpty) {
+          final last = _messages.last;
+          if (last.isUser) {
+            last.metadata = {
+              ...?last.metadata,
+              'story_day': _timeService.dayCount,
+            };
+          }
+        }
+        await _saveChat();
+        notifyListeners();
+      }
+
+      // If cancellation was requested during realism evaluation, abort generation
+      if (_realismEvalCancelled) {
+        // The turn dies before the request phase can adopt the call-model
+        // swap — put the main model back ourselves.
+        _exitCallEvalModelSwap();
+        await _saveChat();
+        _realismEvalCancelled = false;
+        notifyListeners();
+        return;
+      }
+
+      if (addressedGuest != null) {
+        await generateGuestTurn(addressedGuest);
+      } else {
+        await _generateResponse(GenerationMode.normal);
+      }
+      // Backend-down abort: no response was generated, so none of the
+      // post-turn work below may run — no idle-timer arming, no chip attach,
+      // no guest chime-ins against the notice text (pre-move parity: the old
+      // in-sendMessage guard returned before all of this).
+      if (_messages.isNotEmpty && _messages.last.text == _kBackendDownNotice) {
+        return;
+      }
+      // First exchange complete — arm idle timer
+      _hasCompletedExchange = true;
+      if (_storageService.generationSettings.dynamicResponses) {
+        debugPrint(
+          '[DynamicResponses] First exchange done, arming idle timer (interval=${_storageService.generationSettings.dynamicResponseInterval}s)',
+        );
+        _resetIdleTimer();
+      }
+
+      // Long-gen decay removed with buffers (decay via tick only now; model deltas via impact).
+      // Compute needs_deltas AFTER generation so the post-generation checks
+      // (climax, sexual activity, daily activities, fulfillment) are reflected.
+      // This ensures UI chips show accurate deltas.
+      // Per-message needs-delta chips are attached inside _generateResponse (via
+      // _attachNeedsDeltaChipToLastMessage) so EVERY speaker gets them — group
+      // auto-advance, /speak and chime-ins reach _generateResponse but never this
+      // sendMessage scope, which is why only the first responder used to show
+      // chips. preTurnVector is still stamped above as the message's baseline.
+
+      // ── Scene Guests: auto chime-in ─────────────────────────────────────────
+      // The primary 1:1 turn is now 100% finalized (response + chip/realism block
+      // above). Let the director decide which guest(s) speak next. Shared with
+      // regenerateMainCharacter() so the re-chime gate is identical after a regen.
+      // promptText (not raw text) so a photo-only turn feeds the director a
+      // "[shared a photo]" marker instead of an empty user message. A routed
+      // direct-address speaker is excluded — they already answered this turn.
+      await _maybeRunSceneGuestChimeIns(
+        userText: userMsg.promptText,
+        exclude: addressedGuest,
       );
-      _resetIdleTimer();
-    }
 
-    // Long-gen decay removed with buffers (decay via tick only now; model deltas via impact).
-    // Compute needs_deltas AFTER generation so the post-generation checks
-    // (climax, sexual activity, daily activities, fulfillment) are reflected.
-    // This ensures UI chips show accurate deltas.
-    // Per-message needs-delta chips are attached inside _generateResponse (via
-    // _attachNeedsDeltaChipToLastMessage) so EVERY speaker gets them — group
-    // auto-advance, /speak and chime-ins reach _generateResponse but never this
-    // sendMessage scope, which is why only the first responder used to show
-    // chips. preTurnVector is still stamped above as the message's baseline.
-
-    // ── Scene Guests: auto chime-in ─────────────────────────────────────────
-    // The primary 1:1 turn is now 100% finalized (response + chip/realism block
-    // above). Let the director decide which guest(s) speak next. Shared with
-    // regenerateMainCharacter() so the re-chime gate is identical after a regen.
-    // promptText (not raw text) so a photo-only turn feeds the director a
-    // "[shared a photo]" marker instead of an empty user message. A routed
-    // direct-address speaker is excluded — they already answered this turn.
-    await _maybeRunSceneGuestChimeIns(
-      userText: userMsg.promptText,
-      exclude: addressedGuest,
-    );
-
-    // ── Auto-caption the attached photo for future-turn history ─────────────
-    // Vision path only (blind models were captioned pre-gen). Runs LAST so the
-    // eval never delays the response or guest turns; this turn already saw the
-    // pixels, so the caption just lets later turns' history describe the photo.
-    if (imagePath != null) {
-      await runVisionPhotoCaption(userMsg, imagePath, sessionToken);
+      // ── Auto-caption the attached photo for future-turn history ─────────────
+      // Vision path only (blind models were captioned pre-gen). Runs LAST so the
+      // eval never delays the response or guest turns; this turn already saw the
+      // pixels, so the caption just lets later turns' history describe the photo.
+      if (imagePath != null) {
+        await runVisionPhotoCaption(userMsg, imagePath, sessionToken);
+      }
+    } finally {
+      _toolProbe.endUserSend(_evalBackendIdentity);
     }
   }
 

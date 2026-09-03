@@ -21,7 +21,6 @@ import 'dart:developer';
 
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
-import 'package:front_porch_ai/services/llm_service.dart' show LlmToolResponse;
 
 /// A side character the primary (host) narrated into the scene who looks like a
 /// recurring, named participant the user might want to promote to a Scene Guest.
@@ -62,11 +61,7 @@ class CastDetector {
     required String Function() getUserName,
     required List<String> Function() getSceneGuestNames,
     required Set<String> Function() getOfferedOrIgnoredNames,
-    Future<LlmToolResponse?> Function(
-      String prompt,
-      List<Map<String, dynamic>> tools,
-    )?
-    fireToolEval,
+    Object? fireToolEval,
     ToolTransportProbe? probe,
     String Function()? getBackendIdentity,
   }) : _getRecentPrimaryTexts = getRecentPrimaryTexts,
@@ -90,11 +85,7 @@ class CastDetector {
 
   // Tools transport (nullable — tests and tool-less hosts stay on the text
   // path; the god wires the shared probe/door the other evals use).
-  final Future<LlmToolResponse?> Function(
-    String prompt,
-    List<Map<String, dynamic>> tools,
-  )?
-  _fireToolEval;
+  final Object? _fireToolEval;
   final ToolTransportProbe? _probe;
   final String Function()? _getBackendIdentity;
 
@@ -118,6 +109,7 @@ class CastDetector {
             callToText: (resp) =>
                 realismToolCallToJson(kCastDetectTool, resp.calls),
             fireToolEval: _fireToolEval,
+            toolChoice: kCastDetectTool,
             fireTextEval: (p, {onChunk}) => _fireLLMEval(p),
           )
         : await _fireLLMEval(_buildPrompt(texts, toolsMode: false));
@@ -143,12 +135,12 @@ class CastDetector {
         'NOT a one-off passing mention, NOT $host, NOT $user.\n\n'
         'Recent narration:\n$narration\n\n'
         '${toolsMode ? 'Report by calling the $kCastDetectTool tool: pass their name and a short '
-              'descriptor when there is exactly one such recurring named character, or call it '
-              'with no name when there is none. Use ONLY the tool — no plain-text reply.' : 'If there is exactly one such recurring named character, respond with '
-              'ONLY this JSON: {"name": "<their name>", "descriptor": "<a short '
-              'phrase describing who they are>"}\n'
-              'If there is no such character (or only passing mentions), respond with '
-              'ONLY: {"name": null}'}';
+                  'descriptor when there is exactly one such recurring named character, or call it '
+                  'with no name when there is none. Use ONLY the tool — no plain-text reply.' : 'If there is exactly one such recurring named character, respond with '
+                  'ONLY this JSON: {"name": "<their name>", "descriptor": "<a short '
+                  'phrase describing who they are>"}\n'
+                  'If there is no such character (or only passing mentions), respond with '
+                  'ONLY: {"name": null}'}';
   }
 
   /// Parse the strict JSON reply into a candidate (pre-filter). Tolerant of
@@ -275,12 +267,49 @@ class CastDetector {
       .toSet();
 
   static const Set<String> _nameStopwords = {
-    'the', 'and', 'her', 'his', 'old', 'young', 'big', 'mrs', 'miss', 'dr',
-    'doctor', 'professor', 'prof', 'sir', 'lady', 'lord', 'madam', 'madame',
-    'master', 'mistress', 'captain', 'major', 'colonel', 'general', 'sergeant',
-    'officer', 'detective', 'king', 'queen', 'prince', 'princess', 'duke',
-    'duchess', 'count', 'countess', 'baron', 'father', 'mother', 'brother',
-    'sister', 'uncle', 'aunt', 'saint',
+    'the',
+    'and',
+    'her',
+    'his',
+    'old',
+    'young',
+    'big',
+    'mrs',
+    'miss',
+    'dr',
+    'doctor',
+    'professor',
+    'prof',
+    'sir',
+    'lady',
+    'lord',
+    'madam',
+    'madame',
+    'master',
+    'mistress',
+    'captain',
+    'major',
+    'colonel',
+    'general',
+    'sergeant',
+    'officer',
+    'detective',
+    'king',
+    'queen',
+    'prince',
+    'princess',
+    'duke',
+    'duchess',
+    'count',
+    'countess',
+    'baron',
+    'father',
+    'mother',
+    'brother',
+    'sister',
+    'uncle',
+    'aunt',
+    'saint',
   };
 
   String _oneLine(String s) => s.replaceAll(RegExp(r'\s+'), ' ').trim();

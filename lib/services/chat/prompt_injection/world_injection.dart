@@ -47,10 +47,13 @@ String buildWorldInjection(List<World> worlds) {
   var used = 0;
   for (final w in worlds) {
     final desc = w.injectDescription ? w.description.trim() : '';
-    final traits = [
-      atmosphereLine(w.atmosphere),
-      gravityLine(w.gravity),
-    ].nonNulls.join(' ');
+    // Lorebook-only worlds carry no physical-world traits.
+    final traits = w.climateEnabled
+        ? [
+            atmosphereLine(w.atmosphere),
+            gravityLine(w.gravity),
+          ].nonNulls.join(' ')
+        : '';
     if (desc.isEmpty && traits.isEmpty) continue;
     final header = w.name.trim().isEmpty ? 'This place' : w.name.trim();
     final body = [

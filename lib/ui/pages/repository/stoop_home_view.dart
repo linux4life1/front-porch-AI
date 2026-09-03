@@ -23,6 +23,7 @@ import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_my_upload_tile.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_profile_header.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_upload_page.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_verify_banner.dart';
 
 /// The signed-in @you tab, per the approved profile mockup: a real identity
@@ -156,10 +157,7 @@ class _StoopHomeViewState extends State<StoopHomeView> {
               label: 'Share to The Stoop',
               icon: Icons.upload_outlined,
               onPressed: _startUpload,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
           ),
           if (_mine.isEmpty)
@@ -218,6 +216,7 @@ class _StoopHomeViewState extends State<StoopHomeView> {
     final creator = StoopCreator(
       id: user.id,
       displayName: user.displayName,
+      verification: user.verification,
       followers: p?.followers ?? 0,
       following: false,
       isMe: true,
@@ -305,6 +304,7 @@ class _StoopHomeViewState extends State<StoopHomeView> {
               f.displayName,
               style: TextStyle(color: stoopCream(context), fontSize: 13),
             ),
+            StoopVerifiedBadge(verification: f.verification, size: 13),
             const SizedBox(width: 8),
             Text(
               '${f.followers} ${f.followers == 1 ? 'follower' : 'followers'}',
@@ -340,8 +340,11 @@ class _StoopHomeViewState extends State<StoopHomeView> {
       padding: const EdgeInsets.all(40),
       children: [
         const SizedBox(height: 60),
-        Text(glyph, textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 34)),
+        Text(
+          glyph,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 34),
+        ),
         const SizedBox(height: 14),
         Text(
           text,

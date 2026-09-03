@@ -91,6 +91,7 @@ class NeedsImpactEvaluator {
     Map<String, int>? previousDeltas,
     Map<String, int>? currentNeeds,
     int? decayTurns,
+    Set<String> onlyNeeds,
   })
   evaluateNeedsImpactCall;
   final Future<VerificationResult> Function({
@@ -697,6 +698,7 @@ class NeedsImpactEvaluator {
         strength: strength,
         userCritique: critique,
         previousDeltas: oldDeltas,
+        onlyNeeds: onlyNeeds,
       );
 
       // C: bounded retry on empty/fragile (one extra attempt with emphasis)
@@ -704,12 +706,16 @@ class NeedsImpactEvaluator {
         debugPrint(
           '[Realism:Needs] reprocess empty response, retrying once...',
         );
+        final retryAsk = onlyNeeds.isEmpty
+            ? 'Output ONLY the flat JSON now with all seven _delta keys.'
+            : 'Output ONLY the flat JSON now with '
+                  '${onlyNeeds.map((k) => '${k}_delta').join(', ')}.';
         text = await evaluateNeedsImpactCall(
           responseText,
           strength: strength,
-          userCritique:
-              '$critique Output ONLY the flat JSON now with all seven _delta keys.',
+          userCritique: '$critique $retryAsk',
           previousDeltas: oldDeltas,
+          onlyNeeds: onlyNeeds,
         );
       }
 

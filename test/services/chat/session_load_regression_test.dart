@@ -57,6 +57,14 @@ void _setupPathProviderMock() {
 CharacterCard _card(String name, String dbId) =>
     CharacterCard(name: name)..dbId = dbId;
 
+
+/// Settle fire-and-forget Drift requests inside this test's zone.
+Future<void> _drainPendingDrift() async {
+  for (var i = 0; i < 50; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
@@ -67,7 +75,11 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    db = AppDatabase.forTesting();
+    // Same isolate: CI at 7cb122bf failed twice with Drift
+    // "Channel was closed before receiving a response" — a background
+    // isolate killed in the previous tearDown while persona load / porch
+    // import was still in flight. No isolate channel, nothing to race.
+    db = AppDatabase.forTesting(sameIsolate: true);
     storage = StorageService();
     final personas = UserPersonaService(db);
     final worlds = WorldRepository(storage, db);
@@ -77,7 +89,12 @@ void main() {
 
   tearDown(() async {
     chat.dispose();
+    // Drain unawaited Drift work (persona _loadPersonas, porch import)
+    // so it finishes on a live executor. Then close, then drain again
+    // so a leftover request cannot land in the next test's zone.
+    await _drainPendingDrift();
     await db.close();
+    await _drainPendingDrift();
   });
 
   /// Seeds a session for [characterId] whose stored generation_settings
@@ -202,6 +219,9 @@ void main() {
   group('shared session-scalar hydrate (refactor Step 2)', () {
     test('history-picked session restores Chaos Mode state (bug #1)',
         () async {
+      // Pin: loadSession fires unawaited porch import. File setUp uses
+      // sameIsolate + tearDown drains/closes so this cannot flake as
+      // Drift "Channel was closed" (CI job 99190537433, twice).
       // Older session: chaos ON with built-up pressure.
       await db.insertSession(
         SessionsCompanion.insert(

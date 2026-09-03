@@ -22,6 +22,7 @@ import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/db_reunification_insert.dart';
 
 /// Result of diffing the old stable DB against the (now-primary) beta DB.
 /// Contains lists of items that exist ONLY in the old stable DB.
@@ -363,7 +364,7 @@ class DbReunificationService {
         final charRow = charRows.first;
 
         // Insert character into primary DB
-        await _insertRowFromQuery(primaryDb, 'characters', charRow);
+        await insertRowFromQuery(primaryDb, 'characters', charRow);
 
         // Import all sessions for this character
         final sessions = await tempDb
@@ -375,7 +376,7 @@ class DbReunificationService {
 
         for (final session in sessions) {
           final sessionId = session.read<String>('id');
-          await _insertRowFromQuery(primaryDb, 'sessions', session);
+          await insertRowFromQuery(primaryDb, 'sessions', session);
 
           // Import all messages for this session
           final messages = await tempDb
@@ -386,7 +387,7 @@ class DbReunificationService {
               .get();
 
           for (final message in messages) {
-            await _insertRowFromQuery(primaryDb, 'messages', message);
+            await insertRowFromQuery(primaryDb, 'messages', message);
           }
 
           debugPrint(
@@ -409,10 +410,20 @@ class DbReunificationService {
             .get();
 
         for (final row in rows) {
-          await _insertRowFromQuery(primaryDb, 'groups', row);
+          await insertRowFromQuery(primaryDb, 'groups', row);
+
+          final groupId = row.read<String>('id');
+          final members = await tempDb
+              .customSelect(
+                'SELECT * FROM group_members WHERE group_id = ?',
+                variables: [Variable(groupId)],
+              )
+              .get();
+          for (final member in members) {
+            await insertRowFromQuery(primaryDb, 'group_members', member);
+          }
 
           // Import sessions for this group
-          final groupId = row.read<String>('id');
           final sessions = await tempDb
               .customSelect(
                 'SELECT * FROM sessions WHERE group_id = ? AND deleted_at IS NULL',
@@ -422,7 +433,7 @@ class DbReunificationService {
 
           for (final session in sessions) {
             final sessionId = session.read<String>('id');
-            await _insertRowFromQuery(primaryDb, 'sessions', session);
+            await insertRowFromQuery(primaryDb, 'sessions', session);
 
             final messages = await tempDb
                 .customSelect(
@@ -432,7 +443,7 @@ class DbReunificationService {
                 .get();
 
             for (final message in messages) {
-              await _insertRowFromQuery(primaryDb, 'messages', message);
+              await insertRowFromQuery(primaryDb, 'messages', message);
             }
           }
         }
@@ -449,7 +460,7 @@ class DbReunificationService {
             .get();
 
         for (final row in rows) {
-          await _insertRowFromQuery(primaryDb, 'personas', row);
+          await insertRowFromQuery(primaryDb, 'personas', row);
         }
         debugPrint('[Reunification] Imported persona: $personaName');
       }
@@ -464,7 +475,7 @@ class DbReunificationService {
             .get();
 
         for (final row in rows) {
-          await _insertRowFromQuery(primaryDb, 'worlds', row);
+          await insertRowFromQuery(primaryDb, 'worlds', row);
         }
         debugPrint('[Reunification] Imported world: $worldName');
       }
@@ -478,22 +489,5 @@ class DbReunificationService {
         await tempDir.delete(recursive: true);
       } catch (_) {}
     }
-  }
-
-  /// Insert a QueryRow into a target table using raw SQL (INSERT OR IGNORE).
-  static Future<void> _insertRowFromQuery(
-    AppDatabase db,
-    String tableName,
-    QueryRow row,
-  ) async {
-    final data = row.data;
-    final columns = data.keys.toList();
-    final placeholders = List.filled(columns.length, '?').join(', ');
-    final values = columns.map((c) => Variable(data[c])).toList();
-
-    await db.customInsert(
-      'INSERT OR IGNORE INTO $tableName (${columns.join(', ')}) VALUES ($placeholders)',
-      variables: values,
-    );
   }
 }

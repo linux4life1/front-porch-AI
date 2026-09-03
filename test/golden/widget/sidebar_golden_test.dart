@@ -42,6 +42,7 @@ import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/charac
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/summary_section.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/sidebar_tokens.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/author_note_section.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/chaos_panel.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/lorebook_panel.dart';
@@ -115,6 +116,36 @@ void main() {
     );
   });
 
+  testWidgets('TimeStrip — morning, tight wrap', (tester) async {
+    final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
+    addTearDown(chat.dispose);
+    await expectThemedGoldens(
+      tester,
+      child: SizedBox(
+        width: SidebarTokens.minWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: TimeStrip(chat: chat),
+        ),
+      ),
+      group: 'sidebar',
+      name: 'time_strip_morning_tight',
+      surface: const Size(260, 160),
+    );
+  });
+
+  testWidgets('TimeStrip — morning, wide single row', (tester) async {
+    final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
+    addTearDown(chat.dispose);
+    await expectThemedGoldens(
+      tester,
+      child: SizedBox(width: 480, child: TimeStrip(chat: chat)),
+      group: 'sidebar',
+      name: 'time_strip_morning_wide',
+      surface: const Size(520, 120),
+    );
+  });
+
   testWidgets('PorchAccordion — collapsed and expanded', (tester) async {
     await expectThemedGoldens(
       tester,
@@ -152,8 +183,113 @@ void main() {
     );
   });
 
-  testWidgets('CharacterStateGroup — 1:1 with Lust bar and fixation',
-      (tester) async {
+  testWidgets('PorchAccordion — long subtitle, tight wrap', (tester) async {
+    await expectThemedGoldens(
+      tester,
+      child: Builder(
+        builder: (context) => SizedBox(
+          width: SidebarTokens.minWidth,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: PorchAccordion(
+              id: 'demo_tight',
+              emoji: '🎭',
+              title: 'Character State',
+              subtitle: 'Fond · Trusting · Evening',
+              accent: AppColors.porchTerracottaOf(context),
+              child: const Text('body'),
+            ),
+          ),
+        ),
+      ),
+      group: 'sidebar',
+      name: 'porch_accordion_tight',
+      surface: const Size(260, 140),
+    );
+  });
+
+  testWidgets(
+    'PorchAccordion — titles at sidebar min with Character State trailing',
+    (tester) async {
+      const titles = [
+        ('🎭', 'Character State'),
+        ('📖', 'Journal & Memory'),
+        ('🎯', 'Objectives'),
+      ];
+      await expectThemedGoldens(
+        tester,
+        child: Builder(
+          builder: (context) => SizedBox(
+            width: SidebarTokens.minWidth,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  for (final (emoji, title) in titles)
+                    PorchAccordion(
+                      id: title,
+                      emoji: emoji,
+                      title: title,
+                      subtitle: 'Fond · Trusting · Evening',
+                      accent: AppColors.porchTerracottaOf(context),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            child: FittedBox(
+                              child: Switch(value: true, onChanged: (_) {}),
+                            ),
+                          ),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            iconSize: 15,
+                            icon: const Icon(Icons.tune),
+                            onPressed: () {},
+                          ),
+                        ],
+                      ),
+                      child: const SizedBox.shrink(),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        group: 'sidebar',
+        name: 'porch_accordion_clamp_230',
+        surface: const Size(280, 360),
+      );
+    },
+  );
+
+  testWidgets('PorchAccordion — long subtitle, wide title intact', (
+    tester,
+  ) async {
+    await expectThemedGoldens(
+      tester,
+      child: Builder(
+        builder: (context) => SizedBox(
+          width: 360,
+          child: PorchAccordion(
+            id: 'demo_wide',
+            emoji: '🎭',
+            title: 'Character State',
+            subtitle: 'Fond · Trusting · Evening',
+            accent: AppColors.porchTerracottaOf(context),
+            child: const Text('body'),
+          ),
+        ),
+      ),
+      group: 'sidebar',
+      name: 'porch_accordion_wide',
+      surface: const Size(400, 120),
+    );
+  });
+
+  testWidgets('CharacterStateGroup — 1:1 with Lust bar and fixation', (
+    tester,
+  ) async {
     final chat = FakeChatService(
       activeCharacter: CharacterCard(name: 'Aria Vale'),
       characterEmotion: 'affection',
@@ -243,7 +379,8 @@ void main() {
 
   testWidgets('SummarySection — populated recap', (tester) async {
     final chat = FakeChatService(
-      summary: '{{user}} and {{char}} agreed to meet at the harbor at dawn '
+      summary:
+          '{{user}} and {{char}} agreed to meet at the harbor at dawn '
           'after {{char}} admitted the lighthouse logs were forged.',
       summaryLastIndex: 12,
     );
@@ -286,12 +423,18 @@ void main() {
   testWidgets('LorebookSection — character with entries', (tester) async {
     final character = CharacterCard(
       name: 'Aria Vale',
-      lorebook: Lorebook(entries: [
-        LorebookEntry(
-            key: 'lighthouse', content: 'The lamp at the cape never goes dark.'),
-        LorebookEntry(
-            key: 'storm', content: 'A wreck washed in last winter; salvage debts linger.'),
-      ]),
+      lorebook: Lorebook(
+        entries: [
+          LorebookEntry(
+            key: 'lighthouse',
+            content: 'The lamp at the cape never goes dark.',
+          ),
+          LorebookEntry(
+            key: 'storm',
+            content: 'A wreck washed in last winter; salvage debts linger.',
+          ),
+        ],
+      ),
     );
     await expectThemedGoldens(
       tester,

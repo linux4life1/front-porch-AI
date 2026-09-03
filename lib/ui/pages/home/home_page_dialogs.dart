@@ -244,10 +244,11 @@ extension _HomePageDialogs on _HomePageState {
     if (result == null || result.files.isEmpty) return;
     if (!context.mounted) return;
 
-    final files = result.files
-        .where((f) => f.path != null)
-        .map((f) => File(f.path!))
-        .toList();
+    final files = <File>[];
+    for (final f in result.files) {
+      final path = await PickerPrefs.localPathOrTemp(f);
+      if (path != null) files.add(File(path));
+    }
 
     if (files.isEmpty) return;
 
@@ -308,10 +309,11 @@ extension _HomePageDialogs on _HomePageState {
     );
 
     if (result == null || result.files.isEmpty) return;
-    final paths = result.files
-        .where((f) => f.path != null)
-        .map((f) => f.path!)
-        .toList();
+    final paths = <String>[];
+    for (final f in result.files) {
+      final path = await PickerPrefs.localPathOrTemp(f);
+      if (path != null) paths.add(path);
+    }
     if (paths.isEmpty || !context.mounted) return;
 
     // Multiple files → bulk import with a progress dialog (no per-file preview),

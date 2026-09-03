@@ -127,10 +127,9 @@ void main() {
           askedCategory = category;
           askedExtensions = allowedExtensions;
           return FilePickerResult([
-            PlatformFile(
-              path: bookFile.path,
+            MemoryPlatformFile(
               name: bookFile.uri.pathSegments.last,
-              size: bookFile.lengthSync(),
+              bytes: bookFile.readAsBytesSync(),
             ),
           ]);
         };

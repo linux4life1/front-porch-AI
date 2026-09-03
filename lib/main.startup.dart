@@ -197,8 +197,9 @@ Future<({AppDatabase db, bool needsMigration})?> _openDatabaseGuarded() async {
 }
 
 Future<void> _showMainWindow() async {
-  WindowOptions windowOptions = const WindowOptions(
-    size: Size(1280, 720),
+  final forcedSize = WindowSizeEnv.sizeFromEnvironment();
+  final windowOptions = WindowOptions(
+    size: forcedSize ?? const Size(1280, 720),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
@@ -207,60 +208,65 @@ Future<void> _showMainWindow() async {
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    // Restore saved window state (size, position, maximized)
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final windowWidth = prefs.getDouble(_k('window_width'));
-      final windowHeight = prefs.getDouble(_k('window_height'));
-      final windowX = prefs.getDouble(_k('window_x'));
-      final windowY = prefs.getDouble(_k('window_y'));
-      final windowMaximized = prefs.getBool(_k('window_maximized')) ?? false;
+    if (forcedSize != null) {
+      // Launch hook: skip saved-bounds restore so --dart-define sizes
+      // actually show. Missing axis is 1280 or 720.
+      await windowManager.setSize(forcedSize);
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final windowWidth = prefs.getDouble(_k('window_width'));
+        final windowHeight = prefs.getDouble(_k('window_height'));
+        final windowX = prefs.getDouble(_k('window_x'));
+        final windowY = prefs.getDouble(_k('window_y'));
+        final windowMaximized = prefs.getBool(_k('window_maximized')) ?? false;
 
-      // NOTE: Users upgrading from builds before PR #53 may have saved
-      // full-screen rect values in window_* prefs (old code used
-      // unconditional getSize() in onWindowClose regardless of maximize
-      // state). setBounds(fullscreen) + maximize() could in theory
-      // reproduce ghosting, but setBounds to the already-maximized size
-      // is a no-op and the bug doesn't trigger. Even without this defense,
-      // the stale values self-heal on the first non-maximized close (which
-      // saves correct bounds).
-      //
-      // Validate the saved rect is actually visible on a connected display
-      // before applying it (issue #78 — see _windowBoundsVisible). If it
-      // isn't (Win32 minimized sentinel, or a monitor that has since been
-      // unplugged), we skip setBounds and fall through to the centered
-      // default from WindowOptions instead of stranding the window off-screen.
-      Rect? savedBounds;
-      if (windowX != null &&
-          windowY != null &&
-          windowWidth != null &&
-          windowHeight != null) {
-        final candidate = Rect.fromLTWH(
-          windowX,
-          windowY,
-          windowWidth,
-          windowHeight,
-        );
-        if (await _windowBoundsVisible(candidate)) {
-          savedBounds = candidate;
+        // NOTE: Users upgrading from builds before PR #53 may have saved
+        // full-screen rect values in window_* prefs (old code used
+        // unconditional getSize() in onWindowClose regardless of maximize
+        // state). setBounds(fullscreen) + maximize() could in theory
+        // reproduce ghosting, but setBounds to the already-maximized size
+        // is a no-op and the bug doesn't trigger. Even without this defense,
+        // the stale values self-heal on the first non-maximized close (which
+        // saves correct bounds).
+        //
+        // Validate the saved rect is actually visible on a connected display
+        // before applying it (issue #78 — see _windowBoundsVisible). If it
+        // isn't (Win32 minimized sentinel, or a monitor that has since been
+        // unplugged), we skip setBounds and fall through to the centered
+        // default from WindowOptions instead of stranding the window off-screen.
+        Rect? savedBounds;
+        if (windowX != null &&
+            windowY != null &&
+            windowWidth != null &&
+            windowHeight != null) {
+          final candidate = Rect.fromLTWH(
+            windowX,
+            windowY,
+            windowWidth,
+            windowHeight,
+          );
+          if (await _windowBoundsVisible(candidate)) {
+            savedBounds = candidate;
+          }
         }
-      }
 
-      if (windowMaximized) {
-        // Restore the non-maximized bounds first (so the OS remembers
-        // the correct "restore down" size), then maximize. This never
-        // puts the window at full-screen size in non-maximized state,
-        // which was the root cause of the Windows ghost frame issue.
-        if (savedBounds != null) {
+        if (windowMaximized) {
+          // Restore the non-maximized bounds first (so the OS remembers
+          // the correct "restore down" size), then maximize. This never
+          // puts the window at full-screen size in non-maximized state,
+          // which was the root cause of the Windows ghost frame issue.
+          if (savedBounds != null) {
+            await windowManager.setBounds(savedBounds);
+          }
+          await windowManager.maximize();
+        } else if (savedBounds != null) {
+          // Restore saved position + size
           await windowManager.setBounds(savedBounds);
         }
-        await windowManager.maximize();
-      } else if (savedBounds != null) {
-        // Restore saved position + size
-        await windowManager.setBounds(savedBounds);
+      } catch (e) {
+        debugPrint('Failed to restore window state: $e');
       }
-    } catch (e) {
-      debugPrint('Failed to restore window state: $e');
     }
 
     await windowManager.show();

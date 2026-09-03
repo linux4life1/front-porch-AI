@@ -19,6 +19,7 @@ import { StoopCardPage } from './StoopCardPage';
 import { StoopCreatorPage } from './StoopCreatorPage';
 import { StoopHomePage } from './StoopHomePage';
 import { StoopInboxPage } from './StoopInboxPage';
+import { StoopVerifiedBadge } from '../../components/stoop/StoopVerifiedBadge';
 import { StoopPolicyGate } from './StoopPolicyGate';
 
 export function StoopSection() {
@@ -75,7 +76,10 @@ function StoopShell() {
           </NavLink>
         )}
         <NavLink to="account" className={tab}>
-          <span className="stoop-tab-name">{accountLabel}</span>
+          <span className="stoop-tab-name">
+            <span className="stoop-tab-name-text">{accountLabel}</span>
+            <StoopVerifiedBadge verification={user?.verification} />
+          </span>
         </NavLink>
       </nav>
       <Routes>

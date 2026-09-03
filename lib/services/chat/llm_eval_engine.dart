@@ -23,6 +23,8 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/eval_traffic.dart';
+import 'package:front_porch_ai/services/chat/needs_impact_zero.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
@@ -35,6 +37,16 @@ import 'package:front_porch_ai/utils/reasoning_markers.dart';
 /// forever — can't park an eval and its spinner indefinitely). Generous on
 /// purpose: slow local prefill on a big journal window must still fit.
 const Duration kEvalStreamChunkTimeout = Duration(seconds: 180);
+
+/// Settle before retrying a completed-but-empty eval stream. Local thinking
+/// models often return nothing during `<think>` prefill; this pause plus an
+/// idle wait is usually enough. Injectable so tests do not wait out 2s.
+const Duration kEvalEmptyStreamSettle = Duration(seconds: 2);
+
+/// Pause after a thrown stream error before the one retry. Separate from
+/// [kEvalEmptyStreamSettle]: empty is not a connection drop. Injectable so
+/// tests do not wait out 3s.
+const Duration kEvalConnectionDropSettle = Duration(seconds: 3);
 
 /// Hang guard for the non-streaming tools-transport call (the journal/
 /// realism tool calls and the one-shot capability probe). Whole-call
@@ -255,13 +267,10 @@ class LlmEvalEngine {
   // host without the tools door stay on the text path; the god wires the
   // same _fireToolEval/_toolProbe/_evalBackendIdentity the Journal, Growth,
   // and realism evals share, so the probe answers once per run app-wide).
-  final Future<LlmToolResponse?> Function(
-    String prompt,
-    List<Map<String, dynamic>> tools,
-  )?
-  fireToolEval;
+  final Object? fireToolEval;
   final ToolTransportProbe? probe;
   final String Function()? getBackendIdentity;
+  final bool Function()? getPreferTextEvals;
 
   // LLM readiness + cancel (honors test overrides via live closure in god)
   final LLMService Function() getLlmService;
@@ -297,6 +306,12 @@ class LlmEvalEngine {
   /// can prove the guard without waiting out the production value.
   final Duration streamChunkTimeout;
 
+  /// See [kEvalEmptyStreamSettle].
+  final Duration emptyStreamSettle;
+
+  /// See [kEvalConnectionDropSettle].
+  final Duration connectionDropSettle;
+
   LlmEvalEngine({
     required this.getActiveCharacter,
     required this.getActiveGroup,
@@ -307,7 +322,10 @@ class LlmEvalEngine {
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,
+    this.getPreferTextEvals,
     this.streamChunkTimeout = kEvalStreamChunkTimeout,
+    this.emptyStreamSettle = kEvalEmptyStreamSettle,
+    this.connectionDropSettle = kEvalConnectionDropSettle,
     required this.getLlmService,
     required this.getIsLocal,
     required this.getKoboldService,
@@ -437,34 +455,16 @@ class LlmEvalEngine {
 
     final trafficWatch = Stopwatch()..start();
     String response = '';
-    // Retry loop: thinking models can cause KoboldCPP to drop the connection
-    // briefly (OOM during dense thinking sessions). One retry after a short
-    // pause is enough to recover without user-visible impact.
+    // Retry loop: one extra attempt. Empty completed streams retry only on
+    // a local backend (thinking-model <think> prefill). Thrown stream errors
+    // retry after [connectionDropSettle] on any backend (the oMLX hang
+    // guard). The empty path used to `continue` into the drop delay as well,
+    // so every unmatched ScriptedLlm eval stalled 5s.
     for (int attempt = 0; attempt < 2; attempt++) {
-      // If cancellation has been requested, abort before attempting a new stream
       if (getIsCancellingRealismEval() || getRealismEvalCancelled()) {
         debugPrint(
           '[Realism] evaluation cancelled before attempt ${attempt + 1}',
         );
-        return null;
-      }
-      if (attempt > 0) {
-        debugPrint(
-          '[Realism:Eval] Retrying after connection drop (attempt ${attempt + 1})...',
-        );
-        await Future.delayed(const Duration(seconds: 3));
-        final bool retryIsLocal = getIsLocal();
-        if (retryIsLocal) {
-          final k = getKoboldService();
-          if (k != null) {
-            await ensureServerIdle();
-          }
-        }
-        response = ''; // reset for clean retry
-      }
-      // If cancellation occurred during setup, bail out before streaming
-      if (getIsCancellingRealismEval() || getRealismEvalCancelled()) {
-        debugPrint('[Realism] eval cancelled before streaming');
         return null;
       }
       try {
@@ -508,15 +508,26 @@ class LlmEvalEngine {
           return null;
         }
 
-        // Handle empty responses (common with local thinking models during <think> prefill).
-        // Retry once after a short settle + idle wait. Critical for reliable manual
-        // Needs reprocess and other evals on Kobold thinking setups.
+        // Empty completed stream: common with local thinking models during
+        // <think> prefill. Remote APIs and test fakes returning "" is a real
+        // empty — retrying them is how With-you (and any other unmatched
+        // eval) stalled every ScriptedLlm chat test 5s per call.
         if (response.trim().isEmpty && attempt < 1) {
+          if (getIsCancellingRealismEval() || getRealismEvalCancelled()) {
+            debugPrint('[Realism] eval cancelled on empty stream; no retry');
+            return null;
+          }
+          if (!effectiveIsLocal) {
+            debugPrint(
+              '[Realism:Eval] Empty stream on non-local backend; no retry',
+            );
+            break;
+          }
           debugPrint(
             '[Realism:Eval] Empty stream response, retrying after settle...',
           );
-          await Future.delayed(const Duration(seconds: 2));
-          if (effectiveIsLocal) await ensureServerIdle();
+          await Future.delayed(emptyStreamSettle);
+          await ensureServerIdle();
           response = '';
           continue;
         }
@@ -536,7 +547,7 @@ class LlmEvalEngine {
       } catch (e) {
         debugPrint('[Realism:Eval] Stream error on attempt ${attempt + 1}: $e');
         // Check if cancellation was requested during the error handling
-        if (getIsCancellingRealismEval()) {
+        if (getIsCancellingRealismEval() || getRealismEvalCancelled()) {
           debugPrint('[Realism] eval cancelled during error handling');
           return null;
         }
@@ -544,7 +555,15 @@ class LlmEvalEngine {
           // Second failure — give up silently; don't surface to UI
           return null;
         }
-        // else: fall through to retry
+        debugPrint(
+          '[Realism:Eval] Retrying after connection drop (attempt ${attempt + 2})...',
+        );
+        await Future.delayed(connectionDropSettle);
+        if (getIsLocal()) {
+          final k = getKoboldService();
+          if (k != null) await ensureServerIdle();
+        }
+        response = '';
       }
     }
 
@@ -582,6 +601,7 @@ class LlmEvalEngine {
     Map<String, int>? previousDeltas,
     Map<String, int>? currentNeeds,
     int? decayTurns,
+    Set<String> onlyNeeds = const {},
   }) async {
     if (!getRealismEnabled()) return null;
     if (getActiveCharacter() == null && getActiveGroup() == null) return null;
@@ -623,6 +643,15 @@ class LlmEvalEngine {
                     'do not subtract any baseline drift.\n\n')
         : '';
 
+    final scoped = {
+      for (final k in onlyNeeds)
+        if (NeedsSimulation.needKeys.contains(k)) k,
+    };
+    final askedKeys = scoped.isEmpty
+        ? NeedsSimulation.needKeys
+        : scoped.toList();
+    final deltaAsk = askedKeys.map((k) => '"${k}_delta": <int>').join(', ');
+
     String buildPrompt({required bool toolsMode}) {
       // The format sections below are the ONLY difference between the tools
       // and text transports — every guideline/magnitude line is shared, so
@@ -641,7 +670,7 @@ class LlmEvalEngine {
           ? 'Report the result by calling the $kNeedsImpactTool tool. '
                 'Use ONLY the tool — no plain-text reply.\n'
           : 'Respond with ONLY a flat JSON object. Do NOT use markdown code blocks — return raw JSON only:\n'
-                '{"hunger_delta": <int>, "energy_delta": <int>, "hygiene_delta": <int>, "fun_delta": <int>, "social_delta": <int>, "bladder_delta": <int>, "comfort_delta": <int>, ';
+                '{$deltaAsk, ';
       if (decayTurns != null) {
         // ── AFK auto-response simplified prompt ──────────────────────────
         // The normal evaluator prompt (~2000 chars) is too complex for
@@ -690,11 +719,9 @@ class LlmEvalEngine {
                 'USER CRITIQUE (The user noticed an issue with the deltas that MUST be fixed):\n"$userCritique"\n\n'
                 'Analyze what actually occurred and output a corrected set of net signed effects (deltas) on each need.\n\n'
                 'User has set Needs delta strength to ${strength}x. Emit deltas with magnitude scaled by this factor.\n\n'
-                'Even if the critique suggests little/no change, you MUST output the complete flat JSON with all seven _delta keys (0 is valid). Do not omit fields.\n\n'
+                '${scoped.isEmpty ? 'Even if the critique suggests little/no change, you MUST output the complete flat JSON with all seven _delta keys (0 is valid). Do not omit fields.\n\n' : 'Reconsider ONLY ${scoped.join(', ')}. Do not emit any other need — those values are already correct and will be kept. Output ONLY {$deltaAsk, "reason": "<brief>"}.\n\n'}'
                 'MAGNITUDE: needs run 0–100 (100 = fully satisfied); ±8 BARELY registers. When the scene SATISFIES/RESTORES a need, use a LARGE positive delta so it actually fills — using the bathroom → bladder +60 to +100; a full meal → hunger +50 to +90; sleeping / a long rest → energy +60 to +100; cozy solitude, lounging, drowsing → comfort +20 to +45, energy +10 to +30; a thorough wash → hygiene +50 to +90. Reserve small numbers for incidental effects, never a complete relief. (1x baselines; scale by the strength above.)\n\n'
-                'Examples of valid correction output:\n'
-                '{"hunger_delta": 8, "energy_delta": 0, "hygiene_delta": -2, "fun_delta": 5, "social_delta": 0, "bladder_delta": 0, "comfort_delta": 1, "reason": "ate snack per critique"}\n'
-                '{"hunger_delta": 0, "energy_delta": 0, "hygiene_delta": 0, "fun_delta": 0, "social_delta": 0, "bladder_delta": 0, "comfort_delta": 0, "reason": "no notable need impact"}\n\n' +
+                '${scoped.isEmpty ? 'Examples of valid correction output:\n{"hunger_delta": 8, "energy_delta": 0, "hygiene_delta": -2, "fun_delta": 5, "social_delta": 0, "bladder_delta": 0, "comfort_delta": 1, "reason": "ate snack per critique"}\n{"hunger_delta": 0, "energy_delta": 0, "hygiene_delta": 0, "fun_delta": 0, "social_delta": 0, "bladder_delta": 0, "comfort_delta": 0, "reason": "no notable need impact"}\n\n' : 'Example: {$deltaAsk, "reason": "rested per critique"}\n\n'}' +
             flatJsonAsk +
             (toolsMode
                 ? ''
@@ -753,9 +780,9 @@ class LlmEvalEngine {
                 'Partial or interrupted versions get proportionally smaller deltas. Reserve small numbers (±1 to ±8) for INCIDENTAL effects, never for a complete relief or restoration. (These are 1x baselines — scale by the strength factor above.)\n\n' +
             flatJsonAsk +
             (toolsMode
-                ? 'If the scene had little or no notable effect on needs, use small numbers or zeros and a short reason.'
+                ? 'Individual needs may be 0. All seven 0 is a failed eval — score what the beat did to her body and mood.'
                 : '"reason": "<brief grounded reason for the deltas>" }\n'
-                      'If the scene had little or no notable effect on needs, use small numbers or zeros and a short reason.');
+                      'Individual needs may be 0. All seven 0 is a failed eval — score what the beat did to her body and mood.');
       }
     }
 
@@ -768,7 +795,12 @@ class LlmEvalEngine {
       // Tools transport when wired (the shared negotiation — one probe per
       // backend identity per run, shared app-wide); plain text path otherwise
       // (tests / hosts without the tools door).
-      final raw = fireToolEval != null && probe != null
+      // A scoped reprocess (user ticked Energy, not all seven) skips the
+      // tools+text pair: the tool schema is the fixed seven-field contract,
+      // and falling back after an empty tool call is how one Energy click
+      // became four oMLX jobs.
+      final useTools = scoped.isEmpty && fireToolEval != null && probe != null;
+      final raw = useTools
           ? await fireStructuredEval(
               probe: probe!,
               backendIdentity: getBackendIdentity?.call() ?? '',
@@ -778,6 +810,8 @@ class LlmEvalEngine {
               callToText: (resp) =>
                   realismToolCallToJson(kNeedsImpactTool, resp.calls),
               fireToolEval: fireToolEval!,
+              toolChoice: kNeedsImpactTool,
+              getPreferTextEvals: getPreferTextEvals,
               fireTextEval: (p, {onChunk}) => fireLLMEval(
                 p,
                 onChunk: onChunk,
@@ -800,8 +834,39 @@ class LlmEvalEngine {
       // mandatory-reasoning model that parked its JSON in the think channel,
       // or was cut mid-think) must still reach the regex parse rather than
       // silently skipping the needs turn.
-      final text = searchText.trim().isNotEmpty ? searchText : raw;
+      var text = searchText.trim().isNotEmpty ? searchText : raw;
       if (text.trim().isEmpty) return null;
+      if (scoped.isEmpty && !needsImpactHasNonZeroDelta(text)) {
+        final usedTools =
+            useTools &&
+            (probe?.shouldFireTools(
+                  getBackendIdentity?.call() ?? '',
+                  preferTextEvals: getPreferTextEvals?.call() ?? false,
+                ) ??
+                false);
+        final recovered = await recoverNeedsImpactIfAllZero(
+          first: text,
+          retryText: usedTools
+              ? () => fireLLMEval(
+                  buildPrompt(toolsMode: false),
+                  onChunk: onChunk,
+                  repeatPenalty: kScalarEvalRepeatPenalty,
+                  label: 'needs',
+                )
+              : () async => null,
+          repair: () => fireLLMEval(
+            needsImpactAllZeroRepairPrompt(responseText, strength),
+            onChunk: onChunk,
+            repeatPenalty: kScalarEvalRepeatPenalty,
+            label: 'needs',
+          ),
+          stripThink: stripThinkBlocks,
+        );
+        if (recovered != text) {
+          debugPrint('[Realism:Needs] all-zero rejected; using recovered JSON');
+          text = recovered;
+        }
+      }
       return text;
     } catch (e) {
       debugPrint('[Realism:Needs] Engine impact call failed: $e');

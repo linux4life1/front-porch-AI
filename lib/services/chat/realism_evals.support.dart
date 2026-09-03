@@ -39,9 +39,7 @@ extension _RealismEvalSupport on RealismEvals {
     required bool applyArousal,
   }) async {
     if (isEvalCancelled()) return;
-    final emotionMatch = RegExp(
-      r'"emotion"\s*:\s*"([^"]+)"',
-    ).firstMatch(text);
+    final emotionMatch = RegExp(r'"emotion"\s*:\s*"([^"]+)"').firstMatch(text);
     if (emotionMatch != null) {
       setCharacterEmotion(emotionMatch.group(1)!.toLowerCase().trim());
     }
@@ -82,32 +80,48 @@ extension _RealismEvalSupport on RealismEvals {
     String objectiveRaw = '';
     String servesRaw = '';
     try {
-      final noFence = text.replaceAll(RegExp(r'```(?:json)?\s*|\s*```', dotAll: true), ' ').trim();
+      final noFence = text
+          .replaceAll(RegExp(r'```(?:json)?\s*|\s*```', dotAll: true), ' ')
+          .trim();
       final si = noFence.indexOf('{');
       final ei = noFence.lastIndexOf('}');
       if (si >= 0 && ei > si) {
         final obj = jsonDecode(noFence.substring(si, ei + 1));
         if (obj is Map) {
-          if (obj['fixation_topic'] != null) fixationRaw = obj['fixation_topic'].toString().trim();
-          if (obj['proposed_objective'] != null) objectiveRaw = obj['proposed_objective'].toString().trim();
-          if (obj['serves_ambition'] != null) servesRaw = obj['serves_ambition'].toString().trim();
+          if (obj['fixation_topic'] != null)
+            fixationRaw = obj['fixation_topic'].toString().trim();
+          if (obj['proposed_objective'] != null)
+            objectiveRaw = obj['proposed_objective'].toString().trim();
+          if (obj['serves_ambition'] != null)
+            servesRaw = obj['serves_ambition'].toString().trim();
         }
       }
     } catch (_) {}
     if (fixationRaw.isEmpty) {
-      final m = RegExp('"fixation_topic"\\s*:\\s*"([^"]*)"', dotAll: true).firstMatch(text);
+      final m = RegExp(
+        '"fixation_topic"\\s*:\\s*"([^"]*)"',
+        dotAll: true,
+      ).firstMatch(text);
       fixationRaw = m?.group(1)?.trim() ?? '';
     }
-    relationshipService.updateFixationFromEvalResult(fixationRaw.isNotEmpty ? fixationRaw : '');
+    relationshipService.updateFixationFromEvalResult(
+      fixationRaw.isNotEmpty ? fixationRaw : '',
+    );
 
     if (objectiveRaw.isEmpty) {
-      final m2 = RegExp('"proposed_objective"\\s*:\\s*"([^"]*)"', dotAll: true).firstMatch(text);
+      final m2 = RegExp(
+        '"proposed_objective"\\s*:\\s*"([^"]*)"',
+        dotAll: true,
+      ).firstMatch(text);
       objectiveRaw = m2?.group(1)?.trim() ?? '';
     }
     if (servesRaw.isEmpty) {
       // Same regex floor the other two fields get. Unquoted is allowed here
       // because a model asked for "the NUMBER" often answers with a bare 2.
-      final m3 = RegExp('"serves_ambition"\\s*:\\s*"?([^",}]*)"?', dotAll: true).firstMatch(text);
+      final m3 = RegExp(
+        '"serves_ambition"\\s*:\\s*"?([^",}]*)"?',
+        dotAll: true,
+      ).firstMatch(text);
       servesRaw = m3?.group(1)?.trim() ?? '';
     }
     // Objectives off ⇒ the character does not get to start new quests. The
@@ -172,6 +186,8 @@ extension _RealismEvalSupport on RealismEvals {
     fireTextEval: fireLLMEval,
     isCancelled: isEvalCancelled,
     onChunk: onChunk,
+    toolChoice: toolName,
+    getPreferTextEvals: getPreferTextEvals,
   );
 
   /// Shared post-fire verifier wrapper (used by all 5 realism paths + oneShot).
@@ -199,7 +215,8 @@ extension _RealismEvalSupport on RealismEvals {
     // on for a character (opt-in for higher-fidelity reviewed deltas), the full verification
     // (rule checks + possible LLM critique + re-fire up to max reprocesses) still runs.
     final char = getActiveCharacter();
-    final verifOn = (char?.frontPorchExtensions?.realismVerificationEnabled ?? false) &&
+    final verifOn =
+        (char?.frontPorchExtensions?.realismVerificationEnabled ?? false) &&
         getRealismEnabled() &&
         (getActiveGroup() == null || !getIsObserverMode());
     if (!verifOn) return textAfterStrip;

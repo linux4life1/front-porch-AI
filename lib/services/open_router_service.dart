@@ -21,11 +21,12 @@ import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/llm_tool_parsing.dart';
+import 'package:front_porch_ai/services/openai_completions_fallback.dart';
+import 'package:front_porch_ai/services/openai_tool_payload.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
 import 'package:front_porch_ai/services/remote_model_info.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
-import 'package:front_porch_ai/services/openai_completions_fallback.dart';
 
 // RemoteModelInfo lived here for years — re-export so importers keep working.
 export 'package:front_porch_ai/services/remote_model_info.dart';
@@ -95,9 +96,12 @@ class OpenRouterService extends LLMService {
   bool get isReachable => _health.isReachable;
   bool get isCheckingReachability => _health.isChecking;
 
-  /// Local backends (LM Studio, vLLM, etc.) are usable without an API key.
-  bool get _isLocalUrl =>
-      _apiUrl.contains('localhost') || _apiUrl.contains('127.0.0.1');
+  /// Local backends (oMLX, LM Studio, llama.cpp, vLLM on LAN / Tailscale)
+  /// are usable without an API key. Same predicate the effort probe uses so
+  /// a 192.168 LM Studio still gets `enable_thinking` — the old
+  /// `contains('localhost')` gate left those servers on the OpenRouter
+  /// `reasoning` object, which they ignore.
+  bool get _isLocalUrl => isLocalRemoteUrl(_apiUrl);
 
   /// Credentials + model are filled in. Not a live ping.
   bool get isConfigured =>
@@ -417,10 +421,21 @@ class OpenRouterService extends LLMService {
     // vLLM/MLX endpoint would also want this, but that's not the localhost case
     // this fixes; extend the gate if that need appears.)
     if (_isLocalUrl) {
-      payload['chat_template_kwargs'] = {
-        'enable_thinking':
-            params.reasoningEnabled && params.reasoningMaxTokens != 0,
-      };
+      final thinkOn = params.reasoningEnabled && params.reasoningMaxTokens != 0;
+      payload['chat_template_kwargs'] = {'enable_thinking': thinkOn};
+      // Heretic / uncensored templates `{% set enable_thinking = true %}`
+      // overwrite the kwarg. oMLX and llama.cpp honour thinking_budget: 0
+      // as a decode-time force-close (mlx-lm handles budget=0; oMLX's
+      // Gemma parser supplies the `<channel|>` end token). Same thinkOn
+      // bit as above, so Continue / call mode / evals clamp and a normal
+      // reply with Request thinking on does not. Omitted on stock
+      // templates — sending 0 on Gemma-4 that already honours the kwarg
+      // attaches the closer processor and can leak into the answer.
+      final clamp = thinkingBudgetClampForThinkOff(
+        _modelName,
+        thinkOn: thinkOn,
+      );
+      if (clamp != null) payload['thinking_budget'] = clamp;
     }
 
     // Add stop sequences if present
@@ -443,34 +458,31 @@ class OpenRouterService extends LLMService {
     'X-Title': 'Front Porch AI',
   };
 
-  /// OpenAI-style tool calling (non-streaming) — used by the Journal's
-  /// tool transport. Returns null when the provider ANSWERED but the call
-  /// yielded nothing usable (non-200 status, e.g. a model without tool
-  /// support): the caller treats null as "use the text transport instead".
-  /// Transport failures (host unreachable, client torn down by an app-side
-  /// abortGeneration) THROW so callers never record a capability verdict
-  /// for what was a network event — see the base-class contract.
+  /// OpenAI-style tool calling (non-streaming). Null = answered unusable;
+  /// throw = transport failure. Named `tool_choice` rides [params.toolChoice]
+  /// so the mandatory-reasoning retry forwards it by passing the same params.
   @override
   Future<LlmToolResponse?> generateWithTools(
     GenerationParams params,
     List<Map<String, dynamic>> tools,
   ) async {
     if (!isReady) return null;
-    final payload = _chatPayload(params, stream: false)
-      ..['tools'] = tools
-      ..['tool_choice'] = 'auto';
-
     final client = http.Client();
     _activeClients.add(client);
     try {
-      // No wall-clock timeout: a tool/eval call (incl. local oMLX via this same
-      // client) can legitimately run long on a slow model or reasoning pass. A
-      // dead connection throws (rethrown below as a transport failure) and
-      // Cancel aborts, so a fixed cap only killed working calls.
-      final response = await client.post(
-        Uri.parse('$_apiUrl/chat/completions'),
-        headers: _chatHeaders,
-        body: jsonEncode(payload),
+      final identity = params.backendIdentity.isEmpty
+          ? '$backendName|$_modelName|'
+          : params.backendIdentity;
+      final response = await attachToolsWithStyleRetry(
+        identity: identity,
+        tools: tools,
+        toolChoice: params.toolChoice,
+        basePayload: _chatPayload(params, stream: false),
+        post: (payload) => client.post(
+          Uri.parse('$_apiUrl/chat/completions'),
+          headers: _chatHeaders,
+          body: jsonEncode(payload),
+        ),
       );
       if (response.statusCode == 429 || response.statusCode >= 500) {
         // Rate-limited / provider hiccup: transient, not a capability

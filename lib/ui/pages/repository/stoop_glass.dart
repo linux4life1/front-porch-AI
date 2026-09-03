@@ -73,11 +73,8 @@ Color stoopFaint(BuildContext c) =>
 // ── Accents ──────────────────────────────────────────────────────────────
 
 /// Amber used AS TEXT (bright on dusk, deep on paper).
-Color stoopAmberText(BuildContext c) => AppColors.resolve(
-  c,
-  AppColors.stoopAmberHi,
-  AppColors.stoopAmberTextLight,
-);
+Color stoopAmberText(BuildContext c) =>
+    AppColors.resolve(c, AppColors.stoopAmberHi, AppColors.stoopAmberTextLight);
 
 Color stoopEmberText(BuildContext c) => AppColors.resolve(
   c,
@@ -85,11 +82,8 @@ Color stoopEmberText(BuildContext c) => AppColors.resolve(
   AppColors.stoopEmberTextLight,
 );
 
-Color stoopTealText(BuildContext c) => AppColors.resolve(
-  c,
-  AppColors.stoopTealText,
-  AppColors.stoopTealTextLight,
-);
+Color stoopTealText(BuildContext c) =>
+    AppColors.resolve(c, AppColors.stoopTealText, AppColors.stoopTealTextLight);
 
 Color stoopDusk(BuildContext c) =>
     AppColors.resolve(c, AppColors.stoopDusk, AppColors.stoopDuskLight);
@@ -185,9 +179,16 @@ InputDecoration stoopInput(
 }
 
 /// The uppercase mini-badges on card art (hub .hub-badge): PICK on the amber
-/// gradient with dark ink; GROUP teal, WORLD amber, NSFW ember — each tinted
-/// text on a deep translucent ground with a matching hairline.
-enum StoopBadgeKind { pick, featured, group, world, nsfw }
+/// gradient with dark ink; GROUP teal, WORLD amber, CLIMATE teal, LORE cream,
+/// NSFW ember — each tinted text on a deep translucent ground with a matching
+/// hairline.
+enum StoopBadgeKind { pick, featured, group, world, climate, lore, nsfw }
+
+/// WORLD plus CLIMATE or LORE. Same pill chrome as GROUP/WORLD.
+List<Widget> stoopWorldKindBadges({required bool climateEnabled}) => [
+  const StoopBadge(StoopBadgeKind.world),
+  StoopBadge(climateEnabled ? StoopBadgeKind.climate : StoopBadgeKind.lore),
+];
 
 class StoopBadge extends StatelessWidget {
   final StoopBadgeKind kind;
@@ -222,6 +223,20 @@ class StoopBadge extends StatelessWidget {
         AppColors.stoopAmberHi,
         const Color(0xBF241502),
         AppColors.stoopAmber.withValues(alpha: 0.45),
+        null,
+      ),
+      StoopBadgeKind.climate => (
+        'CLIMATE',
+        AppColors.stoopTealText,
+        const Color(0xBF06201B),
+        AppColors.stoopTeal.withValues(alpha: 0.45),
+        null,
+      ),
+      StoopBadgeKind.lore => (
+        'LORE',
+        AppColors.stoopCream,
+        const Color(0xBF1A1610),
+        AppColors.stoopBorderHi.withValues(alpha: 0.8),
         null,
       ),
       StoopBadgeKind.nsfw => (

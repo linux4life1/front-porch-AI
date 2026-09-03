@@ -37,6 +37,7 @@ import 'package:front_porch_ai/services/user_persona_service.dart';
 
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
@@ -91,6 +92,7 @@ part 'chat/chat_service_generation_stream.dart';
 part 'chat/chat_service_generation_postgen.dart';
 part 'chat/chat_service_pockets.dart';
 part 'chat/chat_service_item_cards.dart';
+part 'chat/chat_service_birthday.dart';
 part 'chat/chat_service_episode_crumbs.dart';
 part 'chat/chat_service_night_skip.dart';
 part 'chat/chat_service_reply_facts.dart';

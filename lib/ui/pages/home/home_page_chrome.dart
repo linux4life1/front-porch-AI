@@ -125,6 +125,76 @@ extension _HomePageChrome on _HomePageState {
     if (mounted) _refreshLastActivityCache();
   }
 
+  /// Launch hook: after Home's first frame (and again when the library
+  /// finishes loading), open the 1:1 card named by [OpenChatEnv.name].
+  /// Empty define is a no-op. Groups are never considered. Multiple
+  /// sessions skip the picker and load the most recent — no new chat,
+  /// no message, no Save, no Edit Details.
+  void _maybeOpenChatFromEnv() {
+    if (_HomePageState._openChatEnvConsumed || !mounted) return;
+    if (!OpenChatEnv.enabled) {
+      _HomePageState._openChatEnvConsumed = true;
+      return;
+    }
+    late final CharacterRepository repo;
+    try {
+      repo = Provider.of<CharacterRepository>(context, listen: false);
+    } catch (_) {
+      return;
+    }
+    if (repo.isLoading) return;
+    final character = OpenChatEnv.findOneToOneCard(
+      repo.characters,
+      name: OpenChatEnv.name,
+    );
+    if (character == null) {
+      // Empty library usually means load has not landed yet — wait for
+      // _onCharactersChanged rather than consuming the hook.
+      if (repo.characters.isEmpty) return;
+      _HomePageState._openChatEnvConsumed = true;
+      debugPrint(
+        '[Home] OPEN_CHAT=${OpenChatEnv.name}: no 1:1 CharacterCard '
+        'with that exact name',
+      );
+      return;
+    }
+    _HomePageState._openChatEnvConsumed = true;
+    _openChatSkippingPicker(character);
+  }
+
+  /// Same open path as [_handleTapCharacter], but skip the session picker
+  /// and never start a new chat.
+  Future<void> _openChatSkippingPicker(CharacterCard character) async {
+    if (_openingChat || !mounted) return;
+    _openingChat = true;
+    try {
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      if (!await chatService.hasMultipleSavedSessions(character)) {
+        await _pushChatWhile(chatService.setActiveCharacter(character));
+        return;
+      }
+      final charId = _getCharacterIdFromCard(character);
+      final sessions = await chatService.getSessionsForId(charId);
+      if (!mounted) return;
+      final selectedId = OpenChatEnv.mostRecentSessionId(sessions);
+      if (selectedId != null && sessions.length > 1) {
+        chatService.beginSessionLoad();
+        await _pushChatWhile(() async {
+          try {
+            await chatService.setActiveCharacter(character);
+            await chatService.loadSession(selectedId);
+          } finally {
+            chatService.endSessionLoad();
+          }
+        }());
+      } else {
+        await _pushChatWhile(chatService.setActiveCharacter(character));
+      }
+    } finally {
+      _openingChat = false;
+    }
+  }
+
   Future<void> _handleTapCharacter(CharacterCard character) async {
     // Use State.mounted — NOT context.mounted. Reading State.context after
     // unmount throws before .mounted is ever evaluated (exit chat → reenter

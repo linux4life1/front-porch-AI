@@ -25,6 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/pages/home/open_section_env.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'character_state/character_state.dart';
@@ -42,7 +43,7 @@ import 'tool_calling_pill.dart';
 /// Composition-only: page-level concerns (chance-time overlay, avatar file
 /// resolution) arrive as callbacks; accordion expansion is persisted via
 /// StorageService.uiSettings.
-class SidebarBody extends StatelessWidget {
+class SidebarBody extends StatefulWidget {
   final ChatService chatService;
   final ChatParticipant focused;
   final VoidCallback onSpinRequested;
@@ -56,6 +57,9 @@ class SidebarBody extends StatelessWidget {
   /// Composer draft for the lorebook "would trigger next" preview.
   final ValueListenable<TextEditingValue>? draft;
 
+  /// OPEN_SECTION=edit: ChatPage opens the in-chat Edit Character dialog.
+  final VoidCallback? onOpenEditFromEnv;
+
   const SidebarBody({
     super.key,
     required this.chatService,
@@ -64,7 +68,76 @@ class SidebarBody extends StatelessWidget {
     required this.onJumpToMessage,
     required this.resolveCharImage,
     this.draft,
+    this.onOpenEditFromEnv,
   });
+
+  @override
+  State<SidebarBody> createState() => _SidebarBodyState();
+}
+
+class _SidebarBodyState extends State<SidebarBody> {
+  /// `--dart-define=OPEN_SECTION=…` applies once per process after ChatPage
+  /// is showing. Static so a SidebarBody remount cannot re-fire.
+  static bool _openSectionEnvConsumed = false;
+  static int _openSectionEnvRetries = 0;
+  static const int _openSectionEnvMaxRetries = 8;
+
+  final _characterStateKey = GlobalKey<CharacterStateGroupState>();
+  final _journalAccordionKey = GlobalKey<PorchAccordionState>();
+  final _objectivesKey = GlobalKey<PorchAccordionState>();
+  final _objectivesHeaderKey = GlobalKey();
+  final _timeStripKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeApplyOpenSection();
+    });
+  }
+
+  void _maybeApplyOpenSection() {
+    if (_openSectionEnvConsumed || !mounted) return;
+    if (!OpenSectionEnv.enabled) {
+      _openSectionEnvConsumed = true;
+      return;
+    }
+    final chat = widget.chatService;
+    final isGroup = chat.isGroupMode;
+    final isLite = !isGroup && !widget.focused.realismEnabled;
+    final section = OpenSectionEnv.name;
+
+    // Objectives: a first-frame isLite/null-key no-op must retry — UIC
+    // prefs can leave Journal expanded and the accordion may not be in
+    // the tree until realismEnabled settles. Other sections consume
+    // immediately after apply, as before.
+    if (section == OpenSectionEnv.objectives) {
+      final ready = _objectivesHeaderKey.currentContext != null && !isLite;
+      if (!ready && _openSectionEnvRetries < _openSectionEnvMaxRetries) {
+        _openSectionEnvRetries++;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _maybeApplyOpenSection();
+        });
+        return;
+      }
+    }
+
+    _openSectionEnvConsumed = true;
+    OpenSectionEnv.apply(
+      section: section,
+      isGroup: isGroup,
+      isLite: isLite,
+      collapseCharacterState: () => _characterStateKey.currentState?.collapse(),
+      collapseJournal: () => _journalAccordionKey.currentState?.collapse(),
+      expandCharacterState: () => _characterStateKey.currentState?.expand(),
+      expandJournal: () => _journalAccordionKey.currentState?.expand(),
+      expandObjectives: () => _objectivesKey.currentState?.expand(),
+      journalKey: _journalAccordionKey,
+      objectivesKey: _objectivesHeaderKey,
+      timeStripKey: _timeStripKey,
+      onOpenEdit: widget.onOpenEditFromEnv,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,9 +147,9 @@ class SidebarBody extends StatelessWidget {
         // must repaint the panels (each old section listened individually).
         final storage = Provider.of<StorageService>(context);
         final ui = storage.uiSettings;
-        final character = focused.card;
+        final character = widget.focused.card;
         final isGroup = chat.isGroupMode;
-        final isLite = !isGroup && !focused.realismEnabled;
+        final isLite = !isGroup && !widget.focused.realismEnabled;
 
         return ListView(
           padding: const EdgeInsets.all(12),
@@ -107,6 +180,7 @@ class SidebarBody extends StatelessWidget {
             ),
             if (!isLite)
               CharacterStateGroup(
+                key: _characterStateKey,
                 chat: chat,
                 isGroup: isGroup,
                 groupMemberCard: isGroup
@@ -118,16 +192,18 @@ class SidebarBody extends StatelessWidget {
                 ),
                 onExpansionChanged: (v) =>
                     ui.setSidebarGroupExpanded('character_state', v),
+                timeStripKey: _timeStripKey,
               ),
             JournalMemoryGroup(
+              accordionKey: _journalAccordionKey,
               chatService: chat,
               isGroup: isGroup,
               isLite: isLite,
               // The diary follows the focused participant (per-member in
               // groups; ChatParticipant.id is the cards' stable key).
-              diaryOwnerId: focused.id,
-              diaryOwnerName: focused.name,
-              onJumpToMessage: onJumpToMessage,
+              diaryOwnerId: widget.focused.id,
+              diaryOwnerName: widget.focused.name,
+              onJumpToMessage: widget.onJumpToMessage,
               initiallyExpanded: ui.sidebarGroupExpanded(
                 'journal_memory',
                 fallback: false,
@@ -138,11 +214,16 @@ class SidebarBody extends StatelessWidget {
             // Objectives: own leaf, collapsed by default — runs in the
             // background; expand when the user wants to steer the story.
             // 1:1 full chats only (same gate as the old Story Tools embed).
-            // Switched off (v45) ⇒ the panel is GONE, not disabled: a feature
-            // that costs a model call per check should leave no surface behind
-            // suggesting it is still working. The quests themselves are kept.
-            if (!isGroup && !isLite && chat.objectivesActive)
+            // Switched off (v45) ⇒ the panel is GONE, not disabled, except
+            // OPEN_SECTION=objectives still builds it so UIC can photograph
+            // the title when Flora boots with objectivesActive false.
+            if (!isGroup &&
+                !isLite &&
+                (chat.objectivesActive ||
+                    OpenSectionEnv.name == OpenSectionEnv.objectives))
               PorchAccordion(
+                key: _objectivesKey,
+                headerKey: _objectivesHeaderKey,
                 id: 'objectives',
                 emoji: '🎯',
                 title: 'Objectives',
@@ -160,12 +241,12 @@ class SidebarBody extends StatelessWidget {
                 child: ObjectivePanel(chatService: chat),
               ),
             StoryToolsGroup(
-              draft: draft,
+              draft: widget.draft,
               chatService: chat,
               isGroup: isGroup,
               isLite: isLite,
               character: character,
-              onSpinRequested: onSpinRequested,
+              onSpinRequested: widget.onSpinRequested,
               initiallyExpanded: ui.sidebarGroupExpanded(
                 'story_tools',
                 fallback: false,
@@ -182,6 +263,7 @@ class SidebarBody extends StatelessWidget {
   /// The focused member's rich card (moved verbatim from chat_page's group
   /// branch — remove/objectives/avatar behavior unchanged).
   Widget _buildFocusedMemberCard(BuildContext context, ChatService chat) {
+    final focused = widget.focused;
     final character = focused.card;
     final cast = chat.cast;
     final idx = cast.indexWhere((p) => p.id == focused.id);
@@ -192,11 +274,9 @@ class SidebarBody extends StatelessWidget {
       avatarColor: groupCharacterColor(idx < 0 ? 0 : idx),
       isNextSpeaker: chat.nextCharacter?.name == character.name,
       isExpanded: true,
-      onTap: chat.isGenerating
-          ? () {}
-          : () => chat.setNextCharacter(character),
+      onTap: chat.isGenerating ? () {} : () => chat.setNextCharacter(character),
       avatarFile: character.imagePath != null
-          ? resolveCharImage(character.imagePath!)
+          ? widget.resolveCharImage(character.imagePath!)
           : null,
       ringCount: chat.growthRingCountFor(character),
       // > 1 (not > 2): removing the second-to-last member is allowed and

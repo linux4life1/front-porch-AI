@@ -189,17 +189,17 @@ class _InlineChatImageState extends State<InlineChatImage> {
   }
 
   Future<void> _saveAs(BuildContext context) async {
+    final bytes = await File(widget.path).readAsBytes();
     final target = await PickerPrefs.saveFile(
       category: PickerPrefs.catExport,
+      bytes: bytes,
       dialogTitle: 'Save image',
       fileName: p.basename(widget.path),
       type: FileType.image,
     );
     if (target == null) return;
-    var out = target;
-    if (!out.toLowerCase().endsWith('.png')) out += '.png';
+    final out = target;
     try {
-      await File(widget.path).copy(out);
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,

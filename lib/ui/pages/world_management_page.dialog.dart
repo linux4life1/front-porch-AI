@@ -33,11 +33,10 @@ part of 'world_management_page.dart';
 class _WorldDraft {
   _WorldDraft(World? world)
     : nameController = TextEditingController(text: world?.name ?? ''),
-      descController = TextEditingController(
-        text: world?.description ?? '',
-      ),
+      descController = TextEditingController(text: world?.description ?? ''),
       customBiomeJson = world?.biomeJson,
       injectDescription = world?.injectDescription ?? true,
+      climateEnabled = world?.climateEnabled ?? true,
       coverImage = world?.coverImage,
       atmosphere = world?.atmosphere ?? WorldAtmosphere.breathable,
       gravity = world?.gravity ?? WorldGravity.earth,
@@ -55,6 +54,7 @@ class _WorldDraft {
   String? customBiomeJson;
   String? selectedBiomeId;
   bool injectDescription;
+  bool climateEnabled;
   String? coverImage;
   // Place traits (standing facts; defaults are silent).
   WorldAtmosphere atmosphere;
@@ -84,217 +84,250 @@ extension _WorldDialogFrame on _WorldManagementPageState {
       builder: (dialogContext) => StatefulBuilder(
         builder: (ctx, setDialogState) => Dialog(
           backgroundColor: AppColors.surfaceOf(ctx),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Container(
-            width: 800,
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.9,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: AppColors.borderOf(ctx),
-                        width: 1,
+          child: LayoutBuilder(
+            builder: (layoutCtx, constraints) {
+              final maxW = constraints.maxWidth < 800
+                  ? constraints.maxWidth
+                  : 800.0;
+              final maxH = constraints.maxHeight.isFinite
+                  ? constraints.maxHeight
+                  : MediaQuery.sizeOf(ctx).height * 0.9;
+              return SizedBox(
+                width: maxW,
+                height: maxH,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppColors.borderOf(ctx),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: AppColors.formMasterAccent.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: AppColors.formMasterAccent
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.language,
+                                  color: AppColors.formMasterAccent,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Text(
+                                world == null ? 'Create World' : 'Edit World',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary(ctx),
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.close,
+                              color: AppColors.textSecondary(ctx),
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                            tooltip: 'Close',
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
+
+                    // Content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 80),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Basic Info Section
+                            _buildBasicsSection(
+                              ctx,
+                              context,
+                              draft,
+                              setDialogState,
+                              compact: maxH < 640,
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            // Lorebook Section
+                            _buildLorebookSection(ctx, draft, setDialogState),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Footer actions
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: AppColors.borderOf(ctx),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: AppColors.formMasterAccent
-                                  .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: AppColors.formMasterAccent
-                                    .withValues(alpha: 0.2),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
                               ),
                             ),
-                            child: const Icon(
-                              Icons.language,
-                              color: AppColors.formMasterAccent,
-                              size: 20,
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: AppColors.textSecondary(ctx),
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Text(
-                            world == null ? 'Create World' : 'Edit World',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary(ctx),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              final newWorld =
+                                  world ??
+                                  World(
+                                    name: '',
+                                    lorebook: Lorebook(entries: []),
+                                  );
+                              final newName = draft.nameController.text.trim();
+                              // Renames update the display name only — attachments
+                              // use stable world UUIDs (Living Worlds phase 0).
+                              if (world != null && newName != world.name) {
+                                try {
+                                  await repo.renameWorld(world, newName);
+                                } on StateError catch (e) {
+                                  if (ctx.mounted) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(content: Text(e.message)),
+                                    );
+                                  }
+                                  return;
+                                }
+                              } else {
+                                newWorld.name = newName;
+                              }
+                              newWorld.description = draft.descController.text
+                                  .trim();
+                              newWorld.climateEnabled = draft.climateEnabled;
+                              // Lorebook-only worlds leave climate fields
+                              // untouched so a later re-enable restores them.
+                              if (draft.climateEnabled) {
+                                // 'custom' ⇒ biomeJson carries the climate and
+                                // biomeId clears; a built-in clears any stale
+                                // custom JSON (Biome.resolve prefers JSON).
+                                newWorld.biomeId =
+                                    draft.selectedBiomeId == 'custom'
+                                    ? null
+                                    : draft.selectedBiomeId;
+                                newWorld.biomeJson =
+                                    draft.selectedBiomeId == 'custom'
+                                    ? draft.customBiomeJson
+                                    : null;
+                                newWorld.atmosphere = draft.atmosphere;
+                                newWorld.gravity = draft.gravity;
+                              }
+                              newWorld.injectDescription =
+                                  draft.injectDescription;
+                              newWorld.coverImage = draft.coverImage;
+
+                              // Update lorebook entries
+                              newWorld.lorebook.entries.clear();
+                              newWorld.lorebook.entries.addAll(
+                                draft.editingEntries,
+                              );
+
+                              await repo.saveWorld(newWorld);
+                              if (!ctx.mounted) return;
+                              Navigator.pop(ctx);
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.check_circle,
+                                          color: Colors.greenAccent,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          world == null
+                                              ? 'World created successfully'
+                                              : 'World updated successfully',
+                                          style: TextStyle(
+                                            color: AppColors.textPrimary(
+                                              context,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor:
+                                        AppColors.surfaceContainerOf(context),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.save, size: 18),
+                            label: Text(
+                              world == null ? 'Create World' : 'Save Changes',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.formMasterAccent,
+                              foregroundColor: AppColors.onChaosAccent,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.close,
-                          color: AppColors.textSecondary(ctx),
-                        ),
-                        onPressed: () => Navigator.pop(ctx),
-                        tooltip: 'Close',
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Content
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Basic Info Section
-                        _buildBasicsSection(ctx, context, draft, setDialogState),
-
-                        const SizedBox(height: 24),
-
-                        // Lorebook Section
-                        _buildLorebookSection(ctx, draft, setDialogState),
-                      ],
                     ),
-                  ),
+                  ],
                 ),
-
-                // Footer actions
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: AppColors.borderOf(ctx), width: 1),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
-                        ),
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(color: AppColors.textSecondary(ctx)),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          final newWorld =
-                              world ??
-                              World(
-                                name: '',
-                                lorebook: Lorebook(entries: []),
-                              );
-                          final newName = draft.nameController.text.trim();
-                          // Renames update the display name only — attachments
-                          // use stable world UUIDs (Living Worlds phase 0).
-                          if (world != null && newName != world.name) {
-                            try {
-                              await repo.renameWorld(world, newName);
-                            } on StateError catch (e) {
-                              if (ctx.mounted) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(content: Text(e.message)),
-                                );
-                              }
-                              return;
-                            }
-                          } else {
-                            newWorld.name = newName;
-                          }
-                          newWorld.description = draft.descController.text.trim();
-                          // 'custom' ⇒ biomeJson carries the climate and
-                          // biomeId clears; a built-in clears any stale
-                          // custom JSON (Biome.resolve prefers JSON).
-                          newWorld.biomeId = draft.selectedBiomeId == 'custom'
-                              ? null
-                              : draft.selectedBiomeId;
-                          newWorld.biomeJson = draft.selectedBiomeId == 'custom'
-                              ? draft.customBiomeJson
-                              : null;
-                          newWorld.injectDescription = draft.injectDescription;
-                          newWorld.coverImage = draft.coverImage;
-                          newWorld.atmosphere = draft.atmosphere;
-                          newWorld.gravity = draft.gravity;
-
-                          // Update lorebook entries
-                          newWorld.lorebook.entries.clear();
-                          newWorld.lorebook.entries.addAll(draft.editingEntries);
-
-                          await repo.saveWorld(newWorld);
-                          if (!ctx.mounted) return;
-                          Navigator.pop(ctx);
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.check_circle,
-                                      color: Colors.greenAccent,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      world == null
-                                          ? 'World created successfully'
-                                          : 'World updated successfully',
-                                      style: TextStyle(
-                                        color: AppColors.textPrimary(context),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                backgroundColor: AppColors.surfaceContainerOf(
-                                  context,
-                                ),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.save, size: 18),
-                        label: Text(
-                          world == null ? 'Create World' : 'Save Changes',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.formMasterAccent,
-                          foregroundColor: AppColors.onChaosAccent,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),

@@ -106,7 +106,10 @@ extension ChatServiceCast on ChatService {
   /// / embeddings / data-bank — all keyed by the member's UNIQUE instance id, so
   /// scoped deletes are safe), and the six in-memory per-character maps. (The old
   /// stub dropped only five of the maps and never touched the DB row or avatar.)
-  Future<void> _deleteMemberCleanup(String charId, String? avatarFilename) async {
+  Future<void> _deleteMemberCleanup(
+    String charId,
+    String? avatarFilename,
+  ) async {
     final groupId = _activeGroup?.id;
     await _db.deleteGroupMember(charId);
     if (groupId != null && avatarFilename != null) {
@@ -221,7 +224,9 @@ extension ChatServiceCast on ChatService {
     final bool wasNeedsOn = _needsSimEnabled;
     Map<String, dynamic>? snapshot;
     if (wasRealismOn) {
-      _loadGroupRealismIntoScalars(soleId); // loads the survivor's per-char nsfw flag too
+      _loadGroupRealismIntoScalars(
+        soleId,
+      ); // loads the survivor's per-char nsfw flag too
       snapshot = _captureRealismState();
     }
     // Read the survivor's per-char NSFW flag straight from the group store (the
@@ -273,7 +278,9 @@ extension ChatServiceCast on ChatService {
     if (!reHomed) {
       // Session row not found — abort BEFORE dissolving so we never delete the
       // group while its session is still group-homed (which would orphan it).
-      debugPrint('[Cast] collapse aborted: re-home patchSession matched no row');
+      debugPrint(
+        '[Cast] collapse aborted: re-home patchSession matched no row',
+      );
       notifyListeners();
       return false;
     }
@@ -372,7 +379,9 @@ extension ChatServiceCast on ChatService {
     await _refreshGrowthCache();
     await _saveChat();
     notifyListeners();
-    debugPrint('[Cast] collapsed group "${group.name}" → 1:1 with ${origin.name}');
+    debugPrint(
+      '[Cast] collapsed group "${group.name}" → 1:1 with ${origin.name}',
+    );
     return true;
   }
 
@@ -403,15 +412,11 @@ extension ChatServiceCast on ChatService {
     }
   }
 
-  /// Carry the host's full captured 1:1 [state] (taken before the fork switched
-  /// into group mode) onto the host member, making 1:1->group lossless. The
-  /// realism snapshot is applied only when realism was on at fork time; the
-  /// enable-flags (NSFW/passage-of-time/chaos), the per-character author note,
-  /// character evolution (into the group_evolved_* columns), and a COPY of the
-  /// host's objectives all carry REGARDLESS of realism. No-op when the host
-  /// member can't be resolved (so a mis-keyed carry can't corrupt state).
-  /// [originalCharId] / [hostSessionId] are the host's 1:1 keys (evolution +
-  /// objectives source).
+  /// Carry captured 1:1 [state] onto the host member (1:1→group lossless).
+  /// Realism values only if realism was on; flags, author note, pockets,
+  /// growth, objectives, journal, and RAG copy regardless. No-op if the host
+  /// member cannot be resolved. [originalCharId] / [hostSessionId] are the
+  /// 1:1 keys.
   Future<void> _carryHostStateIntoForkedGroup(
     String hostName,
     String originalCharId,
@@ -472,6 +477,17 @@ extension ChatServiceCast on ChatService {
       pressure: state['chaosPressure'] as int? ?? 0,
     );
 
+    // Live pockets, regardless of realism — collapse writes `_pockets =
+    // solePockets`; this is the inverse. setActiveGroup cleared the 1:1
+    // scalar; plant the captured kit on the host member.
+    final pocketsJson = state['pockets'];
+    if (pocketsJson is Map) {
+      setPocketsFor(
+        hostId,
+        Pockets.fromJson(Map<String, dynamic>.from(pocketsJson)),
+      );
+    }
+
     // Author note -> the host member's per-character group note (serialized into
     // group_realism_state by _saveChat).
     final note = state['authorNote'] as String? ?? '';
@@ -517,13 +533,9 @@ extension ChatServiceCast on ChatService {
           ),
         );
       }
-      // Journal cards -> the host MEMBER instance id in the new group session,
-      // the diary twin of the growth carry above. The fork copies EVERY message
-      // into the new session (so no card can cite a message that no longer
-      // happened) and carries the recap cursor with it, meaning a skipped diary
-      // could never be rebuilt: the host would open the conversation she is
-      // visibly mid-way through with an empty Journal. Copy, not move — the
-      // preserved 1:1 stays the revert snapshot.
+      // Journal cards → host member in the new session (copy, not move).
+      // The fork copies every message and the recap cursor, so a skipped
+      // diary could never rebuild.
       try {
         for (final card in await _journalStore.cardsFor(
           hostSessionId,

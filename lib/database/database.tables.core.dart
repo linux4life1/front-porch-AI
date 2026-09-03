@@ -362,6 +362,10 @@ class Personas extends Table {
     const Constant('[]'),
   )(); // JSON array of fact strings from auto-persona
   TextColumn get avatarPath => text().nullable()();
+
+  /// v50 — optional calendar birthday (`YYYY-MM-DD`). NULL = unset.
+  /// Feb 29 is rejected in code; the column does not enforce it.
+  TextColumn get birthday => text().nullable()();
   BoolColumn get isActive => boolean().withDefault(const Constant(false))();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get deletedAt => dateTime().nullable()();

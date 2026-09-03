@@ -36,6 +36,7 @@ class GenerationParams {
   final List<String>? stopSequences;
   final bool reasoningEnabled;
   final String reasoningEffort;
+
   /// Optional maximum tokens the model may spend on its internal reasoning/thinking trace.
   /// Used by OpenRouter and compatible providers (e.g. Nano-GPT) via the `reasoning.max_tokens` field.
   /// Setting to 0 on Continue generations helps force non-thinking / direct output on models that support budget control (Kimi K2, DeepSeek hybrids, Qwen3 thinking variants, etc.).
@@ -82,6 +83,23 @@ class GenerationParams {
   /// content, byte-identical to the pre-vision text-only path.
   final List<String>? images;
 
+  /// Named OpenAI `tool_choice` function, or null → `'auto'`. Rides the
+  /// params object so [generateWithTools] overrides keep their two-arg
+  /// signature (existing test fakes must not be edited).
+  final String? toolChoice;
+
+  /// Unused until the streaming-tools PR; forwarded on the mandatory-
+  /// reasoning retry so it cannot be dropped.
+  final void Function(String chunk)? onChunk;
+
+  /// After Kobold FIFO `waitForIdle`: skip/pause/xml-only, never live
+  /// prefer-text (the ping shares this door).
+  final bool Function()? stillWantTools;
+
+  /// Probe identity (`backend|model|path`). Style retry and skip/pause
+  /// key on the same string [ChatService] uses.
+  final String backendIdentity;
+
   const GenerationParams({
     required this.prompt,
     this.maxLength = 200,
@@ -107,6 +125,10 @@ class GenerationParams {
     this.banEosToken = false,
     this.trimStop = true,
     this.images,
+    this.toolChoice,
+    this.onChunk,
+    this.stillWantTools,
+    this.backendIdentity = '',
   });
 
   /// The `content` value for the OpenAI chat user message: the plain [prompt]

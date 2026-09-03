@@ -8,6 +8,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+import 'backporch_user.dart';
 import 'stoop_card.dart';
 
 /// Lifetime totals over every approved card (server-computed, so they don't
@@ -16,11 +17,7 @@ class StoopCreatorStats {
   final int cards;
   final int downloads;
   final int score;
-  const StoopCreatorStats({
-    this.cards = 0,
-    this.downloads = 0,
-    this.score = 0,
-  });
+  const StoopCreatorStats({this.cards = 0, this.downloads = 0, this.score = 0});
 
   factory StoopCreatorStats.fromJson(Map<String, dynamic>? j) =>
       StoopCreatorStats(
@@ -34,6 +31,9 @@ class StoopCreatorStats {
 class StoopCreator {
   final String id;
   final String displayName;
+
+  /// Hub verification badge: `gold`, `blue`, or null (none / older server).
+  final String? verification;
   final int followers;
 
   /// Whether the signed-in user follows this creator.
@@ -53,6 +53,7 @@ class StoopCreator {
   const StoopCreator({
     required this.id,
     required this.displayName,
+    this.verification,
     required this.followers,
     required this.following,
     required this.isMe,
@@ -67,6 +68,7 @@ class StoopCreator {
   factory StoopCreator.fromJson(Map<String, dynamic> j) => StoopCreator(
     id: j['id'] as String? ?? '',
     displayName: j['displayName'] as String? ?? '',
+    verification: stoopVerificationOf(j['verification']),
     followers: (j['followers'] as num?)?.toInt() ?? 0,
     following: j['following'] as bool? ?? false,
     isMe: j['isMe'] as bool? ?? false,
@@ -93,11 +95,15 @@ class StoopCreator {
 class StoopFollowedCreator {
   final String id;
   final String displayName;
+
+  /// Hub verification badge: `gold`, `blue`, or null (none / older server).
+  final String? verification;
   final int followers;
   final String? avatarAssetId;
   const StoopFollowedCreator({
     required this.id,
     required this.displayName,
+    this.verification,
     required this.followers,
     this.avatarAssetId,
   });
@@ -106,6 +112,7 @@ class StoopFollowedCreator {
       StoopFollowedCreator(
         id: j['id'] as String? ?? '',
         displayName: j['displayName'] as String? ?? '',
+        verification: stoopVerificationOf(j['verification']),
         followers: (j['followers'] as num?)?.toInt() ?? 0,
         avatarAssetId: j['avatarAssetId'] as String?,
       );

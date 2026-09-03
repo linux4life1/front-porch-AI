@@ -82,14 +82,6 @@ extension ChatServiceIdleAutonomous on ChatService {
       return;
     }
 
-    // Capture pre-AFK needs vector so the needs delta chip has a baseline
-    if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
-      _pendingRealismMetadata ??= {};
-      _pendingRealismMetadata!['needs_pre_turn_vector'] = Map<String, int>.from(
-        _needsSimulation.vector,
-      );
-    }
-
     // Advance narrative time by the user-set away pace (Living Time: 1 =
     // a few hours, 3 = half the day, 6 = a full day). Deterministic — the
     // model never chooses the span. Day crossings fire dreams and fresh
@@ -105,11 +97,30 @@ extension ChatServiceIdleAutonomous on ChatService {
       );
     }
 
+    // Group: pick the speaker at the new clock, load THAT member's
+    // needs, then stamp the chip baseline. The scalar vector is whoever
+    // last spoke — stamping it first made AFK chips subtract the wrong
+    // member. Pass forceSpeaker so generate cannot pick a second time.
+    CharacterCard? afkSpeaker;
+    if (_activeGroup != null) {
+      afkSpeaker = _pickPresentGroupSpeaker();
+      final sid = _getCharacterIdFromCard(afkSpeaker);
+      if (sid.isNotEmpty) _loadGroupRealismIntoScalars(sid);
+    }
+
+    // Capture pre-AFK needs vector so the needs delta chip has a baseline
+    if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
+      _pendingRealismMetadata ??= {};
+      _pendingRealismMetadata!['needs_pre_turn_vector'] = Map<String, int>.from(
+        _needsSimulation.vector,
+      );
+    }
+
     _pendingIdleCue = _buildAutonomousCue();
     _autoResponseInProgress = true;
     _consecutiveAutoResponses++;
 
-    _generateResponse(GenerationMode.normal)
+    _generateResponse(GenerationMode.normal, forceSpeaker: afkSpeaker)
         .then((_) {
           _pendingIdleCue = null;
           _resetIdleTimer();

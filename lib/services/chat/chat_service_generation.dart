@@ -417,6 +417,11 @@ extension ChatServiceGeneration on ChatService {
       // Settling over, on EVERY exit — restore the CALLER's hold (regen keeps
       // it raised across its swipe-merge); a latched flag would wedge input.
       _isPostGenerating = callerHeldSettling;
+      if (!_isPostGenerating) {
+        _postGenAbortRequested = false;
+        _isCancellingRealismEval = false;
+        _realismEvalCancelled = false;
+      }
     }
   }
 

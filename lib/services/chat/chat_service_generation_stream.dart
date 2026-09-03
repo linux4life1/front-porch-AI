@@ -182,7 +182,10 @@ extension ChatServiceGenerationStream on ChatService {
     // token can COMPLETE a match, so scanning the trailing
     // (token + longestNeedle - 1) chars finds exactly what a full scan
     // would — without re-reading the whole response per token (O(n²)).
-    final maxStopLen = t.stopList.fold<int>(0, (m, s) => s.length > m ? s.length : m);
+    final maxStopLen = t.stopList.fold<int>(
+      0,
+      (m, s) => s.length > m ? s.length : m,
+    );
     // Cursor for the rolling-TPS window: timestamps are appended in order,
     // so entries before the cutoff can be skipped permanently instead of
     // re-filtered with two O(n) where() passes per token.
@@ -194,11 +197,12 @@ extension ChatServiceGenerationStream on ChatService {
       t.accumulatedResponse += token;
       _tokensGenerated++;
       _tokenTimestamps.add(DateTime.now());
-      final tailStart = (t.accumulatedResponse.length -
-              token.length -
-              (maxStopLen > 8 ? maxStopLen : 8) +
-              1)
-          .clamp(0, t.accumulatedResponse.length);
+      final tailStart =
+          (t.accumulatedResponse.length -
+                  token.length -
+                  (maxStopLen > 8 ? maxStopLen : 8) +
+                  1)
+              .clamp(0, t.accumulatedResponse.length);
 
       // ── Phase transition: first token marks end of prefill ──
       if (_tokensGenerated == 1) {
@@ -241,8 +245,7 @@ extension ChatServiceGenerationStream on ChatService {
         _thinkStarted = true;
         _thinkStartTime = DateTime.now();
         _generationPhase = GenerationPhase.thinking;
-        streamTarget.thinkingStartTime =
-            _thinkStartTime.millisecondsSinceEpoch;
+        streamTarget.thinkingStartTime = _thinkStartTime.millisecondsSinceEpoch;
       }
       final closeIdxInTail = (_thinkStarted && !_thinkEnded)
           ? tailLower.indexOf('</think>')
@@ -323,9 +326,7 @@ extension ChatServiceGenerationStream on ChatService {
             ? recentCount / windowElapsed
             : (_tokensGenerated > 0
                   ? _tokensGenerated /
-                        (now
-                                .difference(_generationStartTime!)
-                                .inMilliseconds /
+                        (now.difference(_generationStartTime!).inMilliseconds /
                             1000.0)
                   : 0.0);
 
@@ -393,16 +394,14 @@ extension ChatServiceGenerationStream on ChatService {
       // Buffer never started draining (genTps < targetTps) — start now with all tokens ready
       _startDrainTimer();
       // Wait for drain to complete (Stop pressed mid-drain halts it)
-      while (_displayedTokenCount < _tokenBuffer.length &&
-          !_cancelRequested) {
+      while (_displayedTokenCount < _tokenBuffer.length && !_cancelRequested) {
         await Future.delayed(const Duration(milliseconds: 16));
       }
       _drainTimer?.cancel();
       _drainTimer = null;
     } else {
       // Drain already running — wait for it to finish (or Stop to halt it)
-      while (_displayedTokenCount < _tokenBuffer.length &&
-          !_cancelRequested) {
+      while (_displayedTokenCount < _tokenBuffer.length && !_cancelRequested) {
         await Future.delayed(const Duration(milliseconds: 16));
       }
       _drainTimer?.cancel();
@@ -460,8 +459,7 @@ extension ChatServiceGenerationStream on ChatService {
   /// own. The first aborts an in-flight HTTP stream (there is none during
   /// post-gen), and the second SPINS until the flag clears — broadening it
   /// would hang the caller if post-gen ever failed to settle.
-  bool get _isTurnBusy =>
-      _isGenerating || _isPostGenerating || _isImporting;
+  bool get _isTurnBusy => _isGenerating || _isPostGenerating || _isImporting;
 
   void _notifyStreamListeners() {
     if (_streamNotifyTimer != null) return; // trailing notify already queued
@@ -497,6 +495,10 @@ extension ChatServiceGenerationStream on ChatService {
   /// Exposed so tests can assert the window opens and — more importantly —
   /// always closes. See [_isPostGenerating].
   bool get isSettlingTurn => _isPostGenerating;
+
+  /// Typed send is queued behind post-gen evals. Composer is empty; no bubble
+  /// yet. UI shows a holding banner so the wait does not look like a lost send.
+  bool get isSendWaitingOnSettle => _sendWaitingOnSettle;
 
   // ── Round-4b forwarder body (see chat_service_accessors.dart's banner
   // comment for why this stays a one-line forwarder on the class body) ──

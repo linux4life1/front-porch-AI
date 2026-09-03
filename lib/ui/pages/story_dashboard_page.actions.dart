@@ -126,15 +126,16 @@ extension _StoryDashboardActions on _StoryDashboardPageState {
       final audiobook = await service.generateAudiobook(project);
       if (audiobook != null && mounted) {
         // Save file dialog
+        final wav = await audiobook.file.readAsBytes();
         final String? outputFile = await PickerPrefs.saveFile(
           category: PickerPrefs.catExport,
+          bytes: wav,
           dialogTitle: 'Save Audiobook',
           fileName: 'audiobook_${project.title.replaceAll(' ', '_')}.wav',
           type: FileType.custom,
           allowedExtensions: ['wav'],
         );
         if (outputFile != null) {
-          await audiobook.file.copy(outputFile);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -163,13 +164,13 @@ extension _StoryDashboardActions on _StoryDashboardPageState {
       if (epub != null && mounted) {
         final String? outputFile = await PickerPrefs.saveFile(
           category: PickerPrefs.catExport,
+          bytes: Uint8List.fromList(epub.bytes),
           dialogTitle: 'Save eBook',
           fileName: '${project.title.replaceAll(' ', '_')}.epub',
           type: FileType.custom,
           allowedExtensions: ['epub'],
         );
         if (outputFile != null) {
-          await File(outputFile).writeAsBytes(epub.bytes);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

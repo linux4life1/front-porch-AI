@@ -37,6 +37,10 @@ class GroupGeneralTabState extends State<GroupGeneralTab>
 
   bool _hasUnsavedChanges = false;
 
+  /// True when name / scenario / opening / turn rules sit in controllers
+  /// and have not been applied to the live group yet.
+  bool get hasUnsavedChanges => _hasUnsavedChanges;
+
   @override
   void initState() {
     super.initState();

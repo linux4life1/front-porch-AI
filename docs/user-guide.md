@@ -1,10 +1,18 @@
 # User Guide
 
-The complete reference for Front Porch AI — every feature, explained in plain English.
+The complete reference for everything that is not a dedicated page.
 
-This guide assumes the app is installed and an AI model is set up. If you're not there yet, start with the [Getting Started guide](getting-started.md) and the [Installation guide](install.md).
+**Read these first, they are the real manuals:**
 
-It describes **Front Porch AI 1.2 ("Occupy Mars")**. A few things noted below need 1.2 or newer — where that matters, it says so.
+- [Chatting](chatting.md) — screen, tools, slash, groups, Director
+- [Porch Life](porch-life.md) — every living-character switch, the story clock, skip time, Clock In, Pockets
+- [Image Studio](image-studio.md) — what program to run, ports, Create vs Edit
+- [Web & Phone](web-phone.md) — how to open it, what the phone **cannot** do
+- [Characters](characters.md) · [Realism Engine](realism-engine.md) · [Getting Started](getting-started.md)
+
+This page is Settings, voice, Stoop, Porch Stories, generation, backend, backups.
+
+It describes **Front Porch AI 1.3.1 ("Clock In")**.
 
 > **Tip:** Many actions have hotkeys — see [Keyboard Shortcuts](keyboard-shortcuts.md).
 
@@ -23,11 +31,22 @@ It describes **Front Porch AI 1.2 ("Occupy Mars")**. A few things noted below ne
 - [Lorebooks & Worlds](#lorebooks--worlds)
 - [Group Chats](#group-chats)
 - [The Realism Engine](#the-realism-engine)
+- [Porch Life](#porch-life)
+- [Passage of Time](#passage-of-time)
+- [Pockets & Wardrobe](#pockets--wardrobe)
+- [Clock In](#clock-in)
 - [Long-Term Memory](#long-term-memory)
 
 **Voice, images & stories**
 - [Voice: Talking and Listening](#voice-talking-and-listening)
 - [Image Generation](#image-generation)
+  - [Turn it on](#turn-it-on)
+  - [Backends](#backends)
+  - [Image Studio](#image-studio)
+  - [Create vs Edit](#create-vs-edit)
+  - [`/image` in chat](#image-in-chat)
+  - [Expression packs](#expression-packs)
+  - [When Edit or QC won't run](#when-edit-or-qc-wont-run)
 - [Porch Stories (Novel Generator)](#porch-stories-novel-generator)
 
 **Beyond the desktop**
@@ -35,7 +54,9 @@ It describes **Front Porch AI 1.2 ("Occupy Mars")**. A few things noted below ne
 - [Web & Phone Access](#web--phone-access)
 
 **Settings & upkeep**
+- [Settings (all six tabs)](#settings-all-six-tabs)
 - [Generation Settings](#generation-settings)
+- [Slash commands](#slash-commands)
 - [Appearance](#appearance)
 - [The AI Backend](#the-ai-backend)
 - [Backups & Data Safety](#backups--data-safety)
@@ -53,7 +74,7 @@ Click any character on the home screen and you're in a chat.
 **What you're looking at:**
 
 - **Top bar** — the character's avatar, name, and a short description. The back arrow returns you to your library, and the **Toggle Sidebar** button on the right opens or closes the right-hand sidebar. That's all the top bar holds.
-- **The conversation** — your messages and the character's replies, on top of a scene background you can change (see [Appearance](#appearance)). If Character Expressions are enabled, the character's portrait changes as their mood changes.
+- **The conversation** — your messages and the character's replies, on top of a scene background you can change (see [Appearance](#appearance)). If Character Expressions are enabled, the character's portrait changes as their mood changes. **◀ ▶ on that portrait** flips **looks** from the Avatar Gallery for this chat (a different face, not a different emotion).
 - **Right sidebar** — **Main Settings** sits at the top of the sidebar (not the top bar), opening a menu with Edit Character, Avatar Gallery, UI Settings, Chat Settings, Model Settings and TTS Settings. Because it lives in the sidebar, you need the sidebar open to reach it. Below it are collapsible cards you can open and close independently: **📝 Author's Note**, **🎭 Character State** (mood, bond/trust bars, needs, scene clock, weather, ambitions), **📖 Journal & Memory**, **🎯 Objectives**, and **🎲 Story Tools** (Chaos Mode, Dynamic Responses, Places, lorebooks). A one-on-one chat shows all five; a group chat shows four, because group objectives open from the focused cast member's card instead of getting a card of their own. If the participant you have focused is a lightweight **scene guest** (see [Group Chats](#group-chats)), Character State and Objectives drop away as well — a guest carries no relationship or needs tracking, and a small "Lite NPC" note in the sidebar says so.
 - **Input bar** — the strip along the bottom: your persona avatar and a row of buttons, the box you type in, and more buttons after it. Drag the grip to make the box taller. **Enter** sends; **Shift + Enter** makes a new line.
 
@@ -61,9 +82,9 @@ Click any character on the home screen and you're in a chat.
 
 **Attaching a photo:** the **Attach a photo** button next to the message box adds an image to your message. If your model can see images, it looks at the photo directly. If it can't, the app offers a small offline **Photo Understanding** helper that describes the picture for it, so the character can still react. (Once installed, you can remove it again from Settings → Voice & Media.)
 
-**Slash commands:** type `/` in the message box and a list of commands appears above it — tap one to fill it in. They cover bringing characters in and out of a scene, forcing a turn, setting turn order, generating an image, and stepping away. See [Group Chats](#group-chats) for the cast commands.
+**Slash commands:** type `/` in the message box — a list appears. Full table: [Slash commands](#slash-commands). Type `@` to mention someone present (host, guest, or group member). `Esc` dismisses either list.
 
-**Chat Management** (the folder icon in the input bar at the bottom of the chat — not in the top bar) holds **New Chat**, **Chat History** (every past conversation with this character), **Import Chat** / **Export Chat** (SillyTavern-format JSON, so conversations move between apps), **Context Budget** (see [Long-Term Memory](#long-term-memory)), and **Turn Into a Story…**, which hands the conversation to [Porch Stories](#porch-stories-novel-generator). Right-click a character or group on Home → **Chat History** opens the same list (edit name, delete a chat); it does not delete the character.
+**Chat Management** (the folder icon in the input bar at the bottom of the chat — not in the top bar) holds **New Chat**, **Chat History** (every past conversation with this character), **Import Chat** / **Export Chat** (a native **`.fpchat`** package *or* SillyTavern JSON/JSONL), **Context Budget** (see [Long-Term Memory](#long-term-memory)), and **Turn Into a Story…**, which hands the conversation to [Porch Stories](#porch-stories-novel-generator). Right-click a character or group on Home → **Chat History** opens the same list (edit name, delete a chat); it does not delete the character.
 
 **Thinking models:** some AI models (like Qwen or DeepSeek) "think out loud" before answering. Front Porch tucks that private reasoning into a collapsible "Thought" chip above the reply — tap it if you're curious, ignore it if you're not.
 
@@ -130,7 +151,7 @@ Your library lives on the home screen. For everything about creating, importing,
 
 **Staying organized:**
 
-- **Folders** — enter Organize mode from the toolbar ("Organize into folders"), select characters, and move them into folders; you can also drag a card straight onto a folder. Folders nest, and breadcrumbs help you navigate. **Since 1.2, group chats can live in folders too** — drag them, or grab them in a multi-select and use **Move to folder** alongside characters.
+- **Folders** — enter Organize mode from the toolbar ("Organize into folders"), select characters, and move them into folders; you can also drag a card straight onto a folder. Folders nest, and breadcrumbs help you navigate. **Since 1.2, group chats can live in folders too**. Delete folder: **contents bubble up** vs **folder + characters** (type DELETE). Group right-click **Extract Characters** copies each member out as standalone cards. Search: this folder / +subs / all. Sort Name/Recent/Import/Messages. Grid zoom is on the toolbar.
 - **Tags** — label characters freely and filter by tag in search.
 - **Search** — the search bar matches names and descriptions, and you can scope it to the current folder, that folder plus subfolders, or your whole library.
 - **Sort** — Name (A→Z), Recent Activity, Import Date, or Messages Sent.
@@ -176,18 +197,22 @@ And, if you want them, the finer controls SillyTavern users will recognize:
 
 Entries that are currently active are highlighted, and the sidebar shows what *would* trigger next, so you always know what the AI can "see."
 
-**Worlds** are the **Places** your stories happen in — open **Worlds** in the left sidebar. A place bundles lore (so every character who lives there knows its geography, politics and history), optional cover art, and a **climate**. Attach a place to a chat from the sidebar's **Story Tools → Places** panel. Lorebook and world files from SillyTavern import cleanly.
+**Worlds** are the **Places** your stories happen in — open **Worlds** in the left sidebar. A place bundles lore (so every character who lives there knows its geography, politics and history), optional cover art, and a **climate**. Attach a place to a chat from the sidebar's **Story Tools → Places** panel, or attach it on the character **Worlds** tab so new chats inherit it.
+
+**Import Lorebook** is its own page (not Import Cards): pick a file → send it to a **new Place**, to **characters**, to a **group**, or to the **current chat**. Pulling one card's lore into another is **Import Character Lore** on the editor.
+
+Lorebook and world files from SillyTavern import cleanly.
 
 **Rule of thumb:** character-specific facts go in the character's own lorebook; shared setting lore goes in a Place.
 
 ### Weather and climate
 
-A place gives its chats real, consistent weather. There are built-in climates (temperate, rainforest, desert, continental, tropical, mediterranean, highland), each with its own seasons, conditions and temperatures. The current condition and temperature show as a chip in the chat sidebar, and the character actually notices them — nobody sunbathes in a blizzard. Temperatures follow the °C/°F setting in Settings → General.
+A place gives its chats real, consistent weather. There are built-in climates (temperate, rainforest, desert, continental, tropical, mediterranean, highland), each with its own seasons, conditions and temperatures. The current condition and temperature show as a chip in the chat sidebar, and the character actually notices them — nobody sunbathes in a blizzard. Temperatures follow the °C/°F switch on **Porch Life** (**Temperatures in °F**).
 
-**Authoring your own climate (1.2):** the climate editor lets you build a world that isn't Earth.
+**Authoring your own climate (1.2):** the climate editor lets you build a world that isn't Earth. **2 to 8 seasons** (not stuck at four) — each has a month/day start; overlap blocks save. You can start from a built-in biome. Day–night swing = how hard temperature drops after sundown.
 
-- **Seasons and temperatures** — set the temperature band and swing for each of the four seasons, from cryogenic all the way up to inferno.
-- **Renamed conditions** — call "rain" a *Dust Squall* and give it your own emoji. Each rename carries a **stance** (pleasant, ordinary, harsh, dangerous, deadly) so the app knows how characters should treat it — nobody goes dancing in acid rain.
+- **Seasons and temperatures** — set the temperature band and swing for each season, from cryogenic all the way up to inferno.
+- **Renamed conditions** — call "rain" a *Dust Squall* and give it your own emoji. Each rename carries a **stance** (pleasant, ordinary, harsh, dangerous, deadly) so the app knows how characters should treat it — nobody goes dancing in acid rain. Flavour text + a Preview / sample week show how a character will feel it.
 - **How often each condition happens** — weight the mix per season.
 
 **Atmosphere and gravity (1.2):** a place can also declare that its air is thin, unbreathable or outright hostile, and that gravity is low, high or micro. Characters behave accordingly — they struggle for breath, move differently, and treat going outside as the serious thing it is. Leave both at the Earth-normal default and nothing is added to the story at all.
@@ -218,6 +243,8 @@ Put two or more characters in one room and they'll talk to you *and each other* 
 Outside of full auto-play, a **next character** button in the toolbar shows who's up and lets you trigger their turn — or hand the reins over entirely with Director Mode and auto-advance.
 
 Each member keeps their own lorebooks, relationship scores, needs, expression images, and voice. It's a real ensemble, not one AI wearing different name tags.
+
+**Group Settings** (from the group, not global Settings) has tabs: General, Realism, Needs, Memory & RAG, Lore/Worlds, and **Prompt Engineering** (per-group system / post-history text). Per-member Realism and Needs live on the member cards.
 
 Groups sit on the home screen next to your characters, and (since 1.2) can be filed into folders the same way.
 
@@ -259,9 +286,76 @@ The feature that makes characters feel alive instead of stateless. When it's on,
 
 Everything shows up in the chat sidebar under **Character State** — relationship bars, current mood, needs, the scene clock, the weather chip, ambitions — and small chips under each reply show what changed and why.
 
-You can switch the engine (or individual parts of it) on and off globally in Settings and per character in the editor. For a single conversation: in a one-on-one chat the switch sits on the **Character State** card in the sidebar; in a group chat that card has no such switch — use **Group Settings → Realism**, which has a "Realism Engine for this group" toggle. (The tune icon on the Character State card opens the finer simulation settings in both.)
+You can switch the engine (or individual parts of it) on and off globally in **Settings → Porch Life** and per character in the editor. For a single conversation: in a one-on-one chat the switch sits on the **Character State** card in the sidebar; in a group chat that card has no such switch — use **Group Settings → Realism**, which has a "Realism Engine for this group" toggle. (The tune icon on the Character State card opens the finer simulation settings in both.)
 
 **The full deep-dive — every system, number, and tuning knob — lives in the [Realism Engine guide](realism-engine.md).**
+
+---
+
+## Porch Life
+
+**Settings → Porch Life** is the home for every living-character switch. It is not Settings → General (that's still theme, system prompt, 18+ themes).
+
+The important bit since 1.3: **Realism Engine is no longer the master key.** Journal, the story clock, Chaos / Chance Time, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults; an open chat can still overrule them in the sidebar.
+
+Other rows on that tab, in plain English:
+
+- **Needs** — Sims-style hunger/energy/etc. Needs the engine to turn a need into a mood.
+- **Story Weather** — rides on the clock.
+- **Dreams / Promises / Growth Rings / Ambitions / Standing Mood** — each says what it needs on the row itself.
+- **Notice new characters** — every few messages, offer to bring in someone the story named. `/scan` still works if you turn this off.
+- **Planner** — they keep a short plan (needs Time + Objectives + Journal). You can add or delete lines.
+- **Welcome-back recap** / **Character notices your absence** — after a long gap, a banner and (optional) one in-character mention. Coarse (“a few days”), never guesses what you were doing.
+- **Afterglow** (18+ themes on) — desire settles after a scene instead of snapping to zero. Older docs called this NSFW Cooldown; same thing, new name.
+- **Acts on desires** — card intimate preferences are *said and acted on*, not only scored.
+
+**18+ themes** itself is Settings → **General**, not Porch Life. Off hides After Dark and intimate card fields; it does not erase what you already set.
+
+**AI Enhance** is not on this tab. Right-click a character on Home → grow the card from real chats (can pull those chats along).
+
+---
+
+## Passage of Time
+
+Dummy version is on the [FAQ](faq.md#how-does-time-work). This is the same facts, for the User Guide.
+
+The story clock is **chat-scoped** (one clock for a group). It is **not** allowed to follow the real calendar — Monday in the story stays Monday if you reopen the chat on Saturday.
+
+**On:** Settings → Porch Life → Passage of Time. Per chat: Character State → **tune** → Automatic Passage of Time.
+
+**With Realism off:** the nested switch **Keep the clock running without the engine** (default **off**). Without it the clock holds still on purpose — that call used to be free while the engine was on, and treating the old default as consent would bill everyone an extra eval. Cost: one short model call after each reply.
+
+**After each reply** (not Continue): scene-time eval → `minutes_elapsed` → clamp **180**. Eval fail → **+5 minutes**. **12** stalled turns → snap to next period (dawn 6:00, morning 9:00, late morning 11:30, afternoon 2:30, evening 6:30, night 10:30). Regen/swipe restore `story_clock_before` then eval again.
+
+**Skip:** OOC / skip phrases in [FAQ → skip](faq.md#how-do-i-skip-time); ‹ › period nudge; tap date → Story Calendar. Night-skip language lands morning.
+
+Weather, dreams, Clock In, and Planner all read this clock.
+
+---
+
+## Pockets & Wardrobe
+
+They can wear things, carry things, and set things aside. Hand them an item, take it back, or (in a group, if you turned **Hand things between characters** on) they pass it to someone else.
+
+- Own switch on **Porch Life**. Does **not** need the Realism Engine.
+- Authors can send them into a chat already dressed and carrying things (the card / greeting seed).
+- The Journal grows a **Belongings** tab of where things went.
+- Extra model call when inventory changes — that's the cost.
+
+If they "forget" an object you handed them, check the switch is on for that chat and look at Belongings before assuming the model is broken.
+
+---
+
+## Clock In
+
+A character can have a job: occupation, which weekdays, hours on the clock.
+
+- Set it on the character (the work / occupation row).
+- Skip a turn while they're scheduled to be working and a banner says they're at work. A night skip lets them rest.
+- The story clock is told the time **before** they write; after the reply the clock decides how much passed. **Continue does not tick the clock.**
+- **With you** is scored after they speak — not assumed. They can be at work and still talking to you, or not.
+
+If Discord is asking "why won't they leave work?" — that's this feature, not a bug. Change their hours, skip to after shift, or turn the occupation off.
 
 ---
 
@@ -290,7 +384,7 @@ The second layer is a searchable index of the conversation itself. As you chat, 
 
 **This layer respects the same wall the diary does.** A character's own memories are searched only within the chat they were made in; anything belonging to a different conversation with them is deliberately skipped, so an old storyline can't bleed into a new one. The only two things that reach across conversations are ones you set up yourself: the opt-in **Sources** list and the **Data Bank**, both described just below.
 
-The **Memory (RAG)** panel lets you set how many memories to pull per turn, open the **Data Bank** (reference material you write yourself for a character to draw on), and pick **Sources** — an opt-in list if you *want* a character to also draw on memories belonging to *other* characters. Nothing crosses over unless you tick it.
+The **Memory (RAG)** panel lets you set how many memories to pull per turn, open the **Data Bank** (**Add Entry** or **Import File** — txt/PDF, chunked ~500 words), and pick **Sources** — an opt-in list if you *want* a character to also draw on memories belonging to *other* characters. Nothing crosses over unless you tick it.
 
 Memory (RAG) has a master switch that is off until you turn it on and download the embedding model. Once it is on, group chats use it too and are enabled by default; the sidebar Memory (RAG) panel itself only appears in one-on-one chats, and groups are configured under **Group Settings → Memory & RAG**: turn it on or off for the group, set how many memories to pull, set how much of the context budget they may take, and boost or suppress each individual member with **Per-Character Memory Importance**.
 
@@ -333,7 +427,7 @@ Every character can have their own voice, and in group chats each member speaks 
 Voice input runs on Whisper, inside the app — nothing you say leaves your computer, and again, there's nothing extra to install.
 
 - **Push-to-talk** — hold the microphone button, speak, release. Your words appear in the input box ready to edit or send.
-- **Voice Call Mode** — the green call button starts a hands-free conversation: the app listens, sends when you pause, the character answers out loud, and the loop continues until you hang up.
+- **Voice Call Mode** — the green call button starts a hands-free conversation: the app listens, sends when you pause, the character answers out loud, and the loop continues until you hang up. Optional **Voice Call Model** (a different, usually faster model than chat), **buffer** (pre-generate N sentences), and a **call-only system prompt**. Auto-send transcription is a switch — FAQ covers it cutting you off early.
 
 Bigger Whisper models are more accurate (especially with names and accents) but slower; smaller ones are snappy. Choose in Settings — models download automatically the first time.
 
@@ -341,23 +435,81 @@ Bigger Whisper models are more accurate (especially with names and accents) but 
 
 ## Image Generation
 
-Front Porch connects to image generators so your story can have faces and places:
+Front Porch does **not** run Stable Diffusion inside the chat app. You run an image server (or a cloud API); Front Porch talks to it. The pictures are made in the **Image Studio** (desktop) or with `/image` in chat.
 
-- **AUTOMATIC1111** — the popular local Stable Diffusion server (Forge and other A1111-compatible servers work through this option too)
-- **ComfyUI** — the node-based local generator
-- **Draw Things** — a great local option on Macs
-- **Remote API** — a cloud image service, if you'd rather not run one locally
+The phone / web UI does **not** have the full Image Studio. It **can** generate from **Models** and from `/image` in chat.
+
+### Turn it on
+
+1. Settings → **Voice & Media** → **Image Generation** — flip it on. Until that switch is on, the ✨ **Image Studio** button in the chat toolbar is hidden.
+2. Point it at a backend (below). URL and model pickers live *inside* the Studio, not on that Settings row.
+
+### Backends
+
+You pick a chip **inside Image Studio**. Front Porch never starts these programs.
+
+| Chip | Start this yourself | Default address | Gotcha |
+|---|---|---|---|
+| **Draw Things** | Draw Things app (Mac). Enable **gRPC**. | `127.0.0.1` port **7859** | Not shown on Windows/Linux unless you already saved it. |
+| **ComfyUI** | ComfyUI | `http://127.0.0.1:8188` | Edit = recipe or upload a workflow. |
+| **AUTOMATIC1111** | A1111 or **Forge** | `http://127.0.0.1:7860` | Must launch with **`--api`**. |
+| **Remote** | Nothing extra locally | Same URL/key as Settings → **Backend** | Not a second key. Empty key = Generate does nothing useful. Cloud bill. |
+
+Wait for the green **connected** card (model count). Dummy-proof steps: [FAQ → Pictures](faq.md#how-do-pictures-actually-work).
+
+### Image Studio
+
+Open a chat → ✨ in the input bar.
+
+**Subject** (what the picture is *of*):
+
+- **Freeform** — you write the prompt. Leave it blank and tap **Write it for me** / Craft to picture the current scene.
+- **Character** — close-up from the card's appearance + current expression. Personality text is *not* stuffed into the prompt. In a group, pick one member (or attempt a group shot — diffusion is bad at several specific faces at once, and the UI says so).
+- **Your persona** — portrait from your persona appearance.
+
+**Prompt style:** Natural language (FLUX / SD3) or Danbooru tags (SD 1.5 / anime). Match what your checkpoint was trained on.
+
+**Write it for me** asks your *text* LLM to draft the prompt; you can edit it before Generate.
+
+**LoRAs** — style add-ons from the image server. Compatible ones show in the picker; confirmed mismatches hide behind **Show N incompatible** and warn if you force one anyway. Weight slider is right there.
+
+**Reference image (img2img)** — local backends only (hidden on Remote): attach a picture + denoise strength. Not the same as Edit.
+
+**History** of generations sits in the Studio. From a result you can **Variations**, **Edit prompt & regenerate**, **Send to chat**, **Save to gallery**, or save to disk.
+
+### Create vs Edit
+
+Two tabs at the top of the Studio:
+
+- **Create** — new picture from a prompt. Model slot, LoRA, size, style, negative prompt, Advanced samplers.
+- **Edit** — change an existing picture. Needs an **edit-capable** model (Qwen-Image-Edit, Flux Kontext, and friends) on a backend that supports edits. If your current combo can't, the app tells you why — it does not silently txt2img.
+
+Edit on Draw Things: use **Use recommended** on the recipe strip before you invent CFG. Comfy: pick a built-in recipe or **Upload your own** workflow.
+
+### /image in chat
+
+Type `/image` for the current scene, or `/image me | char | raw <prompt> | <description>`.
+
+If **Review AI prompts before generating** is on (Studio generation settings), `/image` **pauses** so you can edit the crafted prompt first.
+
+### Expression packs
+
+Studio (and the character editor's portrait panel) can build a set of mood faces from **one base portrait**, so the pack stays the same person.
+
+- **Starter** — 8 emotions (neutral, joy, sadness, anger, fear, surprise, love, embarrassment). Fast.
+- **Full** — 28 emotions, everything chat expressions can show.
+- You can keep faces you already like and only generate the missing ones.
+- **QC** — the app looks at each face (needs a **vision-capable** text model: local GGUF + mmproj in Model Settings → Vision, or a vision remote). Re-roll one that failed. Import the keepers into the Avatar Gallery.
+
+No base portrait → it stops and says so. No edit model → expression pack from a portrait can't run.
+
+### When Edit or QC won't run
+
+- **No vision model** — local: load a vision GGUF and its mmproj (Model Settings → Vision). Remote: pick a model that can see images.
+- **Couldn't check vision** — the model server didn't answer (often still loading). Wait, retry.
+- **Edit disabled** — wrong family for inpainting/edit. Switch the image model, not the chat model.
 
 ![Image generation](screenshots/local_image_gen.png)
-
-Set your backend in Settings, then generate from chat (the `/image` command, or the buttons in the chat toolbar) or from the **Image Studio**: character portraits, scene illustrations, chat backgrounds, avatars. The app can build prompts from the current scene automatically, and you can choose between **natural-language prompts** or **Danbooru-style tags** depending on what your image model likes. Model switching and LoRA support (small style add-ons for image models) are built in.
-
-The Image Studio has two modes:
-
-- **Create** — make a new picture from a prompt, with model and LoRA pickers, style previews and a history of everything you've generated.
-- **Edit** — feed it an existing picture and change it, rather than starting over. This needs a model that can actually do edits (Qwen-Image-Edit or Flux Kontext style) on a backend that supports them; the app tells you plainly when your current combination can't, and why.
-
-It's also where **expression packs** are made: point it at a character and it generates a full set of mood portraits for them, checking its own work as it goes.
 
 ![Image generation settings](screenshots/local_image_gen_settings.png)
 
@@ -369,7 +521,7 @@ Porch Stories turns ideas — or your existing chats — into full illustrated n
 
 ![A finished Porch Story](screenshots/Porch_stories_book.png)
 
-**How a story gets made:** you give it a concept, and a pipeline of specialized AI passes takes it from there — building a story bible (characters, world, themes), structuring acts and chapters, then writing scene by scene with continuity checks along the way. You can let it run or step through stages yourself.
+**How a story gets made:** backend must be loaded. Setup wizard: **Engine → Concept → Style → Format → Cast → Review**. If you import chat history, a **Distiller** runs first so the novel tracks what actually happened. Then **Architect** (bible) → **Act Structurer** (acts/scenes) → per-scene beats then prose. You can rewrite one scene from the structure tree. Chat → **Turn Into a Story…** names the project (desktop).
 
 **Project settings include:** point of view, genre and mood, prose length, pacing, dialogue density, maturity rating — plus which of your characters appear and whether to import chat history so the novel builds on what actually happened between you.
 
@@ -381,7 +533,7 @@ Finished stories open in a page-flip book reader with optional read-along narrat
 
 ## The Stoop (Community Hub)
 
-The Stoop is a community hub built into the app — browse, share, and download characters, whole group casts and places without ever opening a browser. Open it from **The Stoop** in the left sidebar.
+The Stoop is a community hub built into the app — browse, share, and download characters, whole group casts and places. Open it from **The Stoop** in the left sidebar, or in a browser at [hub.frontporchai.app](https://hub.frontporchai.app) (guests can browse and download there).
 
 - **Browse & discover** — **Mod's Picks** on the front page, new cards from creators you follow, and browse-all with sorting by **Newest**, **Top** or **Downloads**. Filter by **Singles**, **Groups** or **Worlds**.
 - **Search** — one box that understands a name, an `@creator` or a `#tag`.
@@ -395,7 +547,7 @@ The Stoop is a community hub built into the app — browse, share, and download 
 
 Every account gets a public porch page: profile picture, when you joined, follower count, lifetime stats, a short bio, up to four links, and your published cards laid out as an art grid. Edit it from **Edit profile** on your Stoop home.
 
-**Confirming your email** is what unlocks sharing your own cards and uploading a profile picture. Browsing and downloading work without it. If you haven't confirmed yet, a banner on The Stoop offers to send the link again.
+**Confirming your email** unlocks sharing, a profile picture, comments, and reports. Browsing and downloading work without it. If you haven't confirmed yet, a banner on The Stoop offers to send the link again.
 
 ### Messages and notifications
 
@@ -403,7 +555,7 @@ The bell opens your inbox. **Notifications** collects approvals and review notes
 
 ### Privacy
 
-The Stoop is **opt-in** and account-gated, strictly **18+**, with adult content hidden until you turn it on, and optional two-factor authentication. It's the only part of the app that involves an account or any data collection at all — everything else stays on your machine. If you never touch it, nothing about your setup changes.
+The Stoop is **opt-in**, strictly **18+**, with adult content hidden until you turn it on, and optional two-factor authentication. On the **web hub** you can browse and download as a guest. Sharing, votes, comments, and reports need an account. It's the only part of the app that involves an account or any data collection at all — everything else stays on your machine. If you never touch it, nothing about your setup changes.
 
 ---
 
@@ -419,7 +571,43 @@ Your desktop runs the AI — but you can chat from any browser, including your p
 
 **Security:** web access has its own login, which you create in the browser the first time you connect. On **this computer** (localhost) that first-run page is enough; from a phone, another machine, or a tunnel you also enter the **one-time setup code** shown under Settings → Web Server on the desktop. Sessions are per-device, two-factor authentication is optional (turning 2FA **on or off** asks for your password so a stolen browser session alone can't lock you out), and the desktop side is your recovery key: Settings → Advanced → Web Server can **sign out all devices** or **reset the web login** entirely if you ever get locked out. (Resetting only clears the web username, password and 2FA — your characters, chats and settings aren't touched — and shows a new setup code.)
 
-The web app covers the whole experience, adapted for phone and desktop browsers: chats and group chats, your character library and editors, the AI character creator, model switching, settings, Worlds, Porch Stories, and The Stoop — kept in sync with the desktop app.
+The web app is **not** a clone of every desktop button. It covers chats (including group), library and editors, AI create, models, settings (including Porch Life), Worlds, Porch Stories, and browsing The Stoop.
+
+**Not on phone / web (do these on the desktop app):**
+
+- Image Studio (full Create/Edit/LoRA/expression-pack QC). Phone **Models** can still generate a picture and insert it into chat; `/image` works in web chat too
+- Voice Call Mode (push-to-talk mic still works over HTTPS)
+- Suggest Actions
+- Attach a photo to a message / Photo Understanding
+- Sharing / uploading on The Stoop (browse, download, follow, vote, comments work)
+- Backups & Restore
+- Database Scan & Clean / changing the data folder
+- Turn Into a Story from chat
+- Director auto-play + response delay (the Director toggle exists; pacing is desktop)
+- Six-tab Settings layout, Voice Call model, GPU launch, custom Piper importer
+
+**Remote** is its own page on the phone (Tailscale login, HTTPS, optional **ngrok**, QR) — not only the desktop Advanced wizard.
+
+Mic / push-to-talk on a phone needs **HTTPS** (Tailscale HTTPS or similar). Plain `http://192.168…` will not get microphone permission.
+
+Account on the web: change password, enroll 2FA (QR + recovery codes), signed-in devices, sign out. Dangerous actions re-ask the web password.
+
+---
+
+## Settings (all six tabs)
+
+Open **Settings** from the left sidebar. Tabs, left to right:
+
+| Tab | What lives here |
+|---|---|
+| **General** | Dark/light, chat fonts, bubble colors, **Font Size Scale** (whole app, separate from chat text size), **18+ themes**, system prompt + presets, About & License. Pointer to Porch Life. |
+| **Porch Life** | Every living-character switch. See [Porch Life](porch-life.md). |
+| **Generation** | Samplers, token limits, smooth output buffer, stop sequences, banned phrases (Kobold only), Output Sanitizer, thinking/reasoning effort. |
+| **Voice & Media** | TTS engines (Kokoro / Piper / ElevenLabs / OpenAI). Piper **Add custom voice** = raw `.onnx` + `.onnx.json` next to it (**desktop**). Voice catalog + preview is here, not on the character Voice row. STT/Whisper, Voice Call (separate call model, buffer, call prompt, auto-send), expression display (**sidebar / background / both**), **Image Generation** on/off, **Photo Understanding** uninstall (separate from Image Generation). |
+| **Backend** | Local KoboldCpp / oMLX / OpenAI-compatible (OpenRouter, Nano-GPT, LM Studio, custom). Model picker, presets, process logs. |
+| **Advanced** | **Data directory** (change where everything lives), **Web Server** (QR, Tailscale, setup code, 2FA reset), GPU/launch extras, **Database Maintenance → Scan & Clean** (orphan avatars, leftover embeddings, dead sessions — **not** the same as Reclaim Disk Space), **Reclaim Disk Space** (old sidecar leftovers). |
+
+Spell-check language for red underlines is under Generation / Chat Settings on desktop (and Generation on web).
 
 ---
 
@@ -431,18 +619,42 @@ These control *how* the AI writes. Set them globally in **Settings → Generatio
 - **Min-P / Top-P / Top-K** — filters that decide which words the AI is even allowed to consider. Min-P around 0.05–0.1 is a modern, reliable choice.
 - **Repeat penalty** — discourages the AI from repeating itself. Small values (1.05–1.15) help; big ones make speech stilted.
 - **Max output tokens** — a cap on reply length, in tokens (word-pieces — roughly ¾ of a word each).
-- **Advanced samplers** — dynamic temperature, XTC, DRY, and friends, each with a tooltip explaining what it does. Safe to experiment; easy to reset.
-- **Reasoning** — for models that support it, ask for reasoning and pick an effort level.
+- **Min output tokens** — a floor so tiny replies get pushed longer.
+- **Context size** — how much of the prompt the model can see. A `.kcpps` preset can lock this.
+- **Smooth Output Buffer** — Display Output: target tokens/sec and buffer seconds so text drips at reading speed, not GPU speed.
+- **Advanced samplers** — dynamic temperature (Dynatemp Range), XTC threshold/probability, DRY strength, each with a tooltip. Safe to experiment; easy to reset.
+- **Reasoning / Thinking** — for models that support it: ask for reasoning and pick an effort level. Private thought still lands in the Thought chip.
 - **Stop sequences** — cut a reply off as soon as a marker appears. Works on every backend.
 - **Banned phrases** — ban turns of phrase you're sick of. This one belongs to the local KoboldCpp backend only: on a remote or OpenAI-compatible backend the editor isn't shown at all, in Settings → Generation or in Chat Settings, so don't go hunting for it there. (The Output Sanitizer below tidies finished replies instead, and isn't restricted that way.)
 
 **Three steering tools worth knowing:**
 
 - **System Prompt** — permanent hidden instructions ("always write in third person"). There's a global one in Settings → General (with saveable presets and one-click starting points for API, KoboldCpp and group chats), and each character and group can carry its own.
-- **Author's Note** — temporary scene direction the character experiences as part of *now* ("it's raining hard; they're exhausted"). Lives at the top of the chat sidebar with a strength dial; edit it mid-scene any time.
-- **Output Sanitizer** — rules that clean up a reply *after* the model writes it: strip a tic, fix a formatting habit, delete a phrase. Enable it in Settings → Generation, or just for one chat in Chat Settings. The full rule syntax is written up in [the Output Sanitizer reference](https://github.com/linux4life1/front-porch-AI/blob/main/docs/output-sanitizer-syntax.md).
+- **Author's Note** — temporary scene direction the character experiences as part of *now* ("it's raining hard; they're exhausted"). Lives at the top of the chat sidebar with a strength dial **1–10** (Subtle / Moderate / Strong). Edit it mid-scene any time.
+- **Output Sanitizer** — rules that clean up a reply *after* the model writes it: strip a tic, fix a formatting habit, delete a phrase. Enable it in Settings → Generation, or just for one chat in Chat Settings. Optional **Sanitise Existing History** rewrites saved chats when you open them — confirm the dialog; it is permanent. Rule syntax: [Output Sanitizer](output-sanitizer-syntax.md).
 
-> **Note:** if a KoboldCpp launch preset (`.kcpps` file) is active, it controls context size and related values — the app locks those fields and shows a tooltip explaining why.
+> **Note:** if a KoboldCpp launch preset (`.kcpps` file) is active, it controls context size and related values — the app locks those fields and shows a tooltip explaining why. **Generate `.kcpps`** from current launch settings lives in Settings → Backend.
+
+---
+
+## Slash commands
+
+Type `/` in the box. Aliases (`/turn`, `/detect`, `/expression-clear`) exist; the helper list shows the names below.
+
+| Command | What it does |
+|---|---|
+| `/create <name>: <concept>` | Make a new guest NPC and bring them in |
+| `/join [--full] [name]` | Bring a library character in. `--full` = full member (turns a 1:1 into a group) |
+| `/promote` | Everyone present becomes a full member (scene → group) |
+| `/speak [name]` | Force a turn now |
+| `/exit [name]` | Guest leaves (narrated); in a group, remove that member |
+| `/turnorder [random \| <name>, …]` | Round-robin, random, or an explicit order |
+| `/scan` | Look for a recurring name in the scene and offer to add them |
+| `/expression [emotion]` | Set the portrait by hand (omit to clear) |
+| `/afk [off] [--messages N] [--time 5m]` | Keep the scene ticking while you step away |
+| `/image [me \| char \| raw <prompt> \| <description>]` | Picture the scene, you, the character, or a raw prompt |
+
+Dynamic Responses (sidebar **Story Tools**, **1:1 only**) is the same AFK idea without typing: gear sets interval 30–300s, max 1–10 scenes, story-time pace (hours / half day / full day). Typing cancels. Groups use `/afk` only.
 
 ---
 
@@ -478,7 +690,7 @@ KoboldCpp is a real program that runs alongside Front Porch — but the app down
 - **Model Hub** — search Hugging Face for GGUF models (the standard file format for local AI), see sizes and memory estimates, download in one click.
 - **Models you already have** — the app scans its models folder, subfolders included, so dropping a `.gguf` file in there is enough to make it show up. **Import from Computer** picks one from anywhere else, but be aware it *copies* the file into the models folder rather than pointing at it where it sits — a 20 GB model you import takes 20 GB twice until you delete the original.
 - **Auto-configuration** — the app suggests how much of the model to put on your graphics card and how long its memory (context) should be, based on your hardware.
-- **Advanced launch options** — a collapsible panel for the tinkerers: Flash Attention, Context Shift, memory locking, GPU selection, batch size — all with sane defaults if you never touch them.
+- **Advanced launch options** — a collapsible panel: **Automatic** acceleration, or pick Vulkan / ROCm (AMD) / CuBLAS (NVIDIA) / Metal. **Flash Attention** (~20–40% on RTX/Apple Silicon, auto-off for ROCm) applies on the *next* restart. **KV Cache Quantization** saves VRAM but **turns off Context Shifting**. GPU Layers, context chips (512–128K), mlock (Linux often needs a higher ulimit), GPU ID, Prefill batch. Sane defaults if you never touch them. A `.kcpps` preset locks the ones it owns.
 - **Launch presets** — `.kcpps` preset files are supported; when one is active it takes charge of launch settings.
 - A **log viewer** is there when you want to see what the engine is doing under the hood.
 

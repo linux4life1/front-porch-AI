@@ -18,9 +18,11 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/services/chat/birthday.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
 import 'package:front_porch_ai/ui/pages/repository/repository.dart'
     show StoopCollapsible;
+import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The Stoop card panel's IDENTITY sections — the card-authored phrase lists
@@ -111,6 +113,42 @@ Widget _subLabel(BuildContext context, String text) => Padding(
     ),
   ),
 );
+
+/// Hub-style birthday line: `March 15, 1998 — age 28`.
+///
+/// Same rules as [BirthdayMath] / hub.frontporchai.app: `YYYY-MM-DD`, Feb 29
+/// never valid, age is the calendar delta to [asOf] (UTC today when omitted —
+/// the hub has no story clock). Returns null for absent, wrong-typed, or
+/// invalid values so a section can vanish without taking the panel down.
+String? stoopBirthdayText(Object? raw, {DateTime? asOf}) {
+  if (raw is! String) return null;
+  final reading = BirthdayMath.read(raw, asOf ?? DateTime.now().toUtc());
+  if (reading == null) return null;
+  final b = reading.birth;
+  return '${BirthdayMath.monthName(b.month)} ${b.day}, ${b.year} — age ${reading.age}';
+}
+
+/// Calendar birthday, as authored on the card.
+///
+/// Ungated like the other identity sections: a birthday travels with the card
+/// whether or not the Realism Engine is on. Opens by default, matching the
+/// hub's `textSection('Birthday', …, true)`.
+Widget stoopBirthdaySection(
+  BuildContext context,
+  Map<String, dynamic> re, {
+  DateTime? asOf,
+}) {
+  final line = stoopBirthdayText(re['birthday'], asOf: asOf);
+  if (line == null) return const SizedBox.shrink();
+  return StoopCollapsible(
+    title: 'Birthday',
+    initiallyExpanded: true,
+    child: Text(
+      line,
+      style: TextStyle(color: stoopCream2(context), height: 1.5),
+    ),
+  );
+}
 
 /// The character's long-term ambitions, as authored on the card.
 ///

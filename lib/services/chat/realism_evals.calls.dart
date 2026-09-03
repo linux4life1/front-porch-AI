@@ -85,7 +85,7 @@ extension RealismEvalCalls on RealismEvals {
       debugPrint('[Realism] Evaluating relationship dynamic...');
       final raw = await _fireEval(
         toolName: kRelationshipTool,
-        tools: kRelationshipEvalTools,
+        tools: kJudgeEvalTools,
         buildPrompt: buildPrompt,
         onChunk: onChunk,
       );
@@ -195,7 +195,7 @@ extension RealismEvalCalls on RealismEvals {
       );
       final raw = await _fireEval(
         toolName: kEmotionalTool,
-        tools: kEmotionalEvalTools,
+        tools: kJudgeEvalTools,
         buildPrompt: buildPrompt,
         onChunk: onChunk,
       );
@@ -364,7 +364,7 @@ extension RealismEvalCalls on RealismEvals {
     try {
       final raw = await _fireEval(
         toolName: kNarrativeTool,
-        tools: kNarrativeEvalTools,
+        tools: kJudgeEvalTools,
         buildPrompt: buildPrompt,
         onChunk: onChunk,
       );

@@ -25,7 +25,6 @@ import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/skip_language.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/today_line_tag.dart';
-import 'package:front_porch_ai/services/services.dart' show LlmToolResponse;
 import 'package:front_porch_ai/utils/utils.dart' show stripQuotedSpeech;
 
 /// Plain (non-ChangeNotifier) domain service owning the chat-scoped passage-of-time
@@ -186,11 +185,7 @@ class TimeService {
 
   // Tools transport for the scene-time and posture evals (nullable — tests and
   // any host without the tools door stay on the text path).
-  final Future<LlmToolResponse?> Function(
-    String prompt,
-    List<Map<String, dynamic>> tools,
-  )?
-  fireToolEval;
+  final Object? fireToolEval;
   final ToolTransportProbe? probe;
   final String Function()? getBackendIdentity;
 
@@ -284,6 +279,7 @@ class TimeService {
           callToText: (resp) =>
               realismToolCallToJson(kSceneTimeTool, resp.calls),
           fireToolEval: fireToolEval!,
+          toolChoice: kSceneTimeTool,
           fireTextEval: fireLLMEval,
           onChunk: onChunk,
         )
@@ -533,12 +529,18 @@ class TimeService {
   /// Advance the clock by [count] period-steps (skip LLM eval).
   /// Used during AFK auto-response mode to simulate hours passing.
   /// Respects the passageOfTimeEnabled toggle.
+  ///
+  /// Owns the turn the same way an OOC skip does: the post-reply time
+  /// eval must not add minutes on top of the AFK snap.
   void advanceTimePeriods(int count) {
     if (!_passageOfTimeEnabled) return;
     for (var i = 0; i < count; i++) {
       _clock = StoryClock.snapToNextPeriod(_clock);
     }
-    if (count > 0) _turnsSinceClockMoved = 0;
+    if (count > 0) {
+      _turnsSinceClockMoved = 0;
+      _oocSkipMovedClockThisTurn = true;
+    }
   }
 
   // ── OOC Time-Skip Detector ────────────────────────────────────────────────

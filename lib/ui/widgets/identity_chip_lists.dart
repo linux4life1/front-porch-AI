@@ -27,6 +27,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 // would be a self-import (the structural exemption in CLAUDE.md).
 import 'package:front_porch_ai/ui/widgets/chip_list_editor.dart';
 import 'package:front_porch_ai/ui/widgets/plan_lines_editor.dart';
+import 'package:front_porch_ai/ui/widgets/birthday_row.dart';
 import 'package:front_porch_ai/ui/widgets/work_row.dart';
 
 /// The install's 18+ master switch — the same one that shows or hides the
@@ -62,6 +63,17 @@ bool plannerEnabledOf(BuildContext context) {
   }
 }
 
+/// Live story clock when a [ChatService] is in scope, else null so
+/// [BirthdayRow] can fall back. Settings and Speak as both claim
+/// "on the story date"; wall-clock was the silent miss.
+DateTime? storyDateOf(BuildContext context) {
+  try {
+    return Provider.of<ChatService>(context, listen: false).timeService.clock;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// The card-authored IDENTITY lists — Ambitions, Likes & Dislikes, and the 18+
 /// pair — every one of them a short list of short phrases edited as chips.
 ///
@@ -88,6 +100,9 @@ class IdentityChipLists extends StatelessWidget {
     this.onHoursChanged,
     this.workDays,
     this.onWorkDaysChanged,
+    this.birthday,
+    this.onBirthdayChanged,
+    this.birthdayAgeAsOf,
     this.likes,
     this.onLikesChanged,
     this.dislikes,
@@ -117,6 +132,10 @@ class IdentityChipLists extends StatelessWidget {
   final ValueChanged<String>? onHoursChanged;
   final List<int>? workDays;
   final ValueChanged<List<int>>? onWorkDaysChanged;
+
+  final String? birthday;
+  final ValueChanged<String>? onBirthdayChanged;
+  final DateTime? birthdayAgeAsOf;
 
   final List<String>? likes;
   final ValueChanged<List<String>>? onLikesChanged;
@@ -200,10 +219,12 @@ class IdentityChipLists extends StatelessWidget {
         onWornChanged != null &&
         carrying != null &&
         onCarryingChanged != null;
+    final hasBirthday = birthday != null && onBirthdayChanged != null;
 
     if (!hasAmbitions &&
         !hasPlanLines &&
         !hasWork &&
+        !hasBirthday &&
         !hasTastes &&
         !hasIntimate &&
         !hasWardrobe) {
@@ -261,6 +282,20 @@ class IdentityChipLists extends StatelessWidget {
               onOccupationBriefChanged: onOccupationBriefChanged!,
               onHoursChanged: onHoursChanged!,
               onWorkDaysChanged: onWorkDaysChanged,
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        if (hasBirthday) ...[
+          _header(Icons.cake_outlined, 'Birthday', AppColors.formMasterAccent),
+          const SizedBox(height: 12),
+          _card(
+            context,
+            BirthdayRow(
+              iso: birthday!,
+              onChanged: onBirthdayChanged!,
+              ageAsOf: birthdayAgeAsOf,
             ),
           ),
           const SizedBox(height: 20),

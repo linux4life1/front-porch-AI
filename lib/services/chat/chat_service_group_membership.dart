@@ -53,7 +53,8 @@ extension ChatServiceGroupMembership on ChatService {
     // Present lite guests carried no realism (by design) and become full
     // members seeded with neutral defaults on first entry.
     final String hostName = _activeCharacter!.name;
-    final String? hostSessionId = _currentSessionId; // 1:1 session (objectives source)
+    final String? hostSessionId =
+        _currentSessionId; // 1:1 session (objectives source)
     // Capture UNCONDITIONALLY: the enable-flags, author note, and objectives
     // must carry even when realism is OFF (a user can have quests or an author
     // note with realism disabled). Only the realism snapshot itself is
@@ -68,6 +69,9 @@ extension ChatServiceGroupMembership on ChatService {
       'chaosPressure': _chaosModeService.chaosPressure,
       'authorNote': _authorNote,
       'authorNoteStrength': _authorNoteStrength,
+      // Live kit, regardless of realism — collapse copies this back onto
+      // `_pockets`; the fork must plant it on the host member the same way.
+      if (_pockets != null) 'pockets': _pockets!.toJson(),
     };
 
     // D5 — one instance per library character per chat. Drop any arrival that
@@ -84,10 +88,7 @@ extension ChatServiceGroupMembership on ChatService {
     // Build a default group name
     final name = groupName?.isNotEmpty == true
         ? groupName!
-        : [
-            _activeCharacter!.name,
-            ...arrivals.map((c) => c.name),
-          ].join(' & ');
+        : [_activeCharacter!.name, ...arrivals.map((c) => c.name)].join(' & ');
 
     // Create the group
     final group = GroupChat(
@@ -382,7 +383,9 @@ extension ChatServiceGroupMembership on ChatService {
     // legacy members that predate provenance stamping.
     final incomingId = _getCharacterIdFromCard(character);
     final incomingName = character.name.trim().toLowerCase();
-    final existingMembers = await groupRepo.getMembersForGroup(_activeGroup!.id);
+    final existingMembers = await groupRepo.getMembersForGroup(
+      _activeGroup!.id,
+    );
     final alreadyPresent = existingMembers.any((m) {
       final origin = m.originStableId;
       if (origin != null && origin == incomingId) return true;
@@ -471,7 +474,9 @@ extension ChatServiceGroupMembership on ChatService {
     if (_activeGroup == null || _characterRepository == null) return false;
     if (_isTurnBusy) return false;
 
-    final charId = _getCharacterIdFromCard(character); // member instance id (mid)
+    final charId = _getCharacterIdFromCard(
+      character,
+    ); // member instance id (mid)
 
     // Find the member's avatar filename before the row is deleted.
     final beforeRows = await groupRepo.getMembersForGroup(_activeGroup!.id);

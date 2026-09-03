@@ -30,6 +30,7 @@ import 'package:front_porch_ai/ui/pages/repository/stoop_group_sections.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_creator_page.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_report.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Open a character as a frosted glass panel that slides in from the right while
@@ -506,12 +507,22 @@ class _StoopDetailPanelState extends State<_StoopDetailPanel> {
                             ),
                           );
                         },
-                        child: Text(
-                          '@${d.creator!.displayName}',
-                          style: const TextStyle(
-                            color: AppColors.stoopTealText,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              '@${d.creator!.displayName}',
+                              style: const TextStyle(
+                                color: AppColors.stoopTealText,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            StoopVerifiedBadge(
+                              verification: d.creator!.verification,
+                            ),
+                          ],
                         ),
                       ),
                     // Attribution: uploader ≠ author ("@handle · created by X").
@@ -591,6 +602,15 @@ class _StoopDetailPanelState extends State<_StoopDetailPanel> {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                    ],
+                    if (d.isWorld) ...[
+                      const SizedBox(width: 12),
+                      Wrap(
+                        spacing: 6,
+                        children: stoopWorldKindBadges(
+                          climateEnabled: stoopWorldClimateEnabled(d.card),
                         ),
                       ),
                     ],

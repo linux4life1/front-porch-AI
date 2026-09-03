@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_avatar.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The ONE creator identity header, used by both the signed-in profile tab and
@@ -61,9 +62,18 @@ class StoopProfileHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      c.displayName,
-                      style: stoopDisplay(context, size: 23),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          c.displayName,
+                          style: stoopDisplay(context, size: 23),
+                        ),
+                        StoopVerifiedBadge(
+                          verification: c.verification,
+                          size: 22,
+                        ),
+                      ],
                     ),
                     if (c.createdAt != null) ...[
                       const SizedBox(height: 3),
@@ -133,10 +143,8 @@ class StoopProfileHeader extends StatelessWidget {
     if (label.length > 42) label = '${label.substring(0, 40)}…';
     return InkWell(
       borderRadius: BorderRadius.circular(999),
-      onTap: () => launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      ),
+      onTap: () =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
         decoration: BoxDecoration(
@@ -156,8 +164,18 @@ class StoopProfileHeader extends StatelessWidget {
 
   static String _monthYear(DateTime d) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return '${months[d.month - 1]} ${d.year}';
   }
@@ -215,9 +233,7 @@ void stoopCopyCreatorLink(
   required String id,
   required String displayName,
 }) {
-  final ref = RegExp(r'^[\w-]{2,40}$').hasMatch(displayName)
-      ? displayName
-      : id;
+  final ref = RegExp(r'^[\w-]{2,40}$').hasMatch(displayName) ? displayName : id;
   Clipboard.setData(
     ClipboardData(text: 'https://hub.frontporchai.app/creator/$ref'),
   );

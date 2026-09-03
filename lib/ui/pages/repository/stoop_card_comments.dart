@@ -12,6 +12,7 @@ import 'package:front_porch_ai/ui/pages/repository/stoop_comments_switch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_profile_header.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_report.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 
 /// Hosts the Discussion block + owner kill switch.
 ///
@@ -780,6 +781,10 @@ class _StoopCardCommentsState extends State<StoopCardComments> {
                         ),
                       ),
                     ),
+                    StoopVerifiedBadge(
+                      verification: reply.verification,
+                      size: 12,
+                    ),
                     const SizedBox(width: 6),
                     _creatorMark(context, parent.id),
                     const SizedBox(width: 8),
@@ -900,6 +905,10 @@ class _StoopCardCommentsState extends State<StoopCardComments> {
                         fontSize: 13.5,
                       ),
                     ),
+                  ),
+                  StoopVerifiedBadge(
+                    verification: comment.verification,
+                    size: 13,
                   ),
                   const SizedBox(width: 8),
                   Text(

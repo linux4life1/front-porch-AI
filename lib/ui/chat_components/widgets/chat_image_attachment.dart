@@ -36,9 +36,8 @@ Future<Uint8List?> pickChatImageAttachment() async {
     category: PickerPrefs.catImage,
     dialogTitle: 'Attach a photo',
     type: FileType.image,
-    withData: true,
   );
-  final raw = result?.files.firstOrNull?.bytes;
+  final raw = await result?.firstBytes();
   if (raw == null) return null;
   return compute(_downscaleToPng, raw);
 }

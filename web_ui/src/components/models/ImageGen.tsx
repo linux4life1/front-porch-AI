@@ -49,6 +49,9 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   const [inserted, setInserted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [savedRemoteApiUrl, setSavedRemoteApiUrl] = useState('');
+  const [savedLocalUrl, setSavedLocalUrl] = useState('');
+  const [savedComfyUrl, setSavedComfyUrl] = useState('');
+  const [savedDrawThingsHost, setSavedDrawThingsHost] = useState('');
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [totpEnabled, setTotpEnabled] = useState(false);
@@ -59,6 +62,9 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
       .then((next) => {
         setCfg(next);
         setSavedRemoteApiUrl(next.remoteApiUrl);
+        setSavedLocalUrl(next.localUrl);
+        setSavedComfyUrl(next.comfyUrl);
+        setSavedDrawThingsHost(next.drawThingsHost);
       })
       .catch(() => {});
     api
@@ -73,7 +79,11 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
     const needsStepUp =
       (typeof patch.remoteApiUrl === 'string' &&
         patch.remoteApiUrl !== savedRemoteApiUrl) ||
-      (typeof patch.apiKey === 'string' && patch.apiKey.length > 0);
+      (typeof patch.apiKey === 'string' && patch.apiKey.length > 0) ||
+      (typeof patch.localUrl === 'string' && patch.localUrl !== savedLocalUrl) ||
+      (typeof patch.comfyUrl === 'string' && patch.comfyUrl !== savedComfyUrl) ||
+      (typeof patch.drawThingsHost === 'string' &&
+        patch.drawThingsHost !== savedDrawThingsHost);
     if (needsStepUp) {
       patch.currentPassword = password;
       if (totpEnabled && totpCode.trim()) patch.totpCode = totpCode.trim();
@@ -83,6 +93,9 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
       .then((next) => {
         setCfg(next);
         setSavedRemoteApiUrl(next.remoteApiUrl);
+        setSavedLocalUrl(next.localUrl);
+        setSavedComfyUrl(next.comfyUrl);
+        setSavedDrawThingsHost(next.drawThingsHost);
         if (needsStepUp) {
           setPassword('');
           setTotpCode('');
@@ -191,7 +204,15 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         <>
           <label>
             A1111 URL
-            <input value={cfg.localUrl} onChange={(e) => set({ localUrl: e.target.value })} onBlur={() => saveConfig({ localUrl: cfg.localUrl })} placeholder="http://127.0.0.1:7860" />
+            <input
+              value={cfg.localUrl}
+              onChange={(e) => set({ localUrl: e.target.value })}
+              onBlur={() => {
+                if (cfg.localUrl === savedLocalUrl) return;
+                if (password) void saveConfig({ localUrl: cfg.localUrl });
+              }}
+              placeholder="http://127.0.0.1:7860"
+            />
           </label>
           <label>
             Model <span className="muted small">(checkpoint, optional)</span>
@@ -202,7 +223,15 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         <>
           <label>
             ComfyUI URL
-            <input value={cfg.comfyUrl} onChange={(e) => set({ comfyUrl: e.target.value })} onBlur={() => saveConfig({ comfyUrl: cfg.comfyUrl })} placeholder="http://127.0.0.1:8188" />
+            <input
+              value={cfg.comfyUrl}
+              onChange={(e) => set({ comfyUrl: e.target.value })}
+              onBlur={() => {
+                if (cfg.comfyUrl === savedComfyUrl) return;
+                if (password) void saveConfig({ comfyUrl: cfg.comfyUrl });
+              }}
+              placeholder="http://127.0.0.1:8188"
+            />
           </label>
           <label>
             Model <span className="muted small">(checkpoint — required for ComfyUI)</span>
@@ -214,7 +243,15 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           <div className="img-row2">
             <label>
               Draw Things host
-              <input value={cfg.drawThingsHost} onChange={(e) => set({ drawThingsHost: e.target.value })} onBlur={() => saveConfig({ drawThingsHost: cfg.drawThingsHost })} placeholder="127.0.0.1" />
+              <input
+                value={cfg.drawThingsHost}
+                onChange={(e) => set({ drawThingsHost: e.target.value })}
+                onBlur={() => {
+                  if (cfg.drawThingsHost === savedDrawThingsHost) return;
+                  if (password) void saveConfig({ drawThingsHost: cfg.drawThingsHost });
+                }}
+                placeholder="127.0.0.1"
+              />
             </label>
             <label>
               gRPC port
@@ -225,6 +262,35 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
             Model <span className="muted small">(optional)</span>
             <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} onBlur={() => saveConfig({ model: cfg.model })} />
           </label>
+        </>
+      )}
+      {((cfg.backend === 'a1111' && cfg.localUrl !== savedLocalUrl) ||
+        (cfg.backend === 'comfyui' && cfg.comfyUrl !== savedComfyUrl) ||
+        (cfg.backend === 'drawthings' && cfg.drawThingsHost !== savedDrawThingsHost)) && (
+        <>
+          <StepUpFields
+            password={password}
+            onPassword={setPassword}
+            totpEnabled={totpEnabled}
+            totpCode={totpCode}
+            onTotp={setTotpCode}
+            reason={
+              totpEnabled
+                ? 'Changing the local image host — confirm your web login password and a 2FA code.'
+                : 'Changing the local image host — confirm your web login password.'
+            }
+          />
+          <button
+            className="ghost"
+            disabled={!password}
+            onClick={() => {
+              if (cfg.backend === 'a1111') void saveConfig({ localUrl: cfg.localUrl });
+              else if (cfg.backend === 'comfyui') void saveConfig({ comfyUrl: cfg.comfyUrl });
+              else void saveConfig({ drawThingsHost: cfg.drawThingsHost });
+            }}
+          >
+            Save host
+          </button>
         </>
       )}
 

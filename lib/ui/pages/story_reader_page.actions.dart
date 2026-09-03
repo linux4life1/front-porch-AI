@@ -175,6 +175,7 @@ extension _StoryReaderActions on _StoryReaderPageState {
     try {
       final outputPath = await PickerPrefs.saveFile(
         category: PickerPrefs.catExport,
+        bytes: Uint8List.fromList(utf8.encode(text)),
         dialogTitle: 'Export Story',
         fileName: fileName,
         type: FileType.custom,
@@ -182,7 +183,6 @@ extension _StoryReaderActions on _StoryReaderPageState {
       );
 
       if (outputPath != null) {
-        await File(outputPath).writeAsString(text);
         if (mounted) {
           ScaffoldMessenger.of(
             context,

@@ -182,10 +182,13 @@ class SttService extends ChangeNotifier {
         },
       );
       // Never claim success on faith — verify the files actually landed
-      // (all three present, ONNX graphs plausibly sized).
+      // (all three present, ONNX graphs plausibly sized). Drop a saved
+      // CDN error page so the next tap is not skip-poisoned.
       final ok = SherpaWhisperEngine.isModelPresent(root, modelSize);
       if (!ok) {
-        _downloadError = 'Download finished but the model files failed '
+        SherpaWhisperEngine.purgeImplausibleFiles(root, modelSize);
+        _downloadError =
+            'Download finished but the model files failed '
             'verification — please try again.';
       }
 
@@ -391,8 +394,7 @@ class SttService extends ChangeNotifier {
         await downloadModel();
       }
       if (!SherpaWhisperEngine.isModelPresent(root, modelSize)) {
-        _lastError =
-            _downloadError ?? 'Whisper model is not downloaded yet.';
+        _lastError = _downloadError ?? 'Whisper model is not downloaded yet.';
         EngineHealth.instance.reportFailure(
           EngineHealth.whisper,
           'model missing after download attempt',

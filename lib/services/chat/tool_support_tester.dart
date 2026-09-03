@@ -19,6 +19,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/pass_support.dart';
+import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 /// Actively answers "does the current model speak the tools protocol?" for
@@ -44,11 +45,7 @@ class ToolSupportTester {
   });
 
   final ToolTransportProbe probe;
-  final Future<LlmToolResponse?> Function(
-    String prompt,
-    List<Map<String, dynamic>> tools,
-  )
-  fireToolEval;
+  final Object fireToolEval;
   final String Function() getBackendIdentity;
   final bool Function() isBackendReady;
 
@@ -68,9 +65,16 @@ class ToolSupportTester {
   final Future<bool?> Function()? fetchMetadataToolVerdict;
 
   bool _testing = false;
+  bool _checkedThisRun = false;
   String _lastAutoTestedIdentity = '';
+  String? _inFlightIdentity;
 
   bool get isTesting => _testing;
+
+  /// True after a live ping finished for the current identity (not metadata).
+  bool get checkedThisRun =>
+      _checkedThisRun &&
+      probe.supportFor(getBackendIdentity()) != ToolCallSupport.untested;
 
   ToolCallSupport get current => probe.supportFor(getBackendIdentity());
 
@@ -83,10 +87,7 @@ class ToolSupportTester {
         'parameters': {
           'type': 'object',
           'properties': {
-            'ok': {
-              'type': 'boolean',
-              'description': 'Always true.',
-            },
+            'ok': {'type': 'boolean', 'description': 'Always true.'},
           },
           'required': ['ok'],
         },
@@ -103,16 +104,28 @@ class ToolSupportTester {
   Future<void> test({bool force = false}) async {
     if (_testing || isBusy() || !isBackendReady()) return;
     final identity = getBackendIdentity();
+    if (_inFlightIdentity == identity) return;
     if (force) probe.reset(identity);
     if (probe.supportFor(identity) != ToolCallSupport.untested) return;
 
     _testing = true;
+    _inFlightIdentity = identity;
     onNotify();
     try {
-      final resp = await fireToolEval(_pingPrompt, _pingTools);
+      final resp = await invokeToolEval(
+        fireToolEval,
+        const ToolEvalSpec(
+          prompt: _pingPrompt,
+          tools: _pingTools,
+          toolChoice: 'report_ping',
+          maxLength: kPingToolMaxTokens,
+          repeatPenalty: kScalarToolRepeatPenalty,
+        ),
+      );
       // Identity may have changed mid-flight (model switch during the probe);
       // only record a verdict for the identity that actually answered.
       if (getBackendIdentity() == identity) {
+        _checkedThisRun = true;
         if (resp != null && resp.calls.isNotEmpty) {
           probe.markSupported(identity);
         } else if (resp != null && resp.text.trim().isNotEmpty) {
@@ -125,6 +138,7 @@ class ToolSupportTester {
           // Guest "pill falls off" bug) — inconclusive, never a verdict.
           // Leave untested and re-arm the auto-test so the next
           // backend-changed notify (or a pill tap) retries.
+          _checkedThisRun = false;
           _lastAutoTestedIdentity = '';
         }
       }
@@ -134,11 +148,13 @@ class ToolSupportTester {
       // server) → leave untested: connectivity, not capability — and re-arm
       // the auto-test so a later backend notify retries.
       if (getBackendIdentity() == identity && !isToolTransportFailure(e)) {
+        _checkedThisRun = true;
         probe.markXmlOnly(identity);
       } else if (getBackendIdentity() == identity) {
         _lastAutoTestedIdentity = '';
       }
     } finally {
+      if (_inFlightIdentity == identity) _inFlightIdentity = null;
       _testing = false;
       onNotify();
     }
@@ -150,6 +166,7 @@ class ToolSupportTester {
   void onBackendMaybeChanged() {
     final identity = getBackendIdentity();
     if (identity == _lastAutoTestedIdentity) return;
+    if (_inFlightIdentity == identity) return;
     if (!isBackendReady() || isBusy()) return;
     if (probe.supportFor(identity) != ToolCallSupport.untested) {
       _lastAutoTestedIdentity = identity;

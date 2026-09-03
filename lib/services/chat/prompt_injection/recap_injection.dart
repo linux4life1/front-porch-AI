@@ -77,6 +77,15 @@
 ///    restate it" is load-bearing for this block's post-transcript seat: it is
 ///    the last prose the model reads before it starts writing, and without the
 ///    guard the nearest continuation target is the recap.
+/// The recap only retells what the prompt cannot already show.
+///
+/// `dropped == 0` used to mean "the whole chat is in the window". On a
+/// tail-open the in-memory list is the last 24 rows, so they can all fit
+/// while [basePosition] still hides the rest of the story. Suppress only
+/// when both are zero.
+bool recapIsRedundant({required int dropped, required int basePosition}) =>
+    dropped == 0 && basePosition == 0;
+
 String buildRecapBlock({required String recap}) {
   if (recap.isEmpty) return '';
   // Leading \n: this block's own separator, so it sits one blank line clear of

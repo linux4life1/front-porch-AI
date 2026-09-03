@@ -192,6 +192,18 @@ extension ChatServicePockets on ChatService {
         p.setAside.removeAt(index);
     }
     setPocketsFor(characterId, p);
+    // The add queued a just-noticed / just-handed one-shot. Erasing before
+    // the next reply must drop it or they react to an item that is gone.
+    final queue = _pendingItemIntros[characterId];
+    if (queue != null && itemName.isNotEmpty) {
+      queue.removeWhere((n) {
+        if (n.session != null && n.session != _currentSessionId) {
+          return false;
+        }
+        return n.item == itemName ||
+            PocketItem.parseDisplay(n.item).name == itemName;
+      });
+    }
     await _saveChat();
     if (itemName.isNotEmpty &&
         _storageService.memorySettings.journalEnabled &&

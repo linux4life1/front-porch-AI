@@ -411,6 +411,7 @@ class DataMigrationService {
 
       try {
         final json = jsonDecode(await entity.readAsString());
+        final rawClimate = json['climateEnabled'] ?? json['climate_enabled'];
         await _db.insertWorld(
           WorldsCompanion(
             name: Value(json['name'] ?? 'New World'),
@@ -419,6 +420,9 @@ class DataMigrationService {
               json['lorebook'] != null ? jsonEncode(json['lorebook']) : null,
             ),
             linkedCharacterName: Value(json['linked_character_name']),
+            climateEnabled: rawClimate is bool
+                ? Value(rawClimate)
+                : const Value.absent(),
           ),
         );
         debugPrint('DB_MIGRATION: Imported world: ${json['name']}');

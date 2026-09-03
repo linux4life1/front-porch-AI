@@ -177,6 +177,7 @@ extension ChatServiceSessionLoad on ChatService {
     // Load per-chat generation settings override for this session.
     // LLMerta porch memories on last-session open (same as loadSession).
     unawaited(_maybeImportPorchMemories());
+    unawaited(_ensureBirthdayState());
   }
 
   /// Get sessions for a given character/group ID without setting it as active.
@@ -662,6 +663,7 @@ extension ChatServiceSessionLoad on ChatService {
       // LLMerta porch memories: plant matching Mafia nights + arm force-ack.
       // Fire-and-forget so open path never blocks on disk/DB.
       unawaited(_maybeImportPorchMemories());
+      unawaited(_ensureBirthdayState());
     } catch (e) {
       debugPrint('[ChatService] Error loading session $sessionId: $e');
     }

@@ -234,7 +234,21 @@ extension ChatServiceTurnFlow on ChatService {
   /// accepted. The durable signal the web surface uses to show — and, after a
   /// phone wakes and reconnects, re-show — the reveal modal.
   bool get isAwaitingChanceTime =>
-      _chanceTimeCompleter != null && !_chanceTimeCompleter!.isCompleted;
+      _webChanceTimeEvent != null ||
+      (_chanceTimeCompleter != null && !_chanceTimeCompleter!.isCompleted);
+
+  /// Manual SPIN NOW. Parks a pre-picked event until accept. No-op when
+  /// chaos is off, an event is already queued, or a park is already live.
+  bool requestManualChanceTime() {
+    if (!_chaosModeService.chaosModeEnabled) return false;
+    if (_chaosModeService.hasPendingChaosEvent) return false;
+    if (_webChanceTimeEvent != null) return false;
+    final wheel = _chaosModeService.spinWheelEvents();
+    if (wheel.isEmpty) return false;
+    _webChanceTimeEvent = wheel.first;
+    notifyListeners();
+    return true;
+  }
 
   /// The speaker a Chance Time event is attributed to: the upcoming group
   /// speaker, else the 1:1 host. Shared by the desktop wheel overlay and the
@@ -341,25 +355,32 @@ extension ChatServiceTurnFlow on ChatService {
       return;
     }
     if (_currentSessionId == null) return;
-    if (_messages.length < _storageService.memorySettings.ragWindowSize) return;
 
+    final sessionId = _currentSessionId!;
     final characterId = characterIdOverride ?? _getCharacterId();
-
-    // One formatter shared with import backfill (fpchat) so the corpus text
-    // is identical whether a window was first written live or after reimport.
-    final formatted = _formatMessagesForRagEmbedding(_messages);
-
-    debugPrint(
-      '[RAG:Chat] ▶ Triggering background embedding (session: $_currentSessionId, char: $characterId, ${formatted.length} msgs)',
-    );
-
-    // Fire and forget — don't await
-    _memoryService!.embedMessageWindow(
-      sessionId: _currentSessionId!,
-      characterId: characterId,
-      formattedMessages: formatted,
-      totalMessageCount: _messages.length,
-    );
+    // Fire and forget — wait for the tail backfill first so we never store
+    // a 24-row snapshot as positions 0..N (that permanently skips the real
+    // start of a long chat, and stamps today's story-day on old lines).
+    unawaited(() async {
+      await _awaitHistoryHydrated();
+      if (_currentSessionId != sessionId || _memoryService == null) return;
+      if (_messages.length < _storageService.memorySettings.ragWindowSize) {
+        return;
+      }
+      final formatted = _formatMessagesForRagEmbedding(_messages);
+      debugPrint(
+        '[RAG:Chat] ▶ Triggering background embedding (session: $sessionId, '
+        'char: $characterId, ${formatted.length} msgs, '
+        'base=${_history.basePosition})',
+      );
+      await _memoryService!.embedMessageWindow(
+        sessionId: sessionId,
+        characterId: characterId,
+        formattedMessages: formatted,
+        totalMessageCount: formatted.length,
+        positionOffset: _history.basePosition,
+      );
+    }());
   }
 
   /// Canonical RAG message lines for [MemoryService.embedMessageWindow].

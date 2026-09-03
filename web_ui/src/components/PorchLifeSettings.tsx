@@ -54,6 +54,7 @@ interface PorchLifeState {
   absenceBannerEnabled: boolean;
   absenceAckEnabled: boolean;
   absenceThresholdHours: number;
+  preferTextEvals: boolean;
 }
 
 // Same fallbacks as the Dart RealismSettings field defaults, so a field an
@@ -84,6 +85,7 @@ const DEFAULTS: PorchLifeState = {
   absenceBannerEnabled: true,
   absenceAckEnabled: false,
   absenceThresholdHours: 24,
+  preferTextEvals: false,
 };
 
 type Need = 'alone' | 'needs' | 'core';

@@ -8,6 +8,13 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+/// Additive hub check: `gold` (owner) / `blue` (trusted uploader).
+/// Missing, empty, or any other value is no badge — older servers omit it.
+String? stoopVerificationOf(Object? raw) {
+  if (raw == 'gold' || raw == 'blue') return raw as String;
+  return null;
+}
+
 /// A signed-in account on the Front Porch repository server.
 ///
 /// This is the public projection returned by the backend (`/auth/me`,
@@ -16,6 +23,9 @@ class BackporchUser {
   final String id;
   final String email;
   final String displayName;
+
+  /// Hub verification badge: `gold`, `blue`, or null (none / older server).
+  final String? verification;
 
   /// One of `USER`, `MOD`, `OWNER`. Regular repo users are always `USER`.
   final String role;
@@ -68,6 +78,7 @@ class BackporchUser {
     required this.id,
     required this.email,
     required this.displayName,
+    this.verification,
     required this.role,
     required this.ageVerified,
     this.emailVerified = true,
@@ -89,6 +100,7 @@ class BackporchUser {
     id: json['id'] as String? ?? '',
     email: json['email'] as String? ?? '',
     displayName: json['displayName'] as String? ?? '',
+    verification: stoopVerificationOf(json['verification']),
     role: json['role'] as String? ?? 'USER',
     ageVerified: json['ageVerified'] as bool? ?? false,
     emailVerified: json['emailVerified'] as bool? ?? true,

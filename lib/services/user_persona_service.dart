@@ -29,6 +29,10 @@ class UserPersona {
   final String persona;
   final String? avatarPath;
 
+  /// Calendar birthday `YYYY-MM-DD`. Empty = unset. Feb 29 is rejected
+  /// at parse. Story-clock age, not wall-clock.
+  final String birthday;
+
   /// Returns title if set, otherwise name — used for display in persona list
   String get displayLabel => title.isNotEmpty ? title : name;
 
@@ -38,6 +42,7 @@ class UserPersona {
     this.name = 'User',
     this.persona = '',
     this.avatarPath,
+    this.birthday = '',
   });
 
   UserPersona copyWith({
@@ -45,6 +50,7 @@ class UserPersona {
     String? name,
     String? persona,
     String? avatarPath,
+    String? birthday,
   }) {
     return UserPersona(
       id: this.id,
@@ -52,6 +58,7 @@ class UserPersona {
       name: name ?? this.name,
       persona: persona ?? this.persona,
       avatarPath: avatarPath ?? this.avatarPath,
+      birthday: birthday ?? this.birthday,
     );
   }
 
@@ -62,6 +69,7 @@ class UserPersona {
       'name': name,
       'persona': persona,
       'avatar_path': avatarPath,
+      if (birthday.isNotEmpty) 'birthday': birthday,
     };
   }
 
@@ -77,6 +85,7 @@ class UserPersona {
       name: json['name'] ?? 'User',
       persona: personaText,
       avatarPath: json['avatar_path'],
+      birthday: json['birthday'] as String? ?? '',
     );
   }
 }
@@ -164,6 +173,7 @@ class UserPersonaService extends ChangeNotifier {
                 name: p.name,
                 persona: p.persona,
                 avatarPath: p.avatarPath,
+                birthday: p.birthday ?? '',
               ),
             )
             .toList();
@@ -183,8 +193,9 @@ class UserPersonaService extends ChangeNotifier {
     String title,
     String name,
     String persona,
-    String? avatarPath,
-  ) async {
+    String? avatarPath, {
+    String birthday = '',
+  }) async {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
 
     await _db.insertPersona(
@@ -194,6 +205,7 @@ class UserPersonaService extends ChangeNotifier {
         name: Value(name),
         persona: Value(persona),
         avatarPath: Value(avatarPath),
+        birthday: Value(birthday.isEmpty ? null : birthday),
         isActive: const Value(true),
       ),
     );
@@ -207,6 +219,7 @@ class UserPersonaService extends ChangeNotifier {
       name: name,
       persona: persona,
       avatarPath: avatarPath,
+      birthday: birthday,
     );
     _personas.add(newPersona);
     // Creating a persona is deliberate enough to mean both: it becomes the
@@ -228,6 +241,9 @@ class UserPersonaService extends ChangeNotifier {
           name: Value(updatedPersona.name),
           persona: Value(updatedPersona.persona),
           avatarPath: Value(updatedPersona.avatarPath),
+          birthday: Value(
+            updatedPersona.birthday.isEmpty ? null : updatedPersona.birthday,
+          ),
           isActive: Value(updatedPersona.id == _defaultPersonaId),
         ),
       );
@@ -314,6 +330,7 @@ class UserPersonaService extends ChangeNotifier {
             name: Value(p.name),
             persona: Value(p.persona),
             avatarPath: Value(p.avatarPath),
+            birthday: Value(p.birthday.isEmpty ? null : p.birthday),
             isActive: Value(p.id == _defaultPersonaId),
           ),
         );
@@ -511,6 +528,7 @@ class UserPersonaService extends ChangeNotifier {
         name: p.name,
         persona: p.persona,
         avatarPath: p.avatarPath,
+        birthday: p.birthday,
       );
     }
 
@@ -521,6 +539,7 @@ class UserPersonaService extends ChangeNotifier {
         name: Value(toInsert.name),
         persona: Value(toInsert.persona),
         avatarPath: Value(toInsert.avatarPath),
+        birthday: Value(toInsert.birthday.isEmpty ? null : toInsert.birthday),
         isActive: const Value(true),
       ),
     );
@@ -572,7 +591,9 @@ class UserPersonaService extends ChangeNotifier {
 
   /// Export multiple personas to a JSON file in SillyTavern compliant format.
   Future<void> exportPersonasToSTFormat(
-      List<String> personaIds, String filePath) async {
+    List<String> personaIds,
+    String filePath,
+  ) async {
     final Map<String, String> personasMap = {};
     final Map<String, dynamic> descriptionsMap = {};
 
@@ -582,16 +603,13 @@ class UserPersonaService extends ChangeNotifier {
       String key = p.avatarPath != null
           ? p.avatarPath!.split('/').last
           : '${p.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_')}.png';
-      
+
       if (personasMap.containsKey(key)) {
         key = '${p.id}_$key';
       }
 
       personasMap[key] = p.name;
-      descriptionsMap[key] = {
-        'description': p.persona,
-        'title': p.title,
-      };
+      descriptionsMap[key] = {'description': p.persona, 'title': p.title};
     }
 
     final data = {
@@ -608,5 +626,4 @@ class UserPersonaService extends ChangeNotifier {
   Future<void> reload() async {
     await _loadPersonas();
   }
-
 }

@@ -32,22 +32,20 @@ class _ExportPersonaDialogState extends State<ExportPersonaDialog> {
         ? 'FPAI_personas.json'
         : '${widget.personas.firstWhere((p) => p.id == _selectedPersonaId).name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_')}_FPAIpersona.json';
 
-    String? outputFile = await PickerPrefs.saveFile(
+    List<String> idsToExport = _exportAll
+        ? widget.personas.map((p) => p.id).toList()
+        : [_selectedPersonaId!];
+
+    String? outputFile = await PickerPrefs.saveFromBuilder(
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Personas',
       fileName: defaultName,
       type: FileType.custom,
       allowedExtensions: ['json'],
+      writeTemp: (path) => service.exportPersonasToSTFormat(idsToExport, path),
     );
 
     if (outputFile != null) {
-      if (!outputFile.endsWith('.json')) outputFile += '.json';
-
-      List<String> idsToExport = _exportAll
-          ? widget.personas.map((p) => p.id).toList()
-          : [_selectedPersonaId!];
-
-      await service.exportPersonasToSTFormat(idsToExport, outputFile);
 
       if (mounted) {
         Navigator.of(context).pop();

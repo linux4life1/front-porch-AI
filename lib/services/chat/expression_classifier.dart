@@ -130,11 +130,7 @@ class ExpressionService {
   // Tools transport for the LLM reclassify (nullable — tests and tool-less
   // hosts stay on the text path; the god wires the shared probe/door the
   // other structured evals use).
-  final Future<LlmToolResponse?> Function(
-    String prompt,
-    List<Map<String, dynamic>> tools,
-  )?
-  fireToolEval;
+  final Object? fireToolEval;
   final ToolTransportProbe? probe;
   final String Function()? getBackendIdentity;
 
@@ -317,9 +313,7 @@ class ExpressionService {
     final msgs = getMessages();
     // List length + sender is stable for the whole stream of one reply
     // (text grows; the list does not). A new reply increments length.
-    final tipStamp = msgs.isEmpty
-        ? '0'
-        : '${msgs.length}:${msgs.last.sender}';
+    final tipStamp = msgs.isEmpty ? '0' : '${msgs.length}:${msgs.last.sender}';
     final turnKey = '$stableKey@$tipStamp';
     final thisTurn = _stableExpressionPicks[turnKey];
     if (thisTurn != null) {
@@ -417,8 +411,8 @@ class ExpressionService {
       String buildPrompt({required bool toolsMode}) =>
           'Classify the emotion "$unknownEmotion" into exactly ONE of these labels: "$labels".\n'
           '${toolsMode ? 'Report by calling the $kExpressionTool tool with your choice as "label". Use ONLY the tool — no plain-text reply.' : 'Return ONLY a JSON object with one key "label" containing your choice.\n'
-                'Example: {"label": "surprise"}\n'
-                'Response:'}';
+                    'Example: {"label": "surprise"}\n'
+                    'Response:'}';
 
       // Determine if thinking model is in use (same logic as realism engine)
       final isThinkingModel = getIsThinkingModelForReclass();
@@ -459,6 +453,7 @@ class ExpressionService {
                   callToText: (resp) =>
                       realismToolCallToJson(kExpressionTool, resp.calls),
                   fireToolEval: fireToolEval!,
+                  toolChoice: kExpressionTool,
                   fireTextEval: fireText,
                 )
               : await fireText(buildPrompt(toolsMode: false))) ??

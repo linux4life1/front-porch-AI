@@ -221,8 +221,7 @@ extension ChatServiceGenerationPlan on ChatService {
       final skipOneShots = t.mode == GenerationMode.continue_;
 
       // Chance Time injection — independent of realism mode
-      final chanceTimeBlock =
-          skipOneShots ? '' : _getChanceTimeInjection();
+      final chanceTimeBlock = skipOneShots ? '' : _getChanceTimeInjection();
 
       // Hand-added item one-shots (gift / the surprise Easter egg) — same
       // register as Chance Time: a bracketed directive at maximum recency.
@@ -248,11 +247,7 @@ extension ChatServiceGenerationPlan on ChatService {
           : _porchMemoryImport.takeInjectionForDiary(porchDiaryId);
       final porchNightBlock = porchNightRaw.isEmpty
           ? ''
-          : _macroResolver.resolve(
-              porchNightRaw,
-              macroCtx,
-              section: 'realism',
-            );
+          : _macroResolver.resolve(porchNightRaw, macroCtx, section: 'realism');
 
       // Objective injection — always injected regardless of realism mode
       // Must sit in a fixed prompt section so it is NEVER trimmed by the budget system.
@@ -265,8 +260,7 @@ extension ChatServiceGenerationPlan on ChatService {
       // wrapper stays generic: firm but short (heavy "YOU MUST" walls read as
       // jailbreak-fight energy and can backfire), and it never puppets {{user}}.
       String needsCatastropheBlock = '';
-      if (!skipOneShots &&
-          _needsSimulation.pendingCatastrophe != null) {
+      if (!skipOneShots && _needsSimulation.pendingCatastrophe != null) {
         // Macro-resolved (spec §5a): previously the {{user}}/{{char}}
         // placeholders in this wrapper reached the model literally.
         needsCatastropheBlock = _macroResolver.resolve(
@@ -460,10 +454,13 @@ extension ChatServiceGenerationPlan on ChatService {
         // ── THE RECAP ONLY EARNS ITS PLACE WHEN IT COVERS WHAT THE
         //    TRANSCRIPT NO LONGER SHOWS ────────────────────────────────────
         //
-        // `droppedCount == 0` means every message in this chat is in the
-        // prompt below. The recap then describes nothing the model cannot
-        // read directly — it is a second, COMPRESSED, and (because it only
-        // rewrites on a Journal pass) OLDER account of the very same events.
+        // `droppedCount == 0 && basePosition == 0` means every message in
+        // this chat is in the prompt below. A tail-open can fit its 24-row
+        // window with droppedCount 0 while hundreds of earlier lines sit
+        // behind basePosition — those still need the recap. The recap
+        // otherwise describes nothing the model cannot read directly: a
+        // second, COMPRESSED, and (because it only rewrites on a Journal
+        // pass) OLDER account of the very same events.
         // That is not memory, it is a contradiction generator: measured on
         // the maintainer's real chats, "recap" was named in 19 of the 461
         // conflict sentences a reasoning model produced, and the modal
@@ -481,7 +478,10 @@ extension ChatServiceGenerationPlan on ChatService {
         // redundant. It also degrades correctly on a huge context (nothing
         // dropped -> no recap needed) and on a tiny one (lots dropped ->
         // recap matters most).
-        if (t.droppedMessages == 0) {
+        if (recapIsRedundant(
+          dropped: t.droppedMessages,
+          basePosition: _history.basePosition,
+        )) {
           plan.section('summary').text = '';
           // The frame was decided ABOVE, while the recap still had text, so
           // re-run its salience gate here or a turn whose only state was the
@@ -528,7 +528,10 @@ extension ChatServiceGenerationPlan on ChatService {
       // already reacted — re-injecting would have them notice the same thing
       // twice in one message.
       plan.section('item_intro').text = '';
-      // Also skip RAG "earlier memories" for pure straight continuation.
+      // RAG skip is the Continue branch in _retrieveGenerationMemories
+      // (zeroing droppedMessages is not enough once tail-open ORs
+      // basePosition). Keep this 0 so later budget math does not treat
+      // Continue as a drop.
       t.droppedMessages = 0;
     }
   }

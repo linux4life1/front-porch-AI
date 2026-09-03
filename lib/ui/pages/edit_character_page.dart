@@ -25,7 +25,8 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show Pockets, BirthdayMath;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
@@ -132,6 +133,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   String _occupationBrief = '';
   String _hours = '';
   List<int>? _workDays;
+  String _birthday = '';
 
   /// Likes & Dislikes and the 18+ pair — card-authored identity, same shape
   /// and same chip editor as [_ambitions].
@@ -309,6 +311,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         widget.character.frontPorchExtensions?.occupationBrief ?? '';
     _hours = widget.character.frontPorchExtensions?.hours ?? '';
     _workDays = widget.character.frontPorchExtensions?.workDays;
+    _birthday = widget.character.frontPorchExtensions?.birthday ?? '';
     _likes = List<String>.from(
       widget.character.frontPorchExtensions?.likes ?? const [],
     );
@@ -477,10 +480,10 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
-    if (result == null || result.files.single.path == null) return;
+    if (result == null || result.files.isEmpty) return;
 
     try {
-      final content = await File(result.files.single.path!).readAsString();
+      final content = utf8.decode(await result.files.single.readAsBytes());
       final dynamic jsonData = jsonDecode(content);
 
       if (jsonData is! Map<String, dynamic>) {

@@ -49,7 +49,7 @@ class WebStoopRoutes {
     router.post('/api/stoop/auth/signup', _authCall('/auth/signup'));
     router.post('/api/stoop/auth/login', _authCall('/auth/login'));
     router.post('/api/stoop/auth/refresh', _authCall('/auth/refresh'));
-    router.post('/api/stoop/auth/logout', _authCall('/auth/logout'));
+    router.post('/api/stoop/auth/logout', _stoopLogout);
     // Password recovery: request the reset email (the emailed link opens the
     // hub's reset page — the browser can't receive email links itself).
     router.post('/api/stoop/auth/forgot', _authCall('/auth/forgot'));
@@ -193,6 +193,7 @@ class WebStoopRoutes {
         upstreamPath: upstreamPath,
         query: query,
         token: token,
+        webSession: Cookies.sessionToken(request),
         jsonBody: body,
       );
       return shelf.Response(
@@ -212,6 +213,13 @@ class WebStoopRoutes {
   shelf.Handler _authCall(String upstreamPath) =>
       (shelf.Request request) =>
           _relay(request, 'POST', upstreamPath, tokenRequired: false);
+
+  /// Stoop logout must forget this web session's remembered asset token so
+  /// a later <img> fetch cannot keep using the signed-out account.
+  Future<shelf.Response> _stoopLogout(shelf.Request request) {
+    _facade.clearAssetToken(Cookies.sessionToken(request));
+    return _relay(request, 'POST', '/auth/logout', tokenRequired: false);
+  }
 
   shelf.Handler _tokenCall(String method, String upstreamPath) =>
       (shelf.Request request) => _relay(
@@ -288,6 +296,7 @@ class WebStoopRoutes {
         token,
         id,
         clientType: clientType,
+        webSession: Cookies.sessionToken(request),
       );
       final ok = result['ok'] == true;
       if (!ok) return JsonResponse.error(422, '${result['error']}');
@@ -345,6 +354,7 @@ class WebStoopRoutes {
         bytes: builder.takeBytes(),
         contentType:
             request.headers['content-type'] ?? 'application/octet-stream',
+        webSession: Cookies.sessionToken(request),
       );
       return shelf.Response(
         res.status,
@@ -374,7 +384,11 @@ class WebStoopRoutes {
   /// to the token remembered from the session's earlier authenticated calls.
   Future<shelf.Response> _asset(shelf.Request request, String id) async {
     try {
-      final asset = await _facade.assetBytes(id, token: _token(request));
+      final asset = await _facade.assetBytes(
+        id,
+        token: _token(request),
+        webSession: Cookies.sessionToken(request),
+      );
       if (asset == null) return JsonResponse.error(401, 'stoop_not_signed_in');
       final (status, bytes, contentType) = asset;
       if (status < 200 || status >= 300) {

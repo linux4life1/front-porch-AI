@@ -21,32 +21,58 @@ import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
  * text fallback, neutral = not tested yet. Click to retest the live model;
  * the server also retests automatically on model/backend switches.
  */
-function ToolCallingPill({ support }: { support?: { state: string; testing: boolean } }) {
+type ToolSupport = {
+  state: string;
+  testing: boolean;
+  preferText?: boolean;
+  paused?: boolean;
+  checked?: boolean;
+};
+
+function ToolCallingPill({ support }: { support?: ToolSupport }) {
   const [busy, setBusy] = useState(false);
   const [local, setLocal] = useState(support);
   useEffect(() => setLocal(support), [support]);
   if (!local) return null;
   const testing = busy || local.testing;
   const s = local.state;
-  const tone = testing ? 'busy' : s === 'supported' ? 'ok' : s === 'unsupported' ? 'warn' : 'idle';
+  const skipped = s === 'supported' && !!local.preferText;
+  const paused = !!local.paused;
+  const tone = testing
+    ? 'busy'
+    : paused || skipped
+      ? 'warn'
+      : s === 'supported'
+        ? 'ok'
+        : s === 'unsupported'
+          ? 'warn'
+          : 'idle';
   const label = testing
     ? 'Tool calling: testing…'
-    : s === 'supported'
-      ? 'Tool calling: supported'
-      : s === 'unsupported'
-        ? 'Tool calling: not supported'
-        : 'Tool calling: not tested';
+    : paused
+      ? 'Tool calling: paused this run'
+      : skipped
+        ? 'Tool calling: supported — using JSON'
+        : s === 'supported'
+          ? 'Tool calling: supported'
+          : s === 'unsupported'
+            ? 'Tool calling: not supported'
+            : 'Tool calling: not tested';
   const detail = testing
     ? 'Asking the model for a tool call'
-    : s === 'supported'
-      ? 'Realism, Journal & Growth use native tool calls'
-      : s === 'unsupported'
-        ? 'Using the text fallback — still works'
-        : 'Click to test the current model';
+    : paused
+      ? 'Empty answers this session — click to retry'
+      : skipped
+        ? 'You turned native tool calls off in Generation settings'
+        : s === 'supported'
+          ? 'Realism, Journal & Growth use native tool calls'
+          : s === 'unsupported'
+            ? 'Using the text fallback — still works'
+            : 'Click to test the current model';
   const retest = async () => {
     setBusy(true);
     try {
-      setLocal(await api.post<{ state: string; testing: boolean }>('/api/chat/tool-test', {}));
+      setLocal(await api.post<ToolSupport>('/api/chat/tool-test', {}));
     } catch {
       /* verdict refreshes with the next chat_updated anyway */
     }
@@ -133,7 +159,13 @@ export function ChatInsight({
   /** Live composer draft — powers the "would trigger next" preview. */
   draft?: string;
   /** Current model's tool-calling verdict (POST /api/chat/tool-test retests). */
-  toolSupport?: { state: string; testing: boolean };
+  toolSupport?: {
+    state: string;
+    testing: boolean;
+    preferText?: boolean;
+    paused?: boolean;
+    checked?: boolean;
+  };
 }) {
   const [note, setNote] = useState(authorNote);
   // "Would trigger next": mutation-free dry-run against the draft, debounced.

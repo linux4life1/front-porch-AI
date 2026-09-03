@@ -16,6 +16,7 @@ import 'package:front_porch_ai/ui/pages/repository/stoop_change_email_dialog.dar
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_profile_header.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_twofa_sheet.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The Stoop account menu: NSFW visibility, account deletion, sign out.
@@ -133,13 +134,22 @@ class _StoopAccountSheetState extends State<_StoopAccountSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        user.displayName,
-                        style: TextStyle(
-                          color: stoopCream(context),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            user.displayName,
+                            style: TextStyle(
+                              color: stoopCream(context),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          StoopVerifiedBadge(
+                            verification: user.verification,
+                            size: 15,
+                          ),
+                        ],
                       ),
                       Text(
                         user.email,
@@ -184,10 +194,7 @@ class _StoopAccountSheetState extends State<_StoopAccountSheet> {
               ),
               subtitle: Text(
                 'Off by default. When on, adult cards appear in The Stoop.',
-                style: TextStyle(
-                  color: stoopMute(context),
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: stoopMute(context), fontSize: 12),
               ),
             ),
             const SizedBox(height: 10),
@@ -210,10 +217,7 @@ class _StoopAccountSheetState extends State<_StoopAccountSheet> {
               subtitle: Text(
                 'Coarse device info (platform, app version, GPU tier) to guide '
                 'development. Never your chats or characters. On by default.',
-                style: TextStyle(
-                  color: stoopMute(context),
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: stoopMute(context), fontSize: 12),
               ),
             ),
             const SizedBox(height: 10),
@@ -237,10 +241,7 @@ class _StoopAccountSheetState extends State<_StoopAccountSheet> {
                 user.twoFactorEnabled
                     ? 'On — a code is required at sign-in.'
                     : 'Off — add an authenticator app to protect your account.',
-                style: TextStyle(
-                  color: stoopMute(context),
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: stoopMute(context), fontSize: 12),
               ),
               trailing: Text(
                 user.twoFactorEnabled ? 'On' : 'Off',
@@ -279,10 +280,7 @@ class _StoopAccountSheetState extends State<_StoopAccountSheet> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              leading: Icon(
-                Icons.logout,
-                color: stoopMute(context),
-              ),
+              leading: Icon(Icons.logout, color: stoopMute(context)),
               title: Text(
                 'Log out',
                 style: TextStyle(color: stoopCream(context)),
@@ -301,10 +299,7 @@ class _StoopAccountSheetState extends State<_StoopAccountSheet> {
               title: Text('Delete my account', style: TextStyle(color: danger)),
               subtitle: Text(
                 'Permanently erase your account and uploads',
-                style: TextStyle(
-                  color: stoopMute(context),
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: stoopMute(context), fontSize: 12),
               ),
               onTap: _confirmDelete,
             ),

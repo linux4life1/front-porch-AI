@@ -53,6 +53,10 @@ export interface RealismValues {
   /** Clock range the pickers write ("9am–5pm"). Not "mornings". */
   hours: string;
   /**
+   * Calendar birthday `YYYY-MM-DD`. Blank is omitted. Feb 29 is rejected.
+   */
+  birthday: string;
+  /**
    * DateTime.weekday ints (1=Mon…7=Sun). `null` = missing = Mon–Fri at
    * derive. `[]` = never at work. Do not default this to [] in the form
    * model or an old card's next save turns every day off.
@@ -148,6 +152,7 @@ export const REALISM_DEFAULTS: RealismValues = {
   occupation: '',
   occupationBrief: '',
   hours: '',
+  birthday: '',
   workDays: null,
   likes: [],
   dislikes: [],

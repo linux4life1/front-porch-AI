@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_avatar.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The hub card tile (hub.frontporchai.app .hub-tile): square art on top
@@ -106,7 +107,10 @@ class _StoopCardTileState extends State<StoopCardTile> {
               children: [
                 if (card.modPick) const StoopBadge(StoopBadgeKind.pick),
                 if (card.isGroup) const StoopBadge(StoopBadgeKind.group),
-                if (card.isWorld) const StoopBadge(StoopBadgeKind.world),
+                if (card.isWorld)
+                  ...stoopWorldKindBadges(
+                    climateEnabled: stoopCardClimateEnabled(card),
+                  ),
                 if (card.nsfw) const StoopBadge(StoopBadgeKind.nsfw),
               ],
             ),
@@ -133,10 +137,7 @@ class _StoopCardTileState extends State<StoopCardTile> {
   }
 
   Widget _body(StoopCard card) {
-    final creatorLine = [
-      if (card.creator != null) '@${card.creator!.displayName}',
-      if (card.originalCreator != null) '✎ ${card.originalCreator}',
-    ].join(' · ');
+    final faint = TextStyle(color: stoopFaint(context), fontSize: 11.5);
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(13, 11, 13, 12),
@@ -149,13 +150,34 @@ class _StoopCardTileState extends State<StoopCardTile> {
               overflow: TextOverflow.ellipsis,
               style: stoopDisplay(context, size: 15.5),
             ),
-            if (creatorLine.isNotEmpty) ...[
+            if (card.creator != null || card.originalCreator != null) ...[
               const SizedBox(height: 2),
-              Text(
-                creatorLine,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: stoopFaint(context), fontSize: 11.5),
+              Row(
+                children: [
+                  if (card.creator != null) ...[
+                    Flexible(
+                      child: Text(
+                        '@${card.creator!.displayName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: faint,
+                      ),
+                    ),
+                    StoopVerifiedBadge(
+                      verification: card.creator!.verification,
+                      size: 12,
+                    ),
+                  ],
+                  if (card.originalCreator != null)
+                    Flexible(
+                      child: Text(
+                        '${card.creator != null ? ' · ' : ''}✎ ${card.originalCreator}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: faint,
+                      ),
+                    ),
+                ],
               ),
             ],
             if (card.summary.isNotEmpty) ...[

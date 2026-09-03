@@ -113,6 +113,8 @@ extension AppDatabaseMaintenance on AppDatabase {
         // of the two outcomes.
         'updated_at INTEGER NOT NULL DEFAULT 0',
         'deleted_at INTEGER',
+        // v50 — calendar birthday. NULL = unset.
+        'birthday TEXT',
       ],
       'objectives': [
         'chat_id TEXT', // v29 — the one that was actively crashing group objective loads
@@ -242,6 +244,9 @@ extension AppDatabaseMaintenance on AppDatabase {
         'inject_description INTEGER NOT NULL DEFAULT 1',
         // v41
         'place_traits TEXT',
+        // v51 — climate/weather/atmosphere/gravity plug. DEFAULT 1 so
+        // existing worlds keep climate; 0 is a lorebook-only bookshelf.
+        'climate_enabled INTEGER NOT NULL DEFAULT 1',
       ],
       'group_members': [
         // Per current GroupMembers Dart definition + created_at (to match the repair-path CREATE TABLE).

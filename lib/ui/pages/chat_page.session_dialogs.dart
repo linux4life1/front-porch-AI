@@ -27,6 +27,8 @@ extension _ChatPageSessionDialogs on _ChatPageState {
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
     showDialog(
       context: context,
+      // Outside tap used to discard General the same way X/Close did.
+      barrierDismissible: false,
       builder: (dialogContext) =>
           GroupSettingsDialog(chatService: chatService, groupRepo: groupRepo),
     );
@@ -40,10 +42,10 @@ extension _ChatPageSessionDialogs on _ChatPageState {
         allowedExtensions: ['fpchat', 'json', 'jsonl'],
       );
 
-      if (result == null || result.files.single.path == null) return;
+      if (result == null || result.files.isEmpty) return;
 
-      final file = File(result.files.single.path!);
-      final bytes = await file.readAsBytes();
+      // path is null on web blob: / Android content:// — read bytes, don't skip.
+      final bytes = await result.files.single.readAsBytes();
 
       if (!mounted) return;
 
@@ -184,13 +186,13 @@ extension _ChatPageSessionDialogs on _ChatPageState {
         final fileName = '${characterName}_$timestamp.fpchat';
         final outPath = await PickerPrefs.saveFile(
           category: PickerPrefs.catExport,
+          bytes: bytes,
           dialogTitle: 'Export Full Front Porch Chat',
           fileName: fileName,
           type: FileType.custom,
           allowedExtensions: ['fpchat'],
         );
         if (outPath == null) return;
-        await File(outPath).writeAsBytes(bytes, flush: true);
       } else {
         final jsonl = chatService.exportToSillyTavern();
         if (jsonl == null) {
@@ -206,13 +208,13 @@ extension _ChatPageSessionDialogs on _ChatPageState {
         final fileName = '${characterName}_$timestamp.jsonl';
         final outPath = await PickerPrefs.saveFile(
           category: PickerPrefs.catExport,
+          bytes: Uint8List.fromList(utf8.encode(jsonl)),
           dialogTitle: 'Export SillyTavern JSONL',
           fileName: fileName,
           type: FileType.custom,
           allowedExtensions: ['jsonl', 'json'],
         );
         if (outPath == null) return;
-        await File(outPath).writeAsString(jsonl);
       }
 
       if (!mounted) return;
@@ -258,23 +260,15 @@ extension _ChatPageSessionDialogs on _ChatPageState {
           'This will clear the current conversation and start fresh. This can\'t be undone. Are you sure?',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
-          ElevatedButton(
+          warmDialogCancel(context),
+          warmDialogConfirm(
+            context,
+            label: 'New Chat',
+            destructive: true,
             onPressed: () {
               chatService.startNewChat();
               Navigator.of(context).pop();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text(
-              'New Chat',
-              style: TextStyle(color: Colors.white),
-            ),
           ),
         ],
       ),

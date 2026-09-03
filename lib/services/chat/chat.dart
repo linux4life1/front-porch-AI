@@ -6,6 +6,7 @@
 // the ChatService generation/session helpers.
 
 export 'absence_tracker.dart';
+export 'birthday.dart';
 export 'afk_flavor.dart';
 export 'ambition_service.dart';
 export 'biome_preview.dart';
@@ -49,9 +50,11 @@ export 'member_origin_resolver.dart';
 export 'milestone_feed.dart';
 export 'milestone_providers.dart';
 export 'climax_eval.dart';
+export 'eval_json_merge.dart';
 export 'eval_traffic.dart';
 export 'mood_baseline.dart';
 export 'needs_impact_evaluator.dart';
+export 'needs_impact_zero.dart';
 export 'needs_simulation.dart';
 export 'nsfw_service.dart';
 export 'objective_mention_gate.dart';
@@ -65,6 +68,7 @@ export 'presence_derive.dart';
 export 'with_user_eval.dart';
 export 'pockets_eval.dart';
 export 'pass_support.dart';
+export 'tool_eval_spec.dart';
 export 'preference_scoring.dart';
 export 'porch_memory_import.dart';
 export 'porch_memory_mailbox.dart';

@@ -422,12 +422,15 @@ class KoboldService extends ChangeNotifier
   ) async {
     if (!isReady) return null;
     http.Client? mine;
-    return _runSerialized(
-      () => postOpenAiChatWithTools(
+    return _runSerialized<LlmToolResponse?>(() async {
+      if (params.stillWantTools?.call() == false) return null;
+      return postOpenAiChatWithTools(
         _baseUrl,
         params,
         tools,
+        thinkingModelKey: _storageService.lastUsedModelPath,
         foldSystemIntoUser: _systemRole.foldSystemIntoUser,
+        toolChoice: params.toolChoice,
         registerClient: (client) {
           mine = client;
           _activeClient = client;
@@ -440,8 +443,8 @@ class KoboldService extends ChangeNotifier
         onDone: () {
           if (identical(_activeClient, mine)) _activeClient = null;
         },
-      ),
-    );
+      );
+    });
   }
 
   /// Run [body] with exclusive use of the single-slot local engine: wait for
@@ -477,6 +480,7 @@ class KoboldService extends ChangeNotifier
       yield* streamOpenAiChat(
         _baseUrl,
         params,
+        thinkingModelKey: _storageService.lastUsedModelPath,
         foldSystemIntoUser: _systemRole.foldSystemIntoUser,
         registerClient: (client) {
           mine = client;

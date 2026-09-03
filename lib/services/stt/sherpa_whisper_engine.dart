@@ -60,15 +60,30 @@ class SherpaWhisperEngine {
   static String modelDir(String root, String size) =>
       p.join(root, 'system', 'whisper_models', 'sherpa', size);
 
+  static int _minBytesFor(String suffix) =>
+      suffix.endsWith('.onnx') ? 1024 * 1024 : 1;
+
   static bool isModelPresent(String root, String size) =>
       _fileSuffixes.every((s) {
         final f = File(p.join(modelDir(root, size), '$size-$s'));
         if (!f.existsSync()) return false;
         // The ONNX graphs are tens of MB; a few-KB file is a saved CDN
         // error page, not a model.
-        final minBytes = s.endsWith('.onnx') ? 1024 * 1024 : 1;
-        return f.lengthSync() >= minBytes;
+        return f.lengthSync() >= _minBytesFor(s);
       });
+
+  /// Drop undersized files so the next download is not skip-poisoned by a
+  /// saved CDN error page. Called when verification fails after fetch.
+  static void purgeImplausibleFiles(String root, String size) {
+    for (final s in _fileSuffixes) {
+      final f = File(p.join(modelDir(root, size), '$size-$s'));
+      if (!f.existsSync()) continue;
+      if (f.lengthSync() >= _minBytesFor(s)) continue;
+      try {
+        f.deleteSync();
+      } catch (_) {}
+    }
+  }
 
   /// True when the native path can decode [audioPath] — a RIFF/WAVE file
   /// (the desktop recorder always produces one). Browser-uploaded webm/ogg
@@ -108,7 +123,8 @@ class SherpaWhisperEngine {
     var doneBefore = 0;
     for (var i = 0; i < urls.length; i++) {
       final dest = File(p.join(dir, '$size-${_fileSuffixes[i]}'));
-      if (dest.existsSync() && dest.lengthSync() > 0) {
+      final minBytes = _minBytesFor(_fileSuffixes[i]);
+      if (dest.existsSync() && dest.lengthSync() >= minBytes) {
         doneBefore += sizes[i] > 0 ? sizes[i] : 0;
         continue;
       }
@@ -116,11 +132,18 @@ class SherpaWhisperEngine {
       await ModelFetch.fetch(
         urls[i],
         dest,
+        minBytes: minBytes,
         onProgress: (done, total) {
           if (overall > 0) onProgress?.call((base + done) / overall);
         },
       );
       doneBefore += sizes[i] > 0 ? sizes[i] : 0;
+    }
+    if (!isModelPresent(root, size)) {
+      purgeImplausibleFiles(root, size);
+      throw const HttpException(
+        'whisper model files failed verification after download',
+      );
     }
     onProgress?.call(1.0);
   }

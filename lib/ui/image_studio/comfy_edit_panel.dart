@@ -142,12 +142,10 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
     final result = await PickerPrefs.pickFiles(
       category: PickerPrefs.catImage,
       dialogTitle: 'Choose a ComfyUI workflow (API-format .json)',
-      type: FileType.any,
-      withData: true,
+      type: FileType.custom,
+      allowedExtensions: ['json'],
     );
-    final bytes = (result != null && result.files.isNotEmpty)
-        ? result.files.first.bytes
-        : null;
+    final bytes = await result?.firstBytes();
     if (bytes == null) return;
     try {
       final text = utf8.decode(bytes);

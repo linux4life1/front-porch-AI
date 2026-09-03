@@ -35,9 +35,10 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
-  file_picker: ^11.0.3
+  file_picker: ^12.1.1
+  cross_file: ^0.3.5
   path_provider: ^2.1.5
-  archive: ^4.0.7
+  archive: ^4.2.0
   google_fonts: ^8.2.1
   image: ^4.7.2
   # Pure-Dart Draw Things gRPC client (replaces the Python dt_grpc_client
@@ -51,10 +52,10 @@ dependencies:
   window_manager: ^0.5.1
   url_launcher: ^6.2.5
   qr_flutter: ^4.1.0
-  package_info_plus: ^9.0.0
+  package_info_plus: ^10.2.1
   audioplayers: ^6.5.1
   webdav_client: ^1.2.2
-  googleapis: ^16.0.0
+  googleapis: ^17.0.0
   googleapis_auth: ^2.0.0
   drift: ^2.34.0
   # PAIRS WITH `sqlite3` 3.x, which bundles SQLite itself via native assets.
@@ -104,8 +105,10 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   # Flutter 3.47.0 / Dart 3.13: riverpod_generator 4.0.8 + drift_dev 2.34.5
-  # + analyzer 13 resolve together. file_picker stays 11 — 12 deletes
-  # FilePickerResult. xml 7 still blocked by webdav_client 1.2.2.
+  # + analyzer 13 resolve together. file_picker ^12.1.1 (not 12.0.0 or 12.1.0 —
+  # 12.0 facade does not forward flags; skipEntitlementsChecks is a no-op until
+  # 12.1.1; FilePickerResult shimmed in picker_prefs.dart).
+  # xml 7 still blocked by webdav_client 1.2.2.
   riverpod_generator: ^4.0.8
   integration_test:
     sdk: flutter

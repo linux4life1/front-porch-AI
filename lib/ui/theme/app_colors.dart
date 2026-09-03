@@ -421,4 +421,12 @@ class AppColors {
   /// Dusk blue — neutral info accent (hub --dusk).
   static const Color stoopDusk = Color(0xFF5F9EC7);
   static const Color stoopDuskLight = Color(0xFF3E749B);
+
+  /// Stoop owner check fill. Hub `.hub-check-gold` / Twitter-X gold `#e8b923`.
+  static const Color stoopCheckGold = Color(0xFFE8B923);
+
+  /// Trusted-uploader check (hub `#1d9bf0`). Semantic, not chrome.
+  static const Color stoopCheckBlue = Color(
+    0xFF1D9BF0,
+  ); // theme-keep: hub verification blue
 }

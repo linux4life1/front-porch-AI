@@ -64,7 +64,7 @@ void main() {
     expect(stoopCanComment(_user()), isTrue);
   });
 
-  test("comment JSON never carries email or verification", () {
+  test("comment JSON never carries email", () {
     final c = StoopComment(
       id: "c1",
       cardId: "card1",
@@ -114,7 +114,7 @@ void main() {
     expect(world.commentsEnabled, isFalse);
   });
 
-  test("reply JSON never carries email or verification", () {
+  test("reply JSON never carries email", () {
     final c = StoopComment(
       id: "c1",
       cardId: "card1",
@@ -139,6 +139,31 @@ void main() {
       reply.keys,
       containsAll(["authorId", "displayName", "createdAt", "body", "deleted"]),
     );
+  });
+
+  test("comment JSON may carry public gold/blue verification", () {
+    final c = StoopComment.fromJson({
+      "id": "c1",
+      "cardId": "card1",
+      "authorId": "u1",
+      "displayName": "SosukeAizen",
+      "verification": "gold",
+      "createdAt": "2026-08-17T12:00:00.000Z",
+      "body": "hello",
+      "reply": {
+        "authorId": "u2",
+        "displayName": "NemoIRL",
+        "verification": "blue",
+        "createdAt": "2026-08-17T12:01:00.000Z",
+        "body": "hey",
+        "deleted": false,
+      },
+    });
+    expect(c.verification, "gold");
+    expect(c.reply!.verification, "blue");
+    expect(c.toJson()["verification"], "gold");
+    expect((c.toJson()["reply"] as Map)["verification"], "blue");
+    expect(c.toJson().containsKey("email"), isFalse);
   });
 
   test("stoopCanReplyToComment is owner-only and one-level", () {

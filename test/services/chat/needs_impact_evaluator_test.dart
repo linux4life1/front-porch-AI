@@ -94,26 +94,28 @@ NeedsImpactEvaluator createTestEvaluator({
       );
 
   return NeedsImpactEvaluator(
-    evaluateNeedsImpactCall: (
-      String resp, {
-      void Function(String)? onChunk,
-      int strength = 1,
-      String? userCritique,
-      Map<String, int>? previousDeltas,
-      Map<String, int>? currentNeeds,
-      int? decayTurns,
-    }) async {
-      if (impactCallFn != null) {
-        return impactCallFn(
-          resp,
-          onChunk: onChunk,
-          strength: strength,
-          userCritique: userCritique,
-          previousDeltas: previousDeltas,
-        );
-      }
-      return '{"hunger_delta": 0}';
-    },
+    evaluateNeedsImpactCall:
+        (
+          String resp, {
+          void Function(String)? onChunk,
+          int strength = 1,
+          String? userCritique,
+          Map<String, int>? previousDeltas,
+          Map<String, int>? currentNeeds,
+          int? decayTurns,
+          Set<String> onlyNeeds = const {},
+        }) async {
+          if (impactCallFn != null) {
+            return impactCallFn(
+              resp,
+              onChunk: onChunk,
+              strength: strength,
+              userCritique: userCritique,
+              previousDeltas: previousDeltas,
+            );
+          }
+          return '{"hunger_delta": 0}';
+        },
     verifyRealismOutput: verifyFn,
     getPendingRealismMetadata: () => <String, dynamic>{},
     setPendingRealismMetadata: (_) {},
@@ -980,6 +982,59 @@ void main() {
         expect(receivedPrev.isNotEmpty, true);
       },
     );
+
+    test('scoped reprocess applies only the ticked need', () async {
+      final sim = NeedsSimulation(
+        onNotify: () {},
+        onSaveChat: () async {},
+        getTimeOfDay: () => '',
+        getRealismEnabled: () => true,
+        getObserverMode: () => false,
+        getCurrentSpeakerIdForRealism: () => '',
+        getIsGroupNonObserverMode: () => false,
+        getGroupNeeds: (_) => {},
+        setGroupNeeds: (_, _) {},
+        getEnjoysLowHygiene: () => false,
+        getNeedsSimEnabled: () => true,
+      );
+      sim.restoreFromSnapshot({
+        'vector': {
+          'hunger': 45,
+          'energy': 55,
+          'hygiene': 65,
+          'fun': 75,
+          'social': 85,
+          'bladder': 35,
+          'comfort': 50,
+        },
+      });
+      final e = createTestEvaluator(
+        sim: sim,
+        impactCallFn:
+            (r, {onChunk, strength = 1, userCritique, previousDeltas}) async =>
+                '{"hunger_delta":-40,"energy_delta":20,"hygiene_delta":-15,'
+                '"fun_delta":3,"social_delta":1,"bladder_delta":-8,'
+                '"comfort_delta":5,"reason":"rested"}',
+      );
+      final ok = await e.reprocessWithUserCritique(
+        'napped',
+        {'hunger': -2, 'energy': -4, 'hygiene': -1},
+        'energy should have gone up',
+        onlyNeeds: const {'energy'},
+      );
+      expect(ok, true);
+      expect(sim.vector['energy'], 75);
+      expect(
+        sim.vector['hunger'],
+        43,
+        reason: 'unticked hunger keeps old delta',
+      );
+      expect(
+        sim.vector['hygiene'],
+        64,
+        reason: 'unticked hygiene keeps old delta',
+      );
+    });
 
     test('reprocess null raw -> false + vector unchanged', () async {
       final sim = NeedsSimulation(

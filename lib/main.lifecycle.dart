@@ -40,6 +40,9 @@ extension _MainLifecycle on _MyAppState {
       // _normal* bounds instead of the live (bogus) rect.
       final isMin = await windowManager.isMinimized();
       final prefs = await SharedPreferences.getInstance();
+      // WINDOW_WIDTH/HEIGHT launch hook: do not poison the user's saved
+      // window with the dart-define size.
+      final persistSize = !WindowSizeEnv.active;
 
       if (isMax || isMin) {
         // Save tracked normal (non-maximized, non-minimized) bounds so the
@@ -62,8 +65,10 @@ extension _MainLifecycle on _MyAppState {
         // to unconditionally seed _normal* from persisted prefs in the
         // post-frame callback (around line 682), before or instead of the
         // live capture. See PR #53 for the full ghost-frame analysis.
-        await prefs.setDouble(_k('window_width'), _normalWidth);
-        await prefs.setDouble(_k('window_height'), _normalHeight);
+        if (persistSize) {
+          await prefs.setDouble(_k('window_width'), _normalWidth);
+          await prefs.setDouble(_k('window_height'), _normalHeight);
+        }
         await prefs.setDouble(_k('window_x'), _normalX ?? 0.0);
         await prefs.setDouble(_k('window_y'), _normalY ?? 0.0);
       } else {
@@ -73,8 +78,10 @@ extension _MainLifecycle on _MyAppState {
         _normalHeight = size.height;
         _normalX = position.dx;
         _normalY = position.dy;
-        await prefs.setDouble(_k('window_width'), size.width);
-        await prefs.setDouble(_k('window_height'), size.height);
+        if (persistSize) {
+          await prefs.setDouble(_k('window_width'), size.width);
+          await prefs.setDouble(_k('window_height'), size.height);
+        }
         await prefs.setDouble(_k('window_x'), position.dx);
         await prefs.setDouble(_k('window_y'), position.dy);
       }
@@ -128,7 +135,6 @@ extension _MainLifecycle on _MyAppState {
     } catch (e) {
       debugPrint('AG_DEBUG: Error stopping web server on close: $e');
     }
-
 
     // On Linux and Windows, windowManager.destroy() can trigger a Flutter engine bug:
     //   "FlutterEngineRemoveView returned kInvalidArguments"

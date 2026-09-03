@@ -174,7 +174,8 @@ class AvatarGalleryController extends ChangeNotifier {
 
   // ── The ★ star (immediate + serialized — a star lost on Cancel is worse than
   //    an extra write; Grok) ─────────────────────────────────────────────────
-  Future<void> setFavorite(String? avatarId) => _run(() => _persistFavorite(avatarId));
+  Future<void> setFavorite(String? avatarId) =>
+      _run(() => _persistFavorite(avatarId));
 
   /// Persist [id] as the canonical avatar. Materializes the extensions object
   /// first (a null `frontPorchExtensions` would silently drop the write and the
@@ -188,9 +189,13 @@ class AvatarGalleryController extends ChangeNotifier {
   Future<void> _persistFavorite(String? id) async {
     favoriteId = id;
     (libraryCard.frontPorchExtensions ??= FrontPorchExtensions())
-        .favoriteAvatarId = id;
+            .favoriteAvatarId =
+        id;
     if (id != null && !hasUsablePortrait(libraryCard, storage)) {
-      final img = looks.followedBy(expressions).where((a) => a.id == id).firstOrNull;
+      final img = looks
+          .followedBy(expressions)
+          .where((a) => a.id == id)
+          .firstOrNull;
       if (img != null) {
         final file = fileFor(img);
         if (await file.exists()) {
@@ -198,7 +203,8 @@ class AvatarGalleryController extends ChangeNotifier {
             card: libraryCard,
             storage: storage,
             bytes: await file.readAsBytes(),
-            updateCharacter: (c) => repository.updateCharacter(c, notify: false),
+            updateCharacter: (c) =>
+                repository.updateCharacter(c, notify: false),
           );
           await _evictPortraitImage();
           _bumpMedia();
@@ -236,9 +242,24 @@ class AvatarGalleryController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Replace the canonical portrait (imagePath) with an already-cropped file.
-  Future<void> replacePortrait(String croppedPath) => _run(() async {
-    await repository.setCharacterImagePath(libraryCard, croppedPath);
+  /// Replace the canonical portrait pixels IN PLACE.
+  ///
+  /// Same helper the creator uses ([portraitWriteTarget]): folders and every
+  /// filename-keyed table (objectives, RAG, Data Bank, Journal, Growth) key
+  /// off the portrait basename, so a new `Name_<epoch>.png` silently orphans
+  /// those rows and Database Cleanup deletes them. The old PNG's raw `chara`
+  /// payload rides onto the new pixels, while SQLite receives imagePath only.
+  Future<void> replacePortrait(Uint8List bytes) => _run(() async {
+    final metadataSourcePath = portraitFile()?.path;
+    final target = portraitWriteTarget(card: libraryCard, storage: storage);
+    await V2CardService().replacePortraitPixels(
+      fallbackCard: libraryCard,
+      outputPath: target.path,
+      pixels: bytes,
+      metadataSourcePath: metadataSourcePath,
+    );
+    await FileImage(target).evict();
+    await repository.updateCharacterImagePathOnly(libraryCard, notify: false);
     await _evictPortraitImage();
     _bumpMedia();
     _needsCloseBroadcast = true;
@@ -267,11 +288,12 @@ class AvatarGalleryController extends ChangeNotifier {
   });
 
   // ── Expression images ───────────────────────────────────────────────────────
-  Future<void> addExpression(Uint8List bytes, String? emotion) => _run(() async {
-    if (dbId == null || expressions.length >= maxExpressions) return;
-    await repository.addAvatar(dbId!, libraryCard.name, bytes, emotion);
-    await _reload();
-  });
+  Future<void> addExpression(Uint8List bytes, String? emotion) =>
+      _run(() async {
+        if (dbId == null || expressions.length >= maxExpressions) return;
+        await repository.addAvatar(dbId!, libraryCard.name, bytes, emotion);
+        await _reload();
+      });
 
   /// Import an emotion-named ZIP sprite pack. Returns (added, unrecognized,
   /// skippedForCap) for the caller's snackbar.
@@ -326,7 +348,9 @@ class AvatarGalleryController extends ChangeNotifier {
     // Prime pointed at a now-deleted expression → first remaining (or reset to
     // 1 when none remain). Always persist so the DB can't keep a dangling prime.
     if (!expressions.any((e) => e.displayOrder + 1 == primeIndex)) {
-      primeIndex = expressions.isNotEmpty ? expressions.first.displayOrder + 1 : 1;
+      primeIndex = expressions.isNotEmpty
+          ? expressions.first.displayOrder + 1
+          : 1;
       libraryCard.primeAvatarIndex = primeIndex;
       await repository.setPrimeAvatar(dbId!, primeIndex);
     }

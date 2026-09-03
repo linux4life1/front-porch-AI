@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/services/chat/birthday.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
@@ -180,6 +181,14 @@ class RealismStep extends StatelessWidget {
                   state.realismWorkDays = v;
                   state.notify();
                 },
+                birthday: state.realismBirthday,
+                onBirthdayChanged: (v) {
+                  state.realismBirthday = v;
+                  state.notify();
+                },
+                birthdayAgeAsOf: BirthdayMath.ageAsOfStory(
+                  state.realismStoryStartDate,
+                ),
                 likes: state.realismLikes,
                 onLikesChanged: (v) {
                   state.realismLikes = v;

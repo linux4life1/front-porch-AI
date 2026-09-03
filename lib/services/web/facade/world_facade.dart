@@ -59,10 +59,12 @@ class WorldFacade {
           'name': w.name,
           'description': w.description,
           'entryCount': w.lorebook.entries.length,
-          'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
-              ? 'custom'
-              : (w.biomeId ?? 'temperate'),
+          if (w.climateEnabled)
+            'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
+                ? 'custom'
+                : (w.biomeId ?? 'temperate'),
           'injectDescription': w.injectDescription,
+          'climateEnabled': w.climateEnabled,
           'coverImage': w.coverImage,
           'hasCover': w.coverImage != null && w.coverImage!.isNotEmpty,
           'linkedCharacterName': w.linkedCharacterName,
@@ -94,18 +96,19 @@ class WorldFacade {
       'id': w.id,
       'name': w.name,
       'description': w.description,
-      'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
-          ? 'custom'
-          : (w.biomeId ?? 'temperate'),
-      'biome': Biome.tryParse(w.biomeJson)?.toJson(),
+      if (w.climateEnabled)
+        'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
+            ? 'custom'
+            : (w.biomeId ?? 'temperate'),
+      if (w.climateEnabled) 'biome': Biome.tryParse(w.biomeJson)?.toJson(),
       'injectDescription': w.injectDescription,
+      'climateEnabled': w.climateEnabled,
       'coverImage': w.coverImage,
       'linkedCharacterName': w.linkedCharacterName,
       'linkedCharacterId': w.linkedCharacterId,
       'entries': lorebookEntriesToJson(w.lorebook),
-      // Place traits (additive; older web bundles simply ignore these).
-      'atmosphere': w.atmosphere.name,
-      'gravity': w.gravity.name,
+      if (w.climateEnabled) 'atmosphere': w.atmosphere.name,
+      if (w.climateEnabled) 'gravity': w.gravity.name,
     };
   }
 
@@ -136,7 +139,11 @@ class WorldFacade {
       world.name = name;
     }
     world.description = f['description']?.toString() ?? '';
-    if (!_applyClimate(world, f)) return false;
+    if (f.containsKey('climateEnabled')) {
+      world.climateEnabled = f['climateEnabled'] == true;
+    }
+    // Lorebook-only worlds do not need a valid biome to save.
+    if (world.climateEnabled && !_applyClimate(world, f)) return false;
     if (f.containsKey('injectDescription')) {
       world.injectDescription = f['injectDescription'] == true;
     }
@@ -144,11 +151,13 @@ class WorldFacade {
       final raw = f['coverImage']?.toString();
       world.coverImage = (raw == null || raw.isEmpty) ? null : raw;
     }
-    if (f.containsKey('atmosphere')) {
-      world.atmosphere = worldAtmosphereFromName(f['atmosphere']?.toString());
-    }
-    if (f.containsKey('gravity')) {
-      world.gravity = worldGravityFromName(f['gravity']?.toString());
+    if (world.climateEnabled) {
+      if (f.containsKey('atmosphere')) {
+        world.atmosphere = worldAtmosphereFromName(f['atmosphere']?.toString());
+      }
+      if (f.containsKey('gravity')) {
+        world.gravity = worldGravityFromName(f['gravity']?.toString());
+      }
     }
     if (f['entries'] != null) {
       world.lorebook =
@@ -341,8 +350,12 @@ class WorldFacade {
         'name': w.name,
         // 'custom' is truthful for a place authoring its own climate —
         // reporting 'temperate' misled anything trusting this field.
-        'biomeId': w.biomeJson != null ? 'custom' : (w.biomeId ?? 'temperate'),
-        'hasCustomClimate': w.biomeJson != null,
+        // Lorebook-only (climate-off) worlds omit biomeId entirely.
+        if (w.climateEnabled)
+          'biomeId': w.biomeJson != null
+              ? 'custom'
+              : (w.biomeId ?? 'temperate'),
+        'hasCustomClimate': w.climateEnabled && w.biomeJson != null,
         'description': w.description,
       });
     }
@@ -362,7 +375,9 @@ class WorldFacade {
           {'id': b.id, 'displayName': b.displayName},
         for (final id in ids)
           if (_worlds.resolveWorld(id) case final w?)
-            if (w.biomeJson != null && Biome.tryParse(w.biomeJson) != null)
+            if (w.climateEnabled &&
+                w.biomeJson != null &&
+                Biome.tryParse(w.biomeJson) != null)
               {'id': 'world:${w.id}', 'displayName': '${w.name} (custom)'},
       ],
     };

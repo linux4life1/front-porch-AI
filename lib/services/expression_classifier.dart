@@ -227,7 +227,9 @@ class ExpressionClassifierService extends ChangeNotifier {
   /// directly over HTTPS, cached to
   /// [storage.rootPath]/models/emotion_classifier.
   /// Progress is broadcast via [isDownloading] and [downloadProgress].
-  /// Returns false immediately if a download is already in progress.
+  /// Returns false if a download is already in progress, or if the
+  /// fetch fails (truncated / tiny body / network). The settings button
+  /// nags and the user can tap again.
   Future<bool> triggerOnnxDownload() async {
     if (_isDownloading) return false;
 
@@ -250,23 +252,20 @@ class ExpressionClassifierService extends ChangeNotifier {
       },
     );
 
-    // Fire-and-forget — callbacks handle all state transitions
-    classifier
-        .downloadModel()
-        .then((_) {
-          // Guard: if onModelReady was never fired (already cached), finalize here
-          if (_isDownloading) {
-            _isDownloading = false;
-            _modelReady = true;
-            notifyListeners();
-          }
-        })
-        .catchError((Object e) {
-          debugPrint('[ExpressionClassifierService] Download error: $e');
-          _isDownloading = false;
-          notifyListeners();
-        });
-
-    return true;
+    try {
+      await classifier.downloadModel();
+      // Guard: if onModelReady was never fired (already cached), finalize here
+      if (_isDownloading) {
+        _isDownloading = false;
+        _modelReady = true;
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[ExpressionClassifierService] Download error: $e');
+      _isDownloading = false;
+      notifyListeners();
+      return false;
+    }
   }
 }

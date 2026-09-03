@@ -32,6 +32,7 @@ interface ChatState {
   messages: Message[];
   isGenerating: boolean;
   isSettlingTurn?: boolean;
+  isSendWaitingOnSettle?: boolean;
   isLoadingSession?: boolean;
   isBackfillingHistory?: boolean;
   hasOlderHistory?: boolean;
@@ -67,7 +68,13 @@ interface ChatState {
   imagePromptReview?: string;
   // Current model's tool-calling verdict (desktop sidebar pill parity);
   // retest via POST /api/chat/tool-test.
-  toolSupport?: { state: string; testing: boolean };
+  toolSupport?: {
+    state: string;
+    testing: boolean;
+    preferText?: boolean;
+    paused?: boolean;
+    checked?: boolean;
+  };
   // Per-chat theme overrides (preset + font/color/background/border).
   themeOverrides?: ChatThemeOverrides;
   // Host LLM connection (additive — older desktops omit it).
@@ -834,6 +841,8 @@ export function ChatPage() {
           onSend={sendMessage}
           onStop={stop}
           isGenerating={state.isGenerating}
+          isSettlingTurn={!!state.isSettlingTurn}
+          isSendWaitingOnSettle={!!state.isSendWaitingOnSettle}
           canMic={canMic}
           onDraftChange={setDraft}
           cast={cast}

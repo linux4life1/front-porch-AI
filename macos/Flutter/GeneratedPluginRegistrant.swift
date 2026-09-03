@@ -6,7 +6,7 @@ import FlutterMacOS
 import Foundation
 
 import audioplayers_darwin
-import file_picker
+import file_picker_darwin
 import package_info_plus
 import record_macos
 import screen_retriever_macos

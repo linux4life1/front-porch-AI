@@ -149,6 +149,16 @@ extension _UserPersonaEditForm on _UserPersonaPageState {
                   ],
                 ),
                 const SizedBox(height: 18),
+                BirthdayRow(
+                  iso: _birthday,
+                  onChanged: _setBirthday,
+                  ageAsOf: storyDateOf(context),
+                  helper:
+                      'The story calendar uses this so they know how old '
+                      'you are and when your birthday is. February 29 is '
+                      'not allowed.',
+                ),
+                const SizedBox(height: 18),
                 // Persona text — expandable
                 _buildExpandableFormField(
                   context: context,

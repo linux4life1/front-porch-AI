@@ -254,156 +254,168 @@ extension ChatServiceGenerationPostGen on ChatService {
             // its own unchanged parser. With fewer than two live it is a
             // no-op and each pass fires its own call exactly as before. See
             // ReplyFactsEval for the composition rules.
-            await Future.wait([
-              _runPostGenNeedsChecks(scoredReply),
-              Future<void>.delayed(
-                _kEvalDispatchStagger,
-              ).then((_) => _prefetchReplyFacts(scoredReply)),
-            ]);
-            // Afterglow. Reads the reply that was just written, which is why
-            // it lives here and not on the pre-generation judges. On Continue
-            // it reads only the new text — a climax the first half already
-            // registered is not re-claimed by its aftermath, and one the
-            // continuation adds finally counts.
-            await _runClimaxPass(scoredReply);
-            // Pockets & Wardrobe — its own pass; answers to its own switch
-            // and nothing else. asContinuation preserves the message's
-            // original pockets_before stamp (the turn's true pre-state) and
-            // appends receipts instead of replacing them.
-            await _runPocketsPass(
-              scoredReply,
-              asContinuation: t.mode == GenerationMode.continue_,
-            );
-            // Spatial stance — where this reply LEFT her. Third of the same
-            // family, and it belongs here for the identical reason: a
-            // position the character establishes in her own words cannot be
-            // known by a judge that ran before those words existed. It used
-            // to ride the pre-generation scene-time eval, which is why
-            // characters teleported: the prompt asserted a position derived
-            // from the previous exchange while the reply had already moved
-            // them somewhere else. Maintainer ruling 2026-08-08. Skipped on
-            // Continue with its siblings — a continuation is the same
-            // exchange, and re-reading it would just re-answer the same
-            // question at the price of another call.
-            //
-            // The result is picked up by the group persist below
-            // (spatialStance rides saveRelationshipScalarsToGroup), by the
-            // snapshot restamp, and by the single persist that closes this
-            // block, so 1:1 and group store it identically.
-            //
-            // AWAITED, and therefore inside the settling window that greys the
-            // composer. That cost was weighed and kept: the value this call
-            // produces is read by the NEXT prompt's "Position:" line, so a
-            // fire-and-forget version would race the user's next send and hand
-            // the reply the position from the exchange before — the exact
-            // teleport the pass was moved here to stop. It would also race the
-            // `_saveChat` below, putting the write back outside any save and
-            // recreating the bug this block was rewritten to fix. Same
-            // reasoning, same phase, same awaiting as its two siblings above.
-            {
-              final fused = _replyFactsRaw;
-              if (fused != null) {
-                // The fused call already asked "where did this reply leave
-                // her" — consume its answer through the ONE posture parser
-                // instead of paying a second call. An absent or unparseable
-                // answer skips, exactly as a failed standalone pass does:
-                // the stance keeps its last value.
-                final posture = TimeService.parsePosture(fused);
-                if (posture != null) {
-                  _relationshipService.setSpatialStance(posture);
-                }
-                debugPrint(
-                  '[Realism:Posture] ${_relationshipService.spatialStance} '
-                  '(fused reply-facts)',
-                );
-              } else {
-                await _evaluatePhysicalStateCall(postureOnly: true);
-              }
+            try {
+              await Future.wait([
+                _runPostGenNeedsChecks(scoredReply),
+                Future<void>.delayed(
+                  _kEvalDispatchStagger,
+                ).then((_) => _prefetchReplyFacts(scoredReply)),
+              ]);
+            } catch (e) {
+              if (!_postGenAbortRequested) rethrow;
             }
-            // Glance only. After posture so the judge can read where they
-            // already are. Not fused with posture — that mix is the teleport.
-            await _runWithUserPass(scoredReply);
-            // Consumed — the carrier must never outlive the passes that read
-            // it, or a stale answer could feed the next turn's bookkeeping.
-            _replyFactsRaw = null;
+            if (_postGenAbortRequested) {
+              _replyFactsRaw = null;
+            } else {
+              // Afterglow. Reads the reply that was just written, which is why
+              // it lives here and not on the pre-generation judges. On Continue
+              // it reads only the new text — a climax the first half already
+              // registered is not re-claimed by its aftermath, and one the
+              // continuation adds finally counts.
+              await _runClimaxPass(scoredReply);
+              // Pockets & Wardrobe — its own pass; answers to its own switch
+              // and nothing else. asContinuation preserves the message's
+              // original pockets_before stamp (the turn's true pre-state) and
+              // appends receipts instead of replacing them.
+              await _runPocketsPass(
+                scoredReply,
+                asContinuation: t.mode == GenerationMode.continue_,
+              );
+              // Spatial stance — where this reply LEFT her. Third of the same
+              // family, and it belongs here for the identical reason: a
+              // position the character establishes in her own words cannot be
+              // known by a judge that ran before those words existed. It used
+              // to ride the pre-generation scene-time eval, which is why
+              // characters teleported: the prompt asserted a position derived
+              // from the previous exchange while the reply had already moved
+              // them somewhere else. Maintainer ruling 2026-08-08. Skipped on
+              // Continue with its siblings — a continuation is the same
+              // exchange, and re-reading it would just re-answer the same
+              // question at the price of another call.
+              //
+              // The result is picked up by the group persist below
+              // (spatialStance rides saveRelationshipScalarsToGroup), by the
+              // snapshot restamp, and by the single persist that closes this
+              // block, so 1:1 and group store it identically.
+              //
+              // AWAITED, and therefore inside the settling window that greys the
+              // composer. That cost was weighed and kept: the value this call
+              // produces is read by the NEXT prompt's "Position:" line, so a
+              // fire-and-forget version would race the user's next send and hand
+              // the reply the position from the exchange before — the exact
+              // teleport the pass was moved here to stop. It would also race the
+              // `_saveChat` below, putting the write back outside any save and
+              // recreating the bug this block was rewritten to fix. Same
+              // reasoning, same phase, same awaiting as its two siblings above.
+              {
+                final fused = _replyFactsRaw;
+                if (fused != null) {
+                  // The fused call already asked "where did this reply leave
+                  // her" — consume its answer through the ONE posture parser
+                  // instead of paying a second call. An absent or unparseable
+                  // answer skips, exactly as a failed standalone pass does:
+                  // the stance keeps its last value.
+                  final posture = TimeService.parsePosture(fused);
+                  if (posture != null) {
+                    _relationshipService.setSpatialStance(posture);
+                  }
+                  debugPrint(
+                    '[Realism:Posture] ${_relationshipService.spatialStance} '
+                    '(fused reply-facts)',
+                  );
+                } else {
+                  await _evaluatePhysicalStateCall(postureOnly: true);
+                }
+              }
+              // Glance only. After posture so the judge can read where they
+              // already are. Not fused with posture — that mix is the teleport.
+              await _runWithUserPass(scoredReply);
+              // Consumed — the carrier must never outlive the passes that read
+              // it, or a stale answer could feed the next turn's bookkeeping.
+              _replyFactsRaw = null;
+            }
           }
 
           // Clock decide BEFORE restamp so the snapshot carries the time
           // the NEXT speaker will be told (bucket brigade). Named-clock
-          // reconcile still runs inside the restamp.
-          await _maybeAdvanceStoryClockAfterReply(t);
+          // reconcile still runs inside the restamp. Skip when regen
+          // aborted this scoring — the rejected reply must not tick.
+          if (!_postGenAbortRequested) {
+            await _maybeAdvanceStoryClockAfterReply(t);
 
-          // Keep this message's realism_state snapshot TRUTHFUL now that the
-          // post-gen checks have run — needs vector AND the NSFW scalars a
-          // climax just changed. See the helper for the two bugs this
-          // prevents (hygiene snap-back; climax erased by the regen merge).
-          await _restampRealismSnapshotPostGen(t.streamTarget);
+            // Keep this message's realism_state snapshot TRUTHFUL now that the
+            // post-gen checks have run — needs vector AND the NSFW scalars a
+            // climax just changed. See the helper for the two bugs this
+            // prevents (hygiene snap-back; climax erased by the regen merge).
+            await _restampRealismSnapshotPostGen(t.streamTarget);
 
-          if (prePostActiveChar != null) {
-            _activeCharacter = prePostActiveChar;
-          }
-
-          // For group non-observer, persist the post-scene + long-gen-decay needs changes (and any
-          // other scalars mutated by the checks) back into _groupRealism for this speaker. This is
-          // what makes sidebar member cards + getNeedsForGroupCharacter() + future loads see the
-          // effects of the just-generated response. (Pre-eval saved the pre-turn state for bond/etc;
-          // this captures the *response* effects on needs.)
-          if (_activeGroup != null &&
-              !_observerMode &&
-              finalResponse.isNotEmpty &&
-              _messages.isNotEmpty) {
-            // The ACTUAL speaker of this turn — not a by-name lookup with a
-            // first-member fallback (duplicate display names would persist the
-            // critical scalar save to the wrong member's _groupRealism entry).
-            final sid = _getCharacterIdFromCard(t.speakingCharacter);
-            if (sid.isNotEmpty) {
-              _saveScalarsIntoGroupRealism(sid);
+            if (prePostActiveChar != null) {
+              _activeCharacter = prePostActiveChar;
             }
-          }
 
-          // Per-message needs chips for whoever just spoke. Lives here so
-          // EVERY speaker gets them (group auto-advance, /speak, chime-ins)
-          // — and regens too: a regen replays the turn in normal mode, and
-          // the swipe-merge copies these chips onto the accepted swipe.
-          // The ONE chip source. Continue re-attaches whenever its
-          // incremental pass ran: the helper measures live-vector minus the
-          // message's own needs_pre_turn_vector, so the recomputed chip IS
-          // the merged whole-turn delta — stale first-half chips would
-          // misreport the turn the moment the continuation moved a need.
-          if (t.mode == GenerationMode.normal ||
-              (t.mode == GenerationMode.continue_ && scoredReply.isNotEmpty)) {
-            _attachNeedsDeltaChipToLastMessage();
-          }
+            // For group non-observer, persist the post-scene + long-gen-decay needs changes (and any
+            // other scalars mutated by the checks) back into _groupRealism for this speaker. This is
+            // what makes sidebar member cards + getNeedsForGroupCharacter() + future loads see the
+            // effects of the just-generated response. (Pre-eval saved the pre-turn state for bond/etc;
+            // this captures the *response* effects on needs.)
+            if (_activeGroup != null &&
+                !_observerMode &&
+                finalResponse.isNotEmpty &&
+                _messages.isNotEmpty) {
+              // The ACTUAL speaker of this turn — not a by-name lookup with a
+              // first-member fallback (duplicate display names would persist the
+              // critical scalar save to the wrong member's _groupRealism entry).
+              final sid = _getCharacterIdFromCard(t.speakingCharacter);
+              if (sid.isNotEmpty) {
+                _saveScalarsIntoGroupRealism(sid);
+              }
+            }
 
-          // ── The post-generation phase's ONE persist ────────────────────
-          // Everything above this line writes to memory only: the needs
-          // vector, the climax/arousal scalars, pockets, the spatial stance,
-          // the restamped `realism_state` snapshot, the per-member
-          // `_groupRealism` entry and the chips. The `_saveChat()` near the
-          // top of this method ran BEFORE all of it — it exists to get the
-          // reply text on disk before four eval round-trips, not to carry
-          // their results.
-          //
-          // Until 2026-08-08 the only save that could follow this block was
-          // the one hidden inside _attachNeedsDeltaChipToLastMessage, which
-          // returns on its first line when Needs is off. So on the ordinary
-          // 1:1 path with Needs off NOTHING was written after the passes ran:
-          // the session row, the message snapshot and the group blob all kept
-          // the PREVIOUS turn's spatial stance, and the character teleported
-          // back one exchange on every reload. It also meant a user's answer
-          // to "do I want the Sims needs simulation?" silently decided
-          // whether her position survived — two unrelated features wired
-          // together (docs/design/feature-independence.md).
-          //
-          // Moving the save out of the chip helper and putting it here costs
-          // the same one write per turn it always did, and now it covers
-          // everything the phase produced instead of one feature's slice.
-          // A continuation persists too whenever its incremental pass ran —
-          // the needs/climax/pockets/stance it just wrote would otherwise
-          // ride memory only until some later turn happened to save.
-          if (t.mode != GenerationMode.continue_ || scoredReply.isNotEmpty) {
-            await _saveChat();
-            notifyListeners();
+            // Per-message needs chips for whoever just spoke. Lives here so
+            // EVERY speaker gets them (group auto-advance, /speak, chime-ins)
+            // — and regens too: a regen replays the turn in normal mode, and
+            // the swipe-merge copies these chips onto the accepted swipe.
+            // The ONE chip source. Continue re-attaches whenever its
+            // incremental pass ran: the helper measures live-vector minus the
+            // message's own needs_pre_turn_vector, so the recomputed chip IS
+            // the merged whole-turn delta — stale first-half chips would
+            // misreport the turn the moment the continuation moved a need.
+            if (t.mode == GenerationMode.normal ||
+                (t.mode == GenerationMode.continue_ &&
+                    scoredReply.isNotEmpty)) {
+              _attachNeedsDeltaChipToLastMessage();
+            }
+
+            // ── The post-generation phase's ONE persist ────────────────────
+            // Everything above this line writes to memory only: the needs
+            // vector, the climax/arousal scalars, pockets, the spatial stance,
+            // the restamped `realism_state` snapshot, the per-member
+            // `_groupRealism` entry and the chips. The `_saveChat()` near the
+            // top of this method ran BEFORE all of it — it exists to get the
+            // reply text on disk before four eval round-trips, not to carry
+            // their results.
+            //
+            // Until 2026-08-08 the only save that could follow this block was
+            // the one hidden inside _attachNeedsDeltaChipToLastMessage, which
+            // returns on its first line when Needs is off. So on the ordinary
+            // 1:1 path with Needs off NOTHING was written after the passes ran:
+            // the session row, the message snapshot and the group blob all kept
+            // the PREVIOUS turn's spatial stance, and the character teleported
+            // back one exchange on every reload. It also meant a user's answer
+            // to "do I want the Sims needs simulation?" silently decided
+            // whether her position survived — two unrelated features wired
+            // together (docs/design/feature-independence.md).
+            //
+            // Moving the save out of the chip helper and putting it here costs
+            // the same one write per turn it always did, and now it covers
+            // everything the phase produced instead of one feature's slice.
+            // A continuation persists too whenever its incremental pass ran —
+            // the needs/climax/pockets/stance it just wrote would otherwise
+            // ride memory only until some later turn happened to save.
+            if (t.mode != GenerationMode.continue_ || scoredReply.isNotEmpty) {
+              await _saveChat();
+              notifyListeners();
+            }
           }
         } finally {
           // Unconditional pointer restore on a throw. The settling flag is
@@ -426,38 +438,41 @@ extension ChatServiceGenerationPostGen on ChatService {
         // message characterIds (immune to the prePostActiveChar restore
         // dance above); only the recap voice is best-effort at trigger time
         // in group non-obs (same caveat the old summary had).
-        _maybeRunJournalPass();
+        // Skip when regen aborted this scoring — do not diary a rejected reply.
+        if (!_postGenAbortRequested) {
+          _maybeRunJournalPass();
 
-        // Growth pass if due (fire-and-forget): ring ops per owner —
-        // members AND 1:1 scene guests who spoke in the window (guest
-        // growth rides this shared pass; there is no per-guest trigger).
-        // Cursor-based like the journal, so it is naturally regen-safe.
-        _maybeRunGrowthPass();
+          // Growth pass if due (fire-and-forget): ring ops per owner —
+          // members AND 1:1 scene guests who spoke in the window (guest
+          // growth rides this shared pass; there is no per-guest trigger).
+          // Cursor-based like the journal, so it is naturally regen-safe.
+          _maybeRunGrowthPass();
 
-        // Promise/debt ledger (Train B) — fire-and-forget on new turns only.
-        // Keyword gate + open-list gate live inside the service so most
-        // turns cost nothing. Regen/continue never invent commitments.
-        if (t.mode == GenerationMode.normal) {
-          _maybeRunPromiseDebtPass();
-        }
+          // Promise/debt ledger (Train B) — fire-and-forget on new turns only.
+          // Keyword gate + open-list gate live inside the service so most
+          // turns cost nothing. Regen/continue never invent commitments.
+          if (t.mode == GenerationMode.normal) {
+            _maybeRunPromiseDebtPass();
+          }
 
-        // Dream prefetch: the clock crossed a night during this turn's
-        // post-reply decide, so the dream can be generated NOW and
-        // merely inserted at the next send — see the producer in
-        // chat_service_send.dart. The kick itself is synchronous (the park
-        // exists before this line returns); only the model call runs in the
-        // background, recording into the next turn's [EvalTraffic]
-        // background line, where background spend belongs.
-        _maybeKickDreamPrefetch();
+          // Dream prefetch: the clock crossed a night during this turn's
+          // post-reply decide, so the dream can be generated NOW and
+          // merely inserted at the next send — see the producer in
+          // chat_service_send.dart. The kick itself is synchronous (the park
+          // exists before this line returns); only the model call runs in the
+          // background, recording into the next turn's [EvalTraffic]
+          // background line, where background spend belongs.
+          _maybeKickDreamPrefetch();
 
-        // Embed messages for RAG memory (fire-and-forget)
-        _maybeEmbedMessages();
+          // Embed messages for RAG memory (fire-and-forget)
+          _maybeEmbedMessages();
 
-        // Periodic evaluations coordinator (Scene Guest cast detection).
-        // NEW-TURN work — only on a normal generation, never on
-        // regen/continue (which replay or extend an existing turn).
-        if (t.mode == GenerationMode.normal) {
-          _maybeRunPeriodicEvals();
+          // Periodic evaluations coordinator (Scene Guest cast detection).
+          // NEW-TURN work — only on a normal generation, never on
+          // regen/continue (which replay or extend an existing turn).
+          if (t.mode == GenerationMode.normal) {
+            _maybeRunPeriodicEvals();
+          }
         }
       } // end Scene Guest parity guard (guestSpeaker == null)
 

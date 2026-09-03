@@ -7,6 +7,7 @@ import { PersonaManager } from '../components/PersonaManager';
 import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
+import { ModelTransportCard } from '../components/ModelTransportCard';
 import { applySpellCheckLang } from '../spellCheckLang';
 import {
   StepUpFields,
@@ -425,6 +426,10 @@ export function SettingsPage() {
         patch={(p) => patch(p as Partial<Settings>)}
         patchGen={patchGen}
       />
+
+      {/* Moved out of the Porch Life card so the switch sits under
+          Generation on both surfaces (desktop parity). */}
+      <ModelTransportCard />
 
       <VoiceMediaSettings />
 

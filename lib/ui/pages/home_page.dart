@@ -37,6 +37,7 @@ import 'package:front_porch_ai/ui/pages/chat_page.dart';
 import 'package:front_porch_ai/ui/pages/home/dialogs/session_picker_dialog.dart';
 import 'package:front_porch_ai/ui/pages/home/enhance/enhance_wizard_page.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_mode_toggle.dart';
+import 'package:front_porch_ai/ui/pages/home/open_chat_env.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_group_page.dart';
 import 'package:front_porch_ai/services/group_card_importer.dart';
@@ -91,6 +92,10 @@ class _HomePageState extends State<HomePage> {
   /// races dispose and throws "State no longer has a context".
   bool _openingChat = false;
 
+  /// `--dart-define=OPEN_CHAT=Flora` opens that 1:1 card once per process.
+  /// Empty define is a no-op. Static so a Home remount cannot re-fire.
+  static bool _openChatEnvConsumed = false;
+
   // Scroll controller for the character grid (visible scrollbar)
   final ScrollController _gridScrollController = ScrollController();
 
@@ -115,6 +120,9 @@ class _HomePageState extends State<HomePage> {
       });
     });
     Future.microtask(() => _refreshLastActivityCache());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _maybeOpenChatFromEnv(),
+    );
   }
 
   /// The file to show as [c]'s library card cover: the ★ starred gallery
@@ -196,6 +204,8 @@ class _HomePageState extends State<HomePage> {
       _activityRefreshDebounce = null;
       if (mounted) _refreshLastActivityCache();
     });
+    // Characters often land after Home's first frame — retry the launch hook.
+    _maybeOpenChatFromEnv();
   }
 
   void _onKoboldUpdate() {

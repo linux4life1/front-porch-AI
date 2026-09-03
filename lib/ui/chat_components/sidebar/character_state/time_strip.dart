@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/story_calendar_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
 import 'weather_chip.dart';
 
 /// THE one scene-time widget: time-of-day emoji + label + story clock,
@@ -44,74 +45,68 @@ class TimeStrip extends StatelessWidget {
     final canNudge = chat.realismEnabled && !chat.isGenerating;
     final activeDot = AppColors.timeDayAccentOf(context);
 
+    final timeStyle = TextStyle(
+      fontSize: 12,
+      color: AppColors.textSecondary(context),
+    );
+    // Wrap, not a single ellipsizing Row: period and clock are complete
+    // strings on every width. Wide pane keeps emoji + period + clock + date
+    // + nudges on one row; a tight sidebar (resolution × window × dragged
+    // pane, clamp SidebarTokens.minWidth–maxWidth) drops date + nudges onto
+    // the next line instead of turning "Morning 10:00 AM" into "Morning 10...".
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(timeEmoji(time), style: const TextStyle(fontSize: 13)),
-            const SizedBox(width: 5),
-            // Expanded + single-line ellipsis: with both period-label and
-            // date text at their natural size the Row overflows the 300px
-            // sidebar once realism is on (long clock strings). The left
-            // label takes all slack and gives way first; the tappable date
-            // stays whole. (No Spacer — a competing flex child would force
-            // the label to truncate while empty space remained.)
-            Expanded(
-              child: Text(
-                '${timeLabel(time)} · ${chat.timeService.displayClock}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary(context),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Remaining pane width vs natural child widths (not monitor DPI).
+            return Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Wrap(
+                  spacing: 5,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(timeEmoji(time), style: const TextStyle(fontSize: 13)),
+                    Text(timeLabel(time), style: timeStyle),
+                    Text('·', style: timeStyle),
+                    Text(chat.timeService.displayClock, style: timeStyle),
+                    if (canNudge)
+                      _nudgeChevron(
+                        context: context,
+                        tooltip: 'Back 30 minutes',
+                        icon: Icons.chevron_left,
+                        delta: -1,
+                      ),
+                    if (canNudge)
+                      _nudgeChevron(
+                        context: context,
+                        tooltip: 'Forward 30 minutes',
+                        icon: Icons.chevron_right,
+                        delta: 1,
+                      ),
+                  ],
                 ),
-              ),
-            ),
-            if (canNudge)
-              Tooltip(
-                message: 'Back 30 minutes',
-                child: GestureDetector(
-                  onTap: () => chat.nudgeTimePeriod(-1),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Icon(
-                      Icons.chevron_left,
-                      size: 16,
-                      color: AppColors.iconSecondary(context),
+                GestureDetector(
+                  onTap: () =>
+                      StoryCalendarDialog.show(context, chatService: chat),
+                  child: Text(
+                    '${chat.timeService.displayShortDate} · Day $day',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary(context),
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.borderOf(context),
                     ),
                   ),
                 ),
-              ),
-            GestureDetector(
-              onTap: () => StoryCalendarDialog.show(context, chatService: chat),
-              child: Text(
-                '${chat.timeService.displayShortDate} · Day $day',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary(context),
-                  decoration: TextDecoration.underline,
-                  decorationColor: AppColors.borderOf(context),
-                ),
-              ),
-            ),
-            if (canNudge)
-              Tooltip(
-                message: 'Forward 30 minutes',
-                child: GestureDetector(
-                  onTap: () => chat.nudgeTimePeriod(1),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: AppColors.iconSecondary(context),
-                    ),
-                  ),
-                ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
         // Story weather (Living Time §3) — absent entirely when the feature
         // is gated off, so the strip is byte-identical for weather-off users.
@@ -162,6 +157,24 @@ class TimeStrip extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _nudgeChevron({
+    required BuildContext context,
+    required String tooltip,
+    required IconData icon,
+    required int delta,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: () => chat.nudgeTimePeriod(delta),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(icon, size: 16, color: AppColors.iconSecondary(context)),
+        ),
+      ),
     );
   }
 

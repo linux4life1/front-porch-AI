@@ -241,6 +241,7 @@ extension ChatServiceSessionManage on ChatService {
   Future<void> persistSessionPersona() async {
     if (_currentSessionId == null) return;
     await _saveChat();
+    unawaited(_ensureBirthdayState());
   }
 
   /// [personaId] is the explicitly-picked persona ("Start New Chat"). Omitted —

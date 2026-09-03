@@ -45,14 +45,15 @@ Everything starts from the home screen — your character library.
 
 The ⬇ **download icon** at the top right of the library toolbar opens the import menu, with three options:
 
-- **Import Cards** — pick one or more `.png` or `.json` card files. One file at a time gives you a tag dialog so you can label the character on the way in; picking several at once runs a bulk import with a progress bar (and a Cancel button) instead.
-- **Import Folder** — point it at a directory and the app scans it top to bottom, including subfolders, finding every PNG card and `.byaf` archive inside. It shows you a breakdown of what it found and lets you tick which kinds to bring in before anything is imported.
-- **Import Backyard AI (.byaf)** — Backyard archives, one at a time (with the full preview screen) or in bulk.
+- **Import Cards** — pick one or more `.png` or `.json` card files. One file at a time gives you a tag dialog so you can label the character on the way in; picking several at once runs a bulk import with a progress bar (and a Cancel button) instead. Same name as a card you already have: **skip / replace / keep both** (rename).
+- **Import Folder** — point it at a directory and the app scans it top to bottom, including subfolders, finding every PNG card and `.byaf` archive inside. It shows you a breakdown of what it found and lets you tick which kinds to bring in before anything is imported. Bulk folder import does **not** ask tags per file.
+- **Import Backyard AI (.byaf)** — Backyard archives, one at a time (with the full preview screen) or in bulk. Can carry **personas** as well as cards; collisions use the same skip / replace / keep-both dialog.
+- **Import from a SillyTavern database** — a SQLite file (not only PNG/JSON/BYAF). Characters and chats come across. Same collision dialog.
 
 Two things the importer does quietly on your behalf:
 
 - **Re-importing a card you already have** — if it's the same character (the card carries a hidden stable ID), it updates your existing entry in place and **your chats with them survive**. That's how you can edit a card elsewhere and bring it back without starting over.
-- **A different card with a name you already use** — you get a choice: **Keep both**, or **Replace** the existing one. No more silent overwrites.
+- **A different card with a name you already use** — you get a choice: **Skip**, **Keep both** (rename), or **Replace**. No silent overwrites.
 
 An empty library also offers **Create New**, **Import Card**, **AI Create**, **Bulk Import** and **Import BYAF** buttons right in the middle of the screen.
 
@@ -66,7 +67,7 @@ The Stoop is Front Porch AI's own community hub, and it's in the sidebar of ever
 - **Creator profiles** — a profile picture, "on the porch since" date, follower count, lifetime stats, a short bio, up to four links, and their approved cards laid out as an art grid. Follow the ones you like.
 - **Share your own** — a four-step wizard (Pick → Details → Content → Review) that submits a character, group or place for moderator review. You need a **confirmed email address** to upload — and to set a profile picture; browsing and downloading work without one.
 
-Using The Stoop is entirely optional. It needs a free account, it's strictly 18+, adult cards are hidden until you turn them on in your account settings, and everything shared there is reviewed by a moderator. The rest of the app stays fully offline whether or not you ever sign in.
+Using The Stoop is entirely optional. On the web hub you can browse and download with no account. Sharing, comments, reports, and votes need a free account, and it's strictly 18+. Adult cards are hidden until you turn them on, and everything shared there is reviewed by a moderator. The rest of the app stays fully offline whether or not you ever sign in. See the [FAQ → The Stoop](faq.md#what-is-the-stoop).
 
 ---
 
@@ -124,7 +125,13 @@ A quick tour of the fields, whether you're writing your own or editing an import
 | **Tags** | Labels for search and filtering | |
 | **Lorebook** | World-knowledge notes that activate when their keywords come up in chat | Great for places, factions, and backstory the character should "know" |
 | **Worlds** | Shared settings attached to this character | See [Lorebooks & Worlds](user-guide.md#lorebooks--worlds) |
-| **TTS Voice** | A voice just for this character | Assigned per member in the group chat creator; it travels with the card and overrides your default voice wherever that character speaks |
+| **TTS Voice** | A voice just for this character | Empty = follow Settings → Voice. A pick overrides **everywhere** that character speaks. Catalog + preview is in TTS settings, not this row. |
+| **Ambitions** | Plan-line chips on **Details** | Not the Personality paragraph. |
+| **Likes / Dislikes** | Chip lists on Details | Separate from Personality prose. |
+| **Intimate into / not into** | Chip lists | Only if Settings → General → **18+ themes** is on. |
+| **Occupation** | Job, brief, hours, weekdays | Seeds [Clock In](porch-life.md#clock-in) for **new** chats. |
+| **Birthday** | Year, month, day (no Feb 29) | Story-calendar age. The Journal keeps one card that heats up before the day. |
+| **Worn / carrying** | Wardrobe + pockets on the card | Seeds Pockets. The **Pockets switch** still has to be on in the chat. |
 
 ### Greeting seeds (per-alt opening state)
 
@@ -152,12 +159,15 @@ Beyond those, cards can use `{{persona}}`, `{{description}}`, `{{personality}}`,
 
 Right-click any card in the library to get at all of this. (Folder cards also have a ⋮ button.)
 
-- **Edit Character** — a four-tab editor: **Details** (name, tags, description, personality, scenario, ambitions, and the Realism defaults), **Dialogue**, **Lorebook**, and **Worlds**. Edits to Realism defaults apply to *new* chats; conversations already in progress keep their living state.
-- **Avatar Gallery** — the one place portraits, alternate looks (outfits, scenes, moods) and expression images live. The ★ marks the canonical avatar, which is also the picture baked into the card when you export it.
-- **Duplicate Character** — one click makes a full copy (named "(duplicate)") including the lorebook and Realism settings. Perfect for experiments: tweak the copy, keep the original safe.
-- **Export PNG** — saves the character back out as a standard V2 PNG card you can share anywhere. **Export JSON** saves the same data as a text file, without the picture.
+- **Edit Character** — a four-tab editor (**not** the seven-step Create wizard): **Details** (name, tags, description, personality, scenario, ambitions, likes/dislikes, occupation, intimate chips, worn/carrying, Realism defaults, voice), **Dialogue**, **Lorebook**, and **Worlds**. Portrait lives in **Avatar Gallery**, not a fifth tab. Edits to Realism defaults apply to *new* chats; conversations already in progress keep their living state.
+- **Worlds tab** — attach Places on the card so **new chats** inherit climate/lore without opening Story Tools first.
+- **Import Character Lore** — pull another card's lorebook entries into *this* character. Not the same as **Import Lorebook** (that page can send a file to a new Place, characters, a group, or the current chat).
+- **Avatar Gallery** — portraits, alternate looks, expression images. You can **crop** in-app before save. The ★ marks the canonical avatar (baked into the PNG on export).
+- **AI Enhance** — Home **right-click only** (not Porch Life). Interviews from a chosen chat, you tick what to rewrite, saves `Name (Enhanced)`, optional bring-chats.
+- **Duplicate Character** — full copy named "(duplicate)".
+- **Export PNG / Export JSON**.
 - **Move to Folder… / Remove from Folder / Delete**.
-- **Start New Chat** — begins a fresh conversation and asks which persona you want to use, instead of inheriting whatever the last chat used.
+- **Start New Chat** — **always asks which persona**. It does not inherit the last chat.
 
 And across the whole library:
 
@@ -183,7 +193,7 @@ Give a character a set of portraits — one per emotion — and their avatar cha
 - The app figures out the current emotion using either a small local classifier (fast, fully offline, and one click to download in Settings → Voice & Media) or the Realism Engine's deeper read of the scene.
 - If an emotion has no image, the app quietly falls back to neutral, and then to the main portrait.
 
-The [User Guide](user-guide.md) covers display modes (**Sidebar Only**, **Background Only**, or **Both**) and setup in more detail.
+The [Image Studio](image-studio.md) and [User Guide → Appearance](user-guide.md#appearance) cover display: **sidebar**, **chat background**, or **both**.
 
 ---
 
@@ -197,6 +207,7 @@ A few notes:
 
 - Importing one is no different from importing a character — pick it with **Import Cards**, on its own, and the app recognizes it as a group automatically. (Selecting a batch of files at once runs the plain-character bulk importer, which won't spot it.)
 - **Extract Characters** copies every member of a group out into your library as standalone, fully editable cards.
+- The group **creator** has a Realism card **per member** (opening bond/needs/wardrobe). That is not only on the 1:1 editor.
 - To other apps, a group card looks like an ordinary image — the group data sits in a Front Porch–specific chunk, so only Front Porch AI can open it. Single-character cards remain universal.
 - Group cards can be shared and downloaded on **The Stoop**, casts and all.
 - Developers building tools that work with group cards can find the full format specification in the [integration guide on GitHub](https://github.com/linux4life1/front-porch-AI/blob/main/docs/CharacterCardForge_GroupChat_Integration_Guide.md).

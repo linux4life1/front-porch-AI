@@ -65,7 +65,7 @@ jobs:
       should_build: ${{ steps.gate.outputs.should_build }}
     steps:
       - name: Checkout Rawhide
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: Rawhide
       - name: Compute pinned version
@@ -159,7 +159,7 @@ jobs:
 
     steps:
       - name: Checkout Rawhide (pinned to the resolved commit)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.full_sha }}
 
@@ -232,7 +232,7 @@ jobs:
         run: flutter pub get
 
       - name: Setup Node (for the WebUI bundle)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -629,7 +629,7 @@ jobs:
           tar -czvf ../../../../../Front_Porch_AI_Nightly-Linux.tar.gz .
 
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: nightly-${{ matrix.platform }}
           path: |
@@ -646,7 +646,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Rawhide (pinned to the resolved commit, for release notes)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.full_sha }}
 
@@ -690,13 +690,13 @@ jobs:
           fi
 
       - name: Download Build Artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: nightly-*
           merge-multiple: true
 
       - name: Upload Nightly Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: "nightly-${{ steps.version.outputs.VERSION }}"
           name: "Nightly ${{ steps.version.outputs.VERSION }}"
@@ -734,7 +734,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Rawhide (pinned to the resolved commit)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.full_sha }}
 

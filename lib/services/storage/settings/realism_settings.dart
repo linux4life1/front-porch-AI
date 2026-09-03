@@ -37,6 +37,7 @@ class RealismSettings with SettingsBase {
   bool _realismDefault = false;
   bool _nsfwCooldownDefault = false;
   bool _passageOfTimeDefault = true;
+
   /// Global Needs switch. Defaults TRUE and AND-gates the card's own setting
   /// (same shape as [_passageOfTimeDefault], not the NSFW OR-override): with
   /// it on nothing changes, with it off Needs stops for new chats regardless
@@ -178,6 +179,7 @@ class RealismSettings with SettingsBase {
   /// Null = never explicitly chosen, so the seed below applies.
   bool? _adultThemesExplicit;
   OneShotMode _oneShotMode = OneShotMode.auto;
+  bool _preferTextEvals = false;
   bool _weatherEnabled = true;
   bool _weatherFahrenheit = false;
   bool _absenceBannerEnabled = true;
@@ -233,6 +235,11 @@ class RealismSettings with SettingsBase {
   /// lives in `resolveOneShotMode` (pass_support.dart) because it needs the
   /// backend probe, which storage deliberately knows nothing about.
   OneShotMode get oneShotMode => _oneShotMode;
+
+  /// Prefer the streaming JSON/XML floor even when the model speaks tools.
+  /// Default false: tools stay preferred when supported. Persist this name;
+  /// the Porch Life switch ON means use tools (`!preferTextEvals`).
+  bool get preferTextEvals => _preferTextEvals;
 
   /// Legacy bool surface over [oneShotMode], kept because callers and the
   /// persistence test predate the tri-state. True means explicitly ON.
@@ -291,8 +298,7 @@ class RealismSettings with SettingsBase {
         prefs?.getBool(k('standalone_clock_enabled')) ?? false;
     _objectivesEnabled = prefs?.getBool(k('objectives_enabled')) ?? true;
     _pocketsEnabled = prefs?.getBool(k('pockets_enabled')) ?? false;
-    _standingMoodEnabled =
-        prefs?.getBool(k('standing_mood_enabled')) ?? false;
+    _standingMoodEnabled = prefs?.getBool(k('standing_mood_enabled')) ?? false;
     _intimateAgencyEnabled =
         prefs?.getBool(k('intimate_agency_enabled')) ?? false;
     _chaosModeDefault = prefs?.getBool(k('chaos_mode_default')) ?? false;
@@ -309,22 +315,21 @@ class RealismSettings with SettingsBase {
       // stays ON. false was the old default and indistinguishable from
       // "never touched", so it becomes Auto — the new default, which only
       // ever differs from off on a remote backend that has proven tools.
-      _ => (prefs?.getBool(k('realism_one_shot_eval')) ?? false)
-          ? OneShotMode.on
-          : OneShotMode.auto,
+      _ =>
+        (prefs?.getBool(k('realism_one_shot_eval')) ?? false)
+            ? OneShotMode.on
+            : OneShotMode.auto,
     };
+    _preferTextEvals = prefs?.getBool(k('prefer_text_evals')) ?? false;
     _weatherEnabled = prefs?.getBool(k('weather_enabled')) ?? true;
     _weatherFahrenheit = prefs?.getBool(k('weather_fahrenheit')) ?? false;
-    _absenceBannerEnabled =
-        prefs?.getBool(k('absence_banner_enabled')) ?? true;
+    _absenceBannerEnabled = prefs?.getBool(k('absence_banner_enabled')) ?? true;
     _absenceAckEnabled = prefs?.getBool(k('absence_ack_enabled')) ?? false;
-    _absenceThresholdHours =
-        prefs?.getInt(k('absence_threshold_hours')) ?? 24;
+    _absenceThresholdHours = prefs?.getInt(k('absence_threshold_hours')) ?? 24;
     _dreamsEnabled = prefs?.getBool(k('dreams_enabled')) ?? true;
     _ambitionsEnabled = prefs?.getBool(k('ambitions_enabled')) ?? true;
     _plannerEnabled = prefs?.getBool(k('planner_enabled')) ?? false;
-    _promiseLedgerEnabled =
-        prefs?.getBool(k('promise_ledger_enabled')) ?? true;
+    _promiseLedgerEnabled = prefs?.getBool(k('promise_ledger_enabled')) ?? true;
 
     final bannedJson = prefs?.getString(k('banned_phrases'));
     if (bannedJson != null) {
@@ -393,6 +398,12 @@ class RealismSettings with SettingsBase {
   Future<void> setOneShotMode(OneShotMode value) async {
     _oneShotMode = value;
     await prefs?.setString(k('realism_one_shot_mode'), value.name);
+    notify();
+  }
+
+  Future<void> setPreferTextEvals(bool value) async {
+    _preferTextEvals = value;
+    await prefs?.setBool(k('prefer_text_evals'), value);
     notify();
   }
 

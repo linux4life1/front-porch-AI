@@ -202,17 +202,20 @@ extension _CreateCharacterCoreSteps on _CreateCharacterPageState {
                 ).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   tilePadding: EdgeInsets.zero,
-                  title: const Row(
+                  title: Row(
                     children: [
                       Icon(
                         Icons.settings_suggest,
                         size: 18,
-                        color: Colors.white38,
+                        color: AppColors.iconSecondary(context),
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
                         'Advanced Prompts (optional)',
-                        style: TextStyle(color: Colors.white54, fontSize: 14),
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),

@@ -281,7 +281,11 @@ void main() {
     });
 
     test('the carrier is cleared inside the same phase', () {
-      final pockets = postgen.indexOf('_runPocketsPass(\n              scoredReply,');
+      // Anchor de-bracketed (2026-08-27): the literal used to carry the call's
+      // exact line break + indentation, so any dart-format re-indent turned a
+      // green suite red (three Rawhide CI runs). Position is what is pinned,
+      // not whitespace.
+      final pockets = postgen.indexOf('_runPocketsPass(');
       final clear = postgen.indexOf('_replyFactsRaw = null;', pockets);
       expect(pockets, greaterThan(-1));
       expect(

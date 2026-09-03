@@ -27,13 +27,13 @@ Out of the box, the app runs AI models locally, so your conversations never leav
 
 What makes it special:
 
-- **The Realism Engine** — characters have moods, build trust with you, feel time passing, develop obsessions and goals, and grow new personality traits as your story unfolds.
+- **The Realism Engine** — characters have moods, build trust with you, feel time passing, develop obsessions and goals, and grow new personality traits as your story unfolds. Settings → **Porch Life** is where every living-character switch lives (Journal, clock, Pockets, Chaos, Objectives — each on its own, Realism is not the master key).
 - **Long-term memory** — each character keeps a private journal of what mattered and brings it back later. Those memories belong to that one chat and never leak into another.
 - **Voice** — characters can speak (local text-to-speech with 50+ voices) and you can talk back (push-to-talk voice input). Cloud voices from ElevenLabs and OpenAI are optional extras.
 - **Group chats** — put several characters in one scene and watch them interact.
 - **Worlds and places** — give a story a setting with its own lore, seasons, weather and climate. A place can even have thin air or heavy gravity, and characters react to it.
 - **Porch Stories** — turn your chats into full illustrated novels.
-- **The Stoop** — a built-in community hub for sharing and downloading characters, whole group casts, and places, without leaving the app. It's opt-in, needs a free account, and is strictly 18+.
+- **The Stoop** — a built-in community hub for sharing and downloading characters, whole group casts, and places. Browse and download without an account; sharing and comments need a free one. Opt-in, strictly 18+. Details: [FAQ → The Stoop](faq.md#what-is-the-stoop).
 
 It's free and open-source (AGPL-3.0). Your characters, chats, and memories stay on your machine.
 
@@ -47,7 +47,7 @@ Front Porch AI runs on a wide range of hardware. A gaming PC is great; a modest 
 
 | | Minimum | Recommended |
 |---|---|---|
-| **Operating system** | Windows 10, macOS 11+, or a recent Linux distro | The latest stable release of your OS |
+| **Operating system** | Windows 10, macOS 12 Monterey, or a recent Linux distro | The latest stable release of your OS |
 | **Memory (RAM)** | 8 GB | 16 GB or more |
 | **Graphics card** | Optional — the app can run on your CPU alone | A GPU with 8 GB+ of VRAM (its own memory), or an Apple Silicon Mac |
 | **Disk space** | 10 GB free | 50 GB+ if you want room for several AI models and voices |
@@ -237,11 +237,11 @@ For the full story on cards, the AI editor, and lorebooks, see the **[Characters
 
 ## Next Steps
 
-**Make it feel alive** → the [Realism Engine guide](realism-engine.md). Bond and trust, moods with momentum, story time, character goals, obsessions, chaos events, and Sims-style needs.
+**Make it feel alive** → Settings → **Porch Life**, then the [Realism Engine guide](realism-engine.md). Bond and trust, story time, Pockets, Clock In (they have a job), Chaos, needs.
 
 **Build your cast** → the [Characters Guide](characters.md). The card format, AI-assisted creation and editing, lorebooks, expression images, and organizing a big library.
 
-**Explore everything else** → the [User Guide](user-guide.md). Group chats and Director Mode, voice setup, image generation, Porch Stories, backups, and using the app from your phone.
+**Explore everything else** → [Chatting](chatting.md), [Porch Life](porch-life.md), [Image Studio](image-studio.md), [Web & Phone](web-phone.md), [User Guide](user-guide.md).
 
 **Stuck or curious?**
 

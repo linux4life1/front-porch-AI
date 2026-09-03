@@ -37,6 +37,11 @@ extension ChatServiceGenerationRag on ChatService {
 
     if (_isNewChat) {
       debugPrint('[RAG:Chat] Skipping memory retrieval - new chat in progress');
+    } else if (t.mode == GenerationMode.continue_) {
+      // Continue extends the same beat. Zeroing droppedMessages used to
+      // skip retrieval; tail-open ORs basePosition, so that skip was a
+      // no-op on a long chat. Mode itself is the skip.
+      debugPrint('[RAG:Chat] Skipping memory retrieval — Continue');
     } else if (t.guestSpeaker != null) {
       // Guest turns answer THIS beat. Guest RAG resurfaces dropped Magus
       // Q&As; a reasoning model treats those as the live question
@@ -75,23 +80,19 @@ extension ChatServiceGenerationRag on ChatService {
         // Scene Guests Phase 4: a guest turn retrieves the GUEST's own
         // episodic memories (keyed on the guest id), not the host's. The
         // injection format/budget below is shared — only the source id swaps.
-        final sourceIds = await _getMemorySourceIds(guest: t.guestSpeaker);
+        final packed = await _getMemorySourceIds(guest: t.guestSpeaker);
+        final sourceIds = packed.sourceIds;
         debugPrint('[RAG:Chat] Memory source IDs: $sourceIds');
 
         // Session isolation: the speaker/group bucket AND (in groups) every
-        // member stableGroupId (added for Data Bank / priorities) must be
-        // session-scoped — otherwise 1:1 conversation embeddings bleed into
-        // the group (second-look P2.16). Explicit memorySources for ids that
-        // are NOT already group members stay unscoped for opt-in cross-session
-        // recall. A memorySource that IS a group member is already in the
-        // scoped set (members win / dedupe); that is deliberate anti-bleed,
-        // not a free cross-session path for someone sitting in the cast.
-        // Data Bank is a separate path and never consults this set.
-        final sessionScoped = <String>{
-          if (sourceIds.isNotEmpty) sourceIds.first,
-          if (t.guestSpeaker == null && _activeGroup != null)
-            for (final c in _groupCharacters) _getCharacterIdFromCard(c),
-        }..remove('');
+        // member's LIBRARY identity (originStableId — Data Bank / 1:1
+        // embeddings key by portrait basename, never the member UUID).
+        // Explicit memorySources for ids that are NOT already group members
+        // stay unscoped for opt-in cross-session recall. A memorySource that
+        // IS a group member is already in the scoped set (members win /
+        // dedupe); that is deliberate anti-bleed. Data Bank never consults
+        // this set.
+        final sessionScoped = packed.sessionScoped;
 
         // Retrieval limit: groups use the per-session group setting; 1:1
         // uses the user's "Memories per turn" slider (memory panel + web).
@@ -334,9 +335,6 @@ extension ChatServiceGenerationRag on ChatService {
     }
   }
 
-  /// Get the list of character IDs to search for RAG memory retrieval.
-  /// Reads the current character's `memorySources` from the DB and includes
-  /// those characters' embedding IDs alongside the current character.
   /// Resolve the RAG source character ids for retrieval.
   ///
   /// Normally keyed on the active character (or the group bucket). When a
@@ -345,29 +343,24 @@ extension ChatServiceGenerationRag on ChatService {
   /// [_maybeEmbedMessages] — plus that guest's cross-character memory sources.
   /// This keeps the guest's episodic memory isolated from the host's: the
   /// host's memories are never injected on a guest turn, and vice versa.
-  Future<List<String>> _getMemorySourceIds({CharacterCard? guest}) async {
+  ///
+  /// Groups: conversation RAG stays on `group_<id>`. Data Bank rows and
+  /// library `memory_sources` key by the origin portrait basename / library
+  /// UUID, never the group-private avatar UUID. [sessionScoped] is the
+  /// group bucket plus those library ids so 1:1 embeddings cannot bleed;
+  /// explicit cross-character sources that are not members stay unscoped.
+  Future<({List<String> sourceIds, Set<String> sessionScoped})>
+  _getMemorySourceIds({CharacterCard? guest}) async {
     final currentId = guest != null
         ? _getCharacterIdFromCard(guest)
         : _getCharacterId();
-    final sourceIds = <String>[currentId]; // always include self
+    final sourceIds = <String>[currentId];
+    final sessionScoped = <String>{if (currentId.isNotEmpty) currentId};
 
-    // Group conversation embeds under group_<id>, but Data Bank rows and the
-    // per-member RAG priority sliders key by each member's stableGroupId
-    // (audit P2.16). Without those ids, member Data Bank and priority
-    // multipliers never match a candidate. Conversation RAG stays on the
-    // group bucket; members only add Data Bank / any per-member embeddings.
-    if (guest == null && _activeGroup != null) {
-      for (final c in _groupCharacters) {
-        final mid = _getCharacterIdFromCard(c);
-        if (mid.isNotEmpty && !sourceIds.contains(mid)) sourceIds.add(mid);
-      }
-    }
-
-    // Look up cross-character sources from DB (for the guest, or the active char)
-    final sourceCard = guest ?? _activeCharacter;
-    if (sourceCard != null && sourceCard.dbId != null) {
+    Future<void> addMemorySources(String? libraryDbId) async {
+      if (libraryDbId == null || libraryDbId.isEmpty) return;
       try {
-        final dbChar = await _db.getCharacterById(sourceCard.dbId!);
+        final dbChar = await _db.getCharacterById(libraryDbId);
         final ms = dbChar.memorySources;
         if (ms.isNotEmpty && ms != '[]') {
           final decoded = List<String>.from(
@@ -385,6 +378,53 @@ extension ChatServiceGenerationRag on ChatService {
       }
     }
 
-    return sourceIds;
+    if (guest != null) {
+      await addMemorySources(guest.dbId);
+      return (sourceIds: sourceIds, sessionScoped: sessionScoped);
+    }
+
+    if (_activeGroup != null) {
+      final library =
+          _characterRepository?.characters ?? const <CharacterCard>[];
+      final repo = _groupChatRepository;
+      final members = repo != null
+          ? await repo.getMembersForGroup(_activeGroup!.id)
+          : const <GroupMember>[];
+      if (members.isNotEmpty) {
+        for (final m in members) {
+          final ident = MemberOriginResolver.libraryRagIdentity(
+            originStableId: m.originStableId,
+            originLibraryDbId: m.originLibraryDbId,
+            memberName: m.name,
+            libraryCharacters: library,
+          );
+          final sid = ident.sourceId;
+          if (sid != null && sid.isNotEmpty) {
+            if (!sourceIds.contains(sid)) sourceIds.add(sid);
+            sessionScoped.add(sid);
+          }
+          await addMemorySources(ident.libraryDbId);
+        }
+      } else {
+        for (final c in _groupCharacters) {
+          final ident = MemberOriginResolver.libraryRagIdentity(
+            originStableId: null,
+            originLibraryDbId: null,
+            memberName: c.name,
+            libraryCharacters: library,
+          );
+          final sid = ident.sourceId;
+          if (sid != null && sid.isNotEmpty) {
+            if (!sourceIds.contains(sid)) sourceIds.add(sid);
+            sessionScoped.add(sid);
+          }
+          await addMemorySources(ident.libraryDbId);
+        }
+      }
+      return (sourceIds: sourceIds, sessionScoped: sessionScoped);
+    }
+
+    await addMemorySources(_activeCharacter?.dbId);
+    return (sourceIds: sourceIds, sessionScoped: sessionScoped);
   }
 }

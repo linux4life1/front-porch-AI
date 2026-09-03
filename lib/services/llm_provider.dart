@@ -22,8 +22,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/backend_manager.dart';
-import 'package:front_porch_ai/services/capability/vision_support_resolver.dart';
+import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
+import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/lmstudio_log_streamer.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
@@ -307,6 +308,7 @@ class LLMProvider extends ChangeNotifier {
       // finding: type-only syncing left the streamer attached/detached
       // against the wrong server.
       _syncLiveStatusSources();
+      _kickLocalThinkingResolve(newType);
     }
 
     if (newType != _activeBackend) {
@@ -348,7 +350,46 @@ class LLMProvider extends ChangeNotifier {
 
     _syncLiveStatusSources();
     _maybePingRemote(type, configChanged: true);
+    _kickLocalThinkingResolve(type);
     notifyListeners();
+  }
+
+  /// Read the local chat template (oMLX jinja / LMS GGUF / Kobold GGUF) so
+  /// heretic `{% set enable_thinking = true %}` is known *before* the first
+  /// eval, not only after Settings opens the thinking chips.
+  void _kickLocalThinkingResolve(BackendType type) {
+    switch (type) {
+      case BackendType.omlx:
+        final model = _storageService.remoteModelName;
+        if (model.isEmpty) return;
+        if (ReasoningSupportResolver.instance.isResolved(model)) return;
+        unawaited(
+          ReasoningSupportResolver.instance.resolveOmlx(
+            apiUrl: 'http://localhost:8000/v1',
+            modelName: model,
+            apiKey: _storageService.remoteApiKey,
+          ),
+        );
+        return;
+      case BackendType.openRouter:
+        final url = _openRouterService.apiUrl;
+        final model = _storageService.remoteModelName;
+        if (model.isEmpty || !isLocalRemoteUrl(url)) return;
+        if (ReasoningSupportResolver.instance.isResolved(model)) return;
+        unawaited(
+          ReasoningSupportResolver.instance.resolveLmStudio(
+            apiUrl: url,
+            modelName: model,
+            apiKey: _storageService.remoteApiKey,
+          ),
+        );
+        return;
+      case BackendType.kobold:
+        final path = _storageService.lastUsedModelPath;
+        if (path == null || path.isEmpty) return;
+        if (ReasoningSupportResolver.instance.isResolved(path)) return;
+        unawaited(ReasoningSupportResolver.instance.resolveLocalGguf(path));
+    }
   }
 
   bool _isRemoteBackend(BackendType type) =>

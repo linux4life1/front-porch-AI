@@ -24,6 +24,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/caption/smolvlm_engine.dart';
+import 'package:front_porch_ai/services/model_fetch.dart';
 
 /// Photo Understanding — the fully-offline caption floor for chat photo
 /// attachments when the active text model can't see images: SmolVLM-500M
@@ -80,14 +81,36 @@ class LocalCaptionService extends ChangeNotifier {
   File _fileFor(String artifact) =>
       File(p.join(_dir!.path, p.basename(artifact)));
 
-  /// All artifacts present and non-empty.
+  /// A CDN error page is a few KB; real artifacts are megabytes. Floor at
+  /// a quarter of the advertised size (or 1 KB, whichever is larger).
+  static int minBytesFor(int expected) {
+    final quarter = expected ~/ 4;
+    return quarter < 1024 ? 1024 : quarter;
+  }
+
+  /// All artifacts present and plausibly sized (not a saved error page).
   bool get isInstalled {
     if (_dir == null) return false;
-    for (final a in _artifacts.keys) {
-      final f = _fileFor(a);
-      if (!f.existsSync() || f.lengthSync() == 0) return false;
+    for (final e in _artifacts.entries) {
+      final f = _fileFor(e.key);
+      if (!f.existsSync() || f.lengthSync() < minBytesFor(e.value)) {
+        return false;
+      }
     }
     return true;
+  }
+
+  /// Drop undersized artifacts so the next download is not skip-poisoned.
+  void purgeImplausibleFiles() {
+    if (_dir == null) return;
+    for (final e in _artifacts.entries) {
+      final f = _fileFor(e.key);
+      if (!f.existsSync()) continue;
+      if (f.lengthSync() >= minBytesFor(e.value)) continue;
+      try {
+        f.deleteSync();
+      } catch (_) {}
+    }
   }
 
   /// Download all artifacts sequentially (streamed to .part files, renamed on
@@ -106,11 +129,17 @@ class LocalCaptionService extends ChangeNotifier {
       await _dir!.create(recursive: true);
       for (final entry in _artifacts.entries) {
         final target = _fileFor(entry.key);
-        if (target.existsSync() && target.lengthSync() > 0) {
+        final minBytes = minBytesFor(entry.value);
+        if (target.existsSync() && target.lengthSync() >= minBytes) {
           doneBytes += entry.value;
           _downloadProgress = doneBytes / totalBytes;
           notifyListeners();
           continue;
+        }
+        if (target.existsSync()) {
+          try {
+            target.deleteSync();
+          } catch (_) {}
         }
         final part = File('${target.path}.part');
         final client = http.Client();
@@ -140,6 +169,14 @@ class LocalCaptionService extends ChangeNotifier {
           } finally {
             await sink.close();
           }
+          final invalid = ModelFetch.validateDownload(
+            receivedBytes: received,
+            expectedBytes: response.contentLength ?? 0,
+            minBytes: minBytes,
+          );
+          if (invalid != null) {
+            throw HttpException('$invalid for ${entry.key}');
+          }
           await part.rename(target.path);
           doneBytes += entry.value;
         } finally {
@@ -150,6 +187,12 @@ class LocalCaptionService extends ChangeNotifier {
             } catch (_) {}
           }
         }
+      }
+      if (!isInstalled) {
+        purgeImplausibleFiles();
+        throw const HttpException(
+          'caption model files failed verification after download',
+        );
       }
       _downloadProgress = 1;
       return true;

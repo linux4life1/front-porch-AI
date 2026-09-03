@@ -56,6 +56,7 @@ extension _ChatPageSidebar on _ChatPageState {
       }
     });
   }
+
   /// Wraps a sidebar widget with a draggable resize handle on its left edge.
   Widget _buildResizableSidebar({required Widget child}) {
     return Row(
@@ -68,10 +69,13 @@ extension _ChatPageSidebar on _ChatPageState {
             onHorizontalDragUpdate: (details) {
               rebuildState(() {
                 double newWidth = _sidebarWidth - details.delta.dx;
-                if (newWidth < 150) {
+                if (newWidth < SidebarTokens.minWidth) {
                   _sidebarWidth = 0; // Snap to closed
                 } else {
-                  _sidebarWidth = newWidth.clamp(150, 600);
+                  _sidebarWidth = newWidth.clamp(
+                    SidebarTokens.minWidth,
+                    SidebarTokens.maxWidth,
+                  );
                 }
               });
             },
@@ -165,6 +169,14 @@ extension _ChatPageSidebar on _ChatPageState {
               onJumpToMessage: _jumpToMessage,
               resolveCharImage: _resolveCharImage,
               draft: _controller,
+              onOpenEditFromEnv: () {
+                unawaited(
+                  _openEditCharacterDialog(
+                    character,
+                    ensureRelationshipVisible: true,
+                  ),
+                );
+              },
             ),
           ),
         ],

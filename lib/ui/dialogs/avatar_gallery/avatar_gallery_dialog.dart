@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -112,15 +111,7 @@ class _AvatarGalleryDialogState extends State<_AvatarGalleryDialog> {
     if (bytes == null || !mounted) return;
     final cropped = await ImageCropDialog.show(context, imageBytes: bytes);
     if (cropped == null) return;
-    final dir = _c.storage.charactersDir;
-    await dir.create(recursive: true);
-    final safe = _c.libraryCard.name
-        .replaceAll(RegExp(r'[^\w\s\-]'), '')
-        .replaceAll(' ', '_');
-    final path =
-        '${dir.path}/${safe}_${DateTime.now().millisecondsSinceEpoch}.png';
-    await File(path).writeAsBytes(cropped);
-    await _c.replacePortrait(path);
+    await _c.replacePortrait(cropped);
   }
 
   Future<void> _addExpression() async {
@@ -140,10 +131,9 @@ class _AvatarGalleryDialogState extends State<_AvatarGalleryDialog> {
     final zip = await pickZipBytes();
     if (zip == null) return;
     final pack = decodeSpritePack(zip);
-    final (added, unrecognized, skipped) = await _c.importSpritePack(
-      [for (final e in pack.entries) (bytes: e.bytes, emotion: e.emotion)],
-      pack.unrecognized,
-    );
+    final (added, unrecognized, skipped) = await _c.importSpritePack([
+      for (final e in pack.entries) (bytes: e.bytes, emotion: e.emotion),
+    ], pack.unrecognized);
     if (!mounted) return;
     final parts = <String>[
       'Imported $added',
@@ -233,7 +223,7 @@ class _AvatarGalleryDialogState extends State<_AvatarGalleryDialog> {
           Expanded(
             child: WarmDialogText(
               'This image — ${starred ? 'your ★ starred look' : 'your first '
-                  'gallery look'} — becomes the new portrait, and the old '
+                        'gallery look'} — becomes the new portrait, and the old '
               'portrait moves into the gallery as a look. Nothing is '
               'deleted; swap back any time.',
             ),
