@@ -6,8 +6,9 @@
   second write rebuilt `chara` without creator fields and could flush stale
   name, description, personality, or lore values into SQLite.
 - **What:** Carry the original raw `chara` payload onto the new pixels and
-  persist only the normalized image path. A genuine basename change still
-  re-keys Journal, Growth, quests, Data Bank, and RAG rows transactionally.
+  persist only the normalized image path while retaining the existing large
+  portrait size cap. A genuine basename change still re-keys Journal, Growth,
+  quests, Data Bank, and RAG rows transactionally.
 - **Files:** `lib/services/v2_card_service.dart`,
   `lib/services/character_repository.crud.dart`,
   `lib/database/database.queries.library.dart`,
@@ -17,7 +18,8 @@
 - **Verification:** New controller guard proven red on the stale name, then
   green; existing portrait identity/re-key suite also green.
 - **Commits:** `98db6a55` (main guard), `11d71bae` (implementation),
-  `63e68c76` (shared encoder cleanup), `6645be5d` (basename-change guard).
+  `63e68c76` (shared encoder cleanup), `6645be5d` (basename-change guard),
+  `1d0f4f36` (size-cap preservation).
 
 ## 2026-09-02 — fix: medium follow-ups (image step-up, SPIN NOW, Discussion, expression nag, reunification members)
 - **Why:** Five leftovers from the 1.3 medium wave: (1) POST /api/image/config
