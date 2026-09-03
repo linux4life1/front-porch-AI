@@ -5,7 +5,7 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 🖼️ **Replacing a portrait no longer empties their diary, quests, or memories** — the new picture overwrites the same file, so Journal, Growth, RAG, Data Bank, and quests still belong to them. Same on the phone.
+- 🖼️ **Replacing a portrait keeps the whole character card** — the new pixels overwrite the same file without resaving unrelated details, so creator credits, description, personality, lore, Journal, Growth, RAG, Data Bank, and quests all survive.
 
 - ↺ **Swiping an older reply no longer erases later diary pages** — Journal, Growth, and RAG stay with the messages still on screen. The selected variant's "where are my keys?" card still comes back. Same on the phone.
 
