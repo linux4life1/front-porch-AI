@@ -77,12 +77,11 @@ class V2CardService {
   ) async {
     final avatar = await _resolveOrCreateAvatar(card, sourceImagePath);
 
-    // Add tEXt chunk
-    avatar.textData ??= {};
-    avatar.textData!['chara'] = _encodeCharaData(card);
-
-    // Save to file
-    final pngBytes = img.encodePng(avatar);
+    final pngBytes = PngMetadataUtils.encodeWithTextChunk(
+      avatar,
+      'chara',
+      _encodeCharaData(card),
+    );
     await File(outputPath).writeAsBytes(pngBytes);
   }
 
@@ -121,9 +120,12 @@ class V2CardService {
       throw const FormatException('Could not decode replacement portrait');
     }
 
-    avatar.textData ??= {};
-    avatar.textData!['chara'] = charaData ?? _encodeCharaData(fallbackCard);
-    await File(outputPath).writeAsBytes(img.encodePng(avatar));
+    final pngBytes = PngMetadataUtils.encodeWithTextChunk(
+      avatar,
+      'chara',
+      charaData ?? _encodeCharaData(fallbackCard),
+    );
+    await File(outputPath).writeAsBytes(pngBytes);
   }
 
   /// Returns the complete PNG bytes for a character card, with the V2 'chara'
@@ -139,10 +141,11 @@ class V2CardService {
   ) async {
     final avatar = await _resolveOrCreateAvatar(card, sourceImagePath);
 
-    avatar.textData ??= {};
-    avatar.textData!['chara'] = _encodeCharaData(card);
-
-    return img.encodePng(avatar);
+    return PngMetadataUtils.encodeWithTextChunk(
+      avatar,
+      'chara',
+      _encodeCharaData(card),
+    );
   }
 
   Future<String?> _readCharaData(String path) async {
