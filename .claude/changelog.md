@@ -484,6 +484,14 @@
 - **Files:** chat_service_message_ops, generation_postgen, reprocess,
   defaults, regen_aborts_settling_test
 
+## 2026-08-26 — release: v1.3.1 Clock In promote notes
+- **Why:** In-app What's New and the GitHub README must name the patch
+  before the tag. Release body is the first ## section of docs/main.md.
+- **What:** Clock In headlines (work, time, with-you, Flutter 3.47).
+  The rest under Fixes and improvements. README banner + Work & Time
+  section. 1.3 Pockets kept below.
+- **Files:** docs/main.md, README.md
+
 ## 2026-08-26 — docs: v1.3.1 Clock In on the long-form release notes
 - **Why:** Promoting Rawhide to main as v1.3.1. release-notes.md still
   called 1.2 the current stable.
