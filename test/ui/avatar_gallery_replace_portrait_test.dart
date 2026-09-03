@@ -25,6 +25,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/database/database_cleanup.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
@@ -35,8 +36,10 @@ void main() {
   const pathProvider = MethodChannel('plugins.flutter.io/path_provider');
   late AppDatabase db;
   late Directory tempRoot;
+  late StorageService storage;
+  late CharacterRepository repository;
 
-  setUp(() {
+  setUp(() async {
     tempRoot = Directory.systemTemp.createTempSync(
       'fpai_gallery_portrait_replace_',
     );
@@ -49,11 +52,18 @@ void main() {
         });
     SharedPreferences.setMockInitialValues({});
     db = AppDatabase.forTesting(sameIsolate: true);
+    storage = StorageService();
+    await storage.initialized;
+    repository = CharacterRepository(db, storage);
+    while (repository.isLoading) {
+      await Future<void>.delayed(Duration.zero);
+    }
   });
 
   tearDown(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathProvider, null);
+    repository.dispose();
     await db.close();
     if (tempRoot.existsSync()) tempRoot.deleteSync(recursive: true);
   });
@@ -61,13 +71,6 @@ void main() {
   test(
     'gallery replacement changes only pixels and keeps DB plus chara fields',
     () async {
-      final storage = StorageService();
-      await storage.initialized;
-      final repository = CharacterRepository(db, storage);
-      while (repository.isLoading) {
-        await Future<void>.delayed(Duration.zero);
-      }
-
       final original = CharacterCard(
         name: 'Portrait Test Character',
         description: 'Keeps a complete description.',
@@ -168,7 +171,65 @@ void main() {
       expect(embedded.characterVersion, '7.4');
 
       controller.dispose();
-      repository.dispose();
+      await Future<void>.delayed(Duration.zero);
     },
   );
+
+  test('moving an external portrait re-keys filename-owned rows', () async {
+    final externalCard = CharacterCard(
+      name: 'External Portrait Character',
+      description: 'The card fields move with the portrait.',
+      creator: 'Sosuke Aizen',
+    );
+    final externalPath = p.join(tempRoot.path, 'external_portrait.png');
+    final cards = V2CardService();
+    await cards.saveCardAsPng(externalCard, externalPath, null);
+    externalCard.imagePath = externalPath;
+    await repository.addCharacter(externalCard);
+
+    const oldId = 'external_portrait';
+    await db
+        .into(db.objectives)
+        .insert(
+          ObjectivesCompanion.insert(
+            id: 'objective-external-portrait',
+            characterId: oldId,
+            objective: 'Keep the portrait identity connected',
+          ),
+        );
+
+    final replacement = img.Image(width: 9, height: 6);
+    img.fill(replacement, color: img.ColorRgb8(65, 43, 21));
+    final controller = AvatarGalleryController(
+      libraryCard: externalCard,
+      repository: repository,
+      storage: storage,
+      mode: WardrobeMode.library,
+    );
+
+    await controller.replacePortrait(
+      Uint8List.fromList(img.encodePng(replacement)),
+    );
+
+    expect(controller.lastError, isNull);
+    expect(
+      p.isWithin(storage.charactersDir.path, externalCard.imagePath!),
+      isTrue,
+    );
+    final newId = p.basenameWithoutExtension(externalCard.imagePath!);
+    expect(newId, isNot(oldId));
+    final objective = (await db.select(db.objectives).get()).single;
+    expect(objective.characterId, newId);
+    final orphans = await DatabaseCleanup.checkOrphans(db);
+    expect(orphans.orphanCounts['objectives'], 0);
+
+    final embedded = await cards.readCard(externalCard.imagePath!);
+    expect(embedded, isNotNull);
+    expect(embedded!.name, 'External Portrait Character');
+    expect(embedded.description, 'The card fields move with the portrait.');
+    expect(embedded.creator, 'Sosuke Aizen');
+
+    controller.dispose();
+    await Future<void>.delayed(Duration.zero);
+  });
 }
