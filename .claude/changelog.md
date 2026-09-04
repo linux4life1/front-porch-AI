@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-09-04 — fix(ci): restore secure-storage desktop builds
+- **Why:** `flutter_secure_storage_linux` requires libsecret headers while
+  CMake configures the plugin, but the Linux E2E runners did not install them.
+  On macOS, the newly added restricted keychain-sharing entitlement made
+  taskgated kill GitHub's ad-hoc-signed debug app before Dart could connect.
+- **What:** Install `libsecret-1-dev` with the Linux E2E desktop dependencies.
+  Front Porch does not share credentials between apps, so its non-sandboxed
+  macOS build now uses the encrypted legacy login keychain and no longer
+  requests the provisioning-only keychain access-group entitlement.
+- **Files:** `.github/workflows/ci.yml`,
+  `lib/services/storage/settings/web_search_settings.dart`,
+  `macos/Runner/DebugProfile.entitlements`,
+  `macos/Runner/Release.entitlements`.
+- **Verification:** GitHub CI run 33928395996 passed all five Linux, five
+  macOS, and five Windows E2E shards. Locally, CMake found libsecret 0.21.4,
+  the Linux debug build and one real app E2E passed, the full non-golden suite
+  passed 5,305 tests (13 skipped), and full analyze exited 0 with 12
+  pre-existing infos.
+- **Commit:** `b9e26cf9`.
+
 ## 2026-09-04 — fix(web-search): close all PR #225 leftovers
 - **Why:** Normal generation mode also covers group follow-ups, guests, cast
   turns, and regeneration, so the original Continue/idle blacklist left
