@@ -15,7 +15,7 @@
 
 **A local-first AI companion for character chat & roleplay — Windows, macOS, and Linux.** Runs fully offline with local LLMs (KoboldCpp, oMLX, LM Studio, …), driven by a living **Realism Engine** (emotion, trust, needs, memory, pockets) with built-in **TTS and image generation** — and supports remote APIs like OpenRouter, Nano-GPT, and OpenAI with no lock-in when you want them. Open-source (**AGPL-3.0**). Built as a home for people who lost theirs when Backyard AI killed its desktop app.
 
-> ### 🎂 New in 1.3.2
+> ### 🎂 New in 1.3.2 — Make a Wish
 > - **Birthdays are real.** Characters and personas show their birthday on the card panel, on The Stoop, with gold/blue checks next to verified creators.
 > - **Worlds can skip the weather.** A lorebook-only world opts out of climate entirely — quiet places stay quiet.
 > - **Tool calls got faster.** Evals stop stalling on empty responses, and the judges share their prompt prefix.

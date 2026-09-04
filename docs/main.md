@@ -2,7 +2,7 @@
 
 These notes feed the in-app "Update Available" dialog for stable releases on `main`.
 
-## v1.3.2
+## v1.3.2 — Make a Wish
 
 - 🎂 **Calendar birthdays on character and persona cards** — your characters' birthdays
   are now visible on the card panel and on The Stoop. Gold/blue verified checks appear

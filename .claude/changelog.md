@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-03 — docs(release): stamp v1.3.2 Make a Wish
+- **Why:** The promoted main branch still called Clock In the current stable
+  release and did not name the v1.3.2 codename.
+- **What:** Make a Wish is now the current stable release in the long-form
+  notes, in-app What's New heading, and README release callout.
+- **Files:** docs/release-notes.md, docs/main.md, README.md,
+  .claude/changelog.md
+
 ## 2026-08-26 — release: v1.3.1 Clock In promote notes
 - **Why:** In-app What's New and the GitHub README must name the patch
   before the tag. Release body is the first ## section of docs/main.md.
