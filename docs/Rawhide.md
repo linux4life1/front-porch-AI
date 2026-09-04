@@ -5,7 +5,7 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 🔎 **They can look unknown terms up** — turn on Web Search in Porch Life and they will quietly look up a word they don't know (lore, a show, weather, whatever — you don't have to OOC-nudge them), then react as themselves. Search only checks turns you start; AFK / Dynamic Responses never browse on their own. One switch for every chat, including ones already open. A small chip on the reply shows a lookup happened. Off by default. Same on the phone.
+- 🔎 **They can look unknown terms up — safely and only when you ask** — turn on Web Search in Porch Life and the first reply to a message you send can quietly look up an unknown word (lore, a show, weather, whatever), then react as themselves. Continue, Regenerate, guests, group follow-ups, cast entrances, and AFK / Dynamic Responses stay offline. Search results are treated as untrusted notes, redirects are refused, and Tavily keys now move out of preferences into your system's secure credential store. One switch for every chat, including ones already open; no key still uses Wikipedia. A small chip shows when a lookup happened. Off by default. Same on the phone.
 
 - 🖼️ **Replacing a portrait keeps the whole character card** — the new pixels overwrite the same file without resaving unrelated details, so creator credits, description, personality, lore, Journal, Growth, RAG, Data Bank, and quests all survive.
 

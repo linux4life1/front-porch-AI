@@ -18,25 +18,26 @@
 
 // Model-initiated web_search: the tools payload includes web_search, a
 // web_search call runs the HTTP client, empty results inject the
-// empty-result fragment, Continue does not call search, regen hits cache.
+// empty-result fragment, and Continue/regen do not advertise search.
 //
 // Guards proven to fail before passing:
 //   * omit web_search from the tools list → payload assertion goes red
 //   * skip HTTP on a cache miss → httpCalls stays 0
 //   * Continue still advertising tools → continueToolsCalls > 0
-//   * regen skipping the cache → httpCalls increments
+//   * regen advertising the tool → generateWithToolsCalls increments
 
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/prompt_injection/search_injection.dart';
-import 'package:front_porch_ai/services/chat/web_search_tools.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 void _setupPathProviderMock() {
@@ -112,6 +113,7 @@ void main() {
 
   setUp(() async {
     HttpOverrides.global = null;
+    FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({
       'update_auto_check': false,
       'realism_default': false,
@@ -325,20 +327,26 @@ void main() {
     expect(chat.messages.last.text, contains('Hey there'));
   });
 
-  test('regen of a searched turn does not HTTP', () async {
+  test('regen neither advertises search nor reaches HTTP', () async {
     await chat.setActiveCharacter(card());
     await chat.sendMessage('I put on my starched white wandenreich robes');
     await drainTurn();
     expect(httpCalls, 1);
+    final toolsBefore = llm.generateWithToolsCalls;
 
     llm.replyText = '*those robes.. a Quincy, then.*';
     await chat.regenerateLastMessage();
     await drainTurn();
     expect(
+      llm.generateWithToolsCalls,
+      toolsBefore,
+      reason: 'Regenerate is not a newly appended user send',
+    );
+    expect(
       httpCalls,
       1,
       reason:
-          'session cache must serve the same query on regen; '
+          'the regen gate, not a coincidental cache hit, must keep HTTP flat; '
           'fetched $fetchedQueries',
     );
   });

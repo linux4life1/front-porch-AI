@@ -16,9 +16,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// OpenAI-shaped `web_search` tool. Advertised on the chat-generation
-/// tools round-trip when the per-chat switch is on and a search key is set.
+/// OpenAI-shaped `web_search` tool. Advertised only for a direct user-started
+/// turn while the Porch Life global is on. A Tavily key is optional because
+/// keyless searches use Wikipedia.
 const String kWebSearchToolName = 'web_search';
+
+/// Hard transport ceiling for model-supplied queries. The schema advertises
+/// it, and `WebSearchService` enforces it again before cache lookup or HTTP.
+const int kWebSearchQueryMaxChars = 256;
 
 const List<Map<String, dynamic>> kWebSearchTools = [
   {
@@ -34,7 +39,11 @@ const List<Map<String, dynamic>> kWebSearchTools = [
       'parameters': {
         'type': 'object',
         'properties': {
-          'query': {'type': 'string', 'description': 'The search query.'},
+          'query': {
+            'type': 'string',
+            'maxLength': kWebSearchQueryMaxChars,
+            'description': 'The search query.',
+          },
         },
         'required': ['query'],
       },

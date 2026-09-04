@@ -9,17 +9,17 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/database/database.dart';
-import 'package:front_porch_ai/services/open_router_service.dart';
-import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/auth/auth_service.dart';
-import 'package:front_porch_ai/services/web/facade/settings_facade.dart';
-import 'package:front_porch_ai/services/web/routes/settings_routes.dart';
+import 'package:front_porch_ai/services/web/facade/facades.dart';
+import 'package:front_porch_ai/services/web/routes/routes.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
 import '../../golden/support/fakes.dart';
@@ -53,6 +53,7 @@ void main() {
   late Router router;
 
   setUp(() async {
+    FlutterSecureStorage.setMockInitialValues({});
     db = AppDatabase.forTesting();
     auth = AuthService(db);
     storage = StorageService();
@@ -154,5 +155,19 @@ void main() {
     expect(body['hasApiKey'], isTrue);
     expect(body.containsKey('apiKey'), isFalse);
     expect(jsonEncode(body).contains('sk-keep-secret'), isFalse);
+  });
+
+  test('GET exposes only whether a Tavily key exists', () async {
+    await storage.webSearchSettings.setSearchApiKey('tavily-keep-secret');
+
+    final res = await get();
+
+    expect(res.statusCode, 200);
+    final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+    final realism = body['realism'] as Map<String, dynamic>;
+    expect(realism['hasSearchApiKey'], isTrue);
+    expect(realism.containsKey('searchApiKey'), isFalse);
+    expect(realism.containsKey('searchApiKeySet'), isFalse);
+    expect(jsonEncode(body), isNot(contains('tavily-keep-secret')));
   });
 }

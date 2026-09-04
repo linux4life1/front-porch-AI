@@ -18,31 +18,19 @@
 
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/models/models.dart';
 
 // Stage 7: directories + domain settings. Compat shims below. Do not grow.
-import 'storage/directories.dart';
-import 'storage/root_relocation.dart';
-import 'storage/settings/generation_settings.dart';
-import 'storage/settings/backend_settings.dart';
-import 'storage/settings/ui_settings.dart';
-import 'storage/settings/tts_settings.dart';
-import 'storage/settings/stt_settings.dart';
-import 'storage/settings/image_gen_settings.dart';
-import 'storage/settings/expression_settings.dart';
-import 'storage/settings/web_server_settings.dart';
-import 'storage/settings/realism_settings.dart';
-import 'storage/settings/web_search_settings.dart';
-import 'storage/settings/memory_settings.dart';
-import 'storage/settings/lorebook_settings.dart';
-import 'storage/settings/preset_settings.dart';
 import 'desktop_spell_check_service.dart';
 import 'reasoning_effort_store.dart';
+import 'storage/storage.dart';
 
 class StorageService extends ChangeNotifier {
   final Completer<void> _initCompleter = Completer<void>();
@@ -880,7 +868,7 @@ class StorageService extends ChangeNotifier {
       _expressionSettings.load();
       _webServerSettings.load();
       _realismSettings.load();
-      _webSearchSettings.load();
+      await _webSearchSettings.load();
       _memorySettings.load();
       _presetSettings.load();
       _lorebookSettings.load();

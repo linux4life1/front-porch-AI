@@ -46,12 +46,18 @@ class _GenTurn {
     required this.guestSpeaker,
     required this.epoch,
     required this.autonomous,
+    required this.directUserSend,
   });
 
   final GenerationMode mode;
   final CharacterCard? guestSpeaker;
   final int epoch;
   final bool autonomous;
+
+  /// Explicit allow-list bit for web search. False by default so every
+  /// non-send generation path stays offline unless its caller proves it is
+  /// the direct response to a newly appended user message.
+  final bool directUserSend;
 
   // ── entry / speaker pick (shell) ──
   late CharacterCard speakingCharacter;
@@ -178,6 +184,7 @@ extension ChatServiceGeneration on ChatService {
     CharacterCard? guestSpeaker,
     CharacterCard? forceSpeaker,
     bool autonomous = false,
+    bool directUserSend = false,
   }) async {
     if (await _abortIfBackendDown()) {
       // No turn will run — terminate BOTH live streams. The sentence stream
@@ -233,6 +240,7 @@ extension ChatServiceGeneration on ChatService {
       guestSpeaker: guestSpeaker,
       epoch: epoch,
       autonomous: autonomous,
+      directUserSend: directUserSend,
     );
 
     try {

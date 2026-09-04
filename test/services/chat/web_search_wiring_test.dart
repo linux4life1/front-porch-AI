@@ -1,22 +1,24 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Source-site pins for v1 web_search. A per-site behavioural test would
-// need four full ChatService entry paths; reading the call sites asks the
-// same question the Chaos global-default guard does.
+// Source-site pins for v1 web_search. Production-path behavior for direct,
+// group-follow-up, guest, regen, Continue, and idle turns lives in the
+// neighboring web_search_*_test.dart suites.
 
 import 'dart:io';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:front_porch_ai/services/chat/chat_command_handler.dart';
-import 'package:front_porch_ai/services/storage/settings/web_search_settings.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/storage/storage.dart';
 
 void main() {
-  test('web search default is off', () {
+  test('web search default is off', () async {
+    FlutterSecureStorage.setMockInitialValues({});
     final s = WebSearchSettings();
     s.initializeBase(null, () {});
-    s.load();
+    await s.load();
     expect(s.webSearchDefault, isFalse);
     expect(s.searchApiKey, isEmpty);
   });
@@ -107,8 +109,10 @@ void main() {
     expect(service, isNot(contains('perChatEnabled')));
     expect(
       service,
-      contains('globalDefault && !continueMode'),
-      reason: 'the gate is the Porch Life global alone',
+      allOf(contains('globalDefault &&'), contains('directUserSend &&')),
+      reason:
+          'the Porch Life global is necessary, but only a direct user send '
+          'may advertise the tool',
     );
   });
 

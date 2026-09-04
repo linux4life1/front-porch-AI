@@ -70,17 +70,22 @@ class WebSearchRound {
   final String? cannedReply;
 }
 
-/// Porch Life global on + user-driven normal turn + tools-capable → advertise
-/// `web_search`. Continue and autonomous idle turns never search. Read
-/// [globalDefault] at check time so flipping the setting on or off applies to
-/// the chat already open. No per-chat flag.
+/// Porch Life global on + direct user send + tools-capable → advertise
+/// `web_search`. Continue, autonomous, regen, guest, cast, and group follow-up
+/// turns fail closed. Read [globalDefault] at check time so flipping the
+/// setting applies to the chat already open. No per-chat flag.
 bool shouldAdvertiseWebSearch({
   required bool globalDefault,
+  required bool directUserSend,
   required bool continueMode,
   required bool toolsUnsupported,
   bool autonomousMode = false,
 }) {
-  return globalDefault && !continueMode && !autonomousMode && !toolsUnsupported;
+  return globalDefault &&
+      directUserSend &&
+      !continueMode &&
+      !autonomousMode &&
+      !toolsUnsupported;
 }
 
 /// One `generateWithTools` with `web_search`. No call + text → canned
@@ -135,7 +140,9 @@ Future<WebSearchRound> runWebSearchRound({
     return WebSearchRound(cannedReply: text.isEmpty ? null : text);
   }
 
-  final query = call.arguments['query']?.toString() ?? '';
+  final query = WebSearchService.prepareQuery(
+    call.arguments['query']?.toString() ?? '',
+  );
   debugPrint('[WebSearch] called web_search query="$query"');
   final outcome = await search.lookup(query);
   debugPrint(
@@ -155,13 +162,14 @@ Future<WebSearchRound> runWebSearchRound({
   );
 }
 
-/// In-process Tavily client. Session-scoped cache; HTTP only on miss.
-/// One HTTP per user send — later group speakers hit the cache.
+/// In-process Tavily/Wikipedia client. Session-scoped cache; HTTP only on
+/// misses from an eligible direct user send.
 class WebSearchService {
   WebSearchService({
     required this.getApiKey,
     this.getGlobalDefault,
     this.fetch,
+    this.sendRequest,
   });
 
   final String Function() getApiKey;
@@ -170,9 +178,14 @@ class WebSearchService {
   /// that only exercise lookup/cache.
   final bool Function()? getGlobalDefault;
 
-  /// Test seam. Production leaves this null and uses [http.get].
+  /// Legacy body-only test seam for Tavily. Production leaves this null.
   /// Returns the response body (not an [http.Response]).
   Future<String> Function(Uri uri, String apiKey)? fetch;
+
+  /// Request-level test seam. Production leaves this null and uses a fresh
+  /// [http.Client]. Requests reach this callback only after redirects are
+  /// disabled.
+  Future<http.Response> Function(http.BaseRequest request)? sendRequest;
 
   /// Porch Life global, read at check time — not seed time.
   bool get isActive => getGlobalDefault?.call() ?? false;
@@ -183,8 +196,20 @@ class WebSearchService {
 
   bool get hasKey => getApiKey().trim().isNotEmpty;
   bool get hasApiKey => hasKey;
+
+  /// Collapse whitespace and hard-truncate a model-supplied query before it
+  /// can become a cache key, log line, URL, or request body. Runes avoid
+  /// splitting a surrogate pair at the boundary.
+  static String prepareQuery(String query) {
+    final collapsed = query.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (collapsed.runes.length <= kWebSearchQueryMaxChars) return collapsed;
+    return String.fromCharCodes(
+      collapsed.runes.take(kWebSearchQueryMaxChars),
+    ).trim();
+  }
+
   static String normalizeQuery(String query) =>
-      query.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      prepareQuery(query).toLowerCase();
 
   void beginUserSend() {
     _httpThisSend = 0;
@@ -202,10 +227,10 @@ class WebSearchService {
   }
 
   Future<WebSearchResult> lookup(String query) async {
-    final raw = query.trim();
+    final raw = prepareQuery(query);
     if (raw.isEmpty) {
-      return WebSearchResult(
-        query: query,
+      return const WebSearchResult(
+        query: '',
         snippet: '',
         fromCache: false,
         httpAttempted: false,
@@ -274,20 +299,17 @@ class WebSearchService {
         return _parseSnippets(body);
       }
       debugPrint('[WebSearch] HTTP Tavily query="$query"');
-      final response = await http
-          .post(
-            Uri.parse(kTavilySearchEndpoint),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $key',
-            },
-            body: jsonEncode({
-              'query': query,
-              'max_results': 3,
-              'search_depth': 'basic',
-            }),
-          )
-          .timeout(kWebSearchTimeout);
+      final request = http.Request('POST', Uri.parse(kTavilySearchEndpoint))
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $key',
+        })
+        ..body = jsonEncode({
+          'query': query,
+          'max_results': 3,
+          'search_depth': 'basic',
+        });
+      final response = await _sendWithoutRedirects(request);
       debugPrint(
         '[WebSearch] Tavily status=${response.statusCode} '
         'bodyChars=${response.body.length}',
@@ -307,9 +329,9 @@ class WebSearchService {
       kWikipediaSearchEndpoint,
     ).replace(queryParameters: {'q': query, 'limit': '3'});
     try {
-      final response = await http
-          .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(kWebSearchTimeout);
+      final request = http.Request('GET', uri)
+        ..headers['Accept'] = 'application/json';
+      final response = await _sendWithoutRedirects(request);
       debugPrint(
         '[WebSearch] Wikipedia status=${response.statusCode} '
         'bodyChars=${response.body.length}',
@@ -319,6 +341,25 @@ class WebSearchService {
     } catch (e) {
       debugPrint('[WebSearch] Wikipedia THREW: $e');
       return '';
+    }
+  }
+
+  Future<http.Response> _sendWithoutRedirects(http.Request request) async {
+    request
+      ..followRedirects = false
+      ..maxRedirects = 0;
+    final custom = sendRequest;
+    if (custom != null) {
+      return custom(request).timeout(kWebSearchTimeout);
+    }
+    final client = http.Client();
+    try {
+      return await (() async {
+        final streamed = await client.send(request);
+        return http.Response.fromStream(streamed);
+      })().timeout(kWebSearchTimeout);
+    } finally {
+      client.close();
     }
   }
 

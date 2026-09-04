@@ -241,7 +241,6 @@ class SettingsFacade {
         'chaosModeDefault': _storage.realismSettings.chaosModeDefault,
         'webSearchDefault': _storage.webSearchSettings.webSearchDefault,
         'hasSearchApiKey': _storage.webSearchSettings.hasApiKey,
-        'searchApiKeySet': _storage.webSearchSettings.hasApiKey,
         'sceneGuestDetectionEnabled':
             _storage.realismSettings.sceneGuestDetectionEnabled,
         'adultThemesEnabled': _storage.realismSettings.adultThemesEnabled,
@@ -358,7 +357,7 @@ class SettingsFacade {
         await _storage.webSearchSettings.setWebSearchDefault(webSearch);
       }
       final searchKey = realism['searchApiKey']?.toString();
-      if (searchKey != null && searchKey.isNotEmpty) {
+      if (searchKey != null) {
         await _storage.webSearchSettings.setSearchApiKey(searchKey);
       }
       final guests = realism['sceneGuestDetectionEnabled'];

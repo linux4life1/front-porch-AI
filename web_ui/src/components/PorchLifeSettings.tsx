@@ -12,18 +12,17 @@
 // engine or was just filed under it.
 //
 // Self-contained and auto-saving, same pattern as PersonaManager: every
-// switch applies the instant it's flipped — same feel as the desktop
-// Switch — so there is no separate "Save settings" step for this card.
+// switch applies the instant it is flipped. The API-key field is the one
+// deliberate exception: secure-store writes happen only when Save is pressed,
+// not once per keystroke.
 // Rides the same /api/settings `realism` object the app's other
 // story-feature flags (ambitions, promises) already live in; a POST here
 // only ever sends the one key that changed, so it can't clobber anything
 // else queued in the page's big Save button.
 //
-// Scope note (mirrors the desktop doc comment): this card holds the GLOBAL
-// defaults; every one of them can still be overruled by a single chat from
-// its sidebar (ChatTools), which is what the closing note now says. Chaos
-// Mode gained its global default on 2026-08-08 and moved into this card with
-// it, so the note no longer has to apologise for a switch living elsewhere.
+// Scope note (mirrors the desktop doc comment): this card holds global Porch
+// Life settings. The closing note names the few defaults a chat can overrule.
+// Web Search is intentionally global-only and has no ChatTools/sidebar toggle.
 
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -47,7 +46,6 @@ interface PorchLifeState {
   chaosModeDefault: boolean;
   webSearchDefault: boolean;
   hasSearchApiKey?: boolean;
-  searchApiKeySet?: boolean;
   sceneGuestDetectionEnabled: boolean;
   adultThemesEnabled: boolean;
   dreamsEnabled: boolean;
@@ -197,28 +195,72 @@ function AwayThreshold({ value, onChange }: { value: number; onChange: (v: numbe
   );
 }
 
-function SearchKeyRow({ alreadySet }: { alreadySet: boolean }) {
+function SearchKeyRow({
+  alreadySet,
+  onStoredChange,
+}: {
+  alreadySet: boolean;
+  onStoredChange: (stored: boolean) => void;
+}) {
   const [value, setValue] = useState('');
+  const [saved, setSaved] = useState(alreadySet);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const save = (v: string) => {
-    setValue(v);
+  useEffect(() => setSaved(alreadySet), [alreadySet]);
+
+  const save = async (clear = false) => {
+    const next = clear ? '' : value.trim();
+    if (busy || (!clear && !next)) return;
+    setBusy(true);
     setError('');
-    api.post('/api/settings', { realism: { searchApiKey: v } }).catch((e) => {
+    setMessage('');
+    try {
+      await api.post('/api/settings', { realism: { searchApiKey: next } });
+      setValue('');
+      setSaved(!clear);
+      onStoredChange(!clear);
+      setMessage(
+        clear
+          ? 'Key removed — searches use Wikipedia.'
+          : 'Tavily key saved securely.',
+      );
+    } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not save that key');
-    });
+    } finally {
+      setBusy(false);
+    }
   };
   return (
-    <label className="pl-away row-label">
-      <span>{alreadySet && !value ? 'Tavily API key (saved)' : 'Tavily API key'}</span>
-      <input
-        type="password"
-        autoComplete="off"
-        placeholder={alreadySet ? '••••••••' : 'Paste key'}
-        value={value}
-        onChange={(e) => save(e.target.value)}
-      />
+    <div className="pl-search-key">
+      <label>
+        {saved ? 'Tavily API key (saved securely)' : 'Tavily API key'}
+        <input
+          type="password"
+          autoComplete="off"
+          placeholder={saved ? 'Paste a replacement key' : 'Paste key'}
+          value={value}
+          disabled={busy}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </label>
+      <div className="tool-row">
+        <button
+          className="primary"
+          disabled={busy || !value.trim()}
+          onClick={() => void save()}
+        >
+          {busy ? 'Saving…' : 'Save key'}
+        </button>
+        {saved && (
+          <button disabled={busy} onClick={() => void save(true)}>
+            Remove key
+          </button>
+        )}
+      </div>
+      {message && <span className="muted small">{message}</span>}
       {error && <span className="error">{error}</span>}
-    </label>
+    </div>
   );
 }
 
@@ -468,11 +510,18 @@ export function PorchLifeSettings() {
           icon="🔎"
           label="Web Search"
           need="alone"
-          blurb="When they hit a word or event they don't know, they can look it up and react as themselves — not reciting a wiki. Works with no key: search falls back to Wikipedia (encyclopedia lookups). Add a Tavily API key below for full web coverage. Off by default. Turning this on or off applies to every chat, including ones already open."
+          blurb="When they hit a word or event they don't know, they can look it up and react as themselves — not reciting a wiki. Only the first reply to a message you send can search; Continue, Regenerate, guests, group follow-ups, and Dynamic Responses stay offline. Works with no key: search falls back to Wikipedia (encyclopedia lookups). Add a Tavily API key below for full web coverage. Off by default. Turning this on or off applies to every chat, including ones already open."
           value={st.webSearchDefault}
           onChange={(v) => set('webSearchDefault', v)}
         />
-        <SearchKeyRow alreadySet={!!(st.hasSearchApiKey || st.searchApiKeySet)} />
+        <SearchKeyRow
+          alreadySet={!!st.hasSearchApiKey}
+          onStoredChange={(stored) =>
+            setSt((current) =>
+              current ? { ...current, hasSearchApiKey: stored } : current,
+            )
+          }
+        />
         <FeatureRow
           icon="🕰️"
           label="Welcome-back recap"

@@ -28,11 +28,16 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // StorageService now reads the Tavily key from the native credential store
+  // during startup. Use the package's official in-memory platform in every
+  // test so unrelated suites never depend on a desktop keyring/plugin.
+  FlutterSecureStorage.setMockInitialValues({});
 
   // Forbid any runtime font fetch; widget goldens rely solely on the bundled
   // font loaded below.
@@ -60,9 +65,7 @@ Future<void> _loadFont(String family, List<String> paths) async {
   for (final path in paths) {
     final file = File(path);
     if (file.existsSync()) {
-      loader.addFont(
-        Future.value(file.readAsBytesSync().buffer.asByteData()),
-      );
+      loader.addFont(Future.value(file.readAsBytesSync().buffer.asByteData()));
     }
   }
   await loader.load();

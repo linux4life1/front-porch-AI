@@ -194,20 +194,23 @@ extension ChatServiceGenerationRequest on ChatService {
 
     var genParams = paramsOf(prompt);
 
-    // Model-initiated web_search: a silent think-to-search round, then
-    // the in-character stream. Continue and autonomous idle turns never
-    // advertise the tool. xml-only → stream. Read the Porch Life global here
-    // — not at chat-open seed — so flipping it on activates this user turn.
+    // Model-initiated web_search: a silent think-to-search round, then the
+    // in-character stream. The immutable direct-send bit is a fail-closed
+    // allow-list: group follow-ups, guests, cast, regen, Continue, and idle
+    // never advertise the tool. xml-only → stream. Read the Porch Life global
+    // here — not at chat-open seed — so flipping it on activates this turn.
     final globalDefault = _storageService.webSearchSettings.webSearchDefault;
     final xmlOnly = _toolProbe.isXmlOnly(_evalBackendIdentity);
     final advertise = shouldAdvertiseWebSearch(
       globalDefault: globalDefault,
+      directUserSend: t.directUserSend,
       continueMode: t.mode == GenerationMode.continue_,
       toolsUnsupported: xmlOnly,
       autonomousMode: t.autonomous,
     );
     debugPrint(
       '[WebSearch] gate advertise=$advertise global=$globalDefault '
+      'directUserSend=${t.directUserSend} '
       'continue=${t.mode == GenerationMode.continue_} '
       'autonomous=${t.autonomous} xmlOnly=$xmlOnly '
       'backend=${llmService.backendName}',

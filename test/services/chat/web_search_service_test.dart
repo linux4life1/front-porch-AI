@@ -12,10 +12,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:front_porch_ai/services/chat/prompt_injection/search_injection.dart';
-import 'package:front_porch_ai/services/chat/web_search_service.dart';
-import 'package:front_porch_ai/services/chat/web_search_tools.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
+import 'package:front_porch_ai/services/services.dart';
 
 class _ToolsLlm extends LLMService {
   _ToolsLlm({this.next});
@@ -84,6 +83,7 @@ void main() {
       expect(
         shouldAdvertiseWebSearch(
           globalDefault: false,
+          directUserSend: true,
           continueMode: false,
           toolsUnsupported: false,
         ),
@@ -92,6 +92,7 @@ void main() {
       expect(
         shouldAdvertiseWebSearch(
           globalDefault: true,
+          directUserSend: true,
           continueMode: false,
           toolsUnsupported: false,
         ),
@@ -100,6 +101,7 @@ void main() {
       expect(
         shouldAdvertiseWebSearch(
           globalDefault: true,
+          directUserSend: true,
           continueMode: true,
           toolsUnsupported: false,
         ),
@@ -108,6 +110,7 @@ void main() {
       expect(
         shouldAdvertiseWebSearch(
           globalDefault: true,
+          directUserSend: true,
           continueMode: false,
           toolsUnsupported: true,
         ),
@@ -119,6 +122,7 @@ void main() {
       expect(
         shouldAdvertiseWebSearch(
           globalDefault: true,
+          directUserSend: true,
           continueMode: false,
           toolsUnsupported: false,
         ),
@@ -128,11 +132,42 @@ void main() {
       expect(
         shouldAdvertiseWebSearch(
           globalDefault: true,
+          directUserSend: true,
           continueMode: true,
           toolsUnsupported: false,
         ),
         isFalse,
         reason: 'Continue still skips search even when the global is on',
+      );
+    });
+
+    test(
+      'autonomous mode cannot advertise even with every other gate open',
+      () {
+        expect(
+          shouldAdvertiseWebSearch(
+            globalDefault: true,
+            directUserSend: true,
+            continueMode: false,
+            toolsUnsupported: false,
+            autonomousMode: true,
+          ),
+          isFalse,
+          reason:
+              'Dynamic Responses and other autonomous turns must stay offline',
+        );
+      },
+    );
+
+    test('non-user generation fails closed even in normal mode', () {
+      expect(
+        shouldAdvertiseWebSearch(
+          globalDefault: true,
+          directUserSend: false,
+          continueMode: false,
+          toolsUnsupported: false,
+        ),
+        isFalse,
       );
     });
   });
@@ -230,47 +265,50 @@ void main() {
       },
     );
 
-    test('empty HTTP result is not cached — regen may retry', () async {
-      search = WebSearchService(
-        getApiKey: () => 'tavily-test-key',
-        fetch: (uri, key) async {
-          fetched.add(uri);
-          return '{"results":[]}';
-        },
-      );
-      final llm = _ToolsLlm(
-        next: const LlmToolResponse(
-          calls: [
-            LlmToolCall(
-              name: kWebSearchToolName,
-              arguments: {'query': 'San Clemente weather'},
-            ),
-          ],
-          text: '',
-        ),
-      );
-      await runWebSearchRound(
-        llm: llm,
-        params: const GenerationParams(prompt: 'weather'),
-        search: search,
-      );
-      expect(search.httpCalls, 1);
-      search.beginUserSend();
-      await runWebSearchRound(
-        llm: llm,
-        params: const GenerationParams(prompt: 'weather again'),
-        search: search,
-      );
-      expect(
-        search.httpCalls,
-        2,
-        reason:
-            'a timeout/401/empty body must not poison the session cache; '
-            'regen should be allowed to HTTP again',
-      );
-    });
+    test(
+      'empty HTTP result is not cached — a later user send may retry',
+      () async {
+        search = WebSearchService(
+          getApiKey: () => 'tavily-test-key',
+          fetch: (uri, key) async {
+            fetched.add(uri);
+            return '{"results":[]}';
+          },
+        );
+        final llm = _ToolsLlm(
+          next: const LlmToolResponse(
+            calls: [
+              LlmToolCall(
+                name: kWebSearchToolName,
+                arguments: {'query': 'San Clemente weather'},
+              ),
+            ],
+            text: '',
+          ),
+        );
+        await runWebSearchRound(
+          llm: llm,
+          params: const GenerationParams(prompt: 'weather'),
+          search: search,
+        );
+        expect(search.httpCalls, 1);
+        search.beginUserSend();
+        await runWebSearchRound(
+          llm: llm,
+          params: const GenerationParams(prompt: 'weather again'),
+          search: search,
+        );
+        expect(
+          search.httpCalls,
+          2,
+          reason:
+              'a timeout/401/empty body must not poison the session cache; '
+              'a later direct user send should be allowed to HTTP again',
+        );
+      },
+    );
 
-    test('regen of the same query is a cache hit — no second HTTP', () async {
+    test('repeating the same query is a cache hit — no second HTTP', () async {
       final llm = _ToolsLlm(
         next: const LlmToolResponse(
           calls: [
@@ -288,9 +326,8 @@ void main() {
         search: search,
       );
       expect(search.httpCalls, 1);
-      // Regen is a new generate, not a later speaker on the same send —
-      // reset the per-send HTTP cap so only the session cache can prevent
-      // a second network call.
+      // Reset the per-send HTTP cap so only the session cache can prevent a
+      // second network call.
       search.beginUserSend();
       await runWebSearchRound(
         llm: llm,
@@ -325,6 +362,9 @@ void main() {
       expect(fn['description'], contains("do not recognize"));
       final required = (fn['parameters'] as Map)['required'] as List;
       expect(required, contains('query'));
+      final query =
+          ((fn['parameters'] as Map)['properties'] as Map)['query'] as Map;
+      expect(query['maxLength'], kWebSearchQueryMaxChars);
     });
   });
 

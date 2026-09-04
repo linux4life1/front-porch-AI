@@ -21,8 +21,8 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/widgets/planner_feature_row.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'porch_life_defaults_note.dart';
 import 'porch_life_engine_card.dart';
@@ -38,9 +38,9 @@ import 'porch_life_engine_card.dart';
 /// features genuinely depend on the engine and which were merely filed under
 /// it; the chips on each row report that finding rather than a guess.
 ///
-/// Scope note: this tab holds the GLOBAL defaults; every one of them can still
-/// be overruled by a single chat from its sidebar, which is what the closing
-/// card now says.
+/// Scope note: this tab holds global Porch Life settings. The closing card
+/// names the defaults a single chat can overrule. Web Search is intentionally
+/// global-only and has no sidebar override.
 ///
 /// Chaos Mode joined the tab on 2026-08-08 (maintainer: "Chaos mode should have
 /// a global toggle in Porch life with no hard dep"). It was the last feature the
@@ -359,6 +359,9 @@ class PorchLifeTab extends StatelessWidget {
               blurb:
                   'When they hit a word or event they don\'t know, they can '
                   'look it up and react as themselves — not reciting a wiki. '
+                  'Only the first reply to a message you send can search; '
+                  'Continue, Regenerate, guests, group follow-ups, and '
+                  'Dynamic Responses stay offline. '
                   'Works with no key: search falls back to Wikipedia '
                   '(encyclopedia lookups). Add a Tavily API key below '
                   'for full web coverage. Off by default. Turning this on '

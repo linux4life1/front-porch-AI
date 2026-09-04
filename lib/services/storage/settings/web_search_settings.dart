@@ -16,15 +16,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import 'settings_base.dart';
 
 /// Global default + Tavily API key for model-initiated web search.
 ///
-/// Default OFF. The live value is OR-ed with the per-chat sidebar flag
-/// at check time (not seed time), so flipping this on activates already-
-/// open chats. The sidebar is a convenience override, not a prerequisite.
-/// No key → Wikipedia fallback (encyclopedia).
+/// Default OFF. The global is read live at generation time, so flipping it
+/// applies to already-open chats. There is no per-chat or sidebar override.
+/// The key lives in platform secure storage; no key → Wikipedia.
 class WebSearchSettings with SettingsBase {
+  WebSearchSettings({
+    FlutterSecureStorage secureStorage = const FlutterSecureStorage(),
+  }) : _secureStorage = secureStorage;
+
+  static const _apiKeyName = 'search_api_key';
+
+  final FlutterSecureStorage _secureStorage;
   bool _webSearchDefault = false;
   String _searchApiKey = '';
 
@@ -32,9 +41,30 @@ class WebSearchSettings with SettingsBase {
   String get searchApiKey => _searchApiKey;
   bool get hasApiKey => _searchApiKey.trim().isNotEmpty;
 
-  void load() {
+  Future<void> load() async {
     _webSearchDefault = prefs?.getBool(k('web_search_default')) ?? false;
-    _searchApiKey = prefs?.getString(k('search_api_key')) ?? '';
+    final key = k(_apiKeyName);
+    final legacy = prefs?.getString(key);
+    try {
+      final secured = (await _secureStorage.read(key: key))?.trim() ?? '';
+      if (secured.isNotEmpty) {
+        _searchApiKey = secured;
+      } else if (legacy != null && legacy.trim().isNotEmpty) {
+        _searchApiKey = legacy.trim();
+        await _secureStorage.write(key: key, value: _searchApiKey);
+      } else {
+        _searchApiKey = '';
+      }
+    } catch (e, st) {
+      _searchApiKey = '';
+      debugPrint(
+        '[WebSearch] secure API-key load/migration failed; '
+        'using keyless Wikipedia and retaining any legacy value for retry: '
+        '$e\n$st',
+      );
+      return;
+    }
+    if (legacy != null) await _removePlaintext(key);
   }
 
   Future<void> setWebSearchDefault(bool value) async {
@@ -44,8 +74,31 @@ class WebSearchSettings with SettingsBase {
   }
 
   Future<void> setSearchApiKey(String value) async {
-    _searchApiKey = value;
-    await prefs?.setString(k('search_api_key'), value);
+    final key = k(_apiKeyName);
+    final trimmed = value.trim();
+    try {
+      if (trimmed.isEmpty) {
+        await _secureStorage.delete(key: key);
+      } else {
+        await _secureStorage.write(key: key, value: trimmed);
+      }
+    } catch (e, st) {
+      debugPrint('[WebSearch] secure API-key write failed: $e\n$st');
+      rethrow;
+    }
+    _searchApiKey = trimmed;
+    await _removePlaintext(key);
     notify();
+  }
+
+  Future<void> _removePlaintext(String key) async {
+    try {
+      final removed = await prefs?.remove(key);
+      if (removed == false) {
+        debugPrint('[WebSearch] could not remove legacy plaintext key');
+      }
+    } catch (e, st) {
+      debugPrint('[WebSearch] legacy plaintext-key cleanup failed: $e\n$st');
+    }
   }
 }
