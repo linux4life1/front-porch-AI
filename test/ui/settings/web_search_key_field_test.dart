@@ -34,12 +34,18 @@ void main() {
         return null;
       });
 
-  testWidgets('key writes only on Save and Remove clears it', (tester) async {
+  late StorageService storage;
+
+  setUp(() async {
     SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({});
-    final storage = StorageService();
-    addTearDown(storage.dispose);
+    storage = StorageService();
     await storage.initialized;
+  });
+
+  tearDown(() => storage.dispose());
+
+  testWidgets('key writes only on Save and Remove clears it', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(body: WebSearchKeyField(storage: storage)),
@@ -55,7 +61,8 @@ void main() {
     );
 
     await tester.tap(find.text('Save key'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     expect(storage.webSearchSettings.hasApiKey, isTrue);
     expect(
       await const FlutterSecureStorage().read(key: _key),
@@ -65,7 +72,8 @@ void main() {
     expect(find.text('Tavily key saved securely.'), findsOneWidget);
 
     await tester.tap(find.text('Remove key'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     expect(storage.webSearchSettings.hasApiKey, isFalse);
     expect(await const FlutterSecureStorage().read(key: _key), isNull);
     expect(find.text('Key removed — searches use Wikipedia.'), findsOneWidget);

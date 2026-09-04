@@ -18,9 +18,9 @@
 
 // Barrel file for the most commonly reused UI widgets.
 //
-// This barrel is intentionally small and focused on widgets that appear in
-// many pages and dialogs. Niche or single-use widgets should still be
-// imported directly.
+// Keep reusable widgets exported here so callers use one stable import rather
+// than accumulating single-file paths. Files inside this directory retain the
+// direct-import exemption because importing their own barrel would self-cycle.
 //
 // Preferred usage:
 //
@@ -64,5 +64,6 @@ export 'group_member_card.dart';
 export 'group_member_chips.dart';
 export 'banned_phrases_editor.dart';
 export 'output_sanitizer_rule_editor.dart';
+export 'planner_feature_row.dart';
 export 'vision_projector_field.dart';
 export 'character_voice_picker.dart';

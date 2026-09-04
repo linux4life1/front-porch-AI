@@ -21,6 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 class _RoutingLlm extends LLMService {

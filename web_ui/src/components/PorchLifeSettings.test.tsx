@@ -77,5 +77,20 @@ describe('Porch Life web-search key', () => {
       realism: { searchApiKey: 'tavily-complete-key' },
     });
     expect(container.textContent).toContain('Tavily key saved securely.');
+
+    const remove = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Remove key',
+    );
+    expect(remove).toBeTruthy();
+    await act(async () => {
+      remove!.click();
+      await Promise.resolve();
+    });
+    expect(post).toHaveBeenLastCalledWith('/api/settings', {
+      realism: { searchApiKey: '' },
+    });
+    expect(container.textContent).toContain(
+      'Key removed — searches use Wikipedia.',
+    );
   });
 });

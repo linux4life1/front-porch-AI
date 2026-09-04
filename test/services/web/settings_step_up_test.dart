@@ -170,4 +170,22 @@ void main() {
     expect(realism.containsKey('searchApiKeySet'), isFalse);
     expect(jsonEncode(body), isNot(contains('tavily-keep-secret')));
   });
+
+  test(
+    'an empty web settings key removes Tavily and restores Wikipedia',
+    () async {
+      await storage.webSearchSettings.setSearchApiKey('tavily-remove-me');
+      expect(storage.webSearchSettings.hasApiKey, isTrue);
+
+      await facade.update({
+        'realism': {'searchApiKey': ''},
+      });
+
+      expect(storage.webSearchSettings.hasApiKey, isFalse);
+      expect(
+        await const FlutterSecureStorage().read(key: 'search_api_key'),
+        isNull,
+      );
+    },
+  );
 }
