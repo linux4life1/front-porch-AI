@@ -168,7 +168,10 @@ void main() {
 
     for (
       var i = 0;
-      i < 500 && (llm.idleStreamCalls == 0 || chat.isGenerating);
+      i < 500 &&
+          (llm.idleStreamCalls == 0 ||
+              chat.isGenerating ||
+              chat.isSettlingTurn);
       i++
     ) {
       await Future<void>.delayed(const Duration(milliseconds: 2));
