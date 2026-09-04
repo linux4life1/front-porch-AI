@@ -168,7 +168,7 @@ void main() {
 
     for (
       var i = 0;
-      i < 500 &&
+      i < 2500 &&
           (llm.idleStreamCalls == 0 ||
               chat.isGenerating ||
               chat.isSettlingTurn);
@@ -194,6 +194,13 @@ void main() {
       httpCalls,
       0,
       reason: 'an idle tick must never reach Tavily or Wikipedia',
+    );
+    expect(
+      chat.webSearchService.httpCalls,
+      0,
+      reason:
+          'the service-wide counter covers both keyed Tavily and keyless '
+          'Wikipedia requests',
     );
   });
 }
