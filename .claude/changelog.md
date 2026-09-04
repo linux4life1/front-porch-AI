@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-09-04 — fix(web-search): close all PR #225 leftovers
+- **Why:** Normal generation mode also covers group follow-ups, guests, cast
+  turns, and regeneration, so the original Continue/idle blacklist left
+  autonomous search paths open. Model queries had no wire-size ceiling,
+  redirects followed automatically, search notes lacked a hard untrusted-data
+  boundary, and the Tavily key still lived in plaintext preferences.
+- **What:** Search is now allow-listed only for the first host/group reply to a
+  newly appended user message. Queries hard-stop at 256 Unicode scalars before
+  logs/cache/receipts/HTTP; Tavily and Wikipedia requests refuse redirects;
+  snippets retain HTML/URL stripping and the 800-character cap inside an
+  app-owned UNTRUSTED envelope. Tavily keys migrate transactionally to platform
+  secure storage, remove the plaintext copy, and remain redacted from Settings
+  GET. Desktop and web key controls save/remove explicitly rather than writing
+  partial keys per keystroke. Global-only comments and copy were corrected.
+- **Files:** Web-search generation/service/injection/tools; secure settings and
+  platform plugin registration/entitlements; Porch Life desktop/web controls;
+  settings facade; focused routing/security/migration/redaction/interaction
+  tests; rebuilt `assets/web_app`.
+- **Verification:** Every new guard was deliberately broken and observed red,
+  then restored. Focused Flutter: 58 passed. Full non-golden Flutter: 5,305
+  passed, 13 skipped. Web lint + 198 tests + production build passed. Full
+  analyze exited 0 with 12 pre-existing infos, none on touched files.
+- **Commits:** `631fcb45` (implementation), `f34ddfb0` (test/lifecycle fixes).
+
 ## 2026-09-04 — fix(chat): block web search on autonomous idle turns
 - **Why:** Dynamic Responses reused `GenerationMode.normal`, so Porch Life Web
   Search treated an AFK tick like a user send. The model received the
