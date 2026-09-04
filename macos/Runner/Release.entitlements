@@ -5,8 +5,6 @@
 	<!-- Sandbox is disabled: this is a desktop app that needs broad FS + network access -->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
-	<key>keychain-access-groups</key>
-	<array/>
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<key>com.apple.security.network.server</key>

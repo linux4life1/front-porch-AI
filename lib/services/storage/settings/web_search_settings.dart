@@ -28,7 +28,13 @@ import 'settings_base.dart';
 /// The key lives in platform secure storage; no key → Wikipedia.
 class WebSearchSettings with SettingsBase {
   WebSearchSettings({
-    FlutterSecureStorage secureStorage = const FlutterSecureStorage(),
+    // Front Porch is a non-sandboxed, directly distributed macOS app. The
+    // data-protection keychain needs a provisioned keychain access group,
+    // which makes ad-hoc debug builds fail before Dart can start. The legacy
+    // login keychain remains encrypted by macOS without that entitlement.
+    FlutterSecureStorage secureStorage = const FlutterSecureStorage(
+      mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+    ),
   }) : _secureStorage = secureStorage;
 
   static const _apiKeyName = 'search_api_key';
