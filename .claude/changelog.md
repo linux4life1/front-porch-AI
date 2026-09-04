@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-09-04 — feat(chat): model-initiated web_search
+- **Why:** Characters hit unknown terms mid-RP and invent a wiki. The
+  model should look the term up and react in character, or say it
+  doesn't know. A per-chat sidebar switch plus seeding the Porch Life
+  global into persist stuck search on after the global was turned off.
+  Empty HTTP results were cached so a timeout/401 poisoned regen.
+  The tools round was the same RP generation ending in `Name:`, so they
+  talked unless the user OOC-forced a lookup. A real-world date stamp
+  would collide with a story clock in 1840 / 2077.
+- **What:** Silent think-to-search after realism, before the in-character
+  stream (thinking on, no suffix, fiction counts). Think-phase text is
+  never the bubble. Porch Life global is the only switch, read live.
+  Do not seed or persist a per-chat flag. Do not cache empty/failed
+  lookups. Hits are facts, not a calendar — ignore weekdays/dates in
+  the snippet; scene clock stays. `[WebSearch]` debugPrints. Receipt
+  chip. No MCP, no slash command, no sidebar toggle.
+- **Files:** web_search_service/tools, search_injection, generation
+  request/stream/plan/blocks, ChatService wiring, Porch Life, chip,
+  web_ui PorchLifeSettings + ChipsRow, facade/routes, tests
+- **Verification:** web_search_service/turn/wiring/search_injection
+  tests + porch-life widget test; empty-cache guard proven red then
+  green; `npm run build` for the PWA bundle.
+
 ## 2026-09-03 — fix(gallery): portrait replacement preserves card data
 - **Why:** Gallery Replace portrait overwrote the right file, then ran the full
   character writer. Repository cards do not hydrate PNG-only credits, so that

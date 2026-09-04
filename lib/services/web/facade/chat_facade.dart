@@ -384,6 +384,14 @@ class ChatFacade {
     final rs = md['realism_state'];
     if (rs is Map && rs['needs'] != null) out['needsReprocessable'] = true;
     if (md['needs_deltas_pre_reprocess'] is Map) out['needsRevertable'] = true;
+    final search = md['search_receipt'];
+    if (search is Map) {
+      final q = (search['query'] as String?)?.trim() ?? '';
+      if (q.isNotEmpty) {
+        out['searchQuery'] = q;
+        out['searchOk'] = search['ok'] == true;
+      }
+    }
     return out.isEmpty ? null : out;
   }
 

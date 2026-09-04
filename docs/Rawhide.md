@@ -5,6 +5,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🔎 **They can look unknown terms up** — turn on Web Search in Porch Life and they will quietly look up a word they don't know (lore, a show, weather, whatever — you don't have to OOC-nudge them), then react as themselves. One switch for every chat, including ones already open. A small chip on the reply shows a lookup happened. Off by default. Same on the phone.
+
 - 🖼️ **Replacing a portrait keeps the whole character card** — the new pixels overwrite the same file without resaving unrelated details, so creator credits, description, personality, lore, Journal, Growth, RAG, Data Bank, and quests all survive.
 
 - ↺ **Swiping an older reply no longer erases later diary pages** — Journal, Growth, and RAG stay with the messages still on screen. The selected variant's "where are my keys?" card still comes back. Same on the phone.

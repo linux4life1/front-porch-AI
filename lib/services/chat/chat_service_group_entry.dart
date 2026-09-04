@@ -196,6 +196,7 @@ extension ChatServiceGroupEntry on ChatService {
       // un-delivered manual "SPIN NOW" event, which injects as CANON with no
       // chaos-enabled gate — walked into the group.
       _chaosModeService.resetForFreshChat();
+      _webSearchService.resetForFreshChat();
       _chaosModeService.seedFromGroupOrExt(
         // OR-override, matching the two 1:1 seed sites: the group asks, or the
         // Porch Life global default does. A user who switched Chaos on globally
@@ -205,7 +206,6 @@ extension ChatServiceGroupEntry on ChatService {
             _storageService.realismSettings.chaosModeDefault,
         group.chaosNsfwEnabled,
       );
-
       // v30: For newly created group sessions (no prior state), seed from the group's default realism data.
       // (The actual load of any prior session state happens in _loadLastSession below.)
       if (_messages.isEmpty && _activeGroup != null) {

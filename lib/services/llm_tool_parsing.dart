@@ -58,8 +58,10 @@ LlmToolResponse? parseOpenAiToolResponse(String body) {
     }
     calls.add(LlmToolCall(name: name, arguments: args));
   }
+  final reasoningRaw = message['reasoning_content'] ?? message['reasoning'];
   return LlmToolResponse(
     calls: calls,
     text: message['content'] is String ? message['content'] as String : '',
+    reasoning: reasoningRaw is String ? reasoningRaw : '',
   );
 }

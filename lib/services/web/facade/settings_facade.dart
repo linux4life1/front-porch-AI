@@ -239,6 +239,9 @@ class SettingsFacade {
         // default. Additive, as always — an older PWA ignores both keys.
         'intimateAgencyEnabled': _storage.realismSettings.intimateAgencyEnabled,
         'chaosModeDefault': _storage.realismSettings.chaosModeDefault,
+        'webSearchDefault': _storage.webSearchSettings.webSearchDefault,
+        'hasSearchApiKey': _storage.webSearchSettings.hasApiKey,
+        'searchApiKeySet': _storage.webSearchSettings.hasApiKey,
         'sceneGuestDetectionEnabled':
             _storage.realismSettings.sceneGuestDetectionEnabled,
         'adultThemesEnabled': _storage.realismSettings.adultThemesEnabled,
@@ -349,6 +352,14 @@ class SettingsFacade {
       final chaos = realism['chaosModeDefault'];
       if (chaos is bool) {
         await _storage.realismSettings.setChaosModeDefault(chaos);
+      }
+      final webSearch = realism['webSearchDefault'];
+      if (webSearch is bool) {
+        await _storage.webSearchSettings.setWebSearchDefault(webSearch);
+      }
+      final searchKey = realism['searchApiKey']?.toString();
+      if (searchKey != null && searchKey.isNotEmpty) {
+        await _storage.webSearchSettings.setSearchApiKey(searchKey);
       }
       final guests = realism['sceneGuestDetectionEnabled'];
       if (guests is bool) {

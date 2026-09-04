@@ -25,7 +25,7 @@ import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/models/models.dart';
 
-// Stage 7: storage decomposition (directories + domain settings; final cleanup complete - shims excised; corrective COMPAT FLAT ACCESSORS bridge re-inserted at ~113 after incomplete 29bbf59d; see block comments + refactoring-guide.md "old API preserved via shim" for current state; long-term pure-dir + *Settings wiring intended). NOTE: file >500 LOC due to bridge (documented exception; do not grow per rule).
+// Stage 7: directories + domain settings. Compat shims below. Do not grow.
 import 'storage/directories.dart';
 import 'storage/root_relocation.dart';
 import 'storage/settings/generation_settings.dart';
@@ -37,6 +37,7 @@ import 'storage/settings/image_gen_settings.dart';
 import 'storage/settings/expression_settings.dart';
 import 'storage/settings/web_server_settings.dart';
 import 'storage/settings/realism_settings.dart';
+import 'storage/settings/web_search_settings.dart';
 import 'storage/settings/memory_settings.dart';
 import 'storage/settings/lorebook_settings.dart';
 import 'storage/settings/preset_settings.dart';
@@ -71,6 +72,7 @@ class StorageService extends ChangeNotifier {
   late final ExpressionSettings _expressionSettings = ExpressionSettings();
   late final WebServerSettings _webServerSettings = WebServerSettings();
   late final RealismSettings _realismSettings = RealismSettings();
+  late final WebSearchSettings _webSearchSettings = WebSearchSettings();
   late final MemorySettings _memorySettings = MemorySettings();
   late final PresetSettings _presetSettings = PresetSettings();
   late final LorebookSettings _lorebookSettings = LorebookSettings();
@@ -112,11 +114,8 @@ class StorageService extends ChangeNotifier {
   /// Cache directory for downscaled web-UI avatar thumbnails (derived data).
   Directory get webThumbnailCacheDir => directories.webThumbnailCacheDir;
 
-  // Public accessors to extracted domain settings (post-Stage 7 final shim migration).
-  // Callers now use direct e.g. storage.generationSettings.systemPrompt or .setTemperature(v)
-  // instead of the old flat shims. Storage owns the instances (for _prefs init, beta _k,
-  // single ChangeNotifier notify surface, and wiring). This + dir mgmt is the thinned god.
-  // (final shim migration cleanup complete; corrective flat shims re-added in COMPAT block below after incomplete excision; see ~113 and refactoring-guide; no change to long-term pure-dir + *Settings intent)
+  // Public accessors to extracted domain settings (post-Stage 7).
+  // Callers use storage.generationSettings.systemPrompt etc. Compat shims below.
   GenerationSettings get generationSettings => _generationSettings;
   BackendSettings get backendSettings => _backendSettings;
   UiSettings get uiSettings => _uiSettings;
@@ -126,6 +125,7 @@ class StorageService extends ChangeNotifier {
   ExpressionSettings get expressionSettings => _expressionSettings;
   WebServerSettings get webServerSettings => _webServerSettings;
   RealismSettings get realismSettings => _realismSettings;
+  WebSearchSettings get webSearchSettings => _webSearchSettings;
   MemorySettings get memorySettings => _memorySettings;
   PresetSettings get presetSettings => _presetSettings;
   LorebookSettings get lorebookSettings => _lorebookSettings;
@@ -860,6 +860,7 @@ class StorageService extends ChangeNotifier {
     _expressionSettings.initializeBase(_prefs, notifyListeners);
     _webServerSettings.initializeBase(_prefs, notifyListeners);
     _realismSettings.initializeBase(_prefs, notifyListeners);
+    _webSearchSettings.initializeBase(_prefs, notifyListeners);
     _memorySettings.initializeBase(_prefs, notifyListeners);
     _presetSettings.initializeBase(_prefs, notifyListeners);
     _lorebookSettings.initializeBase(_prefs, notifyListeners);
@@ -879,6 +880,7 @@ class StorageService extends ChangeNotifier {
       _expressionSettings.load();
       _webServerSettings.load();
       _realismSettings.load();
+      _webSearchSettings.load();
       _memorySettings.load();
       _presetSettings.load();
       _lorebookSettings.load();

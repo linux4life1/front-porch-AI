@@ -47,7 +47,8 @@ extension ChatServiceImportSeed on ChatService {
     if (_activeCharacter != null && _activeGroup == null) {
       final extSeed =
           _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
-      _realismEnabled = extSeed.realismEnabled ||
+      _realismEnabled =
+          extSeed.realismEnabled ||
           _storageService.realismSettings.realismDefault;
       _relationshipService.resetForFreshChat();
       _relationshipService.seedFromCardV2OrExt(
@@ -62,7 +63,8 @@ extension ChatServiceImportSeed on ChatService {
         timeOfDay: extSeed.timeOfDay,
         storyStartDate: extSeed.storyStartDate,
         storyStartTime: extSeed.storyStartTime,
-        passageOfTimeEnabled: extSeed.passageOfTimeEnabled &&
+        passageOfTimeEnabled:
+            extSeed.passageOfTimeEnabled &&
             _storageService.realismSettings.passageOfTimeDefault,
       );
       _characterEmotion = extSeed.characterEmotion;
@@ -71,7 +73,8 @@ extension ChatServiceImportSeed on ChatService {
       // cooldown are zeroed explicitly on every other fresh path
       // (startNewChat). Without this, ST/.json import bleeds them.
       _nsfwService.seedFromV2OrExt(
-        nsfwCooldownEnabled: extSeed.nsfwCooldownEnabled ||
+        nsfwCooldownEnabled:
+            extSeed.nsfwCooldownEnabled ||
             _storageService.realismSettings.nsfwCooldownDefault,
       );
       _nsfwService.resetRuntimeArousalAndCooldown();
@@ -80,10 +83,10 @@ extension ChatServiceImportSeed on ChatService {
             _storageService.realismSettings.chaosModeDefault,
         false,
       );
-      _needsSimEnabled = extSeed.needsSimEnabled &&
+      _needsSimEnabled =
+          extSeed.needsSimEnabled &&
           _storageService.realismSettings.needsSimDefault;
-      _objectivesEnabled =
-          _storageService.realismSettings.objectivesEnabled;
+      _objectivesEnabled = _storageService.realismSettings.objectivesEnabled;
       _enjoysLowHygiene = extSeed.enjoysLowHygiene;
       if (_needsSimEnabled) {
         _needsSimulation.initializeFreshWithDefaults({
@@ -144,7 +147,8 @@ extension ChatServiceImportSeed on ChatService {
         // startNewChat group branch do (presence-inference: the creator omits
         // the per-member 'needs' sub-map when Needs was off in the wizard),
         // AND-gated by the Porch Life global like every other seed site.
-        _needsSimEnabled = _storageService.realismSettings.needsSimDefault &&
+        _needsSimEnabled =
+            _storageService.realismSettings.needsSimDefault &&
             _groupRealism.values.any((state) {
               final n = state.needs;
               return n != null && n.isNotEmpty;
@@ -169,7 +173,6 @@ extension ChatServiceImportSeed on ChatService {
     _growthStore.invalidate();
   }
 
-
   // ── Phase 1: session snapshot ───────────────────────────────────────────
 
   Map<String, dynamic> _captureSessionHeadForPackage() {
@@ -187,8 +190,7 @@ extension ChatServiceImportSeed on ChatService {
       'long_term_tier': _relationshipService.longTermTier,
       'turns_since_long_term_check':
           _relationshipService.turnsSinceLongTermCheck,
-      'short_term_deltas_summary':
-          _relationshipService.shortTermDeltasSummary,
+      'short_term_deltas_summary': _relationshipService.shortTermDeltasSummary,
       // 1:1 only — captureCadenceAndFeelings is TURN PATH; group speakers
       // already ride group_realism_state (Opus b32789fd finding 3).
       if (_activeGroup == null)

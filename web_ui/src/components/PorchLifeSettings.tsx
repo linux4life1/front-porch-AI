@@ -45,6 +45,9 @@ interface PorchLifeState {
   pocketTransfersEnabled: boolean;
   intimateAgencyEnabled: boolean;
   chaosModeDefault: boolean;
+  webSearchDefault: boolean;
+  hasSearchApiKey?: boolean;
+  searchApiKeySet?: boolean;
   sceneGuestDetectionEnabled: boolean;
   adultThemesEnabled: boolean;
   dreamsEnabled: boolean;
@@ -76,6 +79,8 @@ const DEFAULTS: PorchLifeState = {
   pocketTransfersEnabled: false,
   intimateAgencyEnabled: false,
   chaosModeDefault: false,
+  webSearchDefault: false,
+  hasSearchApiKey: false,
   sceneGuestDetectionEnabled: true,
   adultThemesEnabled: false,
   dreamsEnabled: true,
@@ -188,6 +193,31 @@ function AwayThreshold({ value, onChange }: { value: number; onChange: (v: numbe
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
+    </label>
+  );
+}
+
+function SearchKeyRow({ alreadySet }: { alreadySet: boolean }) {
+  const [value, setValue] = useState('');
+  const [error, setError] = useState('');
+  const save = (v: string) => {
+    setValue(v);
+    setError('');
+    api.post('/api/settings', { realism: { searchApiKey: v } }).catch((e) => {
+      setError(e instanceof ApiError ? e.message : 'Could not save that key');
+    });
+  };
+  return (
+    <label className="pl-away row-label">
+      <span>{alreadySet && !value ? 'Tavily API key (saved)' : 'Tavily API key'}</span>
+      <input
+        type="password"
+        autoComplete="off"
+        placeholder={alreadySet ? '••••••••' : 'Paste key'}
+        value={value}
+        onChange={(e) => save(e.target.value)}
+      />
+      {error && <span className="error">{error}</span>}
     </label>
   );
 }
@@ -434,6 +464,15 @@ export function PorchLifeSettings() {
           value={st.chaosModeDefault}
           onChange={(v) => set('chaosModeDefault', v)}
         />
+        <FeatureRow
+          icon="🔎"
+          label="Web Search"
+          need="alone"
+          blurb="When they hit a word or event they don't know, they can look it up and react as themselves — not reciting a wiki. Works with no key: search falls back to Wikipedia (encyclopedia lookups). Add a Tavily API key below for full web coverage. Off by default. Turning this on or off applies to every chat, including ones already open."
+          value={st.webSearchDefault}
+          onChange={(v) => set('webSearchDefault', v)}
+        />
+        <SearchKeyRow alreadySet={!!(st.hasSearchApiKey || st.searchApiKeySet)} />
         <FeatureRow
           icon="🕰️"
           label="Welcome-back recap"

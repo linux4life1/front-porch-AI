@@ -353,6 +353,21 @@ class PorchLifeTab extends StatelessWidget {
               onChanged: realism.setChaosModeDefault,
             ),
             FeatureRow(
+              icon: Icons.travel_explore,
+              label: 'Web Search',
+              need: FeatureNeed.alone,
+              blurb:
+                  'When they hit a word or event they don\'t know, they can '
+                  'look it up and react as themselves — not reciting a wiki. '
+                  'Works with no key: search falls back to Wikipedia '
+                  '(encyclopedia lookups). Add a Tavily API key below '
+                  'for full web coverage. Off by default. Turning this on '
+                  'or off applies to every chat, including ones already open.',
+              value: storage.webSearchSettings.webSearchDefault,
+              onChanged: storage.webSearchSettings.setWebSearchDefault,
+              child: WebSearchKeyField(storage: storage),
+            ),
+            FeatureRow(
               icon: Icons.history,
               label: 'Welcome-back recap',
               need: FeatureNeed.alone,

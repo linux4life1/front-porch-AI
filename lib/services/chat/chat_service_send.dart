@@ -67,6 +67,7 @@ extension ChatServiceSend on ChatService {
     // keep the wider _isTurnBusy guard, because that is where the race
     // actually corrupts something.
     if (_isGenerating) return;
+    _webSearchService.beginUserSend();
     final previousSend = _sendChain;
     final sendGate = Completer<void>();
     _sendChain = sendGate.future;
@@ -162,6 +163,7 @@ extension ChatServiceSend on ChatService {
     }
 
     _toolProbe.beginUserSend();
+    _webSearchService.beginUserSend();
     try {
       // Sending a real message ends the /exit undo window. A pending full-member
       // exit commits now (real removal + any collapse to a 1:1) so this turn runs

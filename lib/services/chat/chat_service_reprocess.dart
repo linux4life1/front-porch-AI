@@ -111,6 +111,7 @@ extension ChatServiceReprocess on ChatService {
     // extracted (not inlined in the try) purely so its early returns and
     // this hold compose without re-indenting the whole flow.
     _isPostGenerating = true;
+    _webSearchService.beginUserSend();
     try {
       await _regenerateLastMessageHeld();
     } finally {

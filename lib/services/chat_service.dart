@@ -110,6 +110,7 @@ part 'chat/chat_service_scene_guest.dart';
 part 'chat/chat_service_controls.dart';
 part 'chat/chat_service_context_budget.dart';
 part 'chat/chat_service_wiring_realism.dart';
+part 'chat/chat_service_web_search.dart';
 part 'chat/chat_service_wiring_evals.dart';
 part 'chat/chat_service_wiring_memory.dart';
 part 'chat/chat_service_wiring_injection.dart';
@@ -498,10 +499,7 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   // (chat/nsfw_service.dart); god thins to delegation + a few @Deprecated
   // shims. _runPostGenNeedsChecks thins to needs_impact_evaluator.
 
-  // ── Chaos Mode / Chance Time (core state extracted) ──────────────────────
-  // _chaosModeEnabled / _chaosNsfwEnabled / _chaosPressure / _pendingChaosInjection / _chaosEventDelivered
-  // now owned by _chaosModeService. The two UI coordination flags below stay in god
-  // (cross widget boundary for overlay + send pause).
+  // Chaos Mode state lives on _chaosModeService. UI park flags stay here.
   bool _chanceTimePendingTrigger =
       false; // true for one cycle to pop the overlay
   // The single event the web/mobile "reveal your fate" modal shows + accepts
@@ -532,6 +530,7 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   // chat_service_wiring_realism.dart) ──
   late final _timeService = _buildTimeService();
   late final _chaosModeService = _buildChaosModeService();
+  late final _webSearchService = _buildWebSearchService();
   late final _nsfwService = _buildNsfwService();
 
   // ── Lorebook scanner / injector (builders in
@@ -919,6 +918,8 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   TimeService get timeService => _timeService;
   NsfwService get nsfwService => _nsfwService;
   ChaosModeService get chaosModeService => _chaosModeService;
+  WebSearchService get webSearchService => _webSearchService;
+  bool get webSearchEnabled => _webSearchService.isActive;
   NeedsSimulation get needsSimulation => _needsSimulation;
 
   bool get realismEnabled => _realismEnabled;

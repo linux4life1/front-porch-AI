@@ -106,6 +106,9 @@ class _GenTurn {
   /// off, or not operational). Stamped as `rag_receipt` on [streamTarget].
   Map<String, dynamic>? ragReceipt;
 
+  /// Stamped as `search_receipt` when this turn ran a web_search lookup.
+  Map<String, dynamic>? searchReceipt;
+
   // ── request phase → stream/postgen phases ──
   late List<String> stopList;
   late Stream<String> stream;

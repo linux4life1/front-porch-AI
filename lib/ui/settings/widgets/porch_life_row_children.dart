@@ -115,10 +115,7 @@ class AwayThreshold extends StatelessWidget {
               ? storage.absenceThresholdHours
               : 24,
           dropdownColor: AppColors.cardOf(context),
-          style: TextStyle(
-            color: AppColors.textPrimary(context),
-            fontSize: 12,
-          ),
+          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
           items: const [
             DropdownMenuItem(value: 12, child: Text('12 hours')),
             DropdownMenuItem(value: 24, child: Text('a day')),
@@ -130,6 +127,49 @@ class AwayThreshold extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Tavily API key under the Porch Life web-search row. Always
+/// visible so a key can be pasted before the toggle is useful.
+class WebSearchKeyField extends StatefulWidget {
+  final StorageService storage;
+  const WebSearchKeyField({super.key, required this.storage});
+
+  @override
+  State<WebSearchKeyField> createState() => _WebSearchKeyFieldState();
+}
+
+class _WebSearchKeyFieldState extends State<WebSearchKeyField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.storage.webSearchSettings.searchApiKey,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      obscureText: true,
+      style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Tavily API key',
+        hintStyle: TextStyle(color: AppColors.textTertiary(context)),
+      ),
+      onChanged: widget.storage.webSearchSettings.setSearchApiKey,
     );
   }
 }

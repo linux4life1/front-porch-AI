@@ -416,6 +416,7 @@ extension ChatServiceGenerationPlan on ChatService {
       );
       plan.add(id: 'suffix', text: t.suffix);
       plan.add(id: 'chance_time', text: chanceTimeBlock);
+      plan.add(id: 'web_search', text: '');
       // High-recency with Chance Time so the first post-import reply
       // cannot bury the Mafia night (docs/design/llmerta-porch-memories.md §7b).
       plan.add(id: 'porch_night', text: porchNightBlock);
@@ -528,6 +529,7 @@ extension ChatServiceGenerationPlan on ChatService {
       // already reacted — re-injecting would have them notice the same thing
       // twice in one message.
       plan.section('item_intro').text = '';
+      plan.section('web_search').text = '';
       // RAG skip is the Continue branch in _retrieveGenerationMemories
       // (zeroing droppedMessages is not enough once tail-open ORs
       // basePosition). Keep this 0 so later budget math does not treat
