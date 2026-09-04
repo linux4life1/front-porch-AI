@@ -12,8 +12,13 @@
   `chat_service_generation.dart`, `chat_service_generation_request.dart`,
   `web_search_service.dart`, `web_search_idle_test.dart`, `docs/Rawhide.md`.
 - **Verification:** New timer-callback guard proven red before the exclusion
-  (two advertised rounds and one HTTP lookup); green run pending.
-- **Commit:** pending.
+  (two advertised rounds and one HTTP lookup), then green. Focused
+  Web Search/AFK suites: 41 passed. Full non-golden suite: 5,288 passed,
+  13 skipped. Full analyze passed (only pre-existing infos in untouched
+  files); touched-file analyze found no issues. `ci-local.sh` could not start
+  because this cloud VM has no Docker binary/image.
+- **Commits:** `c8b0cd9c` (gate + guard), `3aba8c7e` (settlement wait),
+  `0ce3389d` (Tavily/Wikipedia-neutral HTTP assertion).
 
 ## 2026-09-04 — feat(chat): model-initiated web_search
 - **Why:** Characters hit unknown terms mid-RP and invent a wiki. The
