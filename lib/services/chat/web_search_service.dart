@@ -70,15 +70,17 @@ class WebSearchRound {
   final String? cannedReply;
 }
 
-/// Porch Life global on + not Continue + tools-capable → advertise
-/// `web_search`. Read [globalDefault] at check time so flipping the
-/// setting on or off applies to the chat already open. No per-chat flag.
+/// Porch Life global on + user-driven normal turn + tools-capable → advertise
+/// `web_search`. Continue and autonomous idle turns never search. Read
+/// [globalDefault] at check time so flipping the setting on or off applies to
+/// the chat already open. No per-chat flag.
 bool shouldAdvertiseWebSearch({
   required bool globalDefault,
   required bool continueMode,
   required bool toolsUnsupported,
+  bool autonomousMode = false,
 }) {
-  return globalDefault && !continueMode && !toolsUnsupported;
+  return globalDefault && !continueMode && !autonomousMode && !toolsUnsupported;
 }
 
 /// One `generateWithTools` with `web_search`. No call + text → canned

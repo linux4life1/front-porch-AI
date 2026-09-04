@@ -39,6 +39,11 @@ extension ChatServiceIdleAutonomous on ChatService {
     _resetIdleTimer();
   }
 
+  /// Drives the production idle callback without waiting on a wall-clock
+  /// timer. Tests still traverse every readiness guard and generation phase.
+  @visibleForTesting
+  void debugFireIdleTimerForTest() => _onIdleTimerFired();
+
   void _resetIdleTimer() {
     _idleTimer?.cancel();
     _idleTimer = null;
@@ -120,7 +125,11 @@ extension ChatServiceIdleAutonomous on ChatService {
     _autoResponseInProgress = true;
     _consecutiveAutoResponses++;
 
-    _generateResponse(GenerationMode.normal, forceSpeaker: afkSpeaker)
+    _generateResponse(
+          GenerationMode.normal,
+          forceSpeaker: afkSpeaker,
+          autonomous: true,
+        )
         .then((_) {
           _pendingIdleCue = null;
           _resetIdleTimer();

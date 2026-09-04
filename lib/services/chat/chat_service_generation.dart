@@ -45,11 +45,13 @@ class _GenTurn {
     required this.mode,
     required this.guestSpeaker,
     required this.epoch,
+    required this.autonomous,
   });
 
   final GenerationMode mode;
   final CharacterCard? guestSpeaker;
   final int epoch;
+  final bool autonomous;
 
   // ── entry / speaker pick (shell) ──
   late CharacterCard speakingCharacter;
@@ -175,6 +177,7 @@ extension ChatServiceGeneration on ChatService {
     GenerationMode mode, {
     CharacterCard? guestSpeaker,
     CharacterCard? forceSpeaker,
+    bool autonomous = false,
   }) async {
     if (await _abortIfBackendDown()) {
       // No turn will run — terminate BOTH live streams. The sentence stream
@@ -225,7 +228,12 @@ extension ChatServiceGeneration on ChatService {
     _sentenceBuffer = '';
     notifyListeners();
 
-    final t = _GenTurn(mode: mode, guestSpeaker: guestSpeaker, epoch: epoch);
+    final t = _GenTurn(
+      mode: mode,
+      guestSpeaker: guestSpeaker,
+      epoch: epoch,
+      autonomous: autonomous,
+    );
 
     try {
       final userName = _userPersonaService.persona.name;

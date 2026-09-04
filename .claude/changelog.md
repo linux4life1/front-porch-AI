@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-09-04 — fix(chat): block web search on autonomous idle turns
+- **Why:** Dynamic Responses reused `GenerationMode.normal`, so Porch Life Web
+  Search treated an AFK tick like a user send. The model received the
+  `web_search` tool and could POST Tavily or GET Wikipedia while the user was
+  idle.
+- **What:** Carry an immutable autonomous-turn bit through `_GenTurn` and make
+  the shared search-advertisement gate reject it. The actual idle callback test
+  spies on both the tools payload and HTTP fetch.
+- **Files:** `chat_service_idle_autonomous.dart`,
+  `chat_service_generation.dart`, `chat_service_generation_request.dart`,
+  `web_search_service.dart`, `web_search_idle_test.dart`, `docs/Rawhide.md`.
+- **Verification:** New timer-callback guard proven red before the exclusion
+  (two advertised rounds and one HTTP lookup); green run pending.
+- **Commit:** pending.
+
 ## 2026-09-04 — feat(chat): model-initiated web_search
 - **Why:** Characters hit unknown terms mid-RP and invent a wiki. The
   model should look the term up and react in character, or say it
