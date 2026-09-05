@@ -366,6 +366,7 @@ void main() {
       name: 'Smoke Porch',
       description: 'A temperate porch so the weather engine is live.',
       biomeId: 'temperate',
+      lorebook: Lorebook(entries: const []),
     );
     await Provider.of<WorldRepository>(
       ctx,
