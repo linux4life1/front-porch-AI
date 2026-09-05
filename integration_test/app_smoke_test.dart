@@ -358,13 +358,36 @@ void main() {
     // real invariant: a seed or day-count that shifted on load would silently
     // re-roll the world's weather every time the user reopened the chat, and
     // the foreshadowed front promised yesterday would never arrive.
+    //
+    // Primary Setting owns weather (Places product lock): with no Setting,
+    // the engine stays off even when the weather toggle is on. Seed a
+    // climate-on world as Primary the same way Story Tools would.
+    final porchSetting = World(
+      name: 'Smoke Porch',
+      description: 'A temperate porch so the weather engine is live.',
+      biomeId: 'temperate',
+    );
+    await Provider.of<WorldRepository>(
+      ctx,
+      listen: false,
+    ).saveWorld(porchSetting);
+    await chatService.setChatPlaceSlots(
+      primaryId: porchSetting.id,
+      loreIds: const [],
+    );
+    expect(
+      chatService.chatPrimaryWorldId,
+      porchSetting.id,
+      reason: 'smoke chat must have a climate-on Primary Setting',
+    );
+
     final weatherBeforeReload = chatService.currentWeather;
     expect(
       weatherBeforeReload,
       isNotNull,
       reason:
-          'the weather engine must be live here — realism, passage of time '
-          'and the weather toggle are all on in this run',
+          'the weather engine must be live here — realism, passage of time, '
+          'the weather toggle, and a climate-on Primary Setting are all on',
     );
     expect(
       chatService.upcomingWeather,
@@ -510,13 +533,18 @@ void main() {
       ),
     );
     await Provider.of<WorldRepository>(ctx, listen: false).saveWorld(world);
-    await chatService.setChatWorldIds([world.id]);
+    // Replace Setting (not lore-only): desert must own climate for this phase.
+    await chatService.setChatPlaceSlots(
+      primaryId: world.id,
+      loreIds: const [],
+    );
 
+    expect(chatService.chatPrimaryWorldId, world.id);
     expect(chatService.chatWorldIds, contains(world.id));
     expect(
       chatService.activeChatBiome.id,
       'desert',
-      reason: 'binding a desert world must re-point the biome schedule',
+      reason: 'binding a desert Setting must re-point the biome schedule',
     );
     expect(
       chatService.currentWeather,
