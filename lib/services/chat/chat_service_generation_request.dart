@@ -194,54 +194,82 @@ extension ChatServiceGenerationRequest on ChatService {
 
     var genParams = paramsOf(prompt);
 
-    // Model-initiated web_search: a silent think-to-search round, then the
-    // in-character stream. The immutable direct-send bit is a fail-closed
-    // allow-list: group follow-ups, guests, cast, regen, Continue, and idle
-    // never advertise the tool. xml-only → stream. Read the Porch Life global
-    // here — not at chat-open seed — so flipping it on activates this turn.
+    // Unified tools catalog: in-process web_search plus MCP tools enabled
+    // for this chat. Continue / autonomous / xml-only skip the round-trip.
+    // Search still requires a direct user send; MCP also runs on regen and
+    // group follow-ups. One round-trip; inject; stream the in-character reply.
     final globalDefault = _storageService.webSearchSettings.webSearchDefault;
     final xmlOnly = _toolProbe.isXmlOnly(_evalBackendIdentity);
-    final advertise = shouldAdvertiseWebSearch(
+    final includeSearch = shouldAdvertiseWebSearch(
       globalDefault: globalDefault,
       directUserSend: t.directUserSend,
       continueMode: t.mode == GenerationMode.continue_,
       toolsUnsupported: xmlOnly,
       autonomousMode: t.autonomous,
     );
+    final includeMcp = shouldAdvertiseMcp(
+      enabledServerIds: _mcpEnabledServerIds,
+      continueMode: t.mode == GenerationMode.continue_,
+      toolsUnsupported: xmlOnly,
+      autonomousMode: t.autonomous,
+      guestTurn: t.guestSpeaker != null,
+    );
     debugPrint(
-      '[WebSearch] gate advertise=$advertise global=$globalDefault '
+      '[WebSearch] gate advertise=$includeSearch global=$globalDefault '
       'directUserSend=${t.directUserSend} '
       'continue=${t.mode == GenerationMode.continue_} '
       'autonomous=${t.autonomous} xmlOnly=$xmlOnly '
       'backend=${llmService.backendName}',
     );
-    if (advertise) {
-      // Decision phase is not the reply: drop the `Name:` suffix so the
-      // model thinks instead of completing dialogue, force thinking on
-      // (call mode keeps the speed lane), ignore any canned text.
+    debugPrint(
+      '[MCP] gate advertise=$includeMcp enabled=${_mcpEnabledServerIds.toList()} '
+      'continue=${t.mode == GenerationMode.continue_} '
+      'autonomous=${t.autonomous} guest=${t.guestSpeaker != null} '
+      'xmlOnly=$xmlOnly',
+    );
+    final catalog = buildMcpCatalog(
+      inProcess: [if (includeSearch) inProcessWebSearchTool()],
+      servers: includeMcp ? _mcpHub.snapshots() : const [],
+      enabledForChat: _mcpEnabledServerIds,
+    );
+    if (catalog.tools.isNotEmpty) {
       final savedSuffix = t.plan.section('suffix').text;
       t.plan.section('suffix').text = '';
-      final decisionPrompt = webSearchDecisionPrompt(t.plan.userText);
+      final decisionPrompt = catalog.hasMcp
+          ? catalogDecisionPrompt(
+              t.plan.userText,
+              hasSearch: catalog.hasSearch,
+              hasMcp: true,
+            )
+          : webSearchDecisionPrompt(t.plan.userText);
       t.plan.section('suffix').text = savedSuffix;
-      final round = await runWebSearchRound(
+      final round = await runCatalogRound(
         llm: llmService,
         params: paramsOf(
           decisionPrompt,
-          systemPrompt: webSearchDecisionSystemPrompt(chatSystemPrompt),
+          systemPrompt: catalog.hasMcp
+              ? catalogDecisionSystemPrompt(
+                  chatSystemPrompt,
+                  hasSearch: catalog.hasSearch,
+                  hasMcp: true,
+                )
+              : webSearchDecisionSystemPrompt(chatSystemPrompt),
           reasoningEnabled: !_callMode,
           reasoningMaxTokens: _callMode ? 0 : null,
         ),
+        catalog: catalog,
         search: _webSearchService,
+        hub: _mcpHub,
+        enabledForChat: _mcpEnabledServerIds,
       );
-      t.searchReceipt = round.receipt;
+      t.searchReceipt = round.searchReceipt;
+      t.mcpReceipt = round.mcpReceipt;
       if (round.injection != null && round.injection!.isNotEmpty) {
         t.plan.section('web_search').text = round.injection!;
         genParams = paramsOf(t.plan.userText);
-        debugPrint('[WebSearch] dispatch inject+stream (in-character reply)');
+        debugPrint('[MCP] dispatch inject+stream (in-character reply)');
       } else {
-        debugPrint(
-          '[WebSearch] dispatch no lookup — stream in-character reply',
-        );
+        debugPrint('[MCP] dispatch no tool result — stream in-character reply');
       }
       t.stream = llmService.generateStream(genParams);
     } else {

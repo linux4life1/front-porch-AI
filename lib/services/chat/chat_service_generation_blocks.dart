@@ -76,6 +76,11 @@ extension ChatServiceGenerationBlocks on ChatService {
         t.mode != GenerationMode.continue_) {
       t.systemPrompt += '\n\n$kSearchCharacterLine';
     }
+    if (_mcpEnabledServerIds.isNotEmpty &&
+        !t.autonomous &&
+        t.mode != GenerationMode.continue_) {
+      t.systemPrompt += '\n\n$kMcpCharacterLine';
+    }
 
     // Lorebook injection: positioned buckets from the injector (group
     // winners → budget fill → per-position ordering). Pure read — the

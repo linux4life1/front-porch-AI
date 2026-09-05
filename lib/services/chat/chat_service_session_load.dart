@@ -98,19 +98,13 @@ extension ChatServiceSessionLoad on ChatService {
       _lorebookScanner.resetLorebookTriggerState();
       _activeObjectives = [];
       _messagesSinceLastCheck = 0;
-      _isCheckingCompletion =
-          false; // zero in _loadLast empty early return (0-session path hygiene)
-      _summaryPaused =
-          false; // explicit secondary zero for _summaryPaused (symmetric; _loadLast empty early return 0-session)
-      _isSummaryGenerating =
-          false; // secondary zero in _loadLast empty (0-session for summary flag)
-      _isGrowthPassRunning =
-          false; // growth-pass flag zero in _loadLast empty early return (0-session path hygiene; keep reset blocks in sync)
+      _isCheckingCompletion = false; // zero in _loadLast empty early return (0-session path hygiene)
+      _summaryPaused = false; // explicit secondary zero for _summaryPaused (symmetric; _loadLast empty early return 0-session)
+      _isSummaryGenerating = false; // secondary zero in _loadLast empty (0-session for summary flag)
+      _isGrowthPassRunning = false; // growth-pass flag zero in _loadLast empty early return (0-session path hygiene; keep reset blocks in sync)
       _growthStore.invalidate(); // no session — nothing to inject
-      _selectedLooks
-          .clear(); // 0-session: no per-chat look selection (keep reset blocks in sync)
-      _sessionGenSettings =
-          ChatGenerationSettings(); // 0-session: no per-chat gen overrides — without this, character B's first chat ran (and could SAVE) character A's temp/stops/sanitizer (keep reset blocks in sync)
+      _selectedLooks.clear(); // 0-session: no per-chat look selection (keep reset blocks in sync)
+      _sessionGenSettings = ChatGenerationSettings(); // 0-session: no per-chat gen overrides — without this, character B's first chat ran (and could SAVE) character A's temp/stops/sanitizer (keep reset blocks in sync)
       _clearContextBudget();
       return;
     }
@@ -442,6 +436,7 @@ extension ChatServiceSessionLoad on ChatService {
     );
     _needsSimEnabled = s.needsSimEnabled;
     _objectivesEnabled = s.objectivesEnabled;
+    _restoreMcpForSession(s.id);
     if (_needsSimEnabled) {
       // Seed defaults first, then overlay the saved vector ONLY when it has
       // values. A blank saved vector (e.g. needs was toggled on mid-chat before

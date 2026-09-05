@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
+
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -53,6 +54,7 @@ import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/services/expression_classifier.dart'; // top-level for ExpressionClassifierService type in @Dep shim (pre-existing)
 import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
+import 'package:front_porch_ai/services/mcp/mcp.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:drift/drift.dart' as drift;
 
@@ -111,6 +113,7 @@ part 'chat/chat_service_controls.dart';
 part 'chat/chat_service_context_budget.dart';
 part 'chat/chat_service_wiring_realism.dart';
 part 'chat/chat_service_web_search.dart';
+part 'chat/chat_service_mcp.dart';
 part 'chat/chat_service_wiring_evals.dart';
 part 'chat/chat_service_wiring_memory.dart';
 part 'chat/chat_service_wiring_injection.dart';
@@ -181,13 +184,6 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   bool _isCheckingCompletion = false;
   bool _isNewChat = false;
 
-  // Central post-dispose guard (re-introduced per PR #47 rec 2 for prod stability + test flake).
-  // Protects *all* async-await-DB-then-notifyListeners patterns and any residual
-  // fire-and-forget / microtask paths (e.g. unawaited objective loads, realism evals,
-  // summary/fact/evo periodic, set* after rapid close/switch). Overrides ensure
-  // no "A ChatService was used after being disposed" or channel errors.
-  // Complements the "Awaited (was fire-and-forget)" at setActiveCharacter:2205;
-  // see also _loadActiveObjectives and keep-reset sites. 0 new god private _ methods.
   bool _disposed = false;
 
   // ── Dynamic Responses (idle timer / fourth-wall auto-ping) ─────────────
@@ -526,11 +522,11 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   // (needCriticalThreshold moved to chat_service_defaults.dart as a
   // library-top-level getter)
 
-  // ── Passage of time / Chaos Mode / NSFW cooldown (builders in
-  // chat_service_wiring_realism.dart) ──
   late final _timeService = _buildTimeService();
   late final _chaosModeService = _buildChaosModeService();
   late final _webSearchService = _buildWebSearchService();
+  late final _mcpHub = _buildMcpHub();
+  Set<String> _mcpEnabledServerIds = {};
   late final _nsfwService = _buildNsfwService();
 
   // ── Lorebook scanner / injector (builders in
@@ -785,8 +781,7 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   // building/saving, and the TTS drain buffer. 1:1 vs group parity is
   // preserved for all of it via callbacks + the impersonation dance. See
   // docs/refactor-god-file-modularization.md for the full extraction history.
-  Completer<void>?
-  _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination, stays in god)
+  Completer<void>? _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination, stays in god)
 
   // ── Trust Repair ──
   // Armed on each severe trust drop (≥ -20 delta). Consumed on the very
@@ -920,6 +915,11 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   ChaosModeService get chaosModeService => _chaosModeService;
   WebSearchService get webSearchService => _webSearchService;
   bool get webSearchEnabled => _webSearchService.isActive;
+  McpHub get mcpHub => _mcpHub;
+  Set<String> get mcpEnabledServerIds => _mcpEnabledServerIds;
+  List<McpChatServerView> get mcpChatServers => _mcpChatServersImpl;
+  Future<void> setMcpServerEnabledForChat(String id, bool enabled) =>
+      _setMcpServerEnabledForChatImpl(id, enabled);
   NeedsSimulation get needsSimulation => _needsSimulation;
 
   bool get realismEnabled => _realismEnabled;

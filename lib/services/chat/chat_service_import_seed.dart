@@ -43,6 +43,7 @@ extension ChatServiceImportSeed on ChatService {
     _sceneGuest.turnsSinceCastScan = 0;
     _sceneGuest.pendingDetection = null;
     _sceneGuest.offeredOrIgnoredNames.clear();
+    _seedMcpForFreshChat();
 
     if (_activeCharacter != null && _activeGroup == null) {
       final extSeed =

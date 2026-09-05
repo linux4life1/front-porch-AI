@@ -46,12 +46,9 @@ extension ChatServiceGroupEntry on ChatService {
       _authorNoteStrength = 4;
       _summary = '';
       _summaryLastIndex = 0;
-      _selectedLooks
-          .clear(); // fresh group: drop prior chat's per-chat look selection (keep reset blocks in sync)
-      _summaryPaused =
-          false; // explicit secondary zero for _summaryPaused (symmetric; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
-      _isSummaryGenerating =
-          false; // explicit secondary zero on setActiveGroup (incomplete zeroing ... now complete; keep-sync lists + journal_maintenance + " ; authority for needs deltas thin path)") + "needsSimulation. (reason support kept for Director chips) ; cleared via sim initializeFresh/clearVector/resetBuffers on all paths; now complete)"
+      _selectedLooks.clear(); // fresh group: drop prior chat's per-chat look selection (keep reset blocks in sync)
+      _summaryPaused = false; // explicit secondary zero for _summaryPaused (symmetric; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
+      _isSummaryGenerating = false; // explicit secondary zero on setActiveGroup (incomplete zeroing ... now complete; keep-sync lists + journal_maintenance + " ; authority for needs deltas thin path)") + "needsSimulation. (reason support kept for Director chips) ; cleared via sim initializeFresh/clearVector/resetBuffers on all paths; now complete)"
       _groupRealism = {};
       _groupDecayRates = {};
       _groupAuthorNotes = {};
@@ -197,6 +194,7 @@ extension ChatServiceGroupEntry on ChatService {
       // chaos-enabled gate — walked into the group.
       _chaosModeService.resetForFreshChat();
       _webSearchService.resetForFreshChat();
+      _seedMcpForFreshChat();
       _chaosModeService.seedFromGroupOrExt(
         // OR-override, matching the two 1:1 seed sites: the group asks, or the
         // Porch Life global default does. A user who switched Chaos on globally
@@ -276,12 +274,9 @@ extension ChatServiceGroupEntry on ChatService {
       _activeObjectives = [];
       _messagesSinceLastCheck = 0;
       _isCheckingCompletion = false;
-      _summaryPaused =
-          false; // explicit secondary zero for _summaryPaused (symmetric; group fresh entry zero)
-      _isSummaryGenerating =
-          false; // secondary flag zero for the journal recap state (stateless/prompt-only; see incomplete zeroing ... now complete + keep-sync lists)
-      _isGrowthPassRunning =
-          false; // growth-pass flag zero on group fresh entry (transient guard; keep reset blocks in sync)
+      _summaryPaused = false; // explicit secondary zero for _summaryPaused (symmetric; group fresh entry zero)
+      _isSummaryGenerating = false; // secondary flag zero for the journal recap state (stateless/prompt-only; see incomplete zeroing ... now complete + keep-sync lists)
+      _isGrowthPassRunning = false; // growth-pass flag zero on group fresh entry (transient guard; keep reset blocks in sync)
 
       // Try to load last session for this group
       await _loadLastSession();

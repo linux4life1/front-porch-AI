@@ -214,12 +214,9 @@ extension ChatServiceChatEntry on ChatService {
       _clearTodayPointer();
       _summary = '';
       _summaryLastIndex = 0;
-      _selectedLooks
-          .clear(); // fresh 1:1: drop prior chat's per-chat look selection (keep reset blocks in sync)
-      _summaryPaused =
-          false; // explicit secondary zero for _summaryPaused (symmetric to _isSummaryGenerating; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
-      _isSummaryGenerating =
-          false; // explicit secondary zero on setActiveCharacter (incomplete zeroing of secondary config on ... now complete; see keep-sync + journal_maintenance)
+      _selectedLooks.clear(); // fresh 1:1: drop prior chat's per-chat look selection (keep reset blocks in sync)
+      _summaryPaused = false; // explicit secondary zero for _summaryPaused (symmetric to _isSummaryGenerating; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
+      _isSummaryGenerating = false; // explicit secondary zero on setActiveCharacter (incomplete zeroing of secondary config on ... now complete; see keep-sync + journal_maintenance)
       // Clear fork/branch state so it doesn't leak from previous character
       // into a fresh character's first session (see startNewChat for details).
       _parentSessionId = null;
@@ -261,6 +258,7 @@ extension ChatServiceChatEntry on ChatService {
         // See chaos_mode_service.dart and "keep reset blocks" comments (now lists needs/chaos/relationship/expression/time/nsfw/lorebook_scanner + prompt_injection (stateless builders; no reset calls needed) + llm_eval_engine (stateless or prompt-only; no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed)). (cross-ref setActiveCharacter:1572 etc)
         _chaosModeService.resetForFreshChat();
         _webSearchService.resetForFreshChat();
+        _seedMcpForFreshChat();
         // Nsfw reset via extracted service (keeps multiple reset blocks in sync).
         // See nsfw_service.dart and "keep reset blocks" comments (now lists needs/chaos/relationship/expression/time/nsfw/lorebook_scanner + prompt_injection (stateless builders; no reset calls needed) + llm_eval_engine (stateless or prompt-only; no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed)). (cross-ref setActiveCharacter:1572 etc)
         _nsfwService.resetForFreshChat();
@@ -272,10 +270,8 @@ extension ChatServiceChatEntry on ChatService {
         _pendingRealismMetadata = null;
         _activeObjectives = [];
         _messagesSinceLastCheck = 0;
-        _isCheckingCompletion =
-            false; // secondary objective flag zero on setActiveCharacter main path (incomplete zeroing hygiene; keep reset blocks)
-        _isGrowthPassRunning =
-            false; // explicit growth-pass flag zero on setActiveCharacter main path (transient guard; keep reset blocks in sync — growth cache itself is session-scoped and re-cached by _refreshGrowthCache in _loadLastSession)
+        _isCheckingCompletion = false; // secondary objective flag zero on setActiveCharacter main path (incomplete zeroing hygiene; keep reset blocks)
+        _isGrowthPassRunning = false; // explicit growth-pass flag zero on setActiveCharacter main path (transient guard; keep reset blocks in sync — growth cache itself is session-scoped and re-cached by _refreshGrowthCache in _loadLastSession)
         debugPrint(
           '[ChatService] setActiveCharacter: Reset realism state (baseline + runtime transients cleared; was: arousal=$prevArousal, fixation=$prevFixation/$prevFixationLife)',
         );
@@ -454,12 +450,9 @@ extension ChatServiceChatEntry on ChatService {
           await _saveChat();
           _activeObjectives = [];
           _messagesSinceLastCheck = 0;
-          _isCheckingCompletion =
-              false; // zero secondary in empty session subpath of setActiveCharacter (per incomplete zeroing fix)
-          _isSummaryGenerating =
-              false; // secondary zero in empty subpath of setActiveCharacter (incomplete zeroing... now complete (see CLAUDE.md))
-          _isGrowthPassRunning =
-              false; // growth-pass flag zero in empty subpath of setActiveCharacter (transient guard; keep reset blocks in sync)
+          _isCheckingCompletion = false; // zero secondary in empty session subpath of setActiveCharacter (per incomplete zeroing fix)
+          _isSummaryGenerating = false; // secondary zero in empty subpath of setActiveCharacter (incomplete zeroing... now complete (see CLAUDE.md))
+          _isGrowthPassRunning = false; // growth-pass flag zero in empty subpath of setActiveCharacter (transient guard; keep reset blocks in sync)
           await _refreshGrowthCache(); // fresh session id → scope the injection cache to it
         }
         // Load active objectives for this session (must be after _loadLastSession

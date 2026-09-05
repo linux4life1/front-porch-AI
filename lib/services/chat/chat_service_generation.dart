@@ -117,6 +117,9 @@ class _GenTurn {
   /// Stamped as `search_receipt` when this turn ran a web_search lookup.
   Map<String, dynamic>? searchReceipt;
 
+  /// Stamped as `mcp_receipt` when this turn ran an external MCP tool.
+  Map<String, dynamic>? mcpReceipt;
+
   // ── request phase → stream/postgen phases ──
   late List<String> stopList;
   late Stream<String> stream;
