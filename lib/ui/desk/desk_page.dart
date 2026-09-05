@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/desk/desk.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/desk/desk_ask_dialog.dart';
+import 'package:front_porch_ai/ui/desk/desk_language_help.dart';
 import 'package:front_porch_ai/ui/desk/desk_mcp_opt_in.dart';
 import 'package:front_porch_ai/ui/desk/desk_mode_bar.dart';
 import 'package:front_porch_ai/ui/desk/desk_question_dialog.dart';
@@ -64,6 +65,7 @@ class _DeskPageState extends State<DeskPage> {
   @override
   void dispose() {
     _composer.dispose();
+    widget.session.langs?.killAll();
     super.dispose();
   }
 
@@ -138,6 +140,31 @@ class _DeskPageState extends State<DeskPage> {
     setState(() => widget.session.mode = mode);
   }
 
+  DeskLangRuntime _langsOf(BuildContext context) {
+    final existing = widget.session.langs;
+    if (existing != null) return existing;
+    String dir = p.join(widget.session.folderRoot, '.desk', 'lang');
+    try {
+      final storage = Provider.of<StorageService>(context, listen: false);
+      final root = storage.rootPath;
+      if (root != null && root.isNotEmpty) {
+        dir = p.join(deskStoreDirectory(root), 'lang');
+      }
+    } catch (_) {}
+    return widget.session.langs = DeskLangRuntime(directory: dir);
+  }
+
+  void _openLanguageHelp() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DeskLanguageHelp(
+          langs: _langsOf(context),
+          suggested: widget.session.suggestedLangs,
+        ),
+      ),
+    );
+  }
+
   Future<void> _send() async {
     final text = _composer.text.trim();
     if (text.isEmpty) return;
@@ -175,6 +202,14 @@ class _DeskPageState extends State<DeskPage> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            key: const Key('desk-language-help'),
+            tooltip: 'Language help',
+            onPressed: _openLanguageHelp,
+            icon: Icon(Icons.translate, color: amber),
+          ),
+        ],
       ),
       body: Column(
         children: [

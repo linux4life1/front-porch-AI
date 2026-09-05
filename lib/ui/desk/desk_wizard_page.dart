@@ -108,7 +108,7 @@ class _DeskWizardPageState extends State<DeskWizardPage> {
     return false;
   }
 
-  void _confirm() {
+  Future<void> _confirm() async {
     final coworker = _coworker;
     if (coworker == null) return;
     final session = DeskSession(
@@ -121,6 +121,8 @@ class _DeskWizardPageState extends State<DeskWizardPage> {
       onSat(session);
       return;
     }
+    await deskPrepareLangs(session);
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (_) => DeskPage(session: session)),
     );

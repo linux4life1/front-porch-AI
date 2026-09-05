@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-05 — feat(desk): language doors, PATH first, no zoo (slice I)
+- **Why:** Desk must not silently download an LSP zoo. Each language is
+  a door the user opens. Sit down never fetches. Yolo never auto-opens.
+- **What:** In-app catalog (metadata only). Language help toggles, all
+  off. Detect highlights matches (Godot → GDScript, not Rust) still
+  off. PATH first; pinned URL+checksum otherwise; checksum fail does
+  not spawn. Custom command is exec'd as-is (Holy C is BYO). Disable
+  kills the process; session end kills all.
+- **Files:** desk_lang_catalog.dart, desk_lang_runtime.dart,
+  desk_language_help.dart, DeskPage button, tests desk_slice_i +
+  desk_i_chrome.
+- **Verification:** I tests red (missing types) then green. 104 desk
+  tests pass. Analyze clean. No ChatService import. No web_ui Desk.
+
 ## 2026-09-05 — feat(desk): nested Explore/General, same jail (slice H)
 - **Why:** After the loop is trusted, she can spawn a nested Explore
   (read-only) or General (same folder jail) and wait. Scout skipped.

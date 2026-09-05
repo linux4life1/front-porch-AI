@@ -22,7 +22,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/desk/desk.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:path/path.dart' as p;
 
 CharacterCard _mira() => CharacterCard(name: 'Mira', personality: 'tsundere');
 

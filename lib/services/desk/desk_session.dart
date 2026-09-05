@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/desk/desk_lang_runtime.dart';
 import 'package:front_porch_ai/services/desk/desk_sit_down.dart';
 
 class DeskToolChip {
@@ -62,13 +63,18 @@ class DeskSession {
     required this.coworker,
     this.mode = DeskMode.build,
     this.title = '',
+    this.langs,
+    Set<String>? suggestedLangs,
     List<DeskMessage>? transcript,
-  }) : transcript = transcript ?? <DeskMessage>[];
+  }) : suggestedLangs = suggestedLangs ?? <String>{},
+       transcript = transcript ?? <DeskMessage>[];
 
   final String folderRoot;
   final CharacterCard coworker;
   DeskMode mode;
   String title;
+  DeskLangRuntime? langs;
+  final Set<String> suggestedLangs;
   final List<DeskMessage> transcript;
   DeskWriteRecord? lastWrite;
   bool running = false;

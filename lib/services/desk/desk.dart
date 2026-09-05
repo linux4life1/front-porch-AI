@@ -27,6 +27,8 @@ export 'desk_fs.dart';
 export 'desk_harness.dart';
 export 'desk_honesty.dart';
 export 'desk_jail.dart';
+export 'desk_lang_catalog.dart';
+export 'desk_lang_runtime.dart';
 export 'desk_llm.dart';
 export 'desk_mentions.dart';
 export 'desk_permissions.dart';
