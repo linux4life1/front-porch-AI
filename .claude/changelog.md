@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-05 — feat(desk): Plan/Build/Yolo permissions (slice C)
+- **Why:** Slice B wrote freely. OpenCode-shaped gears: Plan looks,
+  Build asks, Yolo skips the modal. Jail and hard-deny still apply.
+- **What:** `DeskPermissions` — Plan cannot mutate; Build Allow once /
+  Always / Deny; Yolo no ask; `.env` deny; doom-loop 3× asks even in
+  Yolo; `git checkout --`, `git restore`, `rm -rf /` hard-denied.
+  Null `onAsk` still auto-allows Build so slice B tests stay green;
+  production DeskPage installs the modal. Mode chips on the session.
+- **Files:** `desk_permissions.dart`, `desk_harness.dart`, `desk_page.dart`,
+  `desk_mode_bar.dart`, `desk_ask_dialog.dart`, tests under
+  `test/services/desk` and `test/ui/desk/desk_mode_ask_test.dart`.
+- **Verification:** Permission/harness tests red (missing symbols) then
+  green. Existing B harness write test still green. Analyze clean.
+
 ## 2026-09-05 — feat(desk): generateWithTools loop + jail (slice B)
 - **Why:** Slice A was chrome only. Desk is a coding coworker only if
   Send actually loops tools against the picked folder, inside a jail.

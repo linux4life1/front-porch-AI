@@ -16,10 +16,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:front_porch_ai/services/desk/desk_coworker_prompt.dart';
 import 'package:front_porch_ai/services/desk/desk_fs.dart';
 import 'package:front_porch_ai/services/desk/desk_honesty.dart';
 import 'package:front_porch_ai/services/desk/desk_llm.dart';
+import 'package:front_porch_ai/services/desk/desk_permissions.dart';
 import 'package:front_porch_ai/services/desk/desk_session.dart';
 import 'package:front_porch_ai/services/desk/desk_tools.dart';
 import 'package:path/path.dart' as p;
@@ -32,16 +35,22 @@ class DeskHarness {
     required this.llm,
     DeskFs? fs,
     this.onChanged,
-  }) : fs = fs ?? DeskFs(session.folderRoot);
+    this.onAsk,
+    DeskPermissions? permissions,
+  }) : fs = fs ?? DeskFs(session.folderRoot),
+       permissions = permissions ?? DeskPermissions(mode: session.mode);
 
   final DeskSession session;
   final DeskLlm llm;
   final DeskFs fs;
+  final DeskPermissions permissions;
   void Function()? onChanged;
+  DeskAskFn? onAsk;
 
   bool _aborted = false;
   String _trace = '';
   final _chips = <DeskToolChip>[];
+  Completer<DeskAskDecision>? _askWait;
 
   bool get isRunning => session.running;
 
@@ -65,6 +74,10 @@ class DeskHarness {
   void abort() {
     _aborted = true;
     llm.abort();
+    final waiting = _askWait;
+    if (waiting != null && !waiting.isCompleted) {
+      waiting.complete(DeskAskDecision.deny);
+    }
     _emit();
   }
 
@@ -88,20 +101,70 @@ class DeskHarness {
       }
       for (final call in resp.calls) {
         if (_aborted) return;
-        final result = await fs.dispatch(call.name, call.arguments);
-        if (result.write != null) session.lastWrite = result.write;
-        final name = canonicalDeskToolName(call.name);
-        final detail = result.ok
-            ? _okDetail(name, call.arguments, result)
-            : result.output;
-        _chips.add(DeskToolChip(name: name, detail: detail, ok: result.ok));
-        _trace += '\n[$name] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
-        _emit();
+        await _runTool(call.name, call.arguments);
       }
     }
     if (!_aborted) {
       _say('Stopped after $kDeskMaxSteps tool steps. Send again to continue.');
     }
+  }
+
+  Future<void> _runTool(String name, Map<String, dynamic> args) async {
+    permissions.mode = session.mode;
+    final canon = canonicalDeskToolName(name);
+    final block = permissions.hardBlock(name: name, args: args);
+    if (block != null) {
+      permissions.record(name: name, args: args);
+      _reject(canon, block);
+      return;
+    }
+    if (permissions.needsAsk(name: name, args: args)) {
+      final doom = permissions.isDoom(name, args);
+      final decision = await _decide(
+        DeskAskRequest(
+          toolName: canon,
+          summary: permissions.summaryFor(name, args),
+          doomLoop: doom,
+        ),
+      );
+      if (_aborted) return;
+      if (decision == DeskAskDecision.deny) {
+        permissions.record(name: name, args: args);
+        _reject(canon, 'denied by user');
+        return;
+      }
+      if (decision == DeskAskDecision.allowAlways) {
+        permissions.allowAlways();
+      }
+    }
+    permissions.record(name: name, args: args);
+    final result = await fs.dispatch(name, args);
+    if (result.write != null) session.lastWrite = result.write;
+    final detail = result.ok ? _okDetail(canon, args, result) : result.output;
+    _chips.add(DeskToolChip(name: canon, detail: detail, ok: result.ok));
+    _trace += '\n[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
+    _emit();
+  }
+
+  Future<DeskAskDecision> _decide(DeskAskRequest req) async {
+    final ask = onAsk;
+    if (ask == null) {
+      return req.doomLoop ? DeskAskDecision.deny : DeskAskDecision.allowOnce;
+    }
+    final wait = Completer<DeskAskDecision>();
+    _askWait = wait;
+    ask(req).then((d) {
+      if (!wait.isCompleted) wait.complete(d);
+    });
+    final decision = await wait.future;
+    if (identical(_askWait, wait)) _askWait = null;
+    return decision;
+  }
+
+  void _reject(String name, String message) {
+    _chips.add(DeskToolChip(name: name, detail: message, ok: false));
+    _trace += '\n[$name] error\n$message\n';
+    _emit();
   }
 
   String _okDetail(

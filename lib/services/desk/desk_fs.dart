@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:front_porch_ai/services/desk/desk_jail.dart';
+import 'package:front_porch_ai/services/desk/desk_permissions.dart';
 import 'package:front_porch_ai/services/desk/desk_session.dart';
 import 'package:front_porch_ai/services/desk/desk_tools.dart';
 import 'package:path/path.dart' as p;
@@ -166,6 +167,7 @@ class DeskFs {
     ).list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
       final rel = await _rel(entity.path);
+      if (deskIsEnvPath(rel)) continue;
       if (deskGlobMatch(rel, pattern)) matches.add(rel);
     }
     matches.sort();
@@ -204,6 +206,7 @@ class DeskFs {
     for (final file in files) {
       if (hits.length >= kDeskGrepMaxHits) break;
       final rel = await _rel(file.path);
+      if (deskIsEnvPath(rel)) continue;
       if (glob != null && glob.isNotEmpty && !deskGlobMatch(rel, glob)) {
         continue;
       }

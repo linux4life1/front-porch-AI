@@ -26,6 +26,7 @@ export 'desk_harness.dart';
 export 'desk_honesty.dart';
 export 'desk_jail.dart';
 export 'desk_llm.dart';
+export 'desk_permissions.dart';
 export 'desk_session.dart';
 export 'desk_sit_down.dart';
 export 'desk_tools.dart';

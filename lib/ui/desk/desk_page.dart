@@ -22,6 +22,8 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/desk/desk.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/ui/desk/desk_ask_dialog.dart';
+import 'package:front_porch_ai/ui/desk/desk_mode_bar.dart';
 import 'package:front_porch_ai/ui/desk/desk_work_strip.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -67,6 +69,7 @@ class _DeskPageState extends State<DeskPage> {
         session: widget.session,
         llm: llm,
         onChanged: _refresh,
+        onAsk: _ask,
       );
     }
     try {
@@ -75,10 +78,25 @@ class _DeskPageState extends State<DeskPage> {
         session: widget.session,
         llm: LlmServiceDeskLlm(provider.activeService),
         onChanged: _refresh,
+        onAsk: _ask,
       );
     } catch (_) {
       return null;
     }
+  }
+
+  Future<DeskAskDecision> _ask(DeskAskRequest request) async {
+    if (!mounted) return DeskAskDecision.deny;
+    final result = await showDialog<DeskAskDecision>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => DeskAskDialog(request: request),
+    );
+    return result ?? DeskAskDecision.deny;
+  }
+
+  void _setMode(DeskMode mode) {
+    setState(() => widget.session.mode = mode);
   }
 
   Future<void> _send() async {
@@ -121,6 +139,11 @@ class _DeskPageState extends State<DeskPage> {
       ),
       body: Column(
         children: [
+          DeskModeBar(
+            mode: session.mode,
+            enabled: !session.running,
+            onChanged: _setMode,
+          ),
           Expanded(child: _transcript(session, amber)),
           if (session.lastWrite != null)
             DeskWorkStrip(record: session.lastWrite!),

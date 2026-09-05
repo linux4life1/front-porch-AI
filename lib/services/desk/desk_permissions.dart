@@ -1,0 +1,146 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:convert';
+
+import 'package:front_porch_ai/services/desk/desk_sit_down.dart';
+import 'package:front_porch_ai/services/desk/desk_tools.dart';
+import 'package:path/path.dart' as p;
+
+enum DeskAskDecision { allowOnce, allowAlways, deny }
+
+class DeskAskRequest {
+  const DeskAskRequest({
+    required this.toolName,
+    required this.summary,
+    this.doomLoop = false,
+  });
+
+  final String toolName;
+  final String summary;
+  final bool doomLoop;
+}
+
+typedef DeskAskFn = Future<DeskAskDecision> Function(DeskAskRequest request);
+
+bool deskToolMutates(String name) {
+  switch (canonicalDeskToolName(name)) {
+    case kDeskToolEdit:
+    case kDeskToolWrite:
+    case 'bash':
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool deskIsEnvPath(String path) {
+  final base = p.basename(path.trim());
+  return base == '.env' || base.startsWith('.env.');
+}
+
+/// Hard-deny list. Yolo does not skip this. Bash (slice D) uses the same gate.
+String? deskDeniedCommand(String command) {
+  final lower = command.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  if (lower.isEmpty) return null;
+  if (RegExp(r'\bgit checkout --').hasMatch(lower)) {
+    return 'denied: git checkout -- would discard uncommitted work';
+  }
+  if (RegExp(r'\bgit restore\b').hasMatch(lower)) {
+    return 'denied: git restore would discard uncommitted work';
+  }
+  if (RegExp(r'\bgit reset --hard\b').hasMatch(lower)) {
+    return 'denied: git reset --hard would discard uncommitted work';
+  }
+  if (RegExp(r'\bgit push\b').hasMatch(lower) &&
+      (lower.contains('--force') || RegExp(r'(^| )-f( |$)').hasMatch(lower))) {
+    return 'denied: force-push is not allowed';
+  }
+  if (_rmRoot(lower)) {
+    return 'denied: rm -rf / is not allowed';
+  }
+  return null;
+}
+
+bool _rmRoot(String lower) {
+  final rf = RegExp(r'\brm -[a-z]*r[a-z]*f[a-z]* (/\*?)( |$)');
+  final fr = RegExp(r'\brm -[a-z]*f[a-z]*r[a-z]* (/\*?)( |$)');
+  final m = rf.firstMatch(lower) ?? fr.firstMatch(lower);
+  if (m == null) return false;
+  final path = m.group(1);
+  return path == '/' || path == '/*';
+}
+
+/// Plan / Build / Yolo gears plus doom-loop and .env. Null [DeskHarness.onAsk]
+/// auto-allows Build (headless / slice B tests); DeskPage installs the modal.
+class DeskPermissions {
+  DeskPermissions({this.mode = DeskMode.build});
+
+  DeskMode mode;
+  bool _alwaysMutate = false;
+  final _counts = <String, int>{};
+
+  String fingerprint(String name, Map<String, dynamic> args) =>
+      '${canonicalDeskToolName(name)}:${jsonEncode(args)}';
+
+  String? hardBlock({
+    required String name,
+    required Map<String, dynamic> args,
+  }) {
+    final canon = canonicalDeskToolName(name);
+    final path = deskToolPathArg(args);
+    if (path != null && deskIsEnvPath(path)) {
+      return 'denied: .env files are not readable or writable by Desk';
+    }
+    if (canon == 'bash' || name == 'bash') {
+      final cmd = args['command']?.toString() ?? args['cmd']?.toString() ?? '';
+      final denied = deskDeniedCommand(cmd);
+      if (denied != null) return denied;
+    }
+    if (mode == DeskMode.plan && deskToolMutates(canon)) {
+      return 'plan mode cannot $canon: switch to Build or Yolo to change files';
+    }
+    return null;
+  }
+
+  bool isDoom(String name, Map<String, dynamic> args) =>
+      (_counts[fingerprint(name, args)] ?? 0) >= 2;
+
+  bool needsAsk({required String name, required Map<String, dynamic> args}) {
+    if (!deskToolMutates(name)) return false;
+    if (mode == DeskMode.plan) return false;
+    if (isDoom(name, args)) return true;
+    if (_alwaysMutate) return false;
+    return mode == DeskMode.build;
+  }
+
+  void record({required String name, required Map<String, dynamic> args}) {
+    final fp = fingerprint(name, args);
+    _counts[fp] = (_counts[fp] ?? 0) + 1;
+  }
+
+  void allowAlways() => _alwaysMutate = true;
+
+  String summaryFor(String name, Map<String, dynamic> args) {
+    final path = deskToolPathArg(args);
+    if (path != null) return path;
+    final cmd = args['command']?.toString() ?? args['cmd']?.toString();
+    if (cmd != null && cmd.isNotEmpty) return cmd;
+    return canonicalDeskToolName(name);
+  }
+}
