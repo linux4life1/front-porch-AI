@@ -48,10 +48,13 @@ class DeskWebFetch {
       if (send != null) {
         resp = await send(req).timeout(kDeskWebFetchTimeout);
       } else {
-        final streamed = await http.Client()
-            .send(req)
-            .timeout(kDeskWebFetchTimeout);
-        resp = await http.Response.fromStream(streamed);
+        final client = http.Client();
+        try {
+          final streamed = await client.send(req).timeout(kDeskWebFetchTimeout);
+          resp = await http.Response.fromStream(streamed);
+        } finally {
+          client.close();
+        }
       }
     } catch (e) {
       return DeskToolResult.error('webfetch: $e');
