@@ -20,24 +20,34 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Chats / Porch Stories switch. Drops the labels when the parent gives it
-/// less than the labeled pair's intrinsic width so a resized window never
-/// overflows the home toolbar.
+/// Home toolbar mode: Chats, Porch Stories, or Desk.
+enum HomeMode { chats, stories, desk }
+
+/// Chats / Porch Stories / Desk switch. Drops the labels when the parent
+/// gives it less than the labeled trio's intrinsic width so a resized
+/// window never overflows the home toolbar.
+///
+/// [showStories] / [onShowChats] / [onShowStories] stay required so the
+/// existing overflow test still compiles. Desk is additive.
 class HomeModeToggle extends StatelessWidget {
   const HomeModeToggle({
     super.key,
     required this.showStories,
     required this.onShowChats,
     required this.onShowStories,
+    this.showDesk = false,
+    this.onShowDesk,
   });
 
   final bool showStories;
   final VoidCallback onShowChats;
   final VoidCallback onShowStories;
+  final bool showDesk;
+  final VoidCallback? onShowDesk;
 
-  /// Labeled "Chats" + "Porch Stories" is ~250px (a bit more with test
-  /// fonts). Below this, icons only.
-  static const double labeledMinWidth = 280;
+  /// Labeled "Chats" + "Porch Stories" + "Desk" needs more room than the
+  /// old pair (~250px). Drop to icons before the 360px squeezed-window case.
+  static const double labeledMinWidth = 400;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +68,7 @@ class HomeModeToggle extends StatelessWidget {
               _ModeButton(
                 label: 'Chats',
                 icon: Icons.chat_bubble_outline,
-                isActive: !showStories,
+                isActive: !showStories && !showDesk,
                 showLabel: showLabels,
                 onTap: onShowChats,
               ),
@@ -68,6 +78,13 @@ class HomeModeToggle extends StatelessWidget {
                 isActive: showStories,
                 showLabel: showLabels,
                 onTap: onShowStories,
+              ),
+              _ModeButton(
+                label: 'Desk',
+                icon: Icons.desk,
+                isActive: showDesk,
+                showLabel: showLabels,
+                onTap: onShowDesk ?? () {},
               ),
             ],
           ),

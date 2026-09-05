@@ -5,7 +5,9 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 🔌 **Characters can use tools from MCP servers you connect** — add a server in Settings → MCP (URL, optional auth). Connecting is not consent: each chat has its own switches, all off by default. When a tool fires they react as themselves — you see a small chip, not the JSON. Same on the phone.
+- 🖥️ **Desk (first slice)** — a third home tab next to Chats and Porch Stories. Walk to a throwaway folder in-app, pick a coworker, tick the honesty box (this is not Claude Code / Grok Build / OpenCode, and not for code you cannot afford to lose), and sit down in an empty session. No tools loop yet. Desktop only.
+
+- 🔌 **Characters can use tools from MCP servers you connect** — Settings → Porch Life → MCP tools. Paste the server address, tap Check connection, and you get a plain yes/no (and the tool names if it worked). Connecting is not consent: each chat has its own switches, all off by default. When a tool fires they react as themselves — you see a small chip, not the JSON. Same on the phone.
 
 - 🔎 **They can look unknown terms up — safely and only when you ask** — turn on Web Search in Porch Life and the first reply to a message you send can quietly look up an unknown word (lore, a show, weather, whatever), then react as themselves. Continue, Regenerate, guests, group follow-ups, cast entrances, and AFK / Dynamic Responses stay offline. Search results are treated as untrusted notes, redirects are refused, and Tavily keys now move out of preferences into your system's secure credential store. One switch for every chat, including ones already open; no key still uses Wikipedia. A small chip shows when a lookup happened. Off by default. Same on the phone.
 

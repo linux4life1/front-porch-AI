@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-09-05 — feat(desk): home tab, wizard, honesty gate (slice A)
+- **Why:** Desk is a separate coding-coworker pipeline. Slice A is chrome
+  only — no loop, no ChatService, no web.
+- **What:** Home mode Desk sibling of Porch Stories. Wizard Project (in-app
+  walker, not FilePicker) → Coworker → Sit down. Confirm dead until honesty
+  checkbox. Tools-unsupported blocks. Empty session chrome (portrait name,
+  folder, composer; Send stores the user line only).
+- **Files:** `lib/services/desk/*`, `lib/ui/desk/*`, home mode toggle,
+  `home_page` Desk pane, tests under `test/services/desk` and `test/ui/desk`.
+- **Verification:** Prompt/gate/listing tests red (missing symbols) then
+  green. Wizard Confirm-null / tools-block / FilePicker-absent. Overflow
+  toolbar still green. Analyze clean on touched paths.
+
+## 2026-09-05 — feat(mcp): Porch Life toggle, address, Check connection
+- **Why:** The MCP client had a dedicated Settings tab named "MCP", no Porch
+  Life switch, no way to edit a URL after add, and no Check connection. The
+  feature could not be found or tested.
+- **What:** Deleted the MCP tab. Porch Life now has an MCP tools row (off by
+  default) plus an always-visible URL field and a Check connection button
+  that handshakes + tools/list and prints `Connected — N tools: …` or
+  `Could not reach …`. Same on the phone. Checking is not consent.
+- **Files:** `mcp_servers_card.dart`; porch_life_tab; settings_page (6 tabs);
+  deleted `mcp_tab.dart`; `mcp_hub.check`; web `McpSettings` folded into
+  Porch Life; tests under `test/ui/settings/mcp_porch_life_test.dart` and
+  `test/services/mcp/mcp_check_result_test.dart`.
+- **Verification:** Check-result helper and hub.check proven red (missing
+  symbol) then green. Widget Check connection success/failure next.
+
 ## 2026-09-04 — feat(mcp): in-process MCP client (v2 first leg)
 - **Why:** Front Porch should be an MCP *client* so a character can drive
   anything that already speaks MCP (Docker, weather, calendar) without a

@@ -43,6 +43,7 @@ import 'package:front_porch_ai/ui/pages/edit_group_page.dart';
 import 'package:front_porch_ai/services/group_card_importer.dart';
 import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
 import 'package:front_porch_ai/ui/pages/story_home_view.dart';
+import 'package:front_porch_ai/ui/desk/desk.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
@@ -84,8 +85,8 @@ class _HomePageState extends State<HomePage> {
   // Grid scale
   double _gridScale = 300.0;
 
-  // Porch Stories mode toggle
-  bool _showStories = false;
+  // Chats / Porch Stories / Desk
+  HomeMode _homeMode = HomeMode.chats;
 
   /// Blocks stacked open-chat taps while setActiveCharacter / loadSession
   /// runs (can take seconds). Without this, multi-tap after exit→reenter
@@ -386,9 +387,9 @@ class _HomePageState extends State<HomePage> {
         // Porch Stories BEFORE the empty-library check: a story needs no
         // characters, so stories mode has to win over the "create your first
         // character" panel. Checked after it, tapping the toggle on a fresh
-        // install set _showStories but still fell into the empty branch, so
+        // install set stories mode but still fell into the empty branch, so
         // the view never opened.
-        if (_showStories) {
+        if (_homeMode == HomeMode.stories) {
           return _wrapWithStatusBar(
             context,
             Column(
@@ -396,6 +397,18 @@ class _HomePageState extends State<HomePage> {
                 // Radio toggle
                 _modeToggleBar(),
                 const Expanded(child: StoryHomeView()),
+              ],
+            ),
+          );
+        }
+
+        if (_homeMode == HomeMode.desk) {
+          return _wrapWithStatusBar(
+            context,
+            Column(
+              children: [
+                _modeToggleBar(),
+                const Expanded(child: DeskHomeView()),
               ],
             ),
           );
