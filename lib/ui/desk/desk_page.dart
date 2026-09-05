@@ -237,6 +237,24 @@ class _DeskPageState extends State<DeskPage> {
             ),
           ),
           const SizedBox(width: 8),
+          IconButton(
+            key: const Key('desk-undo'),
+            tooltip: 'Undo her last write',
+            onPressed:
+                session.running || (widget.harness ?? _created)?.canUndo != true
+                ? null
+                : () => (widget.harness ?? _created)?.undo(),
+            icon: Icon(Icons.undo, color: amber),
+          ),
+          IconButton(
+            key: const Key('desk-redo'),
+            tooltip: 'Redo her last write',
+            onPressed:
+                session.running || (widget.harness ?? _created)?.canRedo != true
+                ? null
+                : () => (widget.harness ?? _created)?.redo(),
+            icon: Icon(Icons.redo, color: amber),
+          ),
           if (session.running)
             IconButton(
               key: const Key('desk-abort'),

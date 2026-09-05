@@ -5,7 +5,7 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 🖥️ **Desk (Plan / Build / Yolo)** — Sit down with a coworker and she loops tools in that folder. Plan cannot write. Build asks before a change (Allow once / Always / Deny). Yolo skips the ask; the folder jail, `.env` block, and `git checkout --` still hold. Abort stops further tools. Not Claude Code; not for code you cannot afford to lose. Desktop only.
+- 🖥️ **Desk (bash + undo)** — Sit down with a coworker and she loops tools in that folder, including commands with cwd pinned to that folder (`cd /` is refused). Undo/Redo only her file writes, not your other files. Plan cannot write. Build asks. Yolo skips the ask; jail, `.env`, and `git checkout --` still hold. Not Claude Code; not for code you cannot afford to lose. Desktop only.
 
 - 🔌 **Characters can use tools from MCP servers you connect** — Settings → Porch Life → MCP tools. Paste the server address, tap Check connection, and you get a plain yes/no (and the tool names if it worked). Connecting is not consent: each chat has its own switches, all off by default. When a tool fires they react as themselves — you see a small chip, not the JSON. Same on the phone.
 

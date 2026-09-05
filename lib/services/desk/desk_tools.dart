@@ -19,14 +19,16 @@
 const kDeskMaxSteps = 20;
 const kDeskReadClipChars = 100000;
 const kDeskGrepMaxHits = 50;
+const kDeskBashClipChars = 32000;
 
 const kDeskToolRead = 'read';
 const kDeskToolEdit = 'edit';
 const kDeskToolWrite = 'write';
 const kDeskToolGlob = 'glob';
 const kDeskToolGrep = 'grep';
+const kDeskToolBash = 'bash';
 
-/// Slice B catalog. Plan/Build/Yolo gating is slice C; bash is slice D.
+/// File tools plus bash. Plan/Build/Yolo gating is DeskPermissions.
 final List<Map<String, dynamic>> kDeskFileTools = [
   _fn(
     kDeskToolRead,
@@ -75,6 +77,15 @@ final List<Map<String, dynamic>> kDeskFileTools = [
     },
     const ['pattern'],
   ),
+  _fn(
+    kDeskToolBash,
+    'Run a shell command in the project folder. cwd is the folder. '
+    'Cannot cd out. Destructive git and rm -rf / are denied.',
+    {
+      'command': {'type': 'string', 'description': 'Command to run'},
+    },
+    const ['command'],
+  ),
 ];
 
 Map<String, dynamic> _fn(
@@ -108,6 +119,9 @@ String canonicalDeskToolName(String name) {
       return kDeskToolWrite;
     case 'search_replace':
       return kDeskToolEdit;
+    case 'run_command':
+    case 'shell':
+      return kDeskToolBash;
     default:
       return name;
   }

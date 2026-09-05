@@ -42,7 +42,7 @@ bool deskToolMutates(String name) {
   switch (canonicalDeskToolName(name)) {
     case kDeskToolEdit:
     case kDeskToolWrite:
-    case 'bash':
+    case kDeskToolBash:
       return true;
     default:
       return false;
@@ -113,7 +113,7 @@ class DeskPermissions {
     if (path != null && deskIsEnvPath(path)) {
       return 'denied: .env files are not readable or writable by Desk';
     }
-    if (canon == 'bash' || name == 'bash') {
+    if (canon == kDeskToolBash) {
       final cmd = args['command']?.toString() ?? args['cmd']?.toString() ?? '';
       final denied = deskDeniedCommand(cmd);
       if (denied != null) return denied;

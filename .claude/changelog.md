@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-05 — feat(desk): bash + undo/redo (slice D)
+- **Why:** Slice C denied git/rm in theory; D runs commands with cwd =
+  the project folder and lets you undo *her* writes, not yours.
+- **What:** `DeskBash` — bash -c, cwd=root, 60s timeout, clipped
+  output, no `cd` out, hard-deny list. `DeskUndo` — restore/reapply
+  write/edit bytes only. Undo/Redo on the session chrome.
+- **Files:** `desk_bash.dart`, `desk_undo.dart`, harness/tools/page,
+  tests under `test/services/desk/desk_bash_test.dart`,
+  `desk_undo_test.dart`, `test/ui/desk/desk_undo_chrome_test.dart`.
+- **Verification:** bash cwd/cd-out/timeout and undo/redo tests red
+  (missing symbols) then green. Analyze clean after dropping unused
+  import.
+
 ## 2026-09-05 — feat(desk): Plan/Build/Yolo permissions (slice C)
 - **Why:** Slice B wrote freely. OpenCode-shaped gears: Plan looks,
   Build asks, Yolo skips the modal. Jail and hard-deny still apply.

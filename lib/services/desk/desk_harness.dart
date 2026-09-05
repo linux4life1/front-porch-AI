@@ -18,6 +18,7 @@
 
 import 'dart:async';
 
+import 'package:front_porch_ai/services/desk/desk_bash.dart';
 import 'package:front_porch_ai/services/desk/desk_coworker_prompt.dart';
 import 'package:front_porch_ai/services/desk/desk_fs.dart';
 import 'package:front_porch_ai/services/desk/desk_honesty.dart';
@@ -25,6 +26,7 @@ import 'package:front_porch_ai/services/desk/desk_llm.dart';
 import 'package:front_porch_ai/services/desk/desk_permissions.dart';
 import 'package:front_porch_ai/services/desk/desk_session.dart';
 import 'package:front_porch_ai/services/desk/desk_tools.dart';
+import 'package:front_porch_ai/services/desk/desk_undo.dart';
 import 'package:path/path.dart' as p;
 
 /// In-process generateWithTools loop. Max [kDeskMaxSteps]. Abort stops
@@ -37,13 +39,19 @@ class DeskHarness {
     this.onChanged,
     this.onAsk,
     DeskPermissions? permissions,
+    DeskBash? bash,
+    DeskUndo? undo,
   }) : fs = fs ?? DeskFs(session.folderRoot),
-       permissions = permissions ?? DeskPermissions(mode: session.mode);
+       permissions = permissions ?? DeskPermissions(mode: session.mode),
+       bash = bash ?? DeskBash(session.folderRoot),
+       undoLog = undo ?? DeskUndo();
 
   final DeskSession session;
   final DeskLlm llm;
   final DeskFs fs;
   final DeskPermissions permissions;
+  final DeskBash bash;
+  final DeskUndo undoLog;
   void Function()? onChanged;
   DeskAskFn? onAsk;
 
@@ -53,6 +61,22 @@ class DeskHarness {
   Completer<DeskAskDecision>? _askWait;
 
   bool get isRunning => session.running;
+  bool get canUndo => undoLog.canUndo;
+  bool get canRedo => undoLog.canRedo;
+
+  Future<void> undo() async {
+    final rec = await undoLog.undo(session.folderRoot);
+    if (rec == null) return;
+    session.lastWrite = rec;
+    _emit();
+  }
+
+  Future<void> redo() async {
+    final rec = await undoLog.redo(session.folderRoot);
+    if (rec == null) return;
+    session.lastWrite = rec;
+    _emit();
+  }
 
   Future<void> send(String task) async {
     final text = task.trim();
@@ -138,8 +162,13 @@ class DeskHarness {
       }
     }
     permissions.record(name: name, args: args);
-    final result = await fs.dispatch(name, args);
-    if (result.write != null) session.lastWrite = result.write;
+    final result = canon == kDeskToolBash
+        ? await bash.run(args)
+        : await fs.dispatch(name, args);
+    if (result.write != null) {
+      session.lastWrite = result.write;
+      undoLog.push(result.write!);
+    }
     final detail = result.ok ? _okDetail(canon, args, result) : result.output;
     _chips.add(DeskToolChip(name: canon, detail: detail, ok: result.ok));
     _trace += '\n[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
