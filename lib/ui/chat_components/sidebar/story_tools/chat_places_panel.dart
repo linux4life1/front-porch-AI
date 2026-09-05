@@ -286,8 +286,7 @@ class ChatPlacesPanel extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 buildDefaultDragHandles: false,
                 itemCount: lore.length,
-                onReorder: (oldIndex, newIndex) async {
-                  if (newIndex > oldIndex) newIndex -= 1;
+                onReorderItem: (oldIndex, newIndex) async {
                   final next = List<String>.from(loreIds);
                   final moved = next.removeAt(oldIndex);
                   next.insert(newIndex, moved);
@@ -482,7 +481,7 @@ class ChatPlacesPanel extends StatelessWidget {
                   ? null
                   : () async {
                       final nextLore = [
-                        if (primaryId != null) primaryId,
+                        ?primaryId,
                         for (final id in loreIds)
                           if (id != world.id) id,
                       ];
@@ -590,7 +589,7 @@ class ChatPlacesPanel extends StatelessWidget {
     required List<String> loreIds,
   }) async {
     final attachedIds = {
-      if (primaryId != null) primaryId,
+      ?primaryId,
       ...loreIds,
     };
     final available = [

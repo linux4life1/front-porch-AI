@@ -242,7 +242,7 @@ extension ChatServiceWiringInjection on ChatService {
         if (id.isNotEmpty && id != _chatPrimaryWorldId) id,
     ]);
     _chatWorldIds = List.unmodifiable([
-      if (_chatPrimaryWorldId != null) _chatPrimaryWorldId!,
+      ?_chatPrimaryWorldId,
       ..._chatLoreWorldIds,
     ]);
     await _reloadBiomeSchedule();

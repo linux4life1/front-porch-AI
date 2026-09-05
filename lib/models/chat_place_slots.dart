@@ -20,7 +20,7 @@ class ChatPlaceSlots {
 
   /// Primary-first then lore — compatible with lore-collection callers.
   List<String> get allIds => [
-        if (primaryId != null) primaryId!,
+        ?primaryId,
         ...loreIds,
       ];
 

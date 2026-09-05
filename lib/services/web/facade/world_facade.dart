@@ -380,7 +380,7 @@ class WorldFacade {
 
     // Older clients: flat places list (primary first, then lore).
     final places = <Map<String, dynamic>>[
-      if (primaryPlace != null) primaryPlace,
+      ?primaryPlace,
       ...lorePlaces,
     ];
 
@@ -397,7 +397,7 @@ class WorldFacade {
       'places': places,
       'lorePlaces': lorePlaces,
       'climateAuthors': climateAuthors,
-      if (weatherOff != null) 'weatherOff': weatherOff,
+      'weatherOff': ?weatherOff,
       'climateId': climate.id,
       'climateDisplayName': climate.displayName,
       'climateFeel': climate.feel,
