@@ -20,6 +20,7 @@ import 'package:front_porch_ai/services/desk/desk_session.dart';
 
 const kDeskTranscriptBudgetChars = 12000;
 const kDeskCompactKeep = 8;
+const kDeskRecapClipChars = 1500;
 
 /// Drop old turns into a recap. Extractive only — no invented filenames.
 List<DeskMessage> deskCompactTranscript(
@@ -32,11 +33,15 @@ List<DeskMessage> deskCompactTranscript(
     return List<DeskMessage>.from(msgs);
   }
   final dropped = msgs.length - keep;
+  final excerpt = msgs.take(dropped).map((m) => m.text).join('\n');
+  final clipped = excerpt.length <= kDeskRecapClipChars
+      ? excerpt
+      : '${excerpt.substring(0, kDeskRecapClipChars).trimRight()}\n…';
   final recap = DeskMessage(
     isUser: false,
     text:
         'Earlier recap: $dropped messages folded. Facts only from those '
-        'lines. Do not invent files.',
+        'lines. Do not invent files.\n$clipped',
   );
   return [recap, ...msgs.sublist(dropped)];
 }

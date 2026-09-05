@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-05 — fix(desk): extractive recap keeps folded filenames (slice G)
+- **Why:** Hostile review: recap said "facts only from those lines" but
+  dropped every line, so the next generate had nothing to be honest about
+  and could invent files.
+- **What:** Folded turns are copied into the recap, clipped to 1500
+  chars. Still must not invent names that were never in those lines.
+- **Files:** desk_compact.dart, test/services/desk/desk_g_holes_test.dart
+- **Verification:** holes test red (no hello.txt in recap) then green.
+
 ## 2026-09-05 — feat(desk): compaction, session resume, title (slice G)
 - **Why:** Long Desk sessions must not dump the whole transcript into
   the next generate, and Sit down again should resume the last folder
