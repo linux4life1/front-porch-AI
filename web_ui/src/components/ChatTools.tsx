@@ -79,6 +79,17 @@ interface ToolsState {
     lastIndex: number;
   };
   chaos: { enabled: boolean; nsfwEnabled: boolean; pressure: number; hasPendingEvent: boolean };
+  mcp?: {
+    servers: Array<{
+      id: string;
+      displayName: string;
+      status: string;
+      enabled: boolean;
+      enabledGlobal: boolean;
+      toolNames: string[];
+      conflictToolNames: string[];
+    }>;
+  };
   nsfw: { cooldownEnabled: boolean; cooldownTurnsRemaining: number; arousalLevel: number; arousalTier: string };
   // Ambitions (Living Time §6, additive — absent on older facades).
   // `step` is the open quest climbing this ambition (v46); null when none.
@@ -247,8 +258,8 @@ export function ChatTools({
   };
   const settings = (fields: Record<string, unknown>) =>
     apply(api.post<ToolsState>(`/api/chat/tools/settings${q}`, fields));
-  const toggle = (name: string, value: boolean) =>
-    apply(api.post<ToolsState>(`/api/chat/tools/toggle${q}`, { name, value }));
+  const toggle = (name: string, value: boolean, extra?: Record<string, unknown>) =>
+    apply(api.post<ToolsState>(`/api/chat/tools/toggle${q}`, { name, value, ...extra }));
   // The eraser: strike one wardrobe entry by hand — the same ✕ the desktop
   // chips have (a wrong entry must be one tap from corrected on every
   // surface). The endpoint answers with the fresh snapshot.
@@ -640,6 +651,29 @@ export function ChatTools({
           )}
         </div>
       </details>
+
+      {t.mcp && t.mcp.servers.length > 0 && (
+        <details className="tool-section">
+          <summary>MCP servers</summary>
+          <div className="tool-body">
+            <p className="muted small">Tools from a server only reach this chat when its switch is on.</p>
+            {t.mcp.servers.map((s) => (
+              <div key={s.id}>
+                <Toggle
+                  label={s.displayName}
+                  value={s.enabled}
+                  onChange={(v) => toggle('mcpServer', v, { serverId: s.id })}
+                />
+                <div className="muted small">
+                  {s.status}
+                  {s.toolNames.length ? ` · ${s.toolNames.join(', ')}` : ''}
+                  {s.conflictToolNames.length ? ' · collision' : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
 
       <ObjectivesPanel
         primary={obj}

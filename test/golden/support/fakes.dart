@@ -45,6 +45,7 @@ import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
+import 'package:front_porch_ai/services/mcp/mcp.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
@@ -333,6 +334,14 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   WebSearchService get webSearchService => _webSearch;
   @override
   bool get webSearchEnabled => _webSearch.isActive;
+  @override
+  Set<String> get mcpEnabledServerIds => const {};
+  @override
+  List<McpChatServerView> get mcpChatServers => const [];
+  @override
+  McpHub get mcpHub => McpHub(settings: McpSettings(), onNotify: () {});
+  @override
+  Future<void> setMcpServerEnabledForChat(String id, bool enabled) async {}
   @override
   NeedsSimulation get needsSimulation => _needs;
   @override

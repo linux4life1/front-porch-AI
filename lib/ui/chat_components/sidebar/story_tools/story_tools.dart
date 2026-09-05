@@ -30,6 +30,7 @@ export 'chaos_panel.dart';
 export 'chat_places_panel.dart';
 export 'lorebook_chat_book.dart';
 export 'lorebook_panel.dart';
+export 'mcp_panel.dart';
 export 'objective_add_goal.dart';
 export 'objective_panel.dart';
 export 'objective_task_row.dart';

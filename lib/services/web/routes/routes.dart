@@ -12,6 +12,7 @@ export 'chat_package_routes.dart';
 export 'chat_routes.dart';
 export 'chat_tools_routes.dart';
 export 'group_routes.dart';
+export 'mcp_routes.dart';
 export 'remote_routes.dart';
 export 'settings_routes.dart';
 export 'static_routes.dart';

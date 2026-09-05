@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-09-04 — feat(mcp): in-process MCP client (v2 first leg)
+- **Why:** Front Porch should be an MCP *client* so a character can drive
+  anything that already speaks MCP (Docker, weather, calendar) without a
+  sidecar or a per-domain plugin. Search v1 stays one catalog entry.
+- **What:** Streamable HTTP + SSE client (`tools/list`, `tools/call`) with
+  `[MCP]` wire logs; unified flat catalog (in-process ∪ per-chat enabled
+  servers; first-connected wins collisions, no auto-prefix); persisted
+  server list; character-as-UI injection + empty-result fragment; one
+  tools round-trip on the existing generation path; desktop Settings tab +
+  sidebar toggles; web Settings + chat tools + `mcp_receipt` chip. Global
+  default off; four seed sites; disabled-server calls are no-ops.
+- **Files:** `lib/services/mcp/*`; `mcp_injection.dart`; generation request
+  catalog wiring; four seed sites; Settings MCP tab; sidebar panel; web
+  facade/routes + `web_ui` Settings/ChatTools/ChipsRow; tests under
+  `test/services/mcp/`.
+- **Verification:** Collision guard proven red (last-connected wins →
+  expected `a` actual `b`) then green. MCP + web_search suites 38/38.
+  `flutter analyze --no-pub --no-fatal-warnings --no-fatal-infos` 0 errors.
+
 ## 2026-09-04 — fix(ci): restore secure-storage desktop builds
 - **Why:** `flutter_secure_storage_linux` requires libsecret headers while
   CMake configures the plugin, but the Linux E2E runners did not install them.

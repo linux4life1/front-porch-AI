@@ -40,6 +40,10 @@ extension _BubbleRealism on _MessageBubbleState {
     final searchReceipt = metadata['search_receipt'] as Map<String, dynamic>?;
     final searchQuery = (searchReceipt?['query'] as String?)?.trim() ?? '';
     final searchOk = searchReceipt?['ok'] == true;
+    final mcpReceipt = metadata['mcp_receipt'] as Map<String, dynamic>?;
+    final mcpTool = (mcpReceipt?['tool'] as String?)?.trim() ?? '';
+    final mcpServer = (mcpReceipt?['server'] as String?)?.trim() ?? '';
+    final mcpOk = mcpReceipt?['ok'] == true;
     final needsDeltas = metadata['needs_deltas'] as Map<String, dynamic>?;
 
     // Pockets & Wardrobe receipts, read BEFORE the early return below: Pockets
@@ -73,7 +77,8 @@ extension _BubbleRealism on _MessageBubbleState {
         !timeReversal &&
         verifStatus.isEmpty &&
         pocketReceipts.isEmpty &&
-        searchQuery.isEmpty) {
+        searchQuery.isEmpty &&
+        mcpTool.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -406,6 +411,33 @@ extension _BubbleRealism on _MessageBubbleState {
           searchOk
               ? 'Looked up: $searchQuery'
               : 'Looked up "$searchQuery" — nothing reliable',
+        ),
+      );
+    }
+
+    if (mcpTool.isNotEmpty) {
+      final amber = AppColors.porchAmberOf(context);
+      final label = mcpOk ? mcpTool : '$mcpTool — nothing';
+      chips.add(
+        maybeTooltip(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.extension, size: 11, color: amber),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: amber,
+                ),
+              ),
+            ],
+          ),
+          mcpOk
+              ? '${mcpServer.isEmpty ? 'Tool' : mcpServer}: $mcpTool'
+              : '${mcpServer.isEmpty ? mcpTool : '$mcpServer · $mcpTool'} returned nothing useful',
         ),
       );
     }

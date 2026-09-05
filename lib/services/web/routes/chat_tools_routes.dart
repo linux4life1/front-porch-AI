@@ -106,6 +106,14 @@ class WebChatToolsRoutes {
     // The one tri-state control rides the same endpoint with a string value
     // (additive: every bool case below is unchanged, and the old
     // 'oneShotEval' bool alias keeps working for older bundles).
+    if (name == 'mcpServer') {
+      final id = body['serverId']?.toString() ?? '';
+      if (id.isEmpty || value is! bool) {
+        return JsonResponse.badRequest('serverId and bool value are required');
+      }
+      await _facade.setMcpServerEnabled(id, value);
+      return JsonResponse.ok(_snapshot(request));
+    }
     if (name == 'oneShotMode') {
       final mode = switch (value) {
         'auto' => OneShotMode.auto,

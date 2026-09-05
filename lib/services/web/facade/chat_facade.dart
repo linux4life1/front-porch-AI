@@ -392,6 +392,15 @@ class ChatFacade {
         out['searchOk'] = search['ok'] == true;
       }
     }
+    final mcp = md['mcp_receipt'];
+    if (mcp is Map) {
+      final tool = (mcp['tool'] as String?)?.trim() ?? '';
+      if (tool.isNotEmpty) {
+        out['mcpTool'] = tool;
+        out['mcpServer'] = (mcp['server'] as String?)?.trim() ?? '';
+        out['mcpOk'] = mcp['ok'] == true;
+      }
+    }
     return out.isEmpty ? null : out;
   }
 

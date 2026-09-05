@@ -47,6 +47,7 @@ import 'package:front_porch_ai/services/storage/settings/generation_settings.dar
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/web_search_settings.dart';
+import 'package:front_porch_ai/services/mcp/mcp_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Minimal [StorageService] double. Implements only the getters that widget
@@ -209,6 +210,9 @@ class FakeStorageService extends ChangeNotifier implements StorageService {
   @override
   WebSearchSettings get webSearchSettings => _webSearchSettings;
   final _webSearchSettings = WebSearchSettings();
+  @override
+  McpSettings get mcpSettings => _mcpSettings;
+  final _mcpSettings = McpSettings();
 
   // Porch Life reads this in build(). Added with the v45 Objectives switch:
   // this fake tracks StorageService's surface, and a getter the real class

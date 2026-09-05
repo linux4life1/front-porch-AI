@@ -41,6 +41,7 @@ class SettingsFacade {
   /// tab's onChanged does. Null-safe — with no chat bound, the write still
   /// lands in storage and applies to the next one.
   final ChatService? _chat;
+  ChatService? get boundChat => _chat;
 
   static const List<String> backends = ['kobold', 'openRouter', 'omlx'];
 

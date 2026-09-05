@@ -7,6 +7,7 @@ import { PersonaManager } from '../components/PersonaManager';
 import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
+import { McpSettings } from '../components/McpSettings';
 import { ModelTransportCard } from '../components/ModelTransportCard';
 import { applySpellCheckLang } from '../spellCheckLang';
 import {
@@ -294,6 +295,8 @@ export function SettingsPage() {
       <ChatColorsSettings />
 
       <PorchLifeSettings />
+
+      <McpSettings />
 
       <section className="card">
         <h3>Model &amp; backend</h3>
