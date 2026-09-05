@@ -248,6 +248,10 @@ extension AppDatabaseMaintenance on AppDatabase {
         // existing worlds keep climate; 0 is a lorebook-only bookshelf.
         'climate_enabled INTEGER NOT NULL DEFAULT 1',
       ],
+      'chat_worlds': [
+        // v52 — Setting vs Lore role. DEFAULT 0 (lore).
+        'is_primary INTEGER NOT NULL DEFAULT 0',
+      ],
       'group_members': [
         // Per current GroupMembers Dart definition + created_at (to match the repair-path CREATE TABLE).
         // This gives the PRAGMA+ALTER+backup guard for any future columns added to the table

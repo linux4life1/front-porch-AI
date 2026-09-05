@@ -884,5 +884,44 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 52) {
+      // v51→v52: per-chat Setting (Primary) vs Lore role on attachments.
+      // DEFAULT 0 (lore). Backfill: for each chat, first attached world
+      // (by sort_order) whose worlds.climate_enabled=1 becomes primary;
+      // if none are climate-enabled, Primary stays empty (all lore).
+      try {
+        await customStatement(
+          'ALTER TABLE chat_worlds ADD COLUMN is_primary '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+        debugPrint('[DB] v52: added chat_worlds.is_primary');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+      try {
+        await customStatement(
+          'UPDATE chat_worlds '
+          'SET is_primary = 1 '
+          'WHERE id IN ('
+          '  SELECT cw.id '
+          '  FROM chat_worlds cw '
+          '  INNER JOIN worlds w ON w.id = cw.world_id '
+          '  WHERE w.climate_enabled = 1 '
+          '    AND cw.id = ('
+          '      SELECT cw2.id '
+          '      FROM chat_worlds cw2 '
+          '      INNER JOIN worlds w2 ON w2.id = cw2.world_id '
+          '      WHERE cw2.chat_id = cw.chat_id '
+          '        AND w2.climate_enabled = 1 '
+          '      ORDER BY cw2.sort_order ASC, cw2.id ASC '
+          '      LIMIT 1'
+          '    )'
+          ')',
+        );
+        debugPrint('[DB] v52: backfilled chat_worlds.is_primary');
+      } catch (e) {
+        debugPrint('[DB] v52: is_primary backfill skipped: $e');
+      }
+    }
   }
 }

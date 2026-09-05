@@ -47,6 +47,7 @@ export 'lorebook_export.dart';
 export 'output_sanitizer_rule.dart';
 export 'story_project.dart';
 export 'world.dart';
+export 'chat_place_slots.dart';
 export 'fp_world_package.dart';
 export 'needs_impact.dart';
 export 'hardware_info.dart';

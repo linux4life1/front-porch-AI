@@ -565,6 +565,8 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   /// Living Worlds: UUIDs of worlds attached to the current session.
   /// Loaded on session open; group template seeds new chats.
   List<String> _chatWorldIds = const [];
+  String? _chatPrimaryWorldId;
+  List<String> _chatLoreWorldIds = const [];
 
   /// Hydrated mid-chat climate spans + world default (Living Worlds phase 1).
   BiomeSchedule _biomeSchedule = const BiomeSchedule();

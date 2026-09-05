@@ -97,7 +97,14 @@ extension ChatServiceAccessors on ChatService {
       .toSet();
 
   /// Public attach surface for chat tools / UI (Living Worlds).
+  /// Primary-first then lore (compatible with lore collectors).
   List<String> get chatWorldIds => List.unmodifiable(_chatWorldIds);
+
+  /// Setting slot (0..1) — owns weather / room description for this chat.
+  String? get chatPrimaryWorldId => _chatPrimaryWorldId;
+
+  /// Lore slots (0..N) — lorebook entries only; never drive weather.
+  List<String> get chatLoreWorldIds => List.unmodifiable(_chatLoreWorldIds);
 
   /// Coarse absence bucket ("a few days"), or null under the threshold /
   /// fresh chat. Words only — never digits (see AbsenceTracker).
@@ -452,13 +459,12 @@ extension ChatServiceAccessors on ChatService {
     if (!_clockRunning || !_storageService.weatherEnabled) {
       return null;
     }
-    // Per-world plug: lorebook-only attached worlds silence the weather
-    // machine. Upcoming + segment getters already return null when this
-    // does, so one gate covers the whole pipeline.
-    final attached = <World>[
-      for (final id in _chatWorldIds) ?_worldRepository.resolveWorld(id),
-    ];
-    if (!attachedWorldsAllowClimate(attached)) {
+    // Primary owns weather. Empty Primary OR climate-off Primary ⇒ off.
+    // Lore climate-on (e.g. Mars in Lore) never turns weather on.
+    final primary = _chatPrimaryWorldId == null
+        ? null
+        : _worldRepository.resolveWorld(_chatPrimaryWorldId!);
+    if (!primaryWorldAllowsClimate(primary)) {
       return null;
     }
     final seed = _currentSessionId;

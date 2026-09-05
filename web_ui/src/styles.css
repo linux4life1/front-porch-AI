@@ -952,6 +952,34 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   font-size: 0.8rem;
 }
+.chat-place-chip.setting {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.chat-place-chip.lore {
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+  background: transparent;
+}
+.chat-place-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  color: var(--muted, #888);
+}
+.chat-place-pill.setting {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.chat-place-empty {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
 @media (max-width: 640px) {
   .msg-edit-modal {
     width: 100vw; height: 100dvh; max-height: 100dvh;

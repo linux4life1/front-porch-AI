@@ -140,6 +140,8 @@ extension ChatServiceWiringInjection on ChatService {
     final sid = _currentSessionId;
     if (sid == null) {
       _chatWorldIds = const [];
+      _chatPrimaryWorldId = null;
+      _chatLoreWorldIds = const [];
       _biomeSchedule = const BiomeSchedule();
       return;
     }
@@ -157,10 +159,15 @@ extension ChatServiceWiringInjection on ChatService {
           characterWorldRefs: refs,
         );
       }
-      _chatWorldIds = await _worldRepository.getChatWorldIds(sid);
+      final slots = await _worldRepository.getChatWorldAttachments(sid);
+      _chatPrimaryWorldId = slots.primaryId;
+      _chatLoreWorldIds = List.unmodifiable(slots.loreIds);
+      _chatWorldIds = List.unmodifiable(slots.allIds);
     } catch (e) {
       debugPrint('[ChatService] chat world load failed: $e');
       _chatWorldIds = const [];
+      _chatPrimaryWorldId = null;
+      _chatLoreWorldIds = const [];
     }
     await _reloadBiomeSchedule();
   }
@@ -186,16 +193,71 @@ extension ChatServiceWiringInjection on ChatService {
   Future<void> setChatWorldIds(List<String> worldIds) async {
     final sid = _currentSessionId;
     if (sid == null) return;
-    await _worldRepository.setChatWorlds(sid, worldIds);
-    _chatWorldIds = List.unmodifiable(worldIds);
+    // Flat list:
+    // - Primary still listed → keep role, remaining become lore (no auto-promote).
+    // - Primary empty → seed-style partition (first climate-on → Setting).
+    // - Primary dropped from list → stay empty; all listed ids are lore.
+    if (_chatPrimaryWorldId != null &&
+        worldIds.contains(_chatPrimaryWorldId)) {
+      await setChatPlaceSlots(
+        primaryId: _chatPrimaryWorldId,
+        loreIds: [
+          for (final id in worldIds)
+            if (id != _chatPrimaryWorldId) id,
+        ],
+      );
+      return;
+    }
+    if (_chatPrimaryWorldId == null) {
+      final slots = partitionLinkedPlaces(
+        worldIds: worldIds,
+        isClimateEnabled: (id) =>
+            _worldRepository.resolveWorld(id)?.climateEnabled ?? false,
+      );
+      await setChatPlaceSlots(
+        primaryId: slots.primaryId,
+        loreIds: slots.loreIds,
+      );
+      return;
+    }
+    await setChatPlaceSlots(primaryId: null, loreIds: worldIds);
+  }
+
+  /// Setting + Lore writer (Story Tools / web). Empty both = decided empty.
+  Future<void> setChatPlaceSlots({
+    String? primaryId,
+    List<String> loreIds = const [],
+  }) async {
+    final sid = _currentSessionId;
+    if (sid == null) return;
+    await _worldRepository.setChatWorldAttachments(
+      sid,
+      primaryId: primaryId,
+      loreIds: loreIds,
+    );
+    _chatPrimaryWorldId =
+        (primaryId != null && primaryId.isNotEmpty) ? primaryId : null;
+    _chatLoreWorldIds = List.unmodifiable([
+      for (final id in loreIds)
+        if (id.isNotEmpty && id != _chatPrimaryWorldId) id,
+    ]);
+    _chatWorldIds = List.unmodifiable([
+      if (_chatPrimaryWorldId != null) _chatPrimaryWorldId!,
+      ..._chatLoreWorldIds,
+    ]);
     await _reloadBiomeSchedule();
     notifyListeners();
   }
 
   /// Insert a mid-chat climate changeover from [dayCount] onward.
+  /// No-op when Primary is empty or climate-off (lore never authors climate).
   Future<void> setChatClimate(Biome biome) async {
     final sid = _currentSessionId;
     if (sid == null) return;
+    final primary = _chatPrimaryWorldId == null
+        ? null
+        : _worldRepository.resolveWorld(_chatPrimaryWorldId!);
+    if (!primaryWorldAllowsClimate(primary)) return;
     final day = _timeService.dayCount < 1 ? 1 : _timeService.dayCount;
     await _worldRepository.setChatBiome(
       chatId: sid,
@@ -216,7 +278,8 @@ extension ChatServiceWiringInjection on ChatService {
       chatLorebook: _loreTimedEffects.chatLorebook,
       groupLorebook: _activeGroupLorebook,
       chatWorldIds: _chatWorldIds,
-      groupWorldNames: _activeGroup?.worldIds ?? const [],
+      // Decided empty must stay empty — never ghost to group.worldIds.
+      groupWorldNames: const [],
       resolveWorld: _worldRepository.resolveWorld,
       inherit:
           inheritOverride ?? (_activeGroup?.inheritCharacterLorebooks ?? true),
@@ -320,36 +383,19 @@ extension ChatServiceWiringInjection on ChatService {
   TimeInjection _buildTimeInjection() =>
       TimeInjection(timeService: _timeService);
 
-  /// Climate from the first attached world that carries one (Living Worlds).
-  /// Used as the schedule default when no mid-chat span covers a day.
-  /// Temperate when nothing is attached — byte-identical to pre-biome weather.
+  /// Climate from the Primary setting only (Living Worlds).
+  /// Lore attachments never author the schedule default. Group.worldIds
+  /// ghost removed — decided empty stays empty. Temperate is a schedule
+  /// placeholder only; the weather gate stays off when Primary is empty
+  /// or climate-off.
   Biome get _worldDefaultBiome {
-    World? pick(String ref) => _worldRepository.resolveWorld(ref);
-    // A custom climate is branded 'world:<id>' so every climate picker can
-    // match the active climate to its option by id alone.
-    Biome resolveFor(World w) {
-      final b = Biome.resolve(biomeId: w.biomeId, biomeJson: w.biomeJson);
-      return w.biomeJson != null ? b.withId('world:${w.id}') : b;
-    }
-
-    for (final id in _chatWorldIds) {
-      final w = pick(id);
-      if (w == null || !w.climateEnabled) continue;
-      if (w.biomeId != null || w.biomeJson != null) {
-        return resolveFor(w);
-      }
-    }
-    final group = _activeGroup;
-    if (group != null) {
-      for (final ref in group.worldIds) {
-        final w = pick(ref);
-        if (w == null || !w.climateEnabled) continue;
-        if (w.biomeId != null || w.biomeJson != null) {
-          return resolveFor(w);
-        }
-      }
-    }
-    return Biome.temperate;
+    final id = _chatPrimaryWorldId;
+    if (id == null) return Biome.temperate;
+    final w = _worldRepository.resolveWorld(id);
+    if (w == null || !w.climateEnabled) return Biome.temperate;
+    if (w.biomeId == null && w.biomeJson == null) return Biome.temperate;
+    final b = Biome.resolve(biomeId: w.biomeId, biomeJson: w.biomeJson);
+    return w.biomeJson != null ? b.withId('world:${w.id}') : b;
   }
 
   Biome _biomeAtDay(int day) => _biomeSchedule.biomeAt(day);

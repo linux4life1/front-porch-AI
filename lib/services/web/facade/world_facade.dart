@@ -333,67 +333,126 @@ class WorldFacade {
     if (chat == null || chat.currentSessionId == null) {
       return {
         'worldIds': <String>[],
+        'primaryId': null,
         'places': <Map<String, dynamic>>[],
+        'lorePlaces': <Map<String, dynamic>>[],
+        'climateAuthors': false,
+        'weatherOff': 'no_setting',
         'climateId': 'temperate',
         'climateDisplayName': Biome.temperate.displayName,
         'climateFeel': Biome.temperate.feel,
         'dayCount': 1,
+        'climateOptions': <Map<String, dynamic>>[],
       };
     }
+    final primaryId = chat.chatPrimaryWorldId;
+    final loreIds = chat.chatLoreWorldIds;
     final ids = chat.chatWorldIds;
-    final places = <Map<String, dynamic>>[];
-    for (final id in ids) {
-      final w = _worlds.resolveWorld(id);
-      if (w == null) continue;
-      places.add({
+
+    Map<String, dynamic> placeJson(World w, {required String role}) {
+      return {
         'id': w.id,
         'name': w.name,
-        // 'custom' is truthful for a place authoring its own climate —
-        // reporting 'temperate' misled anything trusting this field.
-        // Lorebook-only (climate-off) worlds omit biomeId entirely.
+        'role': role,
+        'climateEnabled': w.climateEnabled,
         if (w.climateEnabled)
           'biomeId': w.biomeJson != null
               ? 'custom'
               : (w.biomeId ?? 'temperate'),
         'hasCustomClimate': w.climateEnabled && w.biomeJson != null,
         'description': w.description,
-      });
+      };
     }
+
+    Map<String, dynamic>? primaryPlace;
+    final primaryWorld =
+        primaryId == null ? null : _worlds.resolveWorld(primaryId);
+    if (primaryWorld != null) {
+      primaryPlace = placeJson(primaryWorld, role: 'primary');
+    }
+
+    final lorePlaces = <Map<String, dynamic>>[];
+    for (final id in loreIds) {
+      final w = _worlds.resolveWorld(id);
+      if (w == null) continue;
+      lorePlaces.add(placeJson(w, role: 'lore'));
+    }
+
+    // Older clients: flat places list (primary first, then lore).
+    final places = <Map<String, dynamic>>[
+      if (primaryPlace != null) primaryPlace,
+      ...lorePlaces,
+    ];
+
+    final climateAuthors = primaryWorldAllowsClimate(primaryWorld);
+    final String? weatherOff = primaryId == null
+        ? 'no_setting'
+        : (!climateAuthors ? 'setting_lore_only' : null);
+
     final climate = chat.activeChatBiome;
     return {
       'worldIds': ids,
+      'primaryId': primaryId,
+      'primary': primaryPlace,
       'places': places,
+      'lorePlaces': lorePlaces,
+      'climateAuthors': climateAuthors,
+      if (weatherOff != null) 'weatherOff': weatherOff,
       'climateId': climate.id,
       'climateDisplayName': climate.displayName,
       'climateFeel': climate.feel,
       'dayCount': chat.timeService.dayCount,
-      // Selectable climates for THIS chat: built-ins + any attached place
-      // authoring its own ('world:<id>' scheme, shared with the desktop
-      // panel). Additive — older bundles ignore it.
+      // Built-ins + Primary custom only (never lore climate-on).
       'climateOptions': [
-        for (final b in Biome.builtIns)
-          {'id': b.id, 'displayName': b.displayName},
-        for (final id in ids)
-          if (_worlds.resolveWorld(id) case final w?)
-            if (w.climateEnabled &&
-                w.biomeJson != null &&
-                Biome.tryParse(w.biomeJson) != null)
-              {'id': 'world:${w.id}', 'displayName': '${w.name} (custom)'},
+        if (climateAuthors) ...[
+          for (final b in Biome.builtIns)
+            {'id': b.id, 'displayName': b.displayName},
+          if (primaryWorld != null &&
+              primaryWorld.biomeJson != null &&
+              Biome.tryParse(primaryWorld.biomeJson) != null)
+            {
+              'id': 'world:${primaryWorld.id}',
+              'displayName': '${primaryWorld.name} (custom)',
+            },
+        ],
       ],
     };
   }
 
-  Future<Map<String, dynamic>> setChatPlaces(List<String> worldIds) async {
+  Future<Map<String, dynamic>> setChatPlaces(
+    List<String> worldIds, {
+    String? primaryId,
+    List<String>? loreIds,
+  }) async {
     final chat = _chat;
     if (chat == null || chat.currentSessionId == null) {
       return {'ok': false, 'error': 'No active chat'};
     }
-    // Resolve names → ids; only places.
+
+    String? resolveRef(String ref) {
+      final w = _worlds.resolveWorld(ref);
+      if (w == null || isCharacterLinkedWorld(w)) return null;
+      return w.id;
+    }
+
+    if (primaryId != null || loreIds != null) {
+      final p = primaryId == null || primaryId.isEmpty
+          ? null
+          : resolveRef(primaryId);
+      final lore = <String>[];
+      for (final ref in loreIds ?? const <String>[]) {
+        final id = resolveRef(ref);
+        if (id != null && id != p && !lore.contains(id)) lore.add(id);
+      }
+      await chat.setChatPlaceSlots(primaryId: p, loreIds: lore);
+      return {'ok': true, ...chatPlaces()};
+    }
+
+    // Legacy flat worldIds: preserve Primary if still listed; else all lore.
     final resolved = <String>[];
     for (final ref in worldIds) {
-      final w = _worlds.resolveWorld(ref);
-      if (w == null || isCharacterLinkedWorld(w)) continue;
-      if (!resolved.contains(w.id)) resolved.add(w.id);
+      final id = resolveRef(ref);
+      if (id != null && !resolved.contains(id)) resolved.add(id);
     }
     await chat.setChatWorldIds(resolved);
     return {'ok': true, ...chatPlaces()};
@@ -405,15 +464,22 @@ class WorldFacade {
     if (chat == null || chat.currentSessionId == null) {
       return {'ok': false, 'error': 'No active chat'};
     }
-    // Unknown ids error out rather than silently becoming temperate — a
-    // typo'd climate must not look like a successful switch.
+    final primaryId = chat.chatPrimaryWorldId;
+    final primary =
+        primaryId == null ? null : _worlds.resolveWorld(primaryId);
+    if (!primaryWorldAllowsClimate(primary)) {
+      return {
+        'ok': false,
+        'error': primaryId == null
+            ? 'No setting — weather stays off'
+            : 'This setting is lore-only — no weather',
+      };
+    }
     Biome? biome = Biome.builtInById(biomeId);
     if (biome == null && biomeId.startsWith('world:')) {
-      // An attached place's custom climate ('world:<id>', same scheme as
-      // the desktop Places panel). Branded with the option id so the
-      // active climate matches its picker option exactly on every surface.
+      // Custom climate only from the Primary setting.
       final w = _worlds.resolveWorld(biomeId.substring(6));
-      if (w != null && chat.chatWorldIds.contains(w.id)) {
+      if (w != null && w.id == primaryId) {
         biome = Biome.tryParse(w.biomeJson)?.withId('world:${w.id}');
       }
     }

@@ -45,30 +45,95 @@ extension AppDatabaseWorldQueries on AppDatabase {
 
   // ── Chat worlds / biome spans (Living Worlds) ───────────────────────
 
+  /// Primary-first then lore (sort_order). Compatible with lore collectors.
   Future<List<String>> getWorldIdsForChat(String chatId) async {
+    final slots = await getChatWorldAttachments(chatId);
+    return slots.allIds;
+  }
+
+  /// Setting + Lore attachments for a chat.
+  Future<ChatPlaceSlots> getChatWorldAttachments(String chatId) async {
     final rows = await (select(chatWorlds)
           ..where((t) => t.chatId.equals(chatId))
           ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
         .get();
-    return [for (final r in rows) r.worldId];
+    String? primaryId;
+    final loreIds = <String>[];
+    for (final r in rows) {
+      if (r.isPrimary && primaryId == null) {
+        primaryId = r.worldId;
+      } else {
+        loreIds.add(r.worldId);
+      }
+    }
+    return ChatPlaceSlots(primaryId: primaryId, loreIds: loreIds);
   }
 
-  Future<void> setChatWorlds(String chatId, List<String> worldIds) async {
+  /// Write Setting + Lore roles. Primary uses sort_order -1; lore is 0..N.
+  /// Empty primaryId + empty loreIds = decided empty (no ghost group fallback).
+  Future<void> setChatWorldAttachments(
+    String chatId, {
+    String? primaryId,
+    List<String> loreIds = const [],
+  }) async {
+    // Drop primary from lore if duplicated.
+    final cleanLore = [
+      for (final id in loreIds)
+        if (id.isNotEmpty && id != primaryId) id,
+    ];
+    final primary =
+        (primaryId != null && primaryId.isNotEmpty) ? primaryId : null;
     await transaction(() async {
       await (delete(chatWorlds)..where((t) => t.chatId.equals(chatId))).go();
+      if (primary != null) {
+        await into(chatWorlds).insert(
+          ChatWorldsCompanion.insert(
+            id: _uuid.v4(),
+            chatId: chatId,
+            worldId: primary,
+            sortOrder: const Value(-1),
+            isPrimary: const Value(true),
+          ),
+        );
+      }
       var order = 0;
-      for (final wid in worldIds) {
+      for (final wid in cleanLore) {
         await into(chatWorlds).insert(
           ChatWorldsCompanion.insert(
             id: _uuid.v4(),
             chatId: chatId,
             worldId: wid,
             sortOrder: Value(order++),
+            isPrimary: const Value(false),
           ),
         );
       }
     });
     await bumpSyncVersion();
+  }
+
+  /// Legacy flat writer — partitions by climate_enabled for seed callers.
+  /// Prefer [setChatWorldAttachments] when roles are known.
+  Future<void> setChatWorlds(String chatId, List<String> worldIds) async {
+    // Resolve climate flags for partition (seed / backfill path).
+    final climateOn = <String>{};
+    if (worldIds.isNotEmpty) {
+      final worlds = await (select(this.worlds)
+            ..where((w) => w.id.isIn(worldIds)))
+          .get();
+      for (final w in worlds) {
+        if (w.climateEnabled) climateOn.add(w.id);
+      }
+    }
+    final slots = partitionLinkedPlaces(
+      worldIds: worldIds,
+      isClimateEnabled: climateOn.contains,
+    );
+    await setChatWorldAttachments(
+      chatId,
+      primaryId: slots.primaryId,
+      loreIds: slots.loreIds,
+    );
   }
 
   Future<void> deleteChatWorldLinksForWorld(String worldId) async {

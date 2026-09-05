@@ -8640,6 +8640,21 @@ class $ChatWorldsTable extends ChatWorlds
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _isPrimaryMeta = const VerificationMeta(
+    'isPrimary',
+  );
+  @override
+  late final GeneratedColumn<bool> isPrimary = GeneratedColumn<bool>(
+    'is_primary',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_primary" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -8658,6 +8673,7 @@ class $ChatWorldsTable extends ChatWorlds
     chatId,
     worldId,
     sortOrder,
+    isPrimary,
     createdAt,
   ];
   @override
@@ -8699,6 +8715,12 @@ class $ChatWorldsTable extends ChatWorlds
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('is_primary')) {
+      context.handle(
+        _isPrimaryMeta,
+        isPrimary.isAcceptableOrUnknown(data['is_primary']!, _isPrimaryMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -8730,6 +8752,10 @@ class $ChatWorldsTable extends ChatWorlds
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      isPrimary: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_primary'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -8748,12 +8774,14 @@ class ChatWorld extends DataClass implements Insertable<ChatWorld> {
   final String chatId;
   final String worldId;
   final int sortOrder;
+  final bool isPrimary;
   final DateTime createdAt;
   const ChatWorld({
     required this.id,
     required this.chatId,
     required this.worldId,
     required this.sortOrder,
+    required this.isPrimary,
     required this.createdAt,
   });
   @override
@@ -8763,6 +8791,7 @@ class ChatWorld extends DataClass implements Insertable<ChatWorld> {
     map['chat_id'] = Variable<String>(chatId);
     map['world_id'] = Variable<String>(worldId);
     map['sort_order'] = Variable<int>(sortOrder);
+    map['is_primary'] = Variable<bool>(isPrimary);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -8773,6 +8802,7 @@ class ChatWorld extends DataClass implements Insertable<ChatWorld> {
       chatId: Value(chatId),
       worldId: Value(worldId),
       sortOrder: Value(sortOrder),
+      isPrimary: Value(isPrimary),
       createdAt: Value(createdAt),
     );
   }
@@ -8787,6 +8817,7 @@ class ChatWorld extends DataClass implements Insertable<ChatWorld> {
       chatId: serializer.fromJson<String>(json['chatId']),
       worldId: serializer.fromJson<String>(json['worldId']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      isPrimary: serializer.fromJson<bool>(json['isPrimary']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -8798,6 +8829,7 @@ class ChatWorld extends DataClass implements Insertable<ChatWorld> {
       'chatId': serializer.toJson<String>(chatId),
       'worldId': serializer.toJson<String>(worldId),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'isPrimary': serializer.toJson<bool>(isPrimary),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -8807,12 +8839,14 @@ class ChatWorld extends DataClass implements Insertable<ChatWorld> {
     String? chatId,
     String? worldId,
     int? sortOrder,
+    bool? isPrimary,
     DateTime? createdAt,
   }) => ChatWorld(
     id: id ?? this.id,
     chatId: chatId ?? this.chatId,
     worldId: worldId ?? this.worldId,
     sortOrder: sortOrder ?? this.sortOrder,
+    isPrimary: isPrimary ?? this.isPrimary,
     createdAt: createdAt ?? this.createdAt,
   );
   ChatWorld copyWithCompanion(ChatWorldsCompanion data) {
@@ -8821,6 +8855,7 @@ class ChatWorld extends DataClass implements Insertable<ChatWorld> {
       chatId: data.chatId.present ? data.chatId.value : this.chatId,
       worldId: data.worldId.present ? data.worldId.value : this.worldId,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      isPrimary: data.isPrimary.present ? data.isPrimary.value : this.isPrimary,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -8832,13 +8867,15 @@ class ChatWorld extends DataClass implements Insertable<ChatWorld> {
           ..write('chatId: $chatId, ')
           ..write('worldId: $worldId, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('isPrimary: $isPrimary, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, chatId, worldId, sortOrder, createdAt);
+  int get hashCode =>
+      Object.hash(id, chatId, worldId, sortOrder, isPrimary, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -8847,6 +8884,7 @@ class ChatWorld extends DataClass implements Insertable<ChatWorld> {
           other.chatId == this.chatId &&
           other.worldId == this.worldId &&
           other.sortOrder == this.sortOrder &&
+          other.isPrimary == this.isPrimary &&
           other.createdAt == this.createdAt);
 }
 
@@ -8855,6 +8893,7 @@ class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
   final Value<String> chatId;
   final Value<String> worldId;
   final Value<int> sortOrder;
+  final Value<bool> isPrimary;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const ChatWorldsCompanion({
@@ -8862,6 +8901,7 @@ class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
     this.chatId = const Value.absent(),
     this.worldId = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.isPrimary = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -8870,6 +8910,7 @@ class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
     required String chatId,
     required String worldId,
     this.sortOrder = const Value.absent(),
+    this.isPrimary = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -8880,6 +8921,7 @@ class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
     Expression<String>? chatId,
     Expression<String>? worldId,
     Expression<int>? sortOrder,
+    Expression<bool>? isPrimary,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -8888,6 +8930,7 @@ class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
       if (chatId != null) 'chat_id': chatId,
       if (worldId != null) 'world_id': worldId,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (isPrimary != null) 'is_primary': isPrimary,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -8898,6 +8941,7 @@ class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
     Value<String>? chatId,
     Value<String>? worldId,
     Value<int>? sortOrder,
+    Value<bool>? isPrimary,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -8906,6 +8950,7 @@ class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
       chatId: chatId ?? this.chatId,
       worldId: worldId ?? this.worldId,
       sortOrder: sortOrder ?? this.sortOrder,
+      isPrimary: isPrimary ?? this.isPrimary,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -8926,6 +8971,9 @@ class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (isPrimary.present) {
+      map['is_primary'] = Variable<bool>(isPrimary.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -8942,6 +8990,7 @@ class ChatWorldsCompanion extends UpdateCompanion<ChatWorld> {
           ..write('chatId: $chatId, ')
           ..write('worldId: $worldId, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('isPrimary: $isPrimary, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))

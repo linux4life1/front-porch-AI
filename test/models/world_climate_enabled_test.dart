@@ -85,8 +85,8 @@ void main() {
       climateEnabled: climate,
     );
 
-    test('no attached worlds keeps the temperate default running', () {
-      expect(attachedWorldsAllowClimate(const []), isTrue);
+    test('no attached worlds turns weather off (Primary empty)', () {
+      expect(attachedWorldsAllowClimate(const []), isFalse);
     });
 
     test('a climate-on world keeps weather running', () {
