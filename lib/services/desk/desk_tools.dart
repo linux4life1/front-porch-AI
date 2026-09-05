@@ -27,6 +27,10 @@ const kDeskToolWrite = 'write';
 const kDeskToolGlob = 'glob';
 const kDeskToolGrep = 'grep';
 const kDeskToolBash = 'bash';
+const kDeskToolTodoRead = 'todoread';
+const kDeskToolTodoWrite = 'todowrite';
+const kDeskToolQuestion = 'question';
+const kDeskToolSkill = 'skill';
 
 /// File tools plus bash. Plan/Build/Yolo gating is DeskPermissions.
 final List<Map<String, dynamic>> kDeskFileTools = [
@@ -86,6 +90,38 @@ final List<Map<String, dynamic>> kDeskFileTools = [
     },
     const ['command'],
   ),
+  _fn(kDeskToolTodoRead, 'Read the current todo list.', const {}, const []),
+  _fn(
+    kDeskToolTodoWrite,
+    'Replace the todo list. Each item: id, content, status.',
+    {
+      'todos': {
+        'type': 'array',
+        'items': {'type': 'object'},
+      },
+    },
+    const ['todos'],
+  ),
+  _fn(
+    kDeskToolQuestion,
+    'Ask the user a question with optional choices. Pauses until they answer.',
+    {
+      'prompt': {'type': 'string'},
+      'choices': {
+        'type': 'array',
+        'items': {'type': 'string'},
+      },
+    },
+    const ['prompt'],
+  ),
+  _fn(
+    kDeskToolSkill,
+    'Load a SKILL.md from .desk/skills/<name>/ or .opencode/skills/<name>/.',
+    {
+      'name': {'type': 'string'},
+    },
+    const ['name'],
+  ),
 ];
 
 Map<String, dynamic> _fn(
@@ -122,6 +158,12 @@ String canonicalDeskToolName(String name) {
     case 'run_command':
     case 'shell':
       return kDeskToolBash;
+    case 'todo_read':
+    case 'todoRead':
+      return kDeskToolTodoRead;
+    case 'todo_write':
+    case 'todoWrite':
+      return kDeskToolTodoWrite;
     default:
       return name;
   }

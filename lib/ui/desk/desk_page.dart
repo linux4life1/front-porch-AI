@@ -24,6 +24,8 @@ import 'package:front_porch_ai/services/desk/desk.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/ui/desk/desk_ask_dialog.dart';
 import 'package:front_porch_ai/ui/desk/desk_mode_bar.dart';
+import 'package:front_porch_ai/ui/desk/desk_question_dialog.dart';
+import 'package:front_porch_ai/ui/desk/desk_todo_list.dart';
 import 'package:front_porch_ai/ui/desk/desk_work_strip.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -70,6 +72,7 @@ class _DeskPageState extends State<DeskPage> {
         llm: llm,
         onChanged: _refresh,
         onAsk: _ask,
+        onQuestion: _askQuestion,
       );
     }
     try {
@@ -79,6 +82,7 @@ class _DeskPageState extends State<DeskPage> {
         llm: LlmServiceDeskLlm(provider.activeService),
         onChanged: _refresh,
         onAsk: _ask,
+        onQuestion: _askQuestion,
       );
     } catch (_) {
       return null;
@@ -93,6 +97,16 @@ class _DeskPageState extends State<DeskPage> {
       builder: (_) => DeskAskDialog(request: request),
     );
     return result ?? DeskAskDecision.deny;
+  }
+
+  Future<String> _askQuestion(DeskQuestionRequest request) async {
+    if (!mounted) return '';
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => DeskQuestionDialog(request: request),
+    );
+    return result ?? '';
   }
 
   void _setMode(DeskMode mode) {
@@ -144,6 +158,8 @@ class _DeskPageState extends State<DeskPage> {
             enabled: !session.running,
             onChanged: _setMode,
           ),
+          if ((widget.harness ?? _created)?.todos.items.isNotEmpty == true)
+            DeskTodoList(todos: (widget.harness ?? _created)!.todos),
           Expanded(child: _transcript(session, amber)),
           if (session.lastWrite != null)
             DeskWorkStrip(record: session.lastWrite!),

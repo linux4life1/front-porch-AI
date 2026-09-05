@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-05 — feat(desk): todos, question, @files, /init, skills (slice E)
+- **Why:** OpenCode-close coworking needs a todo list, a pause-to-ask,
+  @file attach, AGENTS.md init, and SKILL.md load.
+- **What:** todowrite/todoread (Plan cannot write todos). question
+  pauses the loop. @path injects file bytes into the next generate.
+  /init writes AGENTS.md (Build still asks). skill loads
+  `.desk/skills/<name>/SKILL.md`.
+- **Files:** desk_todos/question/mentions/skills, harness, todo list +
+  question dialog, tests desk_slice_e_test + desk_e_chrome_test.
+- **Verification:** E tests red (missing symbols) then green. 68 desk
+  tests pass. Analyze clean.
+
 ## 2026-09-05 — feat(desk): bash + undo/redo (slice D)
 - **Why:** Slice C denied git/rm in theory; D runs commands with cwd =
   the project folder and lets you undo *her* writes, not yours.

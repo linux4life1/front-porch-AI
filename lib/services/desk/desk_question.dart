@@ -16,14 +16,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// Desk UI barrel — home pane, wizard, session chrome.
-library;
+class DeskQuestionRequest {
+  const DeskQuestionRequest({required this.prompt, this.choices = const []});
 
-export 'desk_ask_dialog.dart';
-export 'desk_home_view.dart';
-export 'desk_mode_bar.dart';
-export 'desk_page.dart';
-export 'desk_question_dialog.dart';
-export 'desk_todo_list.dart';
-export 'desk_wizard_page.dart';
-export 'desk_work_strip.dart';
+  final String prompt;
+  final List<String> choices;
+}
+
+typedef DeskQuestionFn = Future<String> Function(DeskQuestionRequest request);
+
+DeskQuestionRequest deskQuestionFromArgs(Map<String, dynamic> args) {
+  final prompt =
+      args['prompt']?.toString() ?? args['question']?.toString() ?? '';
+  final raw = args['choices'] ?? args['options'];
+  final choices = <String>[];
+  if (raw is List) {
+    for (final e in raw) {
+      final s = e.toString().trim();
+      if (s.isNotEmpty) choices.add(s);
+    }
+  }
+  return DeskQuestionRequest(prompt: prompt, choices: choices);
+}

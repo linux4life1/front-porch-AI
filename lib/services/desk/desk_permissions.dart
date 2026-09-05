@@ -43,6 +43,7 @@ bool deskToolMutates(String name) {
     case kDeskToolEdit:
     case kDeskToolWrite:
     case kDeskToolBash:
+    case kDeskToolTodoWrite:
       return true;
     default:
       return false;

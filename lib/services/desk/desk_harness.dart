@@ -23,8 +23,12 @@ import 'package:front_porch_ai/services/desk/desk_coworker_prompt.dart';
 import 'package:front_porch_ai/services/desk/desk_fs.dart';
 import 'package:front_porch_ai/services/desk/desk_honesty.dart';
 import 'package:front_porch_ai/services/desk/desk_llm.dart';
+import 'package:front_porch_ai/services/desk/desk_mentions.dart';
 import 'package:front_porch_ai/services/desk/desk_permissions.dart';
+import 'package:front_porch_ai/services/desk/desk_question.dart';
 import 'package:front_porch_ai/services/desk/desk_session.dart';
+import 'package:front_porch_ai/services/desk/desk_skills.dart';
+import 'package:front_porch_ai/services/desk/desk_todos.dart';
 import 'package:front_porch_ai/services/desk/desk_tools.dart';
 import 'package:front_porch_ai/services/desk/desk_undo.dart';
 import 'package:path/path.dart' as p;
@@ -41,10 +45,13 @@ class DeskHarness {
     DeskPermissions? permissions,
     DeskBash? bash,
     DeskUndo? undo,
+    DeskTodos? todos,
+    this.onQuestion,
   }) : fs = fs ?? DeskFs(session.folderRoot),
        permissions = permissions ?? DeskPermissions(mode: session.mode),
        bash = bash ?? DeskBash(session.folderRoot),
-       undoLog = undo ?? DeskUndo();
+       undoLog = undo ?? DeskUndo(),
+       todos = todos ?? DeskTodos();
 
   final DeskSession session;
   final DeskLlm llm;
@@ -52,13 +59,17 @@ class DeskHarness {
   final DeskPermissions permissions;
   final DeskBash bash;
   final DeskUndo undoLog;
+  final DeskTodos todos;
   void Function()? onChanged;
   DeskAskFn? onAsk;
+  DeskQuestionFn? onQuestion;
 
   bool _aborted = false;
   String _trace = '';
   final _chips = <DeskToolChip>[];
   Completer<DeskAskDecision>? _askWait;
+  Completer<String>? _questionWait;
+  String _mentionBlock = '';
 
   bool get isRunning => session.running;
   bool get canUndo => undoLog.canUndo;
@@ -86,8 +97,15 @@ class DeskHarness {
     _chips.clear();
     session.running = true;
     session.transcript.add(DeskMessage(isUser: true, text: text));
+    _mentionBlock = await deskExpandMentions(text, session.folderRoot);
     _emit();
     try {
+      if (text == '/init' || text.startsWith('/init ')) {
+        await _runTool(kDeskToolWrite, {
+          'path': kDeskAgentsPath,
+          'contents': kDeskAgentsTemplate,
+        });
+      }
       await _loop();
     } finally {
       session.running = false;
@@ -102,6 +120,8 @@ class DeskHarness {
     if (waiting != null && !waiting.isCompleted) {
       waiting.complete(DeskAskDecision.deny);
     }
+    final q = _questionWait;
+    if (q != null && !q.isCompleted) q.complete('');
     _emit();
   }
 
@@ -162,9 +182,7 @@ class DeskHarness {
       }
     }
     permissions.record(name: name, args: args);
-    final result = canon == kDeskToolBash
-        ? await bash.run(args)
-        : await fs.dispatch(name, args);
+    final result = await _dispatch(canon, args);
     if (result.write != null) {
       session.lastWrite = result.write;
       undoLog.push(result.write!);
@@ -173,6 +191,52 @@ class DeskHarness {
     _chips.add(DeskToolChip(name: canon, detail: detail, ok: result.ok));
     _trace += '\n[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
     _emit();
+  }
+
+  Future<DeskToolResult> _dispatch(
+    String canon,
+    Map<String, dynamic> args,
+  ) async {
+    switch (canon) {
+      case kDeskToolBash:
+        return bash.run(args);
+      case kDeskToolTodoRead:
+        return DeskToolResult(ok: true, output: todos.read());
+      case kDeskToolTodoWrite:
+        return DeskToolResult(ok: true, output: todos.write(args['todos']));
+      case kDeskToolQuestion:
+        return _answerQuestion(args);
+      case kDeskToolSkill:
+        final body = await deskLoadSkill(
+          session.folderRoot,
+          args['name']?.toString() ?? '',
+        );
+        return DeskToolResult(
+          ok: !body.startsWith('skill not found'),
+          output: body,
+        );
+      default:
+        return fs.dispatch(canon, args);
+    }
+  }
+
+  Future<DeskToolResult> _answerQuestion(Map<String, dynamic> args) async {
+    final req = deskQuestionFromArgs(args);
+    final ask = onQuestion;
+    if (ask == null) {
+      return DeskToolResult.error('question: no UI');
+    }
+    final wait = Completer<String>();
+    _questionWait = wait;
+    ask(req).then((d) {
+      if (!wait.isCompleted) wait.complete(d);
+    });
+    final answer = await wait.future;
+    if (identical(_questionWait, wait)) _questionWait = null;
+    if (_aborted || answer.isEmpty) {
+      return DeskToolResult.error('question: cancelled');
+    }
+    return DeskToolResult(ok: true, output: 'user chose: $answer');
   }
 
   Future<DeskAskDecision> _decide(DeskAskRequest req) async {
@@ -222,6 +286,17 @@ class DeskHarness {
         'When finished, reply in character with no more tool calls.',
       )
       ..writeln();
+    if (todos.items.isNotEmpty) {
+      buf
+        ..writeln('Todos:')
+        ..writeln(todos.read())
+        ..writeln();
+    }
+    if (_mentionBlock.isNotEmpty) {
+      buf
+        ..writeln(_mentionBlock)
+        ..writeln();
+    }
     for (final m in session.transcript) {
       if (m.isUser) {
         buf.writeln('User: ${m.text}');
