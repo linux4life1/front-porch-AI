@@ -55,14 +55,16 @@ class DeskBash {
       return DeskToolResult.error('bash: failed to start ($e)');
     }
 
-    final out = StringBuffer();
-    final err = StringBuffer();
-    proc.stdout.transform(utf8.decoder).listen(out.write);
-    proc.stderr.transform(utf8.decoder).listen(err.write);
+    final outFuture = proc.stdout.transform(utf8.decoder).join();
+    final errFuture = proc.stderr.transform(utf8.decoder).join();
 
     try {
       final code = await proc.exitCode.timeout(timeout);
-      final body = _clip('exit $code\n$out${err.isEmpty ? '' : '\n$err'}');
+      final stdout = await outFuture;
+      final stderr = await errFuture;
+      final body = _clip(
+        'exit $code\n$stdout${stderr.isEmpty ? '' : '\n$stderr'}',
+      );
       return DeskToolResult(ok: code == 0, output: body);
     } on TimeoutException {
       proc.kill();
@@ -85,17 +87,22 @@ String? deskBashBlocked(String command) {
 bool _cdsOut(String command) {
   final parts = command.split(RegExp(r'[;&|\n]'));
   for (final raw in parts) {
-    var s = raw.trim();
+    var s = raw.trim().toLowerCase();
     if (s.isEmpty) continue;
-    if (!RegExp(r'^cd\b').hasMatch(s)) continue;
-    final rest = s.replaceFirst(RegExp(r'^cd\s*'), '').trim();
+    s = s.replaceFirst(RegExp(r'^(command|builtin)\s+'), '');
+    if (!RegExp(r'^(cd|pushd)\b').hasMatch(s)) continue;
+    final rest = s.replaceFirst(RegExp(r'^(cd|pushd)\s*'), '').trim();
     if (rest.isEmpty) continue;
     final dest = rest
         .split(RegExp(r'\s+'))
         .first
         .replaceAll('"', '')
         .replaceAll("'", '');
-    if (dest.startsWith('..') || dest.startsWith('/') || dest.startsWith('~')) {
+    if (dest.startsWith('..') ||
+        dest.startsWith('/') ||
+        dest.startsWith('~') ||
+        dest == r'$home' ||
+        dest.startsWith(r'${home}')) {
       return true;
     }
   }
