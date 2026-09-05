@@ -50,7 +50,7 @@ bool deskToolMutates(String name) {
 }
 
 bool deskIsEnvPath(String path) {
-  final base = p.basename(path.trim());
+  final base = p.basename(path.trim()).toLowerCase();
   return base == '.env' || base.startsWith('.env.');
 }
 
@@ -58,7 +58,7 @@ bool deskIsEnvPath(String path) {
 String? deskDeniedCommand(String command) {
   final lower = command.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   if (lower.isEmpty) return null;
-  if (RegExp(r'\bgit checkout --').hasMatch(lower)) {
+  if (RegExp(r'\bgit checkout\b').hasMatch(lower) && lower.contains(' --')) {
     return 'denied: git checkout -- would discard uncommitted work';
   }
   if (RegExp(r'\bgit restore\b').hasMatch(lower)) {
@@ -78,12 +78,18 @@ String? deskDeniedCommand(String command) {
 }
 
 bool _rmRoot(String lower) {
-  final rf = RegExp(r'\brm -[a-z]*r[a-z]*f[a-z]* (/\*?)( |$)');
-  final fr = RegExp(r'\brm -[a-z]*f[a-z]*r[a-z]* (/\*?)( |$)');
-  final m = rf.firstMatch(lower) ?? fr.firstMatch(lower);
-  if (m == null) return false;
-  final path = m.group(1);
-  return path == '/' || path == '/*';
+  if (!RegExp(r'\brm\b').hasMatch(lower)) return false;
+  final recursive =
+      lower.contains('--recursive') || RegExp(r'(^| )-[a-z]*r').hasMatch(lower);
+  final force =
+      lower.contains('--force') || RegExp(r'(^| )-[a-z]*f').hasMatch(lower);
+  if (!recursive || !force) return false;
+  for (final token in lower.split(' ')) {
+    if (token == '/' || token == '/*' || token == '/.' || token == '//') {
+      return true;
+    }
+  }
+  return false;
 }
 
 /// Plan / Build / Yolo gears plus doom-loop and .env. Null [DeskHarness.onAsk]
