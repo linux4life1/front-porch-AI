@@ -19,6 +19,7 @@
 import 'dart:io';
 
 import 'package:front_porch_ai/services/desk/desk_jail.dart';
+import 'package:front_porch_ai/services/desk/desk_tools.dart';
 import 'package:path/path.dart' as p;
 
 const kDeskAgentsTemplate =
@@ -43,7 +44,11 @@ Future<String> deskLoadSkill(String root, String name) async {
     if (!hit.ok) continue;
     final file = File(hit.path!);
     if (!await file.exists()) continue;
-    return await file.readAsString();
+    final body = await file.readAsString();
+    if (body.length > kDeskReadClipChars) {
+      return '${body.substring(0, kDeskReadClipChars)}\n…(clipped)';
+    }
+    return body;
   }
   return 'skill not found: $name';
 }

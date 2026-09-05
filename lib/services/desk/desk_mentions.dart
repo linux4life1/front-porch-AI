@@ -20,6 +20,7 @@ import 'dart:io';
 
 import 'package:front_porch_ai/services/desk/desk_jail.dart';
 import 'package:front_porch_ai/services/desk/desk_permissions.dart';
+import 'package:front_porch_ai/services/desk/desk_tools.dart';
 import 'package:path/path.dart' as p;
 
 final _mention = RegExp(r'@([\w./-]+)');
@@ -38,7 +39,10 @@ Future<String> deskExpandMentions(String text, String root) async {
     if (!live.ok) continue;
     final file = File(live.path!);
     if (!await file.exists()) continue;
-    final body = await file.readAsString();
+    var body = await file.readAsString();
+    if (body.length > kDeskReadClipChars) {
+      body = '${body.substring(0, kDeskReadClipChars)}\n…(clipped)';
+    }
     buf
       ..writeln('Attached @$name → $hit:')
       ..writeln(body)
