@@ -165,7 +165,15 @@ class LlmToolResponse {
   final List<LlmToolCall> calls;
   final String text;
 
-  const LlmToolResponse({required this.calls, required this.text});
+  /// Hidden chain-of-thought when the backend splits it out of [text]
+  /// (`reasoning_content`). Empty on text-only backends.
+  final String reasoning;
+
+  const LlmToolResponse({
+    required this.calls,
+    required this.text,
+    this.reasoning = '',
+  });
 }
 
 /// Abstract interface for all LLM backends (local KoboldCPP, OpenRouter, etc).

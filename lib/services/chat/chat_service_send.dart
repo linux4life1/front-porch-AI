@@ -162,6 +162,7 @@ extension ChatServiceSend on ChatService {
     }
 
     _toolProbe.beginUserSend();
+    _webSearchService.beginUserSend();
     try {
       // Sending a real message ends the /exit undo window. A pending full-member
       // exit commits now (real removal + any collapse to a 1:1) so this turn runs
@@ -444,7 +445,11 @@ extension ChatServiceSend on ChatService {
       if (addressedGuest != null) {
         await generateGuestTurn(addressedGuest);
       } else {
-        await _generateResponse(GenerationMode.normal);
+        // This is the sole web-search allow-list entry: a newly appended user
+        // message receiving its first host/group response. Every follow-up,
+        // guest, cast, regen, idle, and command generation keeps the default
+        // false and therefore cannot advertise or reach search HTTP.
+        await _generateResponse(GenerationMode.normal, directUserSend: true);
       }
       // Backend-down abort: no response was generated, so none of the
       // post-turn work below may run — no idle-timer arming, no chip attach,

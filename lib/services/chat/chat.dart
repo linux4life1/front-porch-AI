@@ -106,3 +106,5 @@ export 'weather_engine.dart';
 export 'weather_providers.dart';
 export 'weather_segments.dart';
 export 'weather_skins.dart';
+export 'web_search_service.dart';
+export 'web_search_tools.dart';

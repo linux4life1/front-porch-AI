@@ -45,11 +45,19 @@ class _GenTurn {
     required this.mode,
     required this.guestSpeaker,
     required this.epoch,
+    required this.autonomous,
+    required this.directUserSend,
   });
 
   final GenerationMode mode;
   final CharacterCard? guestSpeaker;
   final int epoch;
+  final bool autonomous;
+
+  /// Explicit allow-list bit for web search. False by default so every
+  /// non-send generation path stays offline unless its caller proves it is
+  /// the direct response to a newly appended user message.
+  final bool directUserSend;
 
   // ── entry / speaker pick (shell) ──
   late CharacterCard speakingCharacter;
@@ -105,6 +113,9 @@ class _GenTurn {
   /// wire shape), or null when retrieval never ran (nothing dropped, RAG
   /// off, or not operational). Stamped as `rag_receipt` on [streamTarget].
   Map<String, dynamic>? ragReceipt;
+
+  /// Stamped as `search_receipt` when this turn ran a web_search lookup.
+  Map<String, dynamic>? searchReceipt;
 
   // ── request phase → stream/postgen phases ──
   late List<String> stopList;
@@ -172,6 +183,8 @@ extension ChatServiceGeneration on ChatService {
     GenerationMode mode, {
     CharacterCard? guestSpeaker,
     CharacterCard? forceSpeaker,
+    bool autonomous = false,
+    bool directUserSend = false,
   }) async {
     if (await _abortIfBackendDown()) {
       // No turn will run — terminate BOTH live streams. The sentence stream
@@ -222,7 +235,13 @@ extension ChatServiceGeneration on ChatService {
     _sentenceBuffer = '';
     notifyListeners();
 
-    final t = _GenTurn(mode: mode, guestSpeaker: guestSpeaker, epoch: epoch);
+    final t = _GenTurn(
+      mode: mode,
+      guestSpeaker: guestSpeaker,
+      epoch: epoch,
+      autonomous: autonomous,
+      directUserSend: directUserSend,
+    );
 
     try {
       final userName = _userPersonaService.persona.name;

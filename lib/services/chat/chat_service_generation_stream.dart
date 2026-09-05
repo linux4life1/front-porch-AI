@@ -120,6 +120,10 @@ extension ChatServiceGenerationStream on ChatService {
       t.streamTarget.activeMetadata ??= {};
       t.streamTarget.activeMetadata!['rag_receipt'] = t.ragReceipt;
     }
+    if (t.searchReceipt != null) {
+      t.streamTarget.activeMetadata ??= {};
+      t.streamTarget.activeMetadata!['search_receipt'] = t.searchReceipt;
+    }
     final streamTarget = t.streamTarget;
 
     // Helper to update the visible message from buffer. Incremental: only

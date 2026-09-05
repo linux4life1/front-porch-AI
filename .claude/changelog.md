@@ -1,5 +1,92 @@
 # Changelog
 
+## 2026-09-04 — fix(ci): restore secure-storage desktop builds
+- **Why:** `flutter_secure_storage_linux` requires libsecret headers while
+  CMake configures the plugin, but the Linux E2E runners did not install them.
+  On macOS, the newly added restricted keychain-sharing entitlement made
+  taskgated kill GitHub's ad-hoc-signed debug app before Dart could connect.
+- **What:** Install `libsecret-1-dev` with the Linux E2E desktop dependencies.
+  Front Porch does not share credentials between apps, so its non-sandboxed
+  macOS build now uses the encrypted legacy login keychain and no longer
+  requests the provisioning-only keychain access-group entitlement.
+- **Files:** `.github/workflows/ci.yml`,
+  `lib/services/storage/settings/web_search_settings.dart`,
+  `macos/Runner/DebugProfile.entitlements`,
+  `macos/Runner/Release.entitlements`.
+- **Verification:** GitHub CI run 33928395996 passed all five Linux, five
+  macOS, and five Windows E2E shards. Locally, CMake found libsecret 0.21.4,
+  the Linux debug build and one real app E2E passed, the full non-golden suite
+  passed 5,305 tests (13 skipped), and full analyze exited 0 with 12
+  pre-existing infos.
+- **Commit:** `b9e26cf9`.
+
+## 2026-09-04 — fix(web-search): close all PR #225 leftovers
+- **Why:** Normal generation mode also covers group follow-ups, guests, cast
+  turns, and regeneration, so the original Continue/idle blacklist left
+  autonomous search paths open. Model queries had no wire-size ceiling,
+  redirects followed automatically, search notes lacked a hard untrusted-data
+  boundary, and the Tavily key still lived in plaintext preferences.
+- **What:** Search is now allow-listed only for the first host/group reply to a
+  newly appended user message. Queries hard-stop at 256 Unicode scalars before
+  logs/cache/receipts/HTTP; Tavily and Wikipedia requests refuse redirects;
+  snippets retain HTML/URL stripping and the 800-character cap inside an
+  app-owned UNTRUSTED envelope. Tavily keys migrate transactionally to platform
+  secure storage, remove the plaintext copy, and remain redacted from Settings
+  GET. Desktop and web key controls save/remove explicitly rather than writing
+  partial keys per keystroke. Global-only comments and copy were corrected.
+- **Files:** Web-search generation/service/injection/tools; secure settings and
+  platform plugin registration/entitlements; Porch Life desktop/web controls;
+  settings facade; focused routing/security/migration/redaction/interaction
+  tests; rebuilt `assets/web_app`.
+- **Verification:** Every new guard was deliberately broken and observed red,
+  then restored. Focused Flutter: 58 passed. Full non-golden Flutter: 5,305
+  passed, 13 skipped. Web lint + 198 tests + production build passed. Full
+  analyze exited 0 with 12 pre-existing infos, none on touched files.
+- **Commits:** `631fcb45` (implementation), `f34ddfb0` (test/lifecycle fixes).
+
+## 2026-09-04 — fix(chat): block web search on autonomous idle turns
+- **Why:** Dynamic Responses reused `GenerationMode.normal`, so Porch Life Web
+  Search treated an AFK tick like a user send. The model received the
+  `web_search` tool and could POST Tavily or GET Wikipedia while the user was
+  idle.
+- **What:** Carry an immutable autonomous-turn bit through `_GenTurn` and make
+  the shared search-advertisement gate reject it. The actual idle callback test
+  spies on both the tools payload and HTTP fetch.
+- **Files:** `chat_service_idle_autonomous.dart`,
+  `chat_service_generation.dart`, `chat_service_generation_request.dart`,
+  `web_search_service.dart`, `web_search_idle_test.dart`, `docs/Rawhide.md`.
+- **Verification:** New timer-callback guard proven red before the exclusion
+  (two advertised rounds and one HTTP lookup), then green. Focused
+  Web Search/AFK suites: 41 passed. Full non-golden suite: 5,288 passed,
+  13 skipped. Full analyze passed (only pre-existing infos in untouched
+  files); touched-file analyze found no issues. `ci-local.sh` could not start
+  because this cloud VM has no Docker binary/image.
+- **Commits:** `c8b0cd9c` (gate + guard), `3aba8c7e` (settlement wait),
+  `0ce3389d` (Tavily/Wikipedia-neutral HTTP assertion).
+
+## 2026-09-04 — feat(chat): model-initiated web_search
+- **Why:** Characters hit unknown terms mid-RP and invent a wiki. The
+  model should look the term up and react in character, or say it
+  doesn't know. A per-chat sidebar switch plus seeding the Porch Life
+  global into persist stuck search on after the global was turned off.
+  Empty HTTP results were cached so a timeout/401 poisoned regen.
+  The tools round was the same RP generation ending in `Name:`, so they
+  talked unless the user OOC-forced a lookup. A real-world date stamp
+  would collide with a story clock in 1840 / 2077.
+- **What:** Silent think-to-search after realism, before the in-character
+  stream (thinking on, no suffix, fiction counts). Think-phase text is
+  never the bubble. Porch Life global is the only switch, read live.
+  Do not seed or persist a per-chat flag. Do not cache empty/failed
+  lookups. Hits are facts, not a calendar — ignore weekdays/dates in
+  the snippet; scene clock stays. `[WebSearch]` debugPrints. Receipt
+  chip. No MCP, no slash command, no sidebar toggle.
+- **Files:** web_search_service/tools, search_injection, generation
+  request/stream/plan/blocks, ChatService wiring, Porch Life, chip,
+  web_ui PorchLifeSettings + ChipsRow, facade/routes, tests
+- **Verification:** web_search_service/turn/wiring/search_injection
+  tests + porch-life widget test; empty-cache guard proven red then
+  green; `npm run build` for the PWA bundle.
+
 ## 2026-09-03 — fix(gallery): portrait replacement preserves card data
 - **Why:** Gallery Replace portrait overwrote the right file, then ran the full
   character writer. Repository cards do not hydrate PNG-only credits, so that

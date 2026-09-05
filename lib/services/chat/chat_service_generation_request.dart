@@ -60,8 +60,13 @@ extension ChatServiceGenerationRequest on ChatService {
 
     // Context viewer: plan budget/sections (session-persisted on save).
     _contextBudget.recordLastSend(
-      budgetMap: {...t.plan.budgetEstimates(), if (t.droppedMessages > 0) 'Dropped Messages': t.droppedMessages},
-      sectionMap: t.plan.sectionTexts(), contextLimit: contextSize);
+      budgetMap: {
+        ...t.plan.budgetEstimates(),
+        if (t.droppedMessages > 0) 'Dropped Messages': t.droppedMessages,
+      },
+      sectionMap: t.plan.sectionTexts(),
+      contextLimit: contextSize,
+    );
 
     // Stop sequences, priority-ordered (stop_sequences.dart) so transports
     // that cap the server-side list keep the most important entries: user
@@ -111,9 +116,7 @@ extension ChatServiceGenerationRequest on ChatService {
 
     // Get the active LLM service (local or remote)
     final llmService =
-        testLlmServiceOverride ??
-        _llmProvider?.activeService ??
-        _koboldService;
+        testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
 
     // For call mode with a dedicated call model, temporarily swap the model.
     // When sendMessage already swapped for the pre-generation evals (the
@@ -141,48 +144,109 @@ extension ChatServiceGenerationRequest on ChatService {
     // get null and rely on the history marker from _formatHistoryLine.
     final turnImages = await buildTurnImages(t.mode);
 
-    final genParams = GenerationParams(
-      prompt: prompt,
-      systemPrompt: chatSystemPrompt,
-      maxLength: g2.resolveMaxLength(_storageService),
-      minLength: g2.resolveMinLength(_storageService),
-      minP: g2.resolveMinP(_storageService),
-      topP: g2.resolveTopP(_storageService),
-      topK: g2.resolveTopK(_storageService),
-      dryMultiplier: g2.resolveDryMultiplier(_storageService),
-      temperature: g2.resolveTemperature(_storageService),
-      repeatPenalty: g2.resolveRepeatPenalty(_storageService),
-      repPenTokens: g2.resolveRepeatPenaltyTokens(_storageService),
-      dynatempRange: g2.resolveDynamicTempEnabled(_storageService)
-          ? g2.resolveDynamicTempRange(_storageService)
-          : null,
-      xtcThreshold: g2.resolveXtcThreshold(_storageService),
-      xtcProbability: g2.resolveXtcProbability(_storageService),
-      stopSequences: stopList,
-      reasoningEnabled: (_callMode || t.mode == GenerationMode.continue_)
-          ? false
-          : (_llmProvider != null && !_llmProvider!.isLocal)
-              ? reasoningEffortThinkingOn(
-                  _llmProvider!.openRouterService.modelName,
-                  g2.resolveReasoningEnabled(_storageService),
-                )
-              : g2.resolveReasoningEnabled(_storageService),
-      reasoningEffort: g2.resolveReasoningEffort(_storageService),
-      // Force zero thinking budget on Continue (and call mode) for providers like OpenRouter/Nano-GPT.
-      // This tells supported models (Kimi K2 Thinking, DeepSeek hybrid reasoning models, certain Qwen3 etc.)
-      // to spend 0 tokens on internal reasoning and answer directly, preventing the model from dumping
-      // its next analysis/think block into the visible character response.
-      reasoningMaxTokens: (_callMode || t.mode == GenerationMode.continue_)
-          ? 0
-          : null,
-      bannedPhrases: g2.resolveBannedPhrases(_storageService).isNotEmpty
-          ? g2.resolveBannedPhrases(_storageService)
-          : null,
-      images: turnImages,
-    );
+    GenerationParams paramsOf(
+      String p, {
+      String? systemPrompt,
+      bool? reasoningEnabled,
+      int? reasoningMaxTokens,
+    }) {
+      final callOrContinue = _callMode || t.mode == GenerationMode.continue_;
+      return GenerationParams(
+        prompt: p,
+        systemPrompt: systemPrompt ?? chatSystemPrompt,
+        maxLength: g2.resolveMaxLength(_storageService),
+        minLength: g2.resolveMinLength(_storageService),
+        minP: g2.resolveMinP(_storageService),
+        topP: g2.resolveTopP(_storageService),
+        topK: g2.resolveTopK(_storageService),
+        dryMultiplier: g2.resolveDryMultiplier(_storageService),
+        temperature: g2.resolveTemperature(_storageService),
+        repeatPenalty: g2.resolveRepeatPenalty(_storageService),
+        repPenTokens: g2.resolveRepeatPenaltyTokens(_storageService),
+        dynatempRange: g2.resolveDynamicTempEnabled(_storageService)
+            ? g2.resolveDynamicTempRange(_storageService)
+            : null,
+        xtcThreshold: g2.resolveXtcThreshold(_storageService),
+        xtcProbability: g2.resolveXtcProbability(_storageService),
+        stopSequences: stopList,
+        reasoningEnabled:
+            reasoningEnabled ??
+            (callOrContinue
+                ? false
+                : (_llmProvider != null && !_llmProvider!.isLocal)
+                ? reasoningEffortThinkingOn(
+                    _llmProvider!.openRouterService.modelName,
+                    g2.resolveReasoningEnabled(_storageService),
+                  )
+                : g2.resolveReasoningEnabled(_storageService)),
+        reasoningEffort: g2.resolveReasoningEffort(_storageService),
+        // Force zero thinking budget on Continue (and call mode) for providers like OpenRouter/Nano-GPT.
+        // This tells supported models (Kimi K2 Thinking, DeepSeek hybrid reasoning models, certain Qwen3 etc.)
+        // to spend 0 tokens on internal reasoning and answer directly, preventing the model from dumping
+        // its next analysis/think block into the visible character response.
+        reasoningMaxTokens: reasoningMaxTokens ?? (callOrContinue ? 0 : null),
+        bannedPhrases: g2.resolveBannedPhrases(_storageService).isNotEmpty
+            ? g2.resolveBannedPhrases(_storageService)
+            : null,
+        images: turnImages,
+      );
+    }
 
-    // Get streaming response from whichever backend is active
-    t.stream = llmService.generateStream(genParams);
+    var genParams = paramsOf(prompt);
+
+    // Model-initiated web_search: a silent think-to-search round, then the
+    // in-character stream. The immutable direct-send bit is a fail-closed
+    // allow-list: group follow-ups, guests, cast, regen, Continue, and idle
+    // never advertise the tool. xml-only → stream. Read the Porch Life global
+    // here — not at chat-open seed — so flipping it on activates this turn.
+    final globalDefault = _storageService.webSearchSettings.webSearchDefault;
+    final xmlOnly = _toolProbe.isXmlOnly(_evalBackendIdentity);
+    final advertise = shouldAdvertiseWebSearch(
+      globalDefault: globalDefault,
+      directUserSend: t.directUserSend,
+      continueMode: t.mode == GenerationMode.continue_,
+      toolsUnsupported: xmlOnly,
+      autonomousMode: t.autonomous,
+    );
+    debugPrint(
+      '[WebSearch] gate advertise=$advertise global=$globalDefault '
+      'directUserSend=${t.directUserSend} '
+      'continue=${t.mode == GenerationMode.continue_} '
+      'autonomous=${t.autonomous} xmlOnly=$xmlOnly '
+      'backend=${llmService.backendName}',
+    );
+    if (advertise) {
+      // Decision phase is not the reply: drop the `Name:` suffix so the
+      // model thinks instead of completing dialogue, force thinking on
+      // (call mode keeps the speed lane), ignore any canned text.
+      final savedSuffix = t.plan.section('suffix').text;
+      t.plan.section('suffix').text = '';
+      final decisionPrompt = webSearchDecisionPrompt(t.plan.userText);
+      t.plan.section('suffix').text = savedSuffix;
+      final round = await runWebSearchRound(
+        llm: llmService,
+        params: paramsOf(
+          decisionPrompt,
+          systemPrompt: webSearchDecisionSystemPrompt(chatSystemPrompt),
+          reasoningEnabled: !_callMode,
+          reasoningMaxTokens: _callMode ? 0 : null,
+        ),
+        search: _webSearchService,
+      );
+      t.searchReceipt = round.receipt;
+      if (round.injection != null && round.injection!.isNotEmpty) {
+        t.plan.section('web_search').text = round.injection!;
+        genParams = paramsOf(t.plan.userText);
+        debugPrint('[WebSearch] dispatch inject+stream (in-character reply)');
+      } else {
+        debugPrint(
+          '[WebSearch] dispatch no lookup — stream in-character reply',
+        );
+      }
+      t.stream = llmService.generateStream(genParams);
+    } else {
+      t.stream = llmService.generateStream(genParams);
+    }
 
     // ── Phase: Prefilling ──
     // The HTTP request is now in flight. For KoboldCPP, the model is

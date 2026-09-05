@@ -48,10 +48,7 @@ class ChatToolsFacade {
   final StoryRepository? _storyRepo;
   final UserPersonaService? _personas;
 
-  /// Full tools snapshot mirroring the desktop sidebar sections. When
-  /// [participantId] is given (a cast member's stableGroupId), the per-character
-  /// blocks (objectives, NSFW arousal) are scoped to that focused participant so
-  /// the whole sidebar follows the cast focus — not just the realism panel.
+  /// Full tools snapshot mirroring the desktop sidebar (focus-scoped).
   Map<String, dynamic> state({String? participantId}) {
     final chaos = _chat.chaosModeService;
     final nsfw = _chat.nsfwService;
@@ -110,11 +107,6 @@ class ChatToolsFacade {
         'hasPendingEvent': chaos.hasPendingChaosEvent,
       },
       'nsfw': {
-        // NSFW Enhancements flag. In a group the live nsfwService scalar is
-        // per-speaker volatile (reloaded for whoever last evaluated), so read
-        // the stable per-member group flag instead — matching the desktop
-        // CharacterStateSettings split-brain. Write side (setNsfwCooldown)
-        // already propagates to every member, so this stays consistent.
         'cooldownEnabled': _chat.activeGroup != null
             ? _chat.isGroupNsfwEnabled
             : nsfw.nsfwCooldownEnabled,

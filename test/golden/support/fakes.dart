@@ -44,6 +44,7 @@ import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
+import 'package:front_porch_ai/services/chat/web_search_service.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
@@ -80,8 +81,7 @@ class FakeLLMProvider extends ChangeNotifier implements LLMProvider {
   bool get hasAnyManagedProcessRunning => false;
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// A `ChatService` double for sidebar/chat/overlay goldens. `ChatService` is a
@@ -138,17 +138,18 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     // Goldens must be date-stable: pin the canonical clock to a fixed anchor
     // (Tue 2026-06-30) instead of the legacy today-anchored synthesis, which
     // would repaint the TimeStrip's date every real-world day.
-    _time = TimeService(
-      onNotify: () {},
-      onSaveChat: () async {},
-      onSetPendingRealismMetadata: (_, _) {},
-      onPatchLastMessageRealismState: (_, _, _) {},
-    )..seedFromV2OrExt(
-        timeOfDay: timeOfDay,
-        dayCount: dayCount,
-        passageOfTimeEnabled: true,
-        storyStartDate: '2026-06-30',
-      );
+    _time =
+        TimeService(
+          onNotify: () {},
+          onSaveChat: () async {},
+          onSetPendingRealismMetadata: (_, _) {},
+          onPatchLastMessageRealismState: (_, _, _) {},
+        )..seedFromV2OrExt(
+          timeOfDay: timeOfDay,
+          dayCount: dayCount,
+          passageOfTimeEnabled: true,
+          storyStartDate: '2026-06-30',
+        );
     _nsfw = NsfwService(
       getGroupInt: (_, _) => 0,
       getGroupValue: (_, _) => null,
@@ -159,6 +160,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       onSaveChat: () async {},
       onSetPendingRealismMetadata: (_, _) {},
     );
+    _webSearch = WebSearchService(getApiKey: () => '');
     _needs = NeedsSimulation(
       onNotify: () {},
       onSaveChat: () async {},
@@ -172,49 +174,52 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       getEnjoysLowHygiene: () => false,
       getNeedsSimEnabled: () => needsSimEnabled,
     )..restoreFromSnapshot(needs);
-    _relationship = RelationshipService(
-      onNotify: () {},
-      onSaveChat: () async {},
-      getIsGroupActive: () => false,
-      getObserverMode: () => false,
-      getGroupCharacterCount: () => 0,
-      getShouldTrackInterCharacterRelationships: () => false,
-      getCurrentSpeakerIdForRealism: () => '',
-      getCurrentGroupMemberIds: () => <String>{},
-      getOtherGroupMemberIds: (_) => const [],
-      getOtherGroupMemberIdToLowerName: (_) => const {},
-      getRecentExchangeLowerText: () => '',
-      getMessageCount: () => 0,
-      getIsGroupRealismActive: () => false,
-      getGroupAffectionScore: (_, {int defaultValue = 0}) => defaultValue,
-      setGroupAffectionScore: (_, _) {},
-      getGroupLongTermScore: (_, {int defaultValue = 0}) => defaultValue,
-      setGroupLongTermScore: (_, _) {},
-      getGroupTrustLevel: (_, {int defaultValue = 0}) => defaultValue,
-      setGroupTrustLevel: (_, _) {},
-      getGroupFixation: (_, {String defaultValue = ''}) => defaultValue,
-      setGroupFixation: (_, _) {},
-      getGroupFixationLifespan: (_, {int defaultValue = 0}) => defaultValue,
-      setGroupFixationLifespan: (_, _) {},
-      getGroupRelationshipTier: (_, {int defaultValue = 0}) => defaultValue,
-      setGroupRelationshipTier: (_, _) {},
-      getGroupLongTermTier: (_, {int defaultValue = 0}) => defaultValue,
-      setGroupLongTermTier: (_, _) {},
-      getGroupSpatialStance: (_, {String defaultValue = ''}) => defaultValue,
-      setGroupSpatialStance: (_, _) {},
-      getGroupInterCharacterRelationships: (_) => <String, int>{},
-      setGroupInterCharacterRelationships: (_, _) {},
-    )..loadScalars(
-        affectionScore: shortTermBond,
-        longTermScore: longTermBond,
-        trustLevel: trustLevel,
-      );
+    _relationship =
+        RelationshipService(
+          onNotify: () {},
+          onSaveChat: () async {},
+          getIsGroupActive: () => false,
+          getObserverMode: () => false,
+          getGroupCharacterCount: () => 0,
+          getShouldTrackInterCharacterRelationships: () => false,
+          getCurrentSpeakerIdForRealism: () => '',
+          getCurrentGroupMemberIds: () => <String>{},
+          getOtherGroupMemberIds: (_) => const [],
+          getOtherGroupMemberIdToLowerName: (_) => const {},
+          getRecentExchangeLowerText: () => '',
+          getMessageCount: () => 0,
+          getIsGroupRealismActive: () => false,
+          getGroupAffectionScore: (_, {int defaultValue = 0}) => defaultValue,
+          setGroupAffectionScore: (_, _) {},
+          getGroupLongTermScore: (_, {int defaultValue = 0}) => defaultValue,
+          setGroupLongTermScore: (_, _) {},
+          getGroupTrustLevel: (_, {int defaultValue = 0}) => defaultValue,
+          setGroupTrustLevel: (_, _) {},
+          getGroupFixation: (_, {String defaultValue = ''}) => defaultValue,
+          setGroupFixation: (_, _) {},
+          getGroupFixationLifespan: (_, {int defaultValue = 0}) => defaultValue,
+          setGroupFixationLifespan: (_, _) {},
+          getGroupRelationshipTier: (_, {int defaultValue = 0}) => defaultValue,
+          setGroupRelationshipTier: (_, _) {},
+          getGroupLongTermTier: (_, {int defaultValue = 0}) => defaultValue,
+          setGroupLongTermTier: (_, _) {},
+          getGroupSpatialStance: (_, {String defaultValue = ''}) =>
+              defaultValue,
+          setGroupSpatialStance: (_, _) {},
+          getGroupInterCharacterRelationships: (_) => <String, int>{},
+          setGroupInterCharacterRelationships: (_, _) {},
+        )..loadScalars(
+          affectionScore: shortTermBond,
+          longTermScore: longTermBond,
+          trustLevel: trustLevel,
+        );
   }
 
   final List<ChatMessage> _messages;
   late final TimeService _time;
   late final NsfwService _nsfw;
   late final ChaosModeService _chaos;
+  late final WebSearchService _webSearch;
   late final NeedsSimulation _needs;
   late final RelationshipService _relationship;
 
@@ -270,10 +275,12 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     todaySentence = (next == null || next.isEmpty) ? null : next;
     notifyListeners();
   }
+
   @override
   void abandonToday() {
     setTodaySentence(null);
   }
+
   @override
   final CharacterCard? activeCharacter;
 
@@ -322,6 +329,10 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   NsfwService get nsfwService => _nsfw;
   @override
   ChaosModeService get chaosModeService => _chaos;
+  @override
+  WebSearchService get webSearchService => _webSearch;
+  @override
+  bool get webSearchEnabled => _webSearch.isActive;
   @override
   NeedsSimulation get needsSimulation => _needs;
   @override
@@ -423,6 +434,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   void editMessage(int index, String newText) {
     if (index >= 0 && index < _messages.length) _messages[index].text = newText;
   }
+
   @override
   bool get isGroupMode => false;
   @override
@@ -500,8 +512,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   bool? withUserForGroupCharacter(CharacterCard character) => null;
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// Timer-free [TtsService] double. Exposes the getters that widget build trees
@@ -648,9 +659,8 @@ class FakeWorldRepository extends ChangeNotifier implements WorldRepository {
 
   // Living Worlds: mirrors the real filter (places = not character-linked).
   @override
-  List<world_model.World> get placeWorlds => List.unmodifiable(
-        _worlds.where((w) => !isCharacterLinkedWorld(w)),
-      );
+  List<world_model.World> get placeWorlds =>
+      List.unmodifiable(_worlds.where((w) => !isCharacterLinkedWorld(w)));
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

@@ -115,10 +115,7 @@ class AwayThreshold extends StatelessWidget {
               ? storage.absenceThresholdHours
               : 24,
           dropdownColor: AppColors.cardOf(context),
-          style: TextStyle(
-            color: AppColors.textPrimary(context),
-            fontSize: 12,
-          ),
+          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
           items: const [
             DropdownMenuItem(value: 12, child: Text('12 hours')),
             DropdownMenuItem(value: 24, child: Text('a day')),
@@ -129,6 +126,115 @@ class AwayThreshold extends StatelessWidget {
             if (v != null) storage.setAbsenceThresholdHours(v);
           },
         ),
+      ],
+    );
+  }
+}
+
+/// Tavily API key under the Porch Life web-search row. Always
+/// visible so a key can be pasted before the toggle is useful.
+class WebSearchKeyField extends StatefulWidget {
+  final StorageService storage;
+  const WebSearchKeyField({super.key, required this.storage});
+
+  @override
+  State<WebSearchKeyField> createState() => _WebSearchKeyFieldState();
+}
+
+class _WebSearchKeyFieldState extends State<WebSearchKeyField> {
+  final TextEditingController _controller = TextEditingController();
+  bool _saving = false;
+  String? _message;
+  bool _saveFailed = false;
+
+  Future<void> _save({bool clear = false}) async {
+    final value = clear ? '' : _controller.text.trim();
+    if (_saving || (!clear && value.isEmpty)) return;
+    setState(() {
+      _saving = true;
+      _message = null;
+    });
+    try {
+      await widget.storage.webSearchSettings.setSearchApiKey(value);
+      if (!mounted) return;
+      _controller.clear();
+      setState(() {
+        _saveFailed = false;
+        _message = clear
+            ? 'Key removed — searches use Wikipedia.'
+            : 'Tavily key saved securely.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _saveFailed = true;
+        _message = 'Could not save the key securely.';
+      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasKey = widget.storage.webSearchSettings.hasApiKey;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _controller,
+          obscureText: true,
+          enabled: !_saving,
+          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: hasKey ? 'Tavily key saved securely' : 'Tavily API key',
+            hintStyle: TextStyle(color: AppColors.textTertiary(context)),
+          ),
+          onSubmitted: (_) => _save(),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.porchAmberOf(context),
+                foregroundColor: AppColors.onChaosAccent,
+              ),
+              onPressed: _saving ? null : _save,
+              child: Text(_saving ? 'Saving…' : 'Save key'),
+            ),
+            if (hasKey)
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.porchAmberOf(context),
+                ),
+                onPressed: _saving ? null : () => _save(clear: true),
+                child: const Text('Remove key'),
+              ),
+          ],
+        ),
+        if (_message != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _message!,
+            style: TextStyle(
+              color: _saveFailed
+                  ? AppColors.negativeAccentOf(context)
+                  : AppColors.textSecondary(context),
+              fontSize: 11,
+            ),
+          ),
+        ],
       ],
     );
   }

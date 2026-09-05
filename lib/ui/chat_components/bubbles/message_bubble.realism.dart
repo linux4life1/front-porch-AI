@@ -37,6 +37,9 @@ extension _BubbleRealism on _MessageBubbleState {
     final timeSkipTo = metadata['time_skip_to'] as String? ?? '';
     final chanceTimeEvent = metadata['chance_time_event'] as String? ?? '';
     final timeReversal = metadata['time_reversal'] as bool? ?? false;
+    final searchReceipt = metadata['search_receipt'] as Map<String, dynamic>?;
+    final searchQuery = (searchReceipt?['query'] as String?)?.trim() ?? '';
+    final searchOk = searchReceipt?['ok'] == true;
     final needsDeltas = metadata['needs_deltas'] as Map<String, dynamic>?;
 
     // Pockets & Wardrobe receipts, read BEFORE the early return below: Pockets
@@ -69,7 +72,8 @@ extension _BubbleRealism on _MessageBubbleState {
         chanceTimeEvent.isEmpty &&
         !timeReversal &&
         verifStatus.isEmpty &&
-        pocketReceipts.isEmpty) {
+        pocketReceipts.isEmpty &&
+        searchQuery.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -376,6 +380,32 @@ extension _BubbleRealism on _MessageBubbleState {
               ),
             ),
           ],
+        ),
+      );
+    }
+
+    if (searchQuery.isNotEmpty) {
+      final amber = AppColors.porchAmberOf(context);
+      chips.add(
+        maybeTooltip(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.travel_explore, size: 11, color: amber),
+              const SizedBox(width: 4),
+              Text(
+                searchOk ? 'Looked up' : 'Looked up — nothing',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: amber,
+                ),
+              ),
+            ],
+          ),
+          searchOk
+              ? 'Looked up: $searchQuery'
+              : 'Looked up "$searchQuery" — nothing reliable',
         ),
       );
     }

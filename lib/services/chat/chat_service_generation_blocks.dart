@@ -70,6 +70,13 @@ extension ChatServiceGenerationBlocks on ChatService {
           '\n\n[Voice Call Mode] ${_storageService.sttSettings.callSystemPrompt}';
     }
 
+    if (_webSearchService.isActive &&
+        t.directUserSend &&
+        !t.autonomous &&
+        t.mode != GenerationMode.continue_) {
+      t.systemPrompt += '\n\n$kSearchCharacterLine';
+    }
+
     // Lorebook injection: positioned buckets from the injector (group
     // winners → budget fill → per-position ordering). Pure read — the
     // scanner already updated trigger state for this turn.
