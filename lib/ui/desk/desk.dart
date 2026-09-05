@@ -22,3 +22,4 @@ library;
 export 'desk_home_view.dart';
 export 'desk_page.dart';
 export 'desk_wizard_page.dart';
+export 'desk_work_strip.dart';

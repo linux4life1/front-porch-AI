@@ -19,14 +19,43 @@
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/desk/desk_sit_down.dart';
 
+class DeskToolChip {
+  const DeskToolChip({
+    required this.name,
+    required this.detail,
+    required this.ok,
+  });
+
+  final String name;
+  final String detail;
+  final bool ok;
+}
+
+class DeskWriteRecord {
+  const DeskWriteRecord({
+    required this.relativePath,
+    required this.before,
+    required this.after,
+  });
+
+  final String relativePath;
+  final String before;
+  final String after;
+}
+
 class DeskMessage {
-  const DeskMessage({required this.isUser, required this.text});
+  const DeskMessage({
+    required this.isUser,
+    required this.text,
+    this.chips = const [],
+  });
 
   final bool isUser;
   final String text;
+  final List<DeskToolChip> chips;
 }
 
-/// In-memory Desk session. Not a chat `sessions` row. Slice A has no loop.
+/// In-memory Desk session. Not a chat `sessions` row.
 class DeskSession {
   DeskSession({
     required this.folderRoot,
@@ -39,4 +68,6 @@ class DeskSession {
   final CharacterCard coworker;
   DeskMode mode;
   final List<DeskMessage> transcript;
+  DeskWriteRecord? lastWrite;
+  bool running = false;
 }

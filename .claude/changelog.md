@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-09-05 — feat(desk): generateWithTools loop + jail (slice B)
+- **Why:** Slice A was chrome only. Desk is a coding coworker only if
+  Send actually loops tools against the picked folder, inside a jail.
+- **What:** `DeskHarness` loops `generateWithTools` (max 20, abort).
+  Tools: read/edit/write/glob/grep. Jail denies `..`, `/etc`, and
+  escaping symlinks (root is canonicalized so macOS `/var` temp dirs
+  are not false-denied). Personality preamble on every generate.
+  Work strip shows last write before/after. Regen disabled; no Continue.
+  Null tools response does not invent a patch. Scripted LLM for tests.
+- **Files:** `desk_jail.dart`, `desk_fs.dart`, `desk_tools.dart`,
+  `desk_llm.dart`, `desk_harness.dart`, `desk_page.dart`,
+  `desk_work_strip.dart`, tests under `test/services/desk` and
+  `test/ui/desk/desk_loop_chrome_test.dart`.
+- **Verification:** Jail/fs/harness tests red (missing symbols) then
+  green. Loop chrome: work strip + abort. Analyze clean on desk paths.
+
 ## 2026-09-05 — feat(desk): home tab, wizard, honesty gate (slice A)
 - **Why:** Desk is a separate coding-coworker pipeline. Slice A is chrome
   only — no loop, no ChatService, no web.
