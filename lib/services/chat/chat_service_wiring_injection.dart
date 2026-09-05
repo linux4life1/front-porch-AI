@@ -139,9 +139,7 @@ extension ChatServiceWiringInjection on ChatService {
   Future<void> _reloadChatWorldIds() async {
     final sid = _currentSessionId;
     if (sid == null) {
-      _chatWorldIds = const [];
-      _chatPrimaryWorldId = null;
-      _chatLoreWorldIds = const [];
+      _chatPlaceSlots = const ChatPlaceSlots();
       _biomeSchedule = const BiomeSchedule();
       return;
     }
@@ -160,14 +158,13 @@ extension ChatServiceWiringInjection on ChatService {
         );
       }
       final slots = await _worldRepository.getChatWorldAttachments(sid);
-      _chatPrimaryWorldId = slots.primaryId;
-      _chatLoreWorldIds = List.unmodifiable(slots.loreIds);
-      _chatWorldIds = List.unmodifiable(slots.allIds);
+      _chatPlaceSlots = ChatPlaceSlots(
+        primaryId: slots.primaryId,
+        loreIds: List.unmodifiable(slots.loreIds),
+      );
     } catch (e) {
       debugPrint('[ChatService] chat world load failed: $e');
-      _chatWorldIds = const [];
-      _chatPrimaryWorldId = null;
-      _chatLoreWorldIds = const [];
+      _chatPlaceSlots = const ChatPlaceSlots();
     }
     await _reloadBiomeSchedule();
   }
@@ -197,18 +194,18 @@ extension ChatServiceWiringInjection on ChatService {
     // - Primary still listed → keep role, remaining become lore (no auto-promote).
     // - Primary empty → seed-style partition (first climate-on → Setting).
     // - Primary dropped from list → stay empty; all listed ids are lore.
-    if (_chatPrimaryWorldId != null &&
-        worldIds.contains(_chatPrimaryWorldId)) {
+    final currentPrimary = _chatPlaceSlots.primaryId;
+    if (currentPrimary != null && worldIds.contains(currentPrimary)) {
       await setChatPlaceSlots(
-        primaryId: _chatPrimaryWorldId,
+        primaryId: currentPrimary,
         loreIds: [
           for (final id in worldIds)
-            if (id != _chatPrimaryWorldId) id,
+            if (id != currentPrimary) id,
         ],
       );
       return;
     }
-    if (_chatPrimaryWorldId == null) {
+    if (currentPrimary == null) {
       final slots = partitionLinkedPlaces(
         worldIds: worldIds,
         isClimateEnabled: (id) =>
@@ -235,16 +232,15 @@ extension ChatServiceWiringInjection on ChatService {
       primaryId: primaryId,
       loreIds: loreIds,
     );
-    _chatPrimaryWorldId =
+    final resolvedPrimary =
         (primaryId != null && primaryId.isNotEmpty) ? primaryId : null;
-    _chatLoreWorldIds = List.unmodifiable([
-      for (final id in loreIds)
-        if (id.isNotEmpty && id != _chatPrimaryWorldId) id,
-    ]);
-    _chatWorldIds = List.unmodifiable([
-      ?_chatPrimaryWorldId,
-      ..._chatLoreWorldIds,
-    ]);
+    _chatPlaceSlots = ChatPlaceSlots(
+      primaryId: resolvedPrimary,
+      loreIds: List.unmodifiable([
+        for (final id in loreIds)
+          if (id.isNotEmpty && id != resolvedPrimary) id,
+      ]),
+    );
     await _reloadBiomeSchedule();
     notifyListeners();
   }
@@ -254,9 +250,10 @@ extension ChatServiceWiringInjection on ChatService {
   Future<void> setChatClimate(Biome biome) async {
     final sid = _currentSessionId;
     if (sid == null) return;
-    final primary = _chatPrimaryWorldId == null
+    final primaryId = _chatPlaceSlots.primaryId;
+    final primary = primaryId == null
         ? null
-        : _worldRepository.resolveWorld(_chatPrimaryWorldId!);
+        : _worldRepository.resolveWorld(primaryId);
     if (!primaryWorldAllowsClimate(primary)) return;
     final day = _timeService.dayCount < 1 ? 1 : _timeService.dayCount;
     await _worldRepository.setChatBiome(
@@ -277,7 +274,7 @@ extension ChatServiceWiringInjection on ChatService {
                 : const <CharacterCard>[]),
       chatLorebook: _loreTimedEffects.chatLorebook,
       groupLorebook: _activeGroupLorebook,
-      chatWorldIds: _chatWorldIds,
+      chatWorldIds: _chatPlaceSlots.allIds,
       // Decided empty must stay empty — never ghost to group.worldIds.
       groupWorldNames: const [],
       resolveWorld: _worldRepository.resolveWorld,
@@ -389,7 +386,7 @@ extension ChatServiceWiringInjection on ChatService {
   /// placeholder only; the weather gate stays off when Primary is empty
   /// or climate-off.
   Biome get _worldDefaultBiome {
-    final id = _chatPrimaryWorldId;
+    final id = _chatPlaceSlots.primaryId;
     if (id == null) return Biome.temperate;
     final w = _worldRepository.resolveWorld(id);
     if (w == null || !w.climateEnabled) return Biome.temperate;

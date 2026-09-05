@@ -198,9 +198,10 @@ extension ChatServiceGenerationPlan on ChatService {
 
       // Living Worlds — setting prose from Primary ONLY (budget-capped).
       // Lore attachments contribute lorebook entries, not room description.
-      final primaryWorld = _chatPrimaryWorldId == null
+      final primaryId = _chatPlaceSlots.primaryId;
+      final primaryWorld = primaryId == null
           ? null
-          : _worldRepository.resolveWorld(_chatPrimaryWorldId!);
+          : _worldRepository.resolveWorld(primaryId);
       final rawWorld = buildWorldInjection(
         primaryWorld == null ? const <World>[] : [primaryWorld],
       );
