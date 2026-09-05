@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-05 — feat(desk): nested Explore/General, same jail (slice H)
+- **Why:** After the loop is trusted, she can spawn a nested Explore
+  (read-only) or General (same folder jail) and wait. Scout skipped.
+- **What:** `task` tool. Explore advertises only read/glob/grep and
+  refuses writes even in Yolo. General inherits parent mode. Children
+  cannot spawn children or leave the jail. Parent abort aborts the child.
+- **Files:** desk_subagent.dart, harness advertisedTools/_runTask,
+  tests desk_slice_h_test + desk_h_chrome_test.
+- **Verification:** H tests red (missing kDeskToolTask) then green.
+  93 desk tests pass. Analyze clean. No ChatService import.
+
 ## 2026-09-05 — fix(desk): extractive recap keeps folded filenames (slice G)
 - **Why:** Hostile review: recap said "facts only from those lines" but
   dropped every line, so the next generate had nothing to be honest about

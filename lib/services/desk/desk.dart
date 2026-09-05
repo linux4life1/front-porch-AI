@@ -35,6 +35,7 @@ export 'desk_skills.dart';
 export 'desk_session.dart';
 export 'desk_sit_down.dart';
 export 'desk_store.dart';
+export 'desk_subagent.dart';
 export 'desk_todos.dart';
 export 'desk_tools.dart';
 export 'desk_undo.dart';

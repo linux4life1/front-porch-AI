@@ -5,7 +5,7 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 🖥️ **Desk (resume + compact)** — Sit down with a coworker and she loops tools in that folder. Long sessions fold old turns into a recap (no invented files). The last sit-down comes back as Resume on the Desk home tab. Fetch/search/MCP, todos, `@file`, `/init`, undo, and Plan/Build/Yolo still apply. Not Claude Code; not for code you cannot afford to lose. Desktop only.
+- 🖥️ **Desk (nested Explore / General)** — Sit down with a coworker and she loops tools in that folder. She can spawn a nested Explore (read-only) or General (same folder jail) and wait; they cannot leave the folder. Long sessions fold old turns into a recap. Resume brings back the last sit-down. Fetch/search/MCP, todos, `@file`, `/init`, undo, and Plan/Build/Yolo still apply. Not Claude Code; not for code you cannot afford to lose. Desktop only.
 
 - 🔌 **Characters can use tools from MCP servers you connect** — Settings → Porch Life → MCP tools. Paste the server address, tap Check connection, and you get a plain yes/no (and the tool names if it worked). Connecting is not consent: each chat has its own switches, all off by default. When a tool fires they react as themselves — you see a small chip, not the JSON. Same on the phone.
 

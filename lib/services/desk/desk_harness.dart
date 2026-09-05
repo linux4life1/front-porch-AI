@@ -29,7 +29,9 @@ import 'package:front_porch_ai/services/desk/desk_permissions.dart';
 import 'package:front_porch_ai/services/desk/desk_question.dart';
 import 'package:front_porch_ai/services/desk/desk_session.dart';
 import 'package:front_porch_ai/services/desk/desk_skills.dart';
+import 'package:front_porch_ai/services/desk/desk_sit_down.dart';
 import 'package:front_porch_ai/services/desk/desk_store.dart';
+import 'package:front_porch_ai/services/desk/desk_subagent.dart';
 import 'package:front_porch_ai/services/desk/desk_todos.dart';
 import 'package:front_porch_ai/services/desk/desk_tools.dart';
 import 'package:front_porch_ai/services/desk/desk_undo.dart';
@@ -56,6 +58,8 @@ class DeskHarness {
     this.mcpOptIn = false,
     this.mcpCall,
     this.store,
+    this.depth = 0,
+    this.exploreOnly = false,
   }) : fs = fs ?? DeskFs(session.folderRoot),
        webfetch = webfetch ?? DeskWebFetch(),
        permissions = permissions ?? DeskPermissions(mode: session.mode),
@@ -76,6 +80,8 @@ class DeskHarness {
   bool mcpOptIn;
   final DeskMcpCallFn? mcpCall;
   final DeskStore? store;
+  final int depth;
+  final bool exploreOnly;
   void Function()? onChanged;
   DeskAskFn? onAsk;
   DeskQuestionFn? onQuestion;
@@ -86,6 +92,7 @@ class DeskHarness {
   Completer<DeskAskDecision>? _askWait;
   Completer<String>? _questionWait;
   String _mentionBlock = '';
+  DeskHarness? _child;
 
   bool get isRunning => session.running;
   bool get canUndo => undoLog.canUndo;
@@ -137,6 +144,7 @@ class DeskHarness {
 
   void abort() {
     _aborted = true;
+    _child?.abort();
     llm.abort();
     final waiting = _askWait;
     if (waiting != null && !waiting.isCompleted) {
@@ -176,17 +184,31 @@ class DeskHarness {
   }
 
   List<Map<String, dynamic>> advertisedTools() {
+    Iterable<Map<String, dynamic>> fileTools = kDeskFileTools;
+    if (exploreOnly) {
+      fileTools = kDeskFileTools.where((t) {
+        final n = (t['function'] as Map?)?['name']?.toString();
+        return kDeskExploreToolNames.contains(n);
+      });
+    }
     return [
-      ...kDeskFileTools,
-      kDeskWebFetchToolSchema,
-      if (webSearch != null) kDeskWebSearchToolSchema,
-      if (mcpOptIn) ...mcpTools,
+      ...fileTools,
+      if (!exploreOnly) kDeskWebFetchToolSchema,
+      if (!exploreOnly && webSearch != null) kDeskWebSearchToolSchema,
+      if (!exploreOnly && mcpOptIn) ...mcpTools,
+      if (depth == 0) kDeskTaskToolSchema,
     ];
   }
 
   Future<void> _runTool(String name, Map<String, dynamic> args) async {
     permissions.mode = session.mode;
+    final kind = deskSubagentKind(name, args);
     final canon = canonicalDeskToolName(name);
+    if (exploreOnly && !kDeskExploreToolNames.contains(canon)) {
+      permissions.record(name: name, args: args);
+      _reject(canon, 'explore is read-only');
+      return;
+    }
     final block = permissions.hardBlock(name: name, args: args);
     if (block != null) {
       permissions.record(name: name, args: args);
@@ -213,7 +235,9 @@ class DeskHarness {
       }
     }
     permissions.record(name: name, args: args);
-    final result = await _dispatch(canon, args);
+    final result = canon == kDeskToolTask
+        ? await _runTask(kind, args)
+        : await _dispatch(canon, args);
     if (result.write != null) {
       session.lastWrite = result.write;
       undoLog.push(result.write!);
@@ -222,6 +246,62 @@ class DeskHarness {
     _chips.add(DeskToolChip(name: canon, detail: detail, ok: result.ok));
     _trace += '\n[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
     _emit();
+  }
+
+  Future<DeskToolResult> _runTask(
+    String? kind,
+    Map<String, dynamic> args,
+  ) async {
+    if (depth > 0) {
+      return DeskToolResult.error(
+        'task: nested subagents cannot spawn children',
+      );
+    }
+    if (kind != 'explore' && kind != 'general') {
+      return DeskToolResult.error('task: subagent must be explore or general');
+    }
+    final prompt =
+        args['prompt']?.toString() ?? args['description']?.toString() ?? '';
+    if (prompt.trim().isEmpty) {
+      return DeskToolResult.error('task: prompt is empty');
+    }
+    final childSession = DeskSession(
+      folderRoot: session.folderRoot,
+      coworker: session.coworker,
+      mode: kind == 'explore' ? DeskMode.plan : session.mode,
+    );
+    final child = DeskHarness(
+      session: childSession,
+      llm: llm,
+      fs: fs,
+      bash: bash,
+      undo: undoLog,
+      webfetch: webfetch,
+      webSearch: webSearch,
+      onAsk: onAsk,
+      onQuestion: onQuestion,
+      onChanged: _emit,
+      permissions: DeskPermissions(mode: childSession.mode),
+      depth: 1,
+      exploreOnly: kind == 'explore',
+    );
+    _child = child;
+    try {
+      await child.send(prompt);
+    } finally {
+      if (identical(_child, child)) _child = null;
+    }
+    if (childSession.lastWrite != null) {
+      session.lastWrite = childSession.lastWrite;
+    }
+    final out = childSession.transcript
+        .where((m) => !m.isUser)
+        .map((m) => m.text)
+        .join('\n');
+    return DeskToolResult(
+      ok: true,
+      output: out.trim().isEmpty ? '(no output)' : out,
+    );
   }
 
   Future<DeskToolResult> _dispatch(
@@ -323,6 +403,8 @@ class DeskHarness {
     if (result.write != null) return result.write!.relativePath;
     final path = deskToolPathArg(args);
     if (path != null) return path;
+    final sub = args['subagent']?.toString();
+    if (sub != null && sub.isNotEmpty) return sub;
     return name;
   }
 
