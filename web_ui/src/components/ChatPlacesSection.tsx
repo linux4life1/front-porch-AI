@@ -45,6 +45,11 @@ type PlacesResponse = {
   worldIds?: string[];
 };
 
+type AttachChoice = {
+  id: string;
+  name: string;
+};
+
 export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
   const [primary, setPrimary] = useState<Place | null>(null);
   const [lorePlaces, setLorePlaces] = useState<Place[]>([]);
@@ -60,6 +65,8 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
   const [dayCount, setDayCount] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [attachChoice, setAttachChoice] = useState<AttachChoice | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const applyPlaces = (r: PlacesResponse) => {
     const p = r.primary ?? (r.primaryId
@@ -154,12 +161,43 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
     const place = library.find((w) => w.id === id);
     const name = place?.name ?? 'this place';
     if (!primary) {
+      // Empty Setting defaults to Use as setting.
       await setSlots(id, lorePlaces.map((p) => p.id));
       return;
     }
-    // Filled Setting defaults to Add as lore.
-    if (!window.confirm(`Add "${name}" as lore?`)) return;
+    // Filled Setting: offer Add as lore (default) AND Use as setting / replace.
+    setAttachChoice({ id, name });
+  };
+
+  const finishAttachAsLore = async () => {
+    if (!attachChoice || !primary) return;
+    const { id } = attachChoice;
+    setAttachChoice(null);
     await setSlots(primary.id, [...lorePlaces.map((p) => p.id), id]);
+  };
+
+  const finishAttachAsSetting = async () => {
+    if (!attachChoice || !primary) return;
+    const { id, name } = attachChoice;
+    if (
+      !window.confirm(
+        `Replace setting? Weather and room description will switch to ${name}.`,
+      )
+    ) {
+      return;
+    }
+    setAttachChoice(null);
+    await setSlots(id, [primary.id, ...lorePlaces.map((p) => p.id)]);
+  };
+
+  const reorderLore = async (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || to >= lorePlaces.length) return;
+    const next = lorePlaces.map((p) => p.id);
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    // Optimistic local order so the list doesn't jump while the POST runs.
+    setLorePlaces(next.map((id) => lorePlaces.find((p) => p.id === id)!));
+    await setSlots(primary?.id ?? null, next);
   };
 
   return (
@@ -258,11 +296,60 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
         {lorePlaces.length === 0 ? (
           <p className="muted small">None yet.</p>
         ) : (
-          <div className="chat-places-chips">
-            {lorePlaces.map((p) => (
-              <span key={p.id} className="chat-place-chip lore">
+          <div className="chat-places-lore-list" role="list">
+            {lorePlaces.map((p, i) => (
+              <div
+                key={p.id}
+                className={`chat-place-chip lore chat-place-lore-row${
+                  dragIndex === i ? ' dragging' : ''
+                }`}
+                role="listitem"
+                draggable={!busy}
+                onDragStart={(e) => {
+                  setDragIndex(i);
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', String(i));
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const from = Number(e.dataTransfer.getData('text/plain'));
+                  setDragIndex(null);
+                  if (Number.isNaN(from)) return;
+                  void reorderLore(from, i);
+                }}
+                onDragEnd={() => setDragIndex(null)}
+              >
+                <span
+                  className="chat-place-drag"
+                  title="Drag to reorder"
+                  aria-hidden
+                >
+                  ⋮⋮
+                </span>
                 <span className="chat-place-pill lore">LORE</span>
-                <span>{p.name}</span>
+                <span className="chat-place-lore-name">{p.name}</span>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title="Move up"
+                  disabled={busy || i === 0}
+                  onClick={() => void reorderLore(i, i - 1)}
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title="Move down"
+                  disabled={busy || i === lorePlaces.length - 1}
+                  onClick={() => void reorderLore(i, i + 1)}
+                >
+                  ▼
+                </button>
                 <button
                   type="button"
                   className="icon-btn"
@@ -305,7 +392,7 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
                 >
                   ✕
                 </button>
-              </span>
+              </div>
             ))}
           </div>
         )}
@@ -327,7 +414,9 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
             <option value="">Choose…</option>
             {available.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.name}
+                {primary
+                  ? `${w.name}`
+                  : `${w.name} (as setting)`}
               </option>
             ))}
           </select>
@@ -337,6 +426,48 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
         <p className="muted small">No places in the library yet.</p>
       )}
       {error && <p className="error">{error}</p>}
+
+      {attachChoice && (
+        <div
+          className="chat-place-attach-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="attach-place-title"
+        >
+          <div className="chat-place-attach-card">
+            <h4 id="attach-place-title">Attach {attachChoice.name}</h4>
+            <p className="muted small">
+              Add as lore, or replace the current setting?
+            </p>
+            <div className="chat-place-attach-actions">
+              <button
+                type="button"
+                className="link-btn"
+                disabled={busy}
+                onClick={() => setAttachChoice(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ghost import-btn"
+                disabled={busy}
+                onClick={() => void finishAttachAsLore()}
+              >
+                Add as lore
+              </button>
+              <button
+                type="button"
+                className="primary import-btn"
+                disabled={busy}
+                onClick={() => void finishAttachAsSetting()}
+              >
+                Use as setting
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
