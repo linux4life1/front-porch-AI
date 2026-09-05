@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-05 — test(desk): pin PATH-first, Holy C, file:// (slice I)
+- **Why:** Hostile review of language doors: PATH must beat a download
+  URL; Holy C must not HTTP; default fetch must refuse file://.
+- **What:** New pins in desk_i_holes_test.dart. Production already held.
+- **Verification:** three pins green on first run.
+
 ## 2026-09-05 — feat(desk): language doors, PATH first, no zoo (slice I)
 - **Why:** Desk must not silently download an LSP zoo. Each language is
   a door the user opens. Sit down never fetches. Yolo never auto-opens.
