@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-05 — feat(desk): webfetch, FP search, opt-in MCP (slice F)
+- **Why:** OpenCode-close fetch/search/MCP without stdio or Exa.
+- **What:** webfetch GET, no redirects, clip, UNTRUSTED. web_search
+  advertised only when a lookup is injected. MCP tools not advertised
+  unless mcpOptIn; UI warns jail does not apply.
+- **Files:** desk_webfetch.dart, harness catalog, desk_mcp_opt_in.dart,
+  tests desk_slice_f_test + desk_f_chrome_test.
+- **Verification:** redirect-refuse and MCP-off tests red then green.
+  76 desk tests pass. Analyze clean. No ChatService import.
+
 ## 2026-09-05 — feat(desk): todos, question, @files, /init, skills (slice E)
 - **Why:** OpenCode-close coworking needs a todo list, a pause-to-ask,
   @file attach, AGENTS.md init, and SKILL.md load.

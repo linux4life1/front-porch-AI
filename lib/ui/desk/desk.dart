@@ -21,6 +21,7 @@ library;
 
 export 'desk_ask_dialog.dart';
 export 'desk_home_view.dart';
+export 'desk_mcp_opt_in.dart';
 export 'desk_mode_bar.dart';
 export 'desk_page.dart';
 export 'desk_question_dialog.dart';

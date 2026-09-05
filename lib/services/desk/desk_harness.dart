@@ -31,6 +31,7 @@ import 'package:front_porch_ai/services/desk/desk_skills.dart';
 import 'package:front_porch_ai/services/desk/desk_todos.dart';
 import 'package:front_porch_ai/services/desk/desk_tools.dart';
 import 'package:front_porch_ai/services/desk/desk_undo.dart';
+import 'package:front_porch_ai/services/desk/desk_webfetch.dart';
 import 'package:path/path.dart' as p;
 
 /// In-process generateWithTools loop. Max [kDeskMaxSteps]. Abort stops
@@ -47,7 +48,13 @@ class DeskHarness {
     DeskUndo? undo,
     DeskTodos? todos,
     this.onQuestion,
+    DeskWebFetch? webfetch,
+    this.webSearch,
+    this.mcpTools = const [],
+    this.mcpOptIn = false,
+    this.mcpCall,
   }) : fs = fs ?? DeskFs(session.folderRoot),
+       webfetch = webfetch ?? DeskWebFetch(),
        permissions = permissions ?? DeskPermissions(mode: session.mode),
        bash = bash ?? DeskBash(session.folderRoot),
        undoLog = undo ?? DeskUndo(),
@@ -60,6 +67,11 @@ class DeskHarness {
   final DeskBash bash;
   final DeskUndo undoLog;
   final DeskTodos todos;
+  final DeskWebFetch webfetch;
+  final DeskWebSearchFn? webSearch;
+  final List<Map<String, dynamic>> mcpTools;
+  bool mcpOptIn;
+  final DeskMcpCallFn? mcpCall;
   void Function()? onChanged;
   DeskAskFn? onAsk;
   DeskQuestionFn? onQuestion;
@@ -132,7 +144,7 @@ class DeskHarness {
       final resp = await llm.generate(
         systemPrompt: system,
         prompt: _prompt(),
-        tools: kDeskFileTools,
+        tools: advertisedTools(),
       );
       if (_aborted) return;
       if (resp == null) {
@@ -151,6 +163,15 @@ class DeskHarness {
     if (!_aborted) {
       _say('Stopped after $kDeskMaxSteps tool steps. Send again to continue.');
     }
+  }
+
+  List<Map<String, dynamic>> advertisedTools() {
+    return [
+      ...kDeskFileTools,
+      kDeskWebFetchToolSchema,
+      if (webSearch != null) kDeskWebSearchToolSchema,
+      if (mcpOptIn) ...mcpTools,
+    ];
   }
 
   Future<void> _runTool(String name, Map<String, dynamic> args) async {
@@ -215,7 +236,14 @@ class DeskHarness {
           ok: !body.startsWith('skill not found'),
           output: body,
         );
+      case kDeskToolWebFetch:
+        return webfetch.get(args['url']?.toString() ?? '');
+      case kDeskToolWebSearch:
+        return _search(args['query']?.toString() ?? '');
       default:
+        if (mcpOptIn && mcpCall != null && _mcpNames.contains(canon)) {
+          return mcpCall!(canon, args);
+        }
         return fs.dispatch(canon, args);
     }
   }
@@ -238,6 +266,23 @@ class DeskHarness {
     }
     return DeskToolResult(ok: true, output: 'user chose: $answer');
   }
+
+  Future<DeskToolResult> _search(String query) async {
+    final fn = webSearch;
+    if (fn == null) {
+      return DeskToolResult.error('web_search: not available');
+    }
+    final snippet = await fn(query);
+    return DeskToolResult(
+      ok: snippet.trim().isNotEmpty,
+      output: 'UNTRUSTED search:\n$snippet',
+    );
+  }
+
+  Set<String> get _mcpNames => {
+    for (final t in mcpTools)
+      ((t['function'] as Map?)?['name'] ?? '').toString(),
+  }.difference({''});
 
   Future<DeskAskDecision> _decide(DeskAskRequest req) async {
     final ask = onAsk;

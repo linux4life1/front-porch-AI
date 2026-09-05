@@ -31,6 +31,8 @@ const kDeskToolTodoRead = 'todoread';
 const kDeskToolTodoWrite = 'todowrite';
 const kDeskToolQuestion = 'question';
 const kDeskToolSkill = 'skill';
+const kDeskToolWebFetch = 'webfetch';
+const kDeskToolWebSearch = 'web_search';
 
 /// File tools plus bash. Plan/Build/Yolo gating is DeskPermissions.
 final List<Map<String, dynamic>> kDeskFileTools = [

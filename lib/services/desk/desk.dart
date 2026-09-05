@@ -36,3 +36,4 @@ export 'desk_sit_down.dart';
 export 'desk_todos.dart';
 export 'desk_tools.dart';
 export 'desk_undo.dart';
+export 'desk_webfetch.dart';

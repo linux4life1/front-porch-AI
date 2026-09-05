@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/desk/desk.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/ui/desk/desk_ask_dialog.dart';
+import 'package:front_porch_ai/ui/desk/desk_mcp_opt_in.dart';
 import 'package:front_porch_ai/ui/desk/desk_mode_bar.dart';
 import 'package:front_porch_ai/ui/desk/desk_question_dialog.dart';
 import 'package:front_porch_ai/ui/desk/desk_todo_list.dart';
@@ -157,6 +158,14 @@ class _DeskPageState extends State<DeskPage> {
             mode: session.mode,
             enabled: !session.running,
             onChanged: _setMode,
+          ),
+          DeskMcpOptIn(
+            value: (widget.harness ?? _created)?.mcpOptIn ?? false,
+            onChanged: (v) {
+              final h = widget.harness ?? _created;
+              if (h == null) return;
+              setState(() => h.mcpOptIn = v);
+            },
           ),
           if ((widget.harness ?? _created)?.todos.items.isNotEmpty == true)
             DeskTodoList(todos: (widget.harness ?? _created)!.todos),
