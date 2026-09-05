@@ -19,19 +19,71 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/desk/desk.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/desk/desk_page.dart';
 import 'package:front_porch_ai/ui/desk/desk_wizard_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Third home pane — sibling of Chats and Porch Stories. Sit down opens
 /// the Project → Coworker → Sit down wizard. Separate pipeline from chat.
-class DeskHomeView extends StatelessWidget {
-  const DeskHomeView({super.key, this.onSitDown});
+class DeskHomeView extends StatefulWidget {
+  const DeskHomeView({
+    super.key,
+    this.onSitDown,
+    this.lastSession,
+    this.onResume,
+    this.store,
+  });
 
   /// Test seam. Production navigates to [DeskWizardPage].
   final VoidCallback? onSitDown;
+  final DeskSession? lastSession;
+  final VoidCallback? onResume;
 
-  void _openWizard(BuildContext context) {
+  /// Test seam. Production reads [StorageService.rootPath]/desk.
+  final DeskStore? store;
+
+  @override
+  State<DeskHomeView> createState() => _DeskHomeViewState();
+}
+
+class _DeskHomeViewState extends State<DeskHomeView> {
+  DeskSession? _stored;
+  var _routeCurrent = false;
+
+  DeskSession? get _last => widget.lastSession ?? _stored;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.lastSession != null) return;
+    final current = ModalRoute.of(context)?.isCurrent ?? true;
+    if (current && !_routeCurrent) _load();
+    _routeCurrent = current;
+  }
+
+  Future<void> _load() async {
+    final store = _storeOf();
+    if (store == null) return;
+    final last = await store.loadLast();
+    if (!mounted) return;
+    setState(() => _stored = last);
+  }
+
+  DeskStore? _storeOf() {
+    if (widget.store != null) return widget.store;
+    try {
+      final storage = Provider.of<StorageService>(context, listen: false);
+      final root = storage.rootPath;
+      if (root == null || root.isEmpty) return null;
+      return DeskStore(deskStoreDirectory(root));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _openWizard() {
     var local = false;
     var label = '';
     try {
@@ -47,8 +99,21 @@ class DeskHomeView extends StatelessWidget {
     );
   }
 
+  void _resume() {
+    final last = _last;
+    if (last == null) return;
+    if (widget.onResume != null) {
+      widget.onResume!();
+      return;
+    }
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => DeskPage(session: last)));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final last = _last;
     final amber = AppColors.porchAmberOf(context);
     return Center(
       child: Padding(
@@ -75,7 +140,7 @@ class DeskHomeView extends StatelessWidget {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               key: const Key('desk-sit-down'),
-              onPressed: onSitDown ?? () => _openWizard(context),
+              onPressed: widget.onSitDown ?? _openWizard,
               icon: const Icon(Icons.chair_alt, size: 20),
               label: const Text('Sit down'),
               style: ElevatedButton.styleFrom(
@@ -83,6 +148,23 @@ class DeskHomeView extends StatelessWidget {
                 foregroundColor: AppColors.onChaosAccent,
               ),
             ),
+            if (last != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('desk-resume'),
+                onPressed: _resume,
+                icon: const Icon(Icons.replay, size: 20),
+                label: Text(
+                  last.title.isEmpty
+                      ? 'Resume ${last.coworker.name}'
+                      : 'Resume ${last.title}',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: amber,
+                  side: BorderSide(color: amber),
+                ),
+              ),
+            ],
           ],
         ),
       ),

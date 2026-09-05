@@ -21,7 +21,7 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/desk/desk.dart';
-import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/desk/desk_ask_dialog.dart';
 import 'package:front_porch_ai/ui/desk/desk_mcp_opt_in.dart';
 import 'package:front_porch_ai/ui/desk/desk_mode_bar.dart';
@@ -32,11 +32,20 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Desk session. Send runs the in-process tool loop. No Continue, no regen.
 class DeskPage extends StatefulWidget {
-  const DeskPage({super.key, required this.session, this.harness, this.llm});
+  const DeskPage({
+    super.key,
+    required this.session,
+    this.harness,
+    this.llm,
+    this.store,
+  });
 
   final DeskSession session;
   final DeskHarness? harness;
   final DeskLlm? llm;
+
+  /// Test seam. Production uses [StorageService.rootPath]/desk.
+  final DeskStore? store;
 
   @override
   State<DeskPage> createState() => _DeskPageState();
@@ -62,15 +71,29 @@ class _DeskPageState extends State<DeskPage> {
     if (mounted) setState(() {});
   }
 
+  DeskStore? _storeOf(BuildContext context) {
+    if (widget.store != null) return widget.store;
+    try {
+      final storage = Provider.of<StorageService>(context, listen: false);
+      final root = storage.rootPath;
+      if (root == null || root.isEmpty) return null;
+      return DeskStore(deskStoreDirectory(root));
+    } catch (_) {
+      return null;
+    }
+  }
+
   DeskHarness? _harnessOf(BuildContext context) {
     final injected = widget.harness;
     if (injected != null) return injected;
     if (_created != null) return _created;
+    final store = _storeOf(context);
     final llm = widget.llm;
     if (llm != null) {
       return _created = DeskHarness(
         session: widget.session,
         llm: llm,
+        store: store,
         onChanged: _refresh,
         onAsk: _ask,
         onQuestion: _askQuestion,
@@ -81,6 +104,7 @@ class _DeskPageState extends State<DeskPage> {
       return _created = DeskHarness(
         session: widget.session,
         llm: LlmServiceDeskLlm(provider.activeService),
+        store: store,
         onChanged: _refresh,
         onAsk: _ask,
         onQuestion: _askQuestion,
@@ -141,7 +165,7 @@ class _DeskPageState extends State<DeskPage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(session.coworker.name),
+            Text(session.title.isEmpty ? session.coworker.name : session.title),
             Text(
               folderName,
               style: TextStyle(

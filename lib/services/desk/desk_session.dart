@@ -61,12 +61,14 @@ class DeskSession {
     required this.folderRoot,
     required this.coworker,
     this.mode = DeskMode.build,
+    this.title = '',
     List<DeskMessage>? transcript,
   }) : transcript = transcript ?? <DeskMessage>[];
 
   final String folderRoot;
   final CharacterCard coworker;
   DeskMode mode;
+  String title;
   final List<DeskMessage> transcript;
   DeskWriteRecord? lastWrite;
   bool running = false;

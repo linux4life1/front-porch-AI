@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-09-05 — feat(desk): compaction, session resume, title (slice G)
+- **Why:** Long Desk sessions must not dump the whole transcript into
+  the next generate, and Sit down again should resume the last folder
+  and coworker without chat `messages` / `sessions` rows.
+- **What:** Extractive compact (budget 12k, keep 8) that recaps dropped
+  turns without inventing filenames. Title from the first send.
+  `DeskStore` JSON under `<data>/desk/last_desk.json` (name /
+  personality / description / systemPrompt only). Home Resume loads
+  that file and reloads when you pop back. Production DeskPage wires
+  the store so a send actually persists.
+- **Files:** desk_compact.dart, desk_store.dart, harness send, DeskPage,
+  DeskHomeView, tests desk_slice_g_test + desk_g_chrome_test.
+- **Verification:** G tests red (missing store/compact/title) then
+  green. 88 desk tests pass. Analyze clean. No ChatService import.
+
 ## 2026-09-05 — feat(desk): webfetch, FP search, opt-in MCP (slice F)
 - **Why:** OpenCode-close fetch/search/MCP without stdio or Exa.
 - **What:** webfetch GET, no redirects, clip, UNTRUSTED. web_search

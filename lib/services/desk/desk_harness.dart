@@ -19,6 +19,7 @@
 import 'dart:async';
 
 import 'package:front_porch_ai/services/desk/desk_bash.dart';
+import 'package:front_porch_ai/services/desk/desk_compact.dart';
 import 'package:front_porch_ai/services/desk/desk_coworker_prompt.dart';
 import 'package:front_porch_ai/services/desk/desk_fs.dart';
 import 'package:front_porch_ai/services/desk/desk_honesty.dart';
@@ -28,6 +29,7 @@ import 'package:front_porch_ai/services/desk/desk_permissions.dart';
 import 'package:front_porch_ai/services/desk/desk_question.dart';
 import 'package:front_porch_ai/services/desk/desk_session.dart';
 import 'package:front_porch_ai/services/desk/desk_skills.dart';
+import 'package:front_porch_ai/services/desk/desk_store.dart';
 import 'package:front_porch_ai/services/desk/desk_todos.dart';
 import 'package:front_porch_ai/services/desk/desk_tools.dart';
 import 'package:front_porch_ai/services/desk/desk_undo.dart';
@@ -53,6 +55,7 @@ class DeskHarness {
     this.mcpTools = const [],
     this.mcpOptIn = false,
     this.mcpCall,
+    this.store,
   }) : fs = fs ?? DeskFs(session.folderRoot),
        webfetch = webfetch ?? DeskWebFetch(),
        permissions = permissions ?? DeskPermissions(mode: session.mode),
@@ -72,6 +75,7 @@ class DeskHarness {
   final List<Map<String, dynamic>> mcpTools;
   bool mcpOptIn;
   final DeskMcpCallFn? mcpCall;
+  final DeskStore? store;
   void Function()? onChanged;
   DeskAskFn? onAsk;
   DeskQuestionFn? onQuestion;
@@ -109,6 +113,7 @@ class DeskHarness {
     _chips.clear();
     session.running = true;
     session.transcript.add(DeskMessage(isUser: true, text: text));
+    if (session.title.isEmpty) session.title = deskTitleFrom(text);
     _mentionBlock = await deskExpandMentions(text, session.folderRoot);
     _emit();
     try {
@@ -119,6 +124,11 @@ class DeskHarness {
         });
       }
       await _loop();
+      final compacted = deskCompactTranscript(session.transcript);
+      session.transcript
+        ..clear()
+        ..addAll(compacted);
+      await store?.saveLast(session);
     } finally {
       session.running = false;
       _emit();
