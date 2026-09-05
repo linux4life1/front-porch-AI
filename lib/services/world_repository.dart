@@ -484,6 +484,9 @@ class WorldRepository extends ChangeNotifier {
   Future<List<String>> getChatWorldIds(String chatId) =>
       _db.getWorldIdsForChat(chatId);
 
+  Future<ChatPlaceSlots> getChatWorldAttachments(String chatId) =>
+      _db.getChatWorldAttachments(chatId);
+
   Future<List<model.World>> getChatWorlds(String chatId) async {
     final ids = await getChatWorldIds(chatId);
     return [
@@ -492,12 +495,33 @@ class WorldRepository extends ChangeNotifier {
     ];
   }
 
-  Future<void> setChatWorlds(String chatId, List<String> worldIds) async {
-    await _db.setChatWorlds(chatId, worldIds);
-    // Whatever the user chose — including an empty list — is now this chat's
-    // decision, and nothing may back-fill over it later.
+  /// Canonical writer: Setting (0..1) + Lore (0..N). Empty both = decided empty.
+  Future<void> setChatWorldAttachments(
+    String chatId, {
+    String? primaryId,
+    List<String> loreIds = const [],
+  }) async {
+    await _db.setChatWorldAttachments(
+      chatId,
+      primaryId: primaryId,
+      loreIds: loreIds,
+    );
     await _db.markChatWorldsInitialized(chatId);
     notifyListeners();
+  }
+
+  Future<void> setChatWorlds(String chatId, List<String> worldIds) async {
+    // Seed-style flat write: first climate-enabled → Primary, rest → Lore.
+    await ready;
+    final slots = partitionLinkedPlaces(
+      worldIds: worldIds,
+      isClimateEnabled: (id) => worldById(id)?.climateEnabled ?? false,
+    );
+    await setChatWorldAttachments(
+      chatId,
+      primaryId: slots.primaryId,
+      loreIds: slots.loreIds,
+    );
   }
 
   /// Record that a chat's world attachments are settled without changing them.
@@ -527,23 +551,51 @@ class WorldRepository extends ChangeNotifier {
       unresolved: <String>[],
     );
     if (ids.isEmpty) return false;
-    await setChatWorlds(chatId, ids); // marks it decided
+    await setChatWorlds(chatId, ids); // partitions + marks decided
     debugPrint('[Worlds] back-filled chat $chatId from its character');
     return true;
   }
 
-  Future<void> attachWorldToChat(String chatId, String worldId) async {
-    final ids = await getChatWorldIds(chatId);
-    if (ids.contains(worldId)) return;
-    await setChatWorlds(chatId, [...ids, worldId]);
+  Future<void> attachWorldToChat(
+    String chatId,
+    String worldId, {
+    bool? asPrimary,
+  }) async {
+    final slots = await getChatWorldAttachments(chatId);
+    if (slots.allIds.contains(worldId)) return;
+    final useAsSetting = asPrimary ?? !slots.hasPrimary;
+    if (useAsSetting) {
+      final lore = [
+        if (slots.primaryId != null) slots.primaryId!,
+        ...slots.loreIds,
+      ];
+      await setChatWorldAttachments(
+        chatId,
+        primaryId: worldId,
+        loreIds: lore,
+      );
+    } else {
+      await setChatWorldAttachments(
+        chatId,
+        primaryId: slots.primaryId,
+        loreIds: [...slots.loreIds, worldId],
+      );
+    }
   }
 
   Future<void> detachWorldFromChat(String chatId, String worldId) async {
-    final ids = await getChatWorldIds(chatId);
-    await setChatWorlds(chatId, [
-      for (final id in ids)
+    final slots = await getChatWorldAttachments(chatId);
+    final primary =
+        slots.primaryId == worldId ? null : slots.primaryId;
+    final lore = [
+      for (final id in slots.loreIds)
         if (id != worldId) id,
-    ]);
+    ];
+    await setChatWorldAttachments(
+      chatId,
+      primaryId: primary,
+      loreIds: lore,
+    );
   }
 
   /// Attach worlds newly added to a CHARACTER onto that character's existing

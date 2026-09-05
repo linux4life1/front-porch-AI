@@ -952,6 +952,73 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   font-size: 0.8rem;
 }
+.chat-place-chip.setting {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.chat-place-chip.lore {
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+  background: transparent;
+}
+.chat-place-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  color: var(--muted, #888);
+}
+.chat-place-pill.setting {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.chat-place-empty {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.chat-places-lore-list {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 6px;
+}
+.chat-place-lore-row {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%;
+  border-radius: 10px;
+  padding: 4px 6px 4px 8px;
+  cursor: grab;
+}
+.chat-place-lore-row.dragging { opacity: 0.55; }
+.chat-place-drag {
+  color: var(--muted, #888);
+  font-size: 0.7rem;
+  letter-spacing: -0.08em;
+  user-select: none;
+  cursor: grab;
+}
+.chat-place-lore-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.chat-place-attach-modal {
+  position: fixed; inset: 0; z-index: 80;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, #000 45%, transparent);
+}
+.chat-place-attach-card {
+  background: var(--surface, #1c1c1e);
+  color: var(--text, inherit);
+  border: 1px solid var(--border, #444);
+  border-radius: 14px;
+  padding: 16px 18px;
+  max-width: 360px; width: calc(100% - 32px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+}
+.chat-place-attach-card h4 { margin: 0 0 8px; font-size: 1rem; }
+.chat-place-attach-actions {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 14px;
+}
+
+
 @media (max-width: 640px) {
   .msg-edit-modal {
     width: 100vw; height: 100dvh; max-height: 100dvh;

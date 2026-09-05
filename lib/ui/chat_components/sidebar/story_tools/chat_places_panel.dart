@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Attach Living Worlds *places* to the current chat (1:1 or group session).
-// Edits chat_worlds for this session; group templates stay in group settings.
-// Mid-chat climate override lives here (Story Tools — no sidebar creep).
+// One Setting owns weather and the room; Lore places only add entries.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +13,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import '../sidebar_tokens.dart';
 
-/// Places attached to the open chat — climate + place lore for this session.
+/// Places attached to the open chat — Setting (0..1) + Lore (0..N).
 class ChatPlacesPanel extends StatelessWidget {
   final ChatService chatService;
 
@@ -27,23 +26,29 @@ class ChatPlacesPanel extends StatelessWidget {
         if (chat.currentSessionId == null) {
           return const SizedBox.shrink();
         }
-        final attachedIds = chat.chatWorldIds;
+        final primaryId = chat.chatPrimaryWorldId;
+        final loreIds = chat.chatLoreWorldIds;
         final places = worlds.placeWorlds;
-        final attached = <World>[
-          for (final id in attachedIds)
+        final primary = primaryId == null
+            ? null
+            : worlds.resolveWorld(primaryId);
+        final lore = <World>[
+          for (final id in loreIds)
             if (worlds.resolveWorld(id) != null) worlds.resolveWorld(id)!,
         ];
+        final climateAuthors = primaryWorldAllowsClimate(primary);
         final activeClimate = chat.activeChatBiome;
-        // Attached places that author their own climate become picker
-        // options (value 'world:<id>' — same scheme as the web facade).
         final customOptions = <(String, World, Biome)>[
-          for (final w in attached)
-            if (w.biomeJson != null && Biome.tryParse(w.biomeJson) != null)
-              ('world:${w.id}', w, Biome.tryParse(w.biomeJson)!),
+          if (climateAuthors &&
+              primary != null &&
+              primary.biomeJson != null &&
+              Biome.tryParse(primary.biomeJson) != null)
+            (
+              'world:${primary.id}',
+              primary,
+              Biome.tryParse(primary.biomeJson)!,
+            ),
         ];
-        // Active value matches by ID alone: built-ins by their id, customs
-        // by the 'world:<id>' brand stamped at set-time. The sentinel only
-        // covers a snapshot whose source world has since been detached.
         final optionValues = {for (final (v, _, _) in customOptions) v};
         final climateDropdownId =
             Biome.builtInById(activeClimate.id) != null
@@ -73,23 +78,176 @@ class ChatPlacesPanel extends StatelessWidget {
                         context,
                         chat: chat,
                         places: places,
-                        attachedIds: attachedIds.toSet(),
+                        primaryId: primaryId,
+                        loreIds: loreIds,
                       ),
                     ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Climate + place lore for this chat. Create places under Worlds.',
+              'One setting owns the weather and the room. Lore places only add entries.',
               style: TextStyle(
                 fontSize: 10.5,
                 color: AppColors.textTertiary(context),
                 height: 1.3,
               ),
             ),
-            const SizedBox(height: 10),
-            // Mid-chat climate (spans from current story day).
+            const SizedBox(height: 12),
+
+            // ── Setting ──────────────────────────────────────────────
             Text(
-              'Climate for this chat',
+              'Setting',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary(context),
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (primary == null)
+              _emptySettingCard(context)
+            else
+              _settingCard(
+                context,
+                chat: chat,
+                world: primary,
+                loreIds: loreIds,
+              ),
+
+            const SizedBox(height: 12),
+
+            // ── Climate ──────────────────────────────────────────────
+            if (primary == null) ...[
+              Text(
+                'Weather stays off until you choose a setting.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textTertiary(context),
+                  height: 1.3,
+                ),
+              ),
+            ] else if (!climateAuthors) ...[
+              Text(
+                'This setting is lore-only — no weather.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textTertiary(context),
+                  height: 1.3,
+                ),
+              ),
+            ] else ...[
+              Text(
+                'Climate for this chat',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary(context),
+                ),
+              ),
+              const SizedBox(height: 4),
+              DropdownButtonFormField<String>(
+                // ignore: deprecated_member_use
+                value: climateDropdownId,
+                isExpanded: true,
+                dropdownColor: AppColors.surfaceContainerOf(context),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textPrimary(context),
+                ),
+                items: [
+                  for (final b in Biome.builtIns)
+                    DropdownMenuItem(
+                      value: b.id,
+                      child: Text(
+                        b.displayName,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  for (final (value, w, _) in customOptions)
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(
+                        '${w.name} (custom)',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  if (climateDropdownId == 'custom-active')
+                    DropdownMenuItem(
+                      value: 'custom-active',
+                      enabled: false,
+                      child: Text(
+                        'Custom: ${activeClimate.displayName}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: chat.isGenerating
+                    ? null
+                    : (id) async {
+                        if (id == null || id == 'custom-active') return;
+                        Biome? b = Biome.builtInById(id);
+                        if (b == null && id.startsWith('world:')) {
+                          for (final (value, _, biome) in customOptions) {
+                            if (value == id) {
+                              b = biome.withId(id);
+                              break;
+                            }
+                          }
+                        }
+                        if (b == null) return;
+                        if (id == climateDropdownId) return;
+                        await chat.setChatClimate(b);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Climate is ${b.displayName} from day '
+                                '${chat.timeService.dayCount} on. '
+                                'Earlier story days keep the old weather.',
+                              ),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      },
+              ),
+              if (activeClimate.feel.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  activeClimate.feel,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1.3,
+                    color: AppColors.textTertiary(context),
+                  ),
+                ),
+              ],
+            ],
+
+            const SizedBox(height: 14),
+
+            // ── Lore ─────────────────────────────────────────────────
+            Text(
+              'Lore places',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -97,105 +255,15 @@ class ChatPlacesPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            DropdownButtonFormField<String>(
-              // ignore: deprecated_member_use
-              value: climateDropdownId,
-              isExpanded: true,
-              dropdownColor: AppColors.surfaceContainerOf(context),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: AppColors.borderOf(context).withValues(alpha: 0.5),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: AppColors.borderOf(context).withValues(alpha: 0.4),
-                  ),
-                ),
-              ),
+            Text(
+              'Extra books for the chat. No weather.',
               style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textPrimary(context),
+                fontSize: 10.5,
+                color: AppColors.textTertiary(context),
+                height: 1.3,
               ),
-              items: [
-                for (final b in Biome.builtIns)
-                  DropdownMenuItem(
-                    value: b.id,
-                    child: Text(
-                      b.displayName,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                for (final (value, w, _) in customOptions)
-                  DropdownMenuItem(
-                    value: value,
-                    child: Text(
-                      '${w.name} (custom)',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                if (climateDropdownId == 'custom-active')
-                  DropdownMenuItem(
-                    value: 'custom-active',
-                    enabled: false,
-                    child: Text(
-                      'Custom: ${activeClimate.displayName}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: chat.isGenerating
-                  ? null
-                  : (id) async {
-                      if (id == null || id == 'custom-active') return;
-                      Biome? b = Biome.builtInById(id);
-                      if (b == null && id.startsWith('world:')) {
-                        for (final (value, _, biome) in customOptions) {
-                          if (value == id) {
-                            // Brand with the option id so the active climate
-                            // matches this option exactly after the switch.
-                            b = biome.withId(id);
-                            break;
-                          }
-                        }
-                      }
-                      if (b == null) return;
-                      if (id == climateDropdownId) return;
-                      await chat.setChatClimate(b);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Climate is ${b.displayName} from day '
-                              '${chat.timeService.dayCount} on. '
-                              'Earlier story days keep the old weather.',
-                            ),
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      }
-                    },
             ),
-            if (activeClimate.feel.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                activeClimate.feel,
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 1.3,
-                  color: AppColors.textTertiary(context),
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             if (places.isEmpty)
               Text(
                 'No places yet — open Worlds to create one.',
@@ -204,53 +272,41 @@ class ChatPlacesPanel extends StatelessWidget {
                   color: AppColors.textTertiary(context),
                 ),
               )
-            else if (attached.isEmpty)
+            else if (lore.isEmpty)
               Text(
-                'None attached. Tap + to add a place.',
+                'None yet. Tap + to add a lore place.',
                 style: TextStyle(
                   fontSize: 11,
                   color: AppColors.textTertiary(context),
                 ),
               )
             else
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final w in attached)
-                    InputChip(
-                      avatar: Icon(
-                        Icons.public,
-                        size: 14,
-                        color: AppColors.formMasterAccent,
-                      ),
-                      label: Text(
-                        w.biomeId != null &&
-                                w.biomeId!.isNotEmpty &&
-                                w.biomeId != 'temperate'
-                            ? '${w.name} · ${w.biomeId}'
-                            : w.name,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textPrimary(context),
-                        ),
-                      ),
-                      onDeleted: () async {
-                        final next = [
-                          for (final id in chat.chatWorldIds)
-                            if (id != w.id && id != w.name) id,
-                        ];
-                        await chat.setChatWorldIds(next);
-                      },
-                      deleteIconColor: AppColors.textTertiary(context),
-                      backgroundColor:
-                          AppColors.formMasterAccent.withValues(alpha: 0.12),
-                      side: BorderSide(
-                        color:
-                            AppColors.formMasterAccent.withValues(alpha: 0.35),
-                      ),
-                    ),
-                ],
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                itemCount: lore.length,
+                onReorderItem: (oldIndex, newIndex) async {
+                  final next = List<String>.from(loreIds);
+                  final moved = next.removeAt(oldIndex);
+                  next.insert(newIndex, moved);
+                  await chat.setChatPlaceSlots(
+                    primaryId: primaryId,
+                    loreIds: next,
+                  );
+                },
+                itemBuilder: (context, i) {
+                  final w = lore[i];
+                  return _loreTile(
+                    context,
+                    key: ValueKey(w.id),
+                    index: i,
+                    world: w,
+                    chat: chat,
+                    primaryId: primaryId,
+                    loreIds: loreIds,
+                  );
+                },
               ),
           ],
         );
@@ -258,12 +314,284 @@ class ChatPlacesPanel extends StatelessWidget {
     );
   }
 
+  Widget _emptySettingCard(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.borderOf(context).withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'No setting yet',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary(context),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Pick a place to own weather, seasons, and the room description for this chat.',
+            style: TextStyle(
+              fontSize: 10.5,
+              height: 1.3,
+              color: AppColors.textTertiary(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _settingCard(
+    BuildContext context, {
+    required ChatService chat,
+    required World world,
+    required List<String> loreIds,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: AppColors.formMasterAccent.withValues(alpha: 0.10),
+        border: Border.all(
+          color: AppColors.formMasterAccent.withValues(alpha: 0.40),
+        ),
+      ),
+      child: Row(
+        children: [
+          _rolePill(context, label: 'SETTING', accent: true),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              world.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary(context),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Move to lore',
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+              Icons.arrow_downward,
+              size: 16,
+              color: AppColors.textTertiary(context),
+            ),
+            onPressed: chat.isGenerating
+                ? null
+                : () async {
+                    final ok = await _confirm(
+                      context,
+                      title: 'Move to lore?',
+                      body:
+                          'Move to lore? Weather will turn off for this chat.',
+                    );
+                    if (!ok) return;
+                    await chat.setChatPlaceSlots(
+                      primaryId: null,
+                      loreIds: [world.id, ...loreIds],
+                    );
+                  },
+          ),
+          IconButton(
+            tooltip: 'Remove setting',
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+              Icons.close,
+              size: 16,
+              color: AppColors.textTertiary(context),
+            ),
+            onPressed: chat.isGenerating
+                ? null
+                : () async {
+                    await chat.setChatPlaceSlots(
+                      primaryId: null,
+                      loreIds: loreIds,
+                    );
+                  },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _loreTile(
+    BuildContext context, {
+    required Key key,
+    required int index,
+    required World world,
+    required ChatService chat,
+    required String? primaryId,
+    required List<String> loreIds,
+  }) {
+    return Padding(
+      key: key,
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppColors.borderOf(context).withValues(alpha: 0.45),
+          ),
+        ),
+        child: Row(
+          children: [
+            ReorderableDragStartListener(
+              index: index,
+              child: Icon(
+                Icons.drag_handle,
+                size: 16,
+                color: AppColors.textTertiary(context),
+              ),
+            ),
+            const SizedBox(width: 6),
+            _rolePill(context, label: 'LORE', accent: false),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                world.name,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textPrimary(context),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Use as setting',
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.arrow_upward,
+                size: 16,
+                color: AppColors.textTertiary(context),
+              ),
+              onPressed: chat.isGenerating
+                  ? null
+                  : () async {
+                      final nextLore = [
+                        ?primaryId,
+                        for (final id in loreIds)
+                          if (id != world.id) id,
+                      ];
+                      if (primaryId != null) {
+                        final ok = await _confirm(
+                          context,
+                          title: 'Replace setting?',
+                          body:
+                              'Replace setting? Weather and room description will switch to ${world.name}.',
+                        );
+                        if (!ok) return;
+                      }
+                      await chat.setChatPlaceSlots(
+                        primaryId: world.id,
+                        loreIds: nextLore,
+                      );
+                    },
+            ),
+            IconButton(
+              tooltip: 'Remove',
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.close,
+                size: 16,
+                color: AppColors.textTertiary(context),
+              ),
+              onPressed: chat.isGenerating
+                  ? null
+                  : () async {
+                      await chat.setChatPlaceSlots(
+                        primaryId: primaryId,
+                        loreIds: [
+                          for (final id in loreIds)
+                            if (id != world.id) id,
+                        ],
+                      );
+                    },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _rolePill(
+    BuildContext context, {
+    required String label,
+    required bool accent,
+  }) {
+    final color = accent
+        ? AppColors.formMasterAccent
+        : AppColors.textTertiary(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        color: accent ? color.withValues(alpha: 0.18) : Colors.transparent,
+        border: Border.all(
+          color: color.withValues(alpha: accent ? 0.55 : 0.45),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _confirm(
+    BuildContext context, {
+    required String title,
+    required String body,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceOf(ctx),
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
   Future<void> _showAttachPicker(
     BuildContext context, {
     required ChatService chat,
     required List<World> places,
-    required Set<String> attachedIds,
+    required String? primaryId,
+    required List<String> loreIds,
   }) async {
+    final attachedIds = {
+      ?primaryId,
+      ...loreIds,
+    };
     final available = [
       for (final w in places)
         if (!attachedIds.contains(w.id) && !attachedIds.contains(w.name)) w,
@@ -321,7 +649,6 @@ class ChatPlacesPanel extends StatelessWidget {
                   itemCount: available.length,
                   itemBuilder: (context, i) {
                     final w = available[i];
-                    final climate = w.biomeId ?? 'temperate';
                     return ListTile(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -335,12 +662,11 @@ class ChatPlacesPanel extends StatelessWidget {
                         style: TextStyle(color: AppColors.textPrimary(ctx)),
                       ),
                       subtitle: Text(
-                        climate == 'temperate'
-                            ? (w.description.trim().isEmpty
-                                ? 'Temperate climate'
-                                : w.description)
-                            : 'Climate: $climate'
-                                '${w.description.trim().isEmpty ? '' : ' · ${w.description}'}',
+                        w.description.trim().isEmpty
+                            ? (primaryId == null
+                                ? 'Will be used as setting'
+                                : 'Will be added as lore')
+                            : w.description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -360,6 +686,59 @@ class ChatPlacesPanel extends StatelessWidget {
     );
 
     if (chosen == null) return;
-    await chat.setChatWorldIds([...chat.chatWorldIds, chosen.id]);
+
+    if (primaryId == null) {
+      // Empty Setting defaults to Use as setting.
+      await chat.setChatPlaceSlots(
+        primaryId: chosen.id,
+        loreIds: loreIds,
+      );
+      return;
+    }
+
+    // Filled Setting defaults to Add as lore. Offer replace.
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceOf(ctx),
+        title: Text('Attach ${chosen.name}'),
+        content: const Text(
+          'Add as lore, or replace the current setting?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'lore'),
+            child: const Text('Add as lore'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'setting'),
+            child: const Text('Use as setting'),
+          ),
+        ],
+      ),
+    );
+    if (action == null || action == 'cancel') return;
+    if (action == 'lore') {
+      await chat.setChatPlaceSlots(
+        primaryId: primaryId,
+        loreIds: [...loreIds, chosen.id],
+      );
+      return;
+    }
+    final ok = await _confirm(
+      context,
+      title: 'Replace setting?',
+      body:
+          'Replace setting? Weather and room description will switch to ${chosen.name}.',
+    );
+    if (!ok) return;
+    await chat.setChatPlaceSlots(
+      primaryId: chosen.id,
+      loreIds: [primaryId, ...loreIds],
+    );
   }
 }

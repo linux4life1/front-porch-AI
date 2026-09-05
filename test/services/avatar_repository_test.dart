@@ -90,7 +90,9 @@ void main() {
       // v51: worlds.climate_enabled — per-world climate/weather plug.
       //      DEFAULT 1 so existing worlds keep climate. Guarded by
       //      test/database/climate_enabled_migration_test.dart.
-      expect(db.schemaVersion, 51);
+      // v52: chat_worlds.is_primary — Places Primary (Setting) slot.
+      //      Guarded by test/database/chat_worlds_primary_migration_test.dart.
+      expect(db.schemaVersion, 52);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

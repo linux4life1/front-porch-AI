@@ -196,20 +196,15 @@ extension ChatServiceGenerationPlan on ChatService {
           ? ''
           : _macroResolver.resolve(rawRealism, macroCtx, section: 'realism');
 
-      // Living Worlds — place prose from attached worlds (budget-capped).
-      final attachedWorlds = [
-        for (final id in _chatWorldIds)
-          if (_worldRepository.resolveWorld(id) != null)
-            _worldRepository.resolveWorld(id)!,
-      ];
-      // Fallback: group template worlds when chat_worlds not yet seeded.
-      if (attachedWorlds.isEmpty && _activeGroup != null) {
-        for (final ref in _activeGroup!.worldIds) {
-          final w = _worldRepository.resolveWorld(ref);
-          if (w != null) attachedWorlds.add(w);
-        }
-      }
-      final rawWorld = buildWorldInjection(attachedWorlds);
+      // Living Worlds — setting prose from Primary ONLY (budget-capped).
+      // Lore attachments contribute lorebook entries, not room description.
+      final primaryId = _chatPlaceSlots.primaryId;
+      final primaryWorld = primaryId == null
+          ? null
+          : _worldRepository.resolveWorld(primaryId);
+      final rawWorld = buildWorldInjection(
+        primaryWorld == null ? const <World>[] : [primaryWorld],
+      );
       final worldBlock = rawWorld.isEmpty
           ? ''
           : _macroResolver.resolve(rawWorld, macroCtx, section: 'world');

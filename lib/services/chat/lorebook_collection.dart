@@ -93,10 +93,10 @@ List<LoreEntryRef> collectLoreEntryRefs({
     }
   }
 
-  // Chat attachments first (Living Worlds); fall back to group template list.
-  final worldRefs =
-      chatWorldIds.isNotEmpty ? chatWorldIds : groupWorldNames;
-  for (final ref in worldRefs) {
+  // Chat attachments only (Living Worlds). Decided empty must stay empty —
+  // never ghost to group.worldIds after the chat has its own place slots.
+  // [groupWorldNames] is ignored (deprecated); callers should pass chat ids.
+  for (final ref in chatWorldIds) {
     addWorld(ref);
   }
 

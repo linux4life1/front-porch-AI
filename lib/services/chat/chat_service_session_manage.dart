@@ -154,7 +154,7 @@ extension ChatServiceSessionManage on ChatService {
     // Forks stay in the parent chat's place: carry the world attachments so
     // the climate/setting follow (mid-chat climate spans reset to the world
     // default, like every other new session).
-    await _seedChatWorldsForNewSession(carryRefs: _chatWorldIds);
+    await _seedChatWorldsForNewSession(carryRefs: _chatPlaceSlots.allIds);
     _parentSessionId = oldSessionId;
     _forkIndex = tip;
     _sessionGenSettings = _sessionGenSettings

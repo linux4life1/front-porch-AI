@@ -562,9 +562,9 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   Lorebook? _cachedGroupBook;
   String? _cachedGroupBookJson;
 
-  /// Living Worlds: UUIDs of worlds attached to the current session.
+  /// Living Worlds: Primary Setting + Lore slots for the open session.
   /// Loaded on session open; group template seeds new chats.
-  List<String> _chatWorldIds = const [];
+  ChatPlaceSlots _chatPlaceSlots = const ChatPlaceSlots();
 
   /// Hydrated mid-chat climate spans + world default (Living Worlds phase 1).
   BiomeSchedule _biomeSchedule = const BiomeSchedule();
