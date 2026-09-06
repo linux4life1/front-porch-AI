@@ -17811,3 +17811,34 @@ needing those servers — the doc carries the curl, the three possible outcomes
 and the work each implies.
 
 Commit: 6bc81de
+
+## 2026-09-06 — Lore-only WORLD cards clear Stoop upload completeness
+
+Files: `lib/services/backporch/stoop_card_completeness.dart`,
+`test/services/backporch/stoop_card_completeness_test.dart`,
+`docs/Rawhide.md`.
+
+Places with Climate switched off deliberately omit `biome` from their
+`.fpworld` envelope, but the Stoop completeness assessor still required biome
+content for every WORLD. The share wizard and final publish gate therefore
+rejected valid lore-only places before making an upload request.
+
+The assessor now reads the existing mixed-fleet `climate_enabled` /
+`climateEnabled` aliases. An explicit setting wins. Without either key, a
+present `biome` keeps old packages climate-on for safety; no biome means the
+package is lore-only. Biome remains critical only in climate mode, while
+lorebook content remains optional in both modes.
+
+Regression coverage now exercises explicit snake-case on/off, camel-case off,
+and both missing-flag fallbacks. Restoring the old unconditional biome rule
+made the three lore-only tests fail; restoring the fix returned all 9 focused
+tests to green. The full non-golden suite passed 5,327 tests (13 skipped), and
+the host Linux golden suite passed 118 tests. Changed-file analysis is clean.
+The full analyzer and `dart fix --dry-run` only report pre-existing findings in
+unmodified files.
+
+No `site/src/stoop/completeness.js` or other JavaScript completeness mirror
+exists in this repository. The independently maintained Stoop backend remains
+outside this repository.
+
+Commit: e5e5ed73
