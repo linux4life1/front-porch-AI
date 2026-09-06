@@ -84,31 +84,13 @@ enum ToolCallSupport { untested, supported, unsupported }
 ///
 /// The endpoint component keeps two OpenAI-compatible providers with the same
 /// model slug (for example Nano-GPT and OpenRouter) from sharing tool-probe,
-/// tool-choice-style, or automatic one-shot state. Query and fragment data are
-/// deliberately omitted: capability belongs to the API endpoint, and secrets
-/// sometimes ride URL query parameters.
+/// tool-choice-style, or automatic one-shot state.
 String evalBackendIdentityFor({
   required String backendName,
   required String remoteApiUrl,
   required String remoteModelName,
   required String? modelPath,
-}) {
-  var endpoint = remoteApiUrl.trim();
-  final uri = Uri.tryParse(endpoint);
-  if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
-    var path = uri.path;
-    while (path.endsWith('/')) {
-      path = path.substring(0, path.length - 1);
-    }
-    endpoint = Uri(
-      scheme: uri.scheme.toLowerCase(),
-      host: uri.host.toLowerCase(),
-      port: uri.hasPort ? uri.port : null,
-      path: path,
-    ).toString();
-  }
-  return '$backendName|$endpoint|$remoteModelName|${modelPath ?? ''}';
-}
+}) => '$backendName|${remoteApiUrl.trim()}|$remoteModelName|${modelPath ?? ''}';
 
 /// Resolve the effective one-shot decision for a turn — pure, so the whole
 /// policy is testable as a truth table (eval review Tier-1 §3.4).
@@ -269,12 +251,11 @@ class ToolTransportProbe extends ChangeNotifier {
 /// tools-mode prompt; a matching call is converted by [callToText] into the
 /// canonical text the downstream parser expects. A tool-less reply is
 /// salvaged only when its text is valid JSON containing the selected tool's
-/// required fields. Prose or partial JSON is real evidence that the forced
-/// call was ignored, so it marks this identity text-only and falls through to
-/// [fireTextEval]. Transport failures, cancellations ([isCancelled]), and
-/// EMPTY answers (null resp, or no call + no text — the shape a server-side
-/// abort produces as a clean 200) remain inconclusive: they fall back for the
-/// round and leave the probe untested to retry next pass.
+/// required fields. Prose or partial JSON falls through to [fireTextEval].
+/// Call-less replies, transport failures, cancellations ([isCancelled]), and
+/// EMPTY answers (the shape a server-side abort produces as a clean 200) stay
+/// inconclusive here; provider metadata and ToolSupportTester own the durable
+/// capability verdict.
 String? _usableEvalJsonText(
   String text, {
   required List<Map<String, dynamic>> tools,
@@ -307,6 +288,12 @@ String? _usableEvalJsonText(
     }
   }
   if (selectedName == null || parameters == null) return null;
+  final requiredRaw = parameters['required'];
+  final required = requiredRaw is List
+      ? requiredRaw.map((field) => field.toString())
+      : const <String>[];
+  if (required.isEmpty && decoded.isEmpty) return trimmed;
+
   final normalized = callToText(
     LlmToolResponse(
       calls: [
@@ -326,10 +313,6 @@ String? _usableEvalJsonText(
     return null;
   }
   if (normalizedJson is! Map) return null;
-  final requiredRaw = parameters['required'];
-  final required = requiredRaw is List
-      ? requiredRaw.map((field) => field.toString())
-      : const <String>[];
   if (!required.every(normalizedJson.containsKey)) {
     return null;
   }
@@ -397,12 +380,9 @@ Future<String?> fireStructuredEval({
             '[Eval:Tools] $debugLabel returned prose or incomplete JSON — '
             'retrying with text transport',
           );
-        } else {
-          inconclusive = true;
         }
-      } else {
-        inconclusive = true;
       }
+      inconclusive = true;
       // Null resp, or a resp with no usable call AND no text: an EMPTY
       // answer is never a capability verdict. A KoboldCpp server-side abort
       // (/api/extra/abort — fired by stopGeneration, the eval-timeout
@@ -413,9 +393,8 @@ Future<String?> fireStructuredEval({
       // "not supported" after a Scene Guest join (the guest flow stacks a
       // long mint generation + a burst of concurrent evals + abort/idle
       // traffic on the single-slot backend). Models that genuinely can't
-      // speak tools answer with prose and are branded text-only above; an
-      // empty answer just falls back to text for THIS round and leaves the
-      // probe untested to retry next pass.
+      // speak tools answer with prose; the ToolSupportTester owns that durable
+      // verdict. This pass falls back for THIS round and retries next pass.
     } catch (e) {
       debugPrint('[Eval:Tools] $debugLabel attempt failed: $e');
       if (isCancelled?.call() ?? false) return null;

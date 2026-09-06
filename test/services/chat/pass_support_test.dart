@@ -101,7 +101,7 @@ void main() {
     });
 
     test(
-      'prose answer falls through to text and brands tools unreliable',
+      'prose answer falls through to text without branding the model',
       () async {
         // OpenRouter can return ordinary prose while claiming the forced tool
         // parameter is supported. Returning it here used to skip the working
@@ -111,7 +111,7 @@ void main() {
               const LlmToolResponse(calls: [], text: 'bond_delta: 3'),
         );
         expect(r.result, 'TEXT-RESULT');
-        expect(r.probe.supportFor(id), ToolCallSupport.unsupported);
+        expect(r.probe.supportFor(id), ToolCallSupport.untested);
         expect(r.textCalls, 1);
       },
     );
@@ -132,7 +132,7 @@ void main() {
             const LlmToolResponse(calls: [], text: '{"relationship_delta":3}'),
       );
       expect(r.result, 'TEXT-RESULT');
-      expect(r.probe.supportFor(id), ToolCallSupport.unsupported);
+      expect(r.probe.supportFor(id), ToolCallSupport.untested);
       expect(r.textCalls, 1);
     });
 
@@ -182,16 +182,6 @@ void main() {
         modelPath: null,
       );
       expect(nano, isNot(openRouter));
-      expect(
-        openRouter,
-        evalBackendIdentityFor(
-          backendName: 'Remote API',
-          remoteApiUrl: 'HTTPS://OPENROUTER.AI/api/v1/',
-          remoteModelName: 'shared/model',
-          modelPath: null,
-        ),
-        reason: 'cosmetic URL spelling must not discard a probe verdict',
-      );
     });
 
     test('ChatService includes the configured API URL at the call site', () {

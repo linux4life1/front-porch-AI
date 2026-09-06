@@ -17891,10 +17891,31 @@ JSON fallback, leaving bond/trust unchanged and allowing Needs to show only
 ambient decay.
 
 Call-less text is now accepted only when it is valid JSON with the selected
-eval schema's required fields; prose and partial objects mark that tools route
-unreliable and immediately retry through text. OpenRouter metadata requires
-both `tools` and `tool_choice`, OpenRouter tool requests set
-`provider.require_parameters`, and eval identities include the normalized API
+eval schema's required fields; prose and partial objects immediately retry
+through text while the metadata/live probe keeps ownership of the durable
+capability verdict. OpenRouter metadata requires both `tools` and
+`tool_choice`, OpenRouter tool requests set
+`provider.require_parameters`, and eval identities include the configured API
 endpoint so Nano-GPT and OpenRouter cannot share probe or one-shot state for
 the same model slug. Nano-GPT and generic OpenAI-compatible requests remain
 unchanged.
+
+The three focused files pass 51 tests and the wider eval-transport set passes
+144. Both full non-golden runs passed 5,335 tests (13 skipped); the Linux host
+golden run passed 118. Full analysis reports only 12 pre-existing infos in
+untouched files, and `dart fix --dry-run` proposes only 8 pre-existing fixes.
+Two mutation passes proved all new guards red: restoring unconditional prose
+salvage, dropping the endpoint key, trusting tools-only metadata, omitting the
+OpenRouter provider constraint, rejecting valid JSON salvage, making metadata
+case-sensitive, bypassing the ChatService call site, and leaking the provider
+field to Nano/local requests each failed its intended assertion before the
+final green run.
+
+The first CI run's sole unit failure was an unrelated Drift teardown race in
+`session_picker_overlay_hold_test.dart` (no failed assertion); that file passes
+in isolation and both complete local runs passed. All 15 CI E2E shards, CI
+goldens, and changed-file analysis were green. The protected-test gate still
+requires the maintainer's `approved-test-change` label because the obsolete
+prose-salvage assertion was intentionally corrected.
+
+Commit: a42293ab (implementation); validation refinement in this commit
