@@ -16,11 +16,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/llm_tool_parsing.dart';
-import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/openai_chat_stream.dart';
+import 'package:front_porch_ai/services/services.dart'
+    show GenerationParams, OpenRouterService, isToolTransportFailure;
 
 void main() {
   // The test binding stubs HttpClient (every request would 400 without a
@@ -132,37 +133,81 @@ void main() {
       },
     ];
 
-    test('sends a non-streaming request with tools and parses the calls',
-        () async {
-      responseBody = jsonEncode({
-        'choices': [
-          {
-            'message': {
-              'tool_calls': [
-                {
-                  'function': {
-                    'name': 'add_memory',
-                    'arguments': '{"content": "It rained all night."}',
+    test(
+      'sends a non-streaming request with tools and parses the calls',
+      () async {
+        responseBody = jsonEncode({
+          'choices': [
+            {
+              'message': {
+                'tool_calls': [
+                  {
+                    'function': {
+                      'name': 'add_memory',
+                      'arguments': '{"content": "It rained all night."}',
+                    },
                   },
-                },
-              ],
+                ],
+              },
             },
-          },
-        ],
-      });
+          ],
+        });
 
-      final resp = await service().generateWithTools(params, tools);
+        final resp = await service().generateWithTools(params, tools);
 
-      expect(lastRequest!['stream'], false);
-      expect(lastRequest!['tools'], isNotEmpty);
-      expect(lastRequest!['tool_choice'], 'auto');
-      expect(lastRequest!['model'], 'test-model');
-      // Same reasoning posture as the streaming eval path: with reasoning
-      // off and no budget, the shared payload builder omits the key.
-      expect(lastRequest!.containsKey('reasoning'), isFalse);
-      expect(resp!.calls.single.name, 'add_memory');
-      expect(resp.calls.single.arguments['content'], 'It rained all night.');
-    });
+        expect(lastRequest!['stream'], false);
+        expect(lastRequest!['tools'], isNotEmpty);
+        expect(lastRequest!['tool_choice'], 'auto');
+        expect(lastRequest!['model'], 'test-model');
+        expect(lastRequest!.containsKey('provider'), isFalse);
+        // Same reasoning posture as the streaming eval path: with reasoning
+        // off and no budget, the shared payload builder omits the key.
+        expect(lastRequest!.containsKey('reasoning'), isFalse);
+        expect(resp!.calls.single.name, 'add_memory');
+        expect(resp.calls.single.arguments['content'], 'It rained all night.');
+      },
+    );
+
+    test(
+      'only OpenRouter requires providers to honor tool parameters',
+      () async {
+        Future<Map<String, dynamic>> payloadFor(String apiUrl) async {
+          Map<String, dynamic>? payload;
+          final remote = OpenRouterService(
+            apiUrl: apiUrl,
+            apiKey: 'test-key',
+            modelName: 'same-model',
+          );
+          remote.httpClientFactory = () => MockClient((request) async {
+            payload = jsonDecode(request.body) as Map<String, dynamic>;
+            return http.Response(
+              jsonEncode({
+                'choices': [
+                  {
+                    'message': {
+                      'tool_calls': [
+                        {
+                          'function': {'name': 'add_memory', 'arguments': '{}'},
+                        },
+                      ],
+                    },
+                  },
+                ],
+              }),
+              200,
+            );
+          });
+          await remote.generateWithTools(params, tools);
+          return payload!;
+        }
+
+        final openRouter = await payloadFor('https://openrouter.ai/api/v1');
+        expect(openRouter['provider'], {'require_parameters': true});
+
+        final nano = await payloadFor('https://nano-gpt.com/api/v1');
+        expect(nano.containsKey('provider'), isFalse);
+      },
+    );
 
     test('non-200 (provider without tool support) returns null', () async {
       statusCode = 404;
@@ -172,35 +217,37 @@ void main() {
       expect(await service().generateWithTools(params, tools), isNull);
     });
 
-    test('429/5xx throws a transport failure — never a capability null',
-        () async {
-      statusCode = 503;
-      responseBody = jsonEncode({
-        'error': {'message': 'Server is busy; please try again later.'},
-      });
-      Object? caught;
-      try {
-        await service().generateWithTools(params, tools);
-        fail('a busy server must throw, not return null');
-      } catch (e) {
-        caught = e;
-      }
-      expect(isToolTransportFailure(caught), isTrue);
+    test(
+      '429/5xx throws a transport failure — never a capability null',
+      () async {
+        statusCode = 503;
+        responseBody = jsonEncode({
+          'error': {'message': 'Server is busy; please try again later.'},
+        });
+        Object? caught;
+        try {
+          await service().generateWithTools(params, tools);
+          fail('a busy server must throw, not return null');
+        } catch (e) {
+          caught = e;
+        }
+        expect(isToolTransportFailure(caught), isTrue);
 
-      // Same contract on the shared local door.
-      statusCode = 429;
-      try {
-        await postOpenAiChatWithTools(
-          'http://127.0.0.1:${server.port}',
-          params,
-          tools,
-        );
-        fail('a rate-limited server must throw, not return null');
-      } catch (e) {
-        caught = e;
-      }
-      expect(isToolTransportFailure(caught), isTrue);
-    });
+        // Same contract on the shared local door.
+        statusCode = 429;
+        try {
+          await postOpenAiChatWithTools(
+            'http://127.0.0.1:${server.port}',
+            params,
+            tools,
+          );
+          fail('a rate-limited server must throw, not return null');
+        } catch (e) {
+          caught = e;
+        }
+        expect(isToolTransportFailure(caught), isTrue);
+      },
+    );
 
     test('unready service returns null without making a request', () async {
       final unready = OpenRouterService(
@@ -211,50 +258,52 @@ void main() {
       expect(lastRequest, isNull);
     });
 
-    test('local door (postOpenAiChatWithTools) — same shape, same contract',
-        () async {
-      // The shared function KoboldService delegates to,
-      // pointed at the KoboldCpp-style root (no /v1 — the helper appends).
-      responseBody = jsonEncode({
-        'choices': [
-          {
-            'message': {
-              'tool_calls': [
-                {
-                  'function': {
-                    'name': 'pin_memory',
-                    'arguments': '{"id": 2}',
+    test(
+      'local door (postOpenAiChatWithTools) — same shape, same contract',
+      () async {
+        // The shared function KoboldService delegates to,
+        // pointed at the KoboldCpp-style root (no /v1 — the helper appends).
+        responseBody = jsonEncode({
+          'choices': [
+            {
+              'message': {
+                'tool_calls': [
+                  {
+                    'function': {
+                      'name': 'pin_memory',
+                      'arguments': '{"id": 2}',
+                    },
                   },
-                },
-              ],
+                ],
+              },
             },
-          },
-        ],
-      });
-      final resp = await postOpenAiChatWithTools(
-        'http://127.0.0.1:${server.port}',
-        params,
-        tools,
-      );
-      expect(lastRequest!['stream'], false);
-      expect(lastRequest!['tools'], isNotEmpty);
-      expect(lastRequest!['tool_choice'], 'auto');
-      expect(lastRequest!['model'], 'koboldcpp'); // Kobold ignores the name
-      expect(resp!.calls.single.name, 'pin_memory');
-      expect(resp.calls.single.arguments['id'], 2);
-
-      // An old KoboldCpp that rejects the tools field → null → XML fallback.
-      statusCode = 400;
-      responseBody = '';
-      expect(
-        await postOpenAiChatWithTools(
+          ],
+        });
+        final resp = await postOpenAiChatWithTools(
           'http://127.0.0.1:${server.port}',
           params,
           tools,
-        ),
-        isNull,
-      );
-    });
+        );
+        expect(lastRequest!['stream'], false);
+        expect(lastRequest!['tools'], isNotEmpty);
+        expect(lastRequest!['tool_choice'], 'auto');
+        expect(lastRequest!['model'], 'koboldcpp'); // Kobold ignores the name
+        expect(resp!.calls.single.name, 'pin_memory');
+        expect(resp.calls.single.arguments['id'], 2);
+
+        // An old KoboldCpp that rejects the tools field → null → XML fallback.
+        statusCode = 400;
+        responseBody = '';
+        expect(
+          await postOpenAiChatWithTools(
+            'http://127.0.0.1:${server.port}',
+            params,
+            tools,
+          ),
+          isNull,
+        );
+      },
+    );
 
     test('client torn down mid-call (abortGeneration) throws a transport '
         'failure', () async {

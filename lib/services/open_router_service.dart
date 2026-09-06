@@ -453,31 +453,34 @@ class OpenRouterService extends LLMService {
   Map<String, String> get _chatHeaders => {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer $_apiKey',
-    // Identify the app for providers that support it
     'HTTP-Referer': 'https://github.com/linux4life1/front-porch-AI',
     'X-Title': 'Front Porch AI',
   };
 
-  /// OpenAI-style tool calling (non-streaming). Null = answered unusable;
-  /// throw = transport failure. Named `tool_choice` rides [params.toolChoice]
-  /// so the mandatory-reasoning retry forwards it by passing the same params.
+  /// Non-streaming OpenAI tools: null = unusable, throw = transport failure.
+  /// Named choice survives the mandatory-reasoning retry through [params].
   @override
   Future<LlmToolResponse?> generateWithTools(
     GenerationParams params,
     List<Map<String, dynamic>> tools,
   ) async {
     if (!isReady) return null;
-    final client = http.Client();
+    final client = httpClientFactory?.call() ?? http.Client();
     _activeClients.add(client);
     try {
       final identity = params.backendIdentity.isEmpty
           ? '$backendName|$_modelName|'
           : params.backendIdentity;
+      final payload = _chatPayload(params, stream: false);
+      final host = Uri.tryParse(_apiUrl)?.host.toLowerCase();
+      if (host == 'openrouter.ai' || host?.endsWith('.openrouter.ai') == true) {
+        payload['provider'] = {'require_parameters': true};
+      }
       final response = await attachToolsWithStyleRetry(
         identity: identity,
         tools: tools,
         toolChoice: params.toolChoice,
-        basePayload: _chatPayload(params, stream: false),
+        basePayload: payload,
         post: (payload) => client.post(
           Uri.parse('$_apiUrl/chat/completions'),
           headers: _chatHeaders,
@@ -508,9 +511,6 @@ class OpenRouterService extends LLMService {
         );
         return null;
       }
-      // A tool call cut by max_tokens comes back as a clean 200 with no
-      // tool_calls and no content — downstream that reads as "inconclusive,
-      // fall back to text" with no trace. Name it in the log.
       if (RegExp(r'"finish_reason"\s*:\s*"length"').hasMatch(response.body)) {
         debugPrint(
           '[RemoteAPI] $modelName tool call hit max_tokens '

@@ -17873,3 +17873,28 @@ Linux container goldens were unavailable because this environment has no
 Docker.
 
 Commit: aadb6176 (implementation); verification/bundle in this commit
+
+## 2026-09-06 — OpenRouter structured evals fall back when forced tools fail
+
+Files: `lib/services/chat/pass_support.dart`,
+`lib/services/chat/chat_service_wiring_evals.dart`,
+`lib/services/capability/model_capabilities.dart`,
+`lib/services/open_router_service.dart`, `lib/services/system_role_probe.dart`,
+`test/services/chat/pass_support_test.dart`,
+`test/services/capability/model_capabilities_test.dart`,
+`test/services/open_router_tools_test.dart`, and `docs/Rawhide.md`.
+
+OpenRouter can advertise tool schemas while a routed provider ignores forced
+`tool_choice`, returning prose or partial JSON instead of a call. The shared
+structured-eval door used to accept any non-empty text and skip its streaming
+JSON fallback, leaving bond/trust unchanged and allowing Needs to show only
+ambient decay.
+
+Call-less text is now accepted only when it is valid JSON with the selected
+eval schema's required fields; prose and partial objects mark that tools route
+unreliable and immediately retry through text. OpenRouter metadata requires
+both `tools` and `tool_choice`, OpenRouter tool requests set
+`provider.require_parameters`, and eval identities include the normalized API
+endpoint so Nano-GPT and OpenRouter cannot share probe or one-shot state for
+the same model slug. Nano-GPT and generic OpenAI-compatible requests remain
+unchanged.

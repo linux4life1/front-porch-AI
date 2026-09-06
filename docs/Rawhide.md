@@ -5,6 +5,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🎭 **OpenRouter models move relationships, Needs, and scene time again** — providers that ignore forced tool calls now retry through the reliable JSON path instead of treating prose as an answer. Bonds no longer freeze while Needs only decay on Grok, Gemini, and similar routed models. Same on the phone.
+
 - 💬 **Stoop messages, typing, and live card counts keep working after the hub's security upgrade** — desktop and phone now authenticate live connections without putting your sign-in token in the connection address.
 
 - 🔎 **They can look unknown terms up — safely and only when you ask** — turn on Web Search in Porch Life and the first reply to a message you send can quietly look up an unknown word (lore, a show, weather, whatever), then react as themselves. Continue, Regenerate, guests, group follow-ups, cast entrances, and AFK / Dynamic Responses stay offline. Search results are treated as untrusted notes, redirects are refused, and Tavily keys now move out of preferences into your system's secure credential store. One switch for every chat, including ones already open; no key still uses Wikipedia. A small chip shows when a lookup happened. Off by default. Same on the phone.

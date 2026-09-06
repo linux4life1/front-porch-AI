@@ -16,14 +16,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
-import 'package:front_porch_ai/services/llm_service.dart'
-    show LlmToolResponse, isToolTransportFailure;
-import 'package:front_porch_ai/services/storage/settings/realism_settings.dart'
-    show OneShotMode;
+import 'package:front_porch_ai/services/services.dart'
+    show LlmToolCall, LlmToolResponse, OneShotMode, isToolTransportFailure;
 
 /// Shared support for the two background maintenance passes (the Journal and
 /// Growth Rings) — extracted from JournalMaintenance so the growth pass
@@ -79,6 +79,36 @@ List<CharacterCard> resolvePassOwners({
 
 /// A backend identity's native tool-calling verdict, as observed this run.
 enum ToolCallSupport { untested, supported, unsupported }
+
+/// Stable identity for eval transport capability state.
+///
+/// The endpoint component keeps two OpenAI-compatible providers with the same
+/// model slug (for example Nano-GPT and OpenRouter) from sharing tool-probe,
+/// tool-choice-style, or automatic one-shot state. Query and fragment data are
+/// deliberately omitted: capability belongs to the API endpoint, and secrets
+/// sometimes ride URL query parameters.
+String evalBackendIdentityFor({
+  required String backendName,
+  required String remoteApiUrl,
+  required String remoteModelName,
+  required String? modelPath,
+}) {
+  var endpoint = remoteApiUrl.trim();
+  final uri = Uri.tryParse(endpoint);
+  if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
+    var path = uri.path;
+    while (path.endsWith('/')) {
+      path = path.substring(0, path.length - 1);
+    }
+    endpoint = Uri(
+      scheme: uri.scheme.toLowerCase(),
+      host: uri.host.toLowerCase(),
+      port: uri.hasPort ? uri.port : null,
+      path: path,
+    ).toString();
+  }
+  return '$backendName|$endpoint|$remoteModelName|${modelPath ?? ''}';
+}
 
 /// Resolve the effective one-shot decision for a turn — pure, so the whole
 /// policy is testable as a truth table (eval review Tier-1 §3.4).
@@ -237,15 +267,75 @@ class ToolTransportProbe extends ChangeNotifier {
 ///
 /// Flow: unless [probe] already marked the backend text-only, fire the
 /// tools-mode prompt; a matching call is converted by [callToText] into the
-/// canonical text the downstream parser expects; a tool-less reply with text
-/// is salvaged through the same parser. Verdict rule: only real evidence
-/// brands the backend — thrown non-transport rejections mark it text-only,
-/// while transport failures, cancellations ([isCancelled]), and EMPTY
-/// answers (null resp, or no call + no text — the shape a server-side abort
-/// produces as a clean 200) are inconclusive: fall back to text for the
-/// round and leave the probe untested to retry next pass. Capability
-/// branding of genuinely tool-less models is the ToolSupportTester ping's
-/// job.
+/// canonical text the downstream parser expects. A tool-less reply is
+/// salvaged only when its text is valid JSON containing the selected tool's
+/// required fields. Prose or partial JSON is real evidence that the forced
+/// call was ignored, so it marks this identity text-only and falls through to
+/// [fireTextEval]. Transport failures, cancellations ([isCancelled]), and
+/// EMPTY answers (null resp, or no call + no text — the shape a server-side
+/// abort produces as a clean 200) remain inconclusive: they fall back for the
+/// round and leave the probe untested to retry next pass.
+String? _usableEvalJsonText(
+  String text, {
+  required List<Map<String, dynamic>> tools,
+  required String? toolChoice,
+  required String? Function(LlmToolResponse resp) callToText,
+}) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return null;
+
+  final dynamic decoded;
+  try {
+    decoded = jsonDecode(trimmed);
+  } catch (_) {
+    return null;
+  }
+  if (decoded is! Map) return null;
+
+  String? selectedName;
+  Map<dynamic, dynamic>? parameters;
+  for (final tool in tools) {
+    final function = tool['function'];
+    if (function is! Map) continue;
+    final name = function['name']?.toString() ?? '';
+    if (name == toolChoice ||
+        ((toolChoice == null || toolChoice.isEmpty) && tools.length == 1)) {
+      selectedName = name;
+      final rawParameters = function['parameters'];
+      if (rawParameters is Map) parameters = rawParameters;
+      break;
+    }
+  }
+  if (selectedName == null || parameters == null) return null;
+  final normalized = callToText(
+    LlmToolResponse(
+      calls: [
+        LlmToolCall(
+          name: selectedName,
+          arguments: Map<String, dynamic>.from(decoded),
+        ),
+      ],
+      text: '',
+    ),
+  );
+  if (normalized == null) return null;
+  final dynamic normalizedJson;
+  try {
+    normalizedJson = jsonDecode(normalized);
+  } catch (_) {
+    return null;
+  }
+  if (normalizedJson is! Map) return null;
+  final requiredRaw = parameters['required'];
+  final required = requiredRaw is List
+      ? requiredRaw.map((field) => field.toString())
+      : const <String>[];
+  if (!required.every(normalizedJson.containsKey)) {
+    return null;
+  }
+  return normalized;
+}
+
 Future<String?> fireStructuredEval({
   required ToolTransportProbe probe,
   required String backendIdentity,
@@ -292,10 +382,26 @@ Future<String?> fireStructuredEval({
           onChunk?.call('$text\n');
           return text;
         }
-        if (resp.text.trim().isNotEmpty) {
-          onChunk?.call('${resp.text}\n');
-          return resp.text;
+        final salvaged = _usableEvalJsonText(
+          resp.text,
+          tools: tools,
+          toolChoice: toolChoice,
+          callToText: callToText,
+        );
+        if (salvaged != null) {
+          onChunk?.call('$salvaged\n');
+          return salvaged;
         }
+        if (resp.text.trim().isNotEmpty) {
+          debugPrint(
+            '[Eval:Tools] $debugLabel returned prose or incomplete JSON — '
+            'retrying with text transport',
+          );
+        } else {
+          inconclusive = true;
+        }
+      } else {
+        inconclusive = true;
       }
       // Null resp, or a resp with no usable call AND no text: an EMPTY
       // answer is never a capability verdict. A KoboldCpp server-side abort
@@ -307,10 +413,9 @@ Future<String?> fireStructuredEval({
       // "not supported" after a Scene Guest join (the guest flow stacks a
       // long mint generation + a burst of concurrent evals + abort/idle
       // traffic on the single-slot backend). Models that genuinely can't
-      // speak tools answer with PROSE (salvaged above) and are branded by
-      // the ToolSupportTester ping; an empty answer just falls back to text
-      // for THIS round and leaves the probe untested to retry next pass.
-      inconclusive = true;
+      // speak tools answer with prose and are branded text-only above; an
+      // empty answer just falls back to text for THIS round and leaves the
+      // probe untested to retry next pass.
     } catch (e) {
       debugPrint('[Eval:Tools] $debugLabel attempt failed: $e');
       if (isCancelled?.call() ?? false) return null;

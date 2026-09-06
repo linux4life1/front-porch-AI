@@ -18,12 +18,8 @@
 
 part of '../chat_service.dart';
 
-/// Builders for the Realism/Needs eval pipeline (the LLM eval engine, the
-/// realism verifier, the needs-impact evaluator, the 5 realism evals, and
-/// objective proposal handling) plus the shared tools-transport surface
-/// (`_fireToolEval` / `_evalBackendIdentity` / the tool-support tester
-/// builder). Extracted verbatim from `chat_service.dart` — zero behaviour
-/// change; every callback closure is byte-identical to its old inline form.
+/// Builders for the Realism/Needs eval pipeline plus its shared tools
+/// transport (`_fireToolEval`, `_evalBackendIdentity`, and the support tester).
 extension ChatServiceWiringEvals on ChatService {
   // ── LLM Eval Engine (step 9: _fireLLMEval + strip + extract + needs impact cb) ──
   // Plain class (not ChangeNotifier). Owns the central eval firing (streaming/retry/cancel, 4000/0.1/no-reasoning),
@@ -616,14 +612,16 @@ extension ChatServiceWiringEvals on ChatService {
     }
   }
 
-  /// Backend+model identity key for the tools probe. Remote model name AND
-  /// local model path both ride the key, so switching either re-probes tool
-  /// support (capability is per model).
+  /// Endpoint+model identity key for the shared tools/one-shot probes.
   String get _evalBackendIdentity {
     final service =
         testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
-    return '${service.backendName}|${_storageService.remoteModelName}'
-        '|${_storageService.lastUsedModelPath ?? ''}';
+    return evalBackendIdentityFor(
+      backendName: service.backendName,
+      remoteApiUrl: _storageService.remoteApiUrl,
+      remoteModelName: _storageService.remoteModelName,
+      modelPath: _storageService.lastUsedModelPath,
+    );
   }
 
   /// Active tool-support prober behind the sidebar's tool-calling pill:
