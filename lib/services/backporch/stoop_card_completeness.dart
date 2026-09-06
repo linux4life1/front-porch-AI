@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Card completeness checklist for Stoop uploads. Mirrors
-// backporch-server/src/lib/card-completeness.ts and site/src/stoop/completeness.js
-// so the app, hub, and API reject the same incomplete shells (empty first
-// message / persona / scenario; worlds need climate; lorebook is optional).
+// the independently maintained hub/API rules so they reject the same incomplete
+// shells (empty first message / persona / scenario). WORLD climate is required
+// only when climate_enabled is on; climate-off lore-only worlds are allowed,
+// and lorebook content remains optional.
+
+import 'package:front_porch_ai/models/models.dart';
 
 /// One field on the completeness checklist.
 class StoopFieldStatus {
@@ -88,7 +91,11 @@ class StoopCardCompleteness {
           _present(d['description']) ||
           _present(d['personality']) ||
           _present(d['system_prompt'])) {
-        return {...cardJson, ...d, 'extensions': d['extensions'] ?? cardJson['extensions']};
+        return {
+          ...cardJson,
+          ...d,
+          'extensions': d['extensions'] ?? cardJson['extensions'],
+        };
       }
     }
     return cardJson;
@@ -163,15 +170,30 @@ class StoopCardCompleteness {
       _field('description', 'Description', card['description'], critical: true),
       _field('personality', 'Personality', card['personality'], critical: true),
       _field('scenario', 'Scenario', card['scenario'], critical: true),
-      _field('mes_example', 'Example messages', card['mes_example'], critical: false),
-      _field('system_prompt', 'System prompt', card['system_prompt'], critical: false),
+      _field(
+        'mes_example',
+        'Example messages',
+        card['mes_example'],
+        critical: false,
+      ),
+      _field(
+        'system_prompt',
+        'System prompt',
+        card['system_prompt'],
+        critical: false,
+      ),
       _field(
         'post_history_instructions',
         'Post-history instructions',
         card['post_history_instructions'],
         critical: false,
       ),
-      _field('creator_notes', 'Creator notes', card['creator_notes'], critical: false),
+      _field(
+        'creator_notes',
+        'Creator notes',
+        card['creator_notes'],
+        critical: false,
+      ),
       _field(
         'alternate_greetings',
         'Alternate greetings',
@@ -224,13 +246,18 @@ class StoopCardCompleteness {
     final members = (card['members'] is List)
         ? card['members'] as List
         : (card['raw_member_data'] is List)
-            ? card['raw_member_data'] as List
-            : const [];
+        ? card['raw_member_data'] as List
+        : const [];
     final first = card['first_mes'] ?? card['first_message'];
     final fields = <StoopFieldStatus>[
       _field('first_mes', 'Group first message', first, critical: true),
       _field('scenario', 'Group scenario', card['scenario'], critical: true),
-      _field('system_prompt', 'System prompt', card['system_prompt'], critical: false),
+      _field(
+        'system_prompt',
+        'System prompt',
+        card['system_prompt'],
+        critical: false,
+      ),
     ];
     final missingCritical = <String>[];
     if (!_present(first)) missingCritical.add('Group first message');
@@ -246,7 +273,9 @@ class StoopCardCompleteness {
           ? 'Member ${i + 1}'
           : _str(m['name']).trim();
       final idOk = _present(m['description']) || _present(m['personality']);
-      fields.add(_field('member_${i}_name', '$label · name', m['name'], critical: true));
+      fields.add(
+        _field('member_${i}_name', '$label · name', m['name'], critical: true),
+      );
       fields.add(
         _field(
           'member_${i}_identity',
@@ -269,7 +298,9 @@ class StoopCardCompleteness {
           .map((f) => f.label)
           .toList(),
       fields: fields,
-      cardName: _str(card['name']).trim().isEmpty ? null : _str(card['name']).trim(),
+      cardName: _str(card['name']).trim().isEmpty
+          ? null
+          : _str(card['name']).trim(),
       notes: ['${members.length} member(s)'],
     );
   }
@@ -279,13 +310,21 @@ class StoopCardCompleteness {
     final biome = biomeRaw is Map
         ? Map<String, dynamic>.from(biomeRaw)
         : <String, dynamic>{};
+    final climateEnabled =
+        readWorldClimateEnabled(card) ?? card.containsKey('biome');
     final book = _lorebook(card['lorebook']);
-    final climatePresent = _present(biome['displayName']) ||
+    final climatePresent =
+        _present(biome['displayName']) ||
         _present(biome['description']) ||
         _present(biome['feel']);
     final fields = <StoopFieldStatus>[
-      _field('biome', 'Biome / climate', climatePresent ? 'ok' : '', critical: true),
-      // Lore is useful but optional — worlds can ship climate first.
+      _field(
+        'biome',
+        'Biome / climate',
+        climatePresent ? 'ok' : '',
+        critical: climateEnabled,
+      ),
+      // Lore content remains optional in both climate and lore-only modes.
       _field(
         'lorebook',
         'Lorebook content',
@@ -294,7 +333,9 @@ class StoopCardCompleteness {
       ),
     ];
     final missingCritical = <String>[];
-    if (!climatePresent) missingCritical.add('Biome / climate');
+    if (climateEnabled && !climatePresent) {
+      missingCritical.add('Biome / climate');
+    }
 
     return StoopCompleteness(
       incomplete: missingCritical.isNotEmpty,
@@ -304,11 +345,13 @@ class StoopCardCompleteness {
           .map((f) => f.label)
           .toList(),
       fields: fields,
-      cardName: _str(card['name']).trim().isEmpty ? null : _str(card['name']).trim(),
+      cardName: _str(card['name']).trim().isEmpty
+          ? null
+          : _str(card['name']).trim(),
       notes: [
         'Lorebook: ${book.filled}/${book.entries} filled'
-        '${book.placeholder > 0 ? ' · ${book.placeholder} empty/placeholder' : ''}'
-        '${book.entries == 0 ? ' (optional)' : ''}',
+            '${book.placeholder > 0 ? ' · ${book.placeholder} empty/placeholder' : ''}'
+            '${book.entries == 0 ? ' (optional)' : ''}',
       ],
     );
   }
