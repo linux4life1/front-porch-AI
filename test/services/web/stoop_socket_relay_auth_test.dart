@@ -61,7 +61,9 @@ void main() {
         final frame = jsonDecode(raw as String) as Map<String, dynamic>;
         if (!firstUpstreamFrame.isCompleted) {
           firstUpstreamFrame.complete(frame);
-          socket.add(jsonEncode({'type': 'ready', 'thread': 'thread-7'}));
+          if (socket.readyState == WebSocket.open) {
+            socket.add(jsonEncode({'type': 'ready', 'thread': 'thread-7'}));
+          }
         } else {
           secondUpstreamFrame.complete(frame);
           break;
@@ -104,9 +106,9 @@ void main() {
       );
       addTearDown(browser.close);
 
-      browser.add(
-        jsonEncode({'type': 'auth', 'token': token, 'thread': 'thread-7'}),
-      );
+      // A cached older web bundle may omit `type`; the relay still normalizes
+      // its token frame into the backend's canonical auth envelope.
+      browser.add(jsonEncode({'token': token, 'thread': 'thread-7'}));
 
       final uri = await upstreamUri.future.timeout(const Duration(seconds: 3));
       expect(uri.path, '/ws');

@@ -17842,3 +17842,34 @@ exists in this repository. The independently maintained Stoop backend remains
 outside this repository.
 
 Commit: e5e5ed73
+
+## 2026-09-06 — Stoop WebSockets authenticate in frame one
+
+Files: `lib/services/backporch/stoop_message_socket.dart`,
+`lib/services/web/routes/stoop_routes.dart`,
+`lib/services/web/facade/stoop_facade.dart`,
+`web_ui/src/stoop/StoopContext.tsx`, rebuilt `assets/web_app/`,
+`test/services/backporch/stoop_socket_auth_test.dart`,
+`test/services/web/stoop_socket_relay_auth_test.dart`, and
+`docs/Rawhide.md`.
+
+The Stoop backend's upcoming WebSocket protocol rejects JWTs in URL query
+strings. The desktop client and local web relay now connect to token-free
+`/ws` URLs and send `{"type":"auth","token":"..."}` as the first frame.
+The relay normalizes both current and cached token-only browser frames,
+preserves an optional thread id, and queues authentication before exposing
+the upstream channel so typing cannot overtake it. Existing ready/message/
+typing/cardStats forwarding, keepalive pings, and reconnect behavior remain
+unchanged.
+
+Two real loopback WebSocket tests assert the URL and first-frame contract.
+Temporarily restoring token query strings made both tests fail, then restoring
+the implementation returned them to green. The focused Stoop set passed 13
+tests; the full non-golden Flutter suite passed 5,329 tests (13 skipped).
+Web lint, all 198 web tests, and the production bundle build passed. Full
+analysis reports only 12 pre-existing infos in untouched files; changed paths
+are clean. `dart fix --dry-run` likewise proposed only pre-existing fixes.
+Linux container goldens were unavailable because this environment has no
+Docker.
+
+Commit: aadb6176 (implementation); verification/bundle in this commit

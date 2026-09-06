@@ -35,7 +35,9 @@ void main() {
         firstFrame.complete(
           jsonDecode(frame as String) as Map<String, dynamic>,
         );
-        socket.add(jsonEncode({'type': 'ready'}));
+        if (socket.readyState == WebSocket.open) {
+          socket.add(jsonEncode({'type': 'ready'}));
+        }
         return;
       }
       request.response
