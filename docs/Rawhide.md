@@ -5,6 +5,8 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 💬 **Stoop messages, typing, and live card counts keep working after the hub's security upgrade** — desktop and phone now authenticate live connections without putting your sign-in token in the connection address.
+
 - 🔎 **They can look unknown terms up — safely and only when you ask** — turn on Web Search in Porch Life and the first reply to a message you send can quietly look up an unknown word (lore, a show, weather, whatever), then react as themselves. Continue, Regenerate, guests, group follow-ups, cast entrances, and AFK / Dynamic Responses stay offline. Search results are treated as untrusted notes, redirects are refused, and Tavily keys now move out of preferences into your system's secure credential store. One switch for every chat, including ones already open; no key still uses Wikipedia. A small chip shows when a lookup happened. Off by default. Same on the phone.
 
 - 🖼️ **Replacing a portrait keeps the whole character card** — the new pixels overwrite the same file without resaving unrelated details, so creator credits, description, personality, lore, Journal, Growth, RAG, Data Bank, and quests all survive.
