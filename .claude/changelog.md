@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-07 — test(waifu): await saved-porch reload after the frame starts it
+- **Why:** Two resume widget tests slept inside `runAsync` before the first
+  rendered frame. The frame is what calls the route-aware async store load, so
+  the sleep happened too early and both assertions raced a healthy load.
+- **What:** Poll the real Resume key with short real-async waits and pumps
+  after the initiating frame. No product behavior changed; the old timing was
+  reproduced red in isolation, and the state-based wait returns all five
+  resume tests green.
+- **Commit:** pending
+
 ## 2026-09-07 — fix(waifu): a coding turn needs both a receipt and a voice
 - **Why:** The empty screen still implied every session was folder-confined.
   More importantly, the loop accepted a characterful “done” with no file

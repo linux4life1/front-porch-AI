@@ -21,10 +21,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_home_view.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_page.dart';
+import 'package:front_porch_ai/ui/waifu/waifu.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -43,28 +42,32 @@ void main() {
     coworker: CharacterCard(name: 'Mira', personality: 'tsundere'),
     title: title,
   );
-  testWidgets('Waifu Coder home Resume appears when a last session is provided', (
-    tester,
-  ) async {
-    var resumed = false;
-    final last = WaifuSession(
-      folderRoot: '/tmp/throwaway-waifu',
-      coworker: CharacterCard(name: 'Mira', personality: 'tsundere'),
-      title: 'fix emails',
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: WaifuHomeView(lastSession: last, onResume: () => resumed = true),
+  testWidgets(
+    'Waifu Coder home Resume appears when a last session is provided',
+    (tester) async {
+      var resumed = false;
+      final last = WaifuSession(
+        folderRoot: '/tmp/throwaway-waifu',
+        coworker: CharacterCard(name: 'Mira', personality: 'tsundere'),
+        title: 'fix emails',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WaifuHomeView(
+              lastSession: last,
+              onResume: () => resumed = true,
+            ),
+          ),
         ),
-      ),
-    );
-    expect(find.byKey(const Key('waifu-resume')), findsOneWidget);
-    expect(find.textContaining('fix emails'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('waifu-resume')));
-    await tester.pump();
-    expect(resumed, isTrue);
-  });
+      );
+      expect(find.byKey(const Key('waifu-resume')), findsOneWidget);
+      expect(find.textContaining('fix emails'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('waifu-resume')));
+      await tester.pump();
+      expect(resumed, isTrue);
+    },
+  );
 
   testWidgets('session chrome shows the title', (tester) async {
     final session = WaifuSession(
@@ -91,6 +94,16 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     });
     await tester.pump();
+    for (
+      var i = 0;
+      i < 40 && find.byKey(const Key('waifu-resume')).evaluate().isEmpty;
+      i++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 25)),
+      );
+      await tester.pump();
+    }
     expect(find.byKey(const Key('waifu-resume')), findsOneWidget);
     expect(find.textContaining('fix emails'), findsOneWidget);
   });
@@ -127,10 +140,22 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     });
     await tester.pump();
+    for (
+      var i = 0;
+      i < 40 && find.byKey(const Key('waifu-resume')).evaluate().isEmpty;
+      i++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 25)),
+      );
+      await tester.pump();
+    }
     expect(find.byKey(const Key('waifu-resume')), findsOneWidget);
   });
 
-  testWidgets('WaifuPage created harness saves last_waifu.json', (tester) async {
+  testWidgets('WaifuPage created harness saves last_waifu.json', (
+    tester,
+  ) async {
     late Directory root;
     await tester.runAsync(() async {
       root = await Directory.systemTemp.createTemp('waifu_g_page_');
