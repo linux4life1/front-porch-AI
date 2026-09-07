@@ -8,7 +8,7 @@
   UI, docs, and code surfaces while keeping read-only “list files”, “explain
   this function”, and remote “create an issue” requests out. The same
   write/edit/apply_patch receipt contract remains the only behavior path.
-- **Commit:** pending
+- **Commit:** b2e5a43d
 
 ## 2026-09-07 — test(waifu): await saved-porch reload after the frame starts it
 - **Why:** Two resume widget tests slept inside `runAsync` before the first
