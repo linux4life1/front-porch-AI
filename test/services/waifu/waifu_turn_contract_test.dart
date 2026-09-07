@@ -203,4 +203,35 @@ void main() {
       expect(llm.calls, hasLength(2));
     },
   );
+
+  test(
+    'Build mode sass without a requested code change receipt is a red failure',
+    () async {
+      final llm = ScriptedWaifuLlm([
+        for (var i = 0; i < 3; i++)
+          const LlmToolResponse(calls: [], text: 'Hmph. Consider it fixed.'),
+      ]);
+      final session = WaifuSession(
+        folderRoot: root.path,
+        coworker: iris(),
+        mode: WaifuMode.build,
+      );
+
+      await WaifuHarness(
+        session: session,
+        llm: llm,
+        onAsk: (_) async => WaifuAskDecision.allowAlways,
+      ).send('fix lib/widget.dart');
+
+      expect(session.lastWrite, isNull);
+      final reply = session.transcript
+          .where((message) => !message.isUser)
+          .single;
+      expect(reply.chips.last.ok, isFalse);
+      expect(reply.chips.last.detail, contains('no file change landed'));
+      expect(reply.text, contains('could not put a real change on disk'));
+      expect(reply.text, isNot(contains('Consider it fixed')));
+    },
+  );
+
 }

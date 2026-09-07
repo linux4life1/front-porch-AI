@@ -67,13 +67,14 @@ void main() {
 
     expect(find.textContaining('Tell Iris what to build'), findsOneWidget);
     expect(
-      find.textContaining('they can work elsewhere on your disk'),
+      find.textContaining('can work elsewhere on your disk'),
       findsOneWidget,
     );
     expect(
       find.textContaining('tools stay on this project porch'),
       findsNothing,
     );
+    expect(find.textContaining('this folder'), findsNothing);
   });
 
   test('Waifu Coder island does not import ChatService', () {

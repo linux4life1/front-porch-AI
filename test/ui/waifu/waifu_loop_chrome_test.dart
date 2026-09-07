@@ -86,6 +86,52 @@ void main() {
     expect(find.text('Regenerate'), findsNothing);
   });
 
+
+  testWidgets(
+    'apply_patch mutates disk and the bubble keeps in-character speech',
+    (tester) async {
+      final source = File(p.join(root.path, 'parser.dart'));
+      source.writeAsStringSync('String parse() => "old";\n');
+      final llm = ScriptedWaifuLlm([
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(
+              name: 'apply_patch',
+              arguments: {
+                'path': 'parser.dart',
+                'patch':
+                    '@@\n-String parse() => "old";\n'
+                    '+String parse() => "fixed";\n',
+              },
+            ),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(
+          calls: [],
+          text: 'Hmph. Your parser is fixed. Try to keep up.',
+        ),
+      ]);
+      final s = session()..mode = WaifuMode.yolo;
+      final harness = WaifuHarness(session: s, llm: llm);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WaifuPage(session: s, harness: harness),
+        ),
+      );
+
+      await tester.runAsync(() => harness.send('fix parser.dart'));
+      await tester.pump();
+
+      await tester.runAsync(() async {
+        expect(await source.readAsString(), 'String parse() => "fixed";\n');
+      });
+      expect(find.textContaining('Hmph. Your parser is fixed'), findsOneWidget);
+      expect(find.text('Done.'), findsNothing);
+      expect(find.textContaining('apply_patch'), findsWidgets);
+    },
+  );
+
   testWidgets('Abort is visible while the loop is running', (tester) async {
     final gate = Completer<void>();
     final llm = ScriptedWaifuLlm(

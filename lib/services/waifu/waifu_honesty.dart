@@ -99,8 +99,8 @@ String waifuEmptyPrompt(WaifuPathMode pathMode, String coworker) =>
       WaifuPathMode.folderJail =>
         'Tell $coworker what to build. Their tools stay on this project porch.',
       WaifuPathMode.wholeDisk =>
-        'Tell $coworker what to build. This folder is their starting porch; '
-            'they can work elsewhere on your disk.',
+        'Tell $coworker what to build. They start from this porch and can '
+            'work elsewhere on your disk.',
     };
 
 String waifuMcpScopeWarning(WaifuPathMode pathMode) => switch (pathMode) {
