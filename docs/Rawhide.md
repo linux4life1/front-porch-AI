@@ -23,4 +23,6 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - 🔌 **Waifu Coder MCP now needs both invitations** — its own checkbox only exposes servers already enabled for the active character chat. A global server switch alone cannot quietly enroll remote tools; Plan still blocks mutation and Build still asks.
 
+- 🪟 **Windows command note** — Waifu Coder’s v1 command tool needs Git Bash (or another `bash`) on PATH. Without it, read/edit/apply_patch/write still work and command attempts return a plain start error; Waifu Coder does not silently rewrite bash into PowerShell.
+
 - 🔌 **MCP tools: tap Docker, don't invent a URL** — Settings → Porch Life. Docker Desktop does not give Front Porch an address; the Docker chip fills the local gateway, Find local looks on port 8811, and a token only appears if the server asks. A success is "Connected — 110 tools", not a wall of names. The URL, switch, and token survive an app restart without asking for your Mac password. Same on the phone.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-07 — docs(waifu): state the v1 Windows bash requirement
+- **Why:** The command tool launches `bash`; standard Windows does not promise
+  one, and the release/design notes did not say so.
+- **What:** Document Git Bash (or another bash on PATH) as the v1 command
+  requirement. Without it, file/patch tools remain available and command
+  attempts return the existing plain start error. PowerShell/cmd translation
+  stays an explicit non-goal.
+- **Commit:** pending
+
 ## 2026-09-07 — fix(waifu): MCP needs the chat allow-list and Waifu opt-in
 - **Why:** The Waifu binder rebuilt `enabledForChat` from global server
   toggles. Checking Waifu's MCP box could therefore expose a server the user

@@ -111,6 +111,10 @@ Porch Stories already proved the pattern: a different job gets a different home 
 - **JS custom tools, OpenCode plugins, Zen, cloud share, LSP auto-install, stdio MCP.** See §0.1.
 - **Unbounded or separately branded Scout trees.** Bounded Explore/General task delegation is included; the deepest worker cannot spawn again.
 - **Sandbox / container isolation.** Folder jail is path/realpath enforcement, not a VM. Whole-disk is explicit. Neither mode may bypass secret and wipe hard stops.
+- **Native Windows shell translation.** The v1 command tool is bash-only. On
+  Windows it needs Git Bash or another `bash` on PATH; otherwise the existing
+  failed-to-start result is returned and read/edit/apply_patch/write still
+  work. PowerShell/cmd rewriting is deliberately out.
 - **Destructive git** (`checkout --`, `restore` that discards uncommitted work) — same law as the rest of the app.
 - **Using scenario, lorebook-as-world, example messages, or Front Porch realism extensions as the coworker.** Card identity only (see §5).
 - **One-shot tool round** as in search/MCP chat.
@@ -365,7 +369,7 @@ Waifu Coder is shippable when:
 
 1. Wizard (folder walker + character + sit down) works on macOS, Windows, Linux. Sit down cannot proceed without the honesty checkbox. The copy says this is not Claude Code / Grok Build / OpenCode and must not be used on critical code.
 2. A tool-fluent remote model can complete a small real task (e.g. add a test, run it, fix fail) inside a throwaway folder, with diffs visible. Plan cannot write; Build asks; Yolo writes without asking and still cannot `git checkout --`.
-3. The same session, with a card that has a strong personality, **sounds like her** in the bubbles — not a generic coding assistant. Sass + a real patch is the win. Sass with no patch, or a patch with no her, is not.
+3. The same session, with a card that has a strong personality, **sounds like the card** in the bubbles — not a generic coding assistant. Sass + a real patch is the win. Sass with no patch, or a patch without their voice, is not.
 4. Both path modes, structured patching, abort-kill, and ruthless hard-denies are red-then-green.
 5. Local/XML-only backends cannot silently wreck a folder.
 6. Hostile self-review written. No ChatService ticks. No web. Optional **advanced** fun: Waifu Coder is not the default home mode, does not nag, and does not talk down. Honesty gate stays; kindergarten copy does not.
