@@ -32,6 +32,15 @@ void main() {
     mesExample: '{{char}}: Hmph. Try to keep up.\n{{user}}: I will.',
   );
 
+  test('file-change intent catches ordinary coding asks, not lookups', () {
+    expect(waifuTaskRequestsFileChange('add a button'), isTrue);
+    expect(waifuTaskRequestsFileChange('fix parser.dart'), isTrue);
+    expect(waifuTaskRequestsFileChange('refactor this'), isTrue);
+    expect(waifuTaskRequestsFileChange('list files'), isFalse);
+    expect(waifuTaskRequestsFileChange('explain this function'), isFalse);
+    expect(waifuTaskRequestsFileChange('create an issue'), isFalse);
+  });
+
   test(
     'apply_patch lands on disk and the final bubble keeps card diction',
     () async {

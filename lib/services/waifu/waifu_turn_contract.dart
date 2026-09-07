@@ -44,12 +44,14 @@ bool waifuTaskRequestsFileChange(String task) {
   ).hasMatch(lower);
   if (strong) return true;
   final changeVerb = RegExp(
-    r'\b(add|change|create|delete|fix|move|remove|rename|replace|update|wire|'
-    r'write)\b',
+    r'\b(add|build|change|create|delete|fix|make|move|remove|rename|replace|'
+    r'update|wire|write)\b',
   ).hasMatch(lower);
   final codeTarget = RegExp(
-    r'\b(code|file|class|function|method|module|project|repo|service|test|'
-    r'widget)\b|\b[\w.-]+\.(dart|js|jsx|ts|tsx|py|rs|go|java|kt|swift|'
+    r'\b(api|app|bug|button|class|code|component|dialog|docs?|endpoint|'
+    r'feature|field|file|function|handler|menu|method|module|page|project|'
+    r'repo|route|screen|service|setting|style|test|ui|widget)\b|'
+    r'\b[\w.-]+\.(dart|js|jsx|ts|tsx|py|rs|go|java|kt|swift|'
     r'c|cc|cpp|h|hpp|cs|rb|php|lua|sh|yaml|yml|json|toml|md|txt)\b',
   ).hasMatch(lower);
   return changeVerb && codeTarget;

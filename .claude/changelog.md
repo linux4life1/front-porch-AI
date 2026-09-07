@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-07 — fix(waifu): ordinary coding asks enter the receipt contract
+- **Why:** The first high-confidence mutation heuristic caught “fix
+  parser.dart” and “refactor this”, but could miss natural requests such as
+  “add a button” or “build a settings page”.
+- **What:** Extend the paired verb/target vocabulary across common app, API,
+  UI, docs, and code surfaces while keeping read-only “list files”, “explain
+  this function”, and remote “create an issue” requests out. The same
+  write/edit/apply_patch receipt contract remains the only behavior path.
+- **Commit:** pending
+
 ## 2026-09-07 — test(waifu): await saved-porch reload after the frame starts it
 - **Why:** Two resume widget tests slept inside `runAsync` before the first
   rendered frame. The frame is what calls the route-aware async store load, so
@@ -8,7 +18,7 @@
   after the initiating frame. No product behavior changed; the old timing was
   reproduced red in isolation, and the state-based wait returns all five
   resume tests green.
-- **Commit:** pending
+- **Commit:** e93bf65c
 
 ## 2026-09-07 — fix(waifu): a coding turn needs both a receipt and a voice
 - **Why:** The empty screen still implied every session was folder-confined.
