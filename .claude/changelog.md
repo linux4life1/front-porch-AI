@@ -7,7 +7,7 @@
   requirement. Without it, file/patch tools remain available and command
   attempts return the existing plain start error. PowerShell/cmd translation
   stays an explicit non-goal.
-- **Commit:** pending
+- **Commit:** 0efa847f
 
 ## 2026-09-07 — fix(waifu): MCP needs the chat allow-list and Waifu opt-in
 - **Why:** The Waifu binder rebuilt `enabledForChat` from global server
