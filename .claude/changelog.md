@@ -1,3 +1,11 @@
+## 2026-09-07 — test(waifu): hostile twin-poke empty chrome + patch voice
+- **Why:** Hostile twin-poke needed honest pathMode empty chrome, apply_patch
+  UI twin with in-character speech, Build-mode sass-without-patch, and no
+  generic Done./silent wrap-ups after mutate.
+- **What:** Whole-disk empty prompt drops “this folder”; UI apply_patch twin;
+  Build sass gate test. Loop/Done/silent pins already green; re-verified.
+- **Commit:** d9da89be
+
 # Changelog
 
 ## 2026-09-07 — docs(waifu): state the v1 Windows bash requirement
