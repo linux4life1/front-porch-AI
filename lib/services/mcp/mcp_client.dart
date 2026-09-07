@@ -231,7 +231,21 @@ class McpClient {
     if (endpoint == null || endpoint.isEmpty) {
       throw StateError('SSE handshake missing endpoint event');
     }
-    _messageUrl = uri.resolve(endpoint);
+    final messageUrl = uri.resolve(endpoint);
+    final configuredPort = uri.hasPort
+        ? uri.port
+        : (uri.scheme == 'https' ? 443 : 80);
+    final messagePort = messageUrl.hasPort
+        ? messageUrl.port
+        : (messageUrl.scheme == 'https' ? 443 : 80);
+    if (messageUrl.scheme != uri.scheme ||
+        messageUrl.host.toLowerCase() != uri.host.toLowerCase() ||
+        messagePort != configuredPort) {
+      throw StateError(
+        'SSE endpoint must stay on the configured scheme, host, and port',
+      );
+    }
+    _messageUrl = messageUrl;
     debugPrint('[MCP] SSE endpoint=$_messageUrl');
     await _sendInitialize();
   }
