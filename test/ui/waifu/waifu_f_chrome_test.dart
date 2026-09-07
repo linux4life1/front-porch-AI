@@ -53,6 +53,7 @@ void main() {
     expect(find.byKey(const Key('waifu-mcp-opt-in')), findsOneWidget);
     expect(find.textContaining('folder jail covers'), findsNothing);
 
+    await tester.ensureVisible(find.byKey(const Key('waifu-mcp-opt-in')));
     await tester.tap(find.byKey(const Key('waifu-mcp-opt-in')));
     await tester.pump();
     expect(harness.mcpOptIn, isTrue);

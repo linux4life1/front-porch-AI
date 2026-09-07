@@ -100,9 +100,10 @@ void main() {
     expect(find.textContaining('Grok Build'), findsOneWidget);
     expect(find.textContaining('OpenCode'), findsOneWidget);
 
-    final before = tester.widget<ElevatedButton>(
-      find.byKey(const Key('waifu-sit-down-confirm')),
-    );
+    final confirm = find.byKey(const Key('waifu-sit-down-confirm'));
+    await tester.scrollUntilVisible(confirm, 300);
+    await tester.pumpAndSettle();
+    final before = tester.widget<ElevatedButton>(confirm);
     expect(before.onPressed, isNull);
 
     await tester.ensureVisible(find.byKey(const Key('waifu-honesty-checkbox')));
@@ -110,9 +111,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.byKey(const Key('waifu-sit-down-confirm')));
-    final after = tester.widget<ElevatedButton>(
-      find.byKey(const Key('waifu-sit-down-confirm')),
-    );
+    final after = tester.widget<ElevatedButton>(confirm);
     expect(after.onPressed, isNotNull);
 
     await tester.tap(find.byKey(const Key('waifu-sit-down-confirm')));
@@ -144,8 +143,9 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('waifu-honesty-checkbox')));
     await tester.tap(find.byKey(const Key('waifu-honesty-checkbox')));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('waifu-sit-down-confirm')));
-    await tester.tap(find.byKey(const Key('waifu-sit-down-confirm')));
+    final confirmButton = find.byKey(const Key('waifu-sit-down-confirm'));
+    await tester.ensureVisible(confirmButton);
+    await tester.tap(confirmButton);
     await tester.pumpAndSettle();
 
     expect(sat, isNotNull);
@@ -159,8 +159,9 @@ void main() {
     await reachSitDown(tester);
     expect(find.textContaining('cannot do Waifu Coder'), findsOneWidget);
 
-    await tester.ensureVisible(find.byKey(const Key('waifu-honesty-checkbox')));
-    await tester.tap(find.byKey(const Key('waifu-honesty-checkbox')));
+    final honesty = find.byKey(const Key('waifu-honesty-checkbox'));
+    await tester.scrollUntilVisible(honesty, 300);
+    await tester.tap(honesty);
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.byKey(const Key('waifu-sit-down-confirm')));

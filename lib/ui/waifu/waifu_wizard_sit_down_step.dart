@@ -65,6 +65,7 @@ class WaifuWizardSitDownStep extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: ListView(
+        cacheExtent: 1200,
         children: [
           Text(
             'Sit down',
@@ -125,34 +126,39 @@ class WaifuWizardSitDownStep extends StatelessWidget {
             child: Column(
               children: [
                 for (final scope in WaifuPathMode.values)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
                       color: scope == pathMode
                           ? amber.withValues(alpha: 0.14)
                           : AppColors.surfaceContainerOf(context),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: scope == pathMode
-                            ? amber
-                            : AppColors.borderOf(context),
-                      ),
-                    ),
-                    child: RadioListTile<WaifuPathMode>(
-                      key: Key('waifu-path-mode-${scope.name}'),
-                      value: scope,
-                      activeColor: amber,
-                      title: Text(
-                        waifuPathModeTitle(scope),
-                        style: TextStyle(
-                          color: AppColors.textPrimary(context),
-                          fontWeight: FontWeight.w700,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(
+                          color: scope == pathMode
+                              ? amber
+                              : AppColors.borderOf(context),
                         ),
                       ),
-                      subtitle: Text(
-                        waifuPathModeBlurb(scope),
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
+                      child: RadioListTile<WaifuPathMode>(
+                        key: Key('waifu-path-mode-${scope.name}'),
+                        value: scope,
+                        activeColor: amber,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        title: Text(
+                          waifuPathModeTitle(scope),
+                          style: TextStyle(
+                            color: AppColors.textPrimary(context),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        subtitle: Text(
+                          waifuPathModeBlurb(scope),
+                          style: TextStyle(
+                            color: AppColors.textSecondary(context),
+                          ),
                         ),
                       ),
                     ),
