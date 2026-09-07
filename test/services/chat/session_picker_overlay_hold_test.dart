@@ -20,6 +20,9 @@
 // loadSession / startNewChat → owner endSessionLoad. The tail open must
 // NOT drop the overlay, or a fast send persists the pre-hydrate realism
 // reset onto the last-active chat.
+//
+// CI flake guard (2026-09-07 @ 767b3bc6): sameIsolate + tearDown drain so
+// unawaited PorchMemoryImport cannot hit a closed Drift isolate channel.
 
 import 'dart:io';
 
@@ -55,6 +58,14 @@ class _InertLlm extends LLMService {
   String get backendName => 'InertLlm';
 }
 
+
+/// Settle fire-and-forget Drift requests inside this test's zone.
+Future<void> _drainPendingDrift() async {
+  for (var i = 0; i < 50; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
@@ -71,7 +82,12 @@ void main() {
       'update_auto_check': false,
       'realism_default': false,
     });
-    db = AppDatabase.forTesting();
+    // sameIsolate: CI @ 767b3bc6 failed with Drift
+    // "Channel was closed before receiving a response" — tearDown closed the
+    // background isolate while unawaited PorchMemoryImport / journal SELECT
+    // was still in flight (picker-hold setActive path). No isolate channel,
+    // nothing to race. Matches greeting_opening_seed / session_load_regression.
+    db = AppDatabase.forTesting(sameIsolate: true);
     storage = StorageService();
     repo = CharacterRepository(db, storage);
     personas = UserPersonaService(db);
@@ -90,7 +106,12 @@ void main() {
 
   tearDown(() async {
     chat.dispose();
+    // Drain unawaited Drift work (porch import, persona load) on a live
+    // executor, close, then drain again so leftovers cannot land in the
+    // next test's zone.
+    await _drainPendingDrift();
     await db.close();
+    await _drainPendingDrift();
   });
 
   Future<CharacterCard> addCard(String name) async {

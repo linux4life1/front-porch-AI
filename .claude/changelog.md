@@ -1,3 +1,12 @@
+## 2026-09-07 — test(chat): harden picker-hold Drift isolate tearDown
+- **Why:** CI @ 767b3bc6 unit failed `session_picker_overlay_hold_test`
+  (picker hold stays up when setActive loads another card's tail) with Drift
+  Channel-closed while unawaited PorchMemoryImport / journal SELECT raced
+  tearDown db.close. Not Waifu product; Stories+golden+E2E were green.
+- **What:** `AppDatabase.forTesting(sameIsolate: true)` + drain before/after
+  close (same pattern as greeting_opening_seed / session_load_regression).
+- **Commit:** (this tip)
+
 ## 2026-09-07 — test(stories): harden Style→Format on Windows E2E
 - **Why:** Windows shard story_pipeline timed out 2m waiting for Next: Format
   after Next: Style (0 Style widgets at fail). Linux green. Concept Next is
