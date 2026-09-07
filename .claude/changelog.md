@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-07 — docs(rawhide): drop bullets already in nightly 20260906
+- **Why:** `docs/Rawhide.md` had accumulated every nightly since 1.3.x.
+  The 20260906 nightly already shipped that list. The Update dialog
+  would have re-announced birthdays, web search, Stoop, etc.
+- **What:** Keep only unreleased work on this PR (photo drop, Enter
+  sends, thought chevron, Waifu Coder, Porch Life MCP Docker).
+- **Verification:** docs only; matched against
+  `nightly-rawhide.20260906.7059c91` release body.
+
 ## 2026-09-07 — fix(waifu): skills live in ~/.waifu; cwd prefix; no .desk leak
 - **Why:** Iris looked for `~/.desk` (prompt said `.desk/skills`) and
   `read` failed on `Kabbage/pubspec.yaml` because cwd was already
