@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-07 — fix(waifu): MCP needs the chat allow-list and Waifu opt-in
+- **Why:** The Waifu binder rebuilt `enabledForChat` from global server
+  toggles. Checking Waifu's MCP box could therefore expose a server the user
+  had not enabled in the active character chat.
+- **What:** Copy `ChatService.mcpEnabledServerIds` into the Waifu catalog/call
+  boundary. Waifu's checkbox remains a second, default-off gate. A real hub +
+  Provider test proves global-on/chat-off contributes no tool, while the same
+  server appears and can be called after chat consent.
+- **Verification:** Restoring the global-toggle derivation made the new test
+  fail, then the chat enable set returned it and the MCP permission/filter
+  suite to green.
+- **Commit:** pending
+
 ## 2026-09-07 — test(photo): pin the valid-photo 1024px output contract
 - **Why:** Bomb/byte guards proved rejection, but no test asserted that a
   legitimate image above the transport size is still accepted and resized.

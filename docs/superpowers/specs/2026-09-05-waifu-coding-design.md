@@ -286,7 +286,12 @@ New island. Do not grow `ChatService`.
 
 Reuse: `generateWithTools`, character library grid, theme. Do **not** reuse chat send/Continue/realism post-gen.
 
-MCP is per-session opt-in and defaults off. Front Porch file tools win name collisions. Plan blocks inferred MCP mutation, Build asks, and legacy SSE endpoint events must remain on the configured origin before credentials can be reused.
+MCP is double-gated and defaults off. Waifu Coder's checkbox can only expose
+servers already present in the active character chat's
+`mcpEnabledServerIds`; a global server switch alone is not consent. Front
+Porch file tools win name collisions. Plan blocks inferred MCP mutation, Build
+asks, and legacy SSE endpoint events must remain on the configured origin
+before credentials can be reused.
 
 ---
 

@@ -28,10 +28,7 @@ import 'package:front_porch_ai/services/services.dart';
   try {
     final chat = Provider.of<ChatService>(context, listen: false);
     final snaps = chat.mcpHub.snapshots();
-    final enabled = {
-      for (final s in snaps)
-        if (s.config.enabledGlobal) s.config.id,
-    };
+    final enabled = Set<String>.from(chat.mcpEnabledServerIds);
     final catalog = buildMcpCatalog(
       inProcess: const [],
       servers: snaps,

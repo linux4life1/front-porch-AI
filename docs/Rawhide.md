@@ -21,4 +21,6 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - 🎙️ **Patches need both proof and personality** — ask for a code change and Waifu Coder will not accept sass alone as “finished”: a real write/edit/patch receipt must land, then the final bubble must sound like the card instead of “Done.” Empty post-tool replies get a speech-only retry, and words spoken beside a tool call are kept rather than wiped. The empty screen also tells the truth about Folder jail versus Whole-disk scope.
 
+- 🔌 **Waifu Coder MCP now needs both invitations** — its own checkbox only exposes servers already enabled for the active character chat. A global server switch alone cannot quietly enroll remote tools; Plan still blocks mutation and Build still asks.
+
 - 🔌 **MCP tools: tap Docker, don't invent a URL** — Settings → Porch Life. Docker Desktop does not give Front Porch an address; the Docker chip fills the local gateway, Find local looks on port 8811, and a token only appears if the server asks. A success is "Connected — 110 tools", not a wall of names. The URL, switch, and token survive an app restart without asking for your Mac password. Same on the phone.
