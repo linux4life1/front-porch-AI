@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:path/path.dart' as p;
@@ -62,6 +63,7 @@ Map<String, dynamic> _coworkerMap(CharacterCard c) => {
   'personality': c.personality,
   'description': c.description,
   'systemPrompt': c.systemPrompt,
+  'mesExample': c.mesExample,
   if (c.imagePath != null) 'imagePath': c.imagePath,
 };
 
@@ -70,6 +72,7 @@ CharacterCard _coworkerFrom(Map map) => CharacterCard(
   personality: map['personality']?.toString() ?? '',
   description: map['description']?.toString() ?? '',
   systemPrompt: map['systemPrompt']?.toString() ?? '',
+  mesExample: map['mesExample']?.toString() ?? '',
   imagePath: map['imagePath']?.toString(),
 );
 
@@ -133,6 +136,7 @@ class WaifuStore {
     'title': session.title,
     'folderRoot': session.folderRoot,
     'mode': session.mode.name,
+    'pathMode': session.pathMode.name,
     'mcpOptIn': session.mcpOptIn,
     'preserveThinking': session.preserveThinking,
     'coworker': _coworkerMap(session.coworker),
@@ -243,6 +247,11 @@ class WaifuStore {
         (m) => m.name == modeName,
         orElse: () => WaifuMode.build,
       );
+      final pathModeName = map['pathMode']?.toString() ?? '';
+      final pathMode = WaifuPathMode.values.firstWhere(
+        (scope) => scope.name == pathModeName,
+        orElse: () => WaifuPathMode.folderJail,
+      );
       final transcript = <WaifuMessage>[];
       final raw = map['transcript'];
       if (raw is List) {
@@ -262,6 +271,7 @@ class WaifuStore {
         folderRoot: folder,
         coworker: _coworkerFrom(coworker),
         mode: mode,
+        pathMode: pathMode,
         title: map['title']?.toString() ?? '',
         transcript: transcript,
         mcpOptIn: map['mcpOptIn'] == true,

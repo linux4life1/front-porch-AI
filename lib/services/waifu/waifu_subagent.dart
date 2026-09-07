@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_mcp_filter.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 import 'package:front_porch_ai/services/waifu/waifu_webfetch.dart';
@@ -28,14 +29,18 @@ const kWaifuExploreToolNames = {
   kWaifuToolSkill,
 };
 
-/// Nested Explore (read-only) or General (same jail). Scout is not shipped.
+/// Parent → child → grandchild. The deepest worker cannot spawn again.
+const kWaifuMaxTaskDepth = 2;
+
+/// Nested Explore (read-only) or General (same selected path scope).
 final kWaifuTaskToolSchema = <String, dynamic>{
   'type': 'function',
   'function': {
     'name': kWaifuToolTask,
     'description':
         'Run a nested Explore (read-only) or General agent and wait. '
-        'The child can walk the disk; it cannot spawn another nested agent.',
+        'A child may delegate one more bounded task layer; there is no '
+        'unbounded agent tree.',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -107,8 +112,13 @@ List<Map<String, dynamic>> waifuAdvertisedTools({
   required bool mcpOptIn,
   required List<Map<String, dynamic>> mcpTools,
   required bool includeTask,
+  bool? includeWorkflow,
+  WaifuPathMode pathMode = WaifuPathMode.folderJail,
 }) {
-  Iterable<Map<String, dynamic>> fileTools = kWaifuFileTools;
+  final workflow = includeWorkflow ?? includeTask;
+  Iterable<Map<String, dynamic>> fileTools = pathMode == WaifuPathMode.wholeDisk
+      ? kWaifuWholeDiskFileTools
+      : kWaifuFileTools;
   if (exploreOnly) {
     fileTools = kWaifuFileTools.where((t) {
       final n = _toolName(t);
@@ -121,7 +131,7 @@ List<Map<String, dynamic>> waifuAdvertisedTools({
     kWaifuToolWebFetch,
     if (includeWebSearch) kWaifuToolWebSearch,
     if (includeTask) kWaifuToolTask,
-    if (includeTask) kWaifuToolWorkflow,
+    if (workflow) kWaifuToolWorkflow,
   };
   final mcp = [
     for (final t in waifuKeepMcpTools(mcpTools))
@@ -133,7 +143,7 @@ List<Map<String, dynamic>> waifuAdvertisedTools({
     if (!exploreOnly && includeWebSearch) kWaifuWebSearchToolSchema,
     if (!exploreOnly && mcpOptIn) ...waifuPrioritizeLookupTools(mcp),
     if (includeTask) kWaifuTaskToolSchema,
-    if (includeTask) kWaifuWorkflowToolSchema,
+    if (workflow) kWaifuWorkflowToolSchema,
   ];
 }
 

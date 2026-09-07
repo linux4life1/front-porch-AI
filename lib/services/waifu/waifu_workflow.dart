@@ -38,7 +38,7 @@ final kWaifuWorkflowToolSchema = <String, dynamic>{
     'description':
         'List or run a JSON workflow from $kWaifuWorkflowDir. '
         'Omit name to list. Each step is one nested explore/general agent, '
-        'or a parallel list. Nested agents cannot spawn children. '
+        'or a parallel list. A step may delegate one more bounded task layer. '
         'Not a Rhai script.',
     'parameters': {
       'type': 'object',

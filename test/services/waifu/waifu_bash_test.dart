@@ -48,6 +48,14 @@ void main() {
     expect(result.output, isNot(contains('\n/')));
   });
 
+  test('whole-disk bash may leave the sit-down folder', () async {
+    final bash = WaifuBash(root.path, pathMode: WaifuPathMode.wholeDisk);
+    final result = await bash.run({'command': 'cd .. && pwd'});
+    expect(result.ok, isTrue);
+    final parent = await root.parent.resolveSymbolicLinks();
+    expect(result.output, contains(parent));
+  });
+
   test('git checkout -- is denied before the process starts', () async {
     final bash = WaifuBash(root.path);
     final result = await bash.run({'command': 'git checkout -- .'});

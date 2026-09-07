@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_lang_runtime.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 
@@ -87,6 +88,7 @@ class WaifuSession {
     required this.folderRoot,
     required this.coworker,
     this.mode = WaifuMode.build,
+    this.pathMode = WaifuPathMode.folderJail,
     this.title = '',
     this.langs,
     this.mcpOptIn = false,
@@ -99,6 +101,7 @@ class WaifuSession {
   final String folderRoot;
   final CharacterCard coworker;
   WaifuMode mode;
+  final WaifuPathMode pathMode;
   String title;
   WaifuLangRuntime? langs;
   final Set<String> suggestedLangs;

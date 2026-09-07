@@ -36,43 +36,59 @@ void main() {
     if (await root.exists()) await root.delete(recursive: true);
   });
 
-  test('general child cannot spawn a grandchild generate', () async {
-    final llm = ScriptedWaifuLlm([
-      const LlmToolResponse(
-        calls: [
-          LlmToolCall(
-            name: 'task',
-            arguments: {'subagent': 'general', 'prompt': 'nest deeper'},
-          ),
-        ],
-        text: '',
-      ),
-      const LlmToolResponse(
-        calls: [
-          LlmToolCall(
-            name: 'task',
-            arguments: {'subagent': 'general', 'prompt': 'go deeper'},
-          ),
-        ],
-        text: '',
-      ),
-      const LlmToolResponse(calls: [], text: 'Child stopped nesting.'),
-      const LlmToolResponse(calls: [], text: 'Hmph. Stayed one deep.'),
-    ]);
-    final session = WaifuSession(
-      folderRoot: root.path,
-      coworker: _mira(),
-      mode: WaifuMode.yolo,
-    );
-    await WaifuHarness(session: session, llm: llm).send('nest it');
-    // parent + child-task + child-final + parent-final. A grandchild
-    // send would consume a fifth generate.
-    expect(llm.calls, hasLength(4));
-    expect(
-      llm.calls[1].tools.map((t) => (t['function'] as Map)['name']).toList(),
-      isNot(contains(kWaifuToolTask)),
-    );
-  });
+  test(
+    'child may spawn one more task layer, then the depth cap holds',
+    () async {
+      final llm = ScriptedWaifuLlm([
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(
+              name: 'task',
+              arguments: {'subagent': 'general', 'prompt': 'nest deeper'},
+            ),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(
+              name: 'task',
+              arguments: {'subagent': 'general', 'prompt': 'go deeper'},
+            ),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(
+              name: 'task',
+              arguments: {'subagent': 'explore', 'prompt': 'too deep'},
+            ),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(calls: [], text: 'Deepest worker stopped.'),
+        const LlmToolResponse(calls: [], text: 'Child collected the result.'),
+        const LlmToolResponse(calls: [], text: 'Hmph. Two layers, no more.'),
+      ]);
+      final session = WaifuSession(
+        folderRoot: root.path,
+        coworker: _mira(),
+        mode: WaifuMode.yolo,
+      );
+      await WaifuHarness(session: session, llm: llm).send('nest it');
+      expect(llm.calls, hasLength(6));
+      expect(
+        llm.calls[1].tools.map((t) => (t['function'] as Map)['name']).toList(),
+        contains(kWaifuToolTask),
+      );
+      expect(
+        llm.calls[2].tools.map((t) => (t['function'] as Map)['name']).toList(),
+        isNot(contains(kWaifuToolTask)),
+      );
+      expect(llm.calls[2].prompt, contains('deepest nested worker'));
+    },
+  );
 
   test('general child write /etc is a jail error, not a write', () async {
     final llm = ScriptedWaifuLlm([

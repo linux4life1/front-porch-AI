@@ -31,8 +31,10 @@ class WaifuWizardSitDownStep extends StatelessWidget {
     required this.isLocalBackend,
     required this.toolsSupported,
     required this.mode,
+    required this.pathMode,
     required this.honestyAccepted,
     required this.onModeChanged,
+    required this.onPathModeChanged,
     required this.onHonestyChanged,
     required this.onConfirm,
   });
@@ -43,8 +45,10 @@ class WaifuWizardSitDownStep extends StatelessWidget {
   final bool isLocalBackend;
   final bool toolsSupported;
   final WaifuMode mode;
+  final WaifuPathMode pathMode;
   final bool honestyAccepted;
   final ValueChanged<WaifuMode> onModeChanged;
+  final ValueChanged<WaifuPathMode> onPathModeChanged;
   final ValueChanged<bool> onHonestyChanged;
   final VoidCallback onConfirm;
 
@@ -106,6 +110,58 @@ class WaifuWizardSitDownStep extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
+            'How far can your coworker roam?',
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          RadioGroup<WaifuPathMode>(
+            groupValue: pathMode,
+            onChanged: (value) {
+              if (value != null) onPathModeChanged(value);
+            },
+            child: Column(
+              children: [
+                for (final scope in WaifuPathMode.values)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: scope == pathMode
+                          ? amber.withValues(alpha: 0.14)
+                          : AppColors.surfaceContainerOf(context),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: scope == pathMode
+                            ? amber
+                            : AppColors.borderOf(context),
+                      ),
+                    ),
+                    child: RadioListTile<WaifuPathMode>(
+                      key: Key('waifu-path-mode-${scope.name}'),
+                      value: scope,
+                      activeColor: amber,
+                      title: Text(
+                        waifuPathModeTitle(scope),
+                        style: TextStyle(
+                          color: AppColors.textPrimary(context),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(
+                        waifuPathModeBlurb(scope),
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
             'Starting mode',
             style: TextStyle(color: AppColors.textSecondary(context)),
           ),
@@ -125,7 +181,7 @@ class WaifuWizardSitDownStep extends StatelessWidget {
           if (mode == WaifuMode.yolo) ...[
             const SizedBox(height: 8),
             Text(
-              kWaifuYoloWarning,
+              waifuYoloWarning(pathMode),
               style: TextStyle(color: AppColors.textSecondary(context)),
             ),
           ],
@@ -145,7 +201,7 @@ class WaifuWizardSitDownStep extends StatelessWidget {
           ],
           const SizedBox(height: 20),
           Text(
-            kWaifuHonestyBody,
+            waifuHonestyBody(pathMode),
             style: TextStyle(
               color: AppColors.textPrimary(context),
               height: 1.4,
@@ -156,7 +212,7 @@ class WaifuWizardSitDownStep extends StatelessWidget {
             key: const Key('waifu-honesty-checkbox'),
             value: honestyAccepted,
             onChanged: (v) => onHonestyChanged(v ?? false),
-            title: const Text(kWaifuHonestyCheckbox),
+            title: Text(waifuHonestyCheckbox(pathMode)),
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
           ),

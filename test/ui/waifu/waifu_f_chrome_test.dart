@@ -36,7 +36,7 @@ void main() {
     if (await root.exists()) await root.delete(recursive: true);
   });
 
-  testWidgets('MCP opt-in warns that the jail does not apply', (tester) async {
+  testWidgets('MCP opt-in explains the folder-jail boundary', (tester) async {
     final session = WaifuSession(
       folderRoot: root.path,
       coworker: CharacterCard(name: 'Mira', personality: 'tsundere'),
@@ -51,12 +51,12 @@ void main() {
       ),
     );
     expect(find.byKey(const Key('waifu-mcp-opt-in')), findsOneWidget);
-    expect(find.textContaining('jail does not apply'), findsNothing);
+    expect(find.textContaining('folder jail covers'), findsNothing);
 
     await tester.tap(find.byKey(const Key('waifu-mcp-opt-in')));
     await tester.pump();
     expect(harness.mcpOptIn, isTrue);
-    expect(find.textContaining('jail does not apply'), findsOneWidget);
+    expect(find.textContaining('folder jail covers'), findsOneWidget);
     expect(find.text('Continue'), findsNothing);
   });
 }

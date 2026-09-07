@@ -24,6 +24,7 @@ extension _WaifuHarnessSpawn on WaifuHarness {
       folderRoot: session.folderRoot,
       coworker: session.coworker,
       mode: exploreOnly ? WaifuMode.plan : session.mode,
+      pathMode: session.pathMode,
       preserveThinking: session.preserveThinking,
     );
     return WaifuHarness(
@@ -37,8 +38,11 @@ extension _WaifuHarnessSpawn on WaifuHarness {
       onAsk: onAsk,
       onQuestion: onQuestion,
       onChanged: _emit,
-      permissions: WaifuPermissions(mode: childSession.mode),
-      depth: 1,
+      permissions: WaifuPermissions(
+        mode: childSession.mode,
+        workingDirectory: childSession.folderRoot,
+      ),
+      depth: depth + 1,
       exploreOnly: exploreOnly,
       skills: skills,
       mcpTools: mcpTools,
@@ -73,9 +77,9 @@ extension _WaifuHarnessSpawn on WaifuHarness {
     String? kind,
     Map<String, dynamic> args,
   ) async {
-    if (depth > 0) {
+    if (depth >= kWaifuMaxTaskDepth) {
       return WaifuToolResult.error(
-        'task: nested subagents cannot spawn children',
+        'task: nested worker depth is capped at $kWaifuMaxTaskDepth',
       );
     }
     if (kind != 'explore' && kind != 'general') {

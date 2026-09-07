@@ -20,6 +20,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+/// How far file and bash paths may roam from the sit-down folder.
+enum WaifuPathMode { folderJail, wholeDisk }
+
 /// Result of resolving a model-supplied path against the sit-down cwd.
 class WaifuJailHit {
   const WaifuJailHit.ok(this.path) : error = null;
@@ -30,12 +33,20 @@ class WaifuJailHit {
   bool get ok => error == null && path != null;
 }
 
-/// Path resolver, not a prison. Relative paths are against [root] (the
-/// sit-down folder, default cwd). Absolute paths, `..`, and `~` are allowed
-/// so she can walk the disk like Claude Code / OpenCode. `.env`,
-/// destructive git, and `rm -rf /` stay hard-denied in permissions.
+/// Dual-mode path resolver. Relative paths always start at [root].
+///
+/// [WaifuPathMode.folderJail] confines paths and symlink targets to [root].
+/// [WaifuPathMode.wholeDisk] allows absolute, `..`, and `~` paths. Secret and
+/// wipe/destroy-class checks are separate and apply in both modes.
 class WaifuJail {
-  static WaifuJailHit resolve(String root, String requested) {
+  static const outside = 'jail: path is outside the project folder';
+  static const dots = 'jail: path must not escape with ..';
+
+  static WaifuJailHit resolve(
+    String root,
+    String requested, {
+    WaifuPathMode pathMode = WaifuPathMode.folderJail,
+  }) {
     final trimmed = requested.trim();
     if (trimmed.isEmpty) {
       return const WaifuJailHit.denied('path is empty');
@@ -45,6 +56,15 @@ class WaifuJail {
     final candidate = p.isAbsolute(expanded)
         ? p.normalize(expanded)
         : p.normalize(p.join(rootAbs, expanded));
+    if (pathMode == WaifuPathMode.folderJail) {
+      final portable = trimmed.replaceAll(r'\', '/');
+      if (portable.startsWith('~') || portable.split('/').contains('..')) {
+        return const WaifuJailHit.denied(dots);
+      }
+      if (!_inside(rootAbs, candidate)) {
+        return const WaifuJailHit.denied(outside);
+      }
+    }
     return WaifuJailHit.ok(candidate);
   }
 
@@ -53,22 +73,49 @@ class WaifuJail {
   /// Models often prefix the sit-down folder name (`Kabbage/pubspec.yaml`
   /// while cwd is already `.../Kabbage`). If the doubled path misses and
   /// the stripped path hits, use the stripped one.
-  static Future<WaifuJailHit> resolveLive(String root, String requested) async {
-    final hit = resolve(root, requested);
+  static Future<WaifuJailHit> resolveLive(
+    String root,
+    String requested, {
+    WaifuPathMode pathMode = WaifuPathMode.folderJail,
+  }) async {
+    final hit = resolve(root, requested, pathMode: pathMode);
     if (!hit.ok) return hit;
+    final rootReal = pathMode == WaifuPathMode.folderJail
+        ? await canonicalRoot(root)
+        : null;
     final existing = await _liveIfExists(hit.path!);
-    if (existing != null) return existing;
+    if (existing != null) {
+      if (rootReal != null && !_inside(rootReal, existing.path!)) {
+        return const WaifuJailHit.denied(outside);
+      }
+      return existing;
+    }
 
     final stripped = waifuStripRedundantProjectPrefix(root, requested);
-    if (stripped == requested.trim()) return hit;
-    final again = resolve(root, stripped);
-    if (!again.ok) return hit;
-    final live = await _liveIfExists(again.path!);
-    if (live != null) return live;
-    if (await _parentExists(again.path!) && !await _parentExists(hit.path!)) {
-      return again;
+    var chosen = hit;
+    if (stripped != requested.trim()) {
+      final again = resolve(root, stripped, pathMode: pathMode);
+      if (again.ok) {
+        final live = await _liveIfExists(again.path!);
+        if (live != null) {
+          if (rootReal != null && !_inside(rootReal, live.path!)) {
+            return const WaifuJailHit.denied(outside);
+          }
+          return live;
+        }
+        if (await _parentExists(again.path!) &&
+            !await _parentExists(hit.path!)) {
+          chosen = again;
+        }
+      }
     }
-    return hit;
+    if (rootReal != null) {
+      final parentReal = await canonicalRoot(p.dirname(chosen.path!));
+      if (!_inside(rootReal, parentReal)) {
+        return const WaifuJailHit.denied(outside);
+      }
+    }
+    return chosen;
   }
 
   static Future<String> canonicalRoot(String root) async {
@@ -114,6 +161,19 @@ class WaifuJail {
     } catch (_) {
       return false;
     }
+  }
+
+  static bool _inside(String rootAbs, String candidate) {
+    final rootNorm = p.normalize(rootAbs);
+    final candidateNorm = p.normalize(candidate);
+    if (p.equals(candidateNorm, rootNorm)) return true;
+    if (Platform.isWindows) {
+      final prefix = rootNorm.endsWith(p.separator)
+          ? rootNorm
+          : '$rootNorm${p.separator}';
+      return candidateNorm.toLowerCase().startsWith(prefix.toLowerCase());
+    }
+    return p.isWithin(rootNorm, candidateNorm);
   }
 }
 

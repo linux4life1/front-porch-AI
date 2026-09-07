@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_home_atmosphere.dart';
@@ -100,7 +101,11 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
     }
   }
 
-  void _startNew({String? folder, bool skipProject = false}) {
+  void _startNew({
+    String? folder,
+    CharacterCard? coworker,
+    bool skipProject = false,
+  }) {
     if (widget.onSitDown != null && folder == null) {
       widget.onSitDown!();
       return;
@@ -118,6 +123,7 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
           isLocalBackend: local,
           backendLabel: label,
           initialFolder: folder,
+          initialCoworker: coworker,
           skipProject: skipProject,
         ),
       ),
@@ -138,9 +144,9 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
           title: project.title,
         );
     if (!mounted) return;
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => WaifuPage(session: session)));
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => WaifuPage(session: session)),
+    );
     _load();
   }
 
@@ -151,14 +157,11 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
     );
     if (!mounted || choice == null) return;
     if (choice == WaifuNewSessionChoice.sameCharacter) {
-      final session = WaifuSession(
-        folderRoot: project.folderRoot,
+      _startNew(
+        folder: project.folderRoot,
         coworker: project.coworker,
+        skipProject: true,
       );
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => WaifuPage(session: session)),
-      );
-      _load();
       return;
     }
     _startNew(folder: project.folderRoot, skipProject: true);

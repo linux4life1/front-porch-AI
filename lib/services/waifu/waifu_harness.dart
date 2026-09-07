@@ -71,10 +71,15 @@ class WaifuHarness {
     this.depth = 0,
     this.exploreOnly = false,
     WaifuSkillHub? skills,
-  }) : fs = fs ?? WaifuFs(session.folderRoot),
+  }) : fs = fs ?? WaifuFs(session.folderRoot, pathMode: session.pathMode),
        webfetch = webfetch ?? WaifuWebFetch(),
-       permissions = permissions ?? WaifuPermissions(mode: session.mode),
-       bash = bash ?? WaifuBash(session.folderRoot),
+       permissions =
+           permissions ??
+           WaifuPermissions(
+             mode: session.mode,
+             workingDirectory: session.folderRoot,
+           ),
+       bash = bash ?? WaifuBash(session.folderRoot, pathMode: session.pathMode),
        undoLog = undo ?? WaifuUndo(),
        todos = todos ?? WaifuTodos(),
        skills = skills ?? WaifuSkillHub(projectRoot: session.folderRoot);
@@ -115,14 +120,20 @@ class WaifuHarness {
   bool get canRedo => undoLog.canRedo;
 
   Future<void> undo() async {
-    final rec = await undoLog.undo(session.folderRoot);
+    final rec = await undoLog.undo(
+      session.folderRoot,
+      pathMode: session.pathMode,
+    );
     if (rec == null) return;
     session.lastWrite = rec;
     _emit();
   }
 
   Future<void> redo() async {
-    final rec = await undoLog.redo(session.folderRoot);
+    final rec = await undoLog.redo(
+      session.folderRoot,
+      pathMode: session.pathMode,
+    );
     if (rec == null) return;
     session.lastWrite = rec;
     _emit();
@@ -180,6 +191,7 @@ class WaifuHarness {
       c.abort();
     }
     llm.abort();
+    bash.abort();
     final waiting = _askWait;
     if (waiting != null && !waiting.isCompleted) {
       waiting.complete(WaifuAskDecision.deny);
@@ -196,7 +208,6 @@ class WaifuHarness {
       if (keep) _stepAt = null;
       _say('Stopped.');
     }
-    session.running = false;
     _emit();
   }
 
@@ -215,7 +226,9 @@ class WaifuHarness {
           includeWebSearch: webSearch != null,
           mcpOptIn: mcpOptIn,
           mcpTools: mcpTools,
-          includeTask: depth == 0,
+          includeTask: depth < kWaifuMaxTaskDepth,
+          includeWorkflow: depth == 0,
+          pathMode: session.pathMode,
         ),
         images: step == 0 ? _turnImages : null,
         onChunk: _onChunk,
@@ -247,18 +260,25 @@ class WaifuHarness {
     final work = waifuNormalizeToolArgs(name, args);
     final kind = waifuSubagentKind(name, work);
     final canon = canonicalWaifuToolName(name);
-    if (exploreOnly && !kWaifuExploreToolNames.contains(canon)) {
+    final mcpMutates = waifuMcpMutationHint(name, mcpTools);
+    if (exploreOnly &&
+        !kWaifuExploreToolNames.contains(canon) &&
+        canon != kWaifuToolTask) {
       permissions.record(name: name, args: work);
       _reject(canon, 'explore is read-only');
       return;
     }
-    final block = permissions.hardBlock(name: name, args: work);
+    final block = permissions.hardBlock(
+      name: name,
+      args: work,
+      mutates: mcpMutates,
+    );
     if (block != null) {
       permissions.record(name: name, args: work);
       _reject(canon, block);
       return;
     }
-    if (permissions.needsAsk(name: name, args: work)) {
+    if (permissions.needsAsk(name: name, args: work, mutates: mcpMutates)) {
       final doom = permissions.isDoom(name, work);
       final decision = await _decide(
         WaifuAskRequest(
@@ -283,6 +303,7 @@ class WaifuHarness {
       kWaifuToolWorkflow => await _runWorkflow(work),
       _ => await _dispatch(canon, work, original: name),
     };
+    if (_aborted) return;
     if (result.write != null) {
       session.lastWrite = result.write;
       undoLog.push(result.write!);
@@ -437,6 +458,8 @@ class WaifuHarness {
       skillBlock: skills.catalogPrompt,
       mcpBlock: mcpOptIn ? waifuMcpToolsLine(waifuKeepMcpTools(mcpTools)) : '',
       preserveThinking: session.preserveThinking,
+      pathMode: session.pathMode,
+      taskDepthRemaining: kWaifuMaxTaskDepth - depth,
     );
   }
 

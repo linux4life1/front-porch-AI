@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship Waifu Coder slices A–I in the isolated `feat/mcp-client` worktree (`/Users/linux4life/dev/fpai-mcp-client`) so a grenade cannot dirty Rawhide.
+**Goal:** Ship the complete Waifu Coder feature on `feat/mcp-client` / PR #233 for one squash into Rawhide.
 
-**Architecture:** New island under `lib/services/waifu/` + `lib/ui/waifu/`. No `ChatService` construction, no Realism/Needs/Journal ticks, no `web_ui/`, no OpenCode/Bun/LSP-zoo process. Slice A is chrome + wizard only. Slice B is the in-process `generateWithTools` loop + jail. Later slices add permissions, bash, todos, web/MCP, resume, subagents, opt-in language doors.
+**Architecture:** Island under `lib/services/waifu/` + `lib/ui/waifu/`. No `ChatService` construction, Realism/Needs/Journal ticks, web Waifu page, OpenCode/Bun process, or stdio MCP. The in-process tool loop owns file/patch/bash tools, a persisted Folder-jail (default) vs Whole-disk scope, ruthless shared hard-denies, bounded nested tasks, and character voice.
 
 **Tech Stack:** Flutter/Dart, Provider, `dart:io` Directory walker, existing `LLMService.generateWithTools`, AppColors / porch amber, Drift only if slice G needs a table (JSON under the data dir is allowed).
 
@@ -12,9 +12,9 @@
 
 ## Global Constraints
 
-- Work **only** in `/Users/linux4life/dev/fpai-mcp-client` (`feat/mcp-client`). Never write, format, or commit `/Users/linux4life/dev/front-porch-AI` (Rawhide).
+- Work only on `feat/mcp-client`; PR base remains Rawhide. Do not merge.
 - Every Dart file under 500 lines. No `lib/` file may reach 1,000.
-- TDD: failing test first, watch it fail, then implement. New test files only — do not edit existing tests (test-integrity).
+- Every new guard is proven red then green. Existing assertions that described the retired single-scope behavior are intentionally rewritten under the signed dual-scope decision.
 - `HomeModeToggle` constructor must keep `showStories` / `onShowChats` / `onShowStories` so `test/ui/pages/home/home_grid_toolbar_overflow_test.dart` still compiles. Waifu Coder is an **additive** optional (`showWaifu`, `onShowWaifu`).
 - AppColors / `formMasterAccent` / `porchAmberOf` / `onChaosAccent`. No `Colors.blueAccent`. No hard-coded `Color(0xFF…)`.
 - Barrel imports. `dart format` only files you touched. Never `dart format .`.
@@ -23,8 +23,7 @@
 - `FilePicker` is forbidden on the folder step. In-app `Directory.list` only.
 - Sync I/O is banned in `lib/ui/**` `build` paths.
 - Web parity N/A this conversation. Path-complete chat matrix N/A (separate pipeline).
-- Commit each finished slice in this worktree. Do not push. Do not merge to Rawhide.
-- Uncommitted MCP Porch Life files already in this worktree are **not** Waifu Coder — do not fold them into Waifu Coder commits.
+- Commit and push each logical body to `feat/mcp-client`; never open a second PR or merge #233.
 
 ---
 
@@ -74,7 +73,7 @@
 **Interfaces:**
 - Consumes: `CharacterCard` (`name`, `description`, `personality`, `systemPrompt`, `mesExample`, `scenario`, `frontPorchExtensions`)
 - Produces:
-  - `const kWaifuHonestyBody` / `kWaifuHonestyCheckbox` / `kWaifuPreamble`
+  - `waifuHonestyBody(pathMode)` / `waifuHonestyCheckbox(pathMode)` / `kWaifuPreamble`
   - `String buildWaifuCoworkerPrompt(CharacterCard card)`
   - `enum WaifuMode { plan, build, yolo }`
   - `bool waifuCanSitDown({required bool honestyAccepted, required bool toolsSupported, required bool hasFolder, required bool hasCoworker})`
@@ -87,9 +86,7 @@
 
 Prompt rules (spec §5): include name, description, personality, systemPrompt if non-empty, truncated mesExample as style hint, plus `kWaifuPreamble`. Must **not** contain `scenario`, lorebook text, firstMessage, needs/occupation, or the words of a scenario unique string used in the test (`SCENARIO_MUST_NOT_APPEAR`).
 
-Honesty body must contain: `Claude Code`, `Grok Build`, `OpenCode`, `critical codebase` (or `critical codebase` / `code I cannot afford to lose`). Checkbox label is exactly:
-
-`I understand. I will not use Waifu Coder on code I cannot afford to lose.`
+Honesty names Claude Code, Grok Build, OpenCode, and the critical-codebase law. Folder-jail copy says it is the safer default and confines paths. Whole-disk copy says the folder is only a starting porch and explicitly acknowledges access elsewhere. Changing scope clears acceptance.
 
 `waifuCanSitDown` is true only when all four flags are true. Tools-unsupported is a hard block even if the box is ticked.
 
@@ -175,7 +172,7 @@ Inject for tests:
 - `String initialFolder` (temp dir)
 - `void Function(WaifuSession session)? onSatDown`
 
-Sit down Confirm (`key: Key('waifu-sit-down-confirm')`) is **null** `onPressed` until `waifuCanSitDown`. Checkbox `Key('waifu-honesty-checkbox')`. Tools-unsupported shows blocking copy, Confirm stays dead even after tick. Local backend shows the small-model warning, not a hard block. Yolo selection shows the jail-still-holds line.
+Sit down Confirm (`key: Key('waifu-sit-down-confirm')`) is disabled until `waifuCanSitDown`. Checkbox `Key('waifu-honesty-checkbox')`. Scope cards are `Folder jail (safer default)` and `Whole-disk access`. Tools-unsupported remains a hard block. Yolo and MCP copy branch on scope and never claim a jail in Whole-disk mode.
 
 Source of `waifu_wizard_project_step.dart` must not contain `FilePicker`.
 
@@ -198,19 +195,20 @@ Portrait + coworker name + folder basename + composer. Send appends a user bubbl
 
 ---
 
-## Slices B–I (do not start until A is committed)
+## Slices B–I (all ship in #233)
 
-Each later slice gets its own TDD cycle in this worktree. Contracts:
+The implementation kept these contracts as reviewable internal slices, but the
+complete set lands in the single #233 squash:
 
 | Slice | Done when | Key types / tools |
 |---|---|---|
-| **B** | Send loops `generateWithTools`. Tools: read/edit/write/glob/grep. Jail. Max 20. Abort. Work strip. Personality preamble every generate. | `WaifuHarness`, `WaifuJail.resolve(root, path)`, `WaifuLlm` |
-| **C** | Plan/Build/Yolo gears. Plan cannot mutate. Build Allow once / Always / Deny. Yolo skips ask. Hard-deny `git checkout --`, restore dirty, `rm -rf /`. Doom-loop 3×. `.env` deny. | `WaifuPermissions` |
-| **D** | `bash` cwd=root, timeout, clip. Undo/redo of **her** writes only. | `WaifuBash`, `WaifuUndo` |
+| **B** | Send loops `generateWithTools`. Tools: read/edit/apply_patch/write/glob/grep. Folder jail or Whole-disk. 80-step fuse. Abort kills work. Work strip records writes. | `WaifuHarness`, `WaifuJail`, `WaifuPatch`, `WaifuLlm` |
+| **C** | Plan/Build/Yolo. Plan blocks local + mutating MCP tools; Build asks; Yolo skips asks. Both scopes hard-deny secrets, env dumps, destructive Git, force-push, recursive roots/homes/parents/system wipes, format/device/find/permission bombs. | `WaifuPermissions` |
+| **D** | `bash` cwd=root, scope-aware path preflight, scrubbed child environment, timeout + user Abort process kill. Undo/redo of her writes only. | `WaifuBash`, `WaifuUndo` |
 | **E** | todos, question, @files, `/init` AGENTS.md, skill loader | `WaifuTodos`, `WaifuQuestion` |
 | **F** | webfetch (no-redirect), FP websearch, opt-in HTTP MCP | existing MCP hub, not stdio |
 | **G** | compaction, resume last waifu, title | JSON under data dir, not `messages` |
-| **H** | Explore (read-only nested) + General nested; child cannot leave jail | after A–G |
+| **H** | Explore/General may delegate one more task layer; deepest worker stops. Scope and abort propagate through the tree. | after A–G |
 | **I** | Language-help catalog, none pre-ticked, PATH first, pin+checksum, custom command, Yolo does not auto-open | after D |
 
 Regen ruling (spec left a pick): **disabled** in v1. Continue control does not exist. A new send is a new loop.

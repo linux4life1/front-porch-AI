@@ -44,14 +44,25 @@ void main() {
       contains('Persona: tsundere, dry, teases then does the work anyway'),
     );
     expect(
+      prompt,
+      contains('Vibe: A sharp-tongued engineer who pretends not to care.'),
+    );
+    expect(prompt, contains('<card_author_voice_rules>'));
+    expect(prompt, contains('You speak in short, pointed sentences.'));
+    expect(
       prompt.indexOf('Name: Mira'),
       lessThan(prompt.indexOf(kWaifuPreamble)),
     );
-    expect(prompt.indexOf('Persona:'), lessThan(prompt.indexOf(kWaifuPreamble)));
+    expect(
+      prompt.indexOf('Persona:'),
+      lessThan(prompt.indexOf(kWaifuPreamble)),
+    );
     expect(prompt, contains('Today: 2026-09-06'));
     expect(prompt, contains(kWaifuPreamble));
-    expect(prompt, contains('Never paste full source files into the chat'));
-    expect(prompt, contains('Training cutoff is not evidence'));
+    expect(kWaifuPreamble, contains('Sass is welcome'));
+    expect(kWaifuPreamble.length, lessThan(1000));
+    expect(prompt, isNot(contains(kWaifuLookupCue)));
+    expect(prompt, isNot(contains(kWaifuBuiltinsCue)));
   });
 
   test('talk samples expand macros and stay out of the scene', () {
@@ -62,16 +73,19 @@ void main() {
     expect(prompt, isNot(contains('{{char}}')));
   });
 
-  test('chat systemPrompt, scenario, greeting, and description stay out', () {
-    final prompt = buildWaifuCoworkerPrompt(tsundere());
-    expect(prompt, isNot(contains('You speak in short, pointed sentences.')));
-    expect(prompt, isNot(contains('System prompt:')));
-    expect(prompt, isNot(contains('SCENARIO_MUST_NOT_APPEAR')));
-    expect(prompt, isNot(contains('FIRST_MESSAGE_MUST_NOT_APPEAR')));
-    expect(prompt, isNot(contains('OCCUPATION_MUST_NOT_APPEAR')));
-    expect(prompt, isNot(contains('rainy porch date')));
-    expect(prompt, isNot(contains('sharp-tongued engineer')));
-  });
+  test(
+    'author voice and vibe stay in; scene, greeting, extensions stay out',
+    () {
+      final prompt = buildWaifuCoworkerPrompt(tsundere());
+      expect(prompt, contains('You speak in short, pointed sentences.'));
+      expect(prompt, contains('voice and values only'));
+      expect(prompt, contains('sharp-tongued engineer'));
+      expect(prompt, isNot(contains('SCENARIO_MUST_NOT_APPEAR')));
+      expect(prompt, isNot(contains('FIRST_MESSAGE_MUST_NOT_APPEAR')));
+      expect(prompt, isNot(contains('OCCUPATION_MUST_NOT_APPEAR')));
+      expect(prompt, isNot(contains('rainy porch date')));
+    },
+  );
 
   test('preamble does not assume gender', () {
     expect(
@@ -88,15 +102,16 @@ void main() {
     );
   });
 
-  test('empty personality falls back to a clipped description', () {
+  test('empty personality keeps a clipped Vibe and fenced author rules', () {
     final card = CharacterCard(
       name: 'Ada',
       description: 'calm, precise, hates wasted motion',
-      systemPrompt: 'CHAT_SYSTEM_MUST_NOT_APPEAR',
+      systemPrompt: 'Keep every sentence exact.',
     );
     final prompt = buildWaifuCoworkerPrompt(card);
-    expect(prompt, contains('Persona: calm, precise, hates wasted motion'));
-    expect(prompt, isNot(contains('CHAT_SYSTEM_MUST_NOT_APPEAR')));
+    expect(prompt, isNot(contains('Persona:')));
+    expect(prompt, contains('Vibe: calm, precise, hates wasted motion'));
+    expect(prompt, contains('Keep every sentence exact.'));
   });
 
   test('talk samples cap at two chunks and 400 tokens', () {
@@ -114,5 +129,18 @@ void main() {
       waifuEstimateTokens(clipped),
       lessThanOrEqualTo(kWaifuTalkSampleMaxTokens),
     );
+  });
+
+  test('Vibe is capped at 400 characters even beside a Persona', () {
+    final prompt = buildWaifuCoworkerPrompt(
+      CharacterCard(
+        name: 'Ada',
+        personality: 'precise',
+        description: 'v' * 450,
+      ),
+    );
+    expect(prompt, contains('Persona: precise'));
+    expect(prompt, contains('Vibe: ${'v' * kWaifuVibeMaxChars}…'));
+    expect(prompt, isNot(contains('v' * 401)));
   });
 }

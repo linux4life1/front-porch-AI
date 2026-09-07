@@ -148,6 +148,7 @@ class WaifuSidebar extends StatelessWidget {
                     initiallyExpanded: true,
                     child: WaifuModeBar(
                       mode: session.mode,
+                      pathMode: session.pathMode,
                       enabled: !session.running,
                       onChanged: onMode,
                       preserveThinking: session.preserveThinking,
@@ -165,7 +166,11 @@ class WaifuSidebar extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        WaifuMcpOptIn(value: mcpOptIn, onChanged: onMcpOptIn),
+                        WaifuMcpOptIn(
+                          value: mcpOptIn,
+                          pathMode: session.pathMode,
+                          onChanged: onMcpOptIn,
+                        ),
                         if (mcpLine != null)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),

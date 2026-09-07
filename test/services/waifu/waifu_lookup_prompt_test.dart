@@ -18,6 +18,8 @@ void main() {
     );
     expect(prompt, contains(kWaifuLookupCue));
     expect(prompt, contains('web_search'));
+    expect(prompt, contains(kWaifuBuiltinsCue));
+    expect(prompt, contains('2 bounded task layer(s) remain'));
   });
 
   test('MCP names land in the loop prompt when opted in', () {

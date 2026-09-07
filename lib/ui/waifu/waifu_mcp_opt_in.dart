@@ -22,10 +22,16 @@ import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 class WaifuMcpOptIn extends StatelessWidget {
-  const WaifuMcpOptIn({super.key, required this.value, required this.onChanged});
+  const WaifuMcpOptIn({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.pathMode = WaifuPathMode.folderJail,
+  });
 
   final bool value;
   final ValueChanged<bool> onChanged;
+  final WaifuPathMode pathMode;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +54,7 @@ class WaifuMcpOptIn extends StatelessWidget {
           ),
           if (value)
             Text(
-              kWaifuMcpJailWarning,
+              waifuMcpScopeWarning(pathMode),
               style: TextStyle(
                 color: AppColors.textSecondary(context),
                 fontSize: 12,

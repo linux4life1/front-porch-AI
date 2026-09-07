@@ -121,6 +121,35 @@ void main() {
     expect(sat!.coworker.name, 'Mira');
     expect(sat!.folderRoot, folder.path);
     expect(sat!.mode, WaifuMode.build);
+    expect(sat!.pathMode, WaifuPathMode.folderJail);
+  });
+
+  testWidgets('Whole-disk choice changes disclosure and saved session scope', (
+    tester,
+  ) async {
+    WaifuSession? sat;
+    await pumpWizard(tester, onSatDown: (session) => sat = session);
+    await reachSitDown(tester);
+
+    final whole = find.byKey(const Key('waifu-path-mode-wholeDisk'));
+    await tester.ensureVisible(whole);
+    await tester.tap(whole);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('starting porch, not a fence'), findsOneWidget);
+    expect(
+      find.textContaining('can read or change files elsewhere'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('waifu-honesty-checkbox')));
+    await tester.tap(find.byKey(const Key('waifu-honesty-checkbox')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('waifu-sit-down-confirm')));
+    await tester.tap(find.byKey(const Key('waifu-sit-down-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(sat, isNotNull);
+    expect(sat!.pathMode, WaifuPathMode.wholeDisk);
   });
 
   testWidgets('tools-unsupported blocks Sit down even after the checkbox', (

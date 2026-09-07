@@ -24,9 +24,6 @@ import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 const kWaifuWebFetchTool = 'webfetch';
 const kWaifuWebFetchTimeout = Duration(seconds: 8);
 
-const kWaifuMcpJailWarning =
-    'MCP tools talk to remote servers. The folder jail does not apply.';
-
 /// GET a URL. Redirects are refused. Body is clipped and marked untrusted.
 class WaifuWebFetch {
   WaifuWebFetch({this.sendRequest, this.maxBytes = 32000});
@@ -50,7 +47,9 @@ class WaifuWebFetch {
       } else {
         final client = http.Client();
         try {
-          final streamed = await client.send(req).timeout(kWaifuWebFetchTimeout);
+          final streamed = await client
+              .send(req)
+              .timeout(kWaifuWebFetchTimeout);
           resp = await http.Response.fromStream(streamed);
         } finally {
           client.close();

@@ -79,7 +79,7 @@ void main() {
     expect(llm.calls, hasLength(4));
     final childTools = _toolNames(llm.calls[1].tools);
     expect(childTools, isNot(contains(kWaifuToolWrite)));
-    expect(childTools, isNot(contains(kWaifuToolTask)));
+    expect(childTools, contains(kWaifuToolTask));
     expect(childTools, contains(kWaifuToolRead));
     expect(session.toolChips.any((c) => c.name == kWaifuToolTask), isTrue);
   });
@@ -123,6 +123,47 @@ void main() {
     expect(
       llm.calls.map((c) => c.prompt).join('\n'),
       isNot(contains('SECRET')),
+    );
+  });
+
+  test('nested worker inherits whole-disk scope', () async {
+    final outside = File(p.join(p.dirname(root.path), 'open_scope.txt'));
+    await outside.writeAsString('WHOLE_DISK_OK');
+    addTearDown(() async {
+      if (await outside.exists()) await outside.delete();
+    });
+    final llm = ScriptedWaifuLlm([
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(
+            name: 'task',
+            arguments: {
+              'subagent': 'explore',
+              'prompt': 'read the file next door',
+            },
+          ),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(name: 'read', arguments: {'path': '../open_scope.txt'}),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(calls: [], text: 'Found the neighboring file.'),
+      const LlmToolResponse(calls: [], text: 'Hmph. Brought it back.'),
+    ]);
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: _mira(),
+      mode: WaifuMode.yolo,
+      pathMode: WaifuPathMode.wholeDisk,
+    );
+    await WaifuHarness(session: session, llm: llm).send('explore outside');
+    expect(
+      llm.calls.map((call) => call.prompt).join('\n'),
+      contains('WHOLE_DISK_OK'),
     );
   });
 

@@ -38,4 +38,17 @@ void main() {
     final p = WaifuPermissions(mode: WaifuMode.yolo);
     expect(p.hardBlock(name: 'read', args: {'path': '.ENV'}), isNotNull);
   });
+
+  test('bash cannot cat, copy, source, or archive protected secrets', () {
+    for (final command in [
+      'cat .env',
+      'cp .env /tmp/copied',
+      'source .env.local',
+      'tar -cf keys.tar ~/.ssh',
+      'cat ~/.aws/credentials',
+      r'bash -c "cat ${HOME}/.ssh/id_ed25519"',
+    ]) {
+      expect(waifuDeniedCommand(command), isNotNull, reason: command);
+    }
+  });
 }

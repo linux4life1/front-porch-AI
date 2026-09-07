@@ -66,6 +66,21 @@ void main() {
     expect(find.textContaining('folder jail still holds'), findsOneWidget);
   });
 
+  testWidgets('whole-disk Yolo warning says the coworker can roam', (
+    tester,
+  ) async {
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: CharacterCard(name: 'Mira', personality: 'tsundere'),
+      pathMode: WaifuPathMode.wholeDisk,
+    );
+    await tester.pumpWidget(MaterialApp(home: WaifuPage(session: session)));
+    await tester.tap(find.byKey(const Key('waifu-mode-yolo')));
+    await tester.pump();
+    expect(find.textContaining('walk the whole disk'), findsOneWidget);
+    expect(find.textContaining('jail still holds'), findsNothing);
+  });
+
   testWidgets('ask dialog Deny / Allow once / Always are present', (
     tester,
   ) async {

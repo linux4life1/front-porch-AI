@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
+import 'package:front_porch_ai/services/waifu/waifu_patch.dart';
 import 'package:front_porch_ai/services/waifu/waifu_permissions.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
@@ -36,11 +37,13 @@ class WaifuToolResult {
       WaifuToolResult(ok: false, output: message);
 }
 
-/// In-process file tools. Every path goes through [WaifuJail].
+/// In-process file tools. Relative paths start at [root]; [pathMode] decides
+/// whether absolute, home-relative, parent, and symlink targets may leave it.
 class WaifuFs {
-  WaifuFs(this.root);
+  WaifuFs(this.root, {this.pathMode = WaifuPathMode.folderJail});
 
   final String root;
+  final WaifuPathMode pathMode;
 
   Future<WaifuToolResult> dispatch(
     String name,
@@ -51,6 +54,8 @@ class WaifuFs {
         return _read(args);
       case kWaifuToolEdit:
         return _edit(args);
+      case kWaifuToolApplyPatch:
+        return _edit(args, unifiedPatch: true);
       case kWaifuToolWrite:
         return _write(args);
       case kWaifuToolGlob:
@@ -64,9 +69,15 @@ class WaifuFs {
 
   Future<WaifuJailHit> _hit(String? path) async {
     if (path == null) {
-      return const WaifuJailHit.denied('jail: path is empty');
+      return const WaifuJailHit.denied('path is empty');
     }
-    return WaifuJail.resolveLive(root, path);
+    final hit = await WaifuJail.resolveLive(root, path, pathMode: pathMode);
+    if (hit.ok && waifuIsProtectedSecretPath(hit.path!)) {
+      return const WaifuJailHit.denied(
+        'denied: .env, .ssh, and .aws secrets stay off the workbench',
+      );
+    }
+    return hit;
   }
 
   Future<WaifuToolResult> _read(Map<String, dynamic> args) async {
@@ -99,6 +110,11 @@ class WaifuFs {
     final rel = waifuToolPathArg(args);
     final hit = await _hit(rel);
     if (!hit.ok) return WaifuToolResult.error(hit.error!);
+    if (waifuIsCriticalSystemMutationPath(hit.path!, workingDirectory: root)) {
+      return WaifuToolResult.error(
+        'denied: direct writes to operating-system files are not allowed',
+      );
+    }
     final contents =
         args['contents']?.toString() ??
         args['content']?.toString() ??
@@ -127,28 +143,45 @@ class WaifuFs {
     );
   }
 
-  Future<WaifuToolResult> _edit(Map<String, dynamic> args) async {
+  Future<WaifuToolResult> _edit(
+    Map<String, dynamic> args, {
+    bool unifiedPatch = false,
+  }) async {
     final rel = waifuToolPathArg(args);
     final hit = await _hit(rel);
     if (!hit.ok) return WaifuToolResult.error(hit.error!);
-    final old = args['old_string']?.toString() ?? '';
-    final neu = args['new_string']?.toString() ?? '';
-    if (old.isEmpty) {
-      return WaifuToolResult.error('old_string is empty');
-    }
-    final file = File(hit.path!);
-    if (!await file.exists()) {
-      return WaifuToolResult.error('file not found: $rel');
-    }
-    final before = await file.readAsString();
-    final count = old.allMatches(before).length;
-    if (count != 1) {
+    if (waifuIsCriticalSystemMutationPath(hit.path!, workingDirectory: root)) {
       return WaifuToolResult.error(
-        'old_string must match exactly once (found $count)',
+        'denied: direct writes to operating-system files are not allowed',
       );
     }
-    final after = before.replaceFirst(old, neu);
+    final file = File(hit.path!);
+    if (!unifiedPatch && !await file.exists()) {
+      return WaifuToolResult.error('file not found: $rel');
+    }
+    final before = await file.exists() ? await file.readAsString() : '';
+    late final String after;
+    if (unifiedPatch) {
+      final patch = args['patch']?.toString() ?? '';
+      final applied = waifuApplyPatch(before: before, patch: patch);
+      if (!applied.ok) return WaifuToolResult.error(applied.error!);
+      after = applied.text!;
+    } else {
+      final old = args['old_string']?.toString() ?? '';
+      final neu = args['new_string']?.toString() ?? '';
+      if (old.isEmpty) {
+        return WaifuToolResult.error('old_string is empty');
+      }
+      final count = old.allMatches(before).length;
+      if (count != 1) {
+        return WaifuToolResult.error(
+          'old_string must match exactly once (found $count)',
+        );
+      }
+      after = before.replaceFirst(old, neu);
+    }
     try {
+      await file.parent.create(recursive: true);
       await file.writeAsString(after);
     } catch (e) {
       return WaifuToolResult.error('edit failed: $e');
@@ -156,8 +189,12 @@ class WaifuFs {
     final shown = await _rel(hit.path!);
     return WaifuToolResult(
       ok: true,
-      output: 'edited $shown',
-      write: WaifuWriteRecord(relativePath: shown, before: before, after: after),
+      output: '${unifiedPatch ? 'patched' : 'edited'} $shown',
+      write: WaifuWriteRecord(
+        relativePath: shown,
+        before: before,
+        after: after,
+      ),
     );
   }
 
@@ -179,7 +216,7 @@ class WaifuFs {
     ).list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
       final rel = await _rel(entity.path);
-      if (waifuIsEnvPath(rel)) continue;
+      if (waifuIsProtectedSecretPath(rel)) continue;
       if (waifuGlobMatch(rel, pattern)) matches.add(rel);
     }
     matches.sort();
@@ -218,7 +255,7 @@ class WaifuFs {
     for (final file in files) {
       if (hits.length >= kWaifuGrepMaxHits) break;
       final rel = await _rel(file.path);
-      if (waifuIsEnvPath(rel)) continue;
+      if (waifuIsProtectedSecretPath(rel)) continue;
       if (glob != null && glob.isNotEmpty && !waifuGlobMatch(rel, glob)) {
         continue;
       }

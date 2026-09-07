@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
+
 /// Runaway fuse, not a chat-length cap. The model stops when it stops.
 const kWaifuMaxSteps = 80;
 const kWaifuReadClipChars = 100000;
@@ -24,6 +26,7 @@ const kWaifuBashClipChars = 32000;
 
 const kWaifuToolRead = 'read';
 const kWaifuToolEdit = 'edit';
+const kWaifuToolApplyPatch = 'apply_patch';
 const kWaifuToolWrite = 'write';
 const kWaifuToolGlob = 'glob';
 const kWaifuToolGrep = 'grep';
@@ -38,126 +41,161 @@ const kWaifuToolWebSearch = 'web_search';
 const kWaifuToolTask = 'task';
 const kWaifuToolWorkflow = 'workflow';
 
-/// File tools plus bash. Plan/Build/Yolo gating is WaifuPermissions.
-final List<Map<String, dynamic>> kWaifuFileTools = [
-  _fn(
-    kWaifuToolRead,
-    'Read a file. Relative to the sit-down folder, or absolute / ~ / ..',
-    {
-      'path': {
-        'type': 'string',
-        'description':
-            'Relative to the project folder, or an absolute/~ /.. path',
+const kWaifuFsToolNames = {
+  kWaifuToolRead,
+  kWaifuToolEdit,
+  kWaifuToolApplyPatch,
+  kWaifuToolWrite,
+  kWaifuToolGlob,
+  kWaifuToolGrep,
+};
+
+/// File tools plus bash. Their path wording follows the sit-down scope.
+List<Map<String, dynamic>> waifuFileToolsFor(WaifuPathMode pathMode) {
+  final open = pathMode == WaifuPathMode.wholeDisk;
+  final pathHelp = open
+      ? 'Relative paths start at the sit-down folder; absolute, ~, and .. '
+            'paths may walk the disk'
+      : 'Paths stay inside the sit-down folder; outside absolute, ~, .., and '
+            'symlink targets are denied by the folder jail';
+  return [
+    _fn(
+      kWaifuToolRead,
+      'Read a file. $pathHelp.',
+      {
+        'path': {'type': 'string', 'description': pathHelp},
+        'offset': {'type': 'integer', 'description': '1-based start line'},
+        'limit': {'type': 'integer', 'description': 'Max lines to return'},
       },
-      'offset': {'type': 'integer', 'description': '1-based start line'},
-      'limit': {'type': 'integer', 'description': 'Max lines to return'},
-    },
-    const ['path'],
-  ),
-  _fn(
-    kWaifuToolEdit,
-    'Replace exactly one occurrence of old_string with new_string. '
-    'Path may be relative, absolute, ~, or ..',
-    {
-      'path': {'type': 'string'},
-      'old_string': {'type': 'string'},
-      'new_string': {'type': 'string'},
-    },
-    const ['path', 'old_string', 'new_string'],
-  ),
-  _fn(
-    kWaifuToolWrite,
-    'Create or overwrite a file. Path may be relative, absolute, ~, or ..',
-    {
-      'path': {'type': 'string'},
-      'contents': {'type': 'string'},
-    },
-    const ['path', 'contents'],
-  ),
-  _fn(
-    kWaifuToolGlob,
-    'List files matching a glob. Default folder is the sit-down project. '
-    'Pass path to search elsewhere (absolute / ~ / .. allowed).',
-    {
-      'pattern': {'type': 'string'},
-      'path': {
-        'type': 'string',
-        'description': 'Folder to search. Default: project folder.',
+      const ['path'],
+    ),
+    _fn(
+      kWaifuToolEdit,
+      'Replace exactly one occurrence of old_string with new_string. $pathHelp.',
+      {
+        'path': {'type': 'string'},
+        'old_string': {'type': 'string'},
+        'new_string': {'type': 'string'},
       },
-    },
-    const ['pattern'],
-  ),
-  _fn(
-    kWaifuToolGrep,
-    'Search file contents. path may be relative, absolute, ~, or ..',
-    {
-      'pattern': {'type': 'string'},
-      'path': {
-        'type': 'string',
-        'description': 'File or directory. Default: project folder.',
+      const ['path', 'old_string', 'new_string'],
+    ),
+    _fn(
+      kWaifuToolApplyPatch,
+      'Apply one or more exact unified-diff hunks to one text file. $pathHelp.',
+      {
+        'path': {'type': 'string', 'description': pathHelp},
+        'patch': {
+          'type': 'string',
+          'description':
+              'Unified diff hunks, optionally wrapped in *** Begin Patch',
+        },
       },
-      'glob': {'type': 'string', 'description': 'Optional filename glob'},
-    },
-    const ['pattern'],
-  ),
-  _fn(
-    kWaifuToolBash,
-    'Run a shell command. Default cwd is the sit-down folder; cd elsewhere '
-    'is allowed. Destructive git and rm -rf / are denied.',
-    {
-      'command': {'type': 'string', 'description': 'Command to run'},
-    },
-    const ['command'],
-  ),
-  _fn(kWaifuToolTodoRead, 'Read the current todo list.', const {}, const []),
-  _fn(
-    kWaifuToolTodoWrite,
-    'Replace the todo list. Each item: id, content, status.',
-    {
-      'todos': {
-        'type': 'array',
-        'items': {'type': 'object'},
+      const ['path', 'patch'],
+    ),
+    _fn(
+      kWaifuToolWrite,
+      'Create or overwrite a file. $pathHelp.',
+      {
+        'path': {'type': 'string'},
+        'contents': {'type': 'string'},
       },
-    },
-    const ['todos'],
-  ),
-  _fn(
-    kWaifuToolQuestion,
-    'Ask the user a question with optional choices. Pauses until they answer.',
-    {
-      'prompt': {'type': 'string'},
-      'choices': {
-        'type': 'array',
-        'items': {'type': 'string'},
+      const ['path', 'contents'],
+    ),
+    _fn(
+      kWaifuToolGlob,
+      'List files matching a glob. Default is the sit-down folder. $pathHelp.',
+      {
+        'pattern': {'type': 'string'},
+        'path': {
+          'type': 'string',
+          'description': 'Folder to search. Default: project folder.',
+        },
       },
-    },
-    const ['prompt'],
-  ),
-  _fn(
-    kWaifuToolSkill,
-    'Load the full SKILL.md for an installed skill. Prefer this after '
-    'reading the installed-skills list. Also loads SKILL.md from '
-    '~/.waifu/skills, this project\'s .waifu/skills, and other harness '
-    'folders (~/.claude, ~/.grok, ~/.hermes) by name.',
-    {
-      'name': {'type': 'string'},
-    },
-    const ['name'],
-  ),
-  _fn(
-    kWaifuToolSkillInstall,
-    'Install a skill from the allowlisted HTTPS catalogs (Anthropic, '
-    'Vercel, Superpowers) into ~/.waifu/skills (Waifu Coder), then load '
-    'it with skill.',
-    {
-      'name': {
-        'type': 'string',
-        'description': 'Skill folder name, e.g. pdf or frontend-design',
+      const ['pattern'],
+    ),
+    _fn(
+      kWaifuToolGrep,
+      'Search file contents. $pathHelp.',
+      {
+        'pattern': {'type': 'string'},
+        'path': {
+          'type': 'string',
+          'description': 'File or directory. Default: project folder.',
+        },
+        'glob': {'type': 'string', 'description': 'Optional filename glob'},
       },
-    },
-    const ['name'],
-  ),
-];
+      const ['pattern'],
+    ),
+    _fn(
+      kWaifuToolBash,
+      open
+          ? 'Run a shell command. Cwd starts at the sit-down folder; cd elsewhere '
+                'is allowed. Secret and wipe/destroy-class commands are denied.'
+          : 'Run a shell command inside the folder jail. Cwd starts at the '
+                'sit-down folder; paths and cd cannot leave it. Secret and '
+                'wipe/destroy-class commands are denied.',
+      {
+        'command': {'type': 'string', 'description': 'Command to run'},
+      },
+      const ['command'],
+    ),
+    _fn(kWaifuToolTodoRead, 'Read the current todo list.', const {}, const []),
+    _fn(
+      kWaifuToolTodoWrite,
+      'Replace the todo list. Each item: id, content, status.',
+      {
+        'todos': {
+          'type': 'array',
+          'items': {'type': 'object'},
+        },
+      },
+      const ['todos'],
+    ),
+    _fn(
+      kWaifuToolQuestion,
+      'Ask the user a question with optional choices. Pauses until they answer.',
+      {
+        'prompt': {'type': 'string'},
+        'choices': {
+          'type': 'array',
+          'items': {'type': 'string'},
+        },
+      },
+      const ['prompt'],
+    ),
+    _fn(
+      kWaifuToolSkill,
+      'Load the full SKILL.md for an installed skill. Prefer this after '
+      'reading the installed-skills list. Also loads SKILL.md from '
+      '~/.waifu/skills, this project\'s .waifu/skills, and other harness '
+      'folders (~/.claude, ~/.grok, ~/.hermes) by name.',
+      {
+        'name': {'type': 'string'},
+      },
+      const ['name'],
+    ),
+    _fn(
+      kWaifuToolSkillInstall,
+      'Install a skill from the allowlisted HTTPS catalogs (Anthropic, '
+      'Vercel, Superpowers) into ~/.waifu/skills (Waifu Coder), then load '
+      'it with skill.',
+      {
+        'name': {
+          'type': 'string',
+          'description': 'Skill folder name, e.g. pdf or frontend-design',
+        },
+      },
+      const ['name'],
+    ),
+  ];
+}
+
+final List<Map<String, dynamic>> kWaifuFileTools = waifuFileToolsFor(
+  WaifuPathMode.folderJail,
+);
+final List<Map<String, dynamic>> kWaifuWholeDiskFileTools = waifuFileToolsFor(
+  WaifuPathMode.wholeDisk,
+);
 
 Map<String, dynamic> _fn(
   String name,
@@ -198,6 +236,9 @@ String canonicalWaifuToolName(String name) {
     case 'search_replace':
     case 'edit_block':
       return kWaifuToolEdit;
+    case 'patch':
+    case 'applyPatch':
+      return kWaifuToolApplyPatch;
     case 'run_command':
     case 'shell':
     case 'start_process':

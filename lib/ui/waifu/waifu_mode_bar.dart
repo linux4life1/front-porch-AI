@@ -26,6 +26,7 @@ class WaifuModeBar extends StatelessWidget {
     super.key,
     required this.mode,
     required this.onChanged,
+    this.pathMode = WaifuPathMode.folderJail,
     this.enabled = true,
     this.preserveThinking = false,
     this.onPreserveThinking,
@@ -33,6 +34,7 @@ class WaifuModeBar extends StatelessWidget {
 
   final WaifuMode mode;
   final ValueChanged<WaifuMode> onChanged;
+  final WaifuPathMode pathMode;
   final bool enabled;
   final bool preserveThinking;
   final ValueChanged<bool>? onPreserveThinking;
@@ -60,10 +62,18 @@ class WaifuModeBar extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 6),
+          Text(
+            waifuPathModeSessionLine(pathMode),
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+            ),
+          ),
           if (mode == WaifuMode.yolo) ...[
             const SizedBox(height: 6),
             Text(
-              kWaifuYoloWarning,
+              waifuYoloWarning(pathMode),
               style: TextStyle(
                 color: AppColors.textSecondary(context),
                 fontSize: 12,

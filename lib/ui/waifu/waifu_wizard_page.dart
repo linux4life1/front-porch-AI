@@ -38,6 +38,7 @@ class WaifuWizardPage extends StatefulWidget {
     this.isLocalBackend = false,
     this.backendLabel = '',
     this.initialFolder,
+    this.initialCoworker,
     this.skipProject = false,
     this.onSatDown,
     this.listDirectory,
@@ -48,6 +49,7 @@ class WaifuWizardPage extends StatefulWidget {
   final bool isLocalBackend;
   final String backendLabel;
   final String? initialFolder;
+  final CharacterCard? initialCoworker;
   final bool skipProject;
   final void Function(WaifuSession session)? onSatDown;
 
@@ -69,14 +71,16 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
   CharacterCard? _coworker;
   bool _honesty = false;
   WaifuMode _mode = WaifuMode.build;
+  WaifuPathMode _pathMode = WaifuPathMode.folderJail;
 
   @override
   void initState() {
     super.initState();
     _path = widget.initialFolder ?? waifuDefaultStartPath();
+    _coworker = widget.initialCoworker;
     if (widget.skipProject && widget.initialFolder != null) {
       _folderConfirmed = true;
-      _currentStep = 1;
+      _currentStep = widget.initialCoworker == null ? 1 : 2;
     }
     _load();
   }
@@ -122,6 +126,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
       folderRoot: _path,
       coworker: coworker,
       mode: _mode,
+      pathMode: _pathMode,
     );
     final onSat = widget.onSatDown;
     if (onSat != null) {
@@ -195,8 +200,13 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
           isLocalBackend: widget.isLocalBackend,
           toolsSupported: widget.toolsSupported,
           mode: _mode,
+          pathMode: _pathMode,
           honestyAccepted: _honesty,
           onModeChanged: (m) => setState(() => _mode = m),
+          onPathModeChanged: (scope) => setState(() {
+            _pathMode = scope;
+            _honesty = false;
+          }),
           onHonestyChanged: (v) => setState(() => _honesty = v),
           onConfirm: _confirm,
         );

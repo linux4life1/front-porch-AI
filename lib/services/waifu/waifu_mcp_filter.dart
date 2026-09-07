@@ -17,8 +17,8 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 /// MCP servers that clone the coding-agent (Desktop Commander, etc.).
-/// Their FS/shell tools bypass WaifuJail; their descriptions dump
-/// another product's onboarding into the spoken line.
+/// Their FS/shell tools bypass the selected Waifu Coder path scope, and their
+/// descriptions dump another product's onboarding into the spoken line.
 const kWaifuMcpBlockedBareNames = {
   'list_directory',
   'directory_tree',
@@ -66,6 +66,31 @@ bool waifuMcpToolBlocked(Map<String, dynamic> tool) {
   return blob.contains('desktop commander');
 }
 
+/// Whether a named MCP tool should cross the Plan/Build mutation gate.
+///
+/// OpenAI-shaped schemas do not retain MCP annotations here. Known lookup
+/// verbs fail open as reads; known mutation verbs and every unknown tool fail
+/// closed as mutations. `null` means this is not an advertised MCP tool.
+bool? waifuMcpMutationHint(String name, List<Map<String, dynamic>> tools) {
+  for (final tool in waifuKeepMcpTools(tools)) {
+    final fn = tool['function'];
+    if (fn is! Map || fn['name']?.toString() != name) continue;
+    final bare = waifuBareMcpName(name);
+    final mutating = RegExp(
+      r'(^|_)(add|apply|commit|copy|create|delete|edit|execute|install|kill|'
+      r'merge|move|patch|post|put|remove|rename|restart|run|send|set|start|'
+      r'stop|uninstall|update|upload|write)($|_)',
+    );
+    if (mutating.hasMatch(bare)) return true;
+    final readOnly = RegExp(
+      r'(^|_)(check|count|describe|fetch|find|get|health|inspect|list|lookup|'
+      r'ping|preview|query|read|resolve|search|show|status|validate|view)($|_)',
+    );
+    return !readOnly.hasMatch(bare);
+  }
+  return null;
+}
+
 final _onboarding = RegExp(
   r'NEW USER ONBOARDING|Desktop Commander|New to Desktop|'
   r'try these prompts|STEP 1: Answer the user',
@@ -91,7 +116,9 @@ String waifuSanitizeMcpDescription(String raw) {
 Map<String, dynamic> waifuSanitizeMcpTool(Map<String, dynamic> tool) {
   final fn = tool['function'];
   if (fn is! Map) return tool;
-  final desc = waifuSanitizeMcpDescription((fn['description'] ?? '').toString());
+  final desc = waifuSanitizeMcpDescription(
+    (fn['description'] ?? '').toString(),
+  );
   return {
     ...tool,
     'function': {...fn, 'description': desc},

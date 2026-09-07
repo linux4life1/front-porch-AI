@@ -23,15 +23,18 @@ void main() {
   test(
     'honesty copy names the tools Waifu Coder is not, and the critical-repo law',
     () {
-      expect(kWaifuHonestyBody, contains('Claude Code'));
-      expect(kWaifuHonestyBody, contains('Grok Build'));
-      expect(kWaifuHonestyBody, contains('OpenCode'));
-      expect(kWaifuHonestyBody, contains('critical codebase'));
-      expect(
-        kWaifuHonestyCheckbox,
-        'I understand. I will not use Waifu Coder on code I cannot afford '
-        'to lose.',
-      );
+      for (final mode in WaifuPathMode.values) {
+        final body = waifuHonestyBody(mode);
+        expect(body, contains('Claude Code'));
+        expect(body, contains('Grok Build'));
+        expect(body, contains('OpenCode'));
+        expect(body, contains('critical codebase'));
+        expect(body, contains('hard stops'));
+        expect(
+          waifuHonestyCheckbox(mode),
+          contains('code I cannot afford to lose'),
+        );
+      }
     },
   );
 

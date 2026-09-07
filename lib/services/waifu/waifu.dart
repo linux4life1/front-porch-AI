@@ -34,6 +34,7 @@ export 'waifu_lang_runtime.dart';
 export 'waifu_llm.dart';
 export 'waifu_mcp_filter.dart';
 export 'waifu_mentions.dart';
+export 'waifu_patch.dart';
 export 'waifu_permissions.dart';
 export 'waifu_question.dart';
 export 'waifu_skills.dart';

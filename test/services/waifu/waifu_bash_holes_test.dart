@@ -16,17 +16,44 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 
 void main() {
-  test('cd \$HOME, pushd /, and CD / are denied before spawn', () {
-    expect(waifuBashBlocked('cd \$HOME && pwd'), isNotNull);
-    expect(waifuBashBlocked('cd \${HOME} && pwd'), isNotNull);
-    expect(waifuBashBlocked('pushd / && pwd'), isNotNull);
-    expect(waifuBashBlocked('CD / && pwd'), isNotNull);
-    expect(waifuBashBlocked('builtin cd /'), isNotNull);
-    expect(waifuBashBlocked('cd src && ls'), isNull);
-    expect(waifuBashBlocked('pwd'), isNull);
+  test('folder jail blocks cd-out while whole-disk mode allows it', () async {
+    final root = await Directory.systemTemp.createTemp('waifu_bash_scope_');
+    addTearDown(() async {
+      if (await root.exists()) await root.delete(recursive: true);
+    });
+    await Directory('${root.path}/src').create();
+    for (final command in [
+      r'cd $HOME && pwd',
+      r'cd ${HOME} && pwd',
+      'pushd / && pwd',
+      'CD / && pwd',
+      'builtin cd /',
+      'cd .. && pwd',
+    ]) {
+      expect(
+        await waifuBashScopeBlock(command, root.path, WaifuPathMode.folderJail),
+        isNotNull,
+        reason: command,
+      );
+      expect(
+        await waifuBashScopeBlock(command, root.path, WaifuPathMode.wholeDisk),
+        isNull,
+        reason: command,
+      );
+    }
+    expect(
+      await waifuBashScopeBlock(
+        'cd src && ls',
+        root.path,
+        WaifuPathMode.folderJail,
+      ),
+      isNull,
+    );
   });
 }

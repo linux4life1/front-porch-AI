@@ -19,7 +19,24 @@ void main() {
     await tester.tap(find.byKey(const Key('waifu-mcp-opt-in')));
     await tester.pump();
     expect(session.mcpOptIn, isTrue);
-    expect(find.textContaining('jail does not apply'), findsOneWidget);
+    expect(find.textContaining('folder jail covers'), findsOneWidget);
+  });
+
+  testWidgets('whole-disk MCP warning never claims a jail boundary', (
+    tester,
+  ) async {
+    final session = WaifuSession(
+      folderRoot: '/tmp/throwaway-waifu',
+      coworker: CharacterCard(name: 'Iris'),
+      pathMode: WaifuPathMode.wholeDisk,
+      mcpOptIn: true,
+    );
+    await tester.pumpWidget(MaterialApp(home: WaifuPage(session: session)));
+    expect(
+      find.textContaining('Whole-disk access is already open'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('jail does not apply'), findsNothing);
   });
 
   testWidgets('Language help lives in the app bar only', (tester) async {

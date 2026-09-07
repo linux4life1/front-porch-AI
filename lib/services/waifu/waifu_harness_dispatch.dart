@@ -48,6 +48,9 @@ extension _WaifuHarnessDispatch on WaifuHarness {
         return _search(args['query']?.toString() ?? '');
       default:
         final raw = original.isEmpty ? canon : original;
+        if (kWaifuFsToolNames.contains(canon)) {
+          return fs.dispatch(canon, args);
+        }
         if (waifuMcpNameBlocked(raw) || waifuMcpNameBlocked(canon)) {
           return fs.dispatch(canon, args);
         }

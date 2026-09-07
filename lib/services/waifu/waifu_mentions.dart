@@ -34,9 +34,9 @@ Future<String> waifuExpandMentions(String text, String root) async {
   for (final name in names) {
     final hit = _best(files, name);
     if (hit == null) continue;
-    if (waifuIsEnvPath(hit)) continue;
+    if (waifuIsProtectedSecretPath(hit)) continue;
     final live = await WaifuJail.resolveLive(root, hit);
-    if (!live.ok) continue;
+    if (!live.ok || waifuIsProtectedSecretPath(live.path!)) continue;
     final file = File(live.path!);
     if (!await file.exists()) continue;
     var body = await file.readAsString();
