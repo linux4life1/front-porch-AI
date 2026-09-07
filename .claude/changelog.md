@@ -19,7 +19,7 @@
   the final line carries card diction, generic Done triggers a tool-free voice
   retry, tool-round speech survives an empty final response, and sass-only
   code requests fail red. Empty-chrome tests pin both path scopes.
-- **Commit:** pending
+- **Commit:** d5b574b6
 
 ## 2026-09-07 — feat(waifu): safe power, honest scope, and card-authentic voice
 - **Why:** Bug Hunter and SecurityBot found a split product: open-disk behavior
