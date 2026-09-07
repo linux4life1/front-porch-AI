@@ -104,15 +104,28 @@ void main() {
     await tester.pump();
     await tester.runAsync(() async {
       await tester.tap(find.byKey(const Key('waifu-skills-refresh')));
-      await Future<void>.delayed(const Duration(milliseconds: 30));
     });
-    await tester.pump();
+    for (
+      var i = 0;
+      i < 40 &&
+          find.byKey(const Key('waifu-skill-install-pdf')).evaluate().isEmpty;
+      i++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
     expect(find.byKey(const Key('waifu-skill-install-pdf')), findsOneWidget);
     await tester.runAsync(() async {
       await tester.tap(find.byKey(const Key('waifu-skill-install-pdf')));
-      await Future<void>.delayed(const Duration(milliseconds: 30));
     });
-    await tester.pump();
+    for (var i = 0; i < 40 && !hub.installedNames.contains('pdf'); i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
     expect(hub.installedNames, contains('pdf'));
     expect(find.byKey(const Key('waifu-skill-installed-pdf')), findsOneWidget);
     expect(find.byType(FilledButton), findsNothing);

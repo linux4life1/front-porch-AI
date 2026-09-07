@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-07 — test(waifu): wait for skill state, not a 30 ms guess
+- **Why:** CI caught the Install assertion while the fake catalog write was
+  still in flight, then teardown removed the temp folder underneath it. A
+  fixed 30 ms sleep was not a completion signal.
+- **What:** Poll the rendered PDF install action after Refresh, then
+  `installedNames` after Install, pumping between short real-async waits.
+  Product behavior and assertions are unchanged.
+- **Verification:** The exact CI failure was reproduced in run 34121699321;
+  the focused widget file now passes three consecutive runs.
+- **Commit:** pending
+
 ## 2026-09-07 — fix(waifu): ordinary coding asks enter the receipt contract
 - **Why:** The first high-confidence mutation heuristic caught “fix
   parser.dart” and “refactor this”, but could miss natural requests such as
