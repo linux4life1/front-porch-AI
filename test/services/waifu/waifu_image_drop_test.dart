@@ -17,8 +17,8 @@ import 'package:path/path.dart' as p;
 Uint8List _tinyPng() =>
     Uint8List.fromList(img.encodePng(img.Image(width: 8, height: 8)));
 
-base class _SizedPlatformFile extends PlatformFile {
-  _SizedPlatformFile({
+base class MemoryPlatformFileOversized extends PlatformFile {
+  MemoryPlatformFileOversized({
     required this.name,
     required this.reportedLength,
     required this.bytes,
@@ -95,7 +95,7 @@ void main() {
     expect(dropped, isNull);
     expect(droppedRead, isFalse);
 
-    final picked = _SizedPlatformFile(
+    final picked = MemoryPlatformFileOversized(
       name: 'huge.png',
       reportedLength: kChatImageMaxFileBytes + 1,
       bytes: _tinyPng(),
