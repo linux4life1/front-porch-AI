@@ -11,7 +11,7 @@
 - **Verification:** Restoring the global-toggle derivation made the new test
   fail, then the chat enable set returned it and the MCP permission/filter
   suite to green.
-- **Commit:** pending
+- **Commit:** 4656474f
 
 ## 2026-09-07 — test(photo): pin the valid-photo 1024px output contract
 - **Why:** Bomb/byte guards proved rejection, but no test asserted that a
