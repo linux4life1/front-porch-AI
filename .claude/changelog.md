@@ -9,7 +9,7 @@
   Whole-disk reach, shared hard stops, model fallibility, and the backup law
   plainly. Removed “fun tool”, “will not be as reliable”, and “half-edit”
   defeatism without softening the risk.
-- **Commit:** pending
+- **Commit:** 772c65c3
 
 ## 2026-09-07 — test(waifu): wait for skill state, not a 30 ms guess
 - **Why:** CI caught the Install assertion while the fake catalog write was
