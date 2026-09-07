@@ -128,7 +128,7 @@ void main() {
   ) async {
     await pumpWizard(tester, toolsSupported: false);
     await reachSitDown(tester);
-    expect(find.textContaining('cannot do Desk'), findsOneWidget);
+    expect(find.textContaining('cannot do Waifu Coder'), findsOneWidget);
 
     await tester.ensureVisible(find.byKey(const Key('desk-honesty-checkbox')));
     await tester.tap(find.byKey(const Key('desk-honesty-checkbox')));

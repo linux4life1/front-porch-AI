@@ -16,55 +16,81 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// The live "Thinking Ns..." spinner shown on a streaming bubble while the
-/// model is inside its think block — extracted verbatim from message_bubble
-/// (god-file ratchet). Renders nothing once generation stops.
-class LiveThinkingTimer extends StatelessWidget {
-  const LiveThinkingTimer({super.key, required this.startMs});
+/// Live "Thinking Ns..." while a think block is open. Chat drives
+/// [generating] from [ChatService.isGenerating]; Waifu Coder passes it.
+class LiveThinkingTimer extends StatefulWidget {
+  const LiveThinkingTimer({super.key, required this.startMs, this.generating});
 
   /// [ChatMessage.thinkingStartTime] — epoch millis the think block opened.
   final int startMs;
+  final bool? generating;
+
+  @override
+  State<LiveThinkingTimer> createState() => _LiveThinkingTimerState();
+}
+
+class _LiveThinkingTimerState extends State<LiveThinkingTimer> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  bool _live(BuildContext context) {
+    if (widget.generating != null) return widget.generating!;
+    try {
+      return Provider.of<ChatService>(context).isGenerating;
+    } on ProviderNotFoundException {
+      return true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ChatService>(
-      builder: (context, chatService, _) {
-        if (!chatService.isGenerating) {
-          return const SizedBox.shrink();
-        }
-        final elapsed = DateTime.now().millisecondsSinceEpoch - startMs;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 10,
-                height: 10,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: Colors.tealAccent,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Thinking ${(elapsed / 1000).toStringAsFixed(0)}s...',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textTertiary(context),
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
+    if (!_live(context)) return const SizedBox.shrink();
+    final elapsed = DateTime.now().millisecondsSinceEpoch - widget.startMs;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 10,
+            height: 10,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: Colors.tealAccent, // theme-keep: live-think status
+            ),
           ),
-        );
-      },
+          const SizedBox(width: 6),
+          Text(
+            'Thinking ${(elapsed / 1000).toStringAsFixed(0)}s...',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textTertiary(context),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

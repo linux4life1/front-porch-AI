@@ -110,7 +110,11 @@ class DeskFs {
       before = await file.readAsString();
     }
     await file.parent.create(recursive: true);
-    await file.writeAsString(contents);
+    try {
+      await file.writeAsString(contents);
+    } catch (e) {
+      return DeskToolResult.error('write failed: $e');
+    }
     final shown = await _rel(hit.path!);
     return DeskToolResult(
       ok: true,
@@ -144,7 +148,11 @@ class DeskFs {
       );
     }
     final after = before.replaceFirst(old, neu);
-    await file.writeAsString(after);
+    try {
+      await file.writeAsString(after);
+    } catch (e) {
+      return DeskToolResult.error('edit failed: $e');
+    }
     final shown = await _rel(hit.path!);
     return DeskToolResult(
       ok: true,
@@ -158,12 +166,16 @@ class DeskFs {
     if (pattern.isEmpty) {
       return DeskToolResult.error('pattern is empty');
     }
-    if (pattern.contains('..')) {
-      return DeskToolResult.error(DeskJail.dots);
+    var start = root;
+    final pathArg = deskToolPathArg(args);
+    if (pathArg != null) {
+      final hit = await _hit(pathArg);
+      if (!hit.ok) return DeskToolResult.error(hit.error!);
+      start = hit.path!;
     }
     final matches = <String>[];
     await for (final entity in Directory(
-      root,
+      start,
     ).list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
       final rel = await _rel(entity.path);
@@ -234,13 +246,8 @@ class DeskFs {
 
   Future<String> _rel(String abs) async {
     final rootReal = await DeskJail.canonicalRoot(root);
-    var rel = p.relative(abs, from: rootReal).replaceAll('\\', '/');
-    if (rel.startsWith('..')) {
-      rel = p
-          .relative(abs, from: p.normalize(p.absolute(root)))
-          .replaceAll('\\', '/');
-    }
-    if (rel.startsWith('..')) return p.basename(abs);
+    final rel = p.relative(abs, from: rootReal).replaceAll('\\', '/');
+    if (rel.startsWith('..')) return abs.replaceAll('\\', '/');
     return p.posix.normalize(rel);
   }
 }

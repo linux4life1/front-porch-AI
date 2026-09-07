@@ -19,21 +19,19 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:front_porch_ai/services/mcp/mcp_models.dart';
 import 'package:front_porch_ai/services/storage/settings/settings_base.dart';
 
 /// Persisted MCP server list + the global "new chats enable MCP" default
 /// (off) + per-chat enable sets keyed by session id.
+///
+/// Auth tokens live in the same prefs JSON as the URL. The macOS login
+/// keychain prompts for the user password on every ad-hoc launch, which
+/// made MCP unusable. Tavily stays in the keychain; a local Docker
+/// bearer token is not that class of secret.
 class McpSettings with SettingsBase {
-  McpSettings({
-    FlutterSecureStorage secureStorage = const FlutterSecureStorage(
-      mOptions: MacOsOptions(usesDataProtectionKeychain: false),
-    ),
-  }) : _secureStorage = secureStorage;
-
-  final FlutterSecureStorage _secureStorage;
+  McpSettings();
 
   List<McpServerConfig> _servers = [];
   bool _mcpDefault = false;
@@ -68,13 +66,6 @@ class McpSettings with SettingsBase {
       debugPrint('[MCP] settings: server list parse failed: $e');
       _servers = [];
     }
-    for (var i = 0; i < _servers.length; i++) {
-      final s = _servers[i];
-      final token = await _readAuth(s.id);
-      if (token.isNotEmpty) {
-        _servers[i] = s.copyWith(authToken: token);
-      }
-    }
     final chatsRaw = prefs?.getString(k('mcp_chat_enabled')) ?? '{}';
     try {
       final decoded = jsonDecode(chatsRaw);
@@ -91,10 +82,32 @@ class McpSettings with SettingsBase {
     } catch (e) {
       debugPrint('[MCP] settings: chat enable map parse failed: $e');
     }
+    final before = _servers.length;
+    _dedupeGateways();
+    if (_servers.length != before) await _persistServers();
     debugPrint(
       '[MCP] settings loaded: ${_servers.length} server(s), '
       'mcpDefault=$_mcpDefault, chats=${_chatEnabled.length}',
     );
+  }
+
+  /// One row per host:port. Prefers /mcp over a leftover /sse.
+  void _dedupeGateways() {
+    final byKey = <String, McpServerConfig>{};
+    for (final s in _servers) {
+      final parsed = Uri.tryParse(s.url);
+      final key = parsed == null
+          ? s.url
+          : '${parsed.host}:${parsed.hasPort ? parsed.port : 0}';
+      final prev = byKey[key];
+      if (prev == null) {
+        byKey[key] = s;
+        continue;
+      }
+      final preferNew = s.url.endsWith('/mcp') && !prev.url.endsWith('/mcp');
+      byKey[key] = preferNew ? s : prev;
+    }
+    _servers = byKey.values.toList();
   }
 
   Future<void> setMcpDefault(bool value) async {
@@ -111,18 +124,27 @@ class McpSettings with SettingsBase {
     String authToken = '',
     bool enabledGlobal = true,
   }) async {
+    final trimmedUrl = url.trim();
+    final doomed = [
+      for (final s in _servers)
+        if (mcpSameGateway(s.url, trimmedUrl)) s.id,
+    ];
+    for (final oldId in doomed) {
+      await removeServer(oldId);
+    }
     final id = 'mcp_${DateTime.now().microsecondsSinceEpoch}';
     final server = McpServerConfig(
       id: id,
-      displayName: displayName.trim().isEmpty ? url : displayName.trim(),
-      url: url.trim(),
+      displayName: displayName.trim().isEmpty
+          ? mcpDefaultDisplayName(trimmedUrl)
+          : displayName.trim(),
+      url: trimmedUrl,
       headers: Map<String, String>.from(headers),
       authToken: authToken.trim(),
       enabledGlobal: enabledGlobal,
     );
     _servers = [..._servers, server];
     await _persistServers();
-    await _writeAuth(id, server.authToken);
     debugPrint(
       '[MCP] settings add id=$id name="${server.displayName}" url=${server.url}',
     );
@@ -136,7 +158,6 @@ class McpSettings with SettingsBase {
         if (s.id == updated.id) updated else s,
     ];
     await _persistServers();
-    await _writeAuth(updated.id, updated.authToken);
     debugPrint(
       '[MCP] settings update id=${updated.id} name="${updated.displayName}" '
       'enabledGlobal=${updated.enabledGlobal}',
@@ -154,7 +175,6 @@ class McpSettings with SettingsBase {
     }
     await _persistServers();
     await _persistChatEnabled();
-    await _writeAuth(id, '');
     debugPrint('[MCP] settings remove id=$id');
     notify();
   }
@@ -177,27 +197,5 @@ class McpSettings with SettingsBase {
         if (e.value.isNotEmpty) e.key: e.value.toList(),
     };
     await prefs?.setString(k('mcp_chat_enabled'), jsonEncode(payload));
-  }
-
-  Future<String> _readAuth(String id) async {
-    try {
-      return (await _secureStorage.read(key: k('mcp_auth_$id')))?.trim() ?? '';
-    } catch (e) {
-      debugPrint('[MCP] settings auth read failed for $id: $e');
-      return '';
-    }
-  }
-
-  Future<void> _writeAuth(String id, String token) async {
-    final key = k('mcp_auth_$id');
-    try {
-      if (token.trim().isEmpty) {
-        await _secureStorage.delete(key: key);
-      } else {
-        await _secureStorage.write(key: key, value: token.trim());
-      }
-    } catch (e) {
-      debugPrint('[MCP] settings auth write failed for $id: $e');
-    }
   }
 }

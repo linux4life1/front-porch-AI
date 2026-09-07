@@ -19,6 +19,7 @@
 /// Desk domain barrel — coworker prompt, honesty gate, folder listing, session.
 library;
 
+export 'desk_brand.dart';
 export 'desk_bash.dart';
 export 'desk_compact.dart';
 export 'desk_coworker_prompt.dart';
@@ -26,19 +27,25 @@ export 'desk_folder_listing.dart';
 export 'desk_fs.dart';
 export 'desk_harness.dart';
 export 'desk_honesty.dart';
+export 'desk_image.dart';
 export 'desk_jail.dart';
 export 'desk_lang_catalog.dart';
 export 'desk_lang_runtime.dart';
 export 'desk_llm.dart';
+export 'desk_mcp_filter.dart';
 export 'desk_mentions.dart';
 export 'desk_permissions.dart';
 export 'desk_question.dart';
 export 'desk_skills.dart';
+export 'desk_skill_market.dart';
 export 'desk_session.dart';
 export 'desk_sit_down.dart';
+export 'desk_slash.dart';
 export 'desk_store.dart';
+export 'desk_stream.dart';
 export 'desk_subagent.dart';
 export 'desk_todos.dart';
 export 'desk_tools.dart';
 export 'desk_undo.dart';
 export 'desk_webfetch.dart';
+export 'desk_workflow.dart';

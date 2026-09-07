@@ -182,97 +182,64 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
             ? _sidebarWidth.clamp(0, 300).toDouble()
             : _sidebarWidth;
 
-        Widget avatar = SizedBox(
-          height: avatarSize,
-          width: avatarSize,
-          child: Stack(
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                switchInCurve: Curves.easeInOut,
-                switchOutCurve: Curves.easeInOut,
-                child: Image.file(
-                  displayFile,
-                  key: ValueKey(expressionKey ?? 'default'),
-                  width: avatarSize,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                  errorBuilder: (_, _, _) => Container(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.black26,
-                      Colors.black.withValues(alpha: 0.1),
+        return CharacterPortrait(
+          file: displayFile,
+          size: avatarSize,
+          imageKey: expressionKey ?? 'default',
+          alignEnd: avatarLocked && _sidebarWidth > 300,
+          overlays: [
+            if (expressionEmoji != null)
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: EmojiBurst(
+                  emoji: expressionEmoji,
+                  enabled: storage.expressionEmojiBurst,
+                  generating: chat.isGenerating,
+                  size: storage.expressionEmojiBurstSize,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
                     ),
-                    child: Icon(
-                      Icons.person,
-                      color: AppColors.iconSecondary(context),
-                      size: 64,
+                    decoration: BoxDecoration(
+                      color: AppColors.resolve(
+                        context,
+                        Colors.black.withValues(alpha: 0.7),
+                        Colors.black.withValues(alpha: 0.45),
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          expressionEmoji,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-              // Emotion label badge
-              if (expressionEmoji != null)
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: EmojiBurst(
-                    emoji: expressionEmoji,
-                    enabled: storage.expressionEmojiBurst,
-                    generating: chat.isGenerating,
-                    size: storage.expressionEmojiBurstSize,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.resolve(
-                          context,
-                          Colors.black.withValues(alpha: 0.7),
-                          Colors.black.withValues(alpha: 0.45),
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            expressionEmoji,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
+            if (showLookChevrons && lookKey != null)
+              Positioned.fill(
+                child: LookChevronBar(
+                  position: facePosition,
+                  total: faceTotal,
+                  onFlip: (delta) => chat.setLookForCharacter(
+                    lookKey!,
+                    flipFace(
+                      faceRing,
+                      chat.selectedLookFor(lookKey) ??
+                          (faceRing.isEmpty ? null : faceRing.first),
+                      delta,
                     ),
                   ),
                 ),
-              // Gallery face chevrons + counter (plain chat, >1 face).
-              if (showLookChevrons && lookKey != null)
-                Positioned.fill(
-                  child: LookChevronBar(
-                    position: facePosition,
-                    total: faceTotal,
-                    // Read the current selection LIVE at tap time (not a
-                    // captured value) so rapid taps advance step-by-step
-                    // instead of all computing from one stale selection.
-                    onFlip: (delta) => chat.setLookForCharacter(
-                      lookKey!,
-                      flipFace(
-                        faceRing,
-                        chat.selectedLookFor(lookKey) ??
-                            (faceRing.isEmpty ? null : faceRing.first),
-                        delta,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+              ),
+          ],
         );
-        if (avatarLocked && _sidebarWidth > 300) {
-          avatar = Align(alignment: Alignment.topRight, child: avatar);
-        }
-        return avatar;
       },
     );
   }
@@ -325,153 +292,119 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
     CharacterCard character,
     bool isGroup,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.borderOf(context).withValues(alpha: 0.35),
-          ),
-        ),
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        child: PopupMenuButton<String>(
-          color: AppColors.surfaceContainerOf(context),
-          elevation: 8,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.textSecondary(context),
-            side: BorderSide(
-              color: AppColors.borderOf(context).withValues(alpha: 0.4),
-            ),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(
-              color: AppColors.borderOf(context).withValues(alpha: 0.3),
-            ),
-          ),
-          offset: const Offset(0, 8),
-          onSelected: (value) async {
-            switch (value) {
-              case 'edit_character':
-                await _openEditCharacterDialog(character);
-                break;
-              case 'expressions':
-                final storage = Provider.of<StorageService>(
-                  context,
-                  listen: false,
-                );
-                final repo = Provider.of<CharacterRepository>(
-                  context,
-                  listen: false,
-                );
-                // In a group, members are single-avatar copies — editing
-                // one would write to a throwaway id and never inherit. Route
-                // the editor at the real LIBRARY character (the shared home)
-                // so expression edits persist and flow back to the group.
-                // 1:1 already passes the library character itself.
-                final exprTarget = isGroup
-                    ? (chatService.originLibraryCardFor(character) ?? character)
-                    : character;
-                await showAvatarGallery(
-                  context: context,
-                  character: exprTarget,
-                  repository: repo,
-                  storage: storage,
-                  mode: WardrobeMode.inChat,
-                  chatService: chatService,
-                );
-                // Push the freshly edited library images onto the live
-                // member card so the group reflects them immediately
-                // (inheritance otherwise skips members already populated).
-                // The gallery controller keeps exprTarget fresh; copy both
-                // the image list AND the prime index so the member's
-                // default-emotion resolution can't lag the library edit.
-                if (!identical(exprTarget, character)) {
-                  character.avatarImages = exprTarget.avatarImages == null
-                      ? null
-                      : List<AvatarImage>.from(exprTarget.avatarImages!);
-                  character.primeAvatarIndex = exprTarget.primeAvatarIndex;
-                }
-                if (mounted) rebuildState(() {});
-                break;
-              case 'ui':
-                showDialog(
-                  context: context,
-                  builder: (context) => UiSettingsDialog(character: character),
-                );
-                break;
-              case 'chat':
-                showDialog(
-                  context: context,
-                  builder: (context) => const ChatSettingsDialog(),
-                );
-                break;
-              case 'model':
-                showDialog(
-                  context: context,
-                  builder: (context) => const ModelSettingsDialog(),
-                );
-                break;
-              case 'tts':
-                showDialog(
-                  context: context,
-                  builder: (context) => const TtsSettingsDialog(),
-                );
-                break;
+    return ChatMainSettingsButton(
+      onSelected: (value) async {
+        switch (value) {
+          case 'edit_character':
+            await _openEditCharacterDialog(character);
+            break;
+          case 'expressions':
+            final storage = Provider.of<StorageService>(context, listen: false);
+            final repo = Provider.of<CharacterRepository>(
+              context,
+              listen: false,
+            );
+            // In a group, members are single-avatar copies — editing
+            // one would write to a throwaway id and never inherit. Route
+            // the editor at the real LIBRARY character (the shared home)
+            // so expression edits persist and flow back to the group.
+            // 1:1 already passes the library character itself.
+            final exprTarget = isGroup
+                ? (chatService.originLibraryCardFor(character) ?? character)
+                : character;
+            await showAvatarGallery(
+              context: context,
+              character: exprTarget,
+              repository: repo,
+              storage: storage,
+              mode: WardrobeMode.inChat,
+              chatService: chatService,
+            );
+            // Push the freshly edited library images onto the live
+            // member card so the group reflects them immediately
+            // (inheritance otherwise skips members already populated).
+            // The gallery controller keeps exprTarget fresh; copy both
+            // the image list AND the prime index so the member's
+            // default-emotion resolution can't lag the library edit.
+            if (!identical(exprTarget, character)) {
+              character.avatarImages = exprTarget.avatarImages == null
+                  ? null
+                  : List<AvatarImage>.from(exprTarget.avatarImages!);
+              character.primeAvatarIndex = exprTarget.primeAvatarIndex;
             }
-          },
-          itemBuilder: (context) => const [
-            PopupMenuItem(
-              value: 'edit_character',
-              child: SettingsMenuItem(
-                icon: Icons.edit_outlined,
-                label: 'Edit Character',
-              ),
-            ),
-            PopupMenuItem(
-              value: 'expressions',
-              child: SettingsMenuItem(
-                icon: Icons.photo_library_outlined,
-                label: 'Avatar Gallery',
-              ),
-            ),
-            PopupMenuItem(
-              value: 'ui',
-              child: SettingsMenuItem(
-                icon: Icons.tune_outlined,
-                label: 'UI Settings',
-              ),
-            ),
-            PopupMenuDivider(height: 1),
-            PopupMenuItem(
-              value: 'chat',
-              child: SettingsMenuItem(
-                icon: Icons.chat_bubble_outline,
-                label: 'Chat Settings',
-              ),
-            ),
-            PopupMenuItem(
-              value: 'model',
-              child: SettingsMenuItem(
-                icon: Icons.memory_outlined,
-                label: 'Model Settings',
-              ),
-            ),
-            PopupMenuItem(
-              value: 'tts',
-              child: SettingsMenuItem(
-                icon: Icons.volume_up_outlined,
-                label: 'TTS Settings',
-              ),
-            ),
-          ],
-          // Label inherits OutlinedButton foreground (textSecondary) —
-          // hard-coded white70 was washed out on light sidebar paper (P3).
-          child: const Text('Main Settings', textAlign: TextAlign.center),
+            if (mounted) rebuildState(() {});
+            break;
+          case 'ui':
+            showDialog(
+              context: context,
+              builder: (context) => UiSettingsDialog(character: character),
+            );
+            break;
+          case 'chat':
+            showDialog(
+              context: context,
+              builder: (context) => const ChatSettingsDialog(),
+            );
+            break;
+          case 'model':
+            showDialog(
+              context: context,
+              builder: (context) => const ModelSettingsDialog(),
+            );
+            break;
+          case 'tts':
+            showDialog(
+              context: context,
+              builder: (context) => const TtsSettingsDialog(),
+            );
+            break;
+        }
+      },
+      items: const [
+        PopupMenuItem(
+          value: 'edit_character',
+          child: SettingsMenuItem(
+            icon: Icons.edit_outlined,
+            label: 'Edit Character',
+          ),
         ),
-      ),
+        PopupMenuItem(
+          value: 'expressions',
+          child: SettingsMenuItem(
+            icon: Icons.photo_library_outlined,
+            label: 'Avatar Gallery',
+          ),
+        ),
+        PopupMenuItem(
+          value: 'ui',
+          child: SettingsMenuItem(
+            icon: Icons.tune_outlined,
+            label: 'UI Settings',
+          ),
+        ),
+        PopupMenuDivider(height: 1),
+        PopupMenuItem(
+          value: 'chat',
+          child: SettingsMenuItem(
+            icon: Icons.chat_bubble_outline,
+            label: 'Chat Settings',
+          ),
+        ),
+        PopupMenuItem(
+          value: 'model',
+          child: SettingsMenuItem(
+            icon: Icons.memory_outlined,
+            label: 'Model Settings',
+          ),
+        ),
+        PopupMenuItem(
+          value: 'tts',
+          child: SettingsMenuItem(
+            icon: Icons.volume_up_outlined,
+            label: 'TTS Settings',
+          ),
+        ),
+      ],
     );
   }
 }

@@ -65,10 +65,62 @@ void main() {
 
       expect(llm.calls, hasLength(2));
       expect(session.transcript.where((m) => m.isUser), hasLength(1));
-      expect(session.transcript.last.isUser, isFalse);
-      expect(session.transcript.last.text, contains('Hmph. I read it'));
-      expect(session.transcript.last.chips, isNotEmpty);
-      expect(session.transcript.last.chips.single.name, 'read');
+      final spoken = session.transcript.where((m) => !m.isUser).toList();
+      expect(spoken, hasLength(2));
+      expect(spoken.first.chips.single.name, 'read');
+      expect(spoken.first.chips.single.detail, 'notes.txt');
+      expect(spoken.last.text, contains('Hmph. I read it'));
+      expect(spoken.last.chips, isEmpty);
+    },
+  );
+
+  test(
+    'bash chip names the command; reasoning is kept off the spoken line',
+    () async {
+      final llm = ScriptedDeskLlm([
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'bash', arguments: {'command': 'ls -la'}),
+          ],
+          text: '<think>I should list the folder</think>',
+          reasoning: 'look around first',
+        ),
+        const LlmToolResponse(calls: [], text: 'Hmph. Empty. Typical.'),
+      ]);
+      final session = _session(root.path);
+      final harness = DeskHarness(session: session, llm: llm);
+      await harness.send('what is here');
+      final spoken = session.transcript.where((m) => !m.isUser).toList();
+      expect(spoken, hasLength(2));
+      expect(spoken.first.chips.single.name, 'bash');
+      expect(spoken.first.chips.single.detail, 'ls -la');
+      expect(spoken.first.reasoning, contains('look around first'));
+      expect(spoken.last.text, 'Hmph. Empty. Typical.');
+      expect(spoken.last.text, isNot(contains('<think>')));
+      expect(spoken.last.reasoning, isNot(contains('look around first')));
+    },
+  );
+
+  test(
+    'think tokens land on the live bubble before generate returns',
+    () async {
+      late DeskSession session;
+      session = _session(root.path);
+      final llm = ScriptedDeskLlm(
+        const [LlmToolResponse(calls: [], text: 'Hmph. Done.')],
+        streamDuring: (i, onChunk) async {
+          onChunk('<think>counting the files');
+          expect(
+            session.transcript.last.reasoning,
+            contains('counting the files'),
+          );
+          onChunk('</think>\nHmph. Done.');
+        },
+      );
+      final harness = DeskHarness(session: session, llm: llm);
+      await harness.send('look');
+      expect(session.transcript.last.reasoning, contains('counting the files'));
+      expect(session.transcript.last.text, 'Hmph. Done.');
     },
   );
 

@@ -33,6 +33,9 @@ class DeskDirEntry {
 
   final String name;
   final String path;
+
+  /// Unix hidden folder. `.git` is a project *marker*, not a pick target.
+  bool get isHidden => name.startsWith('.');
 }
 
 class DeskFolderListing {
@@ -47,6 +50,13 @@ class DeskFolderListing {
   final String? parentPath;
   final List<DeskDirEntry> directories;
   final List<String> projectHints;
+
+  /// Home directories sort `.cache` before `Documents`. Default picker
+  /// hides those so the first screen is real folders, not dotfiles.
+  List<DeskDirEntry> visible({bool includeHidden = false}) => [
+    for (final d in directories)
+      if (includeHidden || !d.isHidden) d,
+  ];
 }
 
 /// HOME on Unix, USERPROFILE on Windows, else the system temp directory.

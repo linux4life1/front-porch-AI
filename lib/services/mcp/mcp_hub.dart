@@ -79,15 +79,6 @@ class McpHub {
     ];
   }
 
-  Future<void> connectAllEnabled() async {
-    for (final cfg in settings.servers) {
-      if (!cfg.enabledGlobal) continue;
-      final existing = _clients[cfg.id];
-      if (existing != null && existing.isConnected) continue;
-      await connect(cfg.id);
-    }
-  }
-
   Future<void> connect(String id) async {
     final cfg = settings.serverById(id);
     if (cfg == null) {
@@ -101,17 +92,84 @@ class McpHub {
       await disconnect(id);
       return;
     }
-    final existing = _clients[id];
+    await _handshake(cfg);
+    onNotify();
+  }
+
+  static const draftId = '_mcp_draft';
+
+  /// Handshake a URL without saving a server. Failed checks must not leave
+  /// a dead row in Settings.
+  Future<String> checkDraft({
+    required String url,
+    String displayName = '',
+    String authToken = '',
+  }) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      return mcpCheckResultLine(
+        url: '',
+        status: McpConnectionStatus.disconnected,
+        toolNames: const [],
+      );
+    }
+    final cfg = McpServerConfig(
+      id: draftId,
+      displayName: displayName.trim().isEmpty
+          ? mcpDefaultDisplayName(trimmed)
+          : displayName.trim(),
+      url: trimmed,
+      authToken: authToken.trim(),
+      enabledGlobal: false,
+    );
+    debugPrint('[MCP] hub checkDraft url=$trimmed');
+    await _handshake(cfg);
+    onNotify();
+    final client = _clients[draftId];
+    final line = mcpCheckResultLine(
+      url: trimmed,
+      status: client?.status ?? McpConnectionStatus.error,
+      toolNames: [for (final t in client?.tools ?? const []) t.name],
+      lastError: client?.lastError,
+    );
+    await disconnect(draftId);
+    return line;
+  }
+
+  /// Handshake + tools/list for Settings. Checking is not consent — the
+  /// global switch may stay off; the catalog still requires the chat toggle.
+  Future<String> check(String id) async {
+    final cfg = settings.serverById(id);
+    if (cfg == null) {
+      return mcpCheckResultLine(
+        url: '',
+        status: McpConnectionStatus.error,
+        toolNames: const [],
+      );
+    }
+    debugPrint('[MCP] hub check id=$id url=${cfg.url}');
+    await _handshake(cfg);
+    onNotify();
+    final client = _clients[id];
+    return mcpCheckResultLine(
+      url: cfg.url,
+      status: client?.status ?? McpConnectionStatus.error,
+      toolNames: [for (final t in client?.tools ?? const []) t.name],
+      lastError: client?.lastError,
+    );
+  }
+
+  Future<void> _handshake(McpServerConfig cfg) async {
+    final existing = _clients[cfg.id];
     final client = existing ?? McpClient(config: cfg, sendRequest: sendRequest);
     client
       ..config = cfg
       ..sendRequest = sendRequest;
     if (existing == null) {
       client.connectOrder = ++_connectSeq;
-      _clients[id] = client;
+      _clients[cfg.id] = client;
     }
     await client.connect();
-    onNotify();
   }
 
   Future<void> refresh(String id) async {

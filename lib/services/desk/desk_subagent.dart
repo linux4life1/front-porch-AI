@@ -16,9 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/desk/desk_mcp_filter.dart';
 import 'package:front_porch_ai/services/desk/desk_tools.dart';
+import 'package:front_porch_ai/services/desk/desk_webfetch.dart';
+import 'package:front_porch_ai/services/desk/desk_workflow.dart';
 
-const kDeskExploreToolNames = {kDeskToolRead, kDeskToolGlob, kDeskToolGrep};
+const kDeskExploreToolNames = {
+  kDeskToolRead,
+  kDeskToolGlob,
+  kDeskToolGrep,
+  kDeskToolSkill,
+};
 
 /// Nested Explore (read-only) or General (same jail). Scout is not shipped.
 final kDeskTaskToolSchema = <String, dynamic>{
@@ -26,9 +34,8 @@ final kDeskTaskToolSchema = <String, dynamic>{
   'function': {
     'name': kDeskToolTask,
     'description':
-        'Run a nested Explore (read-only) or General (same folder jail) '
-        'agent and wait. The child cannot leave the project folder or spawn '
-        'another nested agent.',
+        'Run a nested Explore (read-only) or General agent and wait. '
+        'The child can walk the disk; it cannot spawn another nested agent.',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -42,6 +49,93 @@ final kDeskTaskToolSchema = <String, dynamic>{
     },
   },
 };
+
+bool deskMcpToolLooksLikeLookup(Map<String, dynamic> tool) {
+  final fn = tool['function'];
+  if (fn is! Map) return false;
+  final blob = '${fn['name']} ${fn['description']}'.toLowerCase();
+  return blob.contains('search') ||
+      blob.contains('fetch') ||
+      blob.contains('browse') ||
+      blob.contains('wikipedia');
+}
+
+List<Map<String, dynamic>> deskPrioritizeLookupTools(
+  List<Map<String, dynamic>> tools,
+) {
+  final hit = <Map<String, dynamic>>[];
+  final rest = <Map<String, dynamic>>[];
+  for (final t in tools) {
+    (deskMcpToolLooksLikeLookup(t) ? hit : rest).add(t);
+  }
+  return [...hit, ...rest];
+}
+
+String deskMcpToolsLine(List<Map<String, dynamic>> tools) {
+  final lookup = <String>[];
+  var other = 0;
+  for (final t in tools) {
+    final n = ((t['function'] as Map?)?['name'] ?? '').toString();
+    if (n.isEmpty) continue;
+    if (deskMcpToolLooksLikeLookup(t)) {
+      lookup.add(n);
+    } else {
+      other++;
+    }
+  }
+  if (lookup.isEmpty && other == 0) return '';
+  final buf = StringBuffer();
+  if (lookup.isNotEmpty) {
+    buf.write(
+      'MCP search/fetch tools (prefer these for unknown versions): '
+      '${lookup.join(', ')}.',
+    );
+  }
+  if (other > 0) {
+    if (buf.isNotEmpty) buf.write(' ');
+    buf.write('$other other MCP tools are also available by name.');
+  }
+  return buf.toString();
+}
+
+String? _toolName(Map<String, dynamic> tool) =>
+    (tool['function'] as Map?)?['name']?.toString();
+
+List<Map<String, dynamic>> deskAdvertisedTools({
+  required bool exploreOnly,
+  required bool includeWebSearch,
+  required bool mcpOptIn,
+  required List<Map<String, dynamic>> mcpTools,
+  required bool includeTask,
+}) {
+  Iterable<Map<String, dynamic>> fileTools = kDeskFileTools;
+  if (exploreOnly) {
+    fileTools = kDeskFileTools.where((t) {
+      final n = _toolName(t);
+      return kDeskExploreToolNames.contains(n);
+    });
+  }
+  final taken = <String>{
+    for (final t in fileTools)
+      if (_toolName(t) != null) _toolName(t)!,
+    kDeskToolWebFetch,
+    if (includeWebSearch) kDeskToolWebSearch,
+    if (includeTask) kDeskToolTask,
+    if (includeTask) kDeskToolWorkflow,
+  };
+  final mcp = [
+    for (final t in deskKeepMcpTools(mcpTools))
+      if (!taken.contains(_toolName(t))) t,
+  ];
+  return [
+    ...fileTools,
+    if (!exploreOnly) kDeskWebFetchToolSchema,
+    if (!exploreOnly && includeWebSearch) kDeskWebSearchToolSchema,
+    if (!exploreOnly && mcpOptIn) ...deskPrioritizeLookupTools(mcp),
+    if (includeTask) kDeskTaskToolSchema,
+    if (includeTask) kDeskWorkflowToolSchema,
+  ];
+}
 
 String? deskSubagentKind(String name, Map<String, dynamic> args) {
   switch (name.trim().toLowerCase()) {

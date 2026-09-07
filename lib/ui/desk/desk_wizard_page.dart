@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/desk/desk.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/desk/desk_home_atmosphere.dart';
 import 'package:front_porch_ai/ui/desk/desk_page.dart';
 import 'package:front_porch_ai/ui/desk/desk_wizard_coworker_step.dart';
 import 'package:front_porch_ai/ui/desk/desk_wizard_project_step.dart';
@@ -37,6 +38,7 @@ class DeskWizardPage extends StatefulWidget {
     this.isLocalBackend = false,
     this.backendLabel = '',
     this.initialFolder,
+    this.skipProject = false,
     this.onSatDown,
     this.listDirectory,
   });
@@ -46,6 +48,7 @@ class DeskWizardPage extends StatefulWidget {
   final bool isLocalBackend;
   final String backendLabel;
   final String? initialFolder;
+  final bool skipProject;
   final void Function(DeskSession session)? onSatDown;
 
   /// Test seam. Production uses [listDeskDirectory].
@@ -71,6 +74,10 @@ class _DeskWizardPageState extends State<DeskWizardPage> {
   void initState() {
     super.initState();
     _path = widget.initialFolder ?? deskDefaultStartPath();
+    if (widget.skipProject && widget.initialFolder != null) {
+      _folderConfirmed = true;
+      _currentStep = 1;
+    }
     _load();
   }
 
@@ -130,30 +137,36 @@ class _DeskWizardPageState extends State<DeskWizardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final amber = AppColors.porchAmberOf(context);
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceOf(context),
         title: Row(
           children: [
-            Icon(Icons.desk, color: AppColors.porchAmberOf(context), size: 22),
+            Icon(Icons.auto_awesome, color: amber, size: 22),
             const SizedBox(width: 8),
-            const Text('Desk'),
+            const Text(kWaifuCoderName),
             const Spacer(),
             _stepIndicator(),
           ],
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: KeyedSubtree(key: ValueKey(_currentStep), child: _body()),
+      body: DeskHomeAtmosphere(
+        child: Column(
+          children: [
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: KeyedSubtree(
+                  key: ValueKey(_currentStep),
+                  child: _body(),
+                ),
+              ),
             ),
-          ),
-          if (_currentStep < 2) _nav(),
-        ],
+            if (_currentStep < 2) _nav(),
+          ],
+        ),
       ),
     );
   }

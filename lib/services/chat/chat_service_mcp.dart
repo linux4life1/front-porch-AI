@@ -22,10 +22,14 @@ part of '../chat_service.dart';
 /// seed sites call [_seedMcpForFreshChat]. Load restores the saved set.
 extension ChatServiceMcp on ChatService {
   McpHub _buildMcpHub() {
-    return McpHub(
+    final hub = McpHub(
       settings: _storageService.mcpSettings,
       onNotify: notifyListeners,
     );
+    for (final s in _storageService.mcpSettings.servers) {
+      if (s.enabledGlobal) unawaited(hub.connect(s.id));
+    }
+    return hub;
   }
 
   List<McpChatServerView> get _mcpChatServersImpl {
@@ -48,6 +52,9 @@ extension ChatServiceMcp on ChatService {
           if (s.enabledGlobal) s.id,
       };
     }
+    for (final id in _mcpEnabledServerIds) {
+      unawaited(_mcpHub.connect(id));
+    }
     debugPrint(
       '[MCP] seed chat enable set=${_mcpEnabledServerIds.toList()} '
       'mcpDefault=${_storageService.mcpSettings.mcpDefault}',
@@ -58,6 +65,9 @@ extension ChatServiceMcp on ChatService {
     _mcpEnabledServerIds = _storageService.mcpSettings.enabledForChat(
       sessionId,
     );
+    for (final id in _mcpEnabledServerIds) {
+      unawaited(_mcpHub.connect(id));
+    }
     debugPrint(
       '[MCP] restore session=$sessionId enable=${_mcpEnabledServerIds.toList()}',
     );

@@ -39,7 +39,38 @@ Future<Uint8List?> pickChatImageAttachment() async {
   );
   final raw = await result?.firstBytes();
   if (raw == null) return null;
-  return compute(_downscaleToPng, raw);
+  return prepareChatImageBytes(raw);
+}
+
+bool looksLikeImageFileName(String name) {
+  final n = name.toLowerCase();
+  return n.endsWith('.png') ||
+      n.endsWith('.jpg') ||
+      n.endsWith('.jpeg') ||
+      n.endsWith('.gif') ||
+      n.endsWith('.webp') ||
+      n.endsWith('.bmp') ||
+      n.endsWith('.heic') ||
+      n.endsWith('.tif') ||
+      n.endsWith('.tiff');
+}
+
+/// Decode/resize off the UI isolate. Null when the bytes aren't an image.
+Future<Uint8List?> prepareChatImageBytes(Uint8List raw) =>
+    compute(_downscaleToPng, raw);
+
+/// First dropped file that decodes as a photo. One attachment, same as pick.
+Future<Uint8List?> firstDroppedImage(
+  List<({String name, Future<Uint8List> Function() read})> files,
+) async {
+  for (final f in files) {
+    if (f.name.contains('.') && !looksLikeImageFileName(f.name)) continue;
+    try {
+      final png = await prepareChatImageBytes(await f.read());
+      if (png != null) return png;
+    } catch (_) {}
+  }
+  return null;
 }
 
 /// Isolate body for [pickChatImageAttachment]: decode → cap long side at

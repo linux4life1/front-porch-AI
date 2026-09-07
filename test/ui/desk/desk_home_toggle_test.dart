@@ -21,7 +21,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_mode_toggle.dart';
 
 void main() {
-  testWidgets('Desk is a sibling of Chats and Porch Stories', (tester) async {
+  testWidgets('Waifu Coder is a sibling of Chats and Porch Stories', (
+    tester,
+  ) async {
     var deskTapped = false;
     await tester.pumpWidget(
       MaterialApp(
@@ -41,9 +43,9 @@ void main() {
 
     expect(find.text('Chats'), findsOneWidget);
     expect(find.text('Porch Stories'), findsOneWidget);
-    expect(find.text('Desk'), findsOneWidget);
+    expect(find.text('Waifu Coder'), findsOneWidget);
 
-    await tester.tap(find.text('Desk'));
+    await tester.tap(find.text('Waifu Coder'));
     await tester.pump();
     expect(deskTapped, isTrue);
   });
@@ -64,7 +66,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Desk'), findsOneWidget);
+      expect(find.text('Waifu Coder'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

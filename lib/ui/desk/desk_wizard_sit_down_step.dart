@@ -57,6 +57,7 @@ class DeskWizardSitDownStep extends StatelessWidget {
       hasFolder: folderPath.isNotEmpty,
       hasCoworker: coworker != null,
     );
+    final honey = AppColors.porchHoneyOf(context);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: ListView(
@@ -65,20 +66,43 @@ class DeskWizardSitDownStep extends StatelessWidget {
             'Sit down',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.textPrimary(context),
+              fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            'Folder: $folderPath',
-            style: TextStyle(color: AppColors.textPrimary(context)),
-          ),
-          Text(
-            'Coworker: ${coworker?.name ?? '—'}',
-            style: TextStyle(color: AppColors.textPrimary(context)),
-          ),
-          Text(
-            'Backend: ${backendLabel.isEmpty ? 'current Settings backend' : backendLabel}',
-            style: TextStyle(color: AppColors.textSecondary(context)),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: LinearGradient(
+                colors: [
+                  amber.withValues(alpha: 0.28),
+                  honey.withValues(alpha: 0.12),
+                  AppColors.cardOf(context),
+                ],
+              ),
+              border: Border.all(color: amber.withValues(alpha: 0.55)),
+              boxShadow: [
+                BoxShadow(color: amber.withValues(alpha: 0.22), blurRadius: 16),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Folder: $folderPath',
+                  style: TextStyle(color: AppColors.textPrimary(context)),
+                ),
+                Text(
+                  'Coworker: ${coworker?.name ?? '—'}',
+                  style: TextStyle(color: honey, fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  'Backend: ${backendLabel.isEmpty ? 'current Settings backend' : backendLabel}',
+                  style: TextStyle(color: AppColors.textSecondary(context)),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -139,15 +163,17 @@ class DeskWizardSitDownStep extends StatelessWidget {
           const SizedBox(height: 16),
           SizedBox(
             height: 52,
-            child: ElevatedButton(
+            child: ElevatedButton.icon(
               key: const Key('desk-sit-down-confirm'),
               onPressed: can ? onConfirm : null,
+              icon: const Icon(Icons.bolt_rounded),
+              label: const Text('Sit down'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: amber,
                 foregroundColor: AppColors.onChaosAccent,
                 disabledBackgroundColor: AppColors.surfaceContainerOf(context),
+                textStyle: const TextStyle(fontWeight: FontWeight.w900),
               ),
-              child: const Text('Sit down'),
             ),
           ),
         ],

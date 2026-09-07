@@ -49,11 +49,36 @@ class DeskMessage {
     required this.isUser,
     required this.text,
     this.chips = const [],
+    this.reasoning = '',
+    this.thinkingStartMs,
+    this.thinkingMs = 0,
+    this.imagePath,
   });
 
   final bool isUser;
   final String text;
   final List<DeskToolChip> chips;
+  final String reasoning;
+  final int? thinkingStartMs;
+  final int thinkingMs;
+  final String? imagePath;
+
+  /// Same shape chat bubbles parse: `<think>` + spoken line.
+  ChatMessage toChatMessage(String coworkerName) {
+    final think = reasoning.trim();
+    final raw = think.isEmpty ? text : '<think>$think</think>\n$text';
+    final msg = ChatMessage(
+      text: raw,
+      sender: isUser ? 'You' : coworkerName,
+      isUser: isUser,
+      metadata: imagePath == null
+          ? null
+          : {'is_user_image': true, 'image_path': imagePath},
+    );
+    msg.thinkingStartTime = thinkingStartMs;
+    if (thinkingMs > 0) msg.thinkingDurationMs = thinkingMs;
+    return msg;
+  }
 }
 
 /// In-memory Desk session. Not a chat `sessions` row.
@@ -64,6 +89,8 @@ class DeskSession {
     this.mode = DeskMode.build,
     this.title = '',
     this.langs,
+    this.mcpOptIn = false,
+    this.preserveThinking = false,
     Set<String>? suggestedLangs,
     List<DeskMessage>? transcript,
   }) : suggestedLangs = suggestedLangs ?? <String>{},
@@ -78,4 +105,12 @@ class DeskSession {
   final List<DeskMessage> transcript;
   DeskWriteRecord? lastWrite;
   bool running = false;
+  bool mcpOptIn;
+  bool preserveThinking;
+  final ChatGenerationSettings genSettings = ChatGenerationSettings();
+  int contextBudget = 8192;
+  int tokensUsed = 0;
+  int compactPasses = 0;
+
+  List<DeskToolChip> get toolChips => [for (final m in transcript) ...m.chips];
 }

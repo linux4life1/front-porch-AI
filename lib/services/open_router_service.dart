@@ -23,7 +23,9 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/llm_tool_parsing.dart';
 import 'package:front_porch_ai/services/openai_completions_fallback.dart';
 import 'package:front_porch_ai/services/openai_tool_payload.dart';
+import 'package:front_porch_ai/services/openai_tool_stream.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
+import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
 import 'package:front_porch_ai/services/remote_model_info.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
@@ -470,6 +472,25 @@ class OpenRouterService extends LLMService {
     final client = http.Client();
     _activeClients.add(client);
     try {
+      if (params.onChunk != null) {
+        final payload = _chatPayload(params, stream: true);
+        attachTools(
+          payload,
+          tools: tools,
+          toolChoice: params.toolChoice,
+          stream: true,
+          style: ToolChoiceStyle.auto,
+        );
+        return await streamOpenAiChatTools(
+          uri: Uri.parse('$_apiUrl/chat/completions'),
+          headers: _chatHeaders,
+          payload: payload,
+          client: client,
+          wrapReasoning: params.reasoningEnabled,
+          salvage: params.salvageReasoning,
+          onChunk: params.onChunk,
+        );
+      }
       final identity = params.backendIdentity.isEmpty
           ? '$backendName|$_modelName|'
           : params.backendIdentity;

@@ -7,6 +7,5 @@
 export 'backend_tab.dart';
 export 'general_tab.dart';
 export 'generation_tab.dart';
-export 'mcp_tab.dart';
 export 'porch_life_tab.dart';
 export 'voice_media_tab.dart';

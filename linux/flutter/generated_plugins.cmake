@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_linux
+  desktop_drop
   flutter_secure_storage_linux
   record_linux
   screen_retriever_linux

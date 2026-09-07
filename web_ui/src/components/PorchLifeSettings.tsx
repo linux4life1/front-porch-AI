@@ -27,6 +27,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
+import { McpSettings } from './McpSettings';
 
 interface PorchLifeState {
   realismDefault: boolean;
@@ -522,6 +523,7 @@ export function PorchLifeSettings() {
             )
           }
         />
+        <McpSettings />
         <FeatureRow
           icon="🕰️"
           label="Welcome-back recap"

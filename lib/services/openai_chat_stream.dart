@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/chat/chat.dart'
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/llm_tool_parsing.dart';
 import 'package:front_porch_ai/services/openai_tool_payload.dart';
+import 'package:front_porch_ai/services/openai_tool_stream.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
 import 'package:front_porch_ai/services/system_role_probe.dart';
@@ -192,6 +193,35 @@ Future<LlmToolResponse?> postOpenAiChatWithTools(
   final client = http.Client();
   registerClient?.call(client);
   try {
+    // Live think tokens (Waifu Coder): stream when the caller asked for
+    // chunks. Evals leave onChunk null and stay on the buffered POST so
+    // their JSON parse is byte-identical.
+    if (params.onChunk != null) {
+      final payload = _chatPayload(
+        params,
+        modelName: modelName,
+        stream: true,
+        foldSystemIntoUser: foldSystemIntoUser,
+        thinkingModelKey: thinkingModelKey,
+      );
+      attachTools(
+        payload,
+        tools: tools,
+        toolChoice: toolChoice ?? params.toolChoice,
+        stream: true,
+        style: ToolChoiceStyle.auto,
+      );
+      final thinkOn = params.reasoningEnabled && params.reasoningMaxTokens != 0;
+      return await streamOpenAiChatTools(
+        uri: Uri.parse('$baseUrl/v1/chat/completions'),
+        headers: {'Content-Type': 'application/json'},
+        payload: payload,
+        client: client,
+        wrapReasoning: thinkOn,
+        salvage: params.salvageReasoning,
+        onChunk: params.onChunk,
+      );
+    }
     // No wall-clock timeout: a tool/eval call against a local model can take
     // as long as the generation legitimately needs (a slow model, a large
     // token budget, or a reasoning pass). A dead/crashed backend closes the

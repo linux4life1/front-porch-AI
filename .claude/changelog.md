@@ -1,5 +1,239 @@
 # Changelog
 
+## 2026-09-07 — fix(waifu): skills live in ~/.waifu; cwd prefix; no .desk leak
+- **Why:** Iris looked for `~/.desk` (prompt said `.desk/skills`) and
+  `read` failed on `Kabbage/pubspec.yaml` because cwd was already
+  Kabbage. Install wrote to `{sit-down}/.desk/skills`, which is not a
+  home folder she can find.
+- **What:** User-facing paths are `.waifu` (legacy `.desk` still
+  scanned). Personal skills: `~/.waifu/skills` (created on refresh,
+  README inside). Catalog/sidebar show that path. Nested
+  category/name/SKILL.md loads by leaf name. Other-harness SKILL.md
+  still loads by name but is not dumped into the every-turn list.
+  Loop prompt uses the absolute sit-down path and says not to prefix
+  the folder name; resolveLive strips a redundant cwd prefix on miss.
+- **Verification:** cwd-prefix read + nested-folder-wins; loop prompt
+  has absolute path and no `.desk/`; skill roots tests (user dest,
+  nested load, legacy list, empty catalog).
+
+## 2026-09-07 — feat(chat,desk): drag a photo onto the composer
+- **Why:** Waifu Coder had no attach. Chat had a picker only. Dragging
+  from Finder/Explorer did nothing — no drop plugin in the tree.
+- **What:** `desktop_drop` DropTarget on chat and Desk composers.
+  Amber "Drop a photo" overlay. Attach button on Desk. Pixels ride the
+  first generate (`GenerationParams.images`); later tool steps do not
+  re-upload. Saved under `.desk/inbox/` for the bubble. macOS
+  security-scoped bookmarks started/stopped around the read.
+- **Verification:** firstDroppedImage skips .md keeps png; harness first
+  call has images; Desk attach + DropTarget chrome. Filename filter
+  test red when always-true.
+
+## 2026-09-07 — fix(desk): Enter sends; last-write strip can be dismissed
+- **Why:** Multiline composer used TextInputAction.newline, so Enter
+  inserted a line. Last-write preview had no close after a file write.
+- **What:** Bare Enter / numpad Enter send (same as chat). Shift+Enter
+  still a newline. Dismiss X on the last-write strip clears the preview
+  (undo is unchanged).
+- **Verification:** key-event unit + Enter/Shift+Enter widget tests;
+  strip close widget test. Existing grow-with-prompt test still expects
+  newline as the IME action.
+
+## 2026-09-07 — fix(chat): Thought chevron works while the model is still thinking
+- **Why:** The thought body was `expanded OR isGenerating`. During a live
+  think the chevron flipped but the text stayed open. It only collapsed
+  after the next think block started (previous bubble no longer live).
+- **What:** Auto-open while live until the user taps; a tap pins open or
+  shut for the rest of that bubble, including later stream chunks. Timer
+  still runs when collapsed.
+- **Verification:** live collapse widget test (red with the old OR);
+  stream-chunk re-open; finished-think still starts collapsed; existing
+  desk "thought tokens appear while generating" still green.
+
+## 2026-09-07 — feat(desk): nested agents, workflows, thinking toggle, MCP clones
+- **Why:** Subagents existed (`task` explore/general, one deep) but no
+  workflows. Context meter counted only the user prompt. Thought tokens
+  were shown then dropped on the next turn. Docker MCP advertised
+  Desktop Commander's `list_directory`/`get_prompts`; a denied call
+  stuffed "New to Desktop Commander?" onboarding into the spoken line.
+  Last-write of pubspec.yaml overflowed the chat column by ~2473px.
+- **What:** `workflow` tool + `/workflow [name]` JSON pipelines in
+  `.desk/workflows` (not Rhai). Meter = system + prompt. Preserve
+  thinking toggle (default off). Drop DC FS/onboarding MCP tools;
+  `list_directory` maps to glob and never hits Docker. Sanitize
+  onboarding in MCP results. Work strip clips + maxHeight 180.
+- **Verification:** mcp-filter (red when keep is a no-op), workflow
+  parse/run, context budget, preserve-thinking on/off, work-strip
+  overflow widget test.
+
+## 2026-09-07 — feat(desk): allowlisted skill catalogs + wipe denials
+- **Why:** Anthropic's public repo is 19 skills. Users wanted more
+  *safe* catalogs, not a crawl of random GitHub. Bash only blocked
+  `rm -rf /`, not `rm -rf *` / `.` / home.
+- **What:** HTTPS allowlist: Anthropic, Vercel Labs, Superpowers
+  (obra). First name wins. Compact panel grouped by source. Hard-deny
+  recursive rm of /, *, ., ~, \$HOME; fork bomb; mkfs; dd to /dev;
+  diskutil erase; sudo rm. `rm -rf build` still allowed.
+- **Verification:** skill sources test (Vercel install); deny-wipe tests.
+
+## 2026-09-07 — fix(desk): skills panel is compact; catalog is the real 19
+- **Why:** Anthropic's public repo is 19 folders. The sidebar dumped
+  full SKILL.md descriptions and fat Install pills, so it looked like a
+  broken store.
+- **What:** Name-only rows, small Install text, porch vs on-disk names.
+  Accordion starts closed. Blurb says 19 is the whole official set.
+- **Verification:** install chrome test (no FilledButton, no description
+  dump); expand Skills then panel keys.
+
+## 2026-09-07 — fix(desk): one bubble per loop step; tool log not chip wrap
+- **Why:** A coding turn is many think/tool/talk cycles. One assistant
+  row reused every generate, so think concatenated and the spoken line
+  was wiped on the next step. Tool chips wrapped into a sloppy cloud.
+- **What:** Each generate opens a new coworker bubble (speech + think
+  stay). Only the live row shows the thinking timer. Tools render as a
+  stacked monospace log under that step, not Wrap/Chip.
+- **Verification:** loop-bubbles unit test (three steps, speech/think
+  isolated); tool-log widget test (no Chip); harness two-generate tests.
+
+## 2026-09-06 — fix(desk): coding prompt is persona + constitution, not chat RP
+- **Why:** The harness stuffed the card's chat systemPrompt and assumed
+  she/her. Scenario was already excluded; mes_example was dumped as a scene.
+- **What:** Selected V2 card on top (name + personality; description only if
+  personality is empty). One or two mes_example slices, ≤400 tokens, {{char}}
+  expanded — diction only. Then a gender-neutral coding constitution (tools,
+  match the repo, look up versions, no commit unless asked). No scenario,
+  no first_mes, no chat systemPrompt.
+- **Verification:** coworker prompt tests (order, exclusions, gender, clip).
+
+## 2026-09-06 — feat(desk): skills marketplace, chat install, code-review, lookup
+- **Why:** Skills existed only as HTTPS helpers with no sidebar. skill_install
+  was advertised but never dispatched. /review did not read as code review.
+  MCP could be on with 110 tools while she still guessed Flutter versions
+  because web_search was never wired and the prompt never told her to look up.
+- **What:** Skills accordion (official anthropics/skills, Refresh / Install).
+  /skills lists; /skills pdf installs. Agent skill_install writes
+  .desk/skills. /review blurb is code review; /code-review is the alias.
+  Desk binds ChatService Wikipedia/Tavily as web_search; MCP search/fetch
+  tools are advertised first; loop prompt forbids claiming a version is fake
+  from memory.
+- **Verification:** market + harness install (red when dispatch stubbed),
+  slash review/code-review/skills, lookup cue + MCP order + DeskPage
+  webSearch bind pin, skills chrome.
+
+## 2026-09-06 — feat(desk): slash menu, Stop bar, context meter
+- **Why:** Typing / did nothing. A run had only a tiny abort icon.
+  No used-vs-max context in the sidebar.
+- **What:** `/` palette with amber prefix highlight and blurb
+  tooltips (/help /init /plan /build /yolo /undo /compact /stop
+  /review /test /loop). Full-width Stop while she is looping.
+  Sidebar Context bar (tokens / window). Abort actually stops
+  chunks and says Stopped.
+- **Verification:** slash match unit tests, menu widget test, context
+  bar, existing abort chrome test.
+
+## 2026-09-06 — fix(desk): confirm before deleting a session
+- **Why:** ⋮ → Delete this session dropped the porch with no "are you
+  sure", so a misclick wiped the parked chat.
+- **What:** Confirm dialog (Cancel / Delete). Disk folder is untouched.
+- **Verification:** cancel leaves forgotten=0; confirm increments.
+
+## 2026-09-06 — fix(desk): composer grows with the prompt
+- **Why:** The Waifu Coder box was one line. Long tasks scrolled out of
+  view with no way to read what you were about to send.
+- **What:** Same as chat: 1–10 lines, Enter inserts a newline, send is
+  the arrow. Undo/redo/send stay on the bottom of the growing field.
+- **Verification:** composer expand widget test (height after 5 lines).
+
+## 2026-09-06 — feat(desk): search the coworker picker
+- **Why:** A full library is a hunt with no filter on the Waifu Coder
+  coworker step.
+- **What:** Search field filters by name or tag. Empty query shows the
+  whole grid.
+- **Verification:** coworker search widget test (iri → Iris, tag → Nina).
+
+## 2026-09-06 — fix(desk): one New porch, sit-down save, MCP toggle
+- **Why:** Header New pill + New porch card were the same action.
+  Sitting down did not park a card until the first chat turn. MCP
+  checkbox no-op'd until a harness existed (first send). Language
+  help was in the app bar and the sidebar. Folder picker listed
+  `$HOME` dotfiles first.
+- **What:** Only the dashed New porch tile starts the wizard. DeskPage
+  saveLast on first frame. mcpOptIn lives on the session so the
+  checkbox works immediately and copies into the harness. Language
+  help is app-bar only. Hidden folders stay off the picker until
+  Show hidden.
+- **Verification:** home projects (no New pill), MCP toggle without
+  harness, sit-down save before send, hidden-folder listing + wizard.
+
+## 2026-09-06 — feat(desk): Waifu Coder home is a porch of folders
+- **Why:** Three used folders should be three cards, plus New that
+  picks folder then character. The old empty-state / single Resume
+  was grey and lame.
+- **What:** DeskStore indexes every sit (projects.json). Home is an
+  amber/honey/terracotta glow grid: one card per folder (portrait,
+  coworker chip, resume / new session), a New porch tile, and a New
+  header button. Wizard stays folder → coworker. skipProject jumps
+  to coworker when you start a new session in a known folder.
+  saveLast no longer recurses listProjects→migrate→upsert (that hang
+  meant the first sit never wrote the index, so you only ever saw
+  one porch).
+- **Verification:** three-folder widget test, New/New-porch callback,
+  skipProject coworker-first, store index unit test. Store test
+  timed out on the recurse; green after the split.
+
+## 2026-09-06 — feat(desk): Waifu Coder uses the chat shell
+- **Why:** Desk was a generic dump with no portrait, no live think
+  tokens, and a stupid name. User asked to reuse chat chrome and call
+  it Waifu Coder.
+- **What:** ChatPage leaves (portrait, resize sidebar, message list,
+  Main Settings button). Waifu Coder sits on MessageBubble + portrait +
+  Chat/Model/UI settings. Sidebar body is harness/MCP/tasks, not
+  realism. generateWithTools streams think tokens when onChunk is set.
+  User-facing name is Waifu Coder.
+- **Verification:** stream parser, live harness think, shell widget
+  test (sidebar/settings, no Continue/realism, live Thought).
+
+## 2026-09-06 — fix(desk): chips, thought, in-character bubble
+- **Why:** Tool chips rendered as "bash bash" garbage, reasoning never
+  reached the bubble, and the coworker dumped source into chat instead
+  of speaking in character while writing files.
+- **What:** Chip caption is command/path once. Thought is an expander
+  from reasoning_content or <think>. Desk honors Settings thinking
+  toggle. Preamble: no source dumps in chat; bubble is her voice.
+- **Verification:** chip-detail, harness reasoning, coworker preamble
+  tests. Full desk suite 110 green.
+
+## 2026-09-06 — fix(mcp): stop asking for the Mac password on launch
+- **Why:** MCP tokens were in the login keychain. Reading them on every
+  load (even when empty) popped the macOS password dialog. Unusable.
+- **What:** Tokens ride the same prefs JSON as the server URL. Tavily
+  stays in the keychain. Load no longer touches FlutterSecureStorage.
+- **Verification:** token reload test now asserts prefs contains the
+  secret. MCP suite green.
+
+## 2026-09-06 — fix(mcp): count tools, one Docker row, persist token
+- **Why:** Check connection dumped 110 tool names twice and left a dead
+  /sse row next to a live /mcp. User asked if token/connection survive
+  restart.
+- **What:** Connected line is "110 tools" not a wall. Same-host /sse is
+  replaced by /mcp. Token stays in the keychain; URL+toggle in prefs;
+  enabled servers re-handshake on launch.
+- **Verification:** 110-name summary and sibling-replace tests red then
+  green. 1–2 name lines unchanged. Token reload test.
+
+## 2026-09-06 — fix(mcp): Docker chip, Find local, no errno dump
+- **Why:** Porch Life MCP asked for a URL and token nobody has. Check
+  on a dead 8811/sse saved the URL as a server named the URL and dumped
+  ClientException errno 61. Docker Desktop MCP does not open a URL.
+- **What:** Docker chip fills 127.0.0.1:8811/mcp. Find local probes
+  /health. Token field stays hidden until 401. Failed Check does not
+  persist a row. Connection refused reads as "Nothing is listening"
+  plus the one command to start HTTP. Same on the phone.
+- **Files:** mcp_models (humanize), mcp_local_probe, mcp_hub.checkDraft,
+  mcp_servers_card, mcp_facade check-draft/find-local, web McpSettings.
+- **Verification:** humanize + draft + docker-ux tests red (missing
+  symbols / FakeStorage) then green. Existing check-result HTTP 500
+  line unchanged. Web 200 tests.
+
 ## 2026-09-05 — test(desk): pin PATH-first, Holy C, file:// (slice I)
 - **Why:** Hostile review of language doors: PATH must beat a download
   URL; Holy C must not HTTP; default fetch must refuse file://.

@@ -20,12 +20,26 @@
 library;
 
 export 'desk_ask_dialog.dart';
+export 'desk_composer.dart';
+export 'desk_context_bar.dart';
+export 'desk_slash_menu.dart';
+export 'desk_stop_bar.dart';
+export 'desk_coworker_face.dart';
+export 'desk_delete_session_dialog.dart';
+export 'desk_home_atmosphere.dart';
 export 'desk_home_view.dart';
+export 'desk_new_porch_card.dart';
+export 'desk_new_session_dialog.dart';
+export 'desk_project_card.dart';
 export 'desk_language_help.dart';
+export 'desk_mcp_bind.dart';
 export 'desk_mcp_opt_in.dart';
+export 'desk_skills_panel.dart';
 export 'desk_mode_bar.dart';
 export 'desk_page.dart';
+export 'desk_sidebar.dart';
 export 'desk_question_dialog.dart';
 export 'desk_todo_list.dart';
+export 'desk_tool_log.dart';
 export 'desk_wizard_page.dart';
 export 'desk_work_strip.dart';

@@ -27,6 +27,10 @@ export 'bubbles/external_image_widget.dart';
 export 'sidebar/porch_accordion.dart';
 export 'sidebar/sidebar_body.dart';
 export 'sidebar/sidebar_tokens.dart';
+export 'sidebar/character_portrait.dart';
+export 'sidebar/chat_main_settings.dart';
+export 'stage/chat_message_list.dart';
+export 'stage/chat_resize_sidebar.dart';
 export 'sidebar/expandable_sidebar_text.dart';
 export 'chat_composer_hint.dart';
 export 'sidebar/emoji_burst.dart';
@@ -40,6 +44,7 @@ export 'overlays/objective_check_overlay.dart';
 export 'overlays/generation_status_bar.dart';
 
 export 'widgets/chat_image_attachment.dart';
+export 'widgets/composer_drop_zone.dart';
 export 'widgets/eval_pill.dart';
 export 'widgets/generating_image_bubble.dart';
 export 'widgets/look_chevrons.dart';

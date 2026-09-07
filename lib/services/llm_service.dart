@@ -88,8 +88,8 @@ class GenerationParams {
   /// signature (existing test fakes must not be edited).
   final String? toolChoice;
 
-  /// Unused until the streaming-tools PR; forwarded on the mandatory-
-  /// reasoning retry so it cannot be dropped.
+  /// Live token callback for streaming tool calls (Waifu Coder think
+  /// tokens). Evals leave this null and stay on the buffered POST.
   final void Function(String chunk)? onChunk;
 
   /// After Kobold FIFO `waitForIdle`: skip/pause/xml-only, never live

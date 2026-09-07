@@ -371,6 +371,20 @@ class PorchLifeTab extends StatelessWidget {
               child: WebSearchKeyField(storage: storage),
             ),
             FeatureRow(
+              icon: Icons.extension_outlined,
+              label: 'MCP tools',
+              need: FeatureNeed.alone,
+              blurb:
+                  'Tools from MCP servers you run (Docker, weather, a '
+                  'calendar). Connecting a server is not consent: each chat '
+                  'has its own sidebar switches. This only seeds new chats. '
+                  'Off by default. Tap Docker or Find local servers, then '
+                  'Check connection. Front Porch does not spawn servers.',
+              value: storage.mcpSettings.mcpDefault,
+              onChanged: storage.mcpSettings.setMcpDefault,
+              child: const McpServersPanel(),
+            ),
+            FeatureRow(
               icon: Icons.history,
               label: 'Welcome-back recap',
               need: FeatureNeed.alone,

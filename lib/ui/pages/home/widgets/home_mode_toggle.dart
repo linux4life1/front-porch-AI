@@ -18,9 +18,10 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/services/desk/desk_brand.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Home toolbar mode: Chats, Porch Stories, or Desk.
+/// Home toolbar mode: Chats, Porch Stories, or Waifu Coder.
 enum HomeMode { chats, stories, desk }
 
 /// Chats / Porch Stories / Desk switch. Drops the labels when the parent
@@ -45,9 +46,9 @@ class HomeModeToggle extends StatelessWidget {
   final bool showDesk;
   final VoidCallback? onShowDesk;
 
-  /// Labeled "Chats" + "Porch Stories" + "Desk" needs more room than the
-  /// old pair (~250px). Drop to icons before the 360px squeezed-window case.
-  static const double labeledMinWidth = 400;
+  /// Labeled "Chats" + "Porch Stories" + "Waifu Coder" is wide. Drop to
+  /// icons before the 651px toolbar overflow case (and the 360px squeeze).
+  static const double labeledMinWidth = 720;
 
   @override
   Widget build(BuildContext context) {
@@ -80,8 +81,8 @@ class HomeModeToggle extends StatelessWidget {
                 onTap: onShowStories,
               ),
               _ModeButton(
-                label: 'Desk',
-                icon: Icons.desk,
+                label: kWaifuCoderName,
+                icon: Icons.code,
                 isActive: showDesk,
                 showLabel: showLabels,
                 onTap: onShowDesk ?? () {},

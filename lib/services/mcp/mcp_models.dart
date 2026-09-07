@@ -63,6 +63,7 @@ class McpServerConfig {
     'url': url,
     'headers': headers,
     'enabledGlobal': enabledGlobal,
+    if (authToken.isNotEmpty) 'authToken': authToken,
   };
 
   factory McpServerConfig.fromJson(Map<String, dynamic> json) {
@@ -78,6 +79,7 @@ class McpServerConfig {
       displayName: json['displayName']?.toString() ?? '',
       url: json['url']?.toString() ?? '',
       headers: headers,
+      authToken: json['authToken']?.toString() ?? '',
       enabledGlobal: json['enabledGlobal'] != false,
     );
   }
@@ -203,4 +205,115 @@ class McpChatServerView {
   final String? lastError;
   final List<String> toolNames;
   final List<String> conflictToolNames;
+}
+
+/// Docker Desktop's MCP Toolkit talks stdio. HTTP, when you start it:
+/// `docker mcp gateway run --transport streaming --port 8811`
+const kMcpDockerHttpCommand =
+    'docker mcp gateway run --transport streaming --port 8811';
+
+const kMcpDockerMcpUrl = 'http://127.0.0.1:8811/mcp';
+const kMcpDockerSseUrl = 'http://127.0.0.1:8811/sse';
+
+/// Local Docker HTTP endpoints we try. /mcp first (streamable), then SSE.
+const kMcpDockerUrls = [kMcpDockerMcpUrl, kMcpDockerSseUrl];
+
+bool mcpSameGateway(String a, String b) {
+  final ua = Uri.tryParse(a.trim());
+  final ub = Uri.tryParse(b.trim());
+  if (ua == null || ub == null) return a.trim() == b.trim();
+  final portA = ua.hasPort ? ua.port : (ua.scheme == 'https' ? 443 : 80);
+  final portB = ub.hasPort ? ub.port : (ub.scheme == 'https' ? 443 : 80);
+  return ua.host.toLowerCase() == ub.host.toLowerCase() && portA == portB;
+}
+
+/// One line for Settings. Three names is readable; 110 is a wall.
+String mcpToolsPhrase(List<String> names) {
+  if (names.isEmpty) return 'no tools advertised';
+  final n = names.length;
+  final noun = n == 1 ? 'tool' : 'tools';
+  if (n <= 3) return '$n $noun: ${names.join(', ')}';
+  return '$n $noun';
+}
+
+String mcpDefaultDisplayName(String url) {
+  final parsed = Uri.tryParse(url.trim());
+  if (parsed != null && parsed.port == 8811) return 'Docker';
+  final host = parsed?.host.trim() ?? '';
+  if (host.isNotEmpty) return host;
+  return 'MCP server';
+}
+
+/// If the user picked one Docker transport, also try the other.
+List<String> mcpSiblingUrls(String url) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return const [];
+  if (!trimmed.contains(':8811')) return [trimmed];
+  if (trimmed.endsWith('/mcp')) {
+    return [trimmed, '${trimmed.substring(0, trimmed.length - 4)}/sse'];
+  }
+  if (trimmed.endsWith('/sse')) {
+    return [trimmed, '${trimmed.substring(0, trimmed.length - 4)}/mcp'];
+  }
+  return [trimmed];
+}
+
+bool mcpErrorWantsToken(String? lastError) {
+  final lower = (lastError ?? '').toLowerCase();
+  return lower.contains('401') || lower.contains('unauthorized');
+}
+
+/// Strip SocketException dumps. Keep HTTP 500 as HTTP 500.
+String mcpHumanizeConnectError(String? lastError, {String url = ''}) {
+  final raw = (lastError ?? '').trim();
+  if (raw.isEmpty) return '';
+  final lower = raw.toLowerCase();
+  final refused =
+      lower.contains('connection refused') ||
+      lower.contains('errno = 61') ||
+      lower.contains('errno = 111') ||
+      (lower.contains('socketexception') && lower.contains('refused'));
+  if (refused) {
+    final onDocker = url.contains('8811') || raw.contains('8811');
+    if (onDocker) {
+      return 'Nothing is listening there. Docker Desktop MCP does not open a '
+          'URL. In a terminal: $kMcpDockerHttpCommand';
+    }
+    return 'Nothing is listening at that address.';
+  }
+  if (mcpErrorWantsToken(raw)) {
+    return 'This server wants a token. If you started the Docker gateway, it '
+        'printed a Bearer token when it started.';
+  }
+  if (lower.contains('clientexception') || lower.contains('socketexception')) {
+    return 'Could not connect. Is the server running?';
+  }
+  return raw;
+}
+
+/// Plain-language line for Settings → Porch Life → Check connection.
+String mcpCheckResultLine({
+  required String url,
+  required McpConnectionStatus status,
+  required List<String> toolNames,
+  String? lastError,
+}) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return 'Enter a server address first';
+  switch (status) {
+    case McpConnectionStatus.connected:
+      return 'Connected — ${mcpToolsPhrase(toolNames)}';
+    case McpConnectionStatus.connecting:
+      return 'Checking $trimmed…';
+    case McpConnectionStatus.error:
+    case McpConnectionStatus.disconnected:
+      final reason = mcpHumanizeConnectError(lastError, url: trimmed);
+      if (reason.startsWith('Nothing is listening') ||
+          reason.startsWith('This server wants')) {
+        return reason;
+      }
+      return reason.isEmpty
+          ? 'Could not reach $trimmed'
+          : 'Could not reach $trimmed — $reason';
+  }
 }

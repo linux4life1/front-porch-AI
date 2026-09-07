@@ -17,6 +17,8 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:front_porch_ai/services/desk/desk_bash.dart';
 import 'package:front_porch_ai/services/desk/desk_compact.dart';
@@ -24,19 +26,27 @@ import 'package:front_porch_ai/services/desk/desk_coworker_prompt.dart';
 import 'package:front_porch_ai/services/desk/desk_fs.dart';
 import 'package:front_porch_ai/services/desk/desk_honesty.dart';
 import 'package:front_porch_ai/services/desk/desk_llm.dart';
+import 'package:front_porch_ai/services/desk/desk_mcp_filter.dart';
 import 'package:front_porch_ai/services/desk/desk_mentions.dart';
 import 'package:front_porch_ai/services/desk/desk_permissions.dart';
 import 'package:front_porch_ai/services/desk/desk_question.dart';
 import 'package:front_porch_ai/services/desk/desk_session.dart';
+import 'package:front_porch_ai/services/desk/desk_skill_market.dart';
 import 'package:front_porch_ai/services/desk/desk_skills.dart';
 import 'package:front_porch_ai/services/desk/desk_sit_down.dart';
+import 'package:front_porch_ai/services/desk/desk_slash.dart';
 import 'package:front_porch_ai/services/desk/desk_store.dart';
+import 'package:front_porch_ai/services/desk/desk_stream.dart';
 import 'package:front_porch_ai/services/desk/desk_subagent.dart';
 import 'package:front_porch_ai/services/desk/desk_todos.dart';
 import 'package:front_porch_ai/services/desk/desk_tools.dart';
 import 'package:front_porch_ai/services/desk/desk_undo.dart';
 import 'package:front_porch_ai/services/desk/desk_webfetch.dart';
-import 'package:path/path.dart' as p;
+import 'package:front_porch_ai/services/desk/desk_workflow.dart';
+import 'package:front_porch_ai/services/llm_service.dart';
+
+part 'desk_harness_dispatch.dart';
+part 'desk_harness_spawn.dart';
 
 /// In-process generateWithTools loop. Max [kDeskMaxSteps]. Abort stops
 /// further tools; disk is left as the last successful write.
@@ -60,12 +70,14 @@ class DeskHarness {
     this.store,
     this.depth = 0,
     this.exploreOnly = false,
+    DeskSkillHub? skills,
   }) : fs = fs ?? DeskFs(session.folderRoot),
        webfetch = webfetch ?? DeskWebFetch(),
        permissions = permissions ?? DeskPermissions(mode: session.mode),
        bash = bash ?? DeskBash(session.folderRoot),
        undoLog = undo ?? DeskUndo(),
-       todos = todos ?? DeskTodos();
+       todos = todos ?? DeskTodos(),
+       skills = skills ?? DeskSkillHub(projectRoot: session.folderRoot);
 
   final DeskSession session;
   final DeskLlm llm;
@@ -82,17 +94,21 @@ class DeskHarness {
   final DeskStore? store;
   final int depth;
   final bool exploreOnly;
+  final DeskSkillHub skills;
   void Function()? onChanged;
   DeskAskFn? onAsk;
   DeskQuestionFn? onQuestion;
 
   bool _aborted = false;
+  int? _stepAt;
   String _trace = '';
-  final _chips = <DeskToolChip>[];
+  String _streamBuf = '';
+  String _priorReasoning = '';
   Completer<DeskAskDecision>? _askWait;
   Completer<String>? _questionWait;
   String _mentionBlock = '';
-  DeskHarness? _child;
+  List<String>? _turnImages;
+  final _children = <DeskHarness>[];
 
   bool get isRunning => session.running;
   bool get canUndo => undoLog.canUndo;
@@ -112,16 +128,26 @@ class DeskHarness {
     _emit();
   }
 
-  Future<void> send(String task) async {
-    final text = task.trim();
-    if (text.isEmpty || session.running) return;
+  Future<void> send(
+    String task, {
+    Uint8List? imagePng,
+    String? imagePath,
+  }) async {
+    var text = task.trim();
+    if ((text.isEmpty && imagePng == null) || session.running) return;
+    if (text.isEmpty) text = '(photo)';
     _aborted = false;
+    _stepAt = null;
     _trace = '';
-    _chips.clear();
+    _turnImages = imagePng == null ? null : [base64Encode(imagePng)];
     session.running = true;
-    session.transcript.add(DeskMessage(isUser: true, text: text));
+    session.transcript.add(
+      DeskMessage(isUser: true, text: text, imagePath: imagePath),
+    );
     if (session.title.isEmpty) session.title = deskTitleFrom(text);
     _mentionBlock = await deskExpandMentions(text, session.folderRoot);
+    deskRewriteSlashUser(session.transcript, text);
+    await skills.refreshLocal();
     _emit();
     try {
       if (text == '/init' || text.startsWith('/init ')) {
@@ -130,13 +156,19 @@ class DeskHarness {
           'contents': kDeskAgentsTemplate,
         });
       }
+      final wf = deskWorkflowSlashArgs(text);
+      if (wf != null) {
+        await _runTool(kDeskToolWorkflow, wf);
+      }
       await _loop();
       final compacted = deskCompactTranscript(session.transcript);
       session.transcript
         ..clear()
         ..addAll(compacted);
+      _setBudget(_system(), _prompt());
       await store?.saveLast(session);
     } finally {
+      _turnImages = null;
       session.running = false;
       _emit();
     }
@@ -144,7 +176,9 @@ class DeskHarness {
 
   void abort() {
     _aborted = true;
-    _child?.abort();
+    for (final c in List<DeskHarness>.from(_children)) {
+      c.abort();
+    }
     llm.abort();
     final waiting = _askWait;
     if (waiting != null && !waiting.isCompleted) {
@@ -152,81 +186,92 @@ class DeskHarness {
     }
     final q = _questionWait;
     if (q != null && !q.isCompleted) q.complete('');
+    if (session.running) {
+      final i = _stepAt;
+      final keep =
+          i != null &&
+          i < session.transcript.length &&
+          !session.transcript[i].isUser &&
+          session.transcript[i].text.trim().isNotEmpty;
+      if (keep) _stepAt = null;
+      _say('Stopped.');
+    }
+    session.running = false;
     _emit();
   }
 
   Future<void> _loop() async {
-    final system = buildDeskCoworkerPrompt(session.coworker);
+    final system = _system();
     for (var step = 0; step < kDeskMaxSteps; step++) {
       if (_aborted) return;
+      _beginStream();
+      final prompt = _prompt();
+      _setBudget(system, prompt);
       final resp = await llm.generate(
         systemPrompt: system,
-        prompt: _prompt(),
-        tools: advertisedTools(),
+        prompt: prompt,
+        tools: deskAdvertisedTools(
+          exploreOnly: exploreOnly,
+          includeWebSearch: webSearch != null,
+          mcpOptIn: mcpOptIn,
+          mcpTools: mcpTools,
+          includeTask: depth == 0,
+        ),
+        images: step == 0 ? _turnImages : null,
+        onChunk: _onChunk,
       );
+      _endStream();
       if (_aborted) return;
       if (resp == null) {
         _say(kDeskToolsUnsupported);
         return;
       }
+      _noteReasoning(resp);
+      final body = deskVisibleText(resp.text);
       if (resp.calls.isEmpty) {
-        _say(resp.text.trim().isEmpty ? 'I could not work.' : resp.text.trim());
+        _say(body.isEmpty ? 'I could not work.' : body);
         return;
       }
+      if (body.isNotEmpty) _say(body);
       for (final call in resp.calls) {
         if (_aborted) return;
         await _runTool(call.name, call.arguments);
       }
+      _stepAt = null;
     }
     if (!_aborted) {
       _say('Stopped after $kDeskMaxSteps tool steps. Send again to continue.');
     }
   }
 
-  List<Map<String, dynamic>> advertisedTools() {
-    Iterable<Map<String, dynamic>> fileTools = kDeskFileTools;
-    if (exploreOnly) {
-      fileTools = kDeskFileTools.where((t) {
-        final n = (t['function'] as Map?)?['name']?.toString();
-        return kDeskExploreToolNames.contains(n);
-      });
-    }
-    return [
-      ...fileTools,
-      if (!exploreOnly) kDeskWebFetchToolSchema,
-      if (!exploreOnly && webSearch != null) kDeskWebSearchToolSchema,
-      if (!exploreOnly && mcpOptIn) ...mcpTools,
-      if (depth == 0) kDeskTaskToolSchema,
-    ];
-  }
-
   Future<void> _runTool(String name, Map<String, dynamic> args) async {
     permissions.mode = session.mode;
-    final kind = deskSubagentKind(name, args);
+    final work = deskNormalizeToolArgs(name, args);
+    final kind = deskSubagentKind(name, work);
     final canon = canonicalDeskToolName(name);
     if (exploreOnly && !kDeskExploreToolNames.contains(canon)) {
-      permissions.record(name: name, args: args);
+      permissions.record(name: name, args: work);
       _reject(canon, 'explore is read-only');
       return;
     }
-    final block = permissions.hardBlock(name: name, args: args);
+    final block = permissions.hardBlock(name: name, args: work);
     if (block != null) {
-      permissions.record(name: name, args: args);
+      permissions.record(name: name, args: work);
       _reject(canon, block);
       return;
     }
-    if (permissions.needsAsk(name: name, args: args)) {
-      final doom = permissions.isDoom(name, args);
+    if (permissions.needsAsk(name: name, args: work)) {
+      final doom = permissions.isDoom(name, work);
       final decision = await _decide(
         DeskAskRequest(
           toolName: canon,
-          summary: permissions.summaryFor(name, args),
+          summary: permissions.summaryFor(name, work),
           doomLoop: doom,
         ),
       );
       if (_aborted) return;
       if (decision == DeskAskDecision.deny) {
-        permissions.record(name: name, args: args);
+        permissions.record(name: name, args: work);
         _reject(canon, 'denied by user');
         return;
       }
@@ -234,143 +279,25 @@ class DeskHarness {
         permissions.allowAlways();
       }
     }
-    permissions.record(name: name, args: args);
-    final result = canon == kDeskToolTask
-        ? await _runTask(kind, args)
-        : await _dispatch(canon, args);
+    permissions.record(name: name, args: work);
+    final result = switch (canon) {
+      kDeskToolTask => await _runTask(kind, work),
+      kDeskToolWorkflow => await _runWorkflow(work),
+      _ => await _dispatch(canon, work, original: name),
+    };
     if (result.write != null) {
       session.lastWrite = result.write;
       undoLog.push(result.write!);
     }
-    final detail = result.ok ? _okDetail(canon, args, result) : result.output;
-    _chips.add(DeskToolChip(name: canon, detail: detail, ok: result.ok));
+    final detail = result.ok
+        ? deskChipDetail(canon, work)
+        : deskClipChipError(result.output);
+    _pushChip(DeskToolChip(name: canon, detail: detail, ok: result.ok));
     _trace += '\n[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
-    _emit();
-  }
-
-  Future<DeskToolResult> _runTask(
-    String? kind,
-    Map<String, dynamic> args,
-  ) async {
-    if (depth > 0) {
-      return DeskToolResult.error(
-        'task: nested subagents cannot spawn children',
-      );
-    }
-    if (kind != 'explore' && kind != 'general') {
-      return DeskToolResult.error('task: subagent must be explore or general');
-    }
-    final prompt =
-        args['prompt']?.toString() ?? args['description']?.toString() ?? '';
-    if (prompt.trim().isEmpty) {
-      return DeskToolResult.error('task: prompt is empty');
-    }
-    final childSession = DeskSession(
-      folderRoot: session.folderRoot,
-      coworker: session.coworker,
-      mode: kind == 'explore' ? DeskMode.plan : session.mode,
-    );
-    final child = DeskHarness(
-      session: childSession,
-      llm: llm,
-      fs: fs,
-      bash: bash,
-      undo: undoLog,
-      webfetch: webfetch,
-      webSearch: webSearch,
-      onAsk: onAsk,
-      onQuestion: onQuestion,
-      onChanged: _emit,
-      permissions: DeskPermissions(mode: childSession.mode),
-      depth: 1,
-      exploreOnly: kind == 'explore',
-    );
-    _child = child;
-    try {
-      await child.send(prompt);
-    } finally {
-      if (identical(_child, child)) _child = null;
-    }
-    if (childSession.lastWrite != null) {
-      session.lastWrite = childSession.lastWrite;
-    }
-    final out = childSession.transcript
-        .where((m) => !m.isUser)
-        .map((m) => m.text)
-        .join('\n');
-    return DeskToolResult(
-      ok: true,
-      output: out.trim().isEmpty ? '(no output)' : out,
-    );
-  }
-
-  Future<DeskToolResult> _dispatch(
-    String canon,
-    Map<String, dynamic> args,
-  ) async {
-    switch (canon) {
-      case kDeskToolBash:
-        return bash.run(args);
-      case kDeskToolTodoRead:
-        return DeskToolResult(ok: true, output: todos.read());
-      case kDeskToolTodoWrite:
-        return DeskToolResult(ok: true, output: todos.write(args['todos']));
-      case kDeskToolQuestion:
-        return _answerQuestion(args);
-      case kDeskToolSkill:
-        final body = await deskLoadSkill(
-          session.folderRoot,
-          args['name']?.toString() ?? '',
-        );
-        return DeskToolResult(
-          ok: !body.startsWith('skill not found'),
-          output: body,
-        );
-      case kDeskToolWebFetch:
-        return webfetch.get(args['url']?.toString() ?? '');
-      case kDeskToolWebSearch:
-        return _search(args['query']?.toString() ?? '');
-      default:
-        if (mcpOptIn && mcpCall != null && _mcpNames.contains(canon)) {
-          return mcpCall!(canon, args);
-        }
-        return fs.dispatch(canon, args);
-    }
-  }
-
-  Future<DeskToolResult> _answerQuestion(Map<String, dynamic> args) async {
-    final req = deskQuestionFromArgs(args);
-    final ask = onQuestion;
-    if (ask == null) {
-      return DeskToolResult.error('question: no UI');
-    }
-    final wait = Completer<String>();
-    _questionWait = wait;
-    ask(req).then((d) {
-      if (!wait.isCompleted) wait.complete(d);
-    });
-    final answer = await wait.future;
-    if (identical(_questionWait, wait)) _questionWait = null;
-    if (_aborted || answer.isEmpty) {
-      return DeskToolResult.error('question: cancelled');
-    }
-    return DeskToolResult(ok: true, output: 'user chose: $answer');
-  }
-
-  Future<DeskToolResult> _search(String query) async {
-    final fn = webSearch;
-    if (fn == null) {
-      return DeskToolResult.error('web_search: not available');
-    }
-    final snippet = await fn(query);
-    return DeskToolResult(
-      ok: snippet.trim().isNotEmpty,
-      output: 'UNTRUSTED search:\n$snippet',
-    );
   }
 
   Set<String> get _mcpNames => {
-    for (final t in mcpTools)
+    for (final t in deskKeepMcpTools(mcpTools))
       ((t['function'] as Map?)?['name'] ?? '').toString(),
   }.difference({''});
 
@@ -390,64 +317,131 @@ class DeskHarness {
   }
 
   void _reject(String name, String message) {
-    _chips.add(DeskToolChip(name: name, detail: message, ok: false));
+    _pushChip(
+      DeskToolChip(name: name, detail: deskClipChipError(message), ok: false),
+    );
     _trace += '\n[$name] error\n$message\n';
+  }
+
+  void _pushChip(DeskToolChip chip) {
+    final last = _liveAssistant();
+    _writeLive(
+      DeskMessage(
+        isUser: false,
+        text: last.text,
+        chips: [...last.chips, chip],
+        reasoning: last.reasoning,
+        thinkingStartMs: last.thinkingStartMs,
+        thinkingMs: last.thinkingMs,
+      ),
+    );
     _emit();
   }
 
-  String _okDetail(
-    String name,
-    Map<String, dynamic> args,
-    DeskToolResult result,
-  ) {
-    if (result.write != null) return result.write!.relativePath;
-    final path = deskToolPathArg(args);
-    if (path != null) return path;
-    final sub = args['subagent']?.toString();
-    if (sub != null && sub.isNotEmpty) return sub;
-    return name;
+  DeskMessage _liveAssistant() {
+    final i = _stepAt;
+    if (i != null &&
+        i >= 0 &&
+        i < session.transcript.length &&
+        !session.transcript[i].isUser) {
+      return session.transcript[i];
+    }
+    session.transcript.add(const DeskMessage(isUser: false, text: ''));
+    _stepAt = session.transcript.length - 1;
+    return session.transcript.last;
+  }
+
+  void _writeLive(DeskMessage msg) {
+    final i = _stepAt ?? session.transcript.length - 1;
+    session.transcript[i] = msg;
+  }
+
+  void _beginStream() {
+    session.transcript.add(const DeskMessage(isUser: false, text: ''));
+    _stepAt = session.transcript.length - 1;
+    _priorReasoning = '';
+    _streamBuf = '';
+    _writeLive(
+      deskBeginStream(_liveAssistant(), DateTime.now().millisecondsSinceEpoch),
+    );
+    _emit();
+  }
+
+  void _onChunk(String chunk) {
+    if (_aborted || chunk.isEmpty) return;
+    _streamBuf += chunk;
+    _writeLive(
+      deskApplyChunk(
+        last: _liveAssistant(),
+        priorReasoning: _priorReasoning,
+        streamBuf: _streamBuf,
+      ),
+    );
+    _emit();
+  }
+
+  void _endStream() {
+    if (_aborted) return;
+    _writeLive(
+      deskEndStream(_liveAssistant(), DateTime.now().millisecondsSinceEpoch),
+    );
+    _emit();
+  }
+
+  void _noteReasoning(LlmToolResponse resp) {
+    final next = deskMergeReasoning(_liveAssistant(), resp);
+    if (next == null) return;
+    _writeLive(next);
+    _emit();
   }
 
   void _say(String text) {
-    session.transcript.add(
-      DeskMessage(isUser: false, text: text, chips: List.of(_chips)),
+    final i = _stepAt;
+    if (i != null &&
+        i >= 0 &&
+        i < session.transcript.length &&
+        !session.transcript[i].isUser) {
+      final last = session.transcript[i];
+      _writeLive(
+        DeskMessage(
+          isUser: false,
+          text: text,
+          chips: last.chips,
+          reasoning: last.reasoning,
+          thinkingStartMs: last.thinkingStartMs,
+          thinkingMs: last.thinkingMs,
+        ),
+      );
+    } else {
+      session.transcript.add(DeskMessage(isUser: false, text: text));
+      _stepAt = session.transcript.length - 1;
+    }
+    _emit();
+  }
+
+  String _system() => buildDeskCoworkerPrompt(session.coworker);
+
+  void _setBudget(String system, String prompt) {
+    final snap = deskMeasurePrompt(
+      systemPrompt: system,
+      prompt: prompt,
+      budget: session.contextBudget,
     );
-    _chips.clear();
+    session.tokensUsed = snap.used;
   }
 
   String _prompt() {
-    final buf = StringBuffer()
-      ..writeln('Project folder: ${p.basename(session.folderRoot)}')
-      ..writeln(
-        'Use tools to do the work. Paths are relative to this folder. '
-        'When finished, reply in character with no more tool calls.',
-      )
-      ..writeln();
-    if (todos.items.isNotEmpty) {
-      buf
-        ..writeln('Todos:')
-        ..writeln(todos.read())
-        ..writeln();
-    }
-    if (_mentionBlock.isNotEmpty) {
-      buf
-        ..writeln(_mentionBlock)
-        ..writeln();
-    }
-    for (final m in session.transcript) {
-      if (m.isUser) {
-        buf.writeln('User: ${m.text}');
-      } else {
-        buf.writeln('${session.coworker.name}: ${m.text}');
-      }
-    }
-    if (_trace.isNotEmpty) {
-      buf
-        ..writeln()
-        ..writeln('Tool results for this turn:')
-        ..writeln(_trace);
-    }
-    return buf.toString();
+    return deskLoopUserPrompt(
+      folderName: session.folderRoot,
+      coworkerName: session.coworker.name,
+      transcript: session.transcript,
+      todos: todos.items.isEmpty ? '' : todos.read(),
+      mentionBlock: _mentionBlock,
+      toolTrace: _trace,
+      skillBlock: skills.catalogPrompt,
+      mcpBlock: mcpOptIn ? deskMcpToolsLine(deskKeepMcpTools(mcpTools)) : '',
+      preserveThinking: session.preserveThinking,
+    );
   }
 
   void _emit() => onChanged?.call();

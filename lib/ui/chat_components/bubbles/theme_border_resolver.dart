@@ -73,4 +73,27 @@ class ThemeBorderResolver {
       borderRadius: borderRadius,
     );
   }
+
+  /// Waifu Coder / tests with no [StorageService] in the tree.
+  static ResolvedThemeData fallback({
+    required Color textColor,
+    required Color borderColor,
+    required bool isUser,
+    required bool isDirectorNote,
+  }) {
+    return ResolvedThemeData(
+      textColor: textColor,
+      borderColor: borderColor,
+      borderRadius: BorderRadius.only(
+        topLeft: const Radius.circular(12),
+        topRight: const Radius.circular(12),
+        bottomLeft: isUser && !isDirectorNote
+            ? const Radius.circular(12)
+            : Radius.zero,
+        bottomRight: isUser && !isDirectorNote
+            ? Radius.zero
+            : const Radius.circular(12),
+      ),
+    );
+  }
 }

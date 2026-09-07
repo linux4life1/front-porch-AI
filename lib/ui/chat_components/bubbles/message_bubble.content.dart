@@ -35,18 +35,16 @@ extension _BubbleContent on _MessageBubbleState {
       // Collapsible Thought chip
       if (!message.isUser && message.hasThinking)
         GestureDetector(
-          onTap: () => rebuildState(
-            () => _thoughtExpanded = !_thoughtExpanded,
-          ),
+          key: const Key('thought-toggle'),
+          behavior: HitTestBehavior.opaque,
+          onTap: _toggleThought,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _thoughtExpanded
-                      ? Icons.expand_more
-                      : Icons.chevron_right,
+                  _thoughtOpen ? Icons.expand_more : Icons.chevron_right,
                   size: 20,
                   color: AppColors.textSecondary(context),
                 ),
@@ -83,9 +81,7 @@ extension _BubbleContent on _MessageBubbleState {
           ),
         ),
       // Expanded thinking details
-      if (!message.isUser &&
-          message.hasThinking &&
-          _thoughtExpanded)
+      if (!message.isUser && message.hasThinking && _thoughtOpen)
         Container(
           margin: const EdgeInsets.only(bottom: 8, left: 20),
           padding: const EdgeInsets.all(10),
@@ -96,9 +92,7 @@ extension _BubbleContent on _MessageBubbleState {
               const Color(0xFFE0F2FE),
             ),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: AppColors.borderOf(context),
-            ),
+            border: Border.all(color: AppColors.borderOf(context)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,15 +124,19 @@ extension _BubbleContent on _MessageBubbleState {
       if (!message.isUser &&
           message.thinkingStartTime != null &&
           message.thinkingDurationMs == 0)
-        LiveThinkingTimer(startMs: message.thinkingStartTime!),
+        LiveThinkingTimer(
+          startMs: message.thinkingStartTime!,
+          generating: widget.isGenerating,
+        ),
       // Thought-only reply: the whole message was reasoning,
       // so displayText is empty — say so instead of rendering
       // a bare empty bubble (web has the same hint).
-      if (!message.isUser &&
+      if (widget.chatService != null &&
+          !message.isUser &&
           message.sender != 'System' &&
           message.displayText.isEmpty &&
           (message.thinkingContent?.isNotEmpty ?? false) &&
-          !(widget.chatService?.isGenerating ?? false))
+          !widget.chatService!.isGenerating)
         Text(
           '💭 Only thoughts this turn — Continue or '
           'Regenerate for a spoken reply.',
@@ -148,16 +146,18 @@ extension _BubbleContent on _MessageBubbleState {
             color: AppColors.textTertiary(context),
           ),
         )
+      else if (!hasStorage)
+        Text(
+          message.displayText,
+          style: TextStyle(color: AppColors.textPrimary(context)),
+        )
       else
         StyledChatMessage(
           text: message.displayText,
           isUser: message.isUser,
           externalImagesAllowed: widget.externalImagesAllowed,
-          onRequestImagePermission:
-              widget.onRequestImagePermission,
-          character:
-              widget.character ??
-              widget.chatService?.activeCharacter,
+          onRequestImagePermission: widget.onRequestImagePermission,
+          character: widget.character ?? widget.chatService?.activeCharacter,
           themePreset: theme.preset,
           themeOverrides: theme.overrides,
         ),
@@ -166,9 +166,7 @@ extension _BubbleContent on _MessageBubbleState {
       if (message.activeMetadata?['image_path'] is String)
         InlineChatImage(
           path: message.activeMetadata!['image_path'] as String,
-          prompt:
-              message.activeMetadata!['image_prompt']
-                  as String?,
+          prompt: message.activeMetadata!['image_prompt'] as String?,
         ),
       if (message.activeMetadata != null)
         _buildRealismIndicator(message.activeMetadata!),

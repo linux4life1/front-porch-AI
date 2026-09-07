@@ -28,17 +28,23 @@ class WebMcpRoutes {
   WebMcpRoutes(WebServerDeps deps, Router router)
     : _mcp = McpFacade(deps.storage, deps.settingsFacade?.boundChat) {
     router.get('/api/mcp/servers', _get);
+    router.get('/api/mcp/servers/find-local', _findLocal);
     router.post('/api/mcp/servers', _add);
     router.post('/api/mcp/servers/default', _default);
+    router.post('/api/mcp/servers/check-draft', _checkDraft);
     router.post('/api/mcp/servers/<id>', _update);
     router.post('/api/mcp/servers/<id>/delete', _delete);
     router.post('/api/mcp/servers/<id>/refresh', _refresh);
+    router.post('/api/mcp/servers/<id>/check', _check);
   }
 
   final McpFacade _mcp;
 
   shelf.Response _get(shelf.Request request) =>
       JsonResponse.ok(_mcp.settingsState());
+
+  Future<shelf.Response> _findLocal(shelf.Request request) async =>
+      JsonResponse.ok(await _mcp.findLocal());
 
   Future<shelf.Response> _add(shelf.Request request) async {
     final body = await _json(request);
@@ -68,6 +74,15 @@ class WebMcpRoutes {
 
   Future<shelf.Response> _refresh(shelf.Request request, String id) async =>
       JsonResponse.ok(await _mcp.refreshServer(id));
+
+  Future<shelf.Response> _check(shelf.Request request, String id) async =>
+      JsonResponse.ok(await _mcp.checkServer(id));
+
+  Future<shelf.Response> _checkDraft(shelf.Request request) async {
+    final body = await _json(request);
+    if (body == null) return JsonResponse.badRequest('Invalid JSON body');
+    return JsonResponse.ok(await _mcp.checkDraft(body));
+  }
 
   Future<Map<String, dynamic>?> _json(shelf.Request request) async {
     try {

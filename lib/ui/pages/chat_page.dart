@@ -624,67 +624,27 @@ class _ChatPageState extends State<ChatPage> {
                                       ),
                                     ),
                                   ],
-                                  ListView.builder(
+                                  ChatMessageList(
+                                    messages: messages,
                                     controller: _scrollController,
-                                    reverse: true,
-                                    padding: const EdgeInsets.all(20),
-                                    // +1 while an /image run is live: reverse
-                                    // index 0 (visual bottom) shows the
-                                    // "image coming to life" bubble with live
-                                    // preview + progress.
-                                    itemCount:
-                                        messages.length +
-                                        (chatService.isGeneratingChatImage
-                                            ? 1
-                                            : 0),
-                                    itemBuilder: (context, index) {
-                                      if (chatService.isGeneratingChatImage) {
-                                        if (index == 0) {
-                                          return const GeneratingImageBubble();
-                                        }
-                                        index -= 1;
-                                      }
-                                      // Reverse index so newest messages are at the top of the reversed list (visual bottom)
-                                      final reversedIndex =
-                                          messages.length - 1 - index;
-                                      final msg = messages[reversedIndex];
-                                      // Resolve the speaker's avatar + name color
-                                      // from the unified cast (host, group member,
-                                      // or Scene Guest) — one path for all modes.
-                                      final (senderImage, senderColor) =
-                                          _resolveSpeaker(chatService, msg);
-                                      final bubble = MessageBubble(
-                                        message: msg,
-                                        characterImage: senderImage,
-                                        index: reversedIndex,
-                                        senderColor: senderColor,
-                                        externalImagesAllowed:
-                                            _externalImagesAllowed,
-                                        onRequestImagePermission:
-                                            _requestExternalImagePermission,
-                                        character: isGroup && !msg.isUser
-                                            ? resolveGroupSpeakerForMessage(
-                                                chatService.groupCharacters,
-                                                msg,
-                                              )
-                                            : character,
-                                        chatService: chatService,
-                                      );
-                                      // Page-scoped GlobalKey (see
-                                      // _bubbleKeys): same identity for list
-                                      // diffing, locatable for jumpToMessage
-                                      // — but owned by this page instance,
-                                      // so a second live chat route can
-                                      // never claim the same key.
-                                      return JumpFlash(
-                                        key: _bubbleKeyFor(msg),
-                                        flashed: identical(
-                                          msg,
-                                          _jumpFlashMessage,
-                                        ),
-                                        child: bubble,
-                                      );
-                                    },
+                                    resolveSpeaker: (msg) =>
+                                        _resolveSpeaker(chatService, msg),
+                                    characterFor: (msg) =>
+                                        isGroup && !msg.isUser
+                                        ? resolveGroupSpeakerForMessage(
+                                            chatService.groupCharacters,
+                                            msg,
+                                          )
+                                        : character,
+                                    chatService: chatService,
+                                    bubbleKeyOf: _bubbleKeyFor,
+                                    jumpFlash: _jumpFlashMessage,
+                                    generatingImage:
+                                        chatService.isGeneratingChatImage,
+                                    externalImagesAllowed:
+                                        _externalImagesAllowed,
+                                    onRequestImagePermission:
+                                        _requestExternalImagePermission,
                                   ),
                                 ],
                               );

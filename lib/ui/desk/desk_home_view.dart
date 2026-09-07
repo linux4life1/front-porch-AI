@@ -21,12 +21,16 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/desk/desk.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/desk/desk_home_atmosphere.dart';
+import 'package:front_porch_ai/ui/desk/desk_new_porch_card.dart';
+import 'package:front_porch_ai/ui/desk/desk_new_session_dialog.dart';
 import 'package:front_porch_ai/ui/desk/desk_page.dart';
+import 'package:front_porch_ai/ui/desk/desk_project_card.dart';
 import 'package:front_porch_ai/ui/desk/desk_wizard_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Third home pane — sibling of Chats and Porch Stories. Sit down opens
-/// the Project → Coworker → Sit down wizard. Separate pipeline from chat.
+/// Third home pane. Touched folders become porch cards. New opens the
+/// folder → character wizard.
 class DeskHomeView extends StatefulWidget {
   const DeskHomeView({
     super.key,
@@ -34,30 +38,43 @@ class DeskHomeView extends StatefulWidget {
     this.lastSession,
     this.onResume,
     this.store,
+    this.projects,
   });
 
-  /// Test seam. Production navigates to [DeskWizardPage].
   final VoidCallback? onSitDown;
   final DeskSession? lastSession;
   final VoidCallback? onResume;
-
-  /// Test seam. Production reads [StorageService.rootPath]/desk.
   final DeskStore? store;
+  final List<DeskProject>? projects;
 
   @override
   State<DeskHomeView> createState() => _DeskHomeViewState();
 }
 
 class _DeskHomeViewState extends State<DeskHomeView> {
-  DeskSession? _stored;
+  List<DeskProject> _stored = const [];
   var _routeCurrent = false;
 
-  DeskSession? get _last => widget.lastSession ?? _stored;
+  List<DeskProject> get _projects {
+    if (widget.projects != null) return widget.projects!;
+    if (widget.lastSession != null) {
+      final s = widget.lastSession!;
+      return [
+        DeskProject(
+          folderRoot: s.folderRoot,
+          title: s.title,
+          coworker: s.coworker,
+          touchedMs: 1,
+        ),
+      ];
+    }
+    return _stored;
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (widget.lastSession != null) return;
+    if (widget.lastSession != null || widget.projects != null) return;
     final current = ModalRoute.of(context)?.isCurrent ?? true;
     if (current && !_routeCurrent) _load();
     _routeCurrent = current;
@@ -66,9 +83,9 @@ class _DeskHomeViewState extends State<DeskHomeView> {
   Future<void> _load() async {
     final store = _storeOf();
     if (store == null) return;
-    final last = await store.loadLast();
+    final list = await store.listProjects();
     if (!mounted) return;
-    setState(() => _stored = last);
+    setState(() => _stored = list);
   }
 
   DeskStore? _storeOf() {
@@ -83,7 +100,11 @@ class _DeskHomeViewState extends State<DeskHomeView> {
     }
   }
 
-  void _openWizard() {
+  void _startNew({String? folder, bool skipProject = false}) {
+    if (widget.onSitDown != null && folder == null) {
+      widget.onSitDown!();
+      return;
+    }
     var local = false;
     var label = '';
     try {
@@ -93,81 +114,163 @@ class _DeskHomeViewState extends State<DeskHomeView> {
     } catch (_) {}
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            DeskWizardPage(isLocalBackend: local, backendLabel: label),
+        builder: (_) => DeskWizardPage(
+          isLocalBackend: local,
+          backendLabel: label,
+          initialFolder: folder,
+          skipProject: skipProject,
+        ),
       ),
     );
   }
 
-  void _resume() {
-    final last = _last;
-    if (last == null) return;
+  Future<void> _resume(DeskProject project) async {
     if (widget.onResume != null) {
       widget.onResume!();
       return;
     }
-    Navigator.of(
+    final store = _storeOf();
+    final session =
+        await store?.loadSession(project.folderRoot) ??
+        DeskSession(
+          folderRoot: project.folderRoot,
+          coworker: project.coworker,
+          title: project.title,
+        );
+    if (!mounted) return;
+    await Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => DeskPage(session: last)));
+    ).push(MaterialPageRoute<void>(builder: (_) => DeskPage(session: session)));
+    _load();
+  }
+
+  Future<void> _newInFolder(DeskProject project) async {
+    final choice = await showDialog<DeskNewSessionChoice>(
+      context: context,
+      builder: (_) => DeskNewSessionDialog(project: project),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == DeskNewSessionChoice.sameCharacter) {
+      final session = DeskSession(
+        folderRoot: project.folderRoot,
+        coworker: project.coworker,
+      );
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => DeskPage(session: session)),
+      );
+      _load();
+      return;
+    }
+    _startNew(folder: project.folderRoot, skipProject: true);
   }
 
   @override
   Widget build(BuildContext context) {
-    final last = _last;
     final amber = AppColors.porchAmberOf(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.desk, size: 72, color: amber.withValues(alpha: 0.4)),
-            const SizedBox(height: 24),
-            Text(
-              'Desk',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppColors.textPrimary(context),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Pick a throwaway folder and a coworker. She codes in character.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.textSecondary(context),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              key: const Key('desk-sit-down'),
-              onPressed: widget.onSitDown ?? _openWizard,
-              icon: const Icon(Icons.chair_alt, size: 20),
-              label: const Text('Sit down'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: amber,
-                foregroundColor: AppColors.onChaosAccent,
-              ),
-            ),
-            if (last != null) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                key: const Key('desk-resume'),
-                onPressed: _resume,
-                icon: const Icon(Icons.replay, size: 20),
-                label: Text(
-                  last.title.isEmpty
-                      ? 'Resume ${last.coworker.name}'
-                      : 'Resume ${last.title}',
+    final honey = AppColors.porchHoneyOf(context);
+    final terra = AppColors.porchTerracottaOf(context);
+    final projects = _projects;
+    return DeskHomeAtmosphere(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 22, 28, 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [amber, honey, terra],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: amber.withValues(alpha: 0.55),
+                        blurRadius: 16,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome,
+                    color: AppColors.onChaosAccent,
+                    size: 28,
+                  ),
                 ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: amber,
-                  side: BorderSide(color: amber),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShaderMask(
+                        blendMode: BlendMode.srcIn,
+                        shaderCallback: (bounds) => LinearGradient(
+                          colors: [amber, honey, terra],
+                        ).createShader(bounds),
+                        child: Text(
+                          kWaifuCoderName,
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: AppColors.onChaosAccent,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.6,
+                              ),
+                        ),
+                      ),
+                      Text(
+                        projects.isEmpty
+                            ? 'Pick a throwaway folder. She codes in character.'
+                            : 'Your porches. Tap to sit back down.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ],
-        ),
+              ],
+            ),
+          ),
+          Expanded(child: _grid(projects)),
+        ],
       ),
+    );
+  }
+
+  Widget _grid(List<DeskProject> projects) {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 240,
+        childAspectRatio: 0.70,
+        crossAxisSpacing: 18,
+        mainAxisSpacing: 18,
+      ),
+      itemCount: projects.length + 1,
+      itemBuilder: (context, i) {
+        if (i == 0) {
+          return DeskNewPorchCard(index: 0, onTap: () => _startNew());
+        }
+        final project = projects[i - 1];
+        return DeskProjectCard(
+          project: project,
+          index: i,
+          isNewest: i == 1,
+          onResume: () => _resume(project),
+          onNewSession: () => _newInFolder(project),
+          onForget: widget.store == null && widget.lastSession != null
+              ? null
+              : () async {
+                  await _storeOf()?.forgetProject(project.folderRoot);
+                  _load();
+                },
+        );
+      },
     );
   }
 }

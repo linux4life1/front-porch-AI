@@ -103,11 +103,15 @@ extension _ChatPageInput on _ChatPageState {
   /// workaround, but never prevents sending (capability detection can't
   /// interrogate externally-started servers).
   Future<void> _attachImage() async {
-    // Capture providers before the async gaps (native picker + isolate decode).
-    final llmProvider = Provider.of<LLMProvider>(context, listen: false);
-    final storage = Provider.of<StorageService>(context, listen: false);
     final bytes = await pickChatImageAttachment();
     if (bytes == null || !mounted) return;
+    await _acceptImageBytes(bytes);
+  }
+
+  /// Picker and desktop-drop both land here so vision-check + chip stay one path.
+  Future<void> _acceptImageBytes(Uint8List bytes) async {
+    final llmProvider = Provider.of<LLMProvider>(context, listen: false);
+    final storage = Provider.of<StorageService>(context, listen: false);
     rebuildState(() {
       _pendingImageBytes = bytes;
       _pendingImageVisionOk = null;
@@ -118,7 +122,6 @@ extension _ChatPageInput on _ChatPageState {
       backend: llmProvider.activeBackend,
       storage: storage,
     );
-    // The user may have removed (or sent) the attachment while resolving.
     if (!mounted || _pendingImageBytes == null) return;
     rebuildState(() {
       _pendingImageVisionOk = support.supported;

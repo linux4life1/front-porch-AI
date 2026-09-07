@@ -16,21 +16,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/desk/desk_brand.dart';
+
 /// Sit-down honesty gate — safety copy, not onboarding.
 ///
 /// Spec: docs/superpowers/specs/2026-09-05-waifu-coding-design.md §3.
 const kDeskHonestyBody =
-    'Desk is **not** a replacement for Claude Code, Grok Build, OpenCode, or '
-    'Cursor. It will not be as reliable. **Never use it on a critical '
-    'codebase** — not this app, not work, not anything you cannot afford to '
-    'lose.\n'
+    '$kWaifuCoderName is **not** a replacement for Claude Code, Grok Build, '
+    'OpenCode, or Cursor. It will not be as reliable. **Never use it on a '
+    'critical codebase** — not this app, not work, not anything you cannot '
+    'afford to lose.\n'
     'This is a **fun** tool. It will *attempt* a task while staying in your '
     'character’s personality. She may sass you and still try. She may also '
     'skip a tool, half-edit a file, or be wrong. You picked the folder. You '
     'are responsible for it.';
 
 const kDeskHonestyCheckbox =
-    'I understand. I will not use Desk on code I cannot afford to lose.';
+    'I understand. I will not use $kWaifuCoderName on code I cannot afford '
+    'to lose.';
 
 const kDeskLocalModelWarning =
     'Small local models often skip tools or wreck edits. A remote coding '
@@ -41,5 +44,5 @@ const kDeskYoloWarning =
     'still holds. Still not for critical repos.';
 
 const kDeskToolsUnsupported =
-    'This model cannot do Desk. Tool calling is unsupported. Sit down is '
-    'blocked — pick a tool-fluent backend in Settings.';
+    'This model cannot do $kWaifuCoderName. Tool calling is unsupported. '
+    'Sit down is blocked — pick a tool-fluent backend in Settings.';

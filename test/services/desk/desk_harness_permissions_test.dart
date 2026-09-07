@@ -143,7 +143,7 @@ void main() {
     ]);
     final harness = DeskHarness(session: session(DeskMode.yolo), llm: llm);
     await harness.send('reset the repo');
-    final chips = harness.session.transcript.last.chips;
+    final chips = harness.session.toolChips;
     expect(chips, isNotEmpty);
     expect(chips.single.ok, isFalse);
     expect(chips.single.detail.toLowerCase(), contains('denied'));
@@ -162,11 +162,8 @@ void main() {
     ]);
     final harness = DeskHarness(session: session(DeskMode.yolo), llm: llm);
     await harness.send('read env');
-    expect(
-      harness.session.transcript.last.chips.single.detail,
-      isNot(contains('SECRET')),
-    );
-    expect(harness.session.transcript.last.chips.single.ok, isFalse);
+    expect(harness.session.toolChips.single.detail, isNot(contains('SECRET')));
+    expect(harness.session.toolChips.single.ok, isFalse);
   });
 
   test('doom-loop: third identical Yolo write asks', () async {

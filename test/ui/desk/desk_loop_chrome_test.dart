@@ -81,6 +81,7 @@ void main() {
     expect(find.byKey(const Key('desk-work-strip')), findsOneWidget);
     expect(find.textContaining('hello.txt'), findsWidgets);
     expect(find.textContaining('Hmph. There'), findsOneWidget);
+    expect(find.text('bash bash'), findsNothing);
     expect(find.text('Continue'), findsNothing);
     expect(find.text('Regenerate'), findsNothing);
   });

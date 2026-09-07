@@ -16,18 +16,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
 
 class DeskLlmTurn {
   const DeskLlmTurn({
     required this.systemPrompt,
     required this.prompt,
     required this.tools,
+    this.images,
   });
 
   final String systemPrompt;
   final String prompt;
   final List<Map<String, dynamic>> tools;
+  final List<String>? images;
 }
 
 /// Thin generateWithTools door. Production wraps [LLMService]; tests inject
@@ -37,50 +41,84 @@ abstract class DeskLlm {
     required String systemPrompt,
     required String prompt,
     required List<Map<String, dynamic>> tools,
+    List<String>? images,
+    void Function(String chunk)? onChunk,
   });
 
   void abort() {}
 }
 
 class LlmServiceDeskLlm implements DeskLlm {
-  LlmServiceDeskLlm(this._llm);
+  LlmServiceDeskLlm(
+    this._serviceOf, {
+    this.settingsOf,
+    this.storage,
+    this.reasoningEnabled = false,
+    this.reasoningEffort = 'medium',
+  });
 
-  final LLMService _llm;
+  /// Fresh each call so Model Settings swapping backends takes effect.
+  final LLMService Function() _serviceOf;
+  final ChatGenerationSettings Function()? settingsOf;
+  final StorageService? storage;
+  final bool reasoningEnabled;
+  final String reasoningEffort;
 
   @override
   Future<LlmToolResponse?> generate({
     required String systemPrompt,
     required String prompt,
     required List<Map<String, dynamic>> tools,
+    List<String>? images,
+    void Function(String chunk)? onChunk,
   }) {
-    return _llm.generateWithTools(
+    final g = settingsOf?.call();
+    final s = storage;
+    return _serviceOf().generateWithTools(
       GenerationParams(
         prompt: prompt,
         systemPrompt: systemPrompt,
-        maxLength: 4096,
-        temperature: 0.4,
+        maxLength: g != null && s != null ? g.resolveMaxLength(s) : 4096,
+        temperature: g != null && s != null ? g.resolveTemperature(s) : 0.7,
+        minP: g != null && s != null ? g.resolveMinP(s) : 0.0,
+        topP: g != null && s != null ? g.resolveTopP(s) : 0.9,
+        topK: g != null && s != null ? g.resolveTopK(s) : 0,
+        reasoningEnabled: g != null && s != null
+            ? g.resolveReasoningEnabled(s)
+            : reasoningEnabled,
+        reasoningEffort: g != null && s != null
+            ? g.resolveReasoningEffort(s)
+            : reasoningEffort,
+        images: images,
+        onChunk: onChunk,
       ),
       tools,
     );
   }
 
   @override
-  void abort() => _llm.abortGeneration();
+  void abort() => _serviceOf().abortGeneration();
 }
 
 /// Deterministic LLM for harness tests and widget pumps.
 class ScriptedDeskLlm implements DeskLlm {
-  ScriptedDeskLlm(List<LlmToolResponse?> script, {this.beforeGenerate})
-    : _script = script,
-      _repeat = false,
-      _unsupported = false;
+  ScriptedDeskLlm(
+    List<LlmToolResponse?> script, {
+    this.beforeGenerate,
+    this.streamDuring,
+  }) : _script = script,
+       _repeat = false,
+       _unsupported = false;
 
-  ScriptedDeskLlm.repeat(LlmToolResponse response, {this.beforeGenerate})
-    : _script = [response],
-      _repeat = true,
-      _unsupported = false;
+  ScriptedDeskLlm.repeat(
+    LlmToolResponse response, {
+    this.beforeGenerate,
+    this.streamDuring,
+  }) : _script = [response],
+       _repeat = true,
+       _unsupported = false;
 
-  ScriptedDeskLlm.unsupported({this.beforeGenerate})
+  ScriptedDeskLlm.unsupported({this.beforeGenerate, this.streamDuring})
     : _script = const [],
       _repeat = false,
       _unsupported = true;
@@ -89,6 +127,8 @@ class ScriptedDeskLlm implements DeskLlm {
   final bool _repeat;
   final bool _unsupported;
   final Future<void> Function(int i)? beforeGenerate;
+  final Future<void> Function(int i, void Function(String chunk) onChunk)?
+  streamDuring;
 
   final calls = <DeskLlmTurn>[];
   int? waitingAt;
@@ -100,15 +140,23 @@ class ScriptedDeskLlm implements DeskLlm {
     required String systemPrompt,
     required String prompt,
     required List<Map<String, dynamic>> tools,
+    List<String>? images,
+    void Function(String chunk)? onChunk,
   }) async {
     waitingAt = _i;
     await beforeGenerate?.call(_i);
+    if (onChunk != null) await streamDuring?.call(_i, onChunk);
     waitingAt = null;
     if (aborted) {
       return const LlmToolResponse(calls: [], text: '');
     }
     calls.add(
-      DeskLlmTurn(systemPrompt: systemPrompt, prompt: prompt, tools: tools),
+      DeskLlmTurn(
+        systemPrompt: systemPrompt,
+        prompt: prompt,
+        tools: tools,
+        images: images,
+      ),
     );
     if (_unsupported) return null;
     if (_repeat) {

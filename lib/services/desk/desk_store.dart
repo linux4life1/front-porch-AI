@@ -25,10 +25,53 @@ import 'package:front_porch_ai/services/desk/desk_sit_down.dart';
 import 'package:path/path.dart' as p;
 
 const kDeskLastFile = 'last_desk.json';
+const kDeskProjectsFile = 'projects.json';
 const kDeskStoreFolder = 'desk';
 
 String deskStoreDirectory(String dataRoot) =>
     p.join(dataRoot, kDeskStoreFolder);
+
+String deskSessionSlug(String folderRoot) {
+  final n = p.normalize(folderRoot);
+  var h = 0;
+  for (final c in n.codeUnits) {
+    h = (h * 33 + c) & 0x7fffffff;
+  }
+  final base = p.basename(n).replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  return '${base}_$h';
+}
+
+class DeskProject {
+  const DeskProject({
+    required this.folderRoot,
+    required this.title,
+    required this.coworker,
+    required this.touchedMs,
+  });
+
+  final String folderRoot;
+  final String title;
+  final CharacterCard coworker;
+  final int touchedMs;
+
+  String get folderName => p.basename(folderRoot);
+}
+
+Map<String, dynamic> _coworkerMap(CharacterCard c) => {
+  'name': c.name,
+  'personality': c.personality,
+  'description': c.description,
+  'systemPrompt': c.systemPrompt,
+  if (c.imagePath != null) 'imagePath': c.imagePath,
+};
+
+CharacterCard _coworkerFrom(Map map) => CharacterCard(
+  name: map['name']?.toString() ?? 'Coworker',
+  personality: map['personality']?.toString() ?? '',
+  description: map['description']?.toString() ?? '',
+  systemPrompt: map['systemPrompt']?.toString() ?? '',
+  imagePath: map['imagePath']?.toString(),
+);
 
 /// JSON under a data dir — not the chat `messages` / `sessions` tables.
 class DeskStore {
@@ -36,32 +79,160 @@ class DeskStore {
 
   final String directory;
 
-  File get _file => File(p.join(directory, kDeskLastFile));
+  File get _lastFile => File(p.join(directory, kDeskLastFile));
+  File get _indexFile => File(p.join(directory, kDeskProjectsFile));
+  File _sessionFile(String folder) =>
+      File(p.join(directory, 'sessions', '${deskSessionSlug(folder)}.json'));
 
   Future<void> saveLast(DeskSession session) async {
     await Directory(directory).create(recursive: true);
-    final map = {
-      'title': session.title,
-      'folderRoot': session.folderRoot,
-      'mode': session.mode.name,
-      'coworker': {
-        'name': session.coworker.name,
-        'personality': session.coworker.personality,
-        'description': session.coworker.description,
-        'systemPrompt': session.coworker.systemPrompt,
-      },
-      'transcript': [
-        for (final m in session.transcript)
-          {'isUser': m.isUser, 'text': m.text},
-      ],
-    };
-    await _file.writeAsString(const JsonEncoder.withIndent('  ').convert(map));
+    final map = _sessionMap(session);
+    await _lastFile.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(map),
+    );
+    await Directory(p.join(directory, 'sessions')).create(recursive: true);
+    await _sessionFile(
+      session.folderRoot,
+    ).writeAsString(const JsonEncoder.withIndent('  ').convert(map));
+    await _upsertIndex(session);
   }
 
   Future<DeskSession?> loadLast() async {
-    if (!await _file.exists()) return null;
+    final projects = await listProjects();
+    if (projects.isNotEmpty) {
+      return loadSession(projects.first.folderRoot);
+    }
+    return _readSessionFile(_lastFile);
+  }
+
+  Future<List<DeskProject>> listProjects() async {
+    await _migrateLastIntoIndex();
+    return _readIndex();
+  }
+
+  Future<DeskSession?> loadSession(String folderRoot) async {
+    final own = await _readSessionFile(_sessionFile(folderRoot));
+    if (own != null) return own;
+    final last = await _readSessionFile(_lastFile);
+    if (last != null && last.folderRoot == folderRoot) return last;
+    return null;
+  }
+
+  Future<void> forgetProject(String folderRoot) async {
+    final file = _sessionFile(folderRoot);
+    if (await file.exists()) await file.delete();
+    final projects = await listProjects();
+    final next = [
+      for (final p in projects)
+        if (p.folderRoot != folderRoot) p,
+    ];
+    await _writeIndex(next);
+  }
+
+  Map<String, dynamic> _sessionMap(DeskSession session) => {
+    'title': session.title,
+    'folderRoot': session.folderRoot,
+    'mode': session.mode.name,
+    'mcpOptIn': session.mcpOptIn,
+    'preserveThinking': session.preserveThinking,
+    'coworker': _coworkerMap(session.coworker),
+    'transcript': [
+      for (final m in session.transcript)
+        {
+          'isUser': m.isUser,
+          'text': m.text,
+          if (m.reasoning.isNotEmpty) 'reasoning': m.reasoning,
+          if (m.imagePath != null) 'imagePath': m.imagePath,
+        },
+    ],
+  };
+
+  Future<void> _upsertIndex(DeskSession session) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final projects = await _readIndex();
+    final next = <DeskProject>[
+      DeskProject(
+        folderRoot: session.folderRoot,
+        title: session.title,
+        coworker: session.coworker,
+        touchedMs: now,
+      ),
+      for (final p in projects)
+        if (p.folderRoot != session.folderRoot) p,
+    ];
+    await _writeIndex(next);
+  }
+
+  Future<void> _writeIndex(List<DeskProject> projects) async {
+    await Directory(directory).create(recursive: true);
+    final list = [
+      for (final p in projects)
+        {
+          'folderRoot': p.folderRoot,
+          'title': p.title,
+          'touchedMs': p.touchedMs,
+          'coworker': _coworkerMap(p.coworker),
+        },
+    ];
+    await _indexFile.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(list),
+    );
+  }
+
+  Future<List<DeskProject>> _readIndex() async {
+    if (!await _indexFile.exists()) return const [];
     try {
-      final map = jsonDecode(await _file.readAsString());
+      final decoded = jsonDecode(await _indexFile.readAsString());
+      if (decoded is! List) return const [];
+      final out = <DeskProject>[];
+      for (final e in decoded) {
+        if (e is! Map) continue;
+        final folder = e['folderRoot']?.toString() ?? '';
+        if (folder.isEmpty) continue;
+        final coworker = e['coworker'];
+        out.add(
+          DeskProject(
+            folderRoot: folder,
+            title: e['title']?.toString() ?? '',
+            coworker: coworker is Map
+                ? _coworkerFrom(coworker)
+                : CharacterCard(name: 'Coworker'),
+            touchedMs: (e['touchedMs'] as num?)?.toInt() ?? 0,
+          ),
+        );
+      }
+      out.sort((a, b) => b.touchedMs.compareTo(a.touchedMs));
+      return out;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _migrateLastIntoIndex() async {
+    if (await _indexFile.exists()) return;
+    final last = await _readSessionFile(_lastFile);
+    if (last == null) return;
+    await _writeIndex([
+      DeskProject(
+        folderRoot: last.folderRoot,
+        title: last.title,
+        coworker: last.coworker,
+        touchedMs: DateTime.now().millisecondsSinceEpoch,
+      ),
+    ]);
+    await Directory(p.join(directory, 'sessions')).create(recursive: true);
+    final sessionFile = _sessionFile(last.folderRoot);
+    if (!await sessionFile.exists()) {
+      await sessionFile.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(_sessionMap(last)),
+      );
+    }
+  }
+
+  Future<DeskSession?> _readSessionFile(File file) async {
+    if (!await file.exists()) return null;
+    try {
+      final map = jsonDecode(await file.readAsString());
       if (map is! Map) return null;
       final coworker = map['coworker'];
       if (coworker is! Map) return null;
@@ -81,21 +252,20 @@ class DeskStore {
             DeskMessage(
               isUser: e['isUser'] == true,
               text: e['text']?.toString() ?? '',
+              reasoning: e['reasoning']?.toString() ?? '',
+              imagePath: e['imagePath']?.toString(),
             ),
           );
         }
       }
       return DeskSession(
         folderRoot: folder,
-        coworker: CharacterCard(
-          name: coworker['name']?.toString() ?? 'Coworker',
-          personality: coworker['personality']?.toString() ?? '',
-          description: coworker['description']?.toString() ?? '',
-          systemPrompt: coworker['systemPrompt']?.toString() ?? '',
-        ),
+        coworker: _coworkerFrom(coworker),
         mode: mode,
         title: map['title']?.toString() ?? '',
         transcript: transcript,
+        mcpOptIn: map['mcpOptIn'] == true,
+        preserveThinking: map['preserveThinking'] == true,
       );
     } catch (_) {
       return null;

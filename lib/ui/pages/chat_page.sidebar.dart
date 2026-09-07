@@ -59,48 +59,10 @@ extension _ChatPageSidebar on _ChatPageState {
 
   /// Wraps a sidebar widget with a draggable resize handle on its left edge.
   Widget _buildResizableSidebar({required Widget child}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Drag handle
-        MouseRegion(
-          cursor: SystemMouseCursors.resizeColumn,
-          child: GestureDetector(
-            onHorizontalDragUpdate: (details) {
-              rebuildState(() {
-                double newWidth = _sidebarWidth - details.delta.dx;
-                if (newWidth < SidebarTokens.minWidth) {
-                  _sidebarWidth = 0; // Snap to closed
-                } else {
-                  _sidebarWidth = newWidth.clamp(
-                    SidebarTokens.minWidth,
-                    SidebarTokens.maxWidth,
-                  );
-                }
-              });
-            },
-            child: Container(
-              width: 6,
-              color: Colors.transparent,
-              child: Center(
-                child: Container(
-                  width: 3,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.white24,
-                      Colors.black12,
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (_sidebarWidth > 0) SizedBox(width: _sidebarWidth, child: child),
-      ],
+    return ChatResizeSidebar(
+      width: _sidebarWidth,
+      onWidth: (w) => rebuildState(() => _sidebarWidth = w),
+      child: child,
     );
   }
 

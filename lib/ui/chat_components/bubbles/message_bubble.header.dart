@@ -29,7 +29,7 @@ extension _BubbleHeader on _MessageBubbleState {
   Widget _headerActionsRow(
     BuildContext context,
     ResolvedThemeData theme,
-    StorageService storage,
+    StorageService? storage,
     bool isDirectorNote,
   ) {
     return Row(
@@ -71,10 +71,7 @@ extension _BubbleHeader on _MessageBubbleState {
         ] else if (!message.isUser) ...[
           Builder(
             builder: (context) {
-              final chatService = Provider.of<ChatService>(
-                context,
-                listen: false,
-              );
+              final chatService = widget.chatService;
               final nameWidget = Text(
                 message.sender,
                 style: TextStyle(
@@ -83,10 +80,11 @@ extension _BubbleHeader on _MessageBubbleState {
                   color:
                       widget.senderColor ??
                       theme.accent ??
-                      storage.getDialogueColor(character),
+                      storage?.getDialogueColor(character) ??
+                      AppColors.textPrimary(context),
                 ),
               );
-              if (chatService.isGroupMode) {
+              if (chatService != null && chatService.isGroupMode) {
                 return GestureDetector(
                   onTap: () {
                     final ch = resolveGroupSpeakerForMessage(
@@ -118,7 +116,10 @@ extension _BubbleHeader on _MessageBubbleState {
           const Spacer(),
         ],
         // TTS speaker button
-        if (!message.isUser && message.sender != 'System' && !isDirectorNote)
+        if (widget.chatService != null &&
+            !message.isUser &&
+            message.sender != 'System' &&
+            !isDirectorNote)
           Consumer2<TtsService, StorageService>(
             builder: (context, tts, storage, _) {
               if (!storage.ttsEnabled) {
@@ -221,7 +222,7 @@ extension _BubbleHeader on _MessageBubbleState {
               );
             },
           ),
-        if (message.sender != 'System')
+        if (widget.chatService != null && message.sender != 'System')
           IconButton(
             icon: Icon(
               Icons.edit_outlined,
@@ -233,8 +234,9 @@ extension _BubbleHeader on _MessageBubbleState {
             tooltip: 'Edit message',
             onPressed: () => _showEditDialog(context, index),
           ),
-        if (message.sender != 'System') const SizedBox(width: 8),
-        if (message.sender != 'System')
+        if (widget.chatService != null && message.sender != 'System')
+          const SizedBox(width: 8),
+        if (widget.chatService != null && message.sender != 'System')
           IconButton(
             icon: Icon(
               Icons.call_split,
@@ -246,17 +248,19 @@ extension _BubbleHeader on _MessageBubbleState {
             tooltip: 'Fork from here',
             onPressed: () => _showForkConfirmation(context, index),
           ),
-        if (message.sender != 'System') const SizedBox(width: 8),
-        IconButton(
-          icon: Icon(
-            Icons.delete_outline,
-            size: 16,
-            color: theme.accent ?? AppColors.textTertiary(context),
+        if (widget.chatService != null && message.sender != 'System')
+          const SizedBox(width: 8),
+        if (widget.chatService != null)
+          IconButton(
+            icon: Icon(
+              Icons.delete_outline,
+              size: 16,
+              color: theme.accent ?? AppColors.textTertiary(context),
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => _showDeleteConfirmation(context, index),
           ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          onPressed: () => _showDeleteConfirmation(context, index),
-        ),
       ],
     );
   }

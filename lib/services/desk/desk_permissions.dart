@@ -44,6 +44,7 @@ bool deskToolMutates(String name) {
     case kDeskToolWrite:
     case kDeskToolBash:
     case kDeskToolTodoWrite:
+    case kDeskToolSkillInstall:
       return true;
     default:
       return false;
@@ -55,9 +56,10 @@ bool deskIsEnvPath(String path) {
   return base == '.env' || base.startsWith('.env.');
 }
 
-/// Hard-deny list. Yolo does not skip this. Bash (slice D) uses the same gate.
+/// Hard-deny list. Yolo does not skip this. Bash uses the same gate.
 String? deskDeniedCommand(String command) {
-  final lower = command.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  final raw = command.trim();
+  final lower = raw.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   if (lower.isEmpty) return null;
   if (RegExp(r'\bgit checkout\b').hasMatch(lower) && lower.contains(' --')) {
     return 'denied: git checkout -- would discard uncommitted work';
@@ -72,23 +74,56 @@ String? deskDeniedCommand(String command) {
       (lower.contains('--force') || RegExp(r'(^| )-f( |$)').hasMatch(lower))) {
     return 'denied: force-push is not allowed';
   }
-  if (_rmRoot(lower)) {
-    return 'denied: rm -rf / is not allowed';
+  final packed = raw.replaceAll(RegExp(r'\s+'), '');
+  if (packed.contains(':(){:|:&};:')) {
+    return 'denied: fork bomb is not allowed';
+  }
+  if (RegExp(r'\bmkfs(\.\w+)?\b').hasMatch(lower)) {
+    return 'denied: mkfs is not allowed';
+  }
+  if (RegExp(r'\bdd\b').hasMatch(lower) && lower.contains('of=/dev')) {
+    return 'denied: dd to a device is not allowed';
+  }
+  if (lower.contains('diskutil erase')) {
+    return 'denied: diskutil erase is not allowed';
+  }
+  if (RegExp(r'\bsudo\b').hasMatch(lower) &&
+      RegExp(r'\brm\b').hasMatch(lower)) {
+    return 'denied: sudo rm is not allowed';
+  }
+  if (_rmDangerous(lower)) {
+    return 'denied: recursive rm of /, home, ., or * is not allowed';
   }
   return null;
 }
 
-bool _rmRoot(String lower) {
+bool _rmDangerous(String lower) {
   if (!RegExp(r'\brm\b').hasMatch(lower)) return false;
   final recursive =
       lower.contains('--recursive') || RegExp(r'(^| )-[a-z]*r').hasMatch(lower);
   final force =
       lower.contains('--force') || RegExp(r'(^| )-[a-z]*f').hasMatch(lower);
   if (!recursive || !force) return false;
+  const bad = {
+    '/',
+    '/*',
+    '/.',
+    '//',
+    '.',
+    './',
+    '*',
+    './*',
+    '~',
+    '~/',
+    '~/*',
+    '\$home',
+    '\$home/',
+    '\$home/*',
+    '**',
+  };
   for (final token in lower.split(' ')) {
-    if (token == '/' || token == '/*' || token == '/.' || token == '//') {
-      return true;
-    }
+    if (token.startsWith('-') || token == 'rm') continue;
+    if (bad.contains(token)) return true;
   }
   return false;
 }

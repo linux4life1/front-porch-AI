@@ -26,7 +26,12 @@ import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 class ChatSettingsDialog extends StatefulWidget {
-  const ChatSettingsDialog({super.key});
+  const ChatSettingsDialog({super.key, this.settings, this.onSave});
+
+  /// Waifu Coder (no [ChatService]): edit this bag. Chat leaves both null
+  /// and reads/writes [ChatService.sessionGenSettings].
+  final ChatGenerationSettings? settings;
+  final ValueChanged<ChatGenerationSettings>? onSave;
 
   @override
   State<ChatSettingsDialog> createState() => _ChatSettingsDialogState();
@@ -41,9 +46,22 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_initialised) {
-      final chatService = Provider.of<ChatService>(context, listen: false);
       final storage = Provider.of<StorageService>(context, listen: false);
-      _gen = chatService.sessionGenSettings;
+      ChatGenerationSettings gen;
+      final injected = widget.settings;
+      if (injected != null) {
+        gen = injected;
+      } else {
+        try {
+          gen = Provider.of<ChatService>(
+            context,
+            listen: false,
+          ).sessionGenSettings;
+        } on ProviderNotFoundException {
+          gen = ChatGenerationSettings();
+        }
+      }
+      _gen = gen;
       _bannedPhrasesController = TextEditingController(
         text: _gen.resolveBannedPhrases(storage).join('\n'),
       );
@@ -57,10 +75,15 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
     super.dispose();
   }
 
-  /// Write the mutated [_gen] back to ChatService (which persists to DB).
+  /// Write the mutated [_gen] back to ChatService (which persists to DB),
+  /// or to [ChatSettingsDialog.onSave] when Waifu Coder owns the bag.
   void _save() {
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    chatService.sessionGenSettings = _gen;
+    final onSave = widget.onSave;
+    if (onSave != null) {
+      onSave(_gen);
+      return;
+    }
+    Provider.of<ChatService>(context, listen: false).sessionGenSettings = _gen;
   }
 
   @override
@@ -151,7 +174,10 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                         ),
                       ),
                     IconButton(
-                      icon: Icon(Icons.close, color: AppColors.iconSecondary(context)),
+                      icon: Icon(
+                        Icons.close,
+                        color: AppColors.iconSecondary(context),
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -235,8 +261,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                         setState(() => _gen.stopSequences = newList);
                         _save();
                       },
-                      backgroundColor:
-                          AppColors.surfaceContainerOf(context),
+                      backgroundColor: AppColors.surfaceContainerOf(context),
                     ),
 
                     // ── Banned Phrases (Anti-Slop) — local KoboldCpp only ──
@@ -272,7 +297,6 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                         phraseCount: _gen.resolveBannedPhrases(storage).length,
                         description: 'One phrase per line',
                       ),
-
                     ],
 
                     // ── Output Sanitizer ─────────────────────────────────
@@ -312,9 +336,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                         Switch(
                           value: _gen.resolveOutputSanitizerEnabled(storage),
                           onChanged: (val) {
-                            setState(
-                              () => _gen.outputSanitizerEnabled = val,
-                            );
+                            setState(() => _gen.outputSanitizerEnabled = val);
                             _save();
                           },
                           activeTrackColor: AppColors.formMasterAccent,
@@ -329,7 +351,11 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                           setState(() => _gen.outputSanitizerRules = newRules);
                           _save();
                         },
-                        backgroundColor: AppColors.resolve(context, AppColors.aiBubble, AppColors.aiBubbleLight),
+                        backgroundColor: AppColors.resolve(
+                          context,
+                          AppColors.aiBubble,
+                          AppColors.aiBubbleLight,
+                        ),
                       ),
                     ],
                   ],

@@ -289,14 +289,16 @@ class _SettingsPageState extends State<SettingsPage> {
     return Stack(
       children: [
         DefaultTabController(
-          length: 7,
+          length: 6,
           child: Scaffold(
-            backgroundColor: AppColors.backgroundOf(context)
-                .withValues(alpha: 0),
+            backgroundColor: AppColors.backgroundOf(
+              context,
+            ).withValues(alpha: 0),
             appBar: AppBar(
               title: Text('Settings', style: theme.textTheme.titleLarge),
-              backgroundColor: AppColors.backgroundOf(context)
-                  .withValues(alpha: 0),
+              backgroundColor: AppColors.backgroundOf(
+                context,
+              ).withValues(alpha: 0),
               elevation: 0,
               iconTheme: theme.iconTheme,
               bottom: TabBar(
@@ -311,7 +313,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 tabs: const [
                   Tab(text: 'General'),
                   Tab(text: 'Porch Life'),
-                  Tab(text: 'MCP'),
                   Tab(text: 'Generation'),
                   Tab(text: 'Voice & Media'),
                   Tab(text: 'Backend'),
@@ -323,7 +324,6 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 GeneralTab(systemPromptController: _systemPromptController),
                 const PorchLifeTab(),
-                const McpTab(),
                 GenerationTab(
                   bannedPhrasesController: _bannedPhrasesController,
                 ),

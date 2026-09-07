@@ -29,7 +29,8 @@ void main() {
       expect(kDeskHonestyBody, contains('critical codebase'));
       expect(
         kDeskHonestyCheckbox,
-        'I understand. I will not use Desk on code I cannot afford to lose.',
+        'I understand. I will not use Waifu Coder on code I cannot afford '
+        'to lose.',
       );
     },
   );

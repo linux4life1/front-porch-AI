@@ -20,7 +20,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-/// Result of resolving a model-supplied path against the project jail.
+/// Result of resolving a model-supplied path against the sit-down cwd.
 class DeskJailHit {
   const DeskJailHit.ok(this.path) : error = null;
   const DeskJailHit.denied(this.error) : path = null;
@@ -30,97 +30,120 @@ class DeskJailHit {
   bool get ok => error == null && path != null;
 }
 
-/// Folder jail. `..`, absolute paths outside [root], and `/etc` are tool
-/// errors returned to the model — never thrown at the UI.
+/// Path resolver, not a prison. Relative paths are against [root] (the
+/// sit-down folder, default cwd). Absolute paths, `..`, and `~` are allowed
+/// so she can walk the disk like Claude Code / OpenCode. `.env`,
+/// destructive git, and `rm -rf /` stay hard-denied in permissions.
 class DeskJail {
-  static const denied = 'jail: path is outside the project folder';
-  static const dots = 'jail: path must not contain ..';
-
-  /// Resolve [requested] under [root]. Sync: syntactic only (no symlink
-  /// follow). Callers that touch disk must also run [resolveLive].
   static DeskJailHit resolve(String root, String requested) {
     final trimmed = requested.trim();
     if (trimmed.isEmpty) {
-      return const DeskJailHit.denied('jail: path is empty');
+      return const DeskJailHit.denied('path is empty');
     }
-    final parts = p.split(trimmed);
-    if (parts.contains('..')) {
-      return const DeskJailHit.denied(dots);
-    }
+    final expanded = _expandHome(trimmed);
     final rootAbs = p.normalize(p.absolute(root));
-    final candidate = p.isAbsolute(trimmed)
-        ? p.normalize(trimmed)
-        : p.normalize(p.join(rootAbs, trimmed));
-    if (!_inside(rootAbs, candidate)) {
-      return const DeskJailHit.denied(denied);
-    }
+    final candidate = p.isAbsolute(expanded)
+        ? p.normalize(expanded)
+        : p.normalize(p.join(rootAbs, expanded));
     return DeskJailHit.ok(candidate);
   }
 
-  /// [resolve] plus a realpath check so a symlink inside the jail cannot
-  /// read `/etc` or a sibling folder. The root itself is canonicalized so
-  /// macOS `/var` → `/private/var` temp dirs are not false-denied.
+  /// [resolve] plus realpath so we read/write the file a symlink points at.
+  ///
+  /// Models often prefix the sit-down folder name (`Kabbage/pubspec.yaml`
+  /// while cwd is already `.../Kabbage`). If the doubled path misses and
+  /// the stripped path hits, use the stripped one.
   static Future<DeskJailHit> resolveLive(String root, String requested) async {
     final hit = resolve(root, requested);
     if (!hit.ok) return hit;
-    final rootReal = await canonicalRoot(root);
-    final abs = hit.path!;
-    final asFile = File(abs);
-    final asDir = Directory(abs);
-    final fileExists = await asFile.exists();
-    final dirExists = await asDir.exists();
-    if (!fileExists && !dirExists) {
-      final parent = p.dirname(abs);
-      final parentReal = await canonicalRoot(parent);
-      if (!_inside(rootReal, parentReal)) {
-        return const DeskJailHit.denied(denied);
-      }
-      return hit;
+    final existing = await _liveIfExists(hit.path!);
+    if (existing != null) return existing;
+
+    final stripped = deskStripRedundantProjectPrefix(root, requested);
+    if (stripped == requested.trim()) return hit;
+    final again = resolve(root, stripped);
+    if (!again.ok) return hit;
+    final live = await _liveIfExists(again.path!);
+    if (live != null) return live;
+    if (await _parentExists(again.path!) && !await _parentExists(hit.path!)) {
+      return again;
     }
-    try {
-      final real = fileExists
-          ? await asFile.resolveSymbolicLinks()
-          : await asDir.resolveSymbolicLinks();
-      if (!_inside(rootReal, real)) {
-        return const DeskJailHit.denied(denied);
-      }
-      return DeskJailHit.ok(real);
-    } catch (_) {
-      return hit;
-    }
+    return hit;
   }
 
   static Future<String> canonicalRoot(String root) async {
     var current = p.normalize(p.absolute(root));
-    final missing = <String>[];
-    while (true) {
-      try {
-        if (await Directory(current).exists()) {
-          var real = await Directory(current).resolveSymbolicLinks();
-          for (final part in missing.reversed) {
-            real = p.join(real, part);
-          }
-          return real;
-        }
-      } catch (_) {}
-      final parent = p.dirname(current);
-      if (parent == current) break;
-      missing.add(p.basename(current));
-      current = parent;
-    }
-    return p.normalize(p.absolute(root));
+    try {
+      if (await Directory(current).exists()) {
+        return await Directory(current).resolveSymbolicLinks();
+      }
+    } catch (_) {}
+    return current;
   }
 
-  static bool _inside(String rootAbs, String candidate) {
-    final rootNorm = p.normalize(rootAbs);
-    final candNorm = p.normalize(candidate);
-    if (candNorm == rootNorm) return true;
-    final prefix = rootNorm.endsWith(p.separator)
-        ? rootNorm
-        : '$rootNorm${p.separator}';
-    if (Platform.isWindows) {
-      return candNorm.toLowerCase().startsWith(prefix.toLowerCase());
+  static String _expandHome(String path) {
+    if (path == '~' || path.startsWith('~/') || path.startsWith(r'~\')) {
+      final home =
+          Platform.environment['HOME'] ??
+          Platform.environment['USERPROFILE'] ??
+          '';
+      if (home.isEmpty) return path;
+      if (path.length == 1) return home;
+      return p.join(home, path.substring(2));
     }
-    return candNorm.startsWith(prefix);
+    return path;
   }
+
+  static Future<DeskJailHit?> _liveIfExists(String abs) async {
+    try {
+      final asFile = File(abs);
+      if (await asFile.exists()) {
+        return DeskJailHit.ok(await asFile.resolveSymbolicLinks());
+      }
+      final asDir = Directory(abs);
+      if (await asDir.exists()) {
+        return DeskJailHit.ok(await asDir.resolveSymbolicLinks());
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<bool> _parentExists(String abs) async {
+    try {
+      return await Directory(p.dirname(abs)).exists();
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+/// Drop a redundant first segment that repeats the sit-down folder name.
+String deskStripRedundantProjectPrefix(String root, String requested) {
+  final trimmed = requested.trim();
+  if (trimmed.isEmpty) return trimmed;
+  if (p.isAbsolute(trimmed)) return trimmed;
+  if (trimmed == '~' || trimmed.startsWith('~/') || trimmed.startsWith(r'~\')) {
+    return trimmed;
+  }
+  final posix = trimmed.replaceAll('\\', '/');
+  if (posix == '.' || posix == '..' || posix.startsWith('../')) {
+    return trimmed;
+  }
+  final base = p.basename(p.normalize(p.absolute(root)));
+  if (base.isEmpty || base == '.' || base == '..') return trimmed;
+  final first = posix.split('/').first;
+  if (!_sameFolderName(first, base)) return trimmed;
+  if (posix.length == first.length) return '.';
+  if (posix.startsWith('$first/')) {
+    final rest = posix.substring(first.length + 1);
+    return rest.isEmpty ? '.' : rest;
+  }
+  return trimmed;
+}
+
+bool _sameFolderName(String a, String b) {
+  if (Platform.isWindows || Platform.isMacOS) {
+    return a.toLowerCase() == b.toLowerCase();
+  }
+  return a == b;
 }

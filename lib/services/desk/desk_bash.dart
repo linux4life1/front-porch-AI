@@ -26,7 +26,8 @@ import 'package:front_porch_ai/services/desk/desk_tools.dart';
 
 const kDeskBashTimeout = Duration(seconds: 60);
 
-/// Runs a command with cwd = project root. Hard-deny + no `cd` out.
+/// Runs a command. Default cwd is the sit-down folder. `cd` elsewhere is
+/// allowed. Destructive git / `rm -rf /` stay denied.
 class DeskBash {
   DeskBash(this.root, {this.timeout = kDeskBashTimeout});
 
@@ -75,39 +76,7 @@ class DeskBash {
   }
 }
 
-String? deskBashBlocked(String command) {
-  final denied = deskDeniedCommand(command);
-  if (denied != null) return denied;
-  if (_cdsOut(command)) {
-    return 'denied: bash cannot cd out of the project folder';
-  }
-  return null;
-}
-
-bool _cdsOut(String command) {
-  final parts = command.split(RegExp(r'[;&|\n]'));
-  for (final raw in parts) {
-    var s = raw.trim().toLowerCase();
-    if (s.isEmpty) continue;
-    s = s.replaceFirst(RegExp(r'^(command|builtin)\s+'), '');
-    if (!RegExp(r'^(cd|pushd)\b').hasMatch(s)) continue;
-    final rest = s.replaceFirst(RegExp(r'^(cd|pushd)\s*'), '').trim();
-    if (rest.isEmpty) continue;
-    final dest = rest
-        .split(RegExp(r'\s+'))
-        .first
-        .replaceAll('"', '')
-        .replaceAll("'", '');
-    if (dest.startsWith('..') ||
-        dest.startsWith('/') ||
-        dest.startsWith('~') ||
-        dest == r'$home' ||
-        dest.startsWith(r'${home}')) {
-      return true;
-    }
-  }
-  return false;
-}
+String? deskBashBlocked(String command) => deskDeniedCommand(command);
 
 String _clip(String s) {
   if (s.length <= kDeskBashClipChars) return s;

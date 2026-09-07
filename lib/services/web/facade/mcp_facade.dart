@@ -24,9 +24,25 @@ class McpFacade {
 
   final StorageService _storage;
   final ChatService? _chat;
+  McpHub? _orphanHub;
+
+  McpHub get _hub {
+    final live = _chat?.mcpHub;
+    if (live != null) return live;
+    return _orphanHub ??= McpHub(
+      settings: _storage.mcpSettings,
+      onNotify: () {},
+    );
+  }
+
+  List<McpChatServerView> get _settingsViews {
+    final chat = _chat;
+    if (chat != null) return chat.mcpChatServers;
+    return _hub.chatViews(enabledForChat: const {}, exclusions: const []);
+  }
 
   Map<String, dynamic> settingsState() {
-    final views = _chat?.mcpChatServers ?? const <McpChatServerView>[];
+    final views = _settingsViews;
     return {
       'mcpDefault': _storage.mcpSettings.mcpDefault,
       'servers': [
@@ -36,7 +52,10 @@ class McpFacade {
             'displayName': v.displayName,
             'url': v.url,
             'status': v.status.name,
-            'lastError': v.lastError,
+            'lastError':
+                mcpHumanizeConnectError(v.lastError, url: v.url).isEmpty
+                ? v.lastError
+                : mcpHumanizeConnectError(v.lastError, url: v.url),
             'enabledGlobal': v.enabledGlobal,
             'toolNames': v.toolNames,
             'conflictToolNames': v.conflictToolNames,
@@ -81,7 +100,7 @@ class McpFacade {
       authToken: body['authToken']?.toString() ?? '',
       enabledGlobal: body['enabledGlobal'] != false,
     );
-    await _chat?.mcpHub.connect(server.id);
+    await _hub.connect(server.id);
     return settingsState();
   }
 
@@ -108,22 +127,71 @@ class McpFacade {
     );
     await _storage.mcpSettings.updateServer(updated);
     if (updated.enabledGlobal) {
-      await _chat?.mcpHub.connect(id);
+      await _hub.connect(id);
     } else {
-      await _chat?.mcpHub.disconnect(id);
+      await _hub.disconnect(id);
     }
     return settingsState();
   }
 
   Future<Map<String, dynamic>> removeServer(String id) async {
     await _storage.mcpSettings.removeServer(id);
-    await _chat?.mcpHub.onServerRemoved(id);
+    await _hub.onServerRemoved(id);
     return settingsState();
   }
 
   Future<Map<String, dynamic>> refreshServer(String id) async {
-    await _chat?.mcpHub.refresh(id);
+    await _hub.refresh(id);
     return settingsState();
+  }
+
+  Future<Map<String, dynamic>> checkServer(String id) async {
+    final line = await _hub.check(id);
+    final state = settingsState();
+    state['checkResult'] = line;
+    return state;
+  }
+
+  Future<Map<String, dynamic>> checkDraft(Map<String, dynamic> body) async {
+    final url = body['url']?.toString() ?? '';
+    String? line;
+    String? used;
+    for (final candidate in mcpSiblingUrls(url)) {
+      line = await _hub.checkDraft(
+        url: candidate,
+        displayName: body['displayName']?.toString() ?? '',
+        authToken: body['authToken']?.toString() ?? '',
+      );
+      used = candidate;
+      if (line.startsWith('Connected')) break;
+      if (line.contains('wants a token')) break;
+    }
+    if (line != null && line.startsWith('Connected') && used != null) {
+      body['url'] = used;
+      if ((body['displayName']?.toString() ?? '').trim().isEmpty) {
+        body['displayName'] = mcpDefaultDisplayName(used);
+      }
+      await addServer(body);
+    }
+    final state = settingsState();
+    state['checkResult'] =
+        line ??
+        mcpCheckResultLine(
+          url: url,
+          status: McpConnectionStatus.disconnected,
+          toolNames: const [],
+        );
+    state['wantsToken'] = (line ?? '').contains('wants a token');
+    return state;
+  }
+
+  Future<Map<String, dynamic>> findLocal() async {
+    final result = await McpLocalProbe().findDocker();
+    final state = settingsState();
+    state['found'] = result.found;
+    state['url'] = result.url;
+    state['checkResult'] = result.message;
+    return state;
   }
 
   Future<void> setChatEnabled(String id, bool enabled) async {

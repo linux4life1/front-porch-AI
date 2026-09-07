@@ -81,10 +81,7 @@ void main() {
     expect(childTools, isNot(contains(kDeskToolWrite)));
     expect(childTools, isNot(contains(kDeskToolTask)));
     expect(childTools, contains(kDeskToolRead));
-    expect(
-      session.transcript.last.chips.any((c) => c.name == kDeskToolTask),
-      isTrue,
-    );
+    expect(session.toolChips.any((c) => c.name == kDeskToolTask), isTrue);
   });
 
   test('child cannot read outside the jail root', () async {

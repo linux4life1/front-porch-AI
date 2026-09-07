@@ -27,11 +27,15 @@ class DeskModeBar extends StatelessWidget {
     required this.mode,
     required this.onChanged,
     this.enabled = true,
+    this.preserveThinking = false,
+    this.onPreserveThinking,
   });
 
   final DeskMode mode;
   final ValueChanged<DeskMode> onChanged;
   final bool enabled;
+  final bool preserveThinking;
+  final ValueChanged<bool>? onPreserveThinking;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +70,27 @@ class DeskModeBar extends StatelessWidget {
               ),
             ),
           ],
+          CheckboxListTile(
+            key: const Key('desk-preserve-thinking'),
+            value: preserveThinking,
+            onChanged: !enabled || onPreserveThinking == null
+                ? null
+                : (v) => onPreserveThinking!(v ?? false),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Preserve thinking',
+              style: TextStyle(color: AppColors.textPrimary(context)),
+            ),
+            subtitle: Text(
+              'Send prior thought tokens back on the next turn. Off drops them.',
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 12,
+              ),
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
         ],
       ),
     );
