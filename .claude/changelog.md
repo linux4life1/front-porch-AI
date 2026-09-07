@@ -17929,6 +17929,13 @@ stored-vs-active endpoint call site, and strict OpenRouter sampler leakage all
 failed. A named-tool 400→retry test confirms the provider constraint survives
 both request attempts and still returns the successful call.
 
+The first post-review full run caught a compatibility miss: adding the
+endpoint getter directly to `LLMProvider` made legacy noSuchMethod test fakes
+throw. Endpoint identity now uses an opt-in `LlmApiEndpoint` interface
+implemented only by `OpenRouterService`; existing local/fake services remain
+untouched, while oMLX still exposes its live localhost URL. Both failing
+fake-backed paths passed after this correction.
+
 The first CI run's sole unit failure was an unrelated Drift teardown race in
 `session_picker_overlay_hold_test.dart` (no failed assertion); that file passes
 in isolation and both complete local runs passed. All 15 CI E2E shards, CI
@@ -17936,5 +17943,5 @@ goldens, and changed-file analysis were green. The protected-test gate still
 requires the maintainer's `approved-test-change` label because the obsolete
 prose-salvage assertion was intentionally corrected.
 
-Commits: a42293ab (implementation), a20a7bc8 (validation refinement);
-hostile-review hardening in this commit
+Commits: a42293ab (implementation), a20a7bc8 (validation refinement),
+294b873f (hostile-review hardening); endpoint compatibility in this commit

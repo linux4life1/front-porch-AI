@@ -70,18 +70,14 @@ String _remoteApiErrorMessage(String body, int statusCode) {
 }
 
 /// LLM backend for OpenAI-compatible APIs (OpenRouter, Nano-GPT, vLLM, …).
-class OpenRouterService extends LLMService {
+class OpenRouterService extends LLMService implements LlmApiEndpoint {
   String _apiUrl;
   String _apiKey;
   String _modelName;
   final RemoteApiHealth _health = RemoteApiHealth();
 
-  /// Every client with a call in flight, so [abortGeneration] can close all of
-  /// them. A SET rather than one slot because this is a single shared instance
-  /// and the app deliberately overlaps remote calls on it (the staggered
-  /// realism judges, post-gen needs + reply-facts): with one slot the first
-  /// call to finish cleared the field, and Cancel then closed nothing while
-  /// the rest kept streaming (and billing).
+  /// Every in-flight client; a set is required because staggered remote evals
+  /// overlap, and one slot let the first completion disarm Cancel for the rest.
   final Set<http.Client> _activeClients = {};
 
   /// Test seam: a MockClient so reachability tests never hit the network.
@@ -89,6 +85,7 @@ class OpenRouterService extends LLMService {
   set httpClientFactory(http.Client Function()? factory) =>
       _health.httpClientFactory = factory;
 
+  @override
   String get apiUrl => _apiUrl;
   String get apiKey => _apiKey;
   String get modelName => _modelName;

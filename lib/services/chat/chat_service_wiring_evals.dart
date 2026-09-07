@@ -610,9 +610,11 @@ extension ChatServiceWiringEvals on ChatService {
   String get _evalBackendIdentity {
     final service =
         testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
-    final remoteApiUrl = testLlmServiceOverride == null
-        ? _llmProvider?.activeApiUrl ?? ''
-        : (testIsLocalOverride ? '' : _storageService.remoteApiUrl);
+    final remoteApiUrl = service is LlmApiEndpoint
+        ? (service as LlmApiEndpoint).apiUrl
+        : (testLlmServiceOverride != null && !testIsLocalOverride
+              ? _storageService.remoteApiUrl
+              : '');
     return evalBackendIdentityFor(
       backendName: service.backendName,
       remoteApiUrl: remoteApiUrl,

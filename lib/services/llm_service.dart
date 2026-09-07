@@ -176,6 +176,11 @@ class LlmToolResponse {
   });
 }
 
+/// Opt-in identity surface for OpenAI-compatible services with a live URL.
+abstract interface class LlmApiEndpoint {
+  String get apiUrl;
+}
+
 /// Abstract interface for all LLM backends (local KoboldCPP, OpenRouter, etc).
 abstract class LLMService extends ChangeNotifier {
   /// Stream tokens one at a time for real-time display.

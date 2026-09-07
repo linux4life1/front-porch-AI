@@ -237,7 +237,7 @@ void main() {
       expect(
         wiring,
         allOf(
-          contains('_llmProvider?.activeApiUrl'),
+          contains('service is LlmApiEndpoint'),
           contains('remoteApiUrl: remoteApiUrl'),
         ),
         reason: 'the key must use the active oMLX/OpenRouter service endpoint',
