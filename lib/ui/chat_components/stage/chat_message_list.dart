@@ -63,8 +63,8 @@ class ChatMessageList extends StatelessWidget {
   final Widget? Function(ChatMessage message, int index)? belowBubble;
   final bool? isGenerating;
 
-  /// When set, overrides [isGenerating] per transcript index. Desk uses
-  /// this so only the live loop step shows the thinking timer.
+  /// When set, overrides [isGenerating] per transcript index. Waifu Coder
+  /// uses this so only the live tool-loop step shows the thinking timer.
   final bool Function(int index)? generatingAt;
   final EdgeInsetsGeometry padding;
 
