@@ -20,8 +20,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:path/path.dart' as p;
 
 CharacterCard _mira() => CharacterCard(name: 'Mira', personality: 'tsundere');
@@ -196,7 +196,10 @@ void main() {
         ],
         text: '',
       ),
-      const LlmToolResponse(calls: [], text: 'Wrote hello.txt'),
+      const LlmToolResponse(
+        calls: [],
+        text: 'Hmph. hello.txt is where it belongs.',
+      ),
       const LlmToolResponse(calls: [], text: 'Hmph. General done.'),
     ]);
     final session = WaifuSession(

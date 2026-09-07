@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-09-07 — fix(waifu): a coding turn needs both a receipt and a voice
+- **Why:** The empty screen still implied every session was folder-confined.
+  More importantly, the loop accepted a characterful “done” with no file
+  mutation, discarded speech emitted beside tool calls, and replaced empty
+  post-tool responses with generic status prose.
+- **What:** Empty chrome branches on Folder jail vs Whole-disk. A pure turn
+  contract recognizes code-change requests, requires a successful
+  write/edit/apply_patch receipt, rejects generic completion lines, preserves
+  character speech from tool rounds, and reserves speech-only retries after
+  work. Repeated sass without a patch becomes a red failed-turn receipt rather
+  than a false success; the runaway fuse also ends with a red receipt and a
+  non-empty line instead of “Stopped after N”.
+- **Structure:** The larger loop moved from `waifu_harness.dart` into the
+  focused `waifu_harness_turn.dart` part, leaving the hub below its file cap.
+- **Tests:** `waifu_turn_contract_test.dart` drives the real harness:
+  apply_patch changes disk, the V2 Persona/Vibe/author fence reaches the model,
+  the final line carries card diction, generic Done triggers a tool-free voice
+  retry, tool-round speech survives an empty final response, and sass-only
+  code requests fail red. Empty-chrome tests pin both path scopes.
+- **Commit:** pending
+
 ## 2026-09-07 — feat(waifu): safe power, honest scope, and card-authentic voice
 - **Why:** Bug Hunter and SecurityBot found a split product: open-disk behavior
   behind stale jail copy/tests, bash inherited Front Porch secrets, obvious

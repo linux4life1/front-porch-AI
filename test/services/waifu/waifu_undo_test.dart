@@ -20,8 +20,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -47,7 +47,7 @@ void main() {
         ],
         text: '',
       ),
-      const LlmToolResponse(calls: [], text: 'Wrote foo.'),
+      const LlmToolResponse(calls: [], text: 'Hmph. Your foo file is on disk.'),
     ]);
     final session = WaifuSession(
       folderRoot: root.path,

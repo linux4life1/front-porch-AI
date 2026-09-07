@@ -65,7 +65,6 @@ class WaifuWizardSitDownStep extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: ListView(
-        cacheExtent: 1200,
         children: [
           Text(
             'Sit down',

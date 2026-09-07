@@ -5,8 +5,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -45,40 +45,50 @@ void main() {
     expect(waifuWorkflowListing(items), contains('Not a Rhai'));
   });
 
-  test('saved JSON workflow runs nested explore, not a grandchild', () async {
-    final root = await Directory.systemTemp.createTemp('waifu_wf_run_');
-    addTearDown(() async {
-      if (await root.exists()) await root.delete(recursive: true);
-    });
-    final dir = Directory(p.join(root.path, kWaifuWorkflowDir));
-    await dir.create(recursive: true);
-    await File(p.join(dir.path, 'audit.json')).writeAsString(
-      '{"name":"audit","description":"look","steps":['
-      '{"subagent":"explore","prompt":"look around"}]}',
-    );
-    final llm = ScriptedWaifuLlm([
-      const LlmToolResponse(
-        calls: [
-          LlmToolCall(name: 'workflow', arguments: {'name': 'audit'}),
-        ],
-        text: '',
-      ),
-      const LlmToolResponse(calls: [], text: 'Explore: empty folder.'),
-      const LlmToolResponse(calls: [], text: 'Hmph. Done.'),
-    ]);
-    final session = WaifuSession(
-      folderRoot: root.path,
-      coworker: CharacterCard(name: 'Iris'),
-      mode: WaifuMode.yolo,
-    );
-    await WaifuHarness(session: session, llm: llm).send('run audit');
-    expect(llm.calls, hasLength(3));
-    expect(
-      llm.calls[1].tools.map((t) => (t['function'] as Map)['name']).toList(),
-      isNot(contains(kWaifuToolTask)),
-    );
-    expect(session.toolChips.any((c) => c.name == kWaifuToolWorkflow), isTrue);
-    expect(waifuWorkflowSlashArgs('/workflow'), isEmpty);
-    expect(waifuWorkflowSlashArgs('/workflow audit')!['name'], 'audit');
-  });
+  test(
+    'workflow child may delegate once but cannot launch a workflow',
+    () async {
+      final root = await Directory.systemTemp.createTemp('waifu_wf_run_');
+      addTearDown(() async {
+        if (await root.exists()) await root.delete(recursive: true);
+      });
+      final dir = Directory(p.join(root.path, kWaifuWorkflowDir));
+      await dir.create(recursive: true);
+      await File(p.join(dir.path, 'audit.json')).writeAsString(
+        '{"name":"audit","description":"look","steps":['
+        '{"subagent":"explore","prompt":"look around"}]}',
+      );
+      final llm = ScriptedWaifuLlm([
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'workflow', arguments: {'name': 'audit'}),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(calls: [], text: 'Explore: empty folder.'),
+        const LlmToolResponse(calls: [], text: 'Hmph. Done.'),
+      ]);
+      final session = WaifuSession(
+        folderRoot: root.path,
+        coworker: CharacterCard(name: 'Iris'),
+        mode: WaifuMode.yolo,
+      );
+      await WaifuHarness(session: session, llm: llm).send('run audit');
+      expect(llm.calls, hasLength(3));
+      expect(
+        llm.calls[1].tools.map((t) => (t['function'] as Map)['name']).toList(),
+        contains(kWaifuToolTask),
+      );
+      expect(
+        llm.calls[1].tools.map((t) => (t['function'] as Map)['name']).toList(),
+        isNot(contains(kWaifuToolWorkflow)),
+      );
+      expect(
+        session.toolChips.any((c) => c.name == kWaifuToolWorkflow),
+        isTrue,
+      );
+      expect(waifuWorkflowSlashArgs('/workflow'), isEmpty);
+      expect(waifuWorkflowSlashArgs('/workflow audit')!['name'], 'audit');
+    },
+  );
 }

@@ -47,6 +47,7 @@ export 'waifu_stream.dart';
 export 'waifu_subagent.dart';
 export 'waifu_todos.dart';
 export 'waifu_tools.dart';
+export 'waifu_turn_contract.dart';
 export 'waifu_undo.dart';
 export 'waifu_webfetch.dart';
 export 'waifu_workflow.dart';

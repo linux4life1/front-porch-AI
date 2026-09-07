@@ -211,6 +211,12 @@ complete set lands in the single #233 squash:
 | **H** | Explore/General may delegate one more task layer; deepest worker stops. Scope and abort propagate through the tree. | after A–G |
 | **I** | Language-help catalog, none pre-ticked, PATH first, pin+checksum, custom command, Yolo does not auto-open | after D |
 
+Turn completion is two-axis: code-change wording requires a real
+write/edit/apply_patch receipt, and successful tools require a non-generic
+in-character spoken line. The harness preserves speech emitted beside tool
+calls and issues bounded, tool-free voice retries instead of inserting “Done”
+or “I could not work.”
+
 Regen ruling (spec left a pick): **disabled** in v1. Continue control does not exist. A new send is a new loop.
 
 ---

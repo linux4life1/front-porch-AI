@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:front_porch_ai/services/services.dart' show LlmToolResponse;
 import 'package:front_porch_ai/services/waifu/waifu_bash.dart';
 import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
 import 'package:front_porch_ai/services/waifu/waifu_coworker_prompt.dart';
@@ -40,13 +41,14 @@ import 'package:front_porch_ai/services/waifu/waifu_stream.dart';
 import 'package:front_porch_ai/services/waifu/waifu_subagent.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
+import 'package:front_porch_ai/services/waifu/waifu_turn_contract.dart';
 import 'package:front_porch_ai/services/waifu/waifu_undo.dart';
 import 'package:front_porch_ai/services/waifu/waifu_webfetch.dart';
 import 'package:front_porch_ai/services/waifu/waifu_workflow.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 
 part 'waifu_harness_dispatch.dart';
 part 'waifu_harness_spawn.dart';
+part 'waifu_harness_turn.dart';
 
 /// In-process generateWithTools loop. Max [kWaifuMaxSteps]. Abort stops
 /// further tools; disk is left as the last successful write.
@@ -114,6 +116,7 @@ class WaifuHarness {
   String _mentionBlock = '';
   List<String>? _turnImages;
   final _children = <WaifuHarness>[];
+  late WaifuTurnContract _turn;
 
   bool get isRunning => session.running;
   bool get canUndo => undoLog.canUndo;
@@ -151,6 +154,7 @@ class WaifuHarness {
     _stepAt = null;
     _trace = '';
     _turnImages = imagePng == null ? null : [base64Encode(imagePng)];
+    _turn = WaifuTurnContract.start(text, session.lastWrite);
     session.running = true;
     session.transcript.add(
       WaifuMessage(isUser: true, text: text, imagePath: imagePath),
@@ -211,55 +215,12 @@ class WaifuHarness {
     _emit();
   }
 
-  Future<void> _loop() async {
-    final system = _system();
-    for (var step = 0; step < kWaifuMaxSteps; step++) {
-      if (_aborted) return;
-      _beginStream();
-      final prompt = _prompt();
-      _setBudget(system, prompt);
-      final resp = await llm.generate(
-        systemPrompt: system,
-        prompt: prompt,
-        tools: waifuAdvertisedTools(
-          exploreOnly: exploreOnly,
-          includeWebSearch: webSearch != null,
-          mcpOptIn: mcpOptIn,
-          mcpTools: mcpTools,
-          includeTask: depth < kWaifuMaxTaskDepth,
-          includeWorkflow: depth == 0,
-          pathMode: session.pathMode,
-        ),
-        images: step == 0 ? _turnImages : null,
-        onChunk: _onChunk,
-      );
-      _endStream();
-      if (_aborted) return;
-      if (resp == null) {
-        _say(kWaifuToolsUnsupported);
-        return;
-      }
-      _noteReasoning(resp);
-      final body = waifuVisibleText(resp.text);
-      if (resp.calls.isEmpty) {
-        _say(body.isEmpty ? 'I could not work.' : body);
-        return;
-      }
-      for (final call in resp.calls) {
-        if (_aborted) return;
-        await _runTool(call.name, call.arguments);
-      }
-    }
-    if (!_aborted) {
-      _say('Stopped after $kWaifuMaxSteps tool steps. Send again to continue.');
-    }
-  }
-
   Future<void> _runTool(String name, Map<String, dynamic> args) async {
     permissions.mode = session.mode;
     final work = waifuNormalizeToolArgs(name, args);
     final kind = waifuSubagentKind(name, work);
     final canon = canonicalWaifuToolName(name);
+    _turn.noteAttempt(canon);
     final mcpMutates = waifuMcpMutationHint(name, mcpTools);
     if (exploreOnly &&
         !kWaifuExploreToolNames.contains(canon) &&
@@ -308,6 +269,7 @@ class WaifuHarness {
       session.lastWrite = result.write;
       undoLog.push(result.write!);
     }
+    _turn.noteResult(canon, result, session.lastWrite);
     final detail = result.ok
         ? waifuChipDetail(canon, work)
         : waifuClipChipError(result.output);
@@ -460,6 +422,7 @@ class WaifuHarness {
       preserveThinking: session.preserveThinking,
       pathMode: session.pathMode,
       taskDepthRemaining: kWaifuMaxTaskDepth - depth,
+      turnContractCue: _turn.cue,
     );
   }
 

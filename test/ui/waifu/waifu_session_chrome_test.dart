@@ -22,7 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_page.dart';
+import 'package:front_porch_ai/ui/waifu/waifu.dart';
 
 void main() {
   testWidgets('empty Waifu Coder chrome shows coworker, folder, and composer', (
@@ -34,17 +34,46 @@ void main() {
     );
     await tester.pumpWidget(MaterialApp(home: WaifuPage(session: session)));
 
-    expect(find.text('Mira'), findsOneWidget);
+    expect(find.text('Mira'), findsWidgets);
     expect(find.text('throwaway-waifu'), findsOneWidget);
     expect(find.byKey(const Key('waifu-composer')), findsOneWidget);
     expect(find.byKey(const Key('waifu-send')), findsOneWidget);
+    expect(
+      find.textContaining('tools stay on this project porch'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('elsewhere on your disk'), findsNothing);
 
-    await tester.enterText(find.byKey(const Key('waifu-composer')), 'add hello');
+    await tester.enterText(
+      find.byKey(const Key('waifu-composer')),
+      'add hello',
+    );
     await tester.tap(find.byKey(const Key('waifu-send')));
     await tester.pump();
     expect(find.text('add hello'), findsOneWidget);
     expect(session.transcript, hasLength(1));
     expect(session.transcript.single.isUser, isTrue);
+  });
+
+  testWidgets('whole-disk empty chrome calls the folder a starting porch', (
+    tester,
+  ) async {
+    final session = WaifuSession(
+      folderRoot: '/tmp/throwaway-waifu',
+      coworker: CharacterCard(name: 'Iris', personality: 'teasing'),
+      pathMode: WaifuPathMode.wholeDisk,
+    );
+    await tester.pumpWidget(MaterialApp(home: WaifuPage(session: session)));
+
+    expect(find.textContaining('Tell Iris what to build'), findsOneWidget);
+    expect(
+      find.textContaining('they can work elsewhere on your disk'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('tools stay on this project porch'),
+      findsNothing,
+    );
   });
 
   test('Waifu Coder island does not import ChatService', () {

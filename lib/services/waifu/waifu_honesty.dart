@@ -93,6 +93,15 @@ String waifuPathModeSessionLine(WaifuPathMode pathMode) => switch (pathMode) {
     'Scope: Whole disk — this porch is the starting folder, not a fence.',
 };
 
+String waifuEmptyPrompt(WaifuPathMode pathMode, String coworker) =>
+    switch (pathMode) {
+      WaifuPathMode.folderJail =>
+        'Tell $coworker what to build. Their tools stay on this project porch.',
+      WaifuPathMode.wholeDisk =>
+        'Tell $coworker what to build. This folder is their starting porch; '
+            'they can work elsewhere on your disk.',
+    };
+
 String waifuMcpScopeWarning(WaifuPathMode pathMode) => switch (pathMode) {
   WaifuPathMode.folderJail =>
     'The folder jail covers Waifu Coder’s own file and bash tools. MCP tools '

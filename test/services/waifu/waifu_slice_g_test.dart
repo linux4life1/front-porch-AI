@@ -20,8 +20,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:path/path.dart' as p;
 
 CharacterCard _mira() => CharacterCard(name: 'Mira', personality: 'tsundere');
@@ -80,7 +80,16 @@ void main() {
     final storeDir = Directory(p.join(root.path, 'store'))..createSync();
     final store = WaifuStore(storeDir.path);
     final llm = ScriptedWaifuLlm([
-      const LlmToolResponse(calls: [], text: 'Hmph. Fine.'),
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(
+            name: 'write',
+            arguments: {'path': 'hello.txt', 'contents': 'hello\n'},
+          ),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(calls: [], text: 'Hmph. Your hello file is there.'),
     ]);
     final session = WaifuSession(
       folderRoot: root.path,
@@ -111,7 +120,9 @@ void main() {
     );
     final store = WaifuStore(storeDir.path);
     await store.saveLast(session);
-    final raw = await File(p.join(storeDir.path, kWaifuLastFile)).readAsString();
+    final raw = await File(
+      p.join(storeDir.path, kWaifuLastFile),
+    ).readAsString();
     expect(raw, isNot(contains('SECRET_GREETING')));
     expect(raw, isNot(contains('SECRET_SCENARIO')));
     expect(raw, contains('tsundere'));

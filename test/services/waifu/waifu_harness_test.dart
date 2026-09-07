@@ -21,8 +21,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:path/path.dart' as p;
 
 CharacterCard _mira() => CharacterCard(
@@ -130,7 +130,7 @@ void main() {
         ],
         text: '',
       ),
-      const LlmToolResponse(calls: [], text: 'done'),
+      const LlmToolResponse(calls: [], text: 'Hmph. I found your notes.'),
     ]);
     final harness = WaifuHarness(session: _session(root.path), llm: llm);
     await harness.send('look');
@@ -186,7 +186,10 @@ void main() {
 
     expect(llm.calls, hasLength(kWaifuMaxSteps));
     expect(session.transcript.last.isUser, isFalse);
-    expect(session.transcript.last.text.toLowerCase(), contains('step'));
+    expect(session.transcript.last.text, isNotEmpty);
+    expect(session.transcript.last.text, isNot(contains('Stopped after')));
+    expect(session.transcript.last.chips.last.ok, isFalse);
+    expect(session.transcript.last.chips.last.detail, contains('runaway fuse'));
   });
 
   test('abort stops further generates and does not roll back disk', () async {

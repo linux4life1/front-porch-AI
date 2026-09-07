@@ -169,6 +169,7 @@ String waifuLoopUserPrompt({
   bool preserveThinking = false,
   WaifuPathMode pathMode = WaifuPathMode.folderJail,
   int taskDepthRemaining = kWaifuMaxTaskDepth,
+  String turnContractCue = '',
 }) {
   final buf = StringBuffer();
   if (pathMode == WaifuPathMode.folderJail) {
@@ -195,6 +196,11 @@ String waifuLoopUserPrompt({
     ..writeln(waifuNestCue(taskDepthRemaining))
     ..writeln(kWaifuBuiltinsCue)
     ..writeln();
+  if (turnContractCue.isNotEmpty) {
+    buf
+      ..writeln(turnContractCue)
+      ..writeln();
+  }
   if (skillBlock.trim().isNotEmpty) {
     buf
       ..writeln(skillBlock)

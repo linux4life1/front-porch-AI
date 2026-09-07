@@ -21,9 +21,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_page.dart';
+import 'package:front_porch_ai/ui/waifu/waifu.dart';
 
 void main() {
   late Directory root;
@@ -54,7 +54,7 @@ void main() {
         ],
         text: '',
       ),
-      const LlmToolResponse(calls: [], text: 'Wrote it.'),
+      const LlmToolResponse(calls: [], text: 'Hmph. Your file is written.'),
     ]);
     final harness = WaifuHarness(session: session, llm: llm);
     await tester.pumpWidget(

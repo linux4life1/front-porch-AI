@@ -5,8 +5,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 
 void main() {
   late Directory root;
@@ -38,7 +38,7 @@ void main() {
         text: '<think>write the file</think>\nWrote a.txt.',
         reasoning: 'write the file',
       ),
-      const LlmToolResponse(calls: [], text: 'Done.'),
+      const LlmToolResponse(calls: [], text: 'Hmph. Your scaffold is on disk.'),
     ]);
     final session = WaifuSession(
       folderRoot: root.path,
@@ -49,7 +49,7 @@ void main() {
     final spoken = session.transcript.where((m) => !m.isUser).toList();
     expect(spoken, hasLength(1));
     expect(spoken.single.chips.map((c) => c.name), ['bash', 'write']);
-    expect(spoken.single.text, 'Done.');
+    expect(spoken.single.text, 'Hmph. Your scaffold is on disk.');
     expect(spoken.single.reasoning, contains('write the file'));
     expect(spoken.single.reasoning, isNot(contains('look around')));
   });

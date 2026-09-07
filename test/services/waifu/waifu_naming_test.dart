@@ -9,10 +9,7 @@ void main() {
   test('Waifu Coder source has one product name at every layer', () {
     final retired = '${'de'}${'sk'}';
     final forbidden = RegExp(retired, caseSensitive: false);
-    final unrelatedDesktop = RegExp(
-      '${retired}top',
-      caseSensitive: false,
-    );
+    final unrelatedDesktop = RegExp('${retired}top', caseSensitive: false);
     final legacyLiteral = RegExp(
       "(['\"])\\.${RegExp.escape(retired)}\\1",
       caseSensitive: false,
@@ -33,12 +30,9 @@ void main() {
     }
     files.addAll([
       File('docs/Rawhide.md'),
-      File(
-        'docs/superpowers/plans/2026-09-05-waifu-coder.md',
-      ),
-      File(
-        'docs/superpowers/specs/2026-09-05-waifu-coding-design.md',
-      ),
+      File('lib/ui/chat_components/stage/chat_message_list.dart'),
+      File('docs/superpowers/plans/2026-09-05-waifu-coder.md'),
+      File('docs/superpowers/specs/2026-09-05-waifu-coding-design.md'),
       File('.claude/changelog.md'),
     ]);
 

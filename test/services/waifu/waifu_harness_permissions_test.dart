@@ -21,8 +21,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:path/path.dart' as p;
 
 CharacterCard _mira() => CharacterCard(name: 'Mira', personality: 'tsundere');
@@ -98,7 +98,7 @@ void main() {
   test('Build Allow once writes the file', () async {
     final llm = ScriptedWaifuLlm([
       _write('hello.txt', 'ok'),
-      const LlmToolResponse(calls: [], text: 'Wrote it.'),
+      const LlmToolResponse(calls: [], text: 'Hmph. The file is written.'),
     ]);
     final harness = WaifuHarness(
       session: session(WaifuMode.build),
@@ -113,7 +113,7 @@ void main() {
     var asked = 0;
     final llm = ScriptedWaifuLlm([
       _write('hello.txt', 'yolo'),
-      const LlmToolResponse(calls: [], text: 'Done.'),
+      const LlmToolResponse(calls: [], text: 'Hmph. Your file is done.'),
     ]);
     final harness = WaifuHarness(
       session: session(WaifuMode.yolo),

@@ -213,6 +213,13 @@ That is the whole “waifu” layer. If the harness is solid, this is enough. If
 5. If tool call → enforce Plan/Build/Yolo, MCP mutation classification, secret/wipe hard stops, and the selected path scope. Built-in file tools win MCP name collisions. `apply_patch` performs an exact one-file structured edit and records before/after bytes.
 6. Stop when: she produces final text, user hits Abort, the 80-step runaway fuse trips, or a repeated identical failing command is denied. Abort kills every active bash process, including nested/parallel workers.
 
+**Work + voice completion contract:** a request that clearly asks for a code/file
+change is not complete until a write/edit/apply_patch receipt lands. Character
+sass without a mutation is retried, then shown as a red failed turn rather than
+a false success. After successful tools, empty or generic “Done” text gets a
+tool-free voice retry. Character speech emitted beside a tool call is retained
+as the fallback, so one assistant bubble always finishes with a spoken line.
+
 This is the opposite of search/MCP v1’s “one round then stream.” Waifu Coder **is** the loop.
 
 Regen in Waifu Coder: abort in-flight loop; do not re-apply the last patch automatically. Delete: session transcript only, disk unchanged.

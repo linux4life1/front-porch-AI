@@ -466,7 +466,7 @@ class _WaifuPageState extends State<WaifuPage> {
     if (session.transcript.isEmpty) {
       return Center(
         child: Text(
-          'Tell $coworker what to do. Tools loop in this folder.',
+          waifuEmptyPrompt(session.pathMode, coworker),
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textSecondary(context)),
         ),
