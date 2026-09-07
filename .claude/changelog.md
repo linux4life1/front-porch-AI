@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-09-07 — feat(waifu): safe power, honest scope, and card-authentic voice
+- **Why:** Bug Hunter and SecurityBot found a split product: open-disk behavior
+  behind stale jail copy/tests, bash inherited Front Porch secrets, obvious
+  wipe commands escaped the deny list, legacy SSE could pivot credentials,
+  and photo input decoded without resource bounds. The coding prompt also
+  discarded V2 author voice rules and descriptions whenever personality
+  existed.
+- **What:** Sit down now offers persisted Folder jail (safer default) or
+  Whole-disk access with scope-specific honesty, Yolo, MCP, prompt, and tool
+  copy. Shared hard stops cover protected secret paths/realpaths, environment
+  dumps, destructive Git/force-push, recursive roots/homes/system/ancestor
+  wipes, format/device/find/permission bombs, and obvious recursive Python
+  wipes. Bash receives an explicit environment allowlist and user Abort kills
+  all active processes across bounded parent→child→grandchild tasks.
+- **Power:** Added atomic one-file `apply_patch`, preserved normal
+  read/edit/write/test and scoped cleanup, kept built-in FS ahead of MCP name
+  collisions, and made Plan/Build classify MCP mutation. The system prompt is
+  now Name + Persona + clipped Vibe + fenced author voice rules + diction
+  samples + date above a short charm-first constitution; lookup/nesting/tool
+  policy stays in the loop prompt.
+- **Network/photo:** Legacy SSE endpoint events must remain on the configured
+  origin before Authorization is reused. Picker/drop input is size-checked
+  before reading, only PNG/JPEG/WebP decoders are accepted, decoded dimensions
+  are bounded before frame allocation, and `.waifu/inbox/` rejects unprepared
+  or oversized bytes before creating a file.
+- **Files:** `lib/services/waifu/**`, `lib/ui/waifu/**`,
+  `lib/services/mcp/mcp_client.dart`, shared chat photo attachment/drop
+  widgets, focused Waifu/MCP tests, `docs/Rawhide.md`, and Waifu design/plan.
+- **Commits:** e222b8d9 (Waifu scope/safety/power), c4143e9a (SSE origin),
+  99f0600c (photo bounds)
+
 ## 2026-09-07 — refactor(waifu): one Waifu Coder name at every layer
 - **Why:** The user-facing product had already become Waifu Coder, but its
   implementation, tests, keys, and design notes still carried the retired
@@ -12,7 +43,7 @@
 - **Guard:** `waifu_naming_test.dart` scans source, tests, release notes, and
   design docs. Only unrelated “Desktop” text and the quoted legacy folder
   literal are allowed.
-- **Commit:** pending
+- **Commit:** 36326218
 
 ## 2026-09-07 — fix(waifu): one bubble per send; no chat token cap
 - **Why:** Each tool step opened a new Iris bubble, so reads/writes
@@ -83,7 +114,7 @@
   waifu "thought tokens appear while generating" still green.
 
 ## 2026-09-07 — feat(waifu): nested agents, workflows, thinking toggle, MCP clones
-- **Why:** Subagents existed (`task` explore/general, one deep) but no
+- **Why:** Subagents existed (`task` explore/general, initially one deep) but no
   workflows. Context meter counted only the user prompt. Thought tokens
   were shown then dropped on the next turn. Docker MCP advertised
   Desktop Commander's `list_directory`/`get_prompts`; a denied call
@@ -128,14 +159,15 @@
   isolated); tool-log widget test (no Chip); harness two-generate tests.
 
 ## 2026-09-06 — fix(waifu): coding prompt is persona + constitution, not chat RP
-- **Why:** The harness stuffed the card's chat systemPrompt and assumed
-  she/her. Scenario was already excluded; mes_example was dumped as a scene.
-- **What:** Selected V2 card on top (name + personality; description only if
-  personality is empty). One or two mes_example slices, ≤400 tokens, {{char}}
-  expanded — diction only. Then a gender-neutral coding constitution (tools,
-  match the repo, look up versions, no commit unless asked). No scenario,
-  no first_mes, no chat systemPrompt.
-- **Verification:** coworker prompt tests (order, exclusions, gender, clip).
+- **Why:** The first prompt pass assumed she/her and treated mes_example as a
+  scene. The signed follow-up kept scenario/greetings/extensions out while
+  restoring the card author's actual voice and values.
+- **What:** V2 card block is Name + Persona + always-present clipped Vibe +
+  fenced author voice rules + one/two diction samples + date, followed by a
+  short gender-neutral coding constitution. Lookup, nesting, scope, and tool
+  policy live once in the loop prompt.
+- **Verification:** coworker prompt tests pin order, fence, inclusion,
+  exclusions, gender, and clips.
 
 ## 2026-09-06 — feat(waifu): skills marketplace, chat install, code-review, lookup
 - **Why:** Skills existed only as HTTPS helpers with no sidebar. skill_install
@@ -287,12 +319,13 @@
 - **Verification:** I tests red (missing types) then green. 104 waifu
   tests pass. Analyze clean. No ChatService import. No web_ui Waifu Coder.
 
-## 2026-09-05 — feat(waifu): nested Explore/General, same jail (slice H)
-- **Why:** After the loop is trusted, she can spawn a nested Explore
-  (read-only) or General (same folder jail) and wait. Scout skipped.
+## 2026-09-05 — feat(waifu): bounded nested Explore/General (slice H)
+- **Why:** After the loop is trusted, she can delegate Explore (read-only) or
+  General work while preserving the selected path scope.
 - **What:** `task` tool. Explore advertises only read/glob/grep and
-  refuses writes even in Yolo. General inherits parent mode. Children
-  cannot spawn children or leave the jail. Parent abort aborts the child.
+  refuses writes even in Yolo. General inherits parent mode. One child may
+  spawn one grandchild; the deepest worker stops. Parent Abort recursively
+  stops children and their active bash processes.
 - **Files:** waifu_subagent.dart, harness advertisedTools/_runTask,
   tests waifu_slice_h_test + waifu_h_chrome_test.
 - **Verification:** H tests red (missing kWaifuToolTask) then green.
@@ -326,7 +359,7 @@
 - **Why:** OpenCode-close fetch/search/MCP without stdio or Exa.
 - **What:** webfetch GET, no redirects, clip, UNTRUSTED. web_search
   advertised only when a lookup is injected. MCP tools not advertised
-  unless mcpOptIn; UI warns jail does not apply.
+  unless mcpOptIn; UI explains the selected local scope versus remote MCP.
 - **Files:** waifu_webfetch.dart, harness catalog, waifu_mcp_opt_in.dart,
   tests waifu_slice_f_test + waifu_f_chrome_test.
 - **Verification:** redirect-refuse and MCP-off tests red then green.
@@ -347,8 +380,9 @@
 ## 2026-09-05 — feat(waifu): bash + undo/redo (slice D)
 - **Why:** Slice C denied git/rm in theory; D runs commands with cwd =
   the project folder and lets you undo *her* writes, not yours.
-- **What:** `WaifuBash` — bash -c, cwd=root, 60s timeout, clipped
-  output, no `cd` out, hard-deny list. `WaifuUndo` — restore/reapply
+- **What:** `WaifuBash` — bash -c, cwd=root, selected jail/disk scope,
+  60s timeout, Abort kill, scrubbed environment, clipped output, and the
+  shared hard-deny list. `WaifuUndo` — restore/reapply
   write/edit bytes only. Undo/Redo on the session chrome.
 - **Files:** `waifu_bash.dart`, `waifu_undo.dart`, harness/tools/page,
   tests under `test/services/waifu/waifu_bash_test.dart`,
@@ -359,7 +393,7 @@
 
 ## 2026-09-05 — feat(waifu): Plan/Build/Yolo permissions (slice C)
 - **Why:** Slice B wrote freely. OpenCode-shaped gears: Plan looks,
-  Build asks, Yolo skips the modal. Jail and hard-deny still apply.
+  Build asks, Yolo skips the modal. Selected scope and hard-deny still apply.
 - **What:** `WaifuPermissions` — Plan cannot mutate; Build Allow once /
   Always / Deny; Yolo no ask; `.env` deny; doom-loop 3× asks even in
   Yolo; `git checkout --`, `git restore`, `rm -rf /` hard-denied.
@@ -371,13 +405,13 @@
 - **Verification:** Permission/harness tests red (missing symbols) then
   green. Existing B harness write test still green. Analyze clean.
 
-## 2026-09-05 — feat(waifu): generateWithTools loop + jail (slice B)
+## 2026-09-05 — feat(waifu): generateWithTools loop + path scope (slice B)
 - **Why:** Slice A was chrome only. Waifu Coder is a coding coworker only if
-  Send actually loops tools against the picked folder, inside a jail.
-- **What:** `WaifuHarness` loops `generateWithTools` (max 20, abort).
-  Tools: read/edit/write/glob/grep. Jail denies `..`, `/etc`, and
-  escaping symlinks (root is canonicalized so macOS `/var` temp dirs
-  are not false-denied). Personality preamble on every generate.
+  Send actually loops tools against an honestly selected path scope.
+- **What:** `WaifuHarness` loops `generateWithTools` (80-step fuse, Abort).
+  Tools: read/edit/apply_patch/write/glob/grep. Folder jail denies lexical and
+  realpath escape; Whole-disk allows ordinary roaming. Root canonicalization
+  avoids macOS `/var` false-denies. Personality preamble on every generate.
   Work strip shows last write before/after. Regen disabled; no Continue.
   Null tools response does not invent a patch. Scripted LLM for tests.
 - **Files:** `waifu_jail.dart`, `waifu_fs.dart`, `waifu_tools.dart`,
