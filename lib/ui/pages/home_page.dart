@@ -43,7 +43,7 @@ import 'package:front_porch_ai/ui/pages/edit_group_page.dart';
 import 'package:front_porch_ai/services/group_card_importer.dart';
 import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
 import 'package:front_porch_ai/ui/pages/story_home_view.dart';
-import 'package:front_porch_ai/ui/desk/desk.dart';
+import 'package:front_porch_ai/ui/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
@@ -85,7 +85,7 @@ class _HomePageState extends State<HomePage> {
   // Grid scale
   double _gridScale = 300.0;
 
-  // Chats / Porch Stories / Desk
+  // Chats / Porch Stories / Waifu Coder
   HomeMode _homeMode = HomeMode.chats;
 
   /// Blocks stacked open-chat taps while setActiveCharacter / loadSession
@@ -402,13 +402,13 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        if (_homeMode == HomeMode.desk) {
+        if (_homeMode == HomeMode.waifu) {
           return _wrapWithStatusBar(
             context,
             Column(
               children: [
                 _modeToggleBar(),
-                const Expanded(child: DeskHomeView()),
+                const Expanded(child: WaifuHomeView()),
               ],
             ),
           );

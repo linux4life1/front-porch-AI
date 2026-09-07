@@ -1,4 +1,4 @@
-# Desk (waifu coding) — design
+# Waifu Coder (waifu coding) — design
 
 **Date:** 2026-09-05
 **Status:** Draft for maintainer review. Target is **OpenCode-close**, not a toy slice. Work is **sliced** (§15) — never one-shot.
@@ -19,12 +19,12 @@
 | Backend | What you should expect |
 |---|---|
 | Remote, tool-fluent (OpenRouter Claude / GPT / large GLM, etc.) | This can be genuinely useful: she works a ticket in your folder, you see diffs, you abort. Personality is gravy. |
-| Local Kobold, small/medium GGUF | Often a **mess**: skipped tools, half-edits, confident lies. Front Porch already knows local models struggle with long fused tool prompts. Do not ship Desk as “it works on Tiny-Porch-GGUF.” |
-| Tools unsupported (XML-only / probe miss) | Mode is **inert**. Plain message: this model cannot do Desk. No fake file edits. |
+| Local Kobold, small/medium GGUF | Often a **mess**: skipped tools, half-edits, confident lies. Front Porch already knows local models struggle with long fused tool prompts. Do not ship Waifu Coder as “it works on Tiny-Porch-GGUF.” |
+| Tools unsupported (XML-only / probe miss) | Mode is **inert**. Plain message: this model cannot do Waifu Coder. No fake file edits. |
 
 If the bar is “OpenCode quality on every local install,” **do not build this.** You will get a buggy mess and you will be blamed for the model.
 
-**Maintainer bar (2026-09-05):** a usable *optional fun* feature that might actually get work done. OpenCode is loved; the missing piece is personality — not a blank “I asked you to do a thing and you did it,” but the card’s voice *while she does it* (“Well well, you want me to do that for you? why not do it yourself?” — and then she still writes the patch). That bar is **worth building.** It is not Claude Code. It is Desk.
+**Maintainer bar (2026-09-05):** a usable *optional fun* feature that might actually get work done. OpenCode is loved; the missing piece is personality — not a blank “I asked you to do a thing and you did it,” but the card’s voice *while she does it* (“Well well, you want me to do that for you? why not do it yourself?” — and then she still writes the patch). That bar is **worth building.** It is not Claude Code. It is Waifu Coder.
 
 ### What would make it a buggy mess (and how v1 refuses)
 
@@ -32,7 +32,7 @@ If the bar is “OpenCode quality on every local install,” **do not build this
 - **No diffs.** If you only hear her voice, you cannot trust what she did to disk. v1 has a file/diff strip.
 - **No folder jail.** `terminal` with cwd = `$HOME` is a support incident. v1 jails to the chosen project.
 - **Silent writes.** Every write is a receipt; git is the undo if the folder is a repo.
-- **Pretending Porch Life is off while ChatService still ticks Needs.** Desk is a **separate pipeline**. It must not construct a chat session.
+- **Pretending Porch Life is off while ChatService still ticks Needs.** Waifu Coder is a **separate pipeline**. It must not construct a chat session.
 
 ### Verdict
 
@@ -42,19 +42,19 @@ If the bar is “OpenCode quality on every local install,” **do not build this
 
 ## 0.1 What we cannot accomplish (do not bury this)
 
-Say this in the room, not only in a doc. Desk copies OpenCode’s *job*. It cannot become OpenCode.
+Say this in the room, not only in a doc. Waifu Coder copies OpenCode’s *job*. It cannot become OpenCode.
 
 ### Never
 
-| OpenCode / industry thing | Why Desk cannot |
+| OpenCode / industry thing | Why Waifu Coder cannot |
 |---|---|
 | The `opencode` binary, Bun server, TUI, VS Code / ACP, their desktop app | Sidecar retirement. Flutter is the UI. |
 | Silent auto-download of an LSP **zoo** (every language, no ask) | Same class as surprise sidecars. **Opt-in one language after a prompt is allowed** — see §6.5. |
 | stdio MCP (`npx` playwright, etc.) | Process spawn. HTTP/SSE MCP we already have is the only MCP door. |
-| OpenCode Zen, hosted Exa/Parallel `websearch` with no key | Their SaaS. Desk uses Front Porch’s model + existing web search if we wire it. |
+| OpenCode Zen, hosted Exa/Parallel `websearch` with no key | Their SaaS. Waifu Coder uses Front Porch’s model + existing web search if we wire it. |
 | Share transcript to opencode.ai | Cloud share. Out. |
 | JS plugins / custom tools that run arbitrary JavaScript | No JS runtime in the Dart app. |
-| Desk on web/phone | Maintainer deferred this conversation. |
+| Waifu Coder on web/phone | Maintainer deferred this conversation. |
 | Claude Code / Grok Build reliability | Honesty gate. Especially local small GGUF. |
 | Critical / production / this-app codebases | Product law. Fun throwaway folders only. |
 
@@ -65,7 +65,7 @@ Say this in the room, not only in a doc. Desk copies OpenCode’s *job*. It cann
 | Nested subagents (Explore / General / Scout) + child sessions | Yes, after the loop is trusted |
 | Opt-in LSP catalog: many languages, **user opens each door** (detect → ask, or a list of toggles). Custom “run this binary” for anything not in the catalog | Yes, slice I. Never silent-download the set. |
 | Formatter plugin registry | No. Run the project’s formatter via `bash` after edits. |
-| Independent model picker inside Desk | No. Settings backend is the model. |
+| Independent model picker inside Waifu Coder | No. Settings backend is the model. |
 | `external_directory` (touch files outside the picked folder) | No in v1–v3. Jail is the product. |
 | Parallel multi-agent | After subagents, if ever |
 
@@ -77,15 +77,15 @@ OpenCode built-ins we **do** take, in Dart, over slices: `bash`, `edit`, `write`
 
 ## 1. Product
 
-**Desk** is a third home mode, sibling of **Chats** and **Porch Stories**.
+**Waifu Coder** is a third home mode, sibling of **Chats** and **Porch Stories**.
 
 You pick a folder on disk (in-app walker, not the OS file picker), pick a character from the library, and sit down. She is a coding agent whose personality is that V2 card. You talk in a chat-shaped UI. She **loops** tools against that folder until the task is done or you stop her.
 
-This is **not** a chat with extra tools. Opening Desk does not create a `sessions` row, does not run Realism, Journal, Needs, weather, clock, Chaos, Pockets, Growth, Objectives, RAG, or web search. Those stay in Chats.
+This is **not** a chat with extra tools. Opening Waifu Coder does not create a `sessions` row, does not run Realism, Journal, Needs, weather, clock, Chaos, Pockets, Growth, Objectives, RAG, or web search. Those stay in Chats.
 
 Pitch (maintainer, 2026-09-05): *OpenCode but with characters and personalities driven by the character cards, so you can do work with your tsundere anime characters.*
 
-**Why this exists (same conversation):** OpenCode (and most coding agents, Grok included) will do the work and have **no personality**. Desk is the same *kind* of work, with the V2 card as the coworker: sass, warmth, tsundere — *and* the file still gets written. Personality is not a wrapper after the fact and not an excuse to skip the tools.
+**Why this exists (same conversation):** OpenCode (and most coding agents, Grok included) will do the work and have **no personality**. Waifu Coder is the same *kind* of work, with the V2 card as the coworker: sass, warmth, tsundere — *and* the file still gets written. Personality is not a wrapper after the fact and not an excuse to skip the tools.
 
 Two failure modes, both ship-blockers:
 
@@ -104,10 +104,10 @@ Porch Stories already proved the pattern: a different job gets a different home 
 
 ## 2. Non-goals (v1)
 
-- **Web / phone.** Deferred by maintainer in this conversation. Desktop only. A Desk button in `web_ui/` is a parity violation unless a later conversation re-opens it.
+- **Web / phone.** Deferred by maintainer in this conversation. Desktop only. A Waifu Coder button in `web_ui/` is a parity violation unless a later conversation re-opens it.
 - **Spawning OpenCode, Bun, Node, or LSP servers.** Sidecar retirement still holds. We copy OpenCode’s *loop shape*, not the process.
 - **FP as an MCP server.**
-- **Stdio MCP spawn.** Existing MCP client (HTTP/SSE) may be offered later as an opt-in extra in Desk; not required for v1.
+- **Stdio MCP spawn.** Existing MCP client (HTTP/SSE) may be offered later as an opt-in extra in Waifu Coder; not required for v1.
 - **JS custom tools, OpenCode plugins, Zen, cloud share, LSP auto-install, stdio MCP.** See §0.1.
 - **Subagents in the first shippable cut.** Plan / Build / Yolo **are** in (see §4.1). Nested Explore/General/Scout is a later slice.
 - **Sandbox / container isolation.** Jail is path-prefix + deny-list, not a VM. Yolo does not turn the jail off.
@@ -119,7 +119,7 @@ Porch Stories already proved the pattern: a different job gets a different home 
 
 ## 3. Entry: home mode + wizard
 
-Home toolbar today: **Chats | Porch Stories**. Add **Desk**.
+Home toolbar today: **Chats | Porch Stories**. Add **Waifu Coder**.
 
 Same Create Character chrome: AppBar step dots + labels + connecting lines, `AnimatedSwitcher` on a `_currentStep` int, nav buttons at the bottom. Linear. No side menu.
 
@@ -131,16 +131,16 @@ Same Create Character chrome: AppBar step dots + labels + connecting lines, `Ani
 
 **Honesty gate copy (Sit down — do not soften):**
 
-> Desk is **not** a replacement for Claude Code, Grok Build, OpenCode, or Cursor. It will not be as reliable. **Never use it on a critical codebase** — not this app, not work, not anything you cannot afford to lose.  
+> Waifu Coder is **not** a replacement for Claude Code, Grok Build, OpenCode, or Cursor. It will not be as reliable. **Never use it on a critical codebase** — not this app, not work, not anything you cannot afford to lose.
 > This is a **fun** tool. It will *attempt* a task while staying in your character’s personality. She may sass you and still try. She may also skip a tool, half-edit a file, or be wrong. You picked the folder. You are responsible for it.
 
-Checkbox (must be on to continue): **I understand. I will not use Desk on code I cannot afford to lose.**
+Checkbox (must be on to continue): **I understand. I will not use Waifu Coder on code I cannot afford to lose.**
 
 Starting mode on this step: Plan / Build / Yolo, default **Build**. Picking Yolo here shows a second line: “Yolo skips ‘are you sure?’ on writes and commands. The folder jail still holds. Still not for critical repos.”
 
-Cancel / back to home at any step. No Desk session is created until Sit down confirms.
+Cancel / back to home at any step. No Waifu Coder session is created until Sit down confirms.
 
-Recent desks (folder + character id) can appear above the wizard as “sit down again” — v1 nice-to-have, not required to ship the loop.
+Recent waifus (folder + character id) can appear above the wizard as “sit down again” — v1 nice-to-have, not required to ship the loop.
 
 ---
 
@@ -153,7 +153,7 @@ Reuse the *look* of chat: her portrait, bubbles, composer, porch amber. Do **not
 Required surfaces:
 
 - **Transcript** — her lines and yours. Tool calls are chips on **her** bubble (file written, command run, ok/error), not a dump of JSON or a stack trace in the bubble body. She may talk about the work in character.
-- **Work strip** (right or bottom, desktop-width): current folder name, list of files touched this turn, a simple before/after or patch view for the last write. Without this, Desk is untrustworthy.
+- **Work strip** (right or bottom, desktop-width): current folder name, list of files touched this turn, a simple before/after or patch view for the last write. Without this, Waifu Coder is untrustworthy.
 - **Mode** — Plan / Build / Yolo, always visible. Default Build. Changing mode applies to the **next** tool, not a tool already running.
 - **Abort** — visible while a loop is running. Stops further tools; does not roll back disk (git / the patch view is the undo).
 - **Confirm** — in Build (and never in Plan; skipped in Yolo): a modal *before* a mutating tool runs. Plain: what she wants to do, the path or command, **Allow once** / **Deny**. Deny returns a tool error she can narrate (“you wouldn’t let me”). The loop may continue or she may stop.
@@ -190,13 +190,13 @@ From the selected `CharacterCard`, inject **only**:
 
 **Do not inject:** `scenario`, lorebook, worlds, `firstMessage` as an RP greeting, Front Porch extensions (bond, needs, occupation, pockets, …), Journal, RAG.
 
-Add a fixed Desk preamble (not the card):
+Add a fixed Waifu Coder preamble (not the card):
 
 > You are this character, working as a coding partner in a real project folder. Stay in her voice — if she is sharp, lazy, teasing, or tsundere, that is how you talk while you work. Sass is allowed. Refusing the task is not. Do the work with tools even if you complain. Do not roleplay a scene that is not the work, do not invent files you did not read, do not claim a command succeeded if it failed. When you are done, say so in character and stop.
 
 That is the whole “waifu” layer. If the harness is solid, this is enough. If the harness is weak, more prompt poetry will not save it.
 
-**Poke that proves the product:** sit down with a tsundere card, ask for a small file change, and you get both (1) the file actually changed and (2) a line in her voice, not a generic “I’ve updated the test for you.” If you only get (1), Desk is OpenCode with a portrait. If you only get (2), ship is blocked.
+**Poke that proves the product:** sit down with a tsundere card, ask for a small file change, and you get both (1) the file actually changed and (2) a line in her voice, not a generic “I’ve updated the test for you.” If you only get (1), Waifu Coder is OpenCode with a portrait. If you only get (2), ship is blocked.
 
 ---
 
@@ -211,9 +211,9 @@ That is the whole “waifu” layer. If the harness is solid, this is enough. If
 5. If tool call → if the current mode forbids it (Plan + write), return a tool error, do not execute. If Build and the tool mutates, **wait for Allow/Deny**. If Yolo, skip the wait. Then execute **in-process** with the jail → append a tool result → go to 3.
 6. Stop when: she produces a final text with no tool call, user hits Abort, **max steps** (v1: 20), or a repeated identical failing command.
 
-This is the opposite of search/MCP v1’s “one round then stream.” Desk **is** the loop.
+This is the opposite of search/MCP v1’s “one round then stream.” Waifu Coder **is** the loop.
 
-Regen in Desk: abort in-flight loop; do not re-apply the last patch automatically. Delete: session transcript only, disk unchanged.
+Regen in Waifu Coder: abort in-flight loop; do not re-apply the last patch automatically. Delete: session transcript only, disk unchanged.
 
 ### 6.2 Model
 
@@ -236,7 +236,7 @@ No `Process` for an OpenCode/Bun **agent** binary. `Process.start` for **the use
 
 ### 6.5 Language servers: many doors, user opens them
 
-**Audience (maintainer, 2026-09-05):** Desk is an **advanced** feature. Not every user will touch it; do **not** design it for first-run noobs. Dense UI, long language list, PATH, checksums, custom command — fine. Do not hide power behind a wizard that talks down. The honesty gate (not Claude Code, not critical repos) stays blunt because it is **safety**, not onboarding.
+**Audience (maintainer, 2026-09-05):** Waifu Coder is an **advanced** feature. Not every user will touch it; do **not** design it for first-run noobs. Dense UI, long language list, PATH, checksums, custom command — fine. Do not hide power behind a wizard that talks down. The honesty gate (not Claude Code, not critical repos) stays blunt because it is **safety**, not onboarding.
 
 **Policy (same conversation):** do not restrict the user’s language. The GitHub app zip still ships **zero** LSPs (RAG-shaped). A **catalog** lists as many languages as we can pin. Sitting down never downloads the set. Each language is a **door the user opens**.
 
@@ -250,9 +250,9 @@ No `Process` for an OpenCode/Bun **agent** binary. `Process.start` for **the use
 
 **PATH first:** if `rust-analyzer` / `godot` / `dart language-server` is already on the machine, the toggle says **Use installed** and does not download.
 
-**Runtime:** only **enabled** servers spawn, and only for the current Desk session. Disable = kill process, keep the bits on disk (like an unused RAG model). Uninstall = delete the bits. Yolo does **not** auto-open language doors.
+**Runtime:** only **enabled** servers spawn, and only for the current Waifu Coder session. Disable = kill process, keep the bits on disk (like an unused RAG model). Uninstall = delete the bits. Yolo does **not** auto-open language doors.
 
-**Never:** download the catalog’s artifacts on install, on first Desk open, or because one `.md` file exists; spawn a server the user did not enable; treat a failed download as “try a random npm package.”
+**Never:** download the catalog’s artifacts on install, on first Waifu Coder open, or because one `.md` file exists; spawn a server the user did not enable; treat a failed download as “try a random npm package.”
 
 ### 6.4 Failure
 
@@ -268,22 +268,22 @@ New island. Do not grow `ChatService`.
 |---|---|
 | Home mode + wizard | UI only; Create Character step pattern |
 | In-app folder walker | `dart:io` `Directory.list`; remember last path in prefs |
-| `DeskSession` | folder root, character id, transcript, last patches, step count |
-| `DeskHarness` | loop, catalog, dispatch, jail |
-| `DeskLlm` | thin over existing `LLMService.generateWithTools` |
-| Persistence | own table or JSON under the data dir — **not** `messages` / `sessions`. Deleting a character does not have to delete Desk history in v1 (document that). |
+| `WaifuSession` | folder root, character id, transcript, last patches, step count |
+| `WaifuHarness` | loop, catalog, dispatch, jail |
+| `WaifuLlm` | thin over existing `LLMService.generateWithTools` |
+| Persistence | own table or JSON under the data dir — **not** `messages` / `sessions`. Deleting a character does not have to delete Waifu Coder history in v1 (document that). |
 
-500-line cap, barrel under `lib/services/desk/` and `lib/ui/desk/`. AppColors / porch amber. No `Colors.blueAccent`.
+500-line cap, barrel under `lib/services/waifu/` and `lib/ui/waifu/`. AppColors / porch amber. No `Colors.blueAccent`.
 
 Reuse: `generateWithTools`, character library grid, theme. Do **not** reuse chat send/Continue/realism post-gen.
 
-MCP: v1 Desk catalog is local tools only. Connecting the existing MCP hub into Desk is a v1.1 if the HTTP client is already trusted; it must not block Desk v1.
+MCP: v1 Waifu Coder catalog is local tools only. Connecting the existing MCP hub into Waifu Coder is a v1.1 if the HTTP client is already trusted; it must not block Waifu Coder v1.
 
 ---
 
-## 8. Path-complete (Desk-specific)
+## 8. Path-complete (Waifu Coder-specific)
 
-Chat turn-event matrix is **N/A** (no ChatService). Desk events:
+Chat turn-event matrix is **N/A** (no ChatService). Waifu Coder events:
 
 | Event | Behaviour |
 |---|---|
@@ -292,7 +292,7 @@ Chat turn-event matrix is **N/A** (no ChatService). Desk events:
 | Regen | Not RP regen. v1: disabled or “abort + same prompt as a new loop” — pick one in implementation plan, do not silently reuse chat regen |
 | Continue | **Off.** There is no Continue control. A new send is a new loop (with transcript as context). |
 | Delete last turn | Transcript only |
-| Leave Desk | Loop aborts; folder unchanged except what she already wrote |
+| Leave Waifu Coder | Loop aborts; folder unchanged except what she already wrote |
 | Tools unsupported | Cannot sit down |
 | Plan + write/run | Tool error; nothing on disk |
 | Build + mutate | Modal; Deny = tool error, disk unchanged |
@@ -313,7 +313,7 @@ Twins: none on web (deferred). MCP chat catalog is a sibling, not this pipeline.
 - Card: prompt contains personality; does **not** contain scenario / needs / journal.
 - Wizard: step indicator is the Create Character pattern (dots + linear nav); folder step does not call `FilePicker`.
 - Honesty gate: Sit down Confirm is disabled until the checkbox is ticked; copy names Claude Code / Grok Build / OpenCode and “never on a critical codebase.”
-- Home: Desk is a sibling of Porch Stories, not a chat sidebar switch.
+- Home: Waifu Coder is a sibling of Porch Stories, not a chat sidebar switch.
 - Plan: a scripted `write_file` does not touch disk.
 - Build: a scripted `write_file` does not touch disk until Allow; Deny leaves the file absent.
 - Yolo: a scripted `write_file` inside the jail writes with no modal; `git checkout -- .` still does not run.
@@ -326,7 +326,7 @@ No existing test files edited (test-integrity). New files only.
 
 **Not in this body of work.** Maintainer deferral, this conversation: “no web, defer that.”
 
-Desktop-only is incomplete vs the standing parity law; the deferral is the exception. Implementing agents must not add a Desk page in `web_ui/` “while they are here.”
+Desktop-only is incomplete vs the standing parity law; the deferral is the exception. Implementing agents must not add a Waifu Coder page in `web_ui/` “while they are here.”
 
 ---
 
@@ -344,14 +344,14 @@ Yolo = OpenCode `--auto`: skip asks, never skip deny or jail.
 
 ## 12. Ship bar (v1)
 
-Desk is shippable when:
+Waifu Coder is shippable when:
 
 1. Wizard (folder walker + character + sit down) works on macOS, Windows, Linux. Sit down cannot proceed without the honesty checkbox. The copy says this is not Claude Code / Grok Build / OpenCode and must not be used on critical code.
 2. A tool-fluent remote model can complete a small real task (e.g. add a test, run it, fix fail) inside a throwaway folder, with diffs visible. Plan cannot write; Build asks; Yolo writes without asking and still cannot `git checkout --`.
 3. The same session, with a card that has a strong personality, **sounds like her** in the bubbles — not a generic coding assistant. Sass + a real patch is the win. Sass with no patch, or a patch with no her, is not.
 4. Jail tests are red-then-green.
 5. Local/XML-only backends cannot silently wreck a folder.
-6. Hostile self-review written. No ChatService ticks. No web. Optional **advanced** fun: Desk is not the default home mode, does not nag, and does not talk down. Honesty gate stays; kindergarten copy does not.
+6. Hostile self-review written. No ChatService ticks. No web. Optional **advanced** fun: Waifu Coder is not the default home mode, does not nag, and does not talk down. Honesty gate stays; kindergarten copy does not.
 
 It is **not** shippable because “the tsundere talks.” Talk without a trustworthy loop is the old harness sketch. It is also **not** shippable as silent OpenCode.
 
@@ -359,7 +359,7 @@ It is **not** shippable because “the tsundere talks.” Talk without a trustwo
 
 ## 13. Spec self-review
 
-- Placeholders: none material. Recent-desks is optional.
+- Placeholders: none material. Recent-waifus is optional.
 - Consistency: separate pipeline vs chat, no OpenCode process, web deferred, loop not one-shot — agreed throughout.
 - Scope: slices A–H as before; slice I is opt-in one-language LSP (ask + pin + spawn), not a zoo.
 - Ambiguity closed: regen = disabled or replay-as-new-loop (implementation plan picks one). Continue does not exist. Card fields listed. Jail + hard-deny always; ask is Build-only. Success = work **and** voice (maintainer, 2026-09-05). Honesty gate required. Yolo ≠ no jail.
@@ -368,7 +368,7 @@ It is **not** shippable because “the tsundere talks.” Talk without a trustwo
 
 ## 14. Approval gate
 
-Maintainer: read this file **and** the cannot-list in §0.1. If this is the product, say **yes**. Implementation is **only** the next unfinished slice in §15, never the whole Desk in one body of work.
+Maintainer: read this file **and** the cannot-list in §0.1. If this is the product, say **yes**. Implementation is **only** the next unfinished slice in §15, never the whole Waifu Coder in one body of work.
 
 ---
 
@@ -378,11 +378,11 @@ Each slice is its own PR-sized job. **Do not start slice N until N−1 is green*
 
 ### Slice A — Home + wizard + honesty (no tools yet)
 
-**Done when:** Chats | Porch Stories | **Desk**. Wizard: Project (in-app walker, not FilePicker) → Coworker → Sit down. Confirm dead until honesty checkbox. Tools-unsupported blocks Sit down. Opens an empty session chrome (portrait, composer, no loop).
+**Done when:** Chats | Porch Stories | **Waifu Coder**. Wizard: Project (in-app walker, not FilePicker) → Coworker → Sit down. Confirm dead until honesty checkbox. Tools-unsupported blocks Sit down. Opens an empty session chrome (portrait, composer, no loop).
 
 **Automated:** wizard steps; FilePicker not called; checkbox gate; card fields in a stub prompt (no scenario/needs); home toggle.
 
-**Manual poke:** open Desk, walk to a throwaway folder, pick a card, cannot continue until the box, then land in an empty Desk that does not tick Needs.
+**Manual poke:** open Waifu Coder, walk to a throwaway folder, pick a card, cannot continue until the box, then land in an empty Waifu Coder that does not tick Needs.
 
 ### Slice B — Jail + harness loop + core files
 
@@ -402,7 +402,7 @@ Each slice is its own PR-sized job. **Do not start slice N until N−1 is green*
 
 ### Slice D — bash + undo/redo
 
-**Done when:** `bash` cwd = project root, timeout, clipped stdout/stderr. Undo restores last Desk writes (not git reset of *your* work). Redo reapplies. Destructive git still denied.
+**Done when:** `bash` cwd = project root, timeout, clipped stdout/stderr. Undo restores last Waifu Coder writes (not git reset of *your* work). Redo reapplies. Destructive git still denied.
 
 **Automated:** bash cannot `cd` out; timeout; undo restores file bytes from harness log.
 
@@ -410,7 +410,7 @@ Each slice is its own PR-sized job. **Do not start slice N until N−1 is green*
 
 ### Slice E — todos, question, @files, AGENTS.md, skills
 
-**Done when:** `todowrite`/`todoread` visible as a list. `question` shows choices. `@` fuzzy-picks project files into the prompt. `/init` writes `AGENTS.md` (after ask in Build). `skill` loads `.desk/skills/**/SKILL.md` or `.opencode/skills` / `SKILL.md` if present.
+**Done when:** `todowrite`/`todoread` visible as a list. `question` shows choices. `@` fuzzy-picks project files into the prompt. `/init` writes `AGENTS.md` (after ask in Build). `skill` loads `.waifu/skills/**/SKILL.md` or `.opencode/skills` / `SKILL.md` if present.
 
 **Automated:** question pauses loop until answered; @path appears in next generate; skill file contents injected; init does not write without ask in Build.
 
@@ -418,7 +418,7 @@ Each slice is its own PR-sized job. **Do not start slice N until N−1 is green*
 
 ### Slice F — webfetch, FP web search, HTTP MCP
 
-**Done when:** `webfetch` (no-redirect, clip, untrusted). Optional `websearch` via existing Front Porch search (not Exa). Existing MCP HTTP/SSE tools can join the Desk catalog if the user already added servers — still per-Desk opt-in, jail does not apply to remote MCP (warn in UI).
+**Done when:** `webfetch` (no-redirect, clip, untrusted). Optional `websearch` via existing Front Porch search (not Exa). Existing MCP HTTP/SSE tools can join the Waifu Coder catalog if the user already added servers — still per-Waifu Coder opt-in, jail does not apply to remote MCP (warn in UI).
 
 **Automated:** webfetch refuses redirect; search uses FP service; MCP tool not advertised unless opted in.
 
@@ -426,11 +426,11 @@ Each slice is its own PR-sized job. **Do not start slice N until N−1 is green*
 
 ### Slice G — compaction, session resume, polish
 
-**Done when:** long session summaries instead of dying at context. Resume last Desk (folder + card + transcript). Compaction does not invent files. Title on the session.
+**Done when:** long session summaries instead of dying at context. Resume last Waifu Coder (folder + card + transcript). Compaction does not invent files. Title on the session.
 
 **Automated:** over-budget transcript is compacted; resume restores folder+card.
 
-**Manual poke:** leave Desk, come back, same folder and her, history there.
+**Manual poke:** leave Waifu Coder, come back, same folder and her, history there.
 
 ### Slice H — subagents (only after A–G)
 
@@ -443,7 +443,7 @@ Each slice is its own PR-sized job. **Do not start slice N until N−1 is green*
 ### Slice I — language doors (after D; does not block A–G)
 
 **Done when:**
-- In-app **catalog** of many languages (metadata only in the app). Desk → Language help: every entry is a toggle. Off = nothing fetched.
+- In-app **catalog** of many languages (metadata only in the app). Waifu Coder → Language help: every entry is a toggle. Off = nothing fetched.
 - Detect-on-sit-down suggests **matching** doors (checkboxes, none pre-ticked). User opens zero, one, or several.
 - Yes on a pinned entry downloads **that** artifact (URL + checksum) into the data dir. PATH-installed offered first.
 - Custom door: command + args + extensions; no GitHub scrape.

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-07 — refactor(waifu): one Waifu Coder name at every layer
+- **Why:** The user-facing product had already become Waifu Coder, but its
+  implementation, tests, keys, and design notes still carried the retired
+  prototype name. That split made copy and migration behavior easy to drift.
+- **What:** Renamed the feature roots to `services/waifu`, `ui/waifu`, and
+  matching test paths; renamed all Waifu types, symbols, filenames, keys,
+  routes, and home-mode state. New data continues under `.waifu`. The literal
+  legacy on-disk folder remains read-only compatibility behind
+  `kWaifuLegacyDotDir`.
+- **Guard:** `waifu_naming_test.dart` scans source, tests, release notes, and
+  design docs. Only unrelated “Desktop” text and the quoted legacy folder
+  literal are allowed.
+- **Commit:** pending
+
 ## 2026-09-07 — fix(waifu): one bubble per send; no chat token cap
 - **Why:** Each tool step opened a new Iris bubble, so reads/writes
   sat between portraits. Chat maxLength 2048 also cut tool calls.
@@ -19,12 +33,12 @@
 - **Verification:** docs only; matched against
   `nightly-rawhide.20260906.7059c91` release body.
 
-## 2026-09-07 — fix(waifu): skills live in ~/.waifu; cwd prefix; no .desk leak
-- **Why:** Iris looked for `~/.desk` (prompt said `.desk/skills`) and
+## 2026-09-07 — fix(waifu): skills live in ~/.waifu; cwd prefix; no .waifu leak
+- **Why:** Iris looked for `~/.waifu` (prompt said `.waifu/skills`) and
   `read` failed on `Kabbage/pubspec.yaml` because cwd was already
-  Kabbage. Install wrote to `{sit-down}/.desk/skills`, which is not a
+  Kabbage. Install wrote to `{sit-down}/.waifu/skills`, which is not a
   home folder she can find.
-- **What:** User-facing paths are `.waifu` (legacy `.desk` still
+- **What:** User-facing paths are `.waifu` (legacy `.waifu` still
   scanned). Personal skills: `~/.waifu/skills` (created on refresh,
   README inside). Catalog/sidebar show that path. Nested
   category/name/SKILL.md loads by leaf name. Other-harness SKILL.md
@@ -32,22 +46,22 @@
   Loop prompt uses the absolute sit-down path and says not to prefix
   the folder name; resolveLive strips a redundant cwd prefix on miss.
 - **Verification:** cwd-prefix read + nested-folder-wins; loop prompt
-  has absolute path and no `.desk/`; skill roots tests (user dest,
+  has absolute path and no `.waifu/`; skill roots tests (user dest,
   nested load, legacy list, empty catalog).
 
-## 2026-09-07 — feat(chat,desk): drag a photo onto the composer
+## 2026-09-07 — feat(chat,waifu): drag a photo onto the composer
 - **Why:** Waifu Coder had no attach. Chat had a picker only. Dragging
   from Finder/Explorer did nothing — no drop plugin in the tree.
-- **What:** `desktop_drop` DropTarget on chat and Desk composers.
-  Amber "Drop a photo" overlay. Attach button on Desk. Pixels ride the
+- **What:** `desktop_drop` DropTarget on chat and Waifu Coder composers.
+  Amber "Drop a photo" overlay. Attach button on Waifu Coder. Pixels ride the
   first generate (`GenerationParams.images`); later tool steps do not
-  re-upload. Saved under `.desk/inbox/` for the bubble. macOS
+  re-upload. Saved under `.waifu/inbox/` for the bubble. macOS
   security-scoped bookmarks started/stopped around the read.
 - **Verification:** firstDroppedImage skips .md keeps png; harness first
-  call has images; Desk attach + DropTarget chrome. Filename filter
+  call has images; Waifu Coder attach + DropTarget chrome. Filename filter
   test red when always-true.
 
-## 2026-09-07 — fix(desk): Enter sends; last-write strip can be dismissed
+## 2026-09-07 — fix(waifu): Enter sends; last-write strip can be dismissed
 - **Why:** Multiline composer used TextInputAction.newline, so Enter
   inserted a line. Last-write preview had no close after a file write.
 - **What:** Bare Enter / numpad Enter send (same as chat). Shift+Enter
@@ -66,9 +80,9 @@
   still runs when collapsed.
 - **Verification:** live collapse widget test (red with the old OR);
   stream-chunk re-open; finished-think still starts collapsed; existing
-  desk "thought tokens appear while generating" still green.
+  waifu "thought tokens appear while generating" still green.
 
-## 2026-09-07 — feat(desk): nested agents, workflows, thinking toggle, MCP clones
+## 2026-09-07 — feat(waifu): nested agents, workflows, thinking toggle, MCP clones
 - **Why:** Subagents existed (`task` explore/general, one deep) but no
   workflows. Context meter counted only the user prompt. Thought tokens
   were shown then dropped on the next turn. Docker MCP advertised
@@ -76,7 +90,7 @@
   stuffed "New to Desktop Commander?" onboarding into the spoken line.
   Last-write of pubspec.yaml overflowed the chat column by ~2473px.
 - **What:** `workflow` tool + `/workflow [name]` JSON pipelines in
-  `.desk/workflows` (not Rhai). Meter = system + prompt. Preserve
+  `.waifu/workflows` (not Rhai). Meter = system + prompt. Preserve
   thinking toggle (default off). Drop DC FS/onboarding MCP tools;
   `list_directory` maps to glob and never hits Docker. Sanitize
   onboarding in MCP results. Work strip clips + maxHeight 180.
@@ -84,7 +98,7 @@
   parse/run, context budget, preserve-thinking on/off, work-strip
   overflow widget test.
 
-## 2026-09-07 — feat(desk): allowlisted skill catalogs + wipe denials
+## 2026-09-07 — feat(waifu): allowlisted skill catalogs + wipe denials
 - **Why:** Anthropic's public repo is 19 skills. Users wanted more
   *safe* catalogs, not a crawl of random GitHub. Bash only blocked
   `rm -rf /`, not `rm -rf *` / `.` / home.
@@ -94,7 +108,7 @@
   diskutil erase; sudo rm. `rm -rf build` still allowed.
 - **Verification:** skill sources test (Vercel install); deny-wipe tests.
 
-## 2026-09-07 — fix(desk): skills panel is compact; catalog is the real 19
+## 2026-09-07 — fix(waifu): skills panel is compact; catalog is the real 19
 - **Why:** Anthropic's public repo is 19 folders. The sidebar dumped
   full SKILL.md descriptions and fat Install pills, so it looked like a
   broken store.
@@ -103,7 +117,7 @@
 - **Verification:** install chrome test (no FilledButton, no description
   dump); expand Skills then panel keys.
 
-## 2026-09-07 — fix(desk): one bubble per loop step; tool log not chip wrap
+## 2026-09-07 — fix(waifu): one bubble per loop step; tool log not chip wrap
 - **Why:** A coding turn is many think/tool/talk cycles. One assistant
   row reused every generate, so think concatenated and the spoken line
   was wiped on the next step. Tool chips wrapped into a sloppy cloud.
@@ -113,7 +127,7 @@
 - **Verification:** loop-bubbles unit test (three steps, speech/think
   isolated); tool-log widget test (no Chip); harness two-generate tests.
 
-## 2026-09-06 — fix(desk): coding prompt is persona + constitution, not chat RP
+## 2026-09-06 — fix(waifu): coding prompt is persona + constitution, not chat RP
 - **Why:** The harness stuffed the card's chat systemPrompt and assumed
   she/her. Scenario was already excluded; mes_example was dumped as a scene.
 - **What:** Selected V2 card on top (name + personality; description only if
@@ -123,22 +137,22 @@
   no first_mes, no chat systemPrompt.
 - **Verification:** coworker prompt tests (order, exclusions, gender, clip).
 
-## 2026-09-06 — feat(desk): skills marketplace, chat install, code-review, lookup
+## 2026-09-06 — feat(waifu): skills marketplace, chat install, code-review, lookup
 - **Why:** Skills existed only as HTTPS helpers with no sidebar. skill_install
   was advertised but never dispatched. /review did not read as code review.
   MCP could be on with 110 tools while she still guessed Flutter versions
   because web_search was never wired and the prompt never told her to look up.
 - **What:** Skills accordion (official anthropics/skills, Refresh / Install).
   /skills lists; /skills pdf installs. Agent skill_install writes
-  .desk/skills. /review blurb is code review; /code-review is the alias.
-  Desk binds ChatService Wikipedia/Tavily as web_search; MCP search/fetch
+  .waifu/skills. /review blurb is code review; /code-review is the alias.
+  Waifu Coder binds ChatService Wikipedia/Tavily as web_search; MCP search/fetch
   tools are advertised first; loop prompt forbids claiming a version is fake
   from memory.
 - **Verification:** market + harness install (red when dispatch stubbed),
-  slash review/code-review/skills, lookup cue + MCP order + DeskPage
+  slash review/code-review/skills, lookup cue + MCP order + WaifuPage
   webSearch bind pin, skills chrome.
 
-## 2026-09-06 — feat(desk): slash menu, Stop bar, context meter
+## 2026-09-06 — feat(waifu): slash menu, Stop bar, context meter
 - **Why:** Typing / did nothing. A run had only a tiny abort icon.
   No used-vs-max context in the sidebar.
 - **What:** `/` palette with amber prefix highlight and blurb
@@ -149,33 +163,33 @@
 - **Verification:** slash match unit tests, menu widget test, context
   bar, existing abort chrome test.
 
-## 2026-09-06 — fix(desk): confirm before deleting a session
+## 2026-09-06 — fix(waifu): confirm before deleting a session
 - **Why:** ⋮ → Delete this session dropped the porch with no "are you
   sure", so a misclick wiped the parked chat.
 - **What:** Confirm dialog (Cancel / Delete). Disk folder is untouched.
 - **Verification:** cancel leaves forgotten=0; confirm increments.
 
-## 2026-09-06 — fix(desk): composer grows with the prompt
+## 2026-09-06 — fix(waifu): composer grows with the prompt
 - **Why:** The Waifu Coder box was one line. Long tasks scrolled out of
   view with no way to read what you were about to send.
 - **What:** Same as chat: 1–10 lines, Enter inserts a newline, send is
   the arrow. Undo/redo/send stay on the bottom of the growing field.
 - **Verification:** composer expand widget test (height after 5 lines).
 
-## 2026-09-06 — feat(desk): search the coworker picker
+## 2026-09-06 — feat(waifu): search the coworker picker
 - **Why:** A full library is a hunt with no filter on the Waifu Coder
   coworker step.
 - **What:** Search field filters by name or tag. Empty query shows the
   whole grid.
 - **Verification:** coworker search widget test (iri → Iris, tag → Nina).
 
-## 2026-09-06 — fix(desk): one New porch, sit-down save, MCP toggle
+## 2026-09-06 — fix(waifu): one New porch, sit-down save, MCP toggle
 - **Why:** Header New pill + New porch card were the same action.
   Sitting down did not park a card until the first chat turn. MCP
   checkbox no-op'd until a harness existed (first send). Language
   help was in the app bar and the sidebar. Folder picker listed
   `$HOME` dotfiles first.
-- **What:** Only the dashed New porch tile starts the wizard. DeskPage
+- **What:** Only the dashed New porch tile starts the wizard. WaifuPage
   saveLast on first frame. mcpOptIn lives on the session so the
   checkbox works immediately and copies into the harness. Language
   help is app-bar only. Hidden folders stay off the picker until
@@ -183,11 +197,11 @@
 - **Verification:** home projects (no New pill), MCP toggle without
   harness, sit-down save before send, hidden-folder listing + wizard.
 
-## 2026-09-06 — feat(desk): Waifu Coder home is a porch of folders
+## 2026-09-06 — feat(waifu): Waifu Coder home is a porch of folders
 - **Why:** Three used folders should be three cards, plus New that
   picks folder then character. The old empty-state / single Resume
   was grey and lame.
-- **What:** DeskStore indexes every sit (projects.json). Home is an
+- **What:** WaifuStore indexes every sit (projects.json). Home is an
   amber/honey/terracotta glow grid: one card per folder (portrait,
   coworker chip, resume / new session), a New porch tile, and a New
   header button. Wizard stays folder → coworker. skipProject jumps
@@ -199,8 +213,8 @@
   skipProject coworker-first, store index unit test. Store test
   timed out on the recurse; green after the split.
 
-## 2026-09-06 — feat(desk): Waifu Coder uses the chat shell
-- **Why:** Desk was a generic dump with no portrait, no live think
+## 2026-09-06 — feat(waifu): Waifu Coder uses the chat shell
+- **Why:** Waifu Coder was a generic dump with no portrait, no live think
   tokens, and a stupid name. User asked to reuse chat chrome and call
   it Waifu Coder.
 - **What:** ChatPage leaves (portrait, resize sidebar, message list,
@@ -211,15 +225,15 @@
 - **Verification:** stream parser, live harness think, shell widget
   test (sidebar/settings, no Continue/realism, live Thought).
 
-## 2026-09-06 — fix(desk): chips, thought, in-character bubble
+## 2026-09-06 — fix(waifu): chips, thought, in-character bubble
 - **Why:** Tool chips rendered as "bash bash" garbage, reasoning never
   reached the bubble, and the coworker dumped source into chat instead
   of speaking in character while writing files.
 - **What:** Chip caption is command/path once. Thought is an expander
-  from reasoning_content or <think>. Desk honors Settings thinking
+  from reasoning_content or <think>. Waifu Coder honors Settings thinking
   toggle. Preamble: no source dumps in chat; bubble is her voice.
 - **Verification:** chip-detail, harness reasoning, coworker preamble
-  tests. Full desk suite 110 green.
+  tests. Full waifu suite 110 green.
 
 ## 2026-09-06 — fix(mcp): stop asking for the Mac password on launch
 - **Why:** MCP tokens were in the login keychain. Reading them on every
@@ -253,135 +267,135 @@
   symbols / FakeStorage) then green. Existing check-result HTTP 500
   line unchanged. Web 200 tests.
 
-## 2026-09-05 — test(desk): pin PATH-first, Holy C, file:// (slice I)
+## 2026-09-05 — test(waifu): pin PATH-first, Holy C, file:// (slice I)
 - **Why:** Hostile review of language doors: PATH must beat a download
   URL; Holy C must not HTTP; default fetch must refuse file://.
-- **What:** New pins in desk_i_holes_test.dart. Production already held.
+- **What:** New pins in waifu_i_holes_test.dart. Production already held.
 - **Verification:** three pins green on first run.
 
-## 2026-09-05 — feat(desk): language doors, PATH first, no zoo (slice I)
-- **Why:** Desk must not silently download an LSP zoo. Each language is
+## 2026-09-05 — feat(waifu): language doors, PATH first, no zoo (slice I)
+- **Why:** Waifu Coder must not silently download an LSP zoo. Each language is
   a door the user opens. Sit down never fetches. Yolo never auto-opens.
 - **What:** In-app catalog (metadata only). Language help toggles, all
   off. Detect highlights matches (Godot → GDScript, not Rust) still
   off. PATH first; pinned URL+checksum otherwise; checksum fail does
   not spawn. Custom command is exec'd as-is (Holy C is BYO). Disable
   kills the process; session end kills all.
-- **Files:** desk_lang_catalog.dart, desk_lang_runtime.dart,
-  desk_language_help.dart, DeskPage button, tests desk_slice_i +
-  desk_i_chrome.
-- **Verification:** I tests red (missing types) then green. 104 desk
-  tests pass. Analyze clean. No ChatService import. No web_ui Desk.
+- **Files:** waifu_lang_catalog.dart, waifu_lang_runtime.dart,
+  waifu_language_help.dart, WaifuPage button, tests waifu_slice_i +
+  waifu_i_chrome.
+- **Verification:** I tests red (missing types) then green. 104 waifu
+  tests pass. Analyze clean. No ChatService import. No web_ui Waifu Coder.
 
-## 2026-09-05 — feat(desk): nested Explore/General, same jail (slice H)
+## 2026-09-05 — feat(waifu): nested Explore/General, same jail (slice H)
 - **Why:** After the loop is trusted, she can spawn a nested Explore
   (read-only) or General (same folder jail) and wait. Scout skipped.
 - **What:** `task` tool. Explore advertises only read/glob/grep and
   refuses writes even in Yolo. General inherits parent mode. Children
   cannot spawn children or leave the jail. Parent abort aborts the child.
-- **Files:** desk_subagent.dart, harness advertisedTools/_runTask,
-  tests desk_slice_h_test + desk_h_chrome_test.
-- **Verification:** H tests red (missing kDeskToolTask) then green.
-  93 desk tests pass. Analyze clean. No ChatService import.
+- **Files:** waifu_subagent.dart, harness advertisedTools/_runTask,
+  tests waifu_slice_h_test + waifu_h_chrome_test.
+- **Verification:** H tests red (missing kWaifuToolTask) then green.
+  93 waifu tests pass. Analyze clean. No ChatService import.
 
-## 2026-09-05 — fix(desk): extractive recap keeps folded filenames (slice G)
+## 2026-09-05 — fix(waifu): extractive recap keeps folded filenames (slice G)
 - **Why:** Hostile review: recap said "facts only from those lines" but
   dropped every line, so the next generate had nothing to be honest about
   and could invent files.
 - **What:** Folded turns are copied into the recap, clipped to 1500
   chars. Still must not invent names that were never in those lines.
-- **Files:** desk_compact.dart, test/services/desk/desk_g_holes_test.dart
+- **Files:** waifu_compact.dart, test/services/waifu/waifu_g_holes_test.dart
 - **Verification:** holes test red (no hello.txt in recap) then green.
 
-## 2026-09-05 — feat(desk): compaction, session resume, title (slice G)
-- **Why:** Long Desk sessions must not dump the whole transcript into
+## 2026-09-05 — feat(waifu): compaction, session resume, title (slice G)
+- **Why:** Long Waifu Coder sessions must not dump the whole transcript into
   the next generate, and Sit down again should resume the last folder
   and coworker without chat `messages` / `sessions` rows.
 - **What:** Extractive compact (budget 12k, keep 8) that recaps dropped
   turns without inventing filenames. Title from the first send.
-  `DeskStore` JSON under `<data>/desk/last_desk.json` (name /
+  `WaifuStore` JSON under `<data>/waifu/last_waifu.json` (name /
   personality / description / systemPrompt only). Home Resume loads
-  that file and reloads when you pop back. Production DeskPage wires
+  that file and reloads when you pop back. Production WaifuPage wires
   the store so a send actually persists.
-- **Files:** desk_compact.dart, desk_store.dart, harness send, DeskPage,
-  DeskHomeView, tests desk_slice_g_test + desk_g_chrome_test.
+- **Files:** waifu_compact.dart, waifu_store.dart, harness send, WaifuPage,
+  WaifuHomeView, tests waifu_slice_g_test + waifu_g_chrome_test.
 - **Verification:** G tests red (missing store/compact/title) then
-  green. 88 desk tests pass. Analyze clean. No ChatService import.
+  green. 88 waifu tests pass. Analyze clean. No ChatService import.
 
-## 2026-09-05 — feat(desk): webfetch, FP search, opt-in MCP (slice F)
+## 2026-09-05 — feat(waifu): webfetch, FP search, opt-in MCP (slice F)
 - **Why:** OpenCode-close fetch/search/MCP without stdio or Exa.
 - **What:** webfetch GET, no redirects, clip, UNTRUSTED. web_search
   advertised only when a lookup is injected. MCP tools not advertised
   unless mcpOptIn; UI warns jail does not apply.
-- **Files:** desk_webfetch.dart, harness catalog, desk_mcp_opt_in.dart,
-  tests desk_slice_f_test + desk_f_chrome_test.
+- **Files:** waifu_webfetch.dart, harness catalog, waifu_mcp_opt_in.dart,
+  tests waifu_slice_f_test + waifu_f_chrome_test.
 - **Verification:** redirect-refuse and MCP-off tests red then green.
-  76 desk tests pass. Analyze clean. No ChatService import.
+  76 waifu tests pass. Analyze clean. No ChatService import.
 
-## 2026-09-05 — feat(desk): todos, question, @files, /init, skills (slice E)
+## 2026-09-05 — feat(waifu): todos, question, @files, /init, skills (slice E)
 - **Why:** OpenCode-close coworking needs a todo list, a pause-to-ask,
   @file attach, AGENTS.md init, and SKILL.md load.
 - **What:** todowrite/todoread (Plan cannot write todos). question
   pauses the loop. @path injects file bytes into the next generate.
   /init writes AGENTS.md (Build still asks). skill loads
-  `.desk/skills/<name>/SKILL.md`.
-- **Files:** desk_todos/question/mentions/skills, harness, todo list +
-  question dialog, tests desk_slice_e_test + desk_e_chrome_test.
-- **Verification:** E tests red (missing symbols) then green. 68 desk
+  `.waifu/skills/<name>/SKILL.md`.
+- **Files:** waifu_todos/question/mentions/skills, harness, todo list +
+  question dialog, tests waifu_slice_e_test + waifu_e_chrome_test.
+- **Verification:** E tests red (missing symbols) then green. 68 waifu
   tests pass. Analyze clean.
 
-## 2026-09-05 — feat(desk): bash + undo/redo (slice D)
+## 2026-09-05 — feat(waifu): bash + undo/redo (slice D)
 - **Why:** Slice C denied git/rm in theory; D runs commands with cwd =
   the project folder and lets you undo *her* writes, not yours.
-- **What:** `DeskBash` — bash -c, cwd=root, 60s timeout, clipped
-  output, no `cd` out, hard-deny list. `DeskUndo` — restore/reapply
+- **What:** `WaifuBash` — bash -c, cwd=root, 60s timeout, clipped
+  output, no `cd` out, hard-deny list. `WaifuUndo` — restore/reapply
   write/edit bytes only. Undo/Redo on the session chrome.
-- **Files:** `desk_bash.dart`, `desk_undo.dart`, harness/tools/page,
-  tests under `test/services/desk/desk_bash_test.dart`,
-  `desk_undo_test.dart`, `test/ui/desk/desk_undo_chrome_test.dart`.
+- **Files:** `waifu_bash.dart`, `waifu_undo.dart`, harness/tools/page,
+  tests under `test/services/waifu/waifu_bash_test.dart`,
+  `waifu_undo_test.dart`, `test/ui/waifu/waifu_undo_chrome_test.dart`.
 - **Verification:** bash cwd/cd-out/timeout and undo/redo tests red
   (missing symbols) then green. Analyze clean after dropping unused
   import.
 
-## 2026-09-05 — feat(desk): Plan/Build/Yolo permissions (slice C)
+## 2026-09-05 — feat(waifu): Plan/Build/Yolo permissions (slice C)
 - **Why:** Slice B wrote freely. OpenCode-shaped gears: Plan looks,
   Build asks, Yolo skips the modal. Jail and hard-deny still apply.
-- **What:** `DeskPermissions` — Plan cannot mutate; Build Allow once /
+- **What:** `WaifuPermissions` — Plan cannot mutate; Build Allow once /
   Always / Deny; Yolo no ask; `.env` deny; doom-loop 3× asks even in
   Yolo; `git checkout --`, `git restore`, `rm -rf /` hard-denied.
   Null `onAsk` still auto-allows Build so slice B tests stay green;
-  production DeskPage installs the modal. Mode chips on the session.
-- **Files:** `desk_permissions.dart`, `desk_harness.dart`, `desk_page.dart`,
-  `desk_mode_bar.dart`, `desk_ask_dialog.dart`, tests under
-  `test/services/desk` and `test/ui/desk/desk_mode_ask_test.dart`.
+  production WaifuPage installs the modal. Mode chips on the session.
+- **Files:** `waifu_permissions.dart`, `waifu_harness.dart`, `waifu_page.dart`,
+  `waifu_mode_bar.dart`, `waifu_ask_dialog.dart`, tests under
+  `test/services/waifu` and `test/ui/waifu/waifu_mode_ask_test.dart`.
 - **Verification:** Permission/harness tests red (missing symbols) then
   green. Existing B harness write test still green. Analyze clean.
 
-## 2026-09-05 — feat(desk): generateWithTools loop + jail (slice B)
-- **Why:** Slice A was chrome only. Desk is a coding coworker only if
+## 2026-09-05 — feat(waifu): generateWithTools loop + jail (slice B)
+- **Why:** Slice A was chrome only. Waifu Coder is a coding coworker only if
   Send actually loops tools against the picked folder, inside a jail.
-- **What:** `DeskHarness` loops `generateWithTools` (max 20, abort).
+- **What:** `WaifuHarness` loops `generateWithTools` (max 20, abort).
   Tools: read/edit/write/glob/grep. Jail denies `..`, `/etc`, and
   escaping symlinks (root is canonicalized so macOS `/var` temp dirs
   are not false-denied). Personality preamble on every generate.
   Work strip shows last write before/after. Regen disabled; no Continue.
   Null tools response does not invent a patch. Scripted LLM for tests.
-- **Files:** `desk_jail.dart`, `desk_fs.dart`, `desk_tools.dart`,
-  `desk_llm.dart`, `desk_harness.dart`, `desk_page.dart`,
-  `desk_work_strip.dart`, tests under `test/services/desk` and
-  `test/ui/desk/desk_loop_chrome_test.dart`.
+- **Files:** `waifu_jail.dart`, `waifu_fs.dart`, `waifu_tools.dart`,
+  `waifu_llm.dart`, `waifu_harness.dart`, `waifu_page.dart`,
+  `waifu_work_strip.dart`, tests under `test/services/waifu` and
+  `test/ui/waifu/waifu_loop_chrome_test.dart`.
 - **Verification:** Jail/fs/harness tests red (missing symbols) then
-  green. Loop chrome: work strip + abort. Analyze clean on desk paths.
+  green. Loop chrome: work strip + abort. Analyze clean on waifu paths.
 
-## 2026-09-05 — feat(desk): home tab, wizard, honesty gate (slice A)
-- **Why:** Desk is a separate coding-coworker pipeline. Slice A is chrome
+## 2026-09-05 — feat(waifu): home tab, wizard, honesty gate (slice A)
+- **Why:** Waifu Coder is a separate coding-coworker pipeline. Slice A is chrome
   only — no loop, no ChatService, no web.
-- **What:** Home mode Desk sibling of Porch Stories. Wizard Project (in-app
+- **What:** Home mode Waifu Coder sibling of Porch Stories. Wizard Project (in-app
   walker, not FilePicker) → Coworker → Sit down. Confirm dead until honesty
   checkbox. Tools-unsupported blocks. Empty session chrome (portrait name,
   folder, composer; Send stores the user line only).
-- **Files:** `lib/services/desk/*`, `lib/ui/desk/*`, home mode toggle,
-  `home_page` Desk pane, tests under `test/services/desk` and `test/ui/desk`.
+- **Files:** `lib/services/waifu/*`, `lib/ui/waifu/*`, home mode toggle,
+  `home_page` Waifu Coder pane, tests under `test/services/waifu` and `test/ui/waifu`.
 - **Verification:** Prompt/gate/listing tests red (missing symbols) then
   green. Wizard Confirm-null / tools-block / FilePicker-absent. Overflow
   toolbar still green. Analyze clean on touched paths.
@@ -4009,7 +4023,7 @@
   the reported user's exact case working with nothing installed.
 
 ## 2026-08-05 — fix(spellcheck): the OS interface language was choosing the chat dictionary
-- **Files changed:** `lib/services/desktop_spell_check_service.dart`,
+- **Files changed:** `lib/services/waifutop_spell_check_service.dart`,
   `lib/services/storage_service.dart`, `lib/ui/widgets/styled_text_controller.dart`,
   `lib/ui/widgets/app_text_field.dart`, `lib/ui/widgets/widgets.dart`,
   `lib/ui/settings/widgets/spell_check_language_row.dart` (new),
@@ -4075,7 +4089,7 @@
   `README.fpai.md` + `CMakeLists.txt`), `linux/dictionaries/**` (new — bundled en_US +
   its SCOWL copyright), `linux/runner/spell_check_plugin.cc` (backend rewritten),
   `linux/runner/CMakeLists.txt`, `linux/CMakeLists.txt`,
-  `lib/ui/widgets/app_text_field.dart`, `lib/services/desktop_spell_check_service.dart`,
+  `lib/ui/widgets/app_text_field.dart`, `lib/services/waifutop_spell_check_service.dart`,
   `integration_test/spell_check_test.dart`, `docs/design/e2e-coverage-map.md`,
   `docs/Rawhide.md`, `.github/workflows/ci.yml` (comment only),
   `.github/workflows/release.yml` (reverted to baseline)
@@ -4139,7 +4153,7 @@
 - **Files changed:** `linux/runner/spell_check_plugin.cc` (new), `linux/runner/spell_check_plugin.h`
   (new), `linux/runner/my_application.cc`, `linux/runner/CMakeLists.txt`,
   `lib/ui/widgets/app_text_field.dart`, `lib/ui/widgets/styled_text_controller.dart`,
-  `lib/services/desktop_spell_check_service.dart`, `lib/services/services.dart`,
+  `lib/services/waifutop_spell_check_service.dart`, `lib/services/services.dart`,
   `integration_test/spell_check_test.dart` (new), `docs/design/e2e-coverage-map.md`,
   `docs/Rawhide.md`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`
 - **Why:** the maintainer asked whether spell check, which works on macOS and Windows,
@@ -5974,7 +5988,7 @@ Three related fixes to the "enjoys low hygiene" (prefers-being-dirty) feature.
 ## 2026-07-01 — Web/mobile UI: fix hang when a Chaos "Chance Time" event fires
 - Files (Dart): lib/services/chat_service.dart (durable web chance-time accessors + double-accept race guard), lib/services/web/facade/chat_facade.dart (state.chanceTime + acceptChanceTime), lib/services/web/routes/chat_routes.dart (POST /api/chat/chance-time/accept), lib/services/web/web_server_host.dart (`chance_time` WS broadcast on park/release edge), lib/ui/widgets/chance_time_overlay.dart (speaker attribution unified onto ChatService.chanceTimeSpeakerName)
 - Files (web): web_ui/src/components/ChanceTimeModal.tsx (new reveal-card modal), web_ui/src/pages/ChatPage.tsx (open/reveal/accept + reconnect recovery + failure-reopen), web_ui/src/api/ws.ts (`pending` field), web_ui/src/styles.css (.chance-* styles), assets/web_app/* (rebuilt PWA bundle)
-- Reason: A Discord user reported the web app hangs when Chaos is enabled — the prompt sends but no reply ever comes; they correctly guessed it was waiting for the desktop-only "Accept your fate" button. Root cause: when chaos rolls a Chance Time event, ChatService.sendMessage parks on `_chanceTimeCompleter` (chat_service.dart:3133) and refuses to generate until someone accepts fate, and that completion only ever came from the DESKTOP wheel overlay's button. The web/mobile UI drives the SAME shared ChatService over HTTP/WS but was never told a Chance Time was pending, had no wheel/button, and no endpoint to resolve it — so the parked send hung forever (and, because the instance is shared, the wheel actually popped on the unattended desktop; clicking it there would unstick the phone, which is why it felt intermittent/haunted). Fix, keeping the accept path shared and the simulation untouched: (1) ChatService exposes a durable `isAwaitingChanceTime`, a pre-picked `webChanceTimeDisplay` (sampled from the same pool via the side-effect-free spinWheelEvents(); desktop still spins its own wheel — presentation differs, logic is one path), and `acceptPendingChanceTime`; (2) web_server_host's existing ChatService listener broadcasts a `chance_time` WS event on the park/release edge, and /api/chat/state carries `chanceTime` so a reconnecting phone recovers; (3) new bodyless POST /api/chat/chance-time/accept; (4) a React reveal-card modal (tease → reveal → "Accept Your Fate") that pops instantly, survives the phone sleeping through the live event, reopens if the accept POST fails, and auto-closes if another surface accepts first. Also hardened applyChanceTimeResult against a double-accept race (desktop + web resolving the one shared completer would otherwise throw completing an already-completed Completer) and de-duplicated the event's speaker attribution into a single ChatService.chanceTimeSpeakerName getter (was inline in the desktop overlay). 1:1/group parity preserved (attribution follows the upcoming group speaker exactly as the desktop wheel did).
+- Reason: A Discord user reported the web app hangs when Chaos is enabled — the prompt sends but no reply ever comes; they correctly guessed it was waiting for the desktop-only "Accept your fate" button. Root cause: when chaos rolls a Chance Time event, ChatService.sendMessage parks on `_chanceTimeCompleter` (chat_service.dart:3133) and refuses to generate until someone accepts fate, and that completion only ever came from the WAIFUTOP wheel overlay's button. The web/mobile UI drives the SAME shared ChatService over HTTP/WS but was never told a Chance Time was pending, had no wheel/button, and no endpoint to resolve it — so the parked send hung forever (and, because the instance is shared, the wheel actually popped on the unattended desktop; clicking it there would unstick the phone, which is why it felt intermittent/haunted). Fix, keeping the accept path shared and the simulation untouched: (1) ChatService exposes a durable `isAwaitingChanceTime`, a pre-picked `webChanceTimeDisplay` (sampled from the same pool via the side-effect-free spinWheelEvents(); desktop still spins its own wheel — presentation differs, logic is one path), and `acceptPendingChanceTime`; (2) web_server_host's existing ChatService listener broadcasts a `chance_time` WS event on the park/release edge, and /api/chat/state carries `chanceTime` so a reconnecting phone recovers; (3) new bodyless POST /api/chat/chance-time/accept; (4) a React reveal-card modal (tease → reveal → "Accept Your Fate") that pops instantly, survives the phone sleeping through the live event, reopens if the accept POST fails, and auto-closes if another surface accepts first. Also hardened applyChanceTimeResult against a double-accept race (desktop + web resolving the one shared completer would otherwise throw completing an already-completed Completer) and de-duplicated the event's speaker attribution into a single ChatService.chanceTimeSpeakerName getter (was inline in the desktop overlay). 1:1/group parity preserved (attribution follows the upcoming group speaker exactly as the desktop wheel did).
 - Verified: `flutter analyze` on all 5 changed Dart files → No issues found; `dart fix --dry-run` per file → Nothing to fix; web `npm run build` (tsc --noEmit + vite) clean; web `npm test` (vitest) → 19/19 pass; dead-code grep (every new symbol referenced; old inline attribution pattern gone). LIMITATION: a live end-to-end trigger needs the desktop backend running with Chaos on + an RNG hit, which can't be forced in a headless check — the flow is verified by code review + the build/test gates, not a live chaos event.
 - Commit: (uncommitted — pending user review)
 
@@ -7922,7 +7936,7 @@ Delivered in three commits (W4a character authoring, W4b persona CRUD, W4c world
 - **Hygiene**: 0 new private methods. 0 methods deleted (inline Builder removed). No duplication created. Pre-existing warnings in chat_service etc. untouched.
 
 ## 2026-05-27T01:48:23Z
-- **Files changed**: `lib/ui/pages/chat_page.dart` (major), `lib/services/desktop_spell_check_service.dart`
+- **Files changed**: `lib/ui/pages/chat_page.dart` (major), `lib/services/waifutop_spell_check_service.dart`
 - **Branch**: `Rawhide`
 - **Reason**: User directive: "clean up all the garbage code as step 0 and then go with option 3". After repeated failed experiments (overlay with transparent AppTextField + RichText, _ComposerWithOverlay/_ComposerStyledOverlay, earlier _ComposerInput attempts, shared ScrollControllers causing "attached to multiple scroll views", invisible input, lost right-click menu, and colors still resetting on spell results), the composer was left in a broken state with dozens of lines of dead widget code, duplicate almost-identical _applySpell* helpers (one static for overlay, one instance), unused GlobalKey, stale NotifyingDesktopSpellCheckService wrapper, and references to removed classes. 
   - Step 0: ruthlessly deleted both overlay widget classes + state (~170 LOC), the dead instance _applySpellDecorationToSegment method, the entire Notifying wrapper class + its now-unused ValueNotifier import, the unused _chatInputKey comment, the dead 'matches' local in buildTextSpan, and all stale "used by overlay" comments.
@@ -7934,7 +7948,7 @@ Delivered in three commits (W4a character authoring, W4b persona CRUD, W4c world
   This completes the long-standing requirement for the main chat composer without compromise.
 
 ## 2026-05-26T23:53:41Z
-- **Files changed**: `lib/services/desktop_spell_check_service.dart`, `lib/ui/pages/chat_page.dart`, `docs/Rawhide.md`
+- **Files changed**: `lib/services/waifutop_spell_check_service.dart`, `lib/ui/pages/chat_page.dart`, `docs/Rawhide.md`
 - **Branch**: `Rawhide`
 - **Reason**: Proper (deeper) fix for chat composer having both live red spell-check underlines AND stable custom amber ("dialogue") / blue (*action*) coloring. 
   - Added `NotifyingDesktopSpellCheckService` wrapper that notifies a ValueNotifier immediately after the platform channel returns results (during normal typing, not only on context menu).
@@ -10646,7 +10660,7 @@ closed in finally (Windows lock on failed import); official-key squatting blocke
 (catalog + orphan-bundle check) while re-imports still refuse cleanly; custom voices get
 browser rows (visible + deletable); register-last + full cleanup on failure. Grok's
 remaining secondaries all addressed. Maintainer ruling 2026-07-25 (in-conversation): custom
-voice import is DESKTOP/DART-ONLY BY DESIGN — no web upload counterpart owed; web keeps
+voice import is WAIFUTOP/DART-ONLY BY DESIGN — no web upload counterpart owed; web keeps
 voice selection via the facade.
 
 **Verification:** 11 new tests (wire-format round-trip via a real protobuf reader in-test,

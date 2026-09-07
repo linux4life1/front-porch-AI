@@ -26,10 +26,10 @@ extension _HomePageChrome on _HomePageState {
   Widget _buildModeToggle() {
     return HomeModeToggle(
       showStories: _homeMode == HomeMode.stories,
-      showDesk: _homeMode == HomeMode.desk,
+      showWaifu: _homeMode == HomeMode.waifu,
       onShowChats: () => applyState(() => _homeMode = HomeMode.chats),
       onShowStories: () => applyState(() => _homeMode = HomeMode.stories),
-      onShowDesk: () => applyState(() => _homeMode = HomeMode.desk),
+      onShowWaifu: () => applyState(() => _homeMode = HomeMode.waifu),
     );
   }
 
