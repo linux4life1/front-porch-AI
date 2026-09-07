@@ -36,6 +36,13 @@ void main() {
         expect(body, isNot(contains('fun tool')));
         expect(body, isNot(contains('half-edit')));
         expect(
+          RegExp(
+            r'\b(she|her)\b',
+            caseSensitive: false,
+          ).hasMatch('$body ${waifuPathModeBlurb(mode)}'),
+          isFalse,
+        );
+        expect(
           waifuHonestyCheckbox(mode),
           contains('code I cannot afford to lose'),
         );

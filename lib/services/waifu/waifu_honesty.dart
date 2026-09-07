@@ -25,16 +25,16 @@ import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 String waifuHonestyBody(WaifuPathMode pathMode) {
   final scope = switch (pathMode) {
     WaifuPathMode.folderJail =>
-      '**Folder jail is the safer default.** Her files, symlinks, and bash '
+      '**Folder jail is the safer default.** Their files, symlinks, and bash '
           'paths stay inside the project folder you picked.',
     WaifuPathMode.wholeDisk =>
       '**Whole-disk access makes that folder a starting porch, not a fence.** '
-          'She can follow absolute paths, ~, .., and cd to read or change '
+          'They can follow absolute paths, ~, .., and cd to read or change '
           'other files anywhere your account can reach.',
   };
   return '$kWaifuCoderName puts real coding tools in your selected coworker’s '
       'hands: read, search, apply_patch, write, bash, tests, and visible '
-      'receipts. She works on disk while speaking as the card — not as a '
+      'receipts. They work on disk while speaking as the card — not as a '
       'generic assistant.\n'
       '$scope\n'
       'In either mode, hard stops still block secrets, destructive Git, '
@@ -80,10 +80,10 @@ String waifuPathModeTitle(WaifuPathMode pathMode) => switch (pathMode) {
 
 String waifuPathModeBlurb(WaifuPathMode pathMode) => switch (pathMode) {
   WaifuPathMode.folderJail =>
-    'Keep her file and bash paths on this project porch. Outside paths and '
+    'Keep their file and bash paths on this project porch. Outside paths and '
         'escaping symlinks are turned away.',
   WaifuPathMode.wholeDisk =>
-    'Let her roam like a full coding agent. This folder is the first stop, '
+    'Let them roam like a full coding agent. This folder is the first stop, '
         'not the property line.',
 };
 
