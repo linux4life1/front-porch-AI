@@ -50,7 +50,7 @@ Future<Uint8List?> pickChatImageAttachment() async {
     if (length <= 0 || length > kChatImageMaxFileBytes) return null;
     final raw = await readBoundedImageBytes(file.readAsByteStream());
     if (raw == null) return null;
-    return prepareChatImageBytes(raw);
+    return await prepareChatImageBytes(raw);
   } catch (e) {
     debugPrint('[PhotoAttachment] Could not read ${file.name}: $e');
     return null;
