@@ -96,7 +96,7 @@ class GenerationParams {
   /// prefer-text (the ping shares this door).
   final bool Function()? stillWantTools;
 
-  /// Probe identity (`backend|model|path`). Style retry and skip/pause
+  /// Probe identity (`backend|endpoint|model|path`). Style retry and skip/pause
   /// key on the same string [ChatService] uses.
   final String backendIdentity;
 

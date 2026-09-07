@@ -17879,7 +17879,8 @@ Commit: aadb6176 (implementation); verification/bundle in this commit
 Files: `lib/services/chat/pass_support.dart`,
 `lib/services/chat/chat_service_wiring_evals.dart`,
 `lib/services/capability/model_capabilities.dart`,
-`lib/services/open_router_service.dart`, `lib/services/system_role_probe.dart`,
+`lib/services/open_router_service.dart`, `lib/services/llm_provider.dart`,
+`lib/services/llm_service.dart`, `lib/services/system_role_probe.dart`,
 `test/services/chat/pass_support_test.dart`,
 `test/services/capability/model_capabilities_test.dart`,
 `test/services/open_router_tools_test.dart`, and `docs/Rawhide.md`.
@@ -17900,6 +17901,17 @@ endpoint so Nano-GPT and OpenRouter cannot share probe or one-shot state for
 the same model slug. Nano-GPT and generic OpenAI-compatible requests remain
 unchanged.
 
+Hostile review tightened those boundaries before completion. Call-less JSON
+now validates enums and nested required fields against the actual selected
+tool schema; unknown-only and descriptor-only cast objects fall through
+instead of becoming a false "no character" result. Opaque nested objects (the
+fused Pockets schema) conservatively fall through when their usability cannot
+be proven. OpenRouter strict tool requests omit optional `min_p`, `top_k`, and
+`repetition_penalty` so `require_parameters` does not exclude Grok/Gemini
+routes merely because they lack unrelated samplers; Nano and generic hosts
+retain all three. Eval identity reads the active service URL, including oMLX's
+localhost endpoint, rather than the stored Remote API URL.
+
 The three focused files pass 51 tests and the wider eval-transport set passes
 144. Both full non-golden runs passed 5,335 tests (13 skipped); the Linux host
 golden run passed 118. Full analysis reports only 12 pre-existing infos in
@@ -17911,6 +17923,12 @@ case-sensitive, bypassing the ChatService call site, and leaking the provider
 field to Nano/local requests each failed its intended assertion before the
 final green run.
 
+The hostile-review guards were also red-proven before implementation: invalid
+expression enums, incomplete nested Pockets ops, ambiguous cast JSON, the
+stored-vs-active endpoint call site, and strict OpenRouter sampler leakage all
+failed. A named-tool 400→retry test confirms the provider constraint survives
+both request attempts and still returns the successful call.
+
 The first CI run's sole unit failure was an unrelated Drift teardown race in
 `session_picker_overlay_hold_test.dart` (no failed assertion); that file passes
 in isolation and both complete local runs passed. All 15 CI E2E shards, CI
@@ -17918,4 +17936,5 @@ goldens, and changed-file analysis were green. The protected-test gate still
 requires the maintainer's `approved-test-change` label because the obsolete
 prose-salvage assertion was intentionally corrected.
 
-Commit: a42293ab (implementation); validation refinement in this commit
+Commits: a42293ab (implementation), a20a7bc8 (validation refinement);
+hostile-review hardening in this commit

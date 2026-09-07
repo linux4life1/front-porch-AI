@@ -134,6 +134,12 @@ class LLMProvider extends ChangeNotifier {
     }
   }
 
+  /// URL currently used by the active OpenAI-compatible service.
+  String? get activeApiUrl => switch (_activeBackend) {
+    BackendType.kobold => null,
+    BackendType.openRouter || BackendType.omlx => _openRouterService.apiUrl,
+  };
+
   /// Whether the active backend is the local KoboldCpp instance (native or
   /// launched from a .kcpps preset). Gates the local niceties — real
   /// tokenizer counts and prefill perf metrics — and sequential eval dispatch

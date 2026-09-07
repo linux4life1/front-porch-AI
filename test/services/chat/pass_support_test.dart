@@ -39,6 +39,8 @@ void main() {
     Future<({String? result, ToolTransportProbe probe, int textCalls})> run({
       required Future<LlmToolResponse?> Function() toolAnswer,
       ToolTransportProbe? probe,
+      List<Map<String, dynamic>>? evalTools,
+      String toolChoice = kRelationshipTool,
     }) async {
       final p = probe ?? ToolTransportProbe();
       var textCalls = 0;
@@ -46,12 +48,11 @@ void main() {
         probe: p,
         backendIdentity: id,
         debugLabel: 'test',
-        tools: kRelationshipEvalTools,
-        toolChoice: kRelationshipTool,
+        tools: evalTools ?? kRelationshipEvalTools,
+        toolChoice: toolChoice,
         buildPrompt: ({required bool toolsMode}) =>
             toolsMode ? 'TOOLS' : 'TEXT',
-        callToText: (resp) =>
-            realismToolCallToJson(kRelationshipTool, resp.calls),
+        callToText: (resp) => realismToolCallToJson(toolChoice, resp.calls),
         fireToolEval: (_, _) => toolAnswer(),
         fireTextEval: (prompt, {onChunk}) async {
           textCalls++;
@@ -136,6 +137,50 @@ void main() {
       expect(r.textCalls, 1);
     });
 
+    test('invalid expression enum falls through to text', () async {
+      final r = await run(
+        evalTools: kExpressionEvalTools,
+        toolChoice: kExpressionTool,
+        toolAnswer: () async => const LlmToolResponse(
+          calls: [],
+          text: '{"label":"not-an-expression"}',
+        ),
+      );
+      expect(r.result, 'TEXT-RESULT');
+      expect(r.textCalls, 1);
+    });
+
+    test('unusable cast JSON falls through instead of meaning none', () async {
+      for (final text in const [
+        '{"error":"ignored tool"}',
+        '{"descriptor":"the host\'s sister"}',
+      ]) {
+        final r = await run(
+          evalTools: kCastDetectEvalTools,
+          toolChoice: kCastDetectTool,
+          toolAnswer: () async => LlmToolResponse(calls: const [], text: text),
+        );
+        expect(r.result, 'TEXT-RESULT', reason: text);
+        expect(r.textCalls, 1, reason: text);
+      }
+    });
+
+    test(
+      'nested required fields are validated before Pockets salvage',
+      () async {
+        final r = await run(
+          evalTools: PocketsEval.tools,
+          toolChoice: PocketsEval.kPocketsTool,
+          toolAnswer: () async => const LlmToolResponse(
+            calls: [],
+            text: '{"inventory_ops":[{"op":"pickup"}]}',
+          ),
+        );
+        expect(r.result, 'TEXT-RESULT');
+        expect(r.textCalls, 1);
+      },
+    );
+
     test('transport failure → text fallback, NO verdict', () async {
       final r = await run(
         toolAnswer: () async =>
@@ -191,8 +236,11 @@ void main() {
       expect(wiring, contains('return evalBackendIdentityFor('));
       expect(
         wiring,
-        contains('remoteApiUrl: _storageService.remoteApiUrl'),
-        reason: 'testing only the pure key helper would not guard its wiring',
+        allOf(
+          contains('_llmProvider?.activeApiUrl'),
+          contains('remoteApiUrl: remoteApiUrl'),
+        ),
+        reason: 'the key must use the active oMLX/OpenRouter service endpoint',
       );
     });
   });

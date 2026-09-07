@@ -457,8 +457,7 @@ class OpenRouterService extends LLMService {
     'X-Title': 'Front Porch AI',
   };
 
-  /// Non-streaming OpenAI tools: null = unusable, throw = transport failure.
-  /// Named choice survives the mandatory-reasoning retry through [params].
+  /// OpenAI tools: null = unusable; throw = transport failure.
   @override
   Future<LlmToolResponse?> generateWithTools(
     GenerationParams params,
@@ -474,7 +473,11 @@ class OpenRouterService extends LLMService {
       final payload = _chatPayload(params, stream: false);
       final host = Uri.tryParse(_apiUrl)?.host.toLowerCase();
       if (host == 'openrouter.ai' || host?.endsWith('.openrouter.ai') == true) {
-        payload['provider'] = {'require_parameters': true};
+        payload
+          ..remove('repetition_penalty')
+          ..remove('min_p')
+          ..remove('top_k')
+          ..['provider'] = {'require_parameters': true};
       }
       final response = await attachToolsWithStyleRetry(
         identity: identity,
@@ -488,8 +491,7 @@ class OpenRouterService extends LLMService {
         ),
       );
       if (response.statusCode == 429 || response.statusCode >= 500) {
-        // Rate-limited / provider hiccup: transient, not a capability
-        // verdict — must not brand the model tool-less for the run.
+        // A provider hiccup is transient, not a capability verdict.
         throw LlmToolTransportException(
           'tool call HTTP ${response.statusCode} (server busy/unavailable)',
         );
@@ -519,9 +521,7 @@ class OpenRouterService extends LLMService {
       }
       return parseOpenAiToolResponse(response.body);
     } catch (e) {
-      // Rethrow instead of collapsing to null — a killed connection must not
-      // read as "model can't speak tools" (it branded the backend XML-only
-      // for the whole run). Callers filter via looksLikeBackendUnreachable.
+      // Let callers classify killed connections as transport failures.
       debugPrint('[RemoteAPI] Tool call transport failure: $e');
       rethrow;
     } finally {

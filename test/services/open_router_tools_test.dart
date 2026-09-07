@@ -171,7 +171,10 @@ void main() {
     test(
       'only OpenRouter requires providers to honor tool parameters',
       () async {
-        Future<Map<String, dynamic>> payloadFor(String apiUrl) async {
+        Future<Map<String, dynamic>> payloadFor(
+          String apiUrl, {
+          GenerationParams? requestParams,
+        }) async {
           Map<String, dynamic>? payload;
           final remote = OpenRouterService(
             apiUrl: apiUrl,
@@ -197,17 +200,93 @@ void main() {
               200,
             );
           });
-          await remote.generateWithTools(params, tools);
+          await remote.generateWithTools(requestParams ?? params, tools);
           return payload!;
         }
 
-        final openRouter = await payloadFor('https://openrouter.ai/api/v1');
+        const strictParams = GenerationParams(
+          prompt: 'structured eval',
+          maxLength: 512,
+          repeatPenalty: 1.15,
+          minP: 0.05,
+          topK: 40,
+        );
+        final openRouter = await payloadFor(
+          'https://openrouter.ai/api/v1',
+          requestParams: strictParams,
+        );
         expect(openRouter['provider'], {'require_parameters': true});
+        expect(openRouter.containsKey('repetition_penalty'), isFalse);
+        expect(openRouter.containsKey('min_p'), isFalse);
+        expect(openRouter.containsKey('top_k'), isFalse);
 
-        final nano = await payloadFor('https://nano-gpt.com/api/v1');
+        final nano = await payloadFor(
+          'https://nano-gpt.com/api/v1',
+          requestParams: strictParams,
+        );
         expect(nano.containsKey('provider'), isFalse);
+        expect(nano['repetition_penalty'], 1.15);
+        expect(nano['min_p'], 0.05);
+        expect(nano['top_k'], 40);
       },
     );
+
+    test('OpenRouter constraint survives a tool-choice style retry', () async {
+      final payloads = <Map<String, dynamic>>[];
+      final remote = OpenRouterService(
+        apiUrl: 'https://openrouter.ai/api/v1',
+        apiKey: 'test-key',
+        modelName: 'retry-model',
+      );
+      remote.httpClientFactory = () => MockClient((request) async {
+        payloads.add(jsonDecode(request.body) as Map<String, dynamic>);
+        if (payloads.length == 1) {
+          return http.Response(
+            jsonEncode({
+              'error': {'message': 'unsupported tool_choice object'},
+            }),
+            400,
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {
+                  'tool_calls': [
+                    {
+                      'function': {'name': 'add_memory', 'arguments': '{}'},
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+          200,
+        );
+      });
+
+      final resp = await remote.generateWithTools(
+        const GenerationParams(
+          prompt: 'structured eval',
+          maxLength: 512,
+          toolChoice: 'add_memory',
+          backendIdentity: 'openrouter-require-params-retry',
+        ),
+        tools,
+      );
+
+      expect(payloads, hasLength(2));
+      expect(
+        payloads.every(
+          (payload) =>
+              (payload['provider'] as Map?)?['require_parameters'] == true,
+        ),
+        isTrue,
+      );
+      expect(payloads[1]['tool_choice'], 'required');
+      expect(resp!.calls.single.name, 'add_memory');
+    });
 
     test('non-200 (provider without tool support) returns null', () async {
       statusCode = 404;

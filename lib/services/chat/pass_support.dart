@@ -256,6 +256,59 @@ class ToolTransportProbe extends ChangeNotifier {
 /// EMPTY answers (the shape a server-side abort produces as a clean 200) stay
 /// inconclusive here; provider metadata and ToolSupportTester own the durable
 /// capability verdict.
+bool _matchesEvalSchema(
+  Object? value,
+  Map<dynamic, dynamic> schema, {
+  String? field,
+}) {
+  if (value == null) return false;
+  final allowed = schema['enum'];
+  if (allowed is List && !allowed.contains(value)) return false;
+
+  switch (schema['type']) {
+    case 'object':
+      if (value is! Map) return false;
+      final properties = schema['properties'];
+      if (properties is! Map) return false;
+      final required = schema['required'];
+      if (required is List &&
+          required.any((key) => !value.containsKey(key.toString()))) {
+        return false;
+      }
+      var recognized = value.isEmpty;
+      for (final entry in value.entries) {
+        final child = properties[entry.key];
+        if (child is! Map) continue;
+        recognized = true;
+        if (!_matchesEvalSchema(
+          entry.value,
+          child,
+          field: entry.key.toString(),
+        )) {
+          return false;
+        }
+      }
+      return recognized;
+    case 'array':
+      if (value is! List) return false;
+      final items = schema['items'];
+      return items is Map &&
+          value.every((item) => _matchesEvalSchema(item, items));
+    case 'integer':
+      return value is num || int.tryParse(value.toString().trim()) != null;
+    case 'boolean':
+      return value is bool ||
+          const {
+            'true',
+            'false',
+          }.contains(value.toString().trim().toLowerCase());
+    case 'string':
+      return value is String && (value.isNotEmpty || field == 'today_sentence');
+    default:
+      return false;
+  }
+}
+
 String? _usableEvalJsonText(
   String text, {
   required List<Map<String, dynamic>> tools,
@@ -288,6 +341,7 @@ String? _usableEvalJsonText(
     }
   }
   if (selectedName == null || parameters == null) return null;
+  if (!_matchesEvalSchema(decoded, parameters)) return null;
   final requiredRaw = parameters['required'];
   final required = requiredRaw is List
       ? requiredRaw.map((field) => field.toString())
@@ -314,6 +368,13 @@ String? _usableEvalJsonText(
   }
   if (normalizedJson is! Map) return null;
   if (!required.every(normalizedJson.containsKey)) {
+    return null;
+  }
+  if (required.isEmpty &&
+      decoded.isNotEmpty &&
+      !normalizedJson.values.any(
+        (value) => value != null && (value is! String || value.isNotEmpty),
+      )) {
     return null;
   }
   return normalized;
