@@ -34,32 +34,28 @@ class DeskToolLog extends StatelessWidget {
     final fail = AppColors.negativeAccentOf(context);
     return Padding(
       key: const Key('desk-tool-log'),
-      padding: const EdgeInsets.only(left: 44, right: 16, bottom: 10),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (var i = 0; i < chips.length; i++)
             Padding(
               key: Key('desk-tool-row-$i'),
-              padding: const EdgeInsets.only(top: 3),
+              padding: const EdgeInsets.only(top: 2),
               child: Row(
                 children: [
-                  Container(
-                    width: 3,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: chips[i].ok ? amber : fail,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                  Icon(
+                    Icons.circle,
+                    size: 6,
+                    color: chips[i].ok ? amber : fail,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     chips[i].name,
                     style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'monospace',
-                      color: chips[i].ok ? amber : fail,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary(context),
                     ),
                   ),
                   if (chips[i].detail.trim().isNotEmpty) ...[
@@ -70,9 +66,8 @@ class DeskToolLog extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 11,
-                          fontFamily: 'monospace',
-                          color: AppColors.textSecondary(context),
+                          fontSize: 12,
+                          color: AppColors.textTertiary(context),
                         ),
                       ),
                     ),

@@ -232,12 +232,10 @@ class DeskHarness {
         _say(body.isEmpty ? 'I could not work.' : body);
         return;
       }
-      if (body.isNotEmpty) _say(body);
       for (final call in resp.calls) {
         if (_aborted) return;
         await _runTool(call.name, call.arguments);
       }
-      _stepAt = null;
     }
     if (!_aborted) {
       _say('Stopped after $kDeskMaxSteps tool steps. Send again to continue.');
@@ -357,10 +355,8 @@ class DeskHarness {
   }
 
   void _beginStream() {
-    session.transcript.add(const DeskMessage(isUser: false, text: ''));
-    _stepAt = session.transcript.length - 1;
-    _priorReasoning = '';
     _streamBuf = '';
+    _priorReasoning = '';
     _writeLive(
       deskBeginStream(_liveAssistant(), DateTime.now().millisecondsSinceEpoch),
     );

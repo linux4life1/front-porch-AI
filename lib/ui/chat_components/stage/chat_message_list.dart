@@ -42,6 +42,7 @@ class ChatMessageList extends StatelessWidget {
     this.generatingImage = false,
     this.externalImagesAllowed,
     this.onRequestImagePermission,
+    this.aboveBubble,
     this.belowBubble,
     this.isGenerating,
     this.generatingAt,
@@ -58,6 +59,7 @@ class ChatMessageList extends StatelessWidget {
   final bool generatingImage;
   final bool? externalImagesAllowed;
   final Future<bool> Function()? onRequestImagePermission;
+  final Widget? Function(ChatMessage message, int index)? aboveBubble;
   final Widget? Function(ChatMessage message, int index)? belowBubble;
   final bool? isGenerating;
 
@@ -92,11 +94,12 @@ class ChatMessageList extends StatelessWidget {
           chatService: chatService,
           isGenerating: generatingAt?.call(reversedIndex) ?? isGenerating,
         );
+        final above = aboveBubble?.call(msg, reversedIndex);
         final extra = belowBubble?.call(msg, reversedIndex);
-        if (extra != null) {
+        if (above != null || extra != null) {
           bubble = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [bubble, extra],
+            children: [?above, bubble, ?extra],
           );
         }
         final key = bubbleKeyOf?.call(msg);

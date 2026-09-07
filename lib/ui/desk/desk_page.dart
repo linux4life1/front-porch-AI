@@ -165,6 +165,10 @@ class _DeskPageState extends State<DeskPage> {
           () => provider.activeService,
           settingsOf: () => widget.session.genSettings,
           storage: storage,
+          remainingTokensOf: () => deskOutputTokenBudget(
+            budget: widget.session.contextBudget,
+            used: widget.session.tokensUsed,
+          ),
           reasoningEnabled: storage?.reasoningEnabled ?? false,
           reasoningEffort: storage?.reasoningEffort ?? 'medium',
         ),
@@ -479,7 +483,8 @@ class _DeskPageState extends State<DeskPage> {
       characterFor: (_) => session.coworker,
       isGenerating: session.running,
       generatingAt: (i) => session.running && i == chats.length - 1,
-      belowBubble: (msg, index) {
+      aboveBubble: (msg, index) {
+        if (msg.isUser) return null;
         if (index < 0 || index >= session.transcript.length) return null;
         final chips = session.transcript[index].chips;
         if (chips.isEmpty) return null;

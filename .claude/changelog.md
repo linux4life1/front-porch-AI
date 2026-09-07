@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-07 — fix(waifu): one bubble per send; no chat token cap
+- **Why:** Each tool step opened a new Iris bubble, so reads/writes
+  sat between portraits. Chat maxLength 2048 also cut tool calls.
+  20 steps stopped a real coding turn.
+- **What:** One assistant message per send; tools stack above it.
+  Output budget is remaining context. Fuse is 80 steps. Hide Max/Min
+  Output Tokens in Waifu Coder Chat Settings.
+- **Verification:** loop bubbles hasLength 1 with bash+write chips;
+  remainingTokensOf 50000 is not 2048/4096.
+
 ## 2026-09-07 — docs(rawhide): drop bullets already in nightly 20260906
 - **Why:** `docs/Rawhide.md` had accumulated every nightly since 1.3.x.
   The 20260906 nightly already shipped that list. The Update dialog

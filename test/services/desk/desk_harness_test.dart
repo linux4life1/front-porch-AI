@@ -66,11 +66,10 @@ void main() {
       expect(llm.calls, hasLength(2));
       expect(session.transcript.where((m) => m.isUser), hasLength(1));
       final spoken = session.transcript.where((m) => !m.isUser).toList();
-      expect(spoken, hasLength(2));
-      expect(spoken.first.chips.single.name, 'read');
-      expect(spoken.first.chips.single.detail, 'notes.txt');
-      expect(spoken.last.text, contains('Hmph. I read it'));
-      expect(spoken.last.chips, isEmpty);
+      expect(spoken, hasLength(1));
+      expect(spoken.single.chips.single.name, 'read');
+      expect(spoken.single.chips.single.detail, 'notes.txt');
+      expect(spoken.single.text, contains('Hmph. I read it'));
     },
   );
 
@@ -91,13 +90,12 @@ void main() {
       final harness = DeskHarness(session: session, llm: llm);
       await harness.send('what is here');
       final spoken = session.transcript.where((m) => !m.isUser).toList();
-      expect(spoken, hasLength(2));
-      expect(spoken.first.chips.single.name, 'bash');
-      expect(spoken.first.chips.single.detail, 'ls -la');
-      expect(spoken.first.reasoning, contains('look around first'));
-      expect(spoken.last.text, 'Hmph. Empty. Typical.');
-      expect(spoken.last.text, isNot(contains('<think>')));
-      expect(spoken.last.reasoning, isNot(contains('look around first')));
+      expect(spoken, hasLength(1));
+      expect(spoken.single.chips.single.name, 'bash');
+      expect(spoken.single.chips.single.detail, 'ls -la');
+      expect(spoken.single.reasoning, contains('look around first'));
+      expect(spoken.single.text, 'Hmph. Empty. Typical.');
+      expect(spoken.single.text, isNot(contains('<think>')));
     },
   );
 
@@ -173,7 +171,7 @@ void main() {
     );
   });
 
-  test('max 20 steps then stop; no 21st generate', () async {
+  test('max steps then stop; no extra generate', () async {
     final llm = ScriptedDeskLlm.repeat(
       const LlmToolResponse(
         calls: [

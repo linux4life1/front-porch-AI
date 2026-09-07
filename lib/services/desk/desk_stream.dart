@@ -38,9 +38,9 @@ DeskMessage deskApplyChunk({
 }) {
   final split = splitMessageForEdit(streamBuf);
   final think = split.thinking;
-  final reasoning = priorReasoning.isEmpty
-      ? think
-      : (think.isEmpty ? priorReasoning : '$priorReasoning\n$think');
+  final reasoning = think.isEmpty
+      ? (priorReasoning.isEmpty ? last.reasoning : priorReasoning)
+      : think;
   return DeskMessage(
     isUser: false,
     text: split.body.isEmpty ? last.text : split.body,
@@ -55,15 +55,12 @@ DeskMessage? deskMergeReasoning(DeskMessage last, LlmToolResponse resp) {
   var thinking = resp.reasoning.trim();
   if (thinking.isEmpty) thinking = split.thinking;
   if (thinking.isEmpty) return null;
-  if (last.reasoning.contains(thinking)) return null;
-  final merged = last.reasoning.isEmpty
-      ? thinking
-      : '${last.reasoning}\n$thinking';
+  if (last.reasoning == thinking) return null;
   return DeskMessage(
     isUser: false,
     text: last.text,
     chips: last.chips,
-    reasoning: merged,
+    reasoning: thinking,
     thinkingStartMs: last.thinkingStartMs,
     thinkingMs: last.thinkingMs,
   );

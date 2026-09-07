@@ -240,6 +240,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                       storage: storage,
                       llmProvider: llmProvider,
                       isRemote: isRemote,
+                      hideOutputTokenLimits: widget.settings != null,
                       onChanged: () {
                         setState(() {});
                         _save();

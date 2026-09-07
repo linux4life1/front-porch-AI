@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/desk/desk_compact.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
@@ -53,6 +54,7 @@ class LlmServiceDeskLlm implements DeskLlm {
     this._serviceOf, {
     this.settingsOf,
     this.storage,
+    this.remainingTokensOf,
     this.reasoningEnabled = false,
     this.reasoningEffort = 'medium',
   });
@@ -61,6 +63,9 @@ class LlmServiceDeskLlm implements DeskLlm {
   final LLMService Function() _serviceOf;
   final ChatGenerationSettings Function()? settingsOf;
   final StorageService? storage;
+
+  /// Remaining context for this turn. Chat Max Output Tokens is ignored.
+  final int Function()? remainingTokensOf;
   final bool reasoningEnabled;
   final String reasoningEffort;
 
@@ -78,7 +83,10 @@ class LlmServiceDeskLlm implements DeskLlm {
       GenerationParams(
         prompt: prompt,
         systemPrompt: systemPrompt,
-        maxLength: g != null && s != null ? g.resolveMaxLength(s) : 4096,
+        maxLength:
+            remainingTokensOf?.call() ??
+            deskOutputTokenBudget(budget: kDeskDefaultContextTokens, used: 0),
+        minLength: 0,
         temperature: g != null && s != null ? g.resolveTemperature(s) : 0.7,
         minP: g != null && s != null ? g.resolveMinP(s) : 0.0,
         topP: g != null && s != null ? g.resolveTopP(s) : 0.9,

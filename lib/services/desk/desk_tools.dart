@@ -16,7 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-const kDeskMaxSteps = 20;
+/// Runaway fuse, not a chat-length cap. The model stops when it stops.
+const kDeskMaxSteps = 80;
 const kDeskReadClipChars = 100000;
 const kDeskGrepMaxHits = 50;
 const kDeskBashClipChars = 32000;

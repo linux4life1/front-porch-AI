@@ -19,7 +19,7 @@ void main() {
     if (await root.exists()) await root.delete(recursive: true);
   });
 
-  test('each loop step keeps its own speech and think', () async {
+  test('one assistant bubble holds every tool and the last line', () async {
     final llm = ScriptedDeskLlm([
       const LlmToolResponse(
         calls: [
@@ -47,16 +47,10 @@ void main() {
     );
     await DeskHarness(session: session, llm: llm).send('scaffold');
     final spoken = session.transcript.where((m) => !m.isUser).toList();
-    expect(spoken, hasLength(3));
-    expect(spoken[0].text, contains('On it.'));
-    expect(spoken[0].reasoning, contains('look around'));
-    expect(spoken[0].reasoning, isNot(contains('write the file')));
-    expect(spoken[0].chips.single.name, 'bash');
-    expect(spoken[1].text, contains('Wrote a.txt.'));
-    expect(spoken[1].reasoning, contains('write the file'));
-    expect(spoken[1].reasoning, isNot(contains('look around')));
-    expect(spoken[1].chips.single.name, 'write');
-    expect(spoken[2].text, 'Done.');
-    expect(spoken[2].chips, isEmpty);
+    expect(spoken, hasLength(1));
+    expect(spoken.single.chips.map((c) => c.name), ['bash', 'write']);
+    expect(spoken.single.text, 'Done.');
+    expect(spoken.single.reasoning, contains('write the file'));
+    expect(spoken.single.reasoning, isNot(contains('look around')));
   });
 }

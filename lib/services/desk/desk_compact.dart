@@ -52,6 +52,15 @@ DeskBudgetSnapshot deskMeasurePrompt({
   );
 }
 
+/// How many tokens this turn may write. Not the chat Max Output Tokens
+/// slider (2048 default) — that cuts tool calls mid-file. The window
+/// itself is the cap.
+int deskOutputTokenBudget({required int budget, required int used}) {
+  final cap = budget < 1 ? kDeskDefaultContextTokens : budget;
+  final left = cap - used;
+  return left < 1 ? 1 : left;
+}
+
 /// Fold when [budgetTokens] is set and fill ≥ 75%. [budgetChars] stays for
 /// older tests that pass a tiny character cap. Extractive recap only —
 /// no invented filenames.

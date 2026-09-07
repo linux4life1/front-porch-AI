@@ -13,6 +13,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
     required this.llmProvider,
     required this.isRemote,
     required this.onChanged,
+    this.hideOutputTokenLimits = false,
   });
 
   final ChatGenerationSettings gen;
@@ -20,6 +21,10 @@ class ChatSettingsGenerationSection extends StatelessWidget {
   final LLMProvider llmProvider;
   final bool isRemote;
   final VoidCallback onChanged;
+
+  /// Waifu Coder fills the remaining context window. Chat Max/Min Output
+  /// Tokens would cut a tool call mid-file.
+  final bool hideOutputTokenLimits;
 
   @override
   Widget build(BuildContext context) {
@@ -164,35 +169,37 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             },
           ),
         ],
-        SliderWithInput(
-          label: 'Max Output Tokens',
-          value: gen.resolveMaxLength(storage).toDouble(),
-          min: 16,
-          max: 16384,
-          isInteger: true,
-          tooltip:
-              'Maximum number of tokens the AI can write in one response. Thinking models need higher values since reasoning tokens count toward this limit.',
-          context: context,
-          onChanged: (val) {
-            gen.maxLength = val.toInt();
-            onChanged();
-          },
-        ),
-        SliderWithInput(
-          label: 'Min Output Tokens',
-          value: gen.resolveMinLength(storage).toDouble(),
-          min: 0,
-          max: 512,
-          divisions: 512,
-          isInteger: true,
-          tooltip:
-              'Minimum tokens the AI must write before it can stop. Increase for longer responses.',
-          context: context,
-          onChanged: (val) {
-            gen.minLength = val.toInt();
-            onChanged();
-          },
-        ),
+        if (!hideOutputTokenLimits) ...[
+          SliderWithInput(
+            label: 'Max Output Tokens',
+            value: gen.resolveMaxLength(storage).toDouble(),
+            min: 16,
+            max: 16384,
+            isInteger: true,
+            tooltip:
+                'Maximum number of tokens the AI can write in one response. Thinking models need higher values since reasoning tokens count toward this limit.',
+            context: context,
+            onChanged: (val) {
+              gen.maxLength = val.toInt();
+              onChanged();
+            },
+          ),
+          SliderWithInput(
+            label: 'Min Output Tokens',
+            value: gen.resolveMinLength(storage).toDouble(),
+            min: 0,
+            max: 512,
+            divisions: 512,
+            isInteger: true,
+            tooltip:
+                'Minimum tokens the AI must write before it can stop. Increase for longer responses.',
+            context: context,
+            onChanged: (val) {
+              gen.minLength = val.toInt();
+              onChanged();
+            },
+          ),
+        ],
         IgnorePointer(
           ignoring:
               storage.activeKcppsPath != null &&
@@ -218,8 +225,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
                 min: 512,
                 max: isRemote ? 500000.0 : 131072.0,
                 isInteger: true,
-                divisions:
-                    ((isRemote ? 500000.0 : 131072.0) - 512) ~/ 512,
+                divisions: ((isRemote ? 500000.0 : 131072.0) - 512) ~/ 512,
                 context: context,
                 onChanged: (val) {
                   gen.contextSize = val.toInt();
