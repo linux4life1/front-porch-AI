@@ -1,3 +1,11 @@
+## 2026-09-07 — test(stories): harden Style→Format on Windows E2E
+- **Why:** Windows shard story_pipeline timed out 2m waiting for Next: Format
+  after Next: Style (0 Style widgets at fail). Linux green. Concept Next is
+  gated on non-empty concept; live-binding enterText can no-op on Windows.
+- **What:** Controller-set title/concept after enterText, unfocus, assert
+  Next: Style before advance; ValueKey on wizard Next for scroll-safe taps.
+- **Commit:** (this tip)
+
 ## 2026-09-07 — ci: rewake after golden timeout + Stories E2E flake
 - **Why:** Tip d40e3e74 unit green; Widget Golden wall-clock timed out after all
   goldens passed; Windows E2E story_pipeline Next:Format flake (not Waifu).
