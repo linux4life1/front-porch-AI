@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-07 — copy(waifu): honesty leads with capability, not defeat
+- **Why:** The Sit-down gate described real risk but still framed Waifu Coder
+  like a weak toy, undercutting the product while asking users to make a
+  serious path-scope decision.
+- **What:** Lead with the actual read/search/apply_patch/write/bash/test loop,
+  visible receipts, and card-authentic voice. Then state Folder-jail or
+  Whole-disk reach, shared hard stops, model fallibility, and the backup law
+  plainly. Removed “fun tool”, “will not be as reliable”, and “half-edit”
+  defeatism without softening the risk.
+- **Commit:** pending
+
 ## 2026-09-07 — test(waifu): wait for skill state, not a 30 ms guess
 - **Why:** CI caught the Install assertion while the fake catalog write was
   still in flight, then teardown removed the temp folder underneath it. A

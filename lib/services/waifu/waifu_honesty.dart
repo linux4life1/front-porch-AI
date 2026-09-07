@@ -32,17 +32,18 @@ String waifuHonestyBody(WaifuPathMode pathMode) {
           'She can follow absolute paths, ~, .., and cd to read or change '
           'other files anywhere your account can reach.',
   };
-  return '$kWaifuCoderName is **not** a replacement for Claude Code, Grok '
-      'Build, OpenCode, or Cursor. It will not be as reliable. **Never use it '
-      'on a critical codebase** — not this app, not work, not anything you '
-      'cannot afford to lose.\n'
+  return '$kWaifuCoderName puts real coding tools in your selected coworker’s '
+      'hands: read, search, apply_patch, write, bash, tests, and visible '
+      'receipts. She works on disk while speaking as the card — not as a '
+      'generic assistant.\n'
       '$scope\n'
       'In either mode, hard stops still block secrets, destructive Git, '
       'force-pushes, and wipe-the-machine commands. They are guardrails, not '
       'a backup.\n'
-      'This is a **fun** tool with a real personality. Your coworker may sass '
-      'you and still do the work. She may also skip a tool, half-edit a file, '
-      'or be wrong. Keep a throwaway branch and check her receipts.';
+      'This is its own harness — not a promise to match Claude Code, Grok '
+      'Build, OpenCode, or Cursor on every model. A model can still be '
+      'confidently wrong. **Never use it on a critical codebase**; keep a '
+      'throwaway branch, a backup, and an eye on the receipts.';
 }
 
 String waifuHonestyCheckbox(WaifuPathMode pathMode) {

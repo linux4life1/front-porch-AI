@@ -131,8 +131,8 @@ Same Create Character chrome: AppBar step dots + labels + connecting lines, `Ani
 
 **Honesty gate copy (Sit down — do not soften):**
 
-> Waifu Coder is **not** a replacement for Claude Code, Grok Build, OpenCode, or Cursor. It will not be as reliable. **Never use it on a critical codebase** — not this app, not work, not anything you cannot afford to lose.
-> Folder jail is the safer default and keeps file/bash paths on the selected project porch. Whole-disk makes that porch a starting point, not a fence: absolute paths, `~`, `..`, and `cd` can reach anything the account can. Both modes retain secret, destructive-Git, force-push, and machine-wipe hard stops. This is still a fun character coworker, not a backup.
+> Waifu Coder gives the selected coworker real read/search/patch/write/bash/test tools and visible receipts while they speak as the card. Folder jail is the safer default and keeps paths on the project porch. Whole-disk makes that porch a starting point, not a fence: absolute paths, `~`, `..`, and `cd` can reach anything the account can.
+> Both modes retain secret, destructive-Git, force-push, and machine-wipe hard stops. This is its own powerful harness, not a promise that every model matches Claude Code, Grok Build, OpenCode, or Cursor. Models can still be confidently wrong. Never use it on a critical codebase; guardrails are not a backup.
 
 Checkbox (must be on to continue) repeats the selected scope. Whole-disk explicitly acknowledges that Waifu Coder can read or change files elsewhere.
 

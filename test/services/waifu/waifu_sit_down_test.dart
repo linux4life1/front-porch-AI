@@ -30,6 +30,11 @@ void main() {
         expect(body, contains('OpenCode'));
         expect(body, contains('critical codebase'));
         expect(body, contains('hard stops'));
+        expect(body, contains('real coding tools'));
+        expect(body, contains('apply_patch'));
+        expect(body, isNot(contains('will not be as reliable')));
+        expect(body, isNot(contains('fun tool')));
+        expect(body, isNot(contains('half-edit')));
         expect(
           waifuHonestyCheckbox(mode),
           contains('code I cannot afford to lose'),
