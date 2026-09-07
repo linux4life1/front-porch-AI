@@ -25,9 +25,9 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/backporch/backporch_api.dart';
-import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/services/group_card_importer.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/stoop_import_kind.dart';
 
 /// A raw upstream response, passed through to the web client verbatim so the
@@ -77,8 +77,10 @@ class StoopFacade {
   /// Upstream REST base, e.g. `https://api.frontporchai.app`.
   String get baseUrl => _api.baseUrl;
 
-  /// Upstream live-messaging WebSocket URL (token appended by the relay).
-  /// `replaceFirst` maps http→ws and https→wss.
+  /// Token-free upstream live-messaging WebSocket URL.
+  ///
+  /// The relay authenticates in its first JSON frame. `replaceFirst` maps
+  /// http→ws and https→wss.
   String get messageSocketUrl => '${baseUrl.replaceFirst('http', 'ws')}/ws';
 
   // <img> tags can't attach X-Stoop-Token, so GET /api/stoop/assets/<id>

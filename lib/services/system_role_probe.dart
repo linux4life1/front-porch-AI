@@ -436,10 +436,10 @@ class _ProbeRun {
   }
 }
 
-/// Backend+model identity key. Deliberately the same shape as the tools
-/// probe's `_evalBackendIdentity` — remote model name AND local model path
-/// both ride it — so switching either model or backend re-probes by
-/// construction, and both capability verdicts reset together.
+/// Backend+model identity key. It shares the model/path components used by the
+/// tools probe, while that remote-capability probe additionally keys by API
+/// endpoint. Switching either model or backend still re-probes by
+/// construction.
 ///
 /// Every component is a MUTABLE setting, so a caller must resolve this ONCE
 /// when the model comes up and hold the string — never recompute it per

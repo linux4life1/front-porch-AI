@@ -107,7 +107,9 @@ export function StoopProvider({ children }: { children: ReactNode }) {
       wsRef.current = ws;
       ws.onopen = () => {
         wsBackoff.current = 3000;
-        ws.send(JSON.stringify({ token: accessToken() ?? '' }));
+        ws.send(
+          JSON.stringify({ type: 'auth', token: accessToken() ?? '' }),
+        );
       };
       ws.onmessage = (msg) => {
         try {

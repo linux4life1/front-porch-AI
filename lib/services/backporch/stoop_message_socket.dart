@@ -83,13 +83,17 @@ class StoopMessageSocket {
     }
     // http://host -> ws://host, https://host -> wss://host
     final wsBase = _api.baseUrl.replaceFirst('http', 'ws');
-    final url = '$wsBase/ws?token=${Uri.encodeComponent(t)}';
     try {
-      final ws = await WebSocket.connect(url);
+      final ws = await WebSocket.connect('$wsBase/ws');
       if (_disposed) {
         await ws.close();
         return;
       }
+      // The backend requires authentication as the first frame and answers
+      // with `ready`. `_onData` intentionally treats that handshake event like
+      // any other unhandled event; message/typing/cardStats handling is
+      // unchanged once authentication succeeds.
+      ws.add(jsonEncode({'type': 'auth', 'token': t}));
       _ws = ws;
       // Keepalive. Reconnection is driven purely by onDone/onError, which only
       // fire when the peer actually signals a close — so a NAT/router that

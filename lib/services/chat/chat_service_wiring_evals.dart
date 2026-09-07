@@ -18,12 +18,8 @@
 
 part of '../chat_service.dart';
 
-/// Builders for the Realism/Needs eval pipeline (the LLM eval engine, the
-/// realism verifier, the needs-impact evaluator, the 5 realism evals, and
-/// objective proposal handling) plus the shared tools-transport surface
-/// (`_fireToolEval` / `_evalBackendIdentity` / the tool-support tester
-/// builder). Extracted verbatim from `chat_service.dart` — zero behaviour
-/// change; every callback closure is byte-identical to its old inline form.
+/// Builders for the Realism/Needs eval pipeline plus its shared tools
+/// transport (`_fireToolEval`, `_evalBackendIdentity`, and the support tester).
 extension ChatServiceWiringEvals on ChatService {
   // ── LLM Eval Engine (step 9: _fireLLMEval + strip + extract + needs impact cb) ──
   // Plain class (not ChangeNotifier). Owns the central eval firing (streaming/retry/cancel, 4000/0.1/no-reasoning),
@@ -37,13 +33,7 @@ extension ChatServiceWiringEvals on ChatService {
   // (onNotify/onSaveChat removed in step 10 fix round 1 + step11: oneShot populates pending snapshot;
   // god owns the post-eval _saveChat/notify in pre-turn + baseline paths to avoid double + races;
   // on* dead post step11 objective move, cleaned).
-  // 0 @Deprecated shims. 0 new god private _ methods beyond the required thin delegates (_fireLLMEval, _stripThinkBlocks, _extractJson*, evaluateNeedsImpactCall; the 5 _evaluate*Call thins now point to realism_evals; generate/check thins now to objective_proposal; the void _ count grep stayed 15; +1 late final only; thins/calls/late final only per plan). (cross-ref setActiveCharacter:1572 etc)
-  // Stateless/prompt-only: no reset calls needed. Reset hygiene comments list full set + llm_eval_engine (stateless or prompt-only;
-  // no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed) + cross-refs (e.g. setActiveCharacter:1572). Both startNew branches explicit.
   // 1:1 vs group + oneShot vs normal dispatch/parity preserved exactly (cbs + impersonation temp re-load; qualified).
-  // aug exercising only passive/qualified (no llm-eval-specific aug file edits; resets/loads/greetings/post hit by pre-existing
-  // startNew/setActive/_loadLast/group in key suites; full eval/JSON/strip + needs impact only in dedicated + manual;
-  // objective proposal/gen/check exercised via god thins generate/check ; qualified notes only in dedicated header + god + MD per precedent).
   LlmEvalEngine _buildLlmEvalEngine() {
     return LlmEvalEngine(
       getActiveCharacter: () => _activeCharacter,
@@ -616,14 +606,21 @@ extension ChatServiceWiringEvals on ChatService {
     }
   }
 
-  /// Backend+model identity key for the tools probe. Remote model name AND
-  /// local model path both ride the key, so switching either re-probes tool
-  /// support (capability is per model).
+  /// Endpoint+model identity key for the shared tools/one-shot probes.
   String get _evalBackendIdentity {
     final service =
         testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
-    return '${service.backendName}|${_storageService.remoteModelName}'
-        '|${_storageService.lastUsedModelPath ?? ''}';
+    final remoteApiUrl = service is LlmApiEndpoint
+        ? (service as LlmApiEndpoint).apiUrl
+        : (testLlmServiceOverride != null && !testIsLocalOverride
+              ? _storageService.remoteApiUrl
+              : '');
+    return evalBackendIdentityFor(
+      backendName: service.backendName,
+      remoteApiUrl: remoteApiUrl,
+      remoteModelName: _storageService.remoteModelName,
+      modelPath: _storageService.lastUsedModelPath,
+    );
   }
 
   /// Active tool-support prober behind the sidebar's tool-calling pill:

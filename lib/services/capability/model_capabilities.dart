@@ -113,10 +113,8 @@ class VisionSupport {
 
 /// Capabilities distilled from a provider `/models` entry.
 ///
-/// Only [vision] is consumed today. [toolCalling] is parsed from the very same
-/// metadata (OpenRouter's `supported_parameters`, Nano-GPT's
-/// `capabilities.tool_calling`) so a later phase can adopt native tool calling
-/// without another round-trip — the seam is intentionally left obvious here.
+/// [vision] gates image input; [toolCalling] seeds the shared eval transport
+/// probe from the same provider metadata without another round-trip.
 class ModelApiCapabilities {
   final bool vision;
   final bool toolCalling;
@@ -126,7 +124,9 @@ class ModelApiCapabilities {
   /// Parse an OpenRouter `/models` entry.
   ///
   /// Vision: `architecture.input_modalities` contains `"image"`.
-  /// Tools:  `supported_parameters` contains `"tools"`.
+  /// Tools:  `supported_parameters` contains both `"tools"` and
+  /// `"tool_choice"`. Advertising schemas without the ability to force the
+  /// selected function is not reliable enough for state-changing evals.
   factory ModelApiCapabilities.fromOpenRouterEntry(
     Map<dynamic, dynamic> entry,
   ) {
@@ -144,7 +144,8 @@ class ModelApiCapabilities {
     bool tools = false;
     final params = entry['supported_parameters'];
     if (params is List) {
-      tools = params.map((e) => e.toString().toLowerCase()).contains('tools');
+      final supported = params.map((e) => e.toString().toLowerCase()).toSet();
+      tools = supported.contains('tools') && supported.contains('tool_choice');
     }
 
     return ModelApiCapabilities(vision: vision, toolCalling: tools);

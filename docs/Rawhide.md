@@ -9,6 +9,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - ♾️ **Waifu Coder is not capped at chat Max Output Tokens** — a turn can fill the rest of the context window so a tool call is not cut off mid-file. Chat still uses that slider. One reply bubble per send: reads/writes/bash stack as a quiet log above it, then she speaks. The old 20-step cutoff is a runaway fuse at 80.
 
+- 🎭 **OpenRouter models move relationships, Needs, and scene time again** — providers that ignore forced tool calls now retry through the reliable JSON path instead of treating prose as an answer. Bonds no longer freeze while Needs only decay on Grok, Gemini, and similar routed models. Same on the phone.
+
 - 🖼 **Drop a photo on the composer** — Finder/Explorer onto the chat bar or Waifu Coder, or the attach button. One photo per send. The picker is still there if you prefer it.
 
 - ↵ **Enter sends the task** — Shift+Enter still makes a new line. The last-write preview has an X to dismiss it.

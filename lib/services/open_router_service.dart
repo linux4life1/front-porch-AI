@@ -72,18 +72,14 @@ String _remoteApiErrorMessage(String body, int statusCode) {
 }
 
 /// LLM backend for OpenAI-compatible APIs (OpenRouter, Nano-GPT, vLLM, …).
-class OpenRouterService extends LLMService {
+class OpenRouterService extends LLMService implements LlmApiEndpoint {
   String _apiUrl;
   String _apiKey;
   String _modelName;
   final RemoteApiHealth _health = RemoteApiHealth();
 
-  /// Every client with a call in flight, so [abortGeneration] can close all of
-  /// them. A SET rather than one slot because this is a single shared instance
-  /// and the app deliberately overlaps remote calls on it (the staggered
-  /// realism judges, post-gen needs + reply-facts): with one slot the first
-  /// call to finish cleared the field, and Cancel then closed nothing while
-  /// the rest kept streaming (and billing).
+  /// Every in-flight client; a set is required because staggered remote evals
+  /// overlap, and one slot let the first completion disarm Cancel for the rest.
   final Set<http.Client> _activeClients = {};
 
   /// Test seam: a MockClient so reachability tests never hit the network.
@@ -91,6 +87,7 @@ class OpenRouterService extends LLMService {
   set httpClientFactory(http.Client Function()? factory) =>
       _health.httpClientFactory = factory;
 
+  @override
   String get apiUrl => _apiUrl;
   String get apiKey => _apiKey;
   String get modelName => _modelName;
@@ -455,21 +452,18 @@ class OpenRouterService extends LLMService {
   Map<String, String> get _chatHeaders => {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer $_apiKey',
-    // Identify the app for providers that support it
     'HTTP-Referer': 'https://github.com/linux4life1/front-porch-AI',
     'X-Title': 'Front Porch AI',
   };
 
-  /// OpenAI-style tool calling (non-streaming). Null = answered unusable;
-  /// throw = transport failure. Named `tool_choice` rides [params.toolChoice]
-  /// so the mandatory-reasoning retry forwards it by passing the same params.
+  /// OpenAI tools: null = unusable; throw = transport failure.
   @override
   Future<LlmToolResponse?> generateWithTools(
     GenerationParams params,
     List<Map<String, dynamic>> tools,
   ) async {
     if (!isReady) return null;
-    final client = http.Client();
+    final client = httpClientFactory?.call() ?? http.Client();
     _activeClients.add(client);
     try {
       if (params.onChunk != null) {
@@ -494,11 +488,20 @@ class OpenRouterService extends LLMService {
       final identity = params.backendIdentity.isEmpty
           ? '$backendName|$_modelName|'
           : params.backendIdentity;
+      final payload = _chatPayload(params, stream: false);
+      final host = Uri.tryParse(_apiUrl)?.host.toLowerCase();
+      if (host == 'openrouter.ai' || host?.endsWith('.openrouter.ai') == true) {
+        payload
+          ..remove('repetition_penalty')
+          ..remove('min_p')
+          ..remove('top_k')
+          ..['provider'] = {'require_parameters': true};
+      }
       final response = await attachToolsWithStyleRetry(
         identity: identity,
         tools: tools,
         toolChoice: params.toolChoice,
-        basePayload: _chatPayload(params, stream: false),
+        basePayload: payload,
         post: (payload) => client.post(
           Uri.parse('$_apiUrl/chat/completions'),
           headers: _chatHeaders,
@@ -506,8 +509,7 @@ class OpenRouterService extends LLMService {
         ),
       );
       if (response.statusCode == 429 || response.statusCode >= 500) {
-        // Rate-limited / provider hiccup: transient, not a capability
-        // verdict — must not brand the model tool-less for the run.
+        // A provider hiccup is transient, not a capability verdict.
         throw LlmToolTransportException(
           'tool call HTTP ${response.statusCode} (server busy/unavailable)',
         );
@@ -529,9 +531,6 @@ class OpenRouterService extends LLMService {
         );
         return null;
       }
-      // A tool call cut by max_tokens comes back as a clean 200 with no
-      // tool_calls and no content — downstream that reads as "inconclusive,
-      // fall back to text" with no trace. Name it in the log.
       if (RegExp(r'"finish_reason"\s*:\s*"length"').hasMatch(response.body)) {
         debugPrint(
           '[RemoteAPI] $modelName tool call hit max_tokens '
@@ -540,9 +539,7 @@ class OpenRouterService extends LLMService {
       }
       return parseOpenAiToolResponse(response.body);
     } catch (e) {
-      // Rethrow instead of collapsing to null — a killed connection must not
-      // read as "model can't speak tools" (it branded the backend XML-only
-      // for the whole run). Callers filter via looksLikeBackendUnreachable.
+      // Let callers classify killed connections as transport failures.
       debugPrint('[RemoteAPI] Tool call transport failure: $e');
       rethrow;
     } finally {

@@ -96,7 +96,7 @@ class GenerationParams {
   /// prefer-text (the ping shares this door).
   final bool Function()? stillWantTools;
 
-  /// Probe identity (`backend|model|path`). Style retry and skip/pause
+  /// Probe identity (`backend|endpoint|model|path`). Style retry and skip/pause
   /// key on the same string [ChatService] uses.
   final String backendIdentity;
 
@@ -174,6 +174,11 @@ class LlmToolResponse {
     required this.text,
     this.reasoning = '',
   });
+}
+
+/// Opt-in identity surface for OpenAI-compatible services with a live URL.
+abstract interface class LlmApiEndpoint {
+  String get apiUrl;
 }
 
 /// Abstract interface for all LLM backends (local KoboldCPP, OpenRouter, etc).
