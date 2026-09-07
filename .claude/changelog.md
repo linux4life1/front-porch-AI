@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-07 — test(photo): pin the valid-photo 1024px output contract
+- **Why:** Bomb/byte guards proved rejection, but no test asserted that a
+  legitimate image above the transport size is still accepted and resized.
+- **What:** Encode a 1200×600 fixture, run the real prepare pipeline, and
+  assert a 1024×512 PNG. Changing the production width to 1025 proved the
+  guard red before the final green run.
+- **Commit:** pending
+
 ## 2026-09-07 — copy(waifu): keep Sit-down safety copy gender-neutral
 - **Why:** The coding constitution correctly avoids assuming card gender, but
   the scope/honesty copy still said “she/her”.

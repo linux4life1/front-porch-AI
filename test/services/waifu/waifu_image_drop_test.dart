@@ -129,6 +129,18 @@ void main() {
     expect(await prepareChatImageBytes(bmp), isNull);
   });
 
+  test('a valid oversized photo is resized to a 1024px long side', () async {
+    final raw = Uint8List.fromList(
+      img.encodePng(img.Image(width: 1200, height: 600)),
+    );
+    final prepared = await prepareChatImageBytes(raw);
+    expect(prepared, isNotNull);
+    final decoded = img.decodePng(prepared!);
+    expect(decoded, isNotNull);
+    expect(decoded!.width, 1024);
+    expect(decoded.height, 512);
+  });
+
   test(
     'inbox refuses unprepared or oversized bytes before creating it',
     () async {
