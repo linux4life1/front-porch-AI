@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
@@ -23,6 +25,10 @@ import 'package:image/image.dart' as img;
 import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+const kChatImageMaxFileBytes = 24 * 1024 * 1024;
+const kChatImageMaxDecodePixels = 24000000;
+const kChatImageMaxSide = 8192;
 
 /// Pick a photo to attach to the next chat message and normalize it for the
 /// vision transport: long side capped at 1024 (the avatar-import precedent —
@@ -37,9 +43,18 @@ Future<Uint8List?> pickChatImageAttachment() async {
     dialogTitle: 'Attach a photo',
     type: FileType.image,
   );
-  final raw = await result?.firstBytes();
-  if (raw == null) return null;
-  return prepareChatImageBytes(raw);
+  if (result == null || result.files.isEmpty) return null;
+  final file = result.files.first;
+  try {
+    final length = await file.length();
+    if (length <= 0 || length > kChatImageMaxFileBytes) return null;
+    final raw = await readBoundedImageBytes(file.readAsByteStream());
+    if (raw == null) return null;
+    return prepareChatImageBytes(raw);
+  } catch (e) {
+    debugPrint('[PhotoAttachment] Could not read ${file.name}: $e');
+    return null;
+  }
 }
 
 bool looksLikeImageFileName(String name) {
@@ -47,49 +62,103 @@ bool looksLikeImageFileName(String name) {
   return n.endsWith('.png') ||
       n.endsWith('.jpg') ||
       n.endsWith('.jpeg') ||
-      n.endsWith('.gif') ||
-      n.endsWith('.webp') ||
-      n.endsWith('.bmp') ||
-      n.endsWith('.heic') ||
-      n.endsWith('.tif') ||
-      n.endsWith('.tiff');
+      n.endsWith('.webp');
 }
 
-/// Decode/resize off the UI isolate. Null when the bytes aren't an image.
-Future<Uint8List?> prepareChatImageBytes(Uint8List raw) =>
-    compute(_downscaleToPng, raw);
+/// Decode/resize off the UI isolate after a header-only dimensions check.
+Future<Uint8List?> prepareChatImageBytes(
+  Uint8List raw, {
+  int maxDecodePixels = kChatImageMaxDecodePixels,
+}) {
+  if (raw.isEmpty || raw.length > kChatImageMaxFileBytes) {
+    return Future<Uint8List?>.value();
+  }
+  return compute(_downscaleToPng, (raw: raw, maxDecodePixels: maxDecodePixels));
+}
+
+/// Collect an image stream without ever retaining more than the compressed
+/// input ceiling. The caller still checks metadata length first for a cheap
+/// reject; this closes file-growth and dishonest-length races.
+Future<Uint8List?> readBoundedImageBytes(
+  Stream<List<int>> chunks, {
+  int maxBytes = kChatImageMaxFileBytes,
+}) async {
+  final out = BytesBuilder(copy: false);
+  var total = 0;
+  await for (final chunk in chunks) {
+    total += chunk.length;
+    if (total > maxBytes) return null;
+    out.add(chunk);
+  }
+  if (total == 0) return null;
+  return out.takeBytes();
+}
 
 /// First dropped file that decodes as a photo. One attachment, same as pick.
 Future<Uint8List?> firstDroppedImage(
-  List<({String name, Future<Uint8List> Function() read})> files,
+  List<
+    ({
+      String name,
+      Future<int> Function() length,
+      Stream<List<int>> Function() openRead,
+    })
+  >
+  files,
 ) async {
   for (final f in files) {
     if (f.name.contains('.') && !looksLikeImageFileName(f.name)) continue;
     try {
-      final png = await prepareChatImageBytes(await f.read());
+      final length = await f.length();
+      if (length <= 0 || length > kChatImageMaxFileBytes) continue;
+      final raw = await readBoundedImageBytes(f.openRead());
+      if (raw == null) continue;
+      final png = await prepareChatImageBytes(raw);
       if (png != null) return png;
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[PhotoAttachment] Skipped ${f.name}: $e');
+    }
   }
   return null;
 }
 
 /// Isolate body for [pickChatImageAttachment]: decode → cap long side at
 /// 1024 → PNG. Null when the bytes aren't a decodable image.
-Uint8List? _downscaleToPng(Uint8List raw) {
-  final decoded = img.decodeImage(raw);
-  if (decoded == null) return null;
-  final longSide = decoded.width >= decoded.height
-      ? decoded.width
-      : decoded.height;
-  final resized = longSide <= 1024
-      ? decoded
-      : img.copyResize(
-          decoded,
-          width: decoded.width >= decoded.height ? 1024 : null,
-          height: decoded.width >= decoded.height ? null : 1024,
-          interpolation: img.Interpolation.cubic,
-        );
-  return img.encodePng(resized);
+Uint8List? _downscaleToPng(({Uint8List raw, int maxDecodePixels}) input) {
+  try {
+    final decoder = img.findDecoderForData(input.raw);
+    if (decoder == null ||
+        (decoder.format != img.ImageFormat.png &&
+            decoder.format != img.ImageFormat.jpg &&
+            decoder.format != img.ImageFormat.webp)) {
+      return null;
+    }
+    final info = decoder.startDecode(input.raw);
+    if (info == null ||
+        info.width <= 0 ||
+        info.height <= 0 ||
+        info.width > kChatImageMaxSide ||
+        info.height > kChatImageMaxSide ||
+        info.width * info.height > input.maxDecodePixels) {
+      return null;
+    }
+    final decoded = decoder.decodeFrame(0);
+    if (decoded == null) return null;
+    final longSide = decoded.width >= decoded.height
+        ? decoded.width
+        : decoded.height;
+    final resized = longSide <= 1024
+        ? decoded
+        : img.copyResize(
+            decoded,
+            width: decoded.width >= decoded.height ? 1024 : null,
+            height: decoded.width >= decoded.height ? null : 1024,
+            interpolation: img.Interpolation.cubic,
+          );
+    return img.encodePng(resized);
+  } catch (e) {
+    debugPrint('[PhotoAttachment] Decode rejected: $e');
+    return null;
+  }
 }
 
 /// The pending-attachment strip shown above the chat composer: thumbnail,

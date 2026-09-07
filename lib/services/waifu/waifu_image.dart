@@ -23,9 +23,22 @@ import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:path/path.dart' as p;
 
 const kWaifuInboxDir = '$kWaifuDotDir/inbox';
+const kWaifuInboxPhotoMaxBytes = 6 * 1024 * 1024;
 
 /// Save an attached PNG under the sit-down folder so the bubble can show it.
 Future<String> waifuSaveInboxPhoto(String folderRoot, Uint8List png) async {
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  final isPng =
+      png.length >= signature.length &&
+      List.generate(
+        signature.length,
+        (index) => png[index] == signature[index],
+      ).every((matches) => matches);
+  if (!isPng || png.length > kWaifuInboxPhotoMaxBytes) {
+    throw const FormatException(
+      'Waifu Coder inbox accepts only bounded, prepared PNG photos',
+    );
+  }
   final dir = Directory(p.join(folderRoot, kWaifuInboxDir));
   await dir.create(recursive: true);
   final path = p.join(

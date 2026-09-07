@@ -59,14 +59,29 @@ class _ComposerDropZoneState extends State<ComposerDropZone> {
           for (final f in detail.files)
             (
               name: f.name.isEmpty ? f.path : f.name,
-              read: () async {
+              length: () async {
                 final mark = f.extraAppleBookmark;
                 if (mark != null && mark.isNotEmpty) {
                   await DesktopDrop.instance
                       .startAccessingSecurityScopedResource(bookmark: mark);
                 }
                 try {
-                  return await f.readAsBytes();
+                  return await f.length();
+                } finally {
+                  if (mark != null && mark.isNotEmpty) {
+                    await DesktopDrop.instance
+                        .stopAccessingSecurityScopedResource(bookmark: mark);
+                  }
+                }
+              },
+              openRead: () async* {
+                final mark = f.extraAppleBookmark;
+                if (mark != null && mark.isNotEmpty) {
+                  await DesktopDrop.instance
+                      .startAccessingSecurityScopedResource(bookmark: mark);
+                }
+                try {
+                  yield* f.openRead();
                 } finally {
                   if (mark != null && mark.isNotEmpty) {
                     await DesktopDrop.instance
