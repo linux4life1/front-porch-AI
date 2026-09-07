@@ -6,7 +6,7 @@
 - **What:** Encode a 1200×600 fixture, run the real prepare pipeline, and
   assert a 1024×512 PNG. Changing the production width to 1025 proved the
   guard red before the final green run.
-- **Commit:** pending
+- **Commit:** edd51663
 
 ## 2026-09-07 — copy(waifu): keep Sit-down safety copy gender-neutral
 - **Why:** The coding constitution correctly avoids assuming card gender, but
