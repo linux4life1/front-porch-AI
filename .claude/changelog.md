@@ -1,3 +1,10 @@
+## 2026-09-07 — ci: rewake after golden timeout + Stories E2E flake
+- **Why:** Tip d40e3e74 unit green; Widget Golden wall-clock timed out after all
+  goldens passed; Windows E2E story_pipeline Next:Format flake (not Waifu).
+  `gh run rerun --failed` refused (“workflow file may be broken”).
+- **What:** Empty docs stamp to open a fresh Actions run.
+- **Commit:** 6199e517
+
 ## 2026-09-07 — test(waifu): hostile twin-poke empty chrome + patch voice
 - **Why:** Hostile twin-poke needed honest pathMode empty chrome, apply_patch
   UI twin with in-character speech, Build-mode sass-without-patch, and no
