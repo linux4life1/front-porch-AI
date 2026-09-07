@@ -5,7 +5,7 @@
   the scope/honesty copy still said “she/her”.
 - **What:** Use “they/their” for the selected coworker in capability and
   Folder-jail copy. A word-boundary guard covers both path modes.
-- **Commit:** pending
+- **Commit:** 3b280652
 
 ## 2026-09-07 — copy(waifu): honesty leads with capability, not defeat
 - **Why:** The Sit-down gate described real risk but still framed Waifu Coder
