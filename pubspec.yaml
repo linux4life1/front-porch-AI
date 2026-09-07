@@ -35,7 +35,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
-  file_picker: ^12.1.1
+  file_picker: ^12.2.0
   cross_file: ^0.3.5
   path_provider: ^2.1.5
   archive: ^4.2.0
@@ -57,7 +57,7 @@ dependencies:
   webdav_client: ^1.2.2
   googleapis: ^17.0.0
   googleapis_auth: ^2.0.0
-  drift: ^2.34.0
+  drift: ^2.34.4
   # PAIRS WITH `sqlite3` 3.x, which bundles SQLite itself via native assets.
   # 0.6.0+eol is the correct marker pin here: it contains no code, and exists
   # to guarantee the old 0.5.x Flutter build scripts are NOT also used.
@@ -78,7 +78,7 @@ dependencies:
   hashlib: ^1.21.0
   otp: ^3.1.4 # RFC 6238 TOTP for optional web-login 2FA
   page_flip: ^0.2.5+1
-  html: ^0.15.6
+  html: ^0.15.7
   syncfusion_flutter_pdf: ^33.1.46
   flex_color_picker: ^3.8.0
   intl: ^0.20.2
@@ -87,8 +87,8 @@ dependencies:
   # In-process Whisper STT (replaces the Python whisper_stt sidecar; the
   # sidecar remains as automatic fallback for one release cycle —
   # docs/design/sidecar-retirement.md phase 3).
-  sherpa_onnx: ^1.13.4
-  flutter_riverpod: ^3.4.2
+  sherpa_onnx: ^1.13.7
+  flutter_riverpod: ^3.4.3
   riverpod_annotation: ^4.0.6
   flutter_markdown_plus: ^1.0.12
   flutter_secure_storage: ^11.0.0
@@ -96,8 +96,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  drift_dev: ^2.34.5
-  build_runner: ^2.4.14
+  drift_dev: ^2.34.6
+  build_runner: ^2.16.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
