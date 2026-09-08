@@ -115,9 +115,7 @@ void main() {
     expect(panelSrc, contains("'Accepted — Build'"));
   }, timeout: const Timeout(Duration(seconds: 10)));
 
-  testWidgets('draft plan blocks the Build chip; freeform Build does not', (
-    tester,
-  ) async {
+  test('draft plan blocks Build; freeform Build does not', () async {
     final root = await Directory.systemTemp.createTemp('waifu_plan_gate_');
     addTearDown(() async {
       if (await root.exists()) await root.delete(recursive: true);
@@ -131,31 +129,10 @@ void main() {
       mode: WaifuMode.plan,
       activePlanPath: rel,
     );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: StatefulBuilder(
-            builder: (context, setState) {
-              return WaifuModeBar(
-                mode: draft.mode,
-                onChanged: (next) {
-                  waifuTrySetMode(session: draft, next: next).then((_) {
-                    setState(() {});
-                  });
-                },
-              );
-            },
-          ),
-        ),
-      ),
+    expect(
+      await waifuTrySetMode(session: draft, next: WaifuMode.build),
+      WaifuModeApply.blockedDraft,
     );
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('waifu-mode-build')));
-    await tester.pump();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 80)),
-    );
-    await tester.pump();
     expect(draft.mode, WaifuMode.plan);
 
     final freeRoot = await Directory.systemTemp.createTemp('waifu_plan_free_');
@@ -167,31 +144,22 @@ void main() {
       coworker: CharacterCard(name: 'Mira'),
       mode: WaifuMode.plan,
     );
+    expect(
+      await waifuTrySetMode(session: free, next: WaifuMode.build),
+      WaifuModeApply.applied,
+    );
+    expect(free.mode, WaifuMode.build);
+  });
+
+  testWidgets('Build chip is on the mode bar', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: StatefulBuilder(
-            builder: (context, setState) {
-              return WaifuModeBar(
-                mode: free.mode,
-                onChanged: (next) {
-                  waifuTrySetMode(session: free, next: next).then((_) {
-                    setState(() {});
-                  });
-                },
-              );
-            },
-          ),
+          body: WaifuModeBar(mode: WaifuMode.plan, onChanged: (_) {}),
         ),
       ),
     );
     await tester.pump();
-    await tester.tap(find.byKey(const Key('waifu-mode-build')));
-    await tester.pump();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 80)),
-    );
-    await tester.pump();
-    expect(free.mode, WaifuMode.build);
-  }, timeout: const Timeout(Duration(seconds: 15)));
+    expect(find.byKey(const Key('waifu-mode-build')), findsOneWidget);
+  }, timeout: const Timeout(Duration(seconds: 10)));
 }
