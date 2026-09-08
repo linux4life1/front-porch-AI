@@ -1,3 +1,26 @@
+## 2026-09-08 — rebase(waifu): Epic C onto #241 Rawhide tip
+- **Why:** #241 squash-merged as `9e010cc4` after #240 last rebased onto
+  `2196e839`, so the draft was CONFLICTING / DIRTY vs Rawhide.
+- **What:** Rebased `cursor/waifu-mcp-stdio-panel-8111` onto that tip.
+  Kept Epic C stdio/Docker-easy/panel + busy try/finally and Rawhide
+  #241 Thought collapsed-unless-live + #238 chips/Tasks + #237
+  verify-after-mutate + #239 send-order. Thought/`message_bubble` is
+  the Rawhide #241 version (Epic C never touched it).
+  Conflict files: none (changelog + `docs/Rawhide.md` auto-merged).
+  No Guard-protected existing tests were edited.
+- **Commit:** (this tip)
+
+## 2026-09-08 — rebase(waifu): Epic C onto #238 Rawhide tip
+- **Why:** #238 squash-merged as `2196e839` after #240 branched from
+  `94ff43bd`, so the draft was CONFLICTING vs Rawhide.
+- **What:** Rebased `cursor/waifu-mcp-stdio-panel-8111` onto that tip.
+  Kept Epic C stdio/Docker-easy/panel + busy try/finally and Rawhide
+  #238 chips/Tasks/claim-vs-chip + #237 verify-after-mutate + #239
+  send-order (`send()` records user+running before await).
+  Conflict files: none (changelog + `docs/Rawhide.md` auto-merged).
+  No Guard-protected existing tests were edited.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — rebase(waifu): #238 onto Rawhide after #237
 - **Why:** #237 squash-merged as `94ff43bd` (and #239 as `cd9bcd49`).
   PR #238 was CONFLICTING / DIRTY vs Rawhide.
@@ -23,6 +46,26 @@
   New guards in `thought_toggle_chat_live_test.dart` (did not edit
   the existing Guard file).
 - **Commit:** efd78c4f
+## 2026-09-08 — fix(mcp): Connect busy cannot stick after a throw
+- **Why:** BH residual on #240. `WaifuMcpPanel` `_docker` / `_addStdio`
+  and Settings `_findLocal` / `_connectDockerEasy` / `_checkDraft` /
+  `_checkStdio` cleared `_busy`/`_checking` only on the success path.
+  A throw left Connect Docker MCP / stdio add dead — same class as
+  #239 Accept `_run`.
+- **What:** try/finally (Settings via one `_withCheck`). Documented
+  `mcpSplitStdioArgs` as whitespace-only (quotes are not unquoted)
+  and pinned it. Web Porch Life already had finally.
+- **Commit:** (this tip)
+
+## 2026-09-08 — rebase(waifu): Epic C onto #237 Rawhide tip
+- **Why:** #237 squash-merged as `94ff43bd` after #240 branched from
+  `cd9bcd49`, so the draft was CONFLICTING vs Rawhide.
+- **What:** Rebased `cursor/waifu-mcp-stdio-panel-8111` onto that tip.
+  Kept Epic C stdio/Docker-easy/panel and Rawhide #239+#237
+  (`send()` records user+running before await; verify-after-mutate).
+  Conflict files: none (changelog + Rawhide.md auto-merged).
+  No Guard-protected existing tests were edited.
+- **Commit:** (this tip)
 
 ## 2026-09-08 — rebase(waifu): Epic B onto #239 Rawhide tip
 - **Why:** #239 squash-merged as `cd9bcd49`. PR #237 could not
@@ -36,6 +79,19 @@
   `waifu_plan_panel_test.dart`, changelog (docs only on earlier
   picks). Existing Guard tests were re-resolved; CoS label stays.
 - **Commit:** 8308325b
+## 2026-09-08 — feat(waifu): Epic C stdio MCP + Docker-easy + in-Waifu panel
+- **Why:** HTTP-only MCP and a Settings URL ceremony were the gap vs
+  OpenCode-class connect. Waifu Coder needed spawn+protocol, one-tap
+  Docker Desktop, and an in-session manage surface on the existing
+  hub/opt-in/bindings — not a parallel system.
+- **What:** `McpStdioSession` + `mcpSpawnStdio` (Process.start stays out
+  of the HTTP client files). `McpServerConfig` grows additive
+  transport/command/args/env. `McpDockerEasy` reuses a live :8811
+  gateway or spawns `docker mcp gateway run`. Waifu MCP accordion is
+  now `WaifuMcpPanel` (opt-in, Docker-easy, stdio command, chat enable
+  switches). Settings + web Porch Life get the same one-tap. Plan/Build
+  gates unchanged. Failed easy-connect still does not leave a dead row.
+- **Commit:** (this tip)
 
 ## 2026-09-08 — fix(waifu): Plan panel _run clears busy after throw
 - **Why:** Senior Dev residual on #239. Accept/Revise/Discard now

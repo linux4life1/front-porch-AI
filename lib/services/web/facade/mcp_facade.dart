@@ -51,6 +51,8 @@ class McpFacade {
             'id': v.id,
             'displayName': v.displayName,
             'url': v.url,
+            'transport': v.transport.name,
+            'command': v.command,
             'status': v.status.name,
             'lastError':
                 mcpHumanizeConnectError(v.lastError, url: v.url).isEmpty
@@ -99,6 +101,11 @@ class McpFacade {
       headers: headers,
       authToken: body['authToken']?.toString() ?? '',
       enabledGlobal: body['enabledGlobal'] != false,
+      transport: body['transport']?.toString() == 'stdio'
+          ? McpTransportKind.stdio
+          : McpTransportKind.http,
+      command: body['command']?.toString() ?? '',
+      args: _stringList(body['args']),
     );
     await _hub.connect(server.id);
     return settingsState();
@@ -124,6 +131,13 @@ class McpFacade {
       enabledGlobal: body['enabledGlobal'] is bool
           ? body['enabledGlobal'] as bool
           : null,
+      transport: body['transport']?.toString() == 'stdio'
+          ? McpTransportKind.stdio
+          : body['transport']?.toString() == 'http'
+          ? McpTransportKind.http
+          : null,
+      command: body['command']?.toString(),
+      args: body.containsKey('args') ? _stringList(body['args']) : null,
     );
     await _storage.mcpSettings.updateServer(updated);
     if (updated.enabledGlobal) {
@@ -152,8 +166,45 @@ class McpFacade {
     return state;
   }
 
+  Future<Map<String, dynamic>> connectDockerEasy() async {
+    final line = await McpDockerEasy.connect(
+      settings: _storage.mcpSettings,
+      hub: _hub,
+    );
+    final state = settingsState();
+    state['checkResult'] = line;
+    return state;
+  }
+
   Future<Map<String, dynamic>> checkDraft(Map<String, dynamic> body) async {
     final url = body['url']?.toString() ?? '';
+    final command = body['command']?.toString() ?? '';
+    final args = _stringList(body['args']);
+    final stdio =
+        body['transport']?.toString() == 'stdio' || command.trim().isNotEmpty;
+    if (stdio) {
+      final line = await _hub.checkDraft(
+        url: url,
+        displayName: body['displayName']?.toString() ?? '',
+        authToken: body['authToken']?.toString() ?? '',
+        transport: McpTransportKind.stdio,
+        command: command,
+        args: args,
+      );
+      if (line.startsWith('Connected')) {
+        body['transport'] = 'stdio';
+        body['command'] = command;
+        body['args'] = args;
+        if ((body['displayName']?.toString() ?? '').trim().isEmpty) {
+          body['displayName'] = mcpDefaultDisplayName(url, command: command);
+        }
+        await addServer(body);
+      }
+      final state = settingsState();
+      state['checkResult'] = line;
+      state['wantsToken'] = false;
+      return state;
+    }
     String? line;
     String? used;
     for (final candidate in mcpSiblingUrls(url)) {
@@ -196,5 +247,16 @@ class McpFacade {
 
   Future<void> setChatEnabled(String id, bool enabled) async {
     await _chat?.setMcpServerEnabledForChat(id, enabled);
+  }
+
+  List<String> _stringList(dynamic raw) {
+    if (raw is List) {
+      return [
+        for (final item in raw)
+          if (item != null) item.toString(),
+      ];
+    }
+    if (raw is String) return mcpSplitStdioArgs(raw);
+    return const [];
   }
 }

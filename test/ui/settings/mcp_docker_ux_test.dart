@@ -3,6 +3,8 @@
 //
 // Docker chip + failed Check must not dump errno 61 or save a dead server.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -123,5 +125,15 @@ void main() {
     );
     expect(field.controller?.text, kMcpDockerMcpUrl);
     expect(find.textContaining('Found a gateway'), findsOneWidget);
+  });
+
+  test('Porch Life connect handlers clear checking in finally', () {
+    final src = File(
+      'lib/ui/settings/widgets/mcp_servers_card.dart',
+    ).readAsStringSync();
+    expect(src, contains('Future<void> _withCheck'));
+    expect(src, contains('} finally {'));
+    expect(src, contains('_checking = false'));
+    expect(src, contains('await _withCheck'));
   });
 }

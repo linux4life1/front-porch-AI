@@ -91,14 +91,12 @@ class McpSettings with SettingsBase {
     );
   }
 
-  /// One row per host:port. Prefers /mcp over a leftover /sse.
+  /// One row per host:port (HTTP) or command+args (stdio). Prefers /mcp
+  /// over a leftover /sse on the same gateway.
   void _dedupeGateways() {
     final byKey = <String, McpServerConfig>{};
     for (final s in _servers) {
-      final parsed = Uri.tryParse(s.url);
-      final key = parsed == null
-          ? s.url
-          : '${parsed.host}:${parsed.hasPort ? parsed.port : 0}';
+      final key = mcpServerDedupeKey(s);
       final prev = byKey[key];
       if (prev == null) {
         byKey[key] = s;
@@ -119,15 +117,31 @@ class McpSettings with SettingsBase {
 
   Future<McpServerConfig> addServer({
     required String displayName,
-    required String url,
+    String url = '',
     Map<String, String> headers = const {},
     String authToken = '',
     bool enabledGlobal = true,
+    McpTransportKind transport = McpTransportKind.http,
+    String command = '',
+    List<String> args = const [],
+    Map<String, String> env = const {},
   }) async {
     final trimmedUrl = url.trim();
+    final incoming = McpServerConfig(
+      id: '_incoming',
+      displayName: displayName,
+      url: trimmedUrl,
+      transport: transport == McpTransportKind.http && command.trim().isNotEmpty
+          ? McpTransportKind.stdio
+          : transport,
+      command: command.trim(),
+      args: args,
+      env: env,
+    );
+    final key = mcpServerDedupeKey(incoming);
     final doomed = [
       for (final s in _servers)
-        if (mcpSameGateway(s.url, trimmedUrl)) s.id,
+        if (mcpServerDedupeKey(s) == key) s.id,
     ];
     for (final oldId in doomed) {
       await removeServer(oldId);
@@ -136,12 +150,20 @@ class McpSettings with SettingsBase {
     final server = McpServerConfig(
       id: id,
       displayName: displayName.trim().isEmpty
-          ? mcpDefaultDisplayName(trimmedUrl)
+          ? mcpDefaultDisplayName(trimmedUrl, command: command)
           : displayName.trim(),
-      url: trimmedUrl,
+      url: incoming.isStdio
+          ? (trimmedUrl.isEmpty
+                ? mcpStdioCommandLine(command, args)
+                : trimmedUrl)
+          : trimmedUrl,
       headers: Map<String, String>.from(headers),
       authToken: authToken.trim(),
       enabledGlobal: enabledGlobal,
+      transport: incoming.transport,
+      command: command.trim(),
+      args: List<String>.from(args),
+      env: Map<String, String>.from(env),
     );
     _servers = [..._servers, server];
     await _persistServers();
