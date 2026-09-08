@@ -88,3 +88,67 @@ class RemoteApiKeyVault {
     }
   }
 }
+
+/// Chip URLs. A leftover `sk-or-` key with no host of record lands here,
+/// not on whichever URL happened to be selected when the shared pref froze.
+const kOpenRouterApiV1 = 'https://openrouter.ai/api/v1';
+const kNanoGptApiV1 = 'https://nano-gpt.com/api/v1';
+
+bool remoteApiUrlIsOpenRouter(String url) {
+  final host = Uri.tryParse(normalizeRemoteApiUrl(url))?.host ?? '';
+  return host == 'openrouter.ai' || host.endsWith('.openrouter.ai');
+}
+
+bool remoteApiUrlIsNanoGpt(String url) {
+  final host = Uri.tryParse(normalizeRemoteApiUrl(url))?.host ?? '';
+  return host == 'nano-gpt.com' || host.endsWith('.nano-gpt.com');
+}
+
+bool remoteApiKeyLooksOpenRouter(String key) =>
+    key.trim().toLowerCase().startsWith('sk-or-');
+
+bool remoteApiKeyLooksNanoGpt(String key) =>
+    key.trim().toLowerCase().startsWith('sk-nano-');
+
+/// Canonical home for a leftover shared key, or null when the shape is unknown.
+String? canonicalHomeUrlForRemoteApiKey(String key) {
+  if (remoteApiKeyLooksOpenRouter(key)) {
+    return normalizeRemoteApiUrl(kOpenRouterApiV1);
+  }
+  if (remoteApiKeyLooksNanoGpt(key)) {
+    return normalizeRemoteApiUrl(kNanoGptApiV1);
+  }
+  return null;
+}
+
+/// True when [key] may be stored under [url]. Unknown shapes belong to the
+/// caller's URL (custom hosts). `sk-or-` never belongs on Nano-GPT.
+bool remoteApiKeyBelongsToUrl(String key, String url) {
+  if (key.trim().isEmpty) return false;
+  if (remoteApiKeyLooksOpenRouter(key)) return remoteApiUrlIsOpenRouter(url);
+  if (remoteApiKeyLooksNanoGpt(key)) return remoteApiUrlIsNanoGpt(url);
+  return true;
+}
+
+/// Attribute a pre-vault shared `remote_api_key` without writing a foreign
+/// leftover into [activeUrl]. Mutates [vault]. Returns the active key to keep
+/// (empty when the leftover belongs to another host and that slot is empty).
+String applyLegacySharedRemoteApiKey({
+  required RemoteApiKeyVault vault,
+  required String activeUrl,
+  required String sharedKey,
+}) {
+  final key = sharedKey.trim();
+  if (key.isEmpty) return vault.keyFor(activeUrl);
+
+  if (remoteApiKeyBelongsToUrl(key, activeUrl)) {
+    vault.put(activeUrl, key);
+    return key;
+  }
+
+  final home = canonicalHomeUrlForRemoteApiKey(key);
+  if (home != null && vault.keyFor(home).isEmpty) {
+    vault.put(home, key);
+  }
+  return vault.keyFor(activeUrl);
+}

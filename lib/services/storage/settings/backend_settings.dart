@@ -148,13 +148,19 @@ class BackendSettings with SettingsBase {
     _remoteApiKeys = RemoteApiKeyVault.decode(
       prefs?.getString(k('remote_api_keys')),
     );
-    // One shared key used to live on every host. Seed the active URL so a
-    // later OpenRouter ↔ Nano-GPT switch can restore it instead of leaking
-    // it into the other provider's Check Connection / generate path.
-    if (_remoteApiKey.isNotEmpty) {
-      _remoteApiKeys.put(_remoteApiUrl, _remoteApiKey);
-    } else {
-      _remoteApiKey = _remoteApiKeys.keyFor(_remoteApiUrl);
+    // Pre-fix installs had one shared key. Never put a leftover `sk-or-`
+    // into the Nano slot (or the inverse) — that is the community stuck
+    // state. Attribute by key shape; persist when migration changes either.
+    final beforeKey = _remoteApiKey;
+    final beforeVault = _remoteApiKeys.encode();
+    _remoteApiKey = applyLegacySharedRemoteApiKey(
+      vault: _remoteApiKeys,
+      activeUrl: _remoteApiUrl,
+      sharedKey: _remoteApiKey,
+    );
+    if (_remoteApiKey != beforeKey || _remoteApiKeys.encode() != beforeVault) {
+      prefs?.setString(k('remote_api_key'), _remoteApiKey);
+      prefs?.setString(k('remote_api_keys'), _remoteApiKeys.encode());
     }
     _reasoningEnabled = prefs?.getBool(k('reasoning_enabled')) ?? false;
     _reasoningEffort = prefs?.getString(k('reasoning_effort')) ?? 'medium';
@@ -236,7 +242,8 @@ class BackendSettings with SettingsBase {
   }
 
   Future<void> setRemoteApiUrl(String value) async {
-    if (_remoteApiKey.isNotEmpty) {
+    if (_remoteApiKey.isNotEmpty &&
+        remoteApiKeyBelongsToUrl(_remoteApiKey, _remoteApiUrl)) {
       _remoteApiKeys.put(_remoteApiUrl, _remoteApiKey);
     }
     _remoteApiUrl = value;

@@ -20,4 +20,12 @@ describe('urlHasStoredApiKey', () => {
       ]),
     ).toBe(true);
   });
+
+  it('treats trailing slash and host case as the same slot', () => {
+    expect(
+      urlHasStoredApiKey('https://OpenRouter.ai/api/v1/', [
+        'https://openrouter.ai/api/v1',
+      ]),
+    ).toBe(true);
+  });
 });

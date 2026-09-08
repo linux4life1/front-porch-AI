@@ -68,6 +68,31 @@ void main() {
       expect(vault.keyFor(_nanoGpt), isEmpty);
       expect(vault.urlsWithKeys, [_openRouter]);
     });
+
+    test('legacy shared key is not attributed to a foreign active host', () {
+      final poisoned = RemoteApiKeyVault();
+      expect(
+        applyLegacySharedRemoteApiKey(
+          vault: poisoned,
+          activeUrl: _nanoGpt,
+          sharedKey: _orKey,
+        ),
+        isEmpty,
+      );
+      expect(poisoned.keyFor(_nanoGpt), isEmpty);
+      expect(poisoned.keyFor(_openRouter), _orKey);
+
+      final healthy = RemoteApiKeyVault();
+      expect(
+        applyLegacySharedRemoteApiKey(
+          vault: healthy,
+          activeUrl: _openRouter,
+          sharedKey: _orKey,
+        ),
+        _orKey,
+      );
+      expect(healthy.keyFor(_openRouter), _orKey);
+    });
   });
 
   group('per-URL key restore on OpenRouter ↔ Nano-GPT switch', () {
@@ -118,6 +143,43 @@ void main() {
       await storage.setRemoteApiUrl(_openRouter);
       expect(storage.remoteApiKey, _orKey);
     });
+
+    test(
+      'Nano URL + leftover OpenRouter key does not poison Nano or wipe OR',
+      () async {
+        final storage = await _storage({
+          'remote_api_url': _nanoGpt,
+          'remote_api_key': _orKey,
+        });
+        expect(
+          storage.remoteApiKey,
+          isEmpty,
+          reason: 'leftover sk-or- must not stay active on Nano-GPT',
+        );
+        expect(
+          storage.backendSettings.remoteApiKeyFor(_nanoGpt),
+          isEmpty,
+          reason: 'must not write the OpenRouter key into the Nano vault slot',
+        );
+        expect(
+          storage.backendSettings.remoteApiKeyFor(_openRouter),
+          _orKey,
+          reason: 'the leftover key belongs to OpenRouter',
+        );
+
+        await storage.setRemoteApiUrl(_openRouter);
+        expect(
+          storage.remoteApiKey,
+          _orKey,
+          reason: 'switching back must restore OpenRouter, not empty',
+        );
+        expect(
+          storage.backendSettings.remoteApiKeyFor(_nanoGpt),
+          isEmpty,
+          reason: 'the first switch must not stash the leftover under Nano',
+        );
+      },
+    );
   });
 
   group('Check Connection vs generate auth header after switch', () {

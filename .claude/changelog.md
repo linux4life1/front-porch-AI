@@ -1,3 +1,18 @@
+## 2026-09-08 — fix(backend): do not seed a leftover OR key into the Nano slot
+- **Why:** HOLD on #243 — load always `put` the shared `remote_api_key`
+  into the active URL. Community stuck state is `url=Nano` + leftover
+  `sk-or-`. That wrote the OpenRouter key into the Nano vault; the
+  first switch back to OpenRouter stashed it under Nano and restored
+  an empty OpenRouter slot.
+- **What:** Attribute leftover shared keys by shape (`sk-or-` /
+  `sk-nano-`). Foreign leftovers seed their home host and clear the
+  active key. URL switch refuses to stash a key that does not belong
+  on the current host. Web `urlHasStoredApiKey` uses the same
+  normalize (slash/case) as Dart.
+- **Files:** `remote_api_key_vault.dart`, `backend_settings.dart`,
+  `remote_api_key_switch_test.dart`, `remoteApiKeys.ts`
+- **Commit:** (this commit)
+
 ## 2026-09-08 — fix(backend): per-host OpenRouter / Nano-GPT API keys
 - **Why:** Switching Settings → Backend chips between OpenRouter and
   Nano-GPT left the shared `remote_api_key` in the field. Check
