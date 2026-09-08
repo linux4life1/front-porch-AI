@@ -127,6 +127,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
       coworker: coworker,
       mode: _mode,
       pathMode: _pathMode,
+      toolsSupported: widget.toolsSupported,
     );
     final onSat = widget.onSatDown;
     if (onSat != null) {

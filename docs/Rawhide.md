@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🧭 **Waifu Coder chrome tells the truth at a glance** — Plan/Build/Yolo and Jail vs Disk stay in the top bar with the folder path, honesty copy no longer shows raw `**`, a turn that touches several files lists all of them (and what they verified), and a backend that cannot call tools is blocked instead of pretending they can code.
+
 - 📋 **Waifu Coder Plan mode now writes a real plan** — in Plan they explore, then save a markdown plan under `.waifu/plans/` (a turn without that file is not done). The Plan panel sits on the main stage: Accept → Build (steps become todos), Revise, or Discard. A draft plan will not silently flip to Build — Accept it, or stay in Plan. They still cannot change project source until you accept. Personality stays the card’s.
 
 - ✅ **A patch is not “done” until they check it** — after they write, edit, or patch a project file in Build or Yolo, they must re-read that file or run a real test/analyze command before claiming the step finished. Looking at the file before they change it does not count, and `--help` / dry-run anywhere in the command is not a test — even if a real test is chained after `||`. Same rule with or without a pinned plan. A plan step stays pending until both the change and that check land — the task list cannot show the step finished while the plan still says pending. Personality stays on the spoken line.

@@ -165,6 +165,7 @@ class WaifuHarness {
       exploreOnly: exploreOnly,
       enforceVerify: depth == 0 && !exploreOnly,
     );
+    _clearTurnReceipts();
     // Record the send before any await. Plan-file I/O used to sit here
     // first (#236), so a kicked-off send left transcript empty and
     // mid-stream thought chrome never painted.
@@ -179,6 +180,7 @@ class WaifuHarness {
     await skills.refreshLocal();
     _emit();
     try {
+      if (_refuseIfToolsUnsupported()) return;
       if (text == '/init' || text.startsWith('/init ')) {
         await _runTool(kWaifuToolWrite, {
           'path': kWaifuAgentsPath,
@@ -309,8 +311,7 @@ class WaifuHarness {
         return;
       }
       if (result.write != null) {
-        session.lastWrite = result.write;
-        undoLog.push(result.write!);
+        _noteDiskWrite(result.write!);
       }
       if (session.mode == WaifuMode.plan &&
           result.write != null &&
@@ -318,6 +319,7 @@ class WaifuHarness {
         session.activePlanPath = result.write!.relativePath;
       }
       _turn.noteResult(canon, result, session.lastWrite, args: work);
+      _noteVerifyReceipt();
       final detail = result.ok
           ? waifuChipDetail(canon, work)
           : waifuClipChipError(result.output);

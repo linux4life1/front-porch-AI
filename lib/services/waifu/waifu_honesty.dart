@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
+import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 
 /// Sit-down honesty gate — safety copy, not onboarding.
 ///
@@ -92,6 +93,18 @@ String waifuPathModeSessionLine(WaifuPathMode pathMode) => switch (pathMode) {
     'Scope: Folder jail — file and bash paths stay on this porch.',
   WaifuPathMode.wholeDisk =>
     'Scope: Whole disk — this porch is the starting folder, not a fence.',
+};
+
+String waifuModeLabel(WaifuMode mode) => switch (mode) {
+  WaifuMode.plan => 'Plan',
+  WaifuMode.build => 'Build',
+  WaifuMode.yolo => 'Yolo',
+};
+
+/// Compact AppBar / sit-down badge. Full name stays on [waifuPathModeTitle].
+String waifuScopeBadgeLabel(WaifuPathMode pathMode) => switch (pathMode) {
+  WaifuPathMode.folderJail => 'Jail',
+  WaifuPathMode.wholeDisk => 'Disk',
 };
 
 String waifuEmptyPrompt(WaifuPathMode pathMode, String coworker) =>

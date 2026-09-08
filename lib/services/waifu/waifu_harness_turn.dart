@@ -130,6 +130,35 @@ extension _WaifuHarnessTurn on WaifuHarness {
     _say(_turn.failureLine(''));
   }
 
+  void _clearTurnReceipts() {
+    session.turnWrites.clear();
+    session.turnVerifyPaths.clear();
+  }
+
+  bool _refuseIfToolsUnsupported() {
+    if (waifuCanUseTools(
+      sessionToolsSupported: session.toolsSupported,
+      llmToolsSupported: llm.toolsSupported,
+    )) {
+      return false;
+    }
+    _say(kWaifuToolsUnsupported);
+    return true;
+  }
+
+  void _noteDiskWrite(WaifuWriteRecord rec) {
+    session.lastWrite = rec;
+    session.turnWrites.add(rec);
+    undoLog.push(rec);
+  }
+
+  void _noteVerifyReceipt() {
+    if (!_turn.verified || _turn.mutatedPaths.isEmpty) return;
+    session.turnVerifyPaths
+      ..clear()
+      ..addAll(_turn.mutatedPaths);
+  }
+
   void _settlePendingChip(String name) {
     if (!_liveAssistant().chips.any((c) => c.pending && c.name == name)) {
       return;

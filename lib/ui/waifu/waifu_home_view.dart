@@ -89,6 +89,18 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
     setState(() => _stored = list);
   }
 
+  bool _toolsSupportedOf() {
+    try {
+      final chat = Provider.of<ChatService>(context, listen: false);
+      return waifuResolveToolsSupported(
+        knownUnsupported: chat.toolCallSupport.name == 'unsupported',
+        paused: chat.toolCallingPaused,
+      );
+    } catch (_) {
+      return true;
+    }
+  }
+
   WaifuStore? _storeOf() {
     if (widget.store != null) return widget.store;
     try {
@@ -122,6 +134,7 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
         builder: (_) => WaifuWizardPage(
           isLocalBackend: local,
           backendLabel: label,
+          toolsSupported: _toolsSupportedOf(),
           initialFolder: folder,
           initialCoworker: coworker,
           skipProject: skipProject,
@@ -143,6 +156,7 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
           coworker: project.coworker,
           title: project.title,
         );
+    session.toolsSupported = _toolsSupportedOf();
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => WaifuPage(session: session)),

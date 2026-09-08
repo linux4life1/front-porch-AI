@@ -41,9 +41,17 @@ String waifuClipWorkPreview(String raw) {
 
 /// Last write this turn — before/after so the user can see what she did.
 class WaifuWorkStrip extends StatelessWidget {
-  const WaifuWorkStrip({super.key, required this.record, this.onClose});
+  const WaifuWorkStrip({
+    super.key,
+    required this.record,
+    this.writes = const [],
+    this.verifiedPaths = const [],
+    this.onClose,
+  });
 
   final WaifuWriteRecord record;
+  final List<WaifuWriteRecord> writes;
+  final List<String> verifiedPaths;
   final VoidCallback? onClose;
 
   @override
@@ -53,6 +61,10 @@ class WaifuWorkStrip extends StatelessWidget {
         ? '(new file)'
         : waifuClipWorkPreview(record.before);
     final after = waifuClipWorkPreview(record.after);
+    final files = writes.isEmpty ? [record] : writes;
+    final headline = waifuTurnReceiptHeadline(files);
+    final paths = waifuTurnTouchedPaths(files);
+    final verify = waifuTurnVerifyLine(verifiedPaths);
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: kWaifuWorkStripMaxHeight),
       child: Container(
@@ -74,7 +86,10 @@ class WaifuWorkStrip extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Last write: ${record.relativePath}',
+                      headline.isEmpty
+                          ? 'Last write: ${record.relativePath}'
+                          : headline,
+                      key: const Key('waifu-work-strip-headline'),
                       style: TextStyle(
                         color: amber,
                         fontWeight: FontWeight.w600,
@@ -97,6 +112,37 @@ class WaifuWorkStrip extends StatelessWidget {
                     ),
                 ],
               ),
+              if (paths.length > 1) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  key: const Key('waifu-work-strip-files'),
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final path in paths)
+                      Text(
+                        path,
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+              if (verify.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  verify,
+                  key: const Key('waifu-work-strip-verify'),
+                  style: TextStyle(
+                    color: AppColors.textSecondary(context),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 'Before',

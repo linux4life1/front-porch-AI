@@ -47,6 +47,10 @@ abstract class WaifuLlm {
   });
 
   void abort() {}
+
+  /// Fail-closed door. Scripted tests default true; `.unsupported()` stays
+  /// a generate-null path so that receipt is still covered.
+  bool get toolsSupported => true;
 }
 
 class LlmServiceWaifuLlm implements WaifuLlm {
@@ -106,6 +110,12 @@ class LlmServiceWaifuLlm implements WaifuLlm {
 
   @override
   void abort() => _serviceOf().abortGeneration();
+
+  /// Production wrap has no probe of its own. Session / ChatService stamp
+  /// the fail-closed verdict; this door stays open unless a test injects
+  /// [ScriptedWaifuLlm] with `toolsSupported: false`.
+  @override
+  bool get toolsSupported => true;
 }
 
 /// Deterministic LLM for harness tests and widget pumps.
@@ -114,6 +124,7 @@ class ScriptedWaifuLlm implements WaifuLlm {
     List<LlmToolResponse?> script, {
     this.beforeGenerate,
     this.streamDuring,
+    this.toolsSupported = true,
   }) : _script = script,
        _repeat = false,
        _unsupported = false;
@@ -122,18 +133,24 @@ class ScriptedWaifuLlm implements WaifuLlm {
     LlmToolResponse response, {
     this.beforeGenerate,
     this.streamDuring,
+    this.toolsSupported = true,
   }) : _script = [response],
        _repeat = true,
        _unsupported = false;
 
-  ScriptedWaifuLlm.unsupported({this.beforeGenerate, this.streamDuring})
-    : _script = const [],
-      _repeat = false,
-      _unsupported = true;
+  ScriptedWaifuLlm.unsupported({
+    this.beforeGenerate,
+    this.streamDuring,
+    this.toolsSupported = true,
+  }) : _script = const [],
+       _repeat = false,
+       _unsupported = true;
 
   final List<LlmToolResponse?> _script;
   final bool _repeat;
   final bool _unsupported;
+  @override
+  final bool toolsSupported;
   final Future<void> Function(int i)? beforeGenerate;
   final Future<void> Function(int i, void Function(String chunk) onChunk)?
   streamDuring;

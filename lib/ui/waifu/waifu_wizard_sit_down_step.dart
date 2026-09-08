@@ -21,6 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_honesty_text.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_scope_badge.dart';
 
 class WaifuWizardSitDownStep extends StatelessWidget {
   const WaifuWizardSitDownStep({
@@ -104,6 +106,21 @@ class WaifuWizardSitDownStep extends StatelessWidget {
                 Text(
                   'Backend: ${backendLabel.isEmpty ? 'current Settings backend' : backendLabel}',
                   style: TextStyle(color: AppColors.textSecondary(context)),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    WaifuModeBadge(
+                      key: const Key('waifu-sit-down-mode'),
+                      mode: mode,
+                    ),
+                    WaifuScopeBadge(
+                      key: const Key('waifu-sit-down-scope'),
+                      pathMode: pathMode,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -205,13 +222,7 @@ class WaifuWizardSitDownStep extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 20),
-          Text(
-            waifuHonestyBody(pathMode),
-            style: TextStyle(
-              color: AppColors.textPrimary(context),
-              height: 1.4,
-            ),
-          ),
+          WaifuHonestyText(text: waifuHonestyBody(pathMode)),
           const SizedBox(height: 12),
           CheckboxListTile(
             key: const Key('waifu-honesty-checkbox'),

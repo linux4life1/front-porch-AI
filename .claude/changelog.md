@@ -1,3 +1,17 @@
+## 2026-09-08 — rebase(waifu): Epic D onto #240 Rawhide tip
+- **Why:** #240 squash-merged as `34a006a2` (after #241 `9e010cc4`),
+  so PR #242 was CONFLICTING / DIRTY vs Rawhide.
+- **What:** Rebased `cursor/waifu-epic-d-chrome-1690` onto that tip.
+  Kept Epic D chrome (AppBar mode/path, honesty `**`, Jail/Disk,
+  multi-file receipts, toolsSupported fail-closed, Scaffold harness
+  tests) plus Rawhide Epic C stdio MCP / Docker-easy / in-Waifu panel
+  and #241 Thought collapsed-unless-live.
+  Conflict files: none — changelog, `docs/Rawhide.md`, and
+  `lib/ui/waifu/waifu.dart` auto-merged (barrel keeps `waifu_mcp_panel`
+  and Epic D `waifu_honesty_text` / `waifu_scope_badge`).
+  No Guard-protected existing tests were edited.
+- **Commit:** a5155229
+
 ## 2026-09-08 — rebase(waifu): Epic C onto #241 Rawhide tip
 - **Why:** #241 squash-merged as `9e010cc4` after #240 last rebased onto
   `2196e839`, so the draft was CONFLICTING / DIRTY vs Rawhide.
@@ -20,6 +34,49 @@
   Conflict files: none (changelog + `docs/Rawhide.md` auto-merged).
   No Guard-protected existing tests were edited.
 - **Commit:** (this tip)
+## 2026-09-08 — fix(waifu): sit-down recap test needs Scaffold/Material
+- **Why:** After scrolling to honesty, `ChoiceChip` at sit-down:195
+  threw `No Material widget found`. Production `WaifuWizardPage` is a
+  Scaffold; radio tiles wrap their own Material; chips do not. The
+  recap case pumped the step as bare `MaterialApp.home`.
+- **What:** Wrap the sit-down step in `Scaffold` like the other
+  d_chrome leaf pumps and the real wizard. Product chips unchanged.
+- **Commit:** 22f6f8ed
+
+## 2026-09-08 — fix(waifu): sit-down honesty key is below the ListView fold
+- **Why:** `waifu_d_chrome_test` sit-down recap case expected
+  `waifu-honesty-body` at pump and found 0. Product already uses
+  `WaifuHonestyText` on the live sit-down path; the step is a lazy
+  `ListView`, so the body is not built until you scroll (wizard tests
+  already scroll to the checkbox).
+- **What:** Scroll to the honesty key before asserting — pins the real
+  chrome, not a second widget.
+- **Commit:** ffc6bb6f
+
+## 2026-09-08 — fix(waifu): Epic D analyze — LlmServiceWaifuLlm + TextSpan
+- **Why:** CI `changed Dart files` analyze red on `c15698c0`.
+  `implements WaifuLlm` does not inherit the default
+  `toolsSupported` getter (same as `abort`). The honesty chrome
+  test called `.children` on `InlineSpan` (`Text.textSpan`).
+- **What:** `LlmServiceWaifuLlm.toolsSupported` returns true — the
+  production wrap has no probe; session/ChatService still fail-closes.
+  Honesty test casts `textSpan` to `TextSpan` before reading children.
+- **Commit:** 2a353278
+
+## 2026-09-08 — feat(waifu): Epic D chrome / honesty
+- **Why:** After Plan/Build/verify/Tasks, OpenCode-class chrome was
+  still missing: mode/path lived in a sidebar accordion, honesty
+  `**` rendered as sludge, jail vs disk was a sentence, the work
+  strip was last-file-only, and home never passed `toolsSupported`
+  so Sit down could claim she can code on a no-tools backend.
+- **What:** Always-visible AppBar mode + Jail/Disk badges + full
+  path. Honesty body renders closed `**…**` as weight. Work strip
+  lists every file this turn plus a verify line. `send()` fail-closes
+  before the loop when session or LLM `toolsSupported` is false
+  (home/resume stamp the live ChatService verdict). Plan artifacts,
+  Accept→Build, verify-after-mutate, live chips, Tasks, and
+  claim-vs-chip unchanged. Epic C (stdio MCP) not in this tip.
+- **Commit:** b1416527
 
 ## 2026-09-08 — rebase(waifu): #238 onto Rawhide after #237
 - **Why:** #237 squash-merged as `94ff43bd` (and #239 as `cd9bcd49`).
