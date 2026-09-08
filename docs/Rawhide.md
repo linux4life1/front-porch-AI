@@ -31,9 +31,9 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - ↵ **Enter sends the task** — Shift+Enter still makes a new line. The last-write preview has an X to dismiss it.
 
-- 🧠 **Thought chevron works while they are still thinking** — tap to collapse (or expand) the live think block; the timer keeps running. It used to ignore you until the next think started.
+- 🧠 **Thought chevron works while they are still thinking** — tap to expand (or collapse) the live think block; the timer keeps running. It used to ignore you until the next think started.
 
-- 💭 **Finished thoughts stay folded** — only the line that is still thinking opens by itself. Older Thought chips stay shut until you tap the chevron, even while a new reply is generating. It used to pop every old think block open for the whole turn.
+- 💭 **Thoughts stay folded** — live and finished Thought chips stay shut until you tap the chevron. A new reply generating does not pop old think blocks open, and the line that is still thinking does not open by itself either. Same on the phone.
 
 - 🖥️ **Waifu Coder pairs real coding power with a real character voice** — pick a V2 card, then let that coworker read, search, patch, write, run tests, and verify in one tool loop while still sounding like herself. The Sit-down gate offers **Folder jail** (the safer default) or an honestly disclosed **Whole-disk** scope; either way, secrets, environment dumps, destructive Git, force-pushes, and machine/parent wipes stay hard-blocked. `apply_patch` keeps existing-file edits surgical, Stop kills active commands even inside nested workers, and Explore/General may delegate one more bounded task layer before the tree ends. MCP remains per-session opt-in and cannot pivot a Bearer token to another host. Photos accept bounded PNG/JPEG/WebP input and land under `.waifu/inbox/`. Skills and workflows stay under `.waifu`, Plan/Build/Yolo keep their charm, and the visible bubble remains her spoken line instead of a source dump. Not Claude Code; not for code you cannot afford to lose. Desktop only.
 

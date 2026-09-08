@@ -457,8 +457,9 @@ class Biome {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) return Biome.fromJson(decoded);
-      if (decoded is Map)
+      if (decoded is Map) {
         return Biome.fromJson(Map<String, dynamic>.from(decoded));
+      }
     } catch (_) {}
     return null;
   }

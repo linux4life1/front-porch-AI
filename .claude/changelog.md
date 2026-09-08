@@ -1,3 +1,26 @@
+## 2026-09-08 — style: dart fix braces / unused import / cacheExtent
+- **Why:** `dart fix --dry-run` reported 8 infos (curly braces from
+  tall-style wraps, unused `dart:typed_data`, deprecated ListView
+  `cacheExtent`). The pubspec `missing_dependency` suggestion was a
+  false positive on re-run.
+- **What:** Brace the split `if` returns in variants / realism support
+  / biomes. Drop the unused typed_data import. Replace `cacheExtent:
+  2000` with `ScrollCacheExtent.pixels(2000)`.
+- **Commit:** (this tip)
+
+## 2026-09-08 — fix(chat): live Thought stays collapsed until tapped
+- **Why:** #241 stopped historical Thought chips from auto-opening, but
+  a mid-think chat bubble still expanded itself (null `isGenerating`
+  fell back to thinkingStartTime). That is not the pre-Waifu default.
+- **What:** Chat (omitted `isGenerating`) stays collapsed; chevron
+  still expands. Waifu `generatingAt` still auto-opens the live step.
+  Web streaming think uses the same closed `<details>` as finished
+  thoughts. Timer / 💭 thinking… summary still show.
+- **Files:** `message_bubble.dart`, `ChatMessageList.tsx`,
+  `thought_toggle_chat_live_test.dart`,
+  `ChatMessageList.thinking.test.tsx`, `docs/Rawhide.md`
+- **Commit:** (this tip)
+
 ## 2026-09-08 — rebase(waifu): Epic D onto #240 Rawhide tip
 - **Why:** #240 squash-merged as `34a006a2` (after #241 `9e010cc4`),
   so PR #242 was CONFLICTING / DIRTY vs Rawhide.

@@ -81,13 +81,15 @@ void main() {
     expect(find.text('Thought'), findsOneWidget);
   });
 
-  testWidgets('mid-think message auto-opens when isGenerating is omitted', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_bareBubble(_liveThought('live secret plan')));
-    expect(find.text('live secret plan'), findsOneWidget);
-    expect(find.textContaining('Thinking'), findsOneWidget);
-  });
+  testWidgets(
+    'mid-think message stays collapsed when isGenerating is omitted',
+    (tester) async {
+      await tester.pumpWidget(_bareBubble(_liveThought('live secret plan')));
+      expect(find.text('live secret plan'), findsNothing);
+      expect(find.textContaining('Thinking'), findsOneWidget);
+      expect(find.text('Thought'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'explicit isGenerating true auto-opens even without mid-think stamps',
@@ -99,40 +101,39 @@ void main() {
     },
   );
 
-  testWidgets('chevron pin wins over mid-think auto-open', (tester) async {
+  testWidgets('chevron expands a collapsed live chat think', (tester) async {
     await tester.pumpWidget(_bareBubble(_liveThought('pinned secret plan')));
-    expect(find.text('pinned secret plan'), findsOneWidget);
+    expect(find.text('pinned secret plan'), findsNothing);
 
     await tester.tap(find.byKey(const Key('thought-toggle')));
     await tester.pump();
-    expect(find.text('pinned secret plan'), findsNothing);
+    expect(find.text('pinned secret plan'), findsOneWidget);
     expect(find.textContaining('Thinking'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('thought-toggle')));
     await tester.pump();
-    expect(find.text('pinned secret plan'), findsOneWidget);
+    expect(find.text('pinned secret plan'), findsNothing);
   });
 
-  testWidgets(
-    'chat list with global generate expands only the live mid-think bubble',
-    (tester) async {
-      final chat = FakeChatService(isGenerating: true);
-      addTearDown(chat.dispose);
-      await tester.pumpWidget(
-        _provided(
-          chat: chat,
-          child: ChatMessageList(
-            messages: [
-              _finishedThought('old secret plan'),
-              _liveThought('live secret plan'),
-            ],
-            resolveSpeaker: (_) => (null, null),
-            chatService: chat,
-          ),
+  testWidgets('chat list with global generate expands no think bodies', (
+    tester,
+  ) async {
+    final chat = FakeChatService(isGenerating: true);
+    addTearDown(chat.dispose);
+    await tester.pumpWidget(
+      _provided(
+        chat: chat,
+        child: ChatMessageList(
+          messages: [
+            _finishedThought('old secret plan'),
+            _liveThought('live secret plan'),
+          ],
+          resolveSpeaker: (_) => (null, null),
+          chatService: chat,
         ),
-      );
-      expect(find.text('old secret plan'), findsNothing);
-      expect(find.text('live secret plan'), findsOneWidget);
-    },
-  );
+      ),
+    );
+    expect(find.text('old secret plan'), findsNothing);
+    expect(find.text('live secret plan'), findsNothing);
+  });
 }

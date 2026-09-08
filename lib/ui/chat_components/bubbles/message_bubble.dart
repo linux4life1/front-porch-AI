@@ -51,10 +51,11 @@ class MessageBubble extends StatefulWidget {
   final CharacterCard? character;
   final ChatService? chatService;
 
-  /// When set, drives live Thought expand (Waifu `generatingAt`). Chat
-  /// leaves this null; [_thoughtOpen] then uses this message's mid-think
-  /// stamps — never [ChatService.isGenerating] (that opens every
-  /// historical Thought while any turn is running).
+  /// When set, drives live Thought expand (Waifu `generatingAt`) and the
+  /// live Thought timer. Chat leaves this null so [_thoughtOpen] stays
+  /// collapsed until the chevron is tapped — never
+  /// [ChatService.isGenerating] (that opens every historical Thought
+  /// while any turn is running).
   final bool? isGenerating;
 
   /// Waifu Coder session theme. Chat leaves this null and reads
@@ -95,14 +96,14 @@ class _MessageBubbleState extends State<MessageBubble> {
   /// `rebuildState` bridge, same pattern).
   void rebuildState(VoidCallback fn) => setState(fn);
 
-  /// Live think auto-opens so you can watch it. A tap pins the user's
-  /// choice so [isGenerating] cannot keep the body open (or shut).
+  /// Chat Thought stays collapsed until the chevron is tapped (the
+  /// pre-Waifu default). Waifu passes [isGenerating] so the live
+  /// tool-loop step can be watched. A tap pins the user's choice so
+  /// [isGenerating] cannot keep the body open (or shut).
   bool get _thoughtOpen {
     if (_thoughtPinned) return _thoughtExpanded;
-    final live =
-        widget.isGenerating ??
-        (message.thinkingStartTime != null && message.thinkingDurationMs == 0);
-    return live && message.hasThinking;
+    if (widget.isGenerating == true && message.hasThinking) return true;
+    return _thoughtExpanded;
   }
 
   void _toggleThought() {

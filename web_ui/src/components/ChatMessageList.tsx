@@ -250,10 +250,10 @@ export function ChatMessageList({
         return (
           <div className="bubble ai streaming" aria-live="polite">
             {thinking.trim() && (
-              <div className="streaming-think">
-                <span className="muted small">💭 thinking…</span>
-                <div className="streaming-think-body">{thinking}</div>
-              </div>
+              <details className="thinking">
+                <summary>💭 thinking…</summary>
+                <div className="thinking-body">{thinking}</div>
+              </details>
             )}
             {rest && <MessageContent text={rest} />}
           </div>

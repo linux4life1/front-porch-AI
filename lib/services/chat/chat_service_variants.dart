@@ -27,8 +27,9 @@ extension ChatServiceVariants on ChatService {
   List<String> get openingAllGreetings {
     if (isGroupMode) {
       final g = activeGroup;
-      if (g != null && !greetingFirstMesEmpty(g.firstMessage))
+      if (g != null && !greetingFirstMesEmpty(g.firstMessage)) {
         return g.allGreetings;
+      }
       if (messages.isEmpty) return const [];
       final cid = messages.first.characterId;
       if (cid == null || cid.isEmpty) return const [];

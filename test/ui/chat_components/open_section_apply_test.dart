@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
@@ -257,7 +258,7 @@ Future<_Keys> _pumpAccordions(
           width: 230,
           child: ListView(
             padding: const EdgeInsets.all(12),
-            cacheExtent: 2000,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
             children: [
               Builder(
                 builder: (context) => PorchAccordion(
