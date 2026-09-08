@@ -82,7 +82,7 @@
   use checkbox / play / checked+strikethrough; content is the label.
   Write() semantics unchanged. Soft spoken-vs-todowrite honesty skipped
   (would fight turn-contract pins).
-- **Commit:** (this tip)
+- **Commit:** 5b68bef5
 
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
 - **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a
