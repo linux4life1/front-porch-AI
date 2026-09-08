@@ -26,6 +26,7 @@ void main() {
     expect(waifuLooksTodoReceiptClaim('I marked the todo completed.'), isTrue);
     expect(waifuLooksTodoReceiptClaim('Hmph. I ran todowrite.'), isTrue);
     expect(waifuLooksTodoReceiptClaim('I updated the todo list.'), isTrue);
+    expect(waifuLooksTodoReceiptClaim('I updated the todos.'), isTrue);
     expect(waifuLooksTodoReceiptClaim('Hmph. Consider it fixed.'), isFalse);
     expect(waifuLooksTodoReceiptClaim('I completed the login page.'), isFalse);
     expect(waifuLooksTodoReceiptClaim('Done.'), isFalse);

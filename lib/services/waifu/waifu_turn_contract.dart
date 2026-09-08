@@ -174,8 +174,8 @@ bool waifuLooksTodoReceiptClaim(String body) {
   final updated = RegExp(
     r'\b(?:updated?|wrote|replaced|rewrote|changed)\b',
   ).hasMatch(lower);
-  if (list && updated) return true;
   final todo = RegExp(r'\b(?:todos?|to-dos?)\b').hasMatch(lower);
+  if ((list || todo) && updated) return true;
   final done = RegExp(
     r'\b(?:completed?|finished|checked\s+off|marked\s+(?:as\s+)?done)\b',
   ).hasMatch(lower);

@@ -72,6 +72,11 @@
   same). `waifuSyncTodosOntoPlan` rolls blocked done todos back to the
   plan step status; todowrite chip output re-reads after that.
 - **Commit:** a48672d9
+## 2026-09-08 — fix(waifu): “updated the todos” is a todo-receipt claim
+- **Why:** GO wording includes updated todos, not only “todo list”.
+- **What:** Detector treats update/write + todos as a claim. Pin added.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — feat(waifu): todo-claim turn contract (no chip, no receipt)
 - **Why:** Kimi/thinking can narrate todowrite or “I marked it complete”
   without a real tool call. write() is fine; the spoken line was a lie.
