@@ -358,6 +358,9 @@ Future<WaifuPlanTodoSync> waifuSyncTodosOntoPlan({
       if (waifuTodoStatusIsDone(next) && !allowCompleted) {
         steps.add(step);
         blockedDone = true;
+        for (final todo in todos.items) {
+          if (todo.id == step.id) todo.status = step.status;
+        }
         continue;
       }
       steps.add(step.copyWith(status: next));

@@ -30,9 +30,6 @@ const kWaifuReceiptMutationTools = {
   kWaifuToolWrite,
 };
 
-/// Project-mutate verify receipts. Bash is never a mutation receipt.
-const kWaifuReceiptVerifyTools = {kWaifuToolRead, kWaifuToolBash};
-
 const kWaifuBuildVerifyCue =
     'After write, edit, or apply_patch changes a project file, re-read '
     'that path or run a project test/analyze command before claiming the '
@@ -66,52 +63,81 @@ bool waifuReadVerifiesMutate(String readPath, Iterable<String> mutated) {
 }
 
 /// Test/analyze class only. `echo`, `ls`, and `test -f` are not verify.
+/// Every `&&` / `||` / `;` segment is scanned so `cd pkg && flutter test`
+/// receipts. `--help` / `-h` / dry-run flags are theater, not verify.
 bool waifuLooksVerifyCommand(String command) {
-  final first = command
-      .trim()
-      .toLowerCase()
-      .split(RegExp(r'(?:&&|\|\||[;|\n])'))
-      .first
-      .trim();
-  if (first.isEmpty) return false;
-  final words = first
-      .replaceAll(RegExp(r'''["'`(){}\[\],;|&<>]'''), ' ')
-      .split(RegExp(r'\s+'))
-      .where((w) => w.isNotEmpty)
-      .toList();
-  if (words.isEmpty) return false;
-  var cmd = words.first;
-  if (cmd.contains('/')) cmd = cmd.split('/').last;
-  if (cmd == 'npx' && words.length > 1) {
-    return const {'vitest', 'jest', 'eslint'}.contains(words[1]);
-  }
-  if (cmd == 'flutter' || cmd == 'dart') {
-    return words.length > 1 && const {'test', 'analyze'}.contains(words[1]);
-  }
-  if (cmd == 'cargo') {
-    return words.length > 1 && const {'test', 'clippy'}.contains(words[1]);
-  }
-  if (cmd == 'go') return words.length > 1 && words[1] == 'test';
-  if (cmd == 'make') {
-    return words.length > 1 &&
-        const {'test', 'check', 'lint'}.contains(words[1]);
-  }
-  if (cmd == 'npm' || cmd == 'pnpm' || cmd == 'yarn') {
-    if (words.length > 1 && words[1] == 'test') return true;
-    if (words.length > 2 && words[1] == 'run') {
-      final script = words[2];
-      return script == 'test' ||
-          script == 'lint' ||
-          script == 'analyze' ||
-          script.startsWith('test:');
+  for (final segment in command.trim().toLowerCase().split(
+    RegExp(r'(?:&&|\|\||[;|\n])'),
+  )) {
+    final words = segment
+        .replaceAll(RegExp(r'''["'`(){}\[\],;|&<>]'''), ' ')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) continue;
+    if (words.any((w) {
+      if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
+      return w == '--dry-run' ||
+          w == '--dryrun' ||
+          w == '--dry_run' ||
+          w.startsWith('--dry-run') ||
+          w.startsWith('--dryrun');
+    })) {
+      continue;
     }
+    var cmd = words.first;
+    if (cmd.contains('/')) cmd = cmd.split('/').last;
+    if (cmd == 'npx' && words.length > 1) {
+      if (const {'vitest', 'jest', 'eslint'}.contains(words[1])) return true;
+      continue;
+    }
+    if (cmd == 'flutter' || cmd == 'dart') {
+      if (words.length > 1 && const {'test', 'analyze'}.contains(words[1])) {
+        return true;
+      }
+      continue;
+    }
+    if (cmd == 'cargo') {
+      if (words.length > 1 && const {'test', 'clippy'}.contains(words[1])) {
+        return true;
+      }
+      continue;
+    }
+    if (cmd == 'go') {
+      if (words.length > 1 && words[1] == 'test') return true;
+      continue;
+    }
+    if (cmd == 'make') {
+      if (words.length > 1 &&
+          const {'test', 'check', 'lint'}.contains(words[1])) {
+        return true;
+      }
+      continue;
+    }
+    if (cmd == 'npm' || cmd == 'pnpm' || cmd == 'yarn') {
+      if (words.length > 1 && words[1] == 'test') return true;
+      if (words.length > 2 && words[1] == 'run') {
+        final script = words[2];
+        if (script == 'test' ||
+            script == 'lint' ||
+            script == 'analyze' ||
+            script.startsWith('test:')) {
+          return true;
+        }
+      }
+      continue;
+    }
+    if (cmd == 'python' || cmd == 'python3' || cmd == 'py') {
+      if (words.length > 2 &&
+          words[1] == '-m' &&
+          const {'pytest', 'unittest'}.contains(words[2])) {
+        return true;
+      }
+      continue;
+    }
+    if (const {'pytest', 'vitest', 'jest'}.contains(cmd)) return true;
   }
-  if (cmd == 'python' || cmd == 'python3' || cmd == 'py') {
-    return words.length > 2 &&
-        words[1] == '-m' &&
-        const {'pytest', 'unittest'}.contains(words[2]);
-  }
-  return const {'pytest', 'vitest', 'jest'}.contains(cmd);
+  return false;
 }
 
 bool waifuTaskRequestsFileChange(String task) {
@@ -216,6 +242,8 @@ class WaifuTurnContract {
           !waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
         mutatedPaths.add(waifuNormalizeVerifyPath(result.write!.relativePath));
         verifyRequired = true;
+        readPaths.clear();
+        verified = false;
       }
     }
     if (result.ok &&
@@ -254,6 +282,10 @@ class WaifuTurnContract {
     mutationAttempted = mutationAttempted || child.mutationAttempted;
     if (child.mutationSucceeded) mutationSucceeded = true;
     if (child.verifyRequired) verifyRequired = true;
+    if (child.mutatedPaths.isNotEmpty) {
+      readPaths.clear();
+      verified = false;
+    }
     mutatedPaths.addAll(child.mutatedPaths);
     readPaths.addAll(child.readPaths);
     if (child.verified) {

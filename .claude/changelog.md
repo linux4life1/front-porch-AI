@@ -18,6 +18,16 @@
   `test()` (FakeAsync + dart:io still hung even inside `runAsync`).
   Widget test only mounts the button. Sync-prefix + encode/parse pins.
   Existing tests under Guard were edited.
+## 2026-09-08 — fix(waifu): Epic B verify HOLDs (segments, todos, pre-read, help)
+- **Why:** Senior Dev + hostile HOLDs on #237 tip 5a063f4d. First
+  `&&` segment only meant `cd pkg && flutter test` never receipted.
+  blockedDone left Tasks chrome completed while the plan stayed
+  pending. A pre-mutate read of the same path counted as verify.
+  `flutter test --help` counted as verify.
+- **What:** Scan every `&&` / `||` / `;` segment. Reject `--help` /
+  `-h` / dry-run. Clear readPaths on each project mutate (absorbChild
+  same). `waifuSyncTodosOntoPlan` rolls blocked done todos back to the
+  plan step status; todowrite chip output re-reads after that.
 - **Commit:** (this tip)
 
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
