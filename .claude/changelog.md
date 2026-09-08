@@ -33,7 +33,7 @@
   (home/resume stamp the live ChatService verdict). Plan artifacts,
   Accept→Build, verify-after-mutate, live chips, Tasks, and
   claim-vs-chip unchanged. Epic C (stdio MCP) not in this tip.
-- **Commit:** (this commit)
+- **Commit:** b1416527
 
 ## 2026-09-08 — rebase(waifu): #238 onto Rawhide after #237
 - **Why:** #237 squash-merged as `94ff43bd` (and #239 as `cd9bcd49`).
