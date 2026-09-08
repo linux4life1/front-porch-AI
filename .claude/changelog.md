@@ -1,3 +1,11 @@
+## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
+- **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a
+  blocked mutating MCP call, so `toolChips.single` threw Too many elements.
+  Mutating MCP was still hard-blocked (`mutationCalls == 0`).
+- **What:** Assert a failed `create_issue` chip and a successful
+  `search_docs` chip without assuming exactly one chip.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(waifu): main-stage Plan panel + soft Plan→Build gate
 - **Why:** UIC HOLD on #236. Plan panel was sidebar-only (FAIL). Mode
   chips / `/build` could silently orphan a draft and enter freeform
