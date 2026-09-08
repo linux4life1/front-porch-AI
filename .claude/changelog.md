@@ -28,7 +28,7 @@
   already scroll to the checkbox).
 - **What:** Scroll to the honesty key before asserting — pins the real
   chrome, not a second widget.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-09-08 — fix(waifu): Epic D analyze — LlmServiceWaifuLlm + TextSpan
 - **Why:** CI `changed Dart files` analyze red on `c15698c0`.
@@ -2396,7 +2396,7 @@
 - **What:** _notify() is disposed-guarded, and every bare
   notifyListeners() in TtsService (6 sites incl. downloadModel's
   post-await ones) now routes through it — one rule for the class.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-15 — fix(chat): pocket receipt chips overflowed the bubble by 1086px
 - **Why:** live maintainer repro minutes after the medium wave landed: the
@@ -2408,7 +2408,7 @@
   Wrap's own spacing retired the `_spaced` helper (deleted) and the
   emptiness checks now read `chips` directly. UI sweep (359) + container
   goldens (94) green.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-15 — fix(sweep): the 3 maintainer-approved test-change fixes
 - **Why:** each correct fix contradicted a test/golden pinning the broken
@@ -2545,7 +2545,7 @@
   `token` stream. Composer ✦ button + live fill. Stop cancels.
 - **Files:** stream_hub, chat_facade, chat_routes; ChatComposer,
   ChatPage, styles.css; NEW impersonate_hub_test.dart; docs/Rawhide.md
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-15 — fix(chat): Impersonate from a typed prefix wrote as the character
 - **Why:** Empty-box impersonate worked. A start already in the composer
@@ -2559,7 +2559,7 @@
   trim cuts `\nChar:` bleed. Web never had the wand — pre-existing.
 - **Files:** NEW impersonate_prompt.dart + impersonate_prefix_test.dart;
   chat_service_impersonate.dart; chat.dart; docs/Rawhide.md
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-15 — fix(eval): Kimi 2.6 judges no longer flip a coin (round 2)
 - **Why:** After 55918806, deltas were still intermittent. Live log:
@@ -2672,7 +2672,7 @@
   thinking_settings_block.dart, settings_facade.dart, backend_facade.dart,
   reasoning_effort.dart, reasoning_support_test.dart,
   docs/design/local-reasoning-capability.md, docs/Rawhide.md
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-15 — feat(reasoning): oMLX thinking capability from template, no poke
 - **Why:** Local reasoning chips were honest for Kobold GGUFs but oMLX still
@@ -2688,7 +2688,7 @@
   settings_facade.dart, backend_facade.dart, settings_routes.dart,
   SettingsPage.tsx, reasoning_support_test.dart,
   docs/design/local-reasoning-capability.md, docs/Rawhide.md
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — fix(audit): Opus NO-GO B1–B3 + M1
 - **B1 RAG:** do not gate retrieve on lazy `isOperational`; stamp
@@ -2701,7 +2701,7 @@
 - **B3 analyze:** unused `Variable` + `dart:convert` dropped from new tests.
 - **M1 fork:** `_summaryLastIndex = _messages.length` so the next Journal
   pass does not re-digest copied cards.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — fix(audit): Fable mediums — light-mode leftovers, fork embeddings, cross-owner pickup, call-site pins
 - **Files:** general_tab + cards (remaining Color(0xFF111827)/white54/purpleAccent
@@ -2711,7 +2711,7 @@
 - **Tests:** NEW journal_fork_and_pickup_test; NEW audit_fix_callsite_test
   (Continue skipOneShots, closeOpenThink wiring, judge windows).
 - **Why:** Fable review residual Mediums on the audit-fix batch.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — fix(audit): Cleanup wipe, Continue one-shots/think, dreams, clock, pockets, Growth/Journal twins
 - **Cleanup/repair:** live group RAG `group_<id>` + memory_sources basenames
@@ -2740,7 +2740,7 @@
   recentExchangeThroughLastUser.
 - **Why:** full-codebase audit NO-GO Highs (data loss / prompt poison /
   sibling paths).
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — fix(audit): web image consent, outbound URL SSRF, objectives/journal scope
 - **Files:** MessageContent.tsx + styles.css (https-only markdown images;
@@ -2756,7 +2756,7 @@
   and backend probe accepted private/loopback destinations; web Generate
   Tasks / Set still worked with Objectives off; journal mutations were
   id-only (any diary).
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — fix(group-settings): General tab Save actually writes the live group
 - **Files:** group_settings_dialog.dart (Save calls apply before repo.save);
@@ -2772,7 +2772,7 @@
 - **Why:** Save persisted the untouched live GroupChat; name/scenario/
   greeting/turn rules never left the controllers. Light mode painted those
   labels and Create Character headings white on cream.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — fix(sidebar): Memory Settings/Sources/Data Bank overflowed a squeezed chat sidebar
 - **Files:** memory_panel.dart (rigid Row → Wrap; three copy-pasted chips
@@ -2783,7 +2783,7 @@
   0.2–8px reports at ~225).
 - **Why:** dragging the chat sidebar to ~225px overflowed the Memory
   controls Row. No fixed sidebar width.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — fix(home): library toolbar no longer overflows a resized window
 - **Files:** home_grid_toolbar.dart (LayoutBuilder sheds slider → sort
@@ -2798,7 +2798,7 @@
   (overflowed 208px at 651).
 - **Why:** Row at home_grid_toolbar.dart:155 overflowed 73px at 603px
   (sidebar still open). There is no fixed window size.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — feat(tts): per-character voice is visible and clearable (desktop + web)
 - **Files:** NEW lib/ui/widgets/character_voice_picker.dart (the ONE picker;
@@ -2824,7 +2824,7 @@
   fixed the catalog drift + the silent af_heart fallback but could only
   DOCUMENT the per-character override; an imported card's `tts_voice` was
   still invisible and unclearable in 1:1.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — feat(crop): A–E batch — swap-not-destroy, unlimited padding, presets, fills, polish
 - **Files:** crop_geometry.dart (CropFill enum, cropWorldRect w/ 8192 output
@@ -2850,7 +2850,7 @@
   regenerated (presets/swatches/readout in frame).
 - **Why:** maintainer approved the full A–E improvement menu from the
   feature-completeness review.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — fix(crop): tiny-image drag crash (clamp inversion) found in feature-completeness review
 - **Files:** crop_geometry.dart (applyCropDrag: minSize capped to the world,
@@ -2860,7 +2860,7 @@
 - **Why:** an 8×8 pixel-art avatar scaled ~50× makes the world in source px
   smaller than the 16 px minSize floor; dragging an edge inverted the clamp
   bounds and threw mid-gesture.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-14 — feat(crop): blank-slate crop rewrite (desktop + web) + concrete portrait-delete confirm
 - **Files:** NEW lib/utils/crop_geometry.dart (pure containFit/hitTest/drag
@@ -2883,7 +2883,7 @@
 - **Why:** Discord report 8/4 (zoom-out ignored on crop; delete-portrait
   "deleted" the just-added image; default zoom-in confusion). Maintainer
   chose blank-slate over patching the package.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(enhance): hostile-review hardening of the wizard + chat-copy surfaces
 - **Files:** chat_service_enhance_chats.dart (same-character copy refused —
@@ -2896,7 +2896,7 @@
   enhance_chat_copy_test.dart (+1 guard test, proven red by removing the
   guard).
 - **Why:** maintainer-directed full hostile review of b738535/94ca01c.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(chat): same-session reload stamped the live persona onto the row it was restoring
 - **Files:** chat_service_session_load.dart (loadSession's flushPendingSaves
@@ -2912,7 +2912,7 @@
   after setActiveCharacter always hits it (_loadLastSession sets
   _currentSessionId without activating the persona, by design). Leaving a
   DIFFERENT session still flushes — 6192ddc's drop-a-turn protection intact.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — feat(enhance): explainer-first wizard + "bring your chats along" (desktop + web)
 - **Files:** NEW enhance_wizard_page.dart (+.chrome/.steps parts, creator-pattern
@@ -2937,7 +2937,7 @@
 - **Why:** maintainer: the shipped AI Enhance never explained itself; use the
   creator-style wizard UI, explain on page 1, and offer importing the base
   character's chats into the enhanced copy as the last step.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(web): second-review import/export (notice, send race, CI)
 - **Files:** ChatPage import notice outlives the drawer; `_isImporting`
@@ -2946,7 +2946,7 @@
   parseApiErrorBody object guard; ChatImportBusy extracted;
   desktop Import tooltip.
 - **Why:** second Opus review of the web import/export pass.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — feat(web): chat import/export review fixes (cap, errors, tests)
 - **Files:** package routes (256 MB cap + BodyTooLarge + mapped errors +
@@ -2955,7 +2955,7 @@
   facade filename removed (client names the file), extra tests,
   storyUtil.safeDownloadStem shared with chat export, 413 oversize pin.
 - **Why:** Opus review of the first web import/export pass.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — feat(web): chat import/export (.fpchat + JSONL) on the PWA
 - **Files:** `chat_package_facade.dart`, `chat_package_routes.dart`,
@@ -2969,7 +2969,7 @@
   ChatService I/O; browser only downloads/uploads bytes. 409
   character_mismatch + mismatch=full|dialogue matches the desktop
   dialog. Empty export is 404 (proven red).
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(tests): reverse the no-key catalog pin CI caught (d3b7cba/e95587c red)
 - **Files:** `test/services/image_gen_generate_test.dart` (the "no key ->
@@ -2982,7 +2982,7 @@
   directive but missed this pre-existing sibling pin (test/services was
   not swept; only image_gen_service_test was checked). CI caught it on
   both runs. The zero-network half of the old assertion still stands.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(pockets): the surprise Easter egg was being ignored — moved to the plan tail
 - **Files:** `inventory_injection.dart` (intros split into
@@ -3003,7 +3003,7 @@
 - **Why:** maintainer screenshot — "how she reacts" / "moves her" on the
   Drawn To helper. Same form also said "makes her bristle" and
   "open her own bakery". Neutral on desktop and web.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(chat): every finished turn is written to SQLite (no exception)
 - **Files:** `chat_service_send.dart` (user line awaited persist before
@@ -3019,7 +3019,7 @@
   DB, no exception. Leave/re-enter flush is a belt, not the write.
   Delete-all+insert let a shorter snapshot erase a landed turn; upsert
   keeps the tail. Delete/regen-pop still replace-all.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(chat): last exchange vanished after Back → Home → re-enter
 - **Files:** `chat_service_session_state.dart` (`_saveChat` snapshots
@@ -3039,7 +3039,7 @@
   (and group re-enter / Start New Chat) cleared `_messages` before the
   queued delete+insert, then reloaded the pre-turn row. Home lockup is
   the 1.3GB DB last-activity scan racing that write, not the wipe itself.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(image-studio): Remote API stops looking free (no-key honesty)
 - **Files:** `image_gen_service.dart` (fetchImageModels: no key -> [] — the
@@ -3054,7 +3054,7 @@
 - **Why:** maintainer report — a user picked Remote API, saw a populated
   model list with no key configured anywhere in the studio, concluded it
   was free, and hit the (then-unreadable) "No API key configured." error.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(image-studio): error banner was red-on-red (unreadable)
 - **Files:** `lib/ui/image_studio/generation_panel.dart` (tinted card +
@@ -3067,7 +3067,7 @@
   mode, a color-sweep leftover. The underlying error (craft failure /
   backend unreachable / "generation returned no image") was undiagnosable
   because the text was invisible.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — fix(golden): pocketsFeatureEnabled moves to the shell (fake dispatch)
 - **Files:** `chat_service.dart` (getter beside pocketsFor, class member),
@@ -3097,7 +3097,7 @@
   the character id, so guest-focused pocket add (new) AND the ✕ eraser
   (pre-existing) wrote the HOST's kit under the guest's name; the
   snapshot also displayed the host's pockets as the guest's.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-13 — feat(pockets): hand-add + user-give with the surprise Easter egg
 - **Files:** `chat_service_pockets.dart` (`addPocketItem` + `_PendingItemIntro`
@@ -3119,7 +3119,7 @@
   "how did I end up with $Item?"). Note is one-shot, regen-honest
   (cleared at next user turn, not at prompt build). Eval recognition is
   free: the record is the bookkeeping prompt's ground truth.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-12 — feat(chat): Continue scores its new text — post-gen passes no longer skip it
 - **Files:** `lib/services/chat/chat_service_generation_postgen.dart`
@@ -3141,7 +3141,7 @@
   Continue finally reach the bookkeeping. Inter-char feelings,
   promise/debt, periodic evals stay new-turn-only (delta heuristics, no
   stamp).
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-12 — persist thinking menus + Claude review fixes
 - **Files:** `reasoning_effort_store.dart` (prefs, beta-prefixed), probe
@@ -3548,7 +3548,7 @@
   assertion passing — the fire-and-forget select in the card purge was
   killed by tearDown's `db.close()` and escaped as an unhandled zone
   error. Same hole exists in production: delete a message, close the app.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-08-11 — test(pockets): H3 user-tail delete + restamp guards (engine on)
 - **Files:** `test/services/chat/pockets_rewind_test.dart` (scripted LLM answers
@@ -10577,7 +10577,7 @@ Bug reports from an early backer (Sascha Nemeth). Twelve issues triaged; six fea
 ## 2026-07-14 (UTC) — Live status for oMLX and LM Studio backends (multi-backend truthful status bar)
 - **Files:** lib/services/live_gen_progress.dart (renamed from kobold_live_progress.dart — now the shared struct with setPromptProgress/setGenProgress/ingestLmStudioRuntimeLine/queuedBehind/hintTokensPerSecond), lib/services/omlx_status_poller.dart (new), lib/services/lmstudio_log_streamer.dart (new), lib/services/llm_provider.dart (owns sources, activeLiveProgress resolver, isGenerationActive cb, lifecycle on backend switch), lib/services/kobold_service.dart (type rename), lib/services/chat_service.dart (activeLiveProgress thin getter), lib/ui/chat_components/overlays/generation_status_bar.dart (reads resolver; Provider<KoboldService> dance deleted), lib/services/web/web_server_host.dart (gen_status reads resolver; 'queue' busyWith), lib/main.dart (isGenerationActive wiring at all three ChatService wiring sites), web_ui ChatMessageList ('another request' label) + bundle, tests (renamed + LM Studio line test + new omlx_status_poller_test)
 - **Reason:** Maintainer mandate: expose live generation status on as many backends as possible (was Kobold-only). Empirical probes (see memory reference_backend_live_status_probes): oMLX /admin/api/stats exposes per-request prefilling {processed,total}, generating {generated_tokens,max_tokens,prompt_tokens}, waiting queue, avg_prefill_tps — polled 1s while generating (never /admin/api/models: stalls mid-gen). LM Studio has no live REST stats but its CLI (`lms log stream --source runtime`) prints llama.cpp's exact per-batch prefill fraction — spawned when the OpenAI backend URL is localhost and the CLI exists, silent degradation otherwise. Remote APIs remain estimate-fallback (nothing exists). oMLX's waiting queue surfaces as "Waiting — another request is using the model". The malformed-payload unit test caught a cast bug in the stats mapper pre-ship.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-14 (UTC) — golden baselines for rep-pen slider change
 - **Files:** test/golden/widget/_goldens/dialogs_more/chat_settings.{dark,light}.png
@@ -10597,22 +10597,22 @@ Bug reports from an early backer (Sascha Nemeth). Twelve issues triaged; six fea
 ## 2026-07-16 (UTC) — Sidecar retirement phase 2: expression classifier in-process (+ label-shift bugfix)
 - **Files:** lib/services/expression/wordpiece_tokenizer.dart (new), lib/services/expression/onnx_emotion_engine.dart (new), lib/services/expression/onnx_emotion_classifier.dart (new), lib/services/expression_classifier.dart (service wires OnnxEmotionClassifier; sidecar class kept as fallback), lib/ui/settings/tabs/voice_media_tab.dart (download error copy no longer claims python3 is required), test/services/expression/onnx_emotion_test.dart (new, 18 cross-language goldens), test/services/expression/onnx_emotion_e2e_test.dart (new, real-model gated), test/fixtures/emotion_classifier/vocab.txt (new fixture), docs/design/sidecar-retirement.md (phase-2 record), docs/Rawhide.md
 - **Reason:** Phase 2 of the maintainer-approved sidecar retirement (docs/design/sidecar-retirement.md). The go-emotions classifier now runs in-process via onnxruntime_v2 (isolate-run session-per-call, smolvlm precedent) with a pure-Dart BERT WordPiece tokenizer; model download is direct HTTPS (no Python needed at all); the legacy sentiment_classifier sidecar remains as automatic per-call fallback with FP_EXPR_SIDECAR=1 as the forced-legacy lever. Also fixes a real bug rather than porting it: the sidecar's EMOTION_LABELS had 26 entries for the 28-class model (missing 'disapproval' and 'relief'), so every label after 'disappointment' was reported shifted (disapproval→"disgust", relief→"remorse", etc.); the native path uses the model's true id2label order. Verified against goldens generated from the exact Python sidecar stack: 13 token-id sequences (accents/curly quotes/emoji/CJK/512-truncation), float64 softmax scores, and a full text→label e2e run against the real 268MB model in the sandbox (all labels + confidences matched within 1e-3). Existing sidecar tests still pass; sidecar deletion is deferred to the post-soak release per the playbook.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-16 (UTC) — Sidecar retirement phase 3: Whisper STT in-process via sherpa-onnx
 - **Files:** lib/services/stt/sherpa_whisper_engine.dart (new), lib/services/stt/whisper_sidecar_transport.dart (new — sidecar transport extracted verbatim from SttService, the phase-completion deletion target), lib/services/model_fetch.dart (new — shared direct-HTTPS model downloader, consolidated out of the phase-2 classifier), lib/services/stt_service.dart (768→~700 lines: native-first _transcribe/downloadModel, isEngineUsable no longer requires Python), lib/services/expression/onnx_emotion_classifier.dart (refactored onto ModelFetch, ~35 duplicated lines deleted), lib/ui/settings/tabs/voice_media_tab.dart (Whisper size labels updated to the sherpa export sizes), pubspec.yaml + pubspec.lock (new dep sherpa_onnx ^1.13.4 — task-required; prebuilt native libs ship in the pub platform packages, bundling/signing automatic), test/services/stt/sherpa_whisper_test.dart (new), docs/design/sidecar-retirement.md (phase-3 record), docs/Rawhide.md
 - **Reason:** Phase 3 of the maintainer-approved sidecar retirement. Whisper STT now runs in-process (isolate-run sherpa-onnx OfflineRecognizer on the int8 whisper export) instead of spawning the faster-whisper Python sidecar per transcription — the sidecar reloaded its model on EVERY call, so per-call model load here is parity-at-worst and faster in practice (no interpreter startup). CT2 models are not reusable: same size names carry the user's setting over and the sherpa export re-downloads once (surfaced honestly in Rawhide.md per the playbook), on the settings button or first use. RMS silence trim stands in for faster-whisper's VAD (all-silent → "No speech detected"); browser-uploaded webm from the web UI stays on the sidecar (native path is WAV-only — web WAV capture is a phase-completion blocker, documented). FP_STT_SIDECAR=1 forces legacy; automatic per-call fallback logs [STT-Native]. Verified in-sandbox: real tiny.en int8 model reproduced the upstream reference transcript exactly, and legacy faster-whisper (beam 5 + VAD) produced identical words on the same WAV.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-16 (UTC) — Sidecar retirement phase 4a: Kokoro TTS in-process via sherpa-onnx
 - **Files:** lib/services/tts/sherpa_kokoro_engine.dart (new — persistent worker isolate holding sherpa OfflineTts, tar.bz2 bundle download+extract, 53-voice name→sid map), lib/services/sherpa_runtime.dart (new — sherpaNativeLibDir() consolidated out of the phase-3 whisper engine), lib/services/stt/sherpa_whisper_engine.dart (refactored onto the shared helper, private copy deleted), lib/services/kokoro_engine.dart (native-first generateAudio/ensureModelReady/ensureWorkersWarm/isAvailable/shutdown; Python worker pool kept as automatic fallback), test/services/tts/sherpa_kokoro_test.dart (new), docs/design/sidecar-retirement.md (phase-4a record + 4b plan + model-reuse correction), docs/Rawhide.md
 - **Reason:** Phase 4a of the maintainer-approved sidecar retirement. Kokoro TTS now runs in-process: one persistent worker isolate keeps the model warm (parity with the 1–4 process Python pool), jobs serialize over SendPorts, output rides the same temp-WAV contract so TtsService playback/chunking is untouched. IMPORTANT correction to the design doc: the legacy kokoro-v1.0.onnx/voices-v1.0.bin are NOT loadable by sherpa (metadata + npz-vs-bin format) — one-time ~160MB bundle re-download (kokoro-multi-lang-v1_0.tar.bz2, extracted via package:archive in an isolate), voice NAMES carry over via the speakerIds map so character voice assignments survive. FP_TTS_SIDECAR=1 forces legacy; [TTS-Native] logs mark fallbacks. Verified in-sandbox with the real 386MB bundle, including a closed-loop test where Kokoro speaks a sentence and the phase-3 Whisper engine transcribes the exact words back. Piper re-scoped as phase 4b (needs a per-voice vits-piper export mapping; plan in the design doc).
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-16 (UTC) — Sidecar retirement phase 4b: Piper TTS in-process via sherpa-onnx
 - **Files:** lib/services/tts/sherpa_piper_engine.dart (new — persistent one-voice worker isolate, programmatic voiceKey→vits-piper bundle mapping, 404→binary degradation), lib/services/model_fetch.dart (fetchAndExtractTarBz2 consolidated from the kokoro engine), lib/services/tts/sherpa_kokoro_engine.dart (refactored onto the shared helper, ~45 lines deleted), lib/services/tts_service.dart (piper block: ensureVoice once per message, per-chunk native generate with binary fallback; dispose shuts the worker down), test/services/tts/sherpa_piper_test.dart (new), docs/design/sidecar-retirement.md (4b record + model-reuse table corrections), docs/Rawhide.md
 - **Reason:** Phase 4b. sherpa cannot load raw rhasspy piper .onnx voices, but its re-export naming is 1:1 with the catalog the in-app voice manager uses (voiceKey → vits-piper-<voiceKey>.tar.bz2 on the same GitHub release as kokoro), so no curated table is needed: the matching bundle downloads on first native use, and a 404 (hand-made voices) silently keeps that voice on the legacy binary. Persistent worker isolate replaces one-process-spawn-per-chunk. Shares FP_TTS_SIDECAR=1 with kokoro. Verified in-sandbox with the real vits-piper-en_US-lessac-medium export incl. the closed-loop Piper-speaks→Whisper-transcribes test. Gated TTS suites should run serially (-j 1) on small machines.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-16 (UTC) — fix: native Kokoro/Piper bundle download died on isolate over-capture
 - **Files:** lib/services/model_fetch.dart (Isolate.run moved inside _extractTarBz2), test/services/model_fetch_test.dart (new regression test)
@@ -10652,22 +10652,22 @@ Bug reports from an early backer (Sascha Nemeth). Twelve issues triaged; six fea
 ## 2026-07-16 (UTC) — Voice call mode rewrite: CallSession state machine (fixes "Speaking flashes then never speaks")
 - **Files:** lib/services/stt/call_session.dart (new — the state machine: turn tokens, single resume authority, TTS-gated silence detection), lib/services/stt_service.dart (727→478 lines: all call-mode state/timers/polling deleted, exposes `call`, amplitude monitor feeds the session), lib/ui/widgets/call_overlay.dart (turn loop rewritten: sendMessage → await speakStreaming → resumeAfterTts in finally; sends/mute/end via sttService.call.*), lib/services/tts_service.dart (speakStreaming: busy flags true from setup start with bail() on early returns; null-safe collector — one failed sentence no longer !-crashes and silently kills the session), lib/main.dart (removed the now-dead SttService.setTtsService proxy wiring — required compile fix), test/services/stt/call_session_test.dart (new, 8 state-machine tests)
 - **Reason:** Discord field report: call mode transcribed fine but "Speaking" flashed for a split second and replies were never read aloud (Kokoro AND Piper; Test Voice fine). Root causes, all structural in the months-old original: (1) TWO rival resume mechanisms — a 500ms isSpeaking poll raced speakStreaming's async setup window (voice checks + kokoro ensureModelReady, which since phase 4a can even download a bundle) and flipped the call back to listening ~800ms in; (2) the live mic then heard the character's own audio, silence-detection auto-sent garbage, and the new turn's `await stop()` killed the in-flight TTS session — a self-cannibalizing loop; (3) speakStreaming's collector did `completedFiles[next]!` on a nullable map, so any single failed sentence aborted the whole session into a swallowed catch. The rewrite makes those states unrepresentable: resume happens ONLY when the overlay's speakStreaming future completes, every async continuation carries a turn token that end()/mute/turn-advance invalidates, and silence detection is inert unless status==listening AND TTS is idle. CallSession is dependency-injected (recorder + transcribe + TTS-busy probe as callbacks) and covered by 8 unit tests that each pin one of the shipped failure modes.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-16 (UTC) — GPU backend "just works": one resolver, ROCm demoted to expert opt-in, HSA auto-override, rolling-tag version fix
 - **Files:** lib/services/gpu_backend_resolver.dart (new — THE single source of truth: auto policy, override priority, gfx→HSA_OVERRIDE_GFX_VERSION mapping, rocminfo parsing), lib/services/backend_manager.dart (duplicate rocminfo probe deleted; ROCm binary = user opt-in only; version check for the ROCm build now queries the rocm-rolling tag it actually downloads from — was stamping releases/latest tags onto alias bytes → perpetual nag/suppression), lib/services/kobold_service.dart (--usehipblas gets an explicit device index like cublas; ROCm launches inject HSA_OVERRIDE_GFX_VERSION resolved from the detected gfx arch, never overriding a user's own export), lib/services/hardware_service.dart (Windows hasRocm always false — amdhip64.dll ships with every Adrenalin driver and mainline Windows koboldcpp.exe has no hipblas; LLM thinking-out-loud comments deleted), lib/services/kcpps_generator_service.dart (AMD/Intel export emits usevulkan, never usehipblas — old output was rejected by the mainline Windows exe), lib/ui/pages/settings_page.gpu.dart + settings_page.dart (chips hidden in a collapsed "Advanced: manual backend override" expander; status line shows "Acceleration: Automatic — Vulkan (AMD GPU detected)" with Reset to Automatic), lib/ui/dialogs/rocm_guidance_dialog.dart (HSA section added), test/services/gpu_backend_resolver_test.dart (new, 12 tests)
 - **Reason:** Maintainer review request: the ROCm path had THREE independent detections (hardware_service rocminfo, backend_manager's duplicate rocminfo, nullable user pref) feeding contradictory decisions — binary choice could be ROCm while launch flags said Vulkan; rocminfo exit-0 auto-selected a backend whose kernels don't support most consumer cards; the app never set HSA_OVERRIDE_GFX_VERSION (the #1 real-world AMD failure). Policy now: automatic = Metal/CUDA/Vulkan/CPU (Vulkan for all AMD/Intel — within a few percent of hipblas with none of the fragility); ROCm strictly expert opt-in, and when opted in the app auto-sets the family-level HSA override (RDNA2→10.3.0, RDNA3→11.0.0, RDNA4→12.0.1; supported archs get none). Binary source audit: koboldai.org/cpplinuxrocm → LostRuins' own rolling `rocm-rolling` tag — already the best available source (official upstream, continuously rebuilt); kept, with version identity now derived from that release's asset date+size.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-17 (UTC) — 20260716-nightly sluggishness regression: cover resolution cached (per-bubble disk stats removed)
 - **Files:** lib/services/character_repository.dart (coverImageFileFor memo keyed name|favId|imagePath; cleared on updateCharacter/deleteCharacter/notifyCharactersChanged; 512-entry bound), test/services/character_repository_test.dart (cache behavior test)
 - **Reason:** Field report (Discord, Windows/RTX 5070Ti): 20260716 nightly "much slower, sluggish", replies sometimes not appearing, rolled back to 20260715.3582ba9 → fine. Regression window audit: NOTHING in the window touches kobold_service/chat_service/prompts/samplers → UI-side. Prime suspect confirmed by mechanism: 5fb15f0e routed chat header/bubble avatars through _coverFor → coverImageFileFor → synchronous existsSync, executed per visible bubble per rebuild — and the chat page rebuilds on every streaming token batch. Near-free on macOS/APFS (maintainer saw nothing), 10-100x slower on Windows under Defender's stat interception. Fix: memoized resolution (star/portrait changes self-invalidate via the key; mutations clear the cache), so bubble builds are map lookups. Suspect #2 (1699d974 notification suppression) audited clean — parameter-scoped, cannot leak. Second reported symptom ("random answer from beginning of chat") not yet reproduced; watch after this ships.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-17 (UTC) — Triage + fix of the 44 grandfathered lib/ui sync-I/O sites
 - **Files:** lib/ui/chat_components/widgets/inline_chat_image.dart (Stateless→Stateful, existsSync once per element instead of per bubble rebuild), lib/ui/pages/chat_page.dart (custom-background existsSync memoized — ran per streaming rebuild), lib/ui/dialogs/scene_guest_picker_dialog.dart (avatar existsSync memoized — ran per row per search keystroke)
 - **Reason:** Maintainer follow-up to the io-lint gate: the 44 grandfathered sites needed triage, not just grandfathering. Verdict: 3 hot/warm (fixed here, each with io-ok markers on the memoized single stat), 41 cold (one-shot dialog/handler/setup code — left grandfathered deliberately; the diff-based gate prevents new ones). The inline chat image was the worst: same class as the coverImageFileFor regression, one stat per image message per streaming token batch.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — Sidecar-ectomy: every Python sidecar removed (native engines only)
 - **Files:** lib/services/stt_service.dart + lib/services/stt/whisper_sidecar_transport.dart (deleted) + sherpa_whisper_engine.dart; lib/services/kokoro_engine.dart + kokoro_worker_pool.dart (deleted); lib/services/tts_service.dart (piper unified onto SherpaPiperEngine across speak/speakStreaming/generateAudioFile; legacy binary path deleted; latent ElevenLabs wavFiles[0] RangeError fixed); lib/services/voice_manager.dart (installed re-keyed to .onnx.json, installs fetch sherpa bundle eagerly, delete removes bundle); lib/services/expression_classifier.dart (ONNXExpressionClassifier deleted) + expression/onnx_emotion_classifier.dart (native-only, auto-download on first classify); lib/services/grpc/draw_things_grpc_service.dart (_runCli deleted, fpzip-missing now throws) + dt_native/draw_things_native_client.dart (caChainPemForTest); lib/services/engine_health.dart (fallback→failure ledger; snapshot removed) + main_layout.dart; Engine Status panel REMOVED at maintainer request (settings/widgets/engine_status_card.dart deleted, voice_media_tab, web SettingsPage + /api/engine-health route); NEW lib/services/legacy_model_cleanup.dart + ui/settings/widgets/legacy_cleanup_card.dart + web /api/legacy-models endpoints + web Settings section (Reclaim Disk Space); web_ui/src/components/VoiceControls.tsx (raw-PCM AudioWorklet capture → 16kHz WAV upload; webm gone); Python sources deleted (kokoro_tts.py, whisper_stt.py, sentiment_classifier.py, piper_entry.py, embed_server.py, tools/dt-grpc-python/, tools/embedding_server.py, root test_*.py debris); .github/workflows/nightly.yml + scripts/build-macos.sh (PyInstaller stages removed, embed_server-only; PyInstaller signing passes removed); macos/Runner/Sidecar.entitlements comments updated (file kept for embed_server); CLAUDE.md + docs/design/sidecar-retirement.md + docs/Rawhide.md; tests: engine_health/expression/dt_native updated, NEW legacy_model_cleanup_test.dart
@@ -10676,42 +10676,42 @@ Bug reports from an early backer (Sascha Nemeth). Twelve issues triaged; six fea
 ## 2026-07-17 (UTC) — Porch Stories read-along: stop button never stopped the audio
 - **Files:** lib/ui/pages/story_reader_page.dart
 - **Reason:** Field report: stop only halted sentence pre-buffering while playback continued. Root cause: `_readAlongPlayer` was declared, `.stop()`ed in _stopReadAlong, and `.dispose()`d on page exit — but NEVER assigned; the live audio played on a loop-local `segPlayer` unreachable from outside, so every stop/dispose was a no-op on null (page exit also left audio running). Fix: publish the active segPlayer to the field (nulled in the finally), and add an onPlayerStateChanged listener completing the wait on PlayerState.stopped — audioplayers does not fire onPlayerComplete on manual stop, so without it the loop would hang after silencing.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — BYAF import fidelity: example dialogue kept, "Apply Backyard settings" option added
 - **Files:** lib/services/byaf_service.dart (parse `exampleMessages` + `minPEnabled` from the scenario JSON; new `_buildMesExample` builds a V2 `<START>`-prefixed mes_example block with `#{user}:`/`#{character}:` turn markers converted; new `toGenerationSettings` maps Backyard sampler values onto ChatGenerationSettings; `importChatHistory` generalized into `importSession` which can also persist the settings onto the created session's generation_settings column — including a settings-only session when chat history isn't wanted), lib/ui/dialogs/byaf_import_dialog.dart ("Apply Backyard settings" checkbox replaces the read-only "Model Settings (preview only)" section; example-dialogue count chip; whole dialog refactored off hard-coded dark hex colors onto AppColors so it renders correctly in light theme), lib/ui/pages/home/home_page_dialogs.dart (single-file + bulk BYAF flows thread the new toggle; bulk confirm dialog gained the checkbox), lib/ui/pages/home/home_page_char_ops.dart (folder-import confirm gained the same sub-checkbox; record widened), test/services/byaf_service_test.dart (new, 6 tests over an in-memory .byaf zip), test/golden/widget/_goldens/dialogs/byaf_import.{light,dark}.png (regenerated), docs/Rawhide.md
 - **Reason:** Field report: a character migrated from the deprecated Backyard AI desktop app "doesn't behave like it used to" on the same model. Diagnosis traced two importer gaps (the required BYAF `exampleMessages` field — the main driver of a character's voice — was never read and mes_example was hardcoded empty; the archive's per-character sampler settings were parsed, displayed as "preview only", and discarded, so Backyard's typically-hot temp 1.2/min-p 0.1 characters ran on Front Porch's temp 0.7 defaults). Settings ride the imported session's existing generation_settings override column (resume + forks inherit; no new storage surface). `minPEnabled=false` maps to min-p 0 to preserve Backyard's disable semantics.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — Attribution/license surface + refreshed embedded placeholder images
 - **Files:** lib/ui/settings/tabs/general_tab.dart ("About & License" section: app name + version, AGPL-3.0 notice, "Source code" + "Report a license violation" links via url_launcher), web_ui/src/pages/SettingsPage.tsx + web_ui/src/styles.css (parity: matching About & License card + .about-links style), lib/services/capability/vision_support_resolver.dart (vision probe PNG regenerated), lib/services/byaf_service.dart (BYAF no-image placeholder PNG regenerated)
 - **Reason:** AGPL asks distributors to keep license notices intact and make source available; the app had per-file headers but no in-app, user-visible notice or source link. Added an About & License section to General settings (desktop + web parity) stating the AGPL terms, linking the public source repo, and offering a violation-report path — this both honors the license and makes a stripped closed-source fork visibly non-conformant. The two embedded placeholder PNGs (BYAF fallback avatar, vision capability probe) were regenerated as bespoke equivalents: both remain valid and functionally identical (the probe verdict is HTTP-status-only, never content; the BYAF image is a blank fallback avatar), so there is zero behavior change.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — Phase 5: in-process RAG embeddings (Rust embed_server now fallback-only)
 - **Files:** NEW lib/services/embedding/native_embedding_engine.dart (persistent worker isolate, nomic-embed-text-v1.5 via onnxruntime_v2, mean-pool + L2, FP_ORT_LIB test-harness pre-load, FP_EMBED_SIDECAR lever); lib/services/embedding_service.dart (native-first, sidecar auto-fallback + lazy start, EngineHealth reporting, shutdownNative); lib/services/expression/wordpiece_tokenizer.dart (accent strip rewritten: Latin-only lookup table → true Unicode NFD via unorm_dart + combining-mark removal — the goldens caught Japanese voiced kana/Greek/Cyrillic tokenizing as [UNK]); lib/services/engine_health.dart (+ 'Memory embeddings' row); lib/ui/chat_components/overlays/rag_setup_dialog.dart (cancel releases the in-process session); pubspec.yaml (+unorm_dart, maintainer-approved); NEW test/services/embedding/nomic_embedding_test.dart + goldens/nomic_v15_rust_goldens.json (14 vectors captured from the LIVE Rust server BEFORE writing any Dart; cosine>0.9999 gate; model-gated, skips in CI); docs (sidecar-retirement.md phase-5 record, Rawhide.md).
 - **Reason:** Maintainer asked for phase 5 after confirming stored embeddings survive (they do: same model file reused from the fastembed cache, math pinned by goldens so old and new vectors keep comparing correctly). Ground-truth-first methodology: goldens captured from the production server before implementation, which is how the tokenizer bug surfaced as a 0.947 cosine on the CJK case instead of shipping as silent RAG degradation for non-Latin scripts. Maintainer then ordered FULL removal (no soak): tools/embed_server/ + embedding_sidecar.dart deleted, EmbeddingService native-only with its own ModelFetch download (RAG dialog rewired with real progress), main.dart provider/shutdown wiring simplified, nightly.yml + build-macos.sh lose Rust toolchain/cargo/bundle/helper-signing steps, and Sidecar.entitlements DELETED — the retirement's final success criterion. The app now spawns zero helper processes.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — ci.yml: drop the Python setup + sidecar pip installs from the test job
 - **Files:** .github/workflows/ci.yml
 - **Reason:** The test job still provisioned Python 3.11 + the retired sidecars' entire pip stack (faster-whisper, kokoro-onnx, piper_tts, transformers…) "for test sidecars" — every test has been native since the sidecar-ectomy (PRs #141/#142 passed with these steps present but unused). Maintainer caught it. ci.yml has a Monday scheduled job, so the cleaned copy must ALSO sync to main (same rule as nightly.yml).
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — Leftover sweep: dead inappwebview CI stub, stale comments, dead gitignore rule
 - **Files:** ci/ (deleted — flutter_inappwebview_linux_stub; the flutter_inappwebview dependency is not in pubspec.yaml OR pubspec.lock, so the stub and its workflow override were fully dead), .github/workflows/nightly.yml (inappwebview override step removed; "sed/python" and Python-fallback comments corrected), .gitignore (tools/embed_server/target/ rule removed), scripts/build-fpzip-macos.sh (stale Python-fallback + FP_DT_SIDECAR comments), macos/Runner/Release.entitlements (comment rewritten: disable-library-validation now justified by sherpa/ort pub-package dylibs, NOT PyInstaller; key itself untouched — removal untested against notarization)
 - **Reason:** Maintainer-requested dangling-leftover audit after the sidecar retirement. Verified alive and KEPT: kokoro_debug.dart/kokoro_chunk.dart (used by tts_service/kokoro_engine/ordered_audio_collector), promote-rawhide-to-main.sh's python3 YAML lint (dev tooling with graceful fallback), historical provenance comments in lib/test. installers/ + aur/ + other workflows verified clean. release.yml/beta-release.yml remain parked per the standing decision.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — Windows: ONNX engines could never load a model by path (RAG setup "failed its self-test")
 - **Files:** NEW lib/services/onnx_runtime.dart (ortSessionFromFile: Windows → OrtSession.fromBuffer, others → fromFile); lib/services/embedding/native_embedding_engine.dart, lib/services/expression/onnx_emotion_engine.dart, lib/services/caption/smolvlm_engine.dart (all three fromFile call sites switched to the helper); lib/services/embedding_service.dart (checkAvailability records the engine's real error, runSetup surfaces it in the dialog instead of a bare "the engine failed its self-test"); docs/Rawhide.md, docs/design/sidecar-retirement.md
 - **Reason:** Field report (Windows, rawhide.20260718.b503c85): Memory/RAG setup failed 4/4 with "Bad state: the engine failed its self-test". Root cause: onnxruntime_v2's OrtSession.fromFile passes the model path to the C API CreateSession as UTF-8, but on Windows that parameter is wide-char ORTCHAR_T* (UTF-16) — the bytes are reinterpreted as UTF-16 garbage, so path-based loading can never succeed there for ANY path, even pure ASCII. This silently broke the phase-2 emotion engine and the smolvlm photo captioner on Windows too. CreateSessionFromArray takes no path, so Windows now reads the model bytes and goes through fromBuffer (the plugin frees its transient native copy before returning; the extra memory is short-lived and, for the persistent embedding worker, one-time). Verified by downloading the real 547MB nomic model and re-running the 14 Rust-server golden vectors with the fromBuffer branch force-enabled on Linux — identical results (cosine > 0.9999), so the Windows codepath is bit-equivalent. Also made setup failures actionable: the dialog now appends the underlying engine error, which would have named the real failure instead of forcing this whole diagnosis from a screenshot.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — Prune Rawhide.md bullets shipped in nightly 20260718.b503c85
 - **Files:** docs/Rawhide.md
 - **Reason:** Maintainer-requested cleanup. The 20260718.b503c85 nightly's release body (confirmed via GitHub Releases) announced every bullet in the file except the new "Memory (RAG) setup fixed on Windows" one, which merged after that build (PR #146). Keeping shipped bullets would re-announce old work in the next update dialog. Remaining: the Windows RAG fix bullet + the standing "Under-the-hood fixes" closer.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — Update check: newer same-day nightly could be invisible (list-order + un-orderable SHA)
 - **Files:** lib/services/update_service.dart (new @visibleForTesting static selectTargetRelease; checkForUpdate uses it instead of taking the first channel match), test/services/update_service_test.dart (new, 5 cases incl. the exact bug repro + channel isolation)
@@ -10719,7 +10719,7 @@ Bug reports from an early backer (Sascha Nemeth). Twelve issues triaged; six fea
 ## 2026-07-18 (UTC) — Draw Things native client: skip() off-by-varint made every reply a coin flip
 - **Files:** lib/services/grpc/dt_native/dt_proto.dart (ProtoReader.skip wire-type-2 case), test/services/grpc/dt_native_test.dart (regression test), docs/Rawhide.md
 - **Reason:** Field report (Rawhide nightly 375ae18): "Test Connection" to Draw Things succeeded or failed at random on repeated presses, and generation showed Draw Things rendering while the app received nothing, then wouldn't reconnect. Root cause: `skip()` used `_i += readVarint()` — Dart compound assignment reads the OLD `_i` before `readVarint()` advances it past the 1–5 length-prefix bytes, so every skipped length-delimited field left the reader short, parsing field content as protobuf tags. Draw Things' Echo reply carries a ~20KB model-metadata JSON blob in a skipped field whose key order shuffles per call (Swift dictionaries), so each reply randomly either mis-parsed "successfully" or died as gRPC DATA_LOSS; generation responses stream many messages with skipped fields, so they nearly always died mid-stream (the app dropped the call while DT kept rendering — matching the report exactly). Diagnosed by capturing live wire bytes with a raw HTTP/2 probe (server bytes were always well-formed) and dumping the exact buffer handed to the deserializer (identical bytes parsed fine offline — the in-process "corruption" was skip() landing mid-JSON). Fix: precompute the varint before advancing. Verified live against a real Draw Things server: echo/listFiles 20/20 (was ~35%), full generation end-to-end with streamed step progress + fpzip decode + immediate reconnect after. Regression test crafts an unknown length-delimited field whose tail bytes decode as wire type 4 — it throws the exact production error on the old code. Grok reviewed the diff.
-- **Commit:** (this commit)
+- **Commit:** ffc6bb6f
 
 ## 2026-07-18 (UTC) — Defuse release-workflow Python landmine + AUR dispatch guard
 **Files:** `.github/workflows/release.yml`, `.github/workflows/beta-release.yml`
