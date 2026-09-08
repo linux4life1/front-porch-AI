@@ -28,7 +28,7 @@
 - **What:** `LlmServiceWaifuLlm.toolsSupported` returns true — the
   production wrap has no probe; session/ChatService still fail-closes.
   Honesty test casts `textSpan` to `TextSpan` before reading children.
-- **Commit:** (this commit)
+- **Commit:** 2a353278
 
 ## 2026-09-08 — feat(waifu): Epic D chrome / honesty
 - **Why:** After Plan/Build/verify/Tasks, OpenCode-class chrome was
