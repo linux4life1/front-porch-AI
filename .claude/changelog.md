@@ -79,7 +79,7 @@
   claims a todo completion / todowrite / todo-list update, with no
   successful todowrite chip this turn, soft-retries then failTodoWrite.
   Thoughts are not receipts. Live chips + Tasks chrome unchanged.
-- **Commit:** (this tip)
+- **Commit:** d1ad6c3b
 
 ## 2026-09-08 — polish(waifu): live tool chips + Tasks checklist chrome
 - **Why:** Tool work was a black box (`_runTool` only `_pushChip` after
