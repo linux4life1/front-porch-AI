@@ -107,6 +107,15 @@ void main() async {
     expect(result.text, 'pong');
     await client.disconnect();
   });
+
+  test('mcpSplitStdioArgs is whitespace-only — quotes are not unquoted', () {
+    expect(mcpSplitStdioArgs('npx -y @scope/pkg'), ['npx', '-y', '@scope/pkg']);
+    expect(mcpSplitStdioArgs('  a   b  '), ['a', 'b']);
+    expect(mcpSplitStdioArgs(''), isEmpty);
+    expect(mcpSplitStdioArgs('   '), isEmpty);
+    expect(mcpSplitStdioArgs('"foo bar"'), ['"foo', 'bar"']);
+    expect(mcpSplitStdioArgs("'foo bar'"), ["'foo", "bar'"]);
+  });
 }
 
 Future<String?> _dartOnPath() async {

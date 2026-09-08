@@ -60,39 +60,40 @@ class _McpServersPanelState extends State<McpServersPanel> {
     setState(() => _result = null);
   }
 
-  Future<void> _findLocal() async {
+  Future<void> _withCheck(Future<void> Function() fn) async {
     setState(() {
       _checking = true;
       _result = null;
     });
-    final result = await (widget.probe ?? McpLocalProbe()).findDocker();
-    if (!mounted) return;
-    if (result.found && result.url != null) {
-      _url.text = result.url!;
-      if (_name.text.trim().isEmpty) _name.text = 'Docker';
+    try {
+      await fn();
+    } finally {
+      if (mounted) setState(() => _checking = false);
     }
-    setState(() {
-      _checking = false;
-      _result = result.message;
+  }
+
+  Future<void> _findLocal() async {
+    await _withCheck(() async {
+      final result = await (widget.probe ?? McpLocalProbe()).findDocker();
+      if (!mounted) return;
+      if (result.found && result.url != null) {
+        _url.text = result.url!;
+        if (_name.text.trim().isEmpty) _name.text = 'Docker';
+      }
+      setState(() => _result = result.message);
     });
   }
 
   Future<void> _connectDockerEasy() async {
     final storage = context.read<StorageService>();
     final chat = context.read<ChatService>();
-    setState(() {
-      _checking = true;
-      _result = null;
-    });
-    final line = await McpDockerEasy.connect(
-      settings: storage.mcpSettings,
-      hub: chat.mcpHub,
-      probe: widget.probe,
-    );
-    if (!mounted) return;
-    setState(() {
-      _checking = false;
-      _result = line;
+    await _withCheck(() async {
+      final line = await McpDockerEasy.connect(
+        settings: storage.mcpSettings,
+        hub: chat.mcpHub,
+        probe: widget.probe,
+      );
+      if (mounted) setState(() => _result = line);
     });
   }
 
@@ -115,41 +116,36 @@ class _McpServersPanelState extends State<McpServersPanel> {
     }
     final storage = context.read<StorageService>();
     final chat = context.read<ChatService>();
-    setState(() {
-      _checking = true;
-      _result = null;
-    });
-    String? line;
-    String? used;
-    for (final candidate in mcpSiblingUrls(url)) {
-      line = await chat.mcpHub.checkDraft(
-        url: candidate,
-        displayName: _name.text,
-        authToken: _token.text,
-      );
-      used = candidate;
-      if (line.startsWith('Connected')) break;
-      if (line.contains('wants a token')) {
-        _wantToken = true;
-        break;
+    await _withCheck(() async {
+      String? line;
+      String? used;
+      for (final candidate in mcpSiblingUrls(url)) {
+        line = await chat.mcpHub.checkDraft(
+          url: candidate,
+          displayName: _name.text,
+          authToken: _token.text,
+        );
+        used = candidate;
+        if (line.startsWith('Connected')) break;
+        if (line.contains('wants a token')) {
+          _wantToken = true;
+          break;
+        }
       }
-    }
-    if (!mounted) return;
-    if (line != null && line.startsWith('Connected') && used != null) {
-      final server = await storage.mcpSettings.addServer(
-        displayName: _name.text.trim(),
-        url: used,
-        authToken: _token.text.trim(),
-      );
-      await chat.mcpHub.check(server.id);
-      _name.clear();
-      _url.clear();
-      _token.clear();
-      _wantToken = false;
-    }
-    setState(() {
-      _checking = false;
-      _result = line;
+      if (!mounted) return;
+      if (line != null && line.startsWith('Connected') && used != null) {
+        final server = await storage.mcpSettings.addServer(
+          displayName: _name.text.trim(),
+          url: used,
+          authToken: _token.text.trim(),
+        );
+        await chat.mcpHub.check(server.id);
+        _name.clear();
+        _url.clear();
+        _token.clear();
+        _wantToken = false;
+      }
+      setState(() => _result = line);
     });
   }
 
@@ -159,32 +155,27 @@ class _McpServersPanelState extends State<McpServersPanel> {
     final args = parts.length < 2 ? const <String>[] : parts.sublist(1);
     final storage = context.read<StorageService>();
     final chat = context.read<ChatService>();
-    setState(() {
-      _checking = true;
-      _result = null;
-    });
-    final line = await chat.mcpHub.checkDraft(
-      url: '',
-      displayName: _name.text,
-      transport: McpTransportKind.stdio,
-      command: command,
-      args: args,
-    );
-    if (!mounted) return;
-    if (line.startsWith('Connected')) {
-      final server = await storage.mcpSettings.addServer(
-        displayName: _name.text.trim(),
+    await _withCheck(() async {
+      final line = await chat.mcpHub.checkDraft(
+        url: '',
+        displayName: _name.text,
         transport: McpTransportKind.stdio,
         command: command,
         args: args,
       );
-      await chat.mcpHub.check(server.id);
-      _name.clear();
-      _command.clear();
-    }
-    setState(() {
-      _checking = false;
-      _result = line;
+      if (!mounted) return;
+      if (line.startsWith('Connected')) {
+        final server = await storage.mcpSettings.addServer(
+          displayName: _name.text.trim(),
+          transport: McpTransportKind.stdio,
+          command: command,
+          args: args,
+        );
+        await chat.mcpHub.check(server.id);
+        _name.clear();
+        _command.clear();
+      }
+      setState(() => _result = line);
     });
   }
 

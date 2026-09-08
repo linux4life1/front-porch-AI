@@ -3,6 +3,9 @@
 //
 // In-Waifu MCP panel mounts, lists servers, and flips the chat enable set.
 
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -120,4 +123,218 @@ void main() {
       expect(enabled, {server.id});
     },
   );
+
+  test('Connect Docker / stdio handlers clear busy in finally', () {
+    final src = File('lib/ui/waifu/waifu_mcp_panel.dart').readAsStringSync();
+    expect(src, contains('Future<void> _docker'));
+    expect(src, contains('Future<void> _addStdio'));
+    expect(src, contains('} finally {'));
+    expect(src, contains('_busy = false'));
+  });
+
+  testWidgets('stdio Connect command re-enables after addServer throws', (
+    tester,
+  ) async {
+    final hold = Completer<void>();
+    final entered = Completer<void>();
+    final settings = _HoldAddSettings(hold, entered);
+    final storage = _SwapStorage(settings);
+    settings.initializeBase(null, storage.notifyListeners);
+    final hub = McpHub(
+      settings: settings,
+      onNotify: () {},
+      openStdio: openPingStdio,
+    );
+    final chat = _PanelChat(hub, <String>{});
+    addTearDown(() {
+      storage.dispose();
+      chat.dispose();
+    });
+
+    final session = WaifuSession(
+      folderRoot: '/tmp/throwaway-waifu',
+      coworker: CharacterCard(name: 'Iris'),
+    );
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: WaifuMcpPanel(
+              session: session,
+              mcpOptIn: true,
+              onMcpOptIn: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(
+      find.byKey(const Key('waifu-mcp-command')),
+      'npx -y @scope/mcp-server',
+    );
+    await tester.tap(find.byKey(const Key('waifu-mcp-add-stdio')));
+    await tester.pump();
+    for (var i = 0; i < 30 && !entered.isCompleted; i++) {
+      await tester.pump();
+    }
+    expect(entered.isCompleted, isTrue);
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const Key('waifu-mcp-add-stdio')))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<ActionChip>(find.byKey(const Key('waifu-mcp-docker')))
+          .onPressed,
+      isNull,
+    );
+
+    hold.completeError(StateError('boom'));
+    await tester.pump();
+    tester.takeException();
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const Key('waifu-mcp-add-stdio')))
+          .onPressed,
+      isNotNull,
+    );
+    expect(
+      tester
+          .widget<ActionChip>(find.byKey(const Key('waifu-mcp-docker')))
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('Connect Docker MCP re-enables after enable throws', (
+    tester,
+  ) async {
+    final hold = Completer<void>();
+    final entered = Completer<void>();
+    final storage = FakeStorageService();
+    storage.mcpSettings.initializeBase(null, storage.notifyListeners);
+    await storage.mcpSettings.addServer(
+      displayName: 'Docker',
+      transport: McpTransportKind.stdio,
+      command: kMcpDockerStdioCommand,
+      args: kMcpDockerStdioArgs,
+    );
+    final hub = McpHub(
+      settings: storage.mcpSettings,
+      onNotify: () {},
+      openStdio: openPingStdio,
+    );
+    final chat = _HoldEnableChat(hub, <String>{}, hold, entered);
+    addTearDown(() {
+      storage.dispose();
+      chat.dispose();
+    });
+
+    final session = WaifuSession(
+      folderRoot: '/tmp/throwaway-waifu',
+      coworker: CharacterCard(name: 'Iris'),
+    );
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: WaifuMcpPanel(
+              session: session,
+              mcpOptIn: true,
+              onMcpOptIn: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('waifu-mcp-docker')));
+    await tester.pump();
+    for (var i = 0; i < 30 && !entered.isCompleted; i++) {
+      await tester.pump();
+    }
+    expect(entered.isCompleted, isTrue);
+    expect(
+      tester
+          .widget<ActionChip>(find.byKey(const Key('waifu-mcp-docker')))
+          .onPressed,
+      isNull,
+    );
+
+    hold.completeError(StateError('boom'));
+    await tester.pump();
+    tester.takeException();
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<ActionChip>(find.byKey(const Key('waifu-mcp-docker')))
+          .onPressed,
+      isNotNull,
+    );
+  });
+}
+
+class _HoldAddSettings extends McpSettings {
+  _HoldAddSettings(this.hold, this.entered);
+
+  final Completer<void> hold;
+  final Completer<void> entered;
+
+  @override
+  Future<McpServerConfig> addServer({
+    required String displayName,
+    String url = '',
+    Map<String, String> headers = const {},
+    String authToken = '',
+    bool enabledGlobal = true,
+    McpTransportKind transport = McpTransportKind.http,
+    String command = '',
+    List<String> args = const [],
+    Map<String, String> env = const {},
+  }) async {
+    if (!entered.isCompleted) entered.complete();
+    await hold.future;
+    throw StateError('boom');
+  }
+}
+
+class _SwapStorage extends FakeStorageService {
+  _SwapStorage(this._settings);
+  final McpSettings _settings;
+  @override
+  McpSettings get mcpSettings => _settings;
+}
+
+class _HoldEnableChat extends _PanelChat {
+  _HoldEnableChat(super.hub, super.enabled, this.hold, this.entered);
+
+  final Completer<void> hold;
+  final Completer<void> entered;
+
+  @override
+  Future<void> setMcpServerEnabledForChat(String id, bool enabled) async {
+    if (!entered.isCompleted) entered.complete();
+    await hold.future;
+    throw StateError('boom');
+  }
 }

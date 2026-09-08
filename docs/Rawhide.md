@@ -42,3 +42,5 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 - 🪟 **Windows command note** — Waifu Coder’s v1 command tool needs Git Bash (or another `bash`) on PATH. Without it, read/edit/apply_patch/write still work and command attempts return a plain start error; Waifu Coder does not silently rewrite bash into PowerShell.
 
 - 🔌 **Waifu Coder talks stdio MCP now** — Connect Docker MCP is one tap (spawns Docker Desktop’s toolkit, no URL and no token). Or paste a command like `npx -y @playwright/mcp`. Manage servers from the Waifu Coder MCP accordion — opt-in, status, and per-server switches — not only Settings. HTTP/SSE and the old Docker + Check path still work if a gateway is already on 8811. Plan still blocks mutating MCP; Build still asks. Same on the phone.
+
+- 🔌 **Connect Docker MCP / stdio add cannot stick disabled** — if the handshake throws, the button comes back. Same on Settings → Porch Life.

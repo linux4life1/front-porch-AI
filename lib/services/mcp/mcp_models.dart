@@ -283,6 +283,10 @@ String mcpStdioCommandLine(String command, List<String> args) {
   return parts.join(' ');
 }
 
+/// Split a stdio command line on whitespace only.
+///
+/// Quoted tokens are **not** unquoted — `"foo bar"` becomes `'"foo'` and
+/// `'bar"'`. Pass spaces as separate argv entries (or avoid quotes).
 List<String> mcpSplitStdioArgs(String raw) {
   return [
     for (final part in raw.split(RegExp(r'\s+')))

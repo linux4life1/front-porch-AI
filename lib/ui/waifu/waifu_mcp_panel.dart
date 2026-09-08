@@ -208,18 +208,19 @@ class _WaifuMcpPanelState extends State<WaifuMcpPanel> {
       _busy = true;
       _result = null;
     });
-    final line = await McpDockerEasy.connect(
-      settings: storage.mcpSettings,
-      hub: chat.mcpHub,
-    );
-    if (!mounted) return;
-    if (line.startsWith('Connected')) {
-      await _enableDocker(chat, storage);
+    try {
+      final line = await McpDockerEasy.connect(
+        settings: storage.mcpSettings,
+        hub: chat.mcpHub,
+      );
+      if (!mounted) return;
+      if (line.startsWith('Connected')) {
+        await _enableDocker(chat, storage);
+      }
+      if (mounted) setState(() => _result = line);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    setState(() {
-      _busy = false;
-      _result = line;
-    });
   }
 
   Future<void> _addStdio(ChatService chat, StorageService storage) async {
@@ -232,30 +233,31 @@ class _WaifuMcpPanelState extends State<WaifuMcpPanel> {
       _busy = true;
       _result = null;
     });
-    final command = parts.first;
-    final args = parts.length < 2 ? const <String>[] : parts.sublist(1);
-    final line = await chat.mcpHub.checkDraft(
-      url: '',
-      transport: McpTransportKind.stdio,
-      command: command,
-      args: args,
-    );
-    if (!mounted) return;
-    if (line.startsWith('Connected')) {
-      final server = await storage.mcpSettings.addServer(
-        displayName: mcpDefaultDisplayName('', command: command),
+    try {
+      final command = parts.first;
+      final args = parts.length < 2 ? const <String>[] : parts.sublist(1);
+      final line = await chat.mcpHub.checkDraft(
+        url: '',
         transport: McpTransportKind.stdio,
         command: command,
         args: args,
       );
-      await chat.mcpHub.check(server.id);
-      await chat.setMcpServerEnabledForChat(server.id, true);
-      _command.clear();
+      if (!mounted) return;
+      if (line.startsWith('Connected')) {
+        final server = await storage.mcpSettings.addServer(
+          displayName: mcpDefaultDisplayName('', command: command),
+          transport: McpTransportKind.stdio,
+          command: command,
+          args: args,
+        );
+        await chat.mcpHub.check(server.id);
+        await chat.setMcpServerEnabledForChat(server.id, true);
+        _command.clear();
+      }
+      if (mounted) setState(() => _result = line);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    setState(() {
-      _busy = false;
-      _result = line;
-    });
   }
 
   Future<void> _enableDocker(ChatService chat, StorageService storage) async {

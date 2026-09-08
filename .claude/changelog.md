@@ -23,6 +23,17 @@
   New guards in `thought_toggle_chat_live_test.dart` (did not edit
   the existing Guard file).
 - **Commit:** efd78c4f
+## 2026-09-08 — fix(mcp): Connect busy cannot stick after a throw
+- **Why:** BH residual on #240. `WaifuMcpPanel` `_docker` / `_addStdio`
+  and Settings `_findLocal` / `_connectDockerEasy` / `_checkDraft` /
+  `_checkStdio` cleared `_busy`/`_checking` only on the success path.
+  A throw left Connect Docker MCP / stdio add dead — same class as
+  #239 Accept `_run`.
+- **What:** try/finally (Settings via one `_withCheck`). Documented
+  `mcpSplitStdioArgs` as whitespace-only (quotes are not unquoted)
+  and pinned it. Web Porch Life already had finally.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — rebase(waifu): Epic C onto #237 Rawhide tip
 - **Why:** #237 squash-merged as `94ff43bd` after #240 branched from
   `cd9bcd49`, so the draft was CONFLICTING vs Rawhide.

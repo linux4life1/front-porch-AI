@@ -3,6 +3,8 @@
 //
 // Docker chip + failed Check must not dump errno 61 or save a dead server.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +16,7 @@ import 'package:front_porch_ai/ui/settings/widgets/mcp_servers_card.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
+import '../../services/mcp/mcp_stdio_support.dart';
 
 class _McpChat extends FakeChatService {
   _McpChat(this._hub);
@@ -124,4 +127,82 @@ void main() {
     expect(field.controller?.text, kMcpDockerMcpUrl);
     expect(find.textContaining('Found a gateway'), findsOneWidget);
   });
+
+  testWidgets('stdio Check re-enables after addServer throws', (tester) async {
+    final hold = Completer<void>();
+    final entered = Completer<void>();
+    final settings = _HoldAddSettings(hold, entered);
+    final storage = _SwapStorage(settings);
+    settings.initializeBase(null, storage.notifyListeners);
+    final hub = McpHub(
+      settings: settings,
+      onNotify: () {},
+      openStdio: openPingStdio,
+    );
+    final chat = _McpChat(hub);
+    addTearDown(() {
+      storage.dispose();
+      chat.dispose();
+    });
+    await pumpPanel(tester, storage: storage, chat: chat);
+    await tester.enterText(
+      find.byKey(const Key('mcp-add-command')),
+      'npx -y @scope/mcp-server',
+    );
+    await tester.tap(find.byKey(const Key('mcp-check-connection')));
+    await tester.pump();
+    for (var i = 0; i < 30 && !entered.isCompleted; i++) {
+      await tester.pump();
+    }
+    expect(entered.isCompleted, isTrue);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('mcp-check-connection')))
+          .onPressed,
+      isNull,
+    );
+
+    hold.completeError(StateError('boom'));
+    await tester.pump();
+    tester.takeException();
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('mcp-check-connection')))
+          .onPressed,
+      isNotNull,
+    );
+  });
+}
+
+class _HoldAddSettings extends McpSettings {
+  _HoldAddSettings(this.hold, this.entered);
+
+  final Completer<void> hold;
+  final Completer<void> entered;
+
+  @override
+  Future<McpServerConfig> addServer({
+    required String displayName,
+    String url = '',
+    Map<String, String> headers = const {},
+    String authToken = '',
+    bool enabledGlobal = true,
+    McpTransportKind transport = McpTransportKind.http,
+    String command = '',
+    List<String> args = const [],
+    Map<String, String> env = const {},
+  }) async {
+    if (!entered.isCompleted) entered.complete();
+    await hold.future;
+    throw StateError('boom');
+  }
+}
+
+class _SwapStorage extends FakeStorageService {
+  _SwapStorage(this._settings);
+  final McpSettings _settings;
+  @override
+  McpSettings get mcpSettings => _settings;
 }
