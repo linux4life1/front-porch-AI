@@ -6,7 +6,7 @@
 - **What:** Brace the split `if` returns in variants / realism support
   / biomes. Drop the unused typed_data import. Replace `cacheExtent:
   2000` with `ScrollCacheExtent.pixels(2000)`.
-- **Commit:** (this tip)
+- **Commit:** ad444870
 
 ## 2026-09-08 — fix(chat): live Thought stays collapsed until tapped
 - **Why:** #241 stopped historical Thought chips from auto-opening, but
@@ -19,7 +19,7 @@
 - **Files:** `message_bubble.dart`, `ChatMessageList.tsx`,
   `thought_toggle_chat_live_test.dart`,
   `ChatMessageList.thinking.test.tsx`, `docs/Rawhide.md`
-- **Commit:** (this tip)
+- **Commit:** ad444870
 
 ## 2026-09-08 — rebase(waifu): Epic D onto #240 Rawhide tip
 - **Why:** #240 squash-merged as `34a006a2` (after #241 `9e010cc4`),
