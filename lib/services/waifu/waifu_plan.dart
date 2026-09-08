@@ -45,7 +45,6 @@ const kWaifuPlanBashAllow = {
   'head',
   'tail',
   'wc',
-  'find',
   'git',
   'rg',
   'ripgrep',
@@ -80,18 +79,6 @@ const kWaifuPlanBashAllow = {
   'cut',
   'tr',
   'column',
-};
-
-const _kWaifuPlanFindMutate = {
-  '-delete',
-  '-exec',
-  '-execdir',
-  '-ok',
-  '-okdir',
-  '-fprint',
-  '-fprintf',
-  '--fprint',
-  '--fprintf',
 };
 
 const _kWaifuPlanGitMutate = {
@@ -329,13 +316,6 @@ String? waifuPlanBashDenied(String command) {
     if (cmd == 'git' && _gitMutates(words)) {
       return 'plan mode bash is read-only: git ${words.length > 1 ? words[1] : ''}';
     }
-    if (cmd == 'find') {
-      for (final flag in words) {
-        if (_kWaifuPlanFindMutate.contains(flag)) {
-          return 'plan mode bash is read-only: find $flag is denied';
-        }
-      }
-    }
     if (cmd == 'sed' &&
         words.any((w) => w == '-i' || w.startsWith('-i') && w != '-i')) {
       return 'plan mode bash is read-only: sed -i would change files';
@@ -384,7 +364,8 @@ Map<String, dynamic> _planToolHelp(Map<String, dynamic> tool, String help) {
   if (name == kWaifuToolBash) {
     fn['description'] =
         'Read-only shell allowlist in Plan (ls, cat, git status/diff/log, '
-        'grep, …). Redirects, tee, and mutating git are denied.';
+        'grep, rg, …). find is denied. Redirects, tee, and mutating git '
+        'are denied.';
   }
   return {'type': 'function', 'function': fn};
 }

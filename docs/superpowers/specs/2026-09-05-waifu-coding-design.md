@@ -173,7 +173,7 @@ Same idea as OpenCode. One session, three permission gears — not three persona
 
 | Mode | She can | She cannot | Asks “are you sure?” |
 |---|---|---|---|
-| **Plan** | `read`, `glob`, `grep`, `todoread` / `todowrite` (session list, not project files), read-only bash allowlist, and `write` / `edit` / `apply_patch` **only** when the resolved realpath is a `.md` under `<root>/.waifu/plans/` | Source-tree mutate, symlink/absolute/`~`/`/tmp` escape (even in Whole-disk), `skill_install`, mutating bash, MCP mutation. Hard-deny wipe/secret rules unchanged. | No. Plan writes never reach the Build ask layer. |
+| **Plan** | `read`, `glob`, `grep`, `todoread` / `todowrite` (session list, not project files), read-only bash allowlist (`ls`/`cat`/`rg`/`grep`/… — **not** `find`), and `write` / `edit` / `apply_patch` **only** when the resolved realpath is a `.md` under `<root>/.waifu/plans/` | Source-tree mutate, symlink/absolute/`~`/`/tmp` escape (even in Whole-disk), `skill_install`, mutating bash, `find` (any argv — exec/print/exfil class), MCP mutation. Hard-deny wipe/secret rules unchanged. | No. Plan writes never reach the Build ask layer. |
 | **Build** (default) | Full catalog inside the selected path scope | Hard-deny list (see §6.3) | **Yes** on mutate: Allow once / Always this session / Deny |
 | **Yolo** | Same as Build | Same hard-deny list | **No** (OpenCode `--auto`). Selected scope + hard-deny still apply |
 

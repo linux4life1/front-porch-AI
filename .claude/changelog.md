@@ -1,11 +1,21 @@
+## 2026-09-08 — fix(waifu): drop find from the Plan bash allowlist
+- **Why:** SecBot HOLD on 158cd1ae. A named `-exec/-ok/-fprint` denylist
+  still allowed `-fls` / `-fprint0` and tokenizer bypasses (`\-exec`).
+  Whack-a-mole is the wrong gate.
+- **What:** `find` is no longer in `kWaifuPlanBashAllow`. Any Plan `find …`
+  (name search, exec family, print/exfil, `\find`, `/usr/bin/find`) is
+  denied. Discovery stays on read / glob / grep / rg / ls / cat.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(waifu): Plan find denies exec/ok/fprint family
 - **Why:** SecBot HOLD on 77c42ee7. `find` stayed on the Plan RO allowlist
   with only `-delete` denied. `-exec` / `-execdir` / `-ok` / `-okdir` /
   `-fprint` / `-fprintf` (and `--fprint` / `--fprintf`) could still mutate
   or write outside the plans folder.
 - **What:** Same message family as `-delete`. Token-exact deny of that
-  family. Plain `find . -name` still allowed.
-- **Commit:** (this tip)
+  family. Plain `find . -name` still allowed. Superseded by dropping
+  `find` from the allowlist (next entry).
+- **Commit:** 158cd1ae
 
 ## 2026-09-08 — fix(waifu): Plan receipt, Build step stamps, Accept widget pin
 - **Why:** Senior Dev HOLD on tip 54fbf1db. Plan receipt still keyed off
