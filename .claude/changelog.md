@@ -72,6 +72,15 @@
   same). `waifuSyncTodosOntoPlan` rolls blocked done todos back to the
   plan step status; todowrite chip output re-reads after that.
 - **Commit:** a48672d9
+## 2026-09-08 — feat(waifu): todo-claim turn contract (no chip, no receipt)
+- **Why:** Kimi/thinking can narrate todowrite or “I marked it complete”
+  without a real tool call. write() is fine; the spoken line was a lie.
+- **What:** Same family as sass-without-patches. Visible speech that
+  claims a todo completion / todowrite / todo-list update, with no
+  successful todowrite chip this turn, soft-retries then failTodoWrite.
+  Thoughts are not receipts. Live chips + Tasks chrome unchanged.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — polish(waifu): live tool chips + Tasks checklist chrome
 - **Why:** Tool work was a black box (`_runTool` only `_pushChip` after
   await). Tasks accordion dumped raw `status: content` as a wall of
