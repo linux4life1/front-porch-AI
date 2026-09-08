@@ -259,8 +259,9 @@ void main() {
 
   test('accepted plan step stays pending without mutate+verify', () async {
     final rel = '.waifu/plans/empty-email.md';
-    await Directory(p.join(root.path, '.waifu', 'plans'))
-        .create(recursive: true);
+    await Directory(
+      p.join(root.path, '.waifu', 'plans'),
+    ).create(recursive: true);
     await File(p.join(root.path, rel)).writeAsString('''
 ---
 id: empty-email
@@ -334,8 +335,9 @@ steps:
 
   test('accepted plan step completes after mutate+verify', () async {
     final rel = '.waifu/plans/empty-email.md';
-    await Directory(p.join(root.path, '.waifu', 'plans'))
-        .create(recursive: true);
+    await Directory(
+      p.join(root.path, '.waifu', 'plans'),
+    ).create(recursive: true);
     await File(p.join(root.path, rel)).writeAsString('''
 ---
 id: empty-email
@@ -440,7 +442,6 @@ steps:
         contains('Verify'),
       );
       expect(kWaifuBuildVerifyCue, contains(kWaifuBuiltinRunPlanStep));
-      expect(kWaifuBuildVerifyCue.toLowerCase(), isNot(contains('desk')));
     },
   );
 

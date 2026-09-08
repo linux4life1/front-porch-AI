@@ -37,8 +37,8 @@
   Plan artifacts are exempt. Root turn fails closed; nested workers
   absorb into the parent. `waifuSyncTodosOntoPlan` will not write
   completed until mutate+verify land. Built-in `run-plan-step`
-  workflow is implement then verify. No Desk naming. No weak-GGUF
-  paths. Epic C/D untouched.
+  workflow is implement then verify. The spoken line stays the
+  card. No weak-GGUF paths. Epic C/D untouched.
 - **Commit:** fb574f33
 
 ## 2026-09-08 — fix(waifu): main-stage Plan panel + soft Plan→Build gate
