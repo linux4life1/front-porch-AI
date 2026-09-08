@@ -10,7 +10,7 @@
   `lib/ui/waifu/waifu.dart` auto-merged (barrel keeps `waifu_mcp_panel`
   and Epic D `waifu_honesty_text` / `waifu_scope_badge`).
   No Guard-protected existing tests were edited.
-- **Commit:** (this commit)
+- **Commit:** a5155229
 
 ## 2026-09-08 — rebase(waifu): Epic C onto #241 Rawhide tip
 - **Why:** #241 squash-merged as `9e010cc4` after #240 last rebased onto
