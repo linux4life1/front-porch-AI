@@ -1,3 +1,16 @@
+## 2026-09-08 — rebase(waifu): Epic B onto #239 Rawhide tip
+- **Why:** #239 squash-merged as `cd9bcd49`. PR #237 could not
+  squash-merge (DIRTY / CONFLICTING).
+- **What:** Rebased `cursor/waifu-epic-b-verify-36b7` onto that tip.
+  Kept Epic B verify-after-mutate + HOLDs (compound segments, theater
+  `--help`/`-h`/dry-run and `||` theater, pre-mutate read clear,
+  blockedDone rollback) and #239 unit-unblock (`send()` records
+  user+running before any await; `unawaited(_run)` + `try/finally`).
+  Conflict files: `waifu_chat_shell_test.dart`,
+  `waifu_plan_panel_test.dart`, changelog (docs only on earlier
+  picks). Existing Guard tests were re-resolved; CoS label stays.
+- **Commit:** 69b30491
+
 ## 2026-09-08 — fix(waifu): Plan panel _run clears busy after throw
 - **Why:** Senior Dev residual on #239. Accept/Revise/Discard now
   `unawaited(_run(…))`. If `fn()` or `_reload()` threw, `_busy` stayed
@@ -5,7 +18,7 @@
 - **What:** `try/finally` clears `_busy` when still mounted. Flash/ok
   only on success. Did not widen `send()` (pre-gen I/O still sits
   after `running=true`, outside that try).
-- **Commit:** (this tip)
+- **Commit:** 69b30491
 
 ## 2026-09-08 — fix(waifu): unit CI hang after Plan P0 + mid-stream thoughts
 - **Why:** After #236, `Tests (unit + integration)` was deterministically
@@ -29,7 +42,7 @@
 - **What:** Wait until a reasoning chunk lands; always complete the
   generate gate. Accept / Build-gate stay in plain `test()`; widget
   tests only pump chrome (no disk after the tree is up).
-- **Commit:** 551025f6
+- **Commit:** a0ca09b3
 
 ## 2026-09-08 — test(waifu): chrome scripts re-read after mutate
 - **Why:** Unit CI on #237 tip 996ce4e3. Verify-after-mutate is the
@@ -187,7 +200,7 @@
 - **What:** Persist/restore `tokensUsed` and `themeOverrides` next to
   `activePlanPath`. WaifuSession owns ChatThemeOverrides; UI Settings and
   `WaifuTranscript` pass them so Sakura paints after the Plan extract.
-- **Commit:** (this tip)
+- **Commit:** 69b30491
 
 ## 2026-09-07 — test(chat): harden picker-hold Drift isolate tearDown
 - **Why:** CI @ 767b3bc6 unit failed `session_picker_overlay_hold_test`
