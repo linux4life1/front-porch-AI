@@ -60,7 +60,18 @@ void main() {
       );
       await mutate.send('make an issue');
       expect(mutationCalls, 0);
-      expect(mutate.session.toolChips.single.ok, isFalse);
+      // Plan receipt retries after a blocked MCP call, so more than one
+      // chip can land. The mutate tool itself must stay failed and uncalled.
+      expect(
+        mutate.session.toolChips.any((c) => c.name == 'create_issue' && !c.ok),
+        isTrue,
+      );
+      expect(
+        mutate.session.toolChips.every(
+          (c) => !c.ok || c.name != 'create_issue',
+        ),
+        isTrue,
+      );
 
       var searchCalls = 0;
       final search = WaifuHarness(
@@ -83,7 +94,10 @@ void main() {
       );
       await search.send('look it up');
       expect(searchCalls, 1);
-      expect(search.session.toolChips.single.ok, isTrue);
+      expect(
+        search.session.toolChips.any((c) => c.name == 'search_docs' && c.ok),
+        isTrue,
+      );
     },
   );
 

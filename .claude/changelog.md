@@ -1,3 +1,55 @@
+## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
+- **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a
+  blocked mutating MCP call, so `toolChips.single` threw Too many elements.
+  Mutating MCP was still hard-blocked (`mutationCalls == 0`).
+- **What:** Assert a failed `create_issue` chip and a successful
+  `search_docs` chip without assuming exactly one chip.
+- **Commit:** (this tip)
+
+## 2026-09-08 — fix(waifu): main-stage Plan panel + soft Plan→Build gate
+- **Why:** UIC HOLD on #236. Plan panel was sidebar-only (FAIL). Mode
+  chips / `/build` could silently orphan a draft and enter freeform
+  Build. FD: Build with no plan stays freeform.
+- **What:** `WaifuPlanStage` on the main column above the work strip
+  when Plan is active or a plan is pinned. Sidebar no longer hosts the
+  panel. `waifuTrySetMode` blocks Plan→Build while a draft exists
+  (cue to Accept/Revise/Discard). Accepted pin and no-plan Build
+  unchanged. Epic D (M4 AppBar / M5 honesty chrome) not in this tip.
+- **Commit:** (this tip)
+
+## 2026-09-08 — fix(waifu): drop find from the Plan bash allowlist
+- **Why:** SecBot HOLD on 158cd1ae. A named `-exec/-ok/-fprint` denylist
+  still allowed `-fls` / `-fprint0` and tokenizer bypasses (`\-exec`).
+  Whack-a-mole is the wrong gate.
+- **What:** `find` is no longer in `kWaifuPlanBashAllow`. Any Plan `find …`
+  (name search, exec family, print/exfil, `\find`, `/usr/bin/find`) is
+  denied. Discovery stays on read / glob / grep / rg / ls / cat.
+- **Commit:** (this tip)
+
+## 2026-09-08 — fix(waifu): Plan find denies exec/ok/fprint family
+- **Why:** SecBot HOLD on 77c42ee7. `find` stayed on the Plan RO allowlist
+  with only `-delete` denied. `-exec` / `-execdir` / `-ok` / `-okdir` /
+  `-fprint` / `-fprintf` (and `--fprint` / `--fprintf`) could still mutate
+  or write outside the plans folder.
+- **What:** Same message family as `-delete`. Token-exact deny of that
+  family. Plain `find . -name` still allowed. Superseded by dropping
+  `find` from the allowlist (next entry).
+- **Commit:** 158cd1ae
+
+## 2026-09-08 — fix(waifu): Plan receipt, Build step stamps, Accept widget pin
+- **Why:** Senior Dev HOLD on tip 54fbf1db. Plan receipt still keyed off
+  `waifuTaskRequestsFileChange`, so a soft Plan ask could finish with
+  speech only. Accept synced todos once; Build never wrote `step.status`
+  back onto `.waifu/plans/*.md`. The Accept→Build widget pin had been
+  demoted to a source-string contains. `/plan` still said “asks before
+  writes” while Plan cannot write source.
+- **What:** Plan mode always requires a plan-artifact receipt (explore-only
+  nested workers are the only exemption). Build `todowrite` persists todo
+  status onto the accepted plan file. Restored a real widget tap
+  Accept → Build. Slash Plan blurb is explore + `.waifu/plans/` +
+  source read-only. Rebased onto Rawhide 14925eee.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(realism): do not persist tool_choice auto for named judges
 - **Why:** Style retry remembered `auto` after a `tool_choice` 400. The next
   overlay `report_*` judge on that identity started at auto — #230's
@@ -39,6 +91,18 @@
   Journal stay on tools. Salvage JSON from `reasoning_content` and mixed
   prose.
 - **Commit:** 539d7a12 / a9f14724
+## 2026-09-08 — feat(waifu): real Plan mode artifacts + Accept→Build
+- **Why:** `WaifuMode.plan` was only a permission mute: every mutate
+  (including todowrite) was blocked, there was no `.waifu/plans/`
+  artifact, no Plan panel, and no Accept→Build handoff. User lock
+  superseded spec §4.1 sludge.
+- **What:** Durable `.waifu/plans/<slug>.md` (front matter + steps);
+  Plan write/edit/apply_patch only when realpath is under that folder
+  (folder-jail even in Whole-disk; symlink/absolute/`~`/`/tmp` denied);
+  todowrite + read-only bash allowlist; plan-file turn receipt; mode-aware
+  loop prompt; catalog honesty; sidebar Plan panel Accept/Revise/Discard;
+  pin `activePlanPath`, sync steps→todos, flip to Build. Spec §4.1 updated.
+- **Commit:** (this tip)
 
 ## 2026-09-07 — test(chat): harden picker-hold Drift isolate tearDown
 - **Why:** CI @ 767b3bc6 unit failed `session_picker_overlay_hold_test`

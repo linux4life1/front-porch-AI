@@ -30,7 +30,9 @@ extension _WaifuHarnessDispatch on WaifuHarness {
       case kWaifuToolTodoRead:
         return WaifuToolResult(ok: true, output: todos.read());
       case kWaifuToolTodoWrite:
-        return WaifuToolResult(ok: true, output: todos.write(args['todos']));
+        final out = todos.write(args['todos']);
+        await waifuSyncTodosOntoPlan(session: session, todos: todos);
+        return WaifuToolResult(ok: true, output: out);
       case kWaifuToolQuestion:
         return _answerQuestion(args);
       case kWaifuToolSkill:

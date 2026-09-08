@@ -39,6 +39,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
                 includeTask: depth < kWaifuMaxTaskDepth,
                 includeWorkflow: depth == 0,
                 pathMode: session.pathMode,
+                mode: session.mode,
               ),
         images: step == 0 ? _turnImages : null,
         onChunk: _onChunk,

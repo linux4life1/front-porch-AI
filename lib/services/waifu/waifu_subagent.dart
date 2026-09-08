@@ -18,6 +18,8 @@
 
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_mcp_filter.dart';
+import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
+import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 import 'package:front_porch_ai/services/waifu/waifu_webfetch.dart';
 import 'package:front_porch_ai/services/waifu/waifu_workflow.dart';
@@ -114,8 +116,10 @@ List<Map<String, dynamic>> waifuAdvertisedTools({
   required bool includeTask,
   bool? includeWorkflow,
   WaifuPathMode pathMode = WaifuPathMode.folderJail,
+  WaifuMode mode = WaifuMode.build,
 }) {
-  final workflow = includeWorkflow ?? includeTask;
+  final plan = mode == WaifuMode.plan && !exploreOnly;
+  final workflow = plan ? false : (includeWorkflow ?? includeTask);
   Iterable<Map<String, dynamic>> fileTools = pathMode == WaifuPathMode.wholeDisk
       ? kWaifuWholeDiskFileTools
       : kWaifuFileTools;
@@ -124,6 +128,8 @@ List<Map<String, dynamic>> waifuAdvertisedTools({
       final n = _toolName(t);
       return kWaifuExploreToolNames.contains(n);
     });
+  } else if (plan) {
+    fileTools = waifuPlanAdvertisedTools(kWaifuFileTools);
   }
   final taken = <String>{
     for (final t in fileTools)

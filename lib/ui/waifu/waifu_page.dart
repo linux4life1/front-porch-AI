@@ -32,8 +32,9 @@ import 'package:front_porch_ai/ui/waifu/waifu_language_help.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mcp_bind.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_question_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_composer.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_plan_stage.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_sidebar.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_tool_log.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_transcript.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_work_strip.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
@@ -207,8 +208,20 @@ class _WaifuPageState extends State<WaifuPage> {
     return result ?? '';
   }
 
-  void _setMode(WaifuMode mode) {
-    setState(() => widget.session.mode = mode);
+  Future<void> _setMode(WaifuMode mode, {bool announce = false}) async {
+    final result = await waifuTrySetMode(session: widget.session, next: mode);
+    if (!mounted) return;
+    setState(() {
+      if (result == WaifuModeApply.blockedDraft) {
+        widget.session.transcript.add(
+          const WaifuMessage(isUser: false, text: kWaifuPlanBuildGateCue),
+        );
+      } else if (announce) {
+        widget.session.transcript.add(
+          WaifuMessage(isUser: false, text: 'Mode is ${mode.name}.'),
+        );
+      }
+    });
   }
 
   Future<void> _slashSkills(String text) async {
@@ -307,12 +320,7 @@ class _WaifuPageState extends State<WaifuPage> {
     final session = widget.session;
     final mode = waifuSlashMode(cmd.name);
     if (mode != null) {
-      setState(() {
-        session.mode = mode;
-        session.transcript.add(
-          WaifuMessage(isUser: false, text: 'Mode is ${mode.name}.'),
-        );
-      });
+      unawaited(_setMode(mode, announce: true));
       return true;
     }
     switch (cmd.name) {
@@ -402,7 +410,14 @@ class _WaifuPageState extends State<WaifuPage> {
           Expanded(
             child: Column(
               children: [
-                Expanded(child: _transcript(session, coworker)),
+                Expanded(
+                  child: WaifuTranscript(session: session, coworker: coworker),
+                ),
+                WaifuPlanStage(
+                  session: session,
+                  harness: harness,
+                  onChanged: _refresh,
+                ),
                 if (session.lastWrite != null)
                   WaifuWorkStrip(
                     record: session.lastWrite!,
@@ -451,7 +466,7 @@ class _WaifuPageState extends State<WaifuPage> {
                 setState(() => session.preserveThinking = v);
                 unawaited(_storeOf(context)?.saveLast(session));
               },
-              todos: harness?.todos,
+              harness: harness,
               mcpLine: waifuMcpStatusLine(context),
               skills: _skillsOf(),
               onSkillsChanged: _refresh,
@@ -459,37 +474,6 @@ class _WaifuPageState extends State<WaifuPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _transcript(WaifuSession session, String coworker) {
-    if (session.transcript.isEmpty) {
-      return Center(
-        child: Text(
-          waifuEmptyPrompt(session.pathMode, coworker),
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary(context)),
-        ),
-      );
-    }
-    final chats = [
-      for (final m in session.transcript) m.toChatMessage(coworker),
-    ];
-    return ChatMessageList(
-      messages: chats,
-      resolveSpeaker: (msg) => msg.isUser
-          ? (null, null)
-          : (waifuCoworkerFace(context, session.coworker), null),
-      characterFor: (_) => session.coworker,
-      isGenerating: session.running,
-      generatingAt: (i) => session.running && i == chats.length - 1,
-      aboveBubble: (msg, index) {
-        if (msg.isUser) return null;
-        if (index < 0 || index >= session.transcript.length) return null;
-        final chips = session.transcript[index].chips;
-        if (chips.isEmpty) return null;
-        return WaifuToolLog(chips: chips);
-      },
     );
   }
 }

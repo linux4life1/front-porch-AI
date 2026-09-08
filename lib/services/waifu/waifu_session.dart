@@ -93,6 +93,7 @@ class WaifuSession {
     this.langs,
     this.mcpOptIn = false,
     this.preserveThinking = false,
+    this.activePlanPath,
     Set<String>? suggestedLangs,
     List<WaifuMessage>? transcript,
   }) : suggestedLangs = suggestedLangs ?? <String>{},
@@ -110,6 +111,7 @@ class WaifuSession {
   bool running = false;
   bool mcpOptIn;
   bool preserveThinking;
+  String? activePlanPath;
   final ChatGenerationSettings genSettings = ChatGenerationSettings();
   int contextBudget = 8192;
   int tokensUsed = 0;

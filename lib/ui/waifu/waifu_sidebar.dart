@@ -44,7 +44,7 @@ class WaifuSidebar extends StatelessWidget {
     required this.onMcpOptIn,
     required this.onMode,
     this.onPreserveThinking,
-    this.todos,
+    this.harness,
     this.mcpLine,
     this.skills,
     this.onSkillsChanged,
@@ -56,7 +56,8 @@ class WaifuSidebar extends StatelessWidget {
   final ValueChanged<bool> onMcpOptIn;
   final ValueChanged<WaifuMode> onMode;
   final ValueChanged<bool>? onPreserveThinking;
-  final WaifuTodos? todos;
+  final WaifuHarness? harness;
+  WaifuTodos? get todos => harness?.todos;
   final String? mcpLine;
   final WaifuSkillHub? skills;
   final VoidCallback? onSkillsChanged;
