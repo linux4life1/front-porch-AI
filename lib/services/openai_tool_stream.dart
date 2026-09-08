@@ -22,7 +22,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/openai_tool_payload.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
+import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 
 /// Incremental OpenAI `delta.tool_calls` + reasoning/content. Pure: tests
 /// feed maps, production feeds SSE.
@@ -210,4 +212,100 @@ Future<LlmToolResponse?> streamOpenAiChatTools({
     salvage: salvage,
     onChunk: onChunk,
   );
+}
+
+/// Streaming twin of [attachToolsWithStyleRetry]: same named → required →
+/// auto step on a `tool_choice` 400. Overlay evals use this door.
+Future<LlmToolResponse?> streamOpenAiChatToolsWithStyleRetry({
+  required String identity,
+  required List<Map<String, dynamic>> tools,
+  String? toolChoice,
+  required Map<String, dynamic> basePayload,
+  required Uri uri,
+  required Map<String, String> headers,
+  required http.Client client,
+  required bool wrapReasoning,
+  bool salvage = false,
+  void Function(String chunk)? onChunk,
+  ToolChoiceStyleProbe? probe,
+  void Function(int status, String body)? onHttpError,
+}) async {
+  final styleProbe = probe ?? ToolChoiceStyleProbe.instance;
+  var style = styleProbe.startingStyleFor(identity, toolChoice: toolChoice);
+
+  Future<http.StreamedResponse> once(ToolChoiceStyle s) {
+    final payload = Map<String, dynamic>.from(basePayload);
+    attachTools(
+      payload,
+      tools: tools,
+      toolChoice: toolChoice,
+      stream: true,
+      style: s,
+    );
+    final request = http.Request('POST', uri);
+    request.headers.addAll(headers);
+    request.body = jsonEncode(payload);
+    return client.send(request);
+  }
+
+  Future<LlmToolResponse?> finish(http.StreamedResponse response) async {
+    if (response.statusCode == 429 || response.statusCode >= 500) {
+      throw LlmToolTransportException(
+        'tool call HTTP ${response.statusCode} (server busy/unavailable)',
+      );
+    }
+    if (response.statusCode == 200) {
+      return consumeOpenAiToolSse(
+        response.stream,
+        wrap: wrapReasoning,
+        salvage: salvage,
+        onChunk: onChunk,
+      );
+    }
+    final buffered = await http.Response.fromStream(response);
+    onHttpError?.call(buffered.statusCode, buffered.body);
+    debugPrint(
+      '[OpenAiChat] Streamed tool call rejected '
+      '(HTTP ${buffered.statusCode}) — falling back to text transport',
+    );
+    return null;
+  }
+
+  var response = await once(style);
+  if (toolChoice == null || toolChoice.isEmpty) return finish(response);
+  if (response.statusCode == 200 ||
+      response.statusCode == 429 ||
+      response.statusCode >= 500) {
+    return finish(response);
+  }
+  final first = await http.Response.fromStream(response);
+  if (!isToolChoiceStyleRejection(first.statusCode, first.body)) {
+    onHttpError?.call(first.statusCode, first.body);
+    debugPrint(
+      '[OpenAiChat] Streamed tool call rejected '
+      '(HTTP ${first.statusCode}) — falling back to text transport',
+    );
+    return null;
+  }
+
+  if (style == ToolChoiceStyle.named) {
+    styleProbe.remember(identity, ToolChoiceStyle.required);
+    response = await once(ToolChoiceStyle.required);
+    if (response.statusCode != 400) return finish(response);
+    final second = await http.Response.fromStream(response);
+    if (!isToolChoiceStyleRejection(second.statusCode, second.body)) {
+      onHttpError?.call(second.statusCode, second.body);
+      debugPrint(
+        '[OpenAiChat] Streamed tool call rejected '
+        '(HTTP ${second.statusCode}) — falling back to text transport',
+      );
+      return null;
+    }
+    style = ToolChoiceStyle.required;
+  }
+  if (style == ToolChoiceStyle.required) {
+    // One-shot for this request. Do not persist auto.
+    return finish(await once(ToolChoiceStyle.auto));
+  }
+  return null;
 }

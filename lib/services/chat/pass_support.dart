@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
 import 'package:front_porch_ai/services/services.dart'
     show LlmToolCall, LlmToolResponse, OneShotMode, isToolTransportFailure;
@@ -315,16 +316,8 @@ String? _usableEvalJsonText(
   required String? toolChoice,
   required String? Function(LlmToolResponse resp) callToText,
 }) {
-  final trimmed = text.trim();
-  if (trimmed.isEmpty) return null;
-
-  final dynamic decoded;
-  try {
-    decoded = jsonDecode(trimmed);
-  } catch (_) {
-    return null;
-  }
-  if (decoded is! Map) return null;
+  final decoded = parseEvalJsonObject(text);
+  if (decoded == null) return null;
 
   String? selectedName;
   Map<dynamic, dynamic>? parameters;
@@ -346,7 +339,7 @@ String? _usableEvalJsonText(
   final required = requiredRaw is List
       ? requiredRaw.map((field) => field.toString())
       : const <String>[];
-  if (required.isEmpty && decoded.isEmpty) return trimmed;
+  if (required.isEmpty && decoded.isEmpty) return text.trim();
 
   final normalized = callToText(
     LlmToolResponse(
@@ -426,17 +419,24 @@ Future<String?> fireStructuredEval({
           onChunk?.call('$text\n');
           return text;
         }
-        final salvaged = _usableEvalJsonText(
-          resp.text,
-          tools: tools,
-          toolChoice: toolChoice,
-          callToText: callToText,
-        );
+        final salvaged =
+            _usableEvalJsonText(
+              resp.text,
+              tools: tools,
+              toolChoice: toolChoice,
+              callToText: callToText,
+            ) ??
+            _usableEvalJsonText(
+              resp.reasoning,
+              tools: tools,
+              toolChoice: toolChoice,
+              callToText: callToText,
+            );
         if (salvaged != null) {
           onChunk?.call('$salvaged\n');
           return salvaged;
         }
-        if (resp.text.trim().isNotEmpty) {
+        if (resp.text.trim().isNotEmpty || resp.reasoning.trim().isNotEmpty) {
           debugPrint(
             '[Eval:Tools] $debugLabel returned prose or incomplete JSON — '
             'retrying with text transport',

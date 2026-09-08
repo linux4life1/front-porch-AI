@@ -1,3 +1,45 @@
+## 2026-09-08 — fix(realism): do not persist tool_choice auto for named judges
+- **Why:** Style retry remembered `auto` after a `tool_choice` 400. The next
+  overlay `report_*` judge on that identity started at auto — #230's
+  streaming-auto bug after one bad provider 400. Tests hid it with
+  `resetForTest`.
+- **What:** Probe persists only named/required. Auto is a one-shot for this
+  request. `styleFor` treats leftover auto as unset. Stream door also retries
+  mandatory-reasoning 400s the POST path already did.
+- **Commit:** c010620d
+
+## 2026-09-08 — fix(realism): stream OpenRouter tools with the same force as POST
+- **Why:** Live judges pass overlay `onChunk`, so `generateWithTools` took the
+  streaming branch. That door hardcoded `tool_choice:auto`, skipped
+  `require_parameters` / sampler strip, and kept the 512-token scalar budget.
+  #230 only patched the buffered POST. Overlay-null was a workaround, not a
+  fix — fallback / Journal / Nano still streamed the broken payload.
+- **What:** Streaming and non-streaming OR tool requests share
+  `applyOpenRouterToolRouting` + `attachToolsWithStyleRetry` /
+  `streamOpenAiChatToolsWithStyleRetry` (named/required from the probe,
+  `provider.require_parameters` on openrouter.ai, no min_p/top_k/rep-pen).
+  Scalar OR tools floor at 4000 (+ think headroom when mandatory). Overlay
+  `onChunk` is forwarded again. json_schema stays primary for named OR judges
+  and can stream when the overlay is live. Nano / oMLX / LM Studio unchanged
+  aside from now forcing the named tool on the stream path too.
+- **Commit:** 2877dd72
+
+## 2026-09-08 — fix(realism): OpenRouter judges use json_schema, not forced tools
+- **Why:** #230 (e00fb2ba) salvaged call-less prose and added
+  `require_parameters` on forced `tool_choice`. Live OR still froze bond/trust
+  (Needs kept ambient decay). Forced tools are the wrong primitive: several
+  providers advertise `tools` then ignore `tool_choice`, thinking models burn
+  the 512-token judge budget, overlay `onChunk` streamed `tool_choice:auto`
+  (so #230's non-stream routing never ran), and `reasoning` +
+  `require_parameters` routed only to thinking endpoints.
+- **What:** Named evals on openrouter.ai send `response_format: json_schema`
+  (strict schema from the selected tool, no tools/reasoning/samplers,
+  `require_parameters` for structured outputs, 4000-token floor). 404/unusable
+  JSON falls back to the existing tools door. Nano-GPT / oMLX / LM Studio /
+  Journal stay on tools. Salvage JSON from `reasoning_content` and mixed
+  prose.
+- **Commit:** 539d7a12 / a9f14724
+
 ## 2026-09-07 — test(chat): harden picker-hold Drift isolate tearDown
 - **Why:** CI @ 767b3bc6 unit failed `session_picker_overlay_hold_test`
   (picker hold stays up when setActive loads another card's tail) with Drift

@@ -23,7 +23,15 @@ import 'package:flutter/foundation.dart';
 /// Named function objects are the default (scalar evals always want exactly
 /// one function). Some older OpenAI-compatible hosts only accept
 /// `'auto' | 'none' | 'required'` and 400 a named object. The style probe
-/// remembers that 400 so the next call starts on the style that worked.
+/// remembers a named-object 400 as [ToolChoiceStyle.required] so the next
+/// call starts there.
+///
+/// [auto] is **never durable**. Persisting it after a `tool_choice` 400
+/// disarmed the next overlay `report_*` judge (the #230 streaming-auto bug
+/// coming back after one bad provider 400). A step to `auto` is one-shot
+/// for this request only. Journal/Growth pass an empty toolChoice and
+/// always send `auto` without reading or writing this map.
+///
 /// It is NEVER a capability verdict — a host that 400s named choice may
 /// still speak tools.
 enum ToolChoiceStyle { named, required, auto }
@@ -41,11 +49,33 @@ class ToolChoiceStyleProbe {
 
   final Map<String, ToolChoiceStyle> _style = {};
 
-  ToolChoiceStyle styleFor(String identity) =>
-      _style[identity] ?? ToolChoiceStyle.named;
+  /// Named evals start at [ToolChoiceStyle.named] or a remembered
+  /// [ToolChoiceStyle.required]. Leftover [ToolChoiceStyle.auto] in the
+  /// map is treated as unset so a prior one-shot cannot disarm later
+  /// `report_*` calls.
+  ToolChoiceStyle styleFor(String identity) {
+    final remembered = _style[identity];
+    if (remembered == null || remembered == ToolChoiceStyle.auto) {
+      return ToolChoiceStyle.named;
+    }
+    return remembered;
+  }
 
-  void remember(String identity, ToolChoiceStyle style) =>
-      _style[identity] = style;
+  /// Journal/Growth (`toolChoice` empty) always send auto. Named
+  /// functions use [styleFor] and never start at auto.
+  ToolChoiceStyle startingStyleFor(String identity, {String? toolChoice}) {
+    if (toolChoice == null || toolChoice.isEmpty) {
+      return ToolChoiceStyle.auto;
+    }
+    return styleFor(identity);
+  }
+
+  /// Persist named / required only. Auto is ignored so a one-shot
+  /// step-down cannot stick across overlay judges.
+  void remember(String identity, ToolChoiceStyle style) {
+    if (style == ToolChoiceStyle.auto) return;
+    _style[identity] = style;
+  }
 
   void reset(String identity) => _style.remove(identity);
 

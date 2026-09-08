@@ -59,6 +59,7 @@ export 'chat_service.dart';
 export 'mcp/mcp.dart';
 export 'backend_manager.dart';
 export 'open_router_service.dart';
+export 'openrouter_structured_eval.dart';
 export 'remote_reachability.dart';
 export 'reasoning_effort.dart';
 export 'reasoning_effort_probe.dart';

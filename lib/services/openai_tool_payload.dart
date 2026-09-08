@@ -61,6 +61,10 @@ Map<String, dynamic> attachTools(
 
 final _toolChoiceBody = RegExp(r'tool[_ ]?choice', caseSensitive: false);
 
+/// A 400 whose body mentions `tool_choice` — step named → required → auto.
+bool isToolChoiceStyleRejection(int statusCode, String body) =>
+    statusCode == 400 && _toolChoiceBody.hasMatch(body);
+
 /// POST [basePayload] with tools attached, stepping named → required → auto
 /// on a 400 whose body mentions `tool_choice`. Returns the last
 /// [http.Response] — **never null**, even on an unrelated 400. The OpenRouter
@@ -76,11 +80,7 @@ Future<http.Response> attachToolsWithStyleRetry({
   bool stream = false,
 }) async {
   final styleProbe = probe ?? ToolChoiceStyleProbe.instance;
-  var style = styleProbe.styleFor(identity);
-  // Journal/Growth (`toolChoice` null) always send `'auto'` — do not step.
-  if (toolChoice == null || toolChoice.isEmpty) {
-    style = ToolChoiceStyle.auto;
-  }
+  var style = styleProbe.startingStyleFor(identity, toolChoice: toolChoice);
 
   Future<http.Response> once(ToolChoiceStyle s) {
     final payload = Map<String, dynamic>.from(basePayload);
@@ -96,18 +96,21 @@ Future<http.Response> attachToolsWithStyleRetry({
 
   var response = await once(style);
   if (toolChoice == null || toolChoice.isEmpty) return response;
-  if (response.statusCode != 400) return response;
-  if (!_toolChoiceBody.hasMatch(response.body)) return response;
+  if (!isToolChoiceStyleRejection(response.statusCode, response.body)) {
+    return response;
+  }
 
   if (style == ToolChoiceStyle.named) {
     styleProbe.remember(identity, ToolChoiceStyle.required);
     response = await once(ToolChoiceStyle.required);
-    if (response.statusCode != 400) return response;
-    if (!_toolChoiceBody.hasMatch(response.body)) return response;
+    if (!isToolChoiceStyleRejection(response.statusCode, response.body)) {
+      return response;
+    }
     style = ToolChoiceStyle.required;
   }
   if (style == ToolChoiceStyle.required) {
-    styleProbe.remember(identity, ToolChoiceStyle.auto);
+    // One-shot for this request. Do not persist auto — that disarms
+    // the next named overlay judge on this identity.
     return once(ToolChoiceStyle.auto);
   }
   return response;

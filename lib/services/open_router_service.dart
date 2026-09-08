@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -24,8 +25,8 @@ import 'package:front_porch_ai/services/llm_tool_parsing.dart';
 import 'package:front_porch_ai/services/openai_completions_fallback.dart';
 import 'package:front_porch_ai/services/openai_tool_payload.dart';
 import 'package:front_porch_ai/services/openai_tool_stream.dart';
+import 'package:front_porch_ai/services/openrouter_structured_eval.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
-import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
 import 'package:front_porch_ai/services/remote_model_info.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
@@ -398,11 +399,12 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         // the user never agreed to. One rejection per model is the whole cost.
         if (reasoningCannotDisable(modelName)) {
           reasoning.remove('enabled');
-          // Evals need the think channel: Kimi 2.6:thinking puts the JSON
-          // there, and exclude:true leaves content as a newline after a
-          // long think (2026-08-15). Chat Continue still excludes.
-          if (params.salvageReasoning) reasoning.remove('exclude');
         }
+        // Evals need the think channel whenever the provider still thinks:
+        // exclude:true leaves content empty after a long think (Kimi 2.6,
+        // 2026-08-15; Grok/Gemini/DeepSeek on OpenRouter, 2026-09). Chat
+        // Continue still excludes.
+        if (params.salvageReasoning) reasoning.remove('exclude');
       }
       payload['reasoning'] = reasoning;
     }
@@ -456,6 +458,106 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     'X-Title': 'Front Porch AI',
   };
 
+  /// OpenRouter named evals: `response_format` json_schema first, then tools.
+  Future<LlmToolResponse?> generateStructuredJson(
+    GenerationParams params,
+    List<Map<String, dynamic>> tools,
+  ) async {
+    final toolName = params.toolChoice;
+    final schema = openRouterEvalJsonSchema(tools: tools, toolChoice: toolName);
+    if (!isOpenRouterApiUrl(_apiUrl) || schema == null || toolName == null) {
+      return generateWithTools(params, tools);
+    }
+    if (!isReady) return null;
+    final client = httpClientFactory?.call() ?? http.Client();
+    _activeClients.add(client);
+    try {
+      final streaming = params.onChunk != null;
+      final payload = applyOpenRouterStructuredEvalRouting(
+        _chatPayload(
+          GenerationParams(
+            prompt: params.prompt,
+            maxLength: params.maxLength,
+            temperature: params.temperature,
+            topP: params.topP,
+            repeatPenalty: 1.0,
+            reasoningEnabled: false,
+            salvageReasoning: true,
+            stopSequences: params.stopSequences ?? const [],
+            toolChoice: toolName,
+            backendIdentity: params.backendIdentity,
+            onChunk: params.onChunk,
+          ),
+          stream: streaming,
+        ),
+        jsonSchema: schema,
+        mandatoryReasoning: reasoningCannotDisable(modelName),
+      );
+      if (streaming) {
+        final streamed = await streamOpenAiChatTools(
+          uri: Uri.parse('$_apiUrl/chat/completions'),
+          headers: _chatHeaders,
+          payload: payload,
+          client: client,
+          wrapReasoning: false,
+          salvage: true,
+          onChunk: params.onChunk,
+        );
+        if (streamed != null) {
+          if (streamed.calls.isNotEmpty) return streamed;
+          final fromSchema = toolResponseFromStructuredEvalContent(
+            content: streamed.text,
+            reasoning: streamed.reasoning,
+            toolName: toolName,
+          );
+          if (fromSchema != null) return fromSchema;
+        }
+        debugPrint(
+          '[RemoteAPI] Structured eval stream unusable — '
+          'falling back to tools',
+        );
+        return await generateWithTools(params, tools);
+      }
+      final response = await client.post(
+        Uri.parse('$_apiUrl/chat/completions'),
+        headers: _chatHeaders,
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode == 429 || response.statusCode >= 500) {
+        throw LlmToolTransportException(
+          'structured eval HTTP ${response.statusCode} '
+          '(server busy/unavailable)',
+        );
+      }
+      if (response.statusCode != 200) {
+        debugPrint(
+          '[RemoteAPI] Structured eval rejected '
+          '(HTTP ${response.statusCode}) — falling back to tools',
+        );
+        return await generateWithTools(params, tools);
+      }
+      final parsed = parseOpenAiToolResponse(response.body);
+      if (parsed != null && parsed.calls.isNotEmpty) return parsed;
+      final fromSchema = toolResponseFromStructuredEvalContent(
+        content: parsed?.text,
+        reasoning: parsed?.reasoning,
+        toolName: toolName,
+      );
+      if (fromSchema != null) return fromSchema;
+      debugPrint(
+        '[RemoteAPI] Structured eval returned unusable JSON — '
+        'falling back to tools',
+      );
+      return await generateWithTools(params, tools);
+    } catch (e) {
+      debugPrint('[RemoteAPI] Structured eval transport failure: $e');
+      rethrow;
+    } finally {
+      _activeClients.remove(client);
+      client.close();
+    }
+  }
+
   /// OpenAI tools: null = unusable; throw = transport failure.
   @override
   Future<LlmToolResponse?> generateWithTools(
@@ -466,36 +568,45 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     final client = httpClientFactory?.call() ?? http.Client();
     _activeClients.add(client);
     try {
-      if (params.onChunk != null) {
-        final payload = _chatPayload(params, stream: true);
-        attachTools(
+      final identity = params.backendIdentity.isEmpty
+          ? '$backendName|$_modelName|'
+          : params.backendIdentity;
+      final streaming = params.onChunk != null;
+      var payload = _chatPayload(params, stream: streaming);
+      if (isOpenRouterApiUrl(_apiUrl)) {
+        payload = applyOpenRouterToolRouting(
           payload,
+          mandatoryReasoning: reasoningCannotDisable(modelName),
+        );
+      }
+      if (streaming) {
+        String? streamErr;
+        final streamed = await streamOpenAiChatToolsWithStyleRetry(
+          identity: identity,
           tools: tools,
           toolChoice: params.toolChoice,
-          stream: true,
-          style: ToolChoiceStyle.auto,
-        );
-        return await streamOpenAiChatTools(
+          basePayload: payload,
           uri: Uri.parse('$_apiUrl/chat/completions'),
           headers: _chatHeaders,
-          payload: payload,
           client: client,
           wrapReasoning: params.reasoningEnabled,
           salvage: params.salvageReasoning,
           onChunk: params.onChunk,
+          onHttpError: (_, body) => streamErr = body,
         );
-      }
-      final identity = params.backendIdentity.isEmpty
-          ? '$backendName|$_modelName|'
-          : params.backendIdentity;
-      final payload = _chatPayload(params, stream: false);
-      final host = Uri.tryParse(_apiUrl)?.host.toLowerCase();
-      if (host == 'openrouter.ai' || host?.endsWith('.openrouter.ai') == true) {
-        payload
-          ..remove('repetition_penalty')
-          ..remove('min_p')
-          ..remove('top_k')
-          ..['provider'] = {'require_parameters': true};
+        if (streamed != null) return streamed;
+        final rejected = streamErr;
+        if (rejected != null &&
+            !reasoningCannotDisable(modelName) &&
+            _isMandatoryReasoningRejection(rejected)) {
+          rememberMandatoryReasoning(modelName);
+          debugPrint(
+            '[RemoteAPI] $modelName cannot disable reasoning — retrying '
+            'streamed tool call with reasoning.exclude only',
+          );
+          return await generateWithTools(params, tools);
+        }
+        return null;
       }
       final response = await attachToolsWithStyleRetry(
         identity: identity,
