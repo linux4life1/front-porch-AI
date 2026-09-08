@@ -38,6 +38,7 @@ export 'waifu_patch.dart';
 export 'waifu_permissions.dart';
 export 'waifu_plan.dart';
 export 'waifu_plan_codec.dart';
+export 'waifu_plan_gate.dart';
 export 'waifu_question.dart';
 export 'waifu_skills.dart';
 export 'waifu_skill_market.dart';

@@ -7,7 +7,7 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 📋 **Waifu Coder Plan mode now writes a real plan** — in Plan they explore, then save a markdown plan under `.waifu/plans/` (a turn without that file is not done). The Plan panel lets you read it, Accept → Build (steps become todos, and they mark those steps on the plan as they go), Revise, or Discard. They still cannot change project source until you accept. Personality stays the card’s.
+- 📋 **Waifu Coder Plan mode now writes a real plan** — in Plan they explore, then save a markdown plan under `.waifu/plans/` (a turn without that file is not done). The Plan panel sits on the main stage: Accept → Build (steps become todos, and they mark those steps on the plan as they go), Revise, or Discard. A draft plan will not silently flip to Build — Accept it, or stay in Plan. They still cannot change project source until you accept. Personality stays the card’s.
 
 - ♾️ **Waifu Coder is not capped at chat Max Output Tokens** — a turn can fill the rest of the context window so a tool call is not cut off mid-file. Chat still uses that slider. One reply bubble per send: reads/writes/bash stack as a quiet log above it, then she speaks. The old 20-step cutoff is a runaway fuse at 80.
 

@@ -27,12 +27,13 @@ steps:
 ''';
 
 void main() {
-  test('sidebar hosts a real Plan panel, not a mode chip', () {
+  test('main stage hosts the Plan panel; sidebar does not', () {
     final sidebar = File('lib/ui/waifu/waifu_sidebar.dart').readAsStringSync();
     final page = File('lib/ui/waifu/waifu_page.dart').readAsStringSync();
-    expect(sidebar, contains('WaifuPlanPanel'));
-    expect(sidebar, contains("id: 'waifu_plan'"));
+    expect(page, contains('WaifuPlanStage'));
     expect(page, contains('harness: harness'));
+    expect(sidebar, isNot(contains('WaifuPlanPanel')));
+    expect(sidebar, isNot(contains("id: 'waifu_plan'")));
   });
 
   testWidgets('Accept → Build flips the session mode', (tester) async {
@@ -91,5 +92,92 @@ void main() {
       WaifuPlanStatus.accepted,
     );
     expect(find.text('Accepted — Build'), findsOneWidget);
+  });
+
+  testWidgets('Plan mode mounts the panel on the main stage', (tester) async {
+    final root = await Directory.systemTemp.createTemp('waifu_plan_stage_');
+    addTearDown(() async {
+      if (await root.exists()) await root.delete(recursive: true);
+    });
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: CharacterCard(name: 'Mira'),
+      mode: WaifuMode.plan,
+    );
+    final harness = WaifuHarness(
+      session: session,
+      llm: ScriptedWaifuLlm(const []),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WaifuPage(session: session, harness: harness),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('waifu-plan-stage')), findsOneWidget);
+    expect(find.byKey(const Key('waifu-plan-panel')), findsOneWidget);
+    expect(find.textContaining('No plan file yet'), findsOneWidget);
+  });
+
+  testWidgets('draft plan blocks the Build chip; freeform Build does not', (
+    tester,
+  ) async {
+    final root = await Directory.systemTemp.createTemp('waifu_plan_gate_');
+    addTearDown(() async {
+      if (await root.exists()) await root.delete(recursive: true);
+    });
+    const rel = '.waifu/plans/empty-email.md';
+    await File(p.join(root.path, rel)).create(recursive: true);
+    await File(p.join(root.path, rel)).writeAsString(_planMd);
+    final draft = WaifuSession(
+      folderRoot: root.path,
+      coworker: CharacterCard(name: 'Mira'),
+      mode: WaifuMode.plan,
+      activePlanPath: rel,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WaifuPage(
+          session: draft,
+          harness: WaifuHarness(
+            session: draft,
+            llm: ScriptedWaifuLlm(const []),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.runAsync(() async {
+      await tester.tap(find.byKey(const Key('waifu-mode-build')));
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    });
+    await tester.pump();
+    expect(draft.mode, WaifuMode.plan);
+    expect(find.textContaining('draft plan'), findsWidgets);
+
+    final freeRoot = await Directory.systemTemp.createTemp('waifu_plan_free_');
+    addTearDown(() async {
+      if (await freeRoot.exists()) await freeRoot.delete(recursive: true);
+    });
+    final free = WaifuSession(
+      folderRoot: freeRoot.path,
+      coworker: CharacterCard(name: 'Mira'),
+      mode: WaifuMode.plan,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WaifuPage(
+          session: free,
+          harness: WaifuHarness(session: free, llm: ScriptedWaifuLlm(const [])),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.runAsync(() async {
+      await tester.tap(find.byKey(const Key('waifu-mode-build')));
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    });
+    await tester.pump();
+    expect(free.mode, WaifuMode.build);
   });
 }

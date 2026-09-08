@@ -21,7 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Sidebar Plan panel: open the active `.waifu/plans/*.md`, Accept → Build,
+/// Main-stage Plan panel: open the active `.waifu/plans/*.md`, Accept → Build,
 /// Revise back to Plan, or Discard the pin. Not a mode chip.
 class WaifuPlanPanel extends StatefulWidget {
   const WaifuPlanPanel({

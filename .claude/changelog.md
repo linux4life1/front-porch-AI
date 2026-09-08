@@ -1,3 +1,14 @@
+## 2026-09-08 — fix(waifu): main-stage Plan panel + soft Plan→Build gate
+- **Why:** UIC HOLD on #236. Plan panel was sidebar-only (FAIL). Mode
+  chips / `/build` could silently orphan a draft and enter freeform
+  Build. FD: Build with no plan stays freeform.
+- **What:** `WaifuPlanStage` on the main column above the work strip
+  when Plan is active or a plan is pinned. Sidebar no longer hosts the
+  panel. `waifuTrySetMode` blocks Plan→Build while a draft exists
+  (cue to Accept/Revise/Discard). Accepted pin and no-plan Build
+  unchanged. Epic D (M4 AppBar / M5 honesty chrome) not in this tip.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(waifu): drop find from the Plan bash allowlist
 - **Why:** SecBot HOLD on 158cd1ae. A named `-exec/-ok/-fprint` denylist
   still allowed `-fls` / `-fprint0` and tokenizer bypasses (`\-exec`).

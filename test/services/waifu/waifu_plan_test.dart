@@ -530,6 +530,65 @@ void main() {
     ]);
   });
 
+  test('draft plan blocks Build; freeform Build stays open', () async {
+    expect(
+      waifuPlanStageVisible(
+        WaifuSession(
+          folderRoot: root.path,
+          coworker: _iris(),
+          mode: WaifuMode.plan,
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      waifuPlanStageVisible(
+        WaifuSession(folderRoot: root.path, coworker: _iris()),
+      ),
+      isFalse,
+    );
+
+    final free = WaifuSession(
+      folderRoot: root.path,
+      coworker: _iris(),
+      mode: WaifuMode.plan,
+    );
+    expect(
+      await waifuTrySetMode(session: free, next: WaifuMode.build),
+      WaifuModeApply.applied,
+    );
+    expect(free.mode, WaifuMode.build);
+
+    final rel = '.waifu/plans/empty-email.md';
+    await File(p.join(root.path, rel)).create(recursive: true);
+    await File(p.join(root.path, rel)).writeAsString(_planMd);
+    final draft = WaifuSession(
+      folderRoot: root.path,
+      coworker: _iris(),
+      mode: WaifuMode.plan,
+      activePlanPath: rel,
+    );
+    expect(waifuPlanStageVisible(draft), isTrue);
+    expect(
+      await waifuTrySetMode(session: draft, next: WaifuMode.build),
+      WaifuModeApply.blockedDraft,
+    );
+    expect(draft.mode, WaifuMode.plan);
+    expect(kWaifuPlanBuildGateCue.toLowerCase(), contains('accept'));
+
+    await waifuAcceptPlan(session: draft, todos: WaifuTodos());
+    expect(draft.mode, WaifuMode.build);
+    expect(
+      await waifuTrySetMode(session: draft, next: WaifuMode.plan),
+      WaifuModeApply.applied,
+    );
+    expect(
+      await waifuTrySetMode(session: draft, next: WaifuMode.build),
+      WaifuModeApply.applied,
+    );
+    expect(draft.mode, WaifuMode.build);
+  });
+
   test('slash Plan blurb does not claim she asks before writes', () {
     final plan = kWaifuSlashCommands.firstWhere((c) => c.name == 'plan');
     expect(plan.blurb.toLowerCase(), isNot(contains('asks before writes')));

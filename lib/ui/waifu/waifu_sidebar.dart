@@ -27,7 +27,6 @@ import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_context_bar.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mcp_opt_in.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mode_bar.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_plan_panel.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_skills_panel.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_todo_list.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
@@ -155,24 +154,6 @@ class WaifuSidebar extends StatelessWidget {
                       onChanged: onMode,
                       preserveThinking: session.preserveThinking,
                       onPreserveThinking: onPreserveThinking,
-                    ),
-                  ),
-                  const SizedBox(height: SidebarTokens.sectionGap),
-                  PorchAccordion(
-                    id: 'waifu_plan',
-                    emoji: '📋',
-                    title: 'Plan',
-                    subtitle: session.activePlanPath == null
-                        ? session.mode.name
-                        : session.activePlanPath!,
-                    accent: amber,
-                    initiallyExpanded:
-                        session.mode == WaifuMode.plan ||
-                        session.activePlanPath != null,
-                    child: WaifuPlanPanel(
-                      session: session,
-                      harness: harness,
-                      onChanged: onSkillsChanged,
                     ),
                   ),
                   const SizedBox(height: SidebarTokens.sectionGap),
