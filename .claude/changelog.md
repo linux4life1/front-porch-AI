@@ -1,3 +1,19 @@
+## 2026-09-08 — fix(realism): OpenRouter judges use json_schema, not forced tools
+- **Why:** #230 (e00fb2ba) salvaged call-less prose and added
+  `require_parameters` on forced `tool_choice`. Live OR still froze bond/trust
+  (Needs kept ambient decay). Forced tools are the wrong primitive: several
+  providers advertise `tools` then ignore `tool_choice`, thinking models burn
+  the 512-token judge budget, overlay `onChunk` streamed `tool_choice:auto`
+  (so #230's non-stream routing never ran), and `reasoning` +
+  `require_parameters` routed only to thinking endpoints.
+- **What:** Named evals on openrouter.ai send `response_format: json_schema`
+  (strict schema from the selected tool, no tools/reasoning/samplers,
+  `require_parameters` for structured outputs, 4000-token floor). 404/unusable
+  JSON falls back to the existing tools door. Nano-GPT / oMLX / LM Studio /
+  Journal stay on tools. Salvage JSON from `reasoning_content` and mixed
+  prose. Named judges stay on the buffered POST.
+- **Commit:** (this tip)
+
 ## 2026-09-07 — test(chat): harden picker-hold Drift isolate tearDown
 - **Why:** CI @ 767b3bc6 unit failed `session_picker_overlay_hold_test`
   (picker hold stays up when setActive loads another card's tail) with Drift

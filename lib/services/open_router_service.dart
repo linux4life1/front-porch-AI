@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -24,6 +25,7 @@ import 'package:front_porch_ai/services/llm_tool_parsing.dart';
 import 'package:front_porch_ai/services/openai_completions_fallback.dart';
 import 'package:front_porch_ai/services/openai_tool_payload.dart';
 import 'package:front_porch_ai/services/openai_tool_stream.dart';
+import 'package:front_porch_ai/services/openrouter_structured_eval.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
@@ -398,11 +400,12 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         // the user never agreed to. One rejection per model is the whole cost.
         if (reasoningCannotDisable(modelName)) {
           reasoning.remove('enabled');
-          // Evals need the think channel: Kimi 2.6:thinking puts the JSON
-          // there, and exclude:true leaves content as a newline after a
-          // long think (2026-08-15). Chat Continue still excludes.
-          if (params.salvageReasoning) reasoning.remove('exclude');
         }
+        // Evals need the think channel whenever the provider still thinks:
+        // exclude:true leaves content empty after a long think (Kimi 2.6,
+        // 2026-08-15; Grok/Gemini/DeepSeek on OpenRouter, 2026-09). Chat
+        // Continue still excludes.
+        if (params.salvageReasoning) reasoning.remove('exclude');
       }
       payload['reasoning'] = reasoning;
     }
@@ -456,6 +459,80 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     'X-Title': 'Front Porch AI',
   };
 
+  /// OpenRouter named evals: `response_format` json_schema first, then tools.
+  @override
+  Future<LlmToolResponse?> generateStructuredJson(
+    GenerationParams params,
+    List<Map<String, dynamic>> tools,
+  ) async {
+    final toolName = params.toolChoice;
+    final schema = openRouterEvalJsonSchema(tools: tools, toolChoice: toolName);
+    if (!isOpenRouterApiUrl(_apiUrl) || schema == null || toolName == null) {
+      return generateWithTools(params, tools);
+    }
+    if (!isReady) return null;
+    final client = httpClientFactory?.call() ?? http.Client();
+    _activeClients.add(client);
+    try {
+      final payload = applyOpenRouterStructuredEvalRouting(
+        _chatPayload(
+          GenerationParams(
+            prompt: params.prompt,
+            maxLength: params.maxLength,
+            temperature: params.temperature,
+            topP: params.topP,
+            repeatPenalty: 1.0,
+            reasoningEnabled: false,
+            salvageReasoning: true,
+            stopSequences: params.stopSequences ?? const [],
+            toolChoice: toolName,
+            backendIdentity: params.backendIdentity,
+          ),
+          stream: false,
+        ),
+        jsonSchema: schema,
+        mandatoryReasoning: reasoningCannotDisable(modelName),
+      );
+      final response = await client.post(
+        Uri.parse('$_apiUrl/chat/completions'),
+        headers: _chatHeaders,
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode == 429 || response.statusCode >= 500) {
+        throw LlmToolTransportException(
+          'structured eval HTTP ${response.statusCode} '
+          '(server busy/unavailable)',
+        );
+      }
+      if (response.statusCode != 200) {
+        debugPrint(
+          '[RemoteAPI] Structured eval rejected '
+          '(HTTP ${response.statusCode}) — falling back to tools',
+        );
+        return await generateWithTools(params, tools);
+      }
+      final parsed = parseOpenAiToolResponse(response.body);
+      if (parsed != null && parsed.calls.isNotEmpty) return parsed;
+      final fromSchema = toolResponseFromStructuredEvalContent(
+        content: parsed?.text,
+        reasoning: parsed?.reasoning,
+        toolName: toolName,
+      );
+      if (fromSchema != null) return fromSchema;
+      debugPrint(
+        '[RemoteAPI] Structured eval returned unusable JSON — '
+        'falling back to tools',
+      );
+      return await generateWithTools(params, tools);
+    } catch (e) {
+      debugPrint('[RemoteAPI] Structured eval transport failure: $e');
+      rethrow;
+    } finally {
+      _activeClients.remove(client);
+      client.close();
+    }
+  }
+
   /// OpenAI tools: null = unusable; throw = transport failure.
   @override
   Future<LlmToolResponse?> generateWithTools(
@@ -489,12 +566,14 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
           ? '$backendName|$_modelName|'
           : params.backendIdentity;
       final payload = _chatPayload(params, stream: false);
-      final host = Uri.tryParse(_apiUrl)?.host.toLowerCase();
-      if (host == 'openrouter.ai' || host?.endsWith('.openrouter.ai') == true) {
+      if (isOpenRouterApiUrl(_apiUrl)) {
         payload
           ..remove('repetition_penalty')
           ..remove('min_p')
           ..remove('top_k')
+          // `reasoning` + `require_parameters` only routes to thinking
+          // endpoints — the same class that ignores forced tool_choice.
+          ..remove('reasoning')
           ..['provider'] = {'require_parameters': true};
       }
       final response = await attachToolsWithStyleRetry(

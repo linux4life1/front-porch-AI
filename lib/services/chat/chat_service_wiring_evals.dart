@@ -555,12 +555,16 @@ extension ChatServiceWiringEvals on ChatService {
                 resp.calls.fold(0, (a, c) => a + c.arguments.length * 16),
       ms: trafficWatch.elapsedMilliseconds,
     );
-    final timeout = spec.maxLength <= kScalarToolMaxTokens
-        ? kEvalStreamChunkTimeout
-        : kEvalToolCallTimeout;
+    final named = spec.toolChoice != null && spec.toolChoice!.isNotEmpty;
+    // Named judges use the whole-call deadline: OpenRouter thinking
+    // endpoints regularly exceed the 180s between-chunk guard that 512-token
+    // scalar tools used to share.
+    final timeout = named || spec.maxLength > kScalarToolMaxTokens
+        ? kEvalToolCallTimeout
+        : kEvalStreamChunkTimeout;
     try {
       final resp = await service
-          .generateWithTools(
+          .generateStructuredJson(
             GenerationParams(
               prompt: spec.prompt,
               maxLength: spec.maxLength,
@@ -582,7 +586,10 @@ extension ChatServiceWiringEvals on ChatService {
               salvageReasoning: true,
               stopSequences: const [],
               toolChoice: spec.toolChoice,
-              onChunk: spec.onChunk,
+              // Named evals stay on the buffered POST. Forwarding overlay
+              // onChunk made generateWithTools stream with tool_choice:auto,
+              // which is how #230's OpenRouter routing never ran live.
+              onChunk: named ? null : spec.onChunk,
               backendIdentity: _evalBackendIdentity,
               stillWantTools: () =>
                   _toolProbe.shouldPostAfterIdle(_evalBackendIdentity),
