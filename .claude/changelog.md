@@ -9,7 +9,7 @@
   Conflict files: `waifu_chat_shell_test.dart`,
   `waifu_plan_panel_test.dart`, changelog (docs only on earlier
   picks). Existing Guard tests were re-resolved; CoS label stays.
-- **Commit:** 69b30491
+- **Commit:** 8308325b
 
 ## 2026-09-08 — fix(waifu): Plan panel _run clears busy after throw
 - **Why:** Senior Dev residual on #239. Accept/Revise/Discard now
@@ -18,7 +18,7 @@
 - **What:** `try/finally` clears `_busy` when still mounted. Flash/ok
   only on success. Did not widen `send()` (pre-gen I/O still sits
   after `running=true`, outside that try).
-- **Commit:** 69b30491
+- **Commit:** cd9bcd49
 
 ## 2026-09-08 — fix(waifu): unit CI hang after Plan P0 + mid-stream thoughts
 - **Why:** After #236, `Tests (unit + integration)` was deterministically
@@ -200,7 +200,7 @@
 - **What:** Persist/restore `tokensUsed` and `themeOverrides` next to
   `activePlanPath`. WaifuSession owns ChatThemeOverrides; UI Settings and
   `WaifuTranscript` pass them so Sakura paints after the Plan extract.
-- **Commit:** 69b30491
+- **Commit:** edcce19f
 
 ## 2026-09-07 — test(chat): harden picker-hold Drift isolate tearDown
 - **Why:** CI @ 767b3bc6 unit failed `session_picker_overlay_hold_test`
