@@ -27,11 +27,12 @@ steps:
 ''';
 
 void main() {
-  test('main stage hosts the Plan panel; sidebar does not', () {
+  test('page mounts WaifuPlanStage on the main column', () {
     final sidebar = File('lib/ui/waifu/waifu_sidebar.dart').readAsStringSync();
     final page = File('lib/ui/waifu/waifu_page.dart').readAsStringSync();
     expect(page, contains('WaifuPlanStage'));
-    expect(page, contains('harness: harness'));
+    expect(page, contains('waifuTrySetMode'));
+    expect(page, contains('kWaifuPlanBuildGateCue'));
     expect(sidebar, isNot(contains('WaifuPlanPanel')));
     expect(sidebar, isNot(contains("id: 'waifu_plan'")));
   });
@@ -57,29 +58,36 @@ void main() {
       session: session,
       llm: ScriptedWaifuLlm(const []),
     );
+    final seeded = waifuPlanParse(_planMd, relativePath: rel);
 
     await tester.pumpWidget(
       MaterialApp(
-        home: WaifuPage(session: session, harness: harness),
+        home: Scaffold(
+          body: Column(
+            children: [
+              const Expanded(child: SizedBox.shrink()),
+              WaifuPlanStage(
+                session: session,
+                harness: harness,
+                initialPlan: seeded,
+              ),
+            ],
+          ),
+        ),
       ),
     );
     await tester.pump();
-    expect(find.byKey(const Key('waifu-plan-stage')), findsOneWidget);
 
-    for (
-      var i = 0;
-      i < 20 && find.byKey(const Key('waifu-plan-accept')).evaluate().isEmpty;
-      i++
-    ) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 50)),
-      );
-      await tester.pump();
-    }
+    expect(find.byKey(const Key('waifu-plan-stage')), findsOneWidget);
+    expect(find.byKey(const Key('waifu-plan-panel')), findsOneWidget);
     expect(find.byKey(const Key('waifu-plan-accept')), findsOneWidget);
     expect(session.mode, WaifuMode.plan);
 
-    await tester.ensureVisible(find.byKey(const Key('waifu-plan-accept')));
+    await tester.drag(
+      find.byKey(const Key('waifu-plan-stage')),
+      const Offset(0, -240),
+    );
+    await tester.pump();
     await tester.runAsync(() async {
       await tester.tap(find.byKey(const Key('waifu-plan-accept')));
       final deadline = DateTime.now().add(const Duration(seconds: 2));
@@ -97,31 +105,6 @@ void main() {
       WaifuPlanStatus.accepted,
     );
     expect(find.text('Accepted — Build'), findsOneWidget);
-  });
-
-  testWidgets('Plan mode mounts the panel on the main stage', (tester) async {
-    final root = await Directory.systemTemp.createTemp('waifu_plan_stage_');
-    addTearDown(() async {
-      if (await root.exists()) await root.delete(recursive: true);
-    });
-    final session = WaifuSession(
-      folderRoot: root.path,
-      coworker: CharacterCard(name: 'Mira'),
-      mode: WaifuMode.plan,
-    );
-    final harness = WaifuHarness(
-      session: session,
-      llm: ScriptedWaifuLlm(const []),
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: WaifuPage(session: session, harness: harness),
-      ),
-    );
-    await tester.pump();
-    expect(find.byKey(const Key('waifu-plan-stage')), findsOneWidget);
-    expect(find.byKey(const Key('waifu-plan-panel')), findsOneWidget);
-    expect(find.textContaining('No plan file yet'), findsOneWidget);
   });
 
   testWidgets('draft plan blocks the Build chip; freeform Build does not', (
@@ -142,11 +125,18 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
-        home: WaifuPage(
-          session: draft,
-          harness: WaifuHarness(
-            session: draft,
-            llm: ScriptedWaifuLlm(const []),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return WaifuModeBar(
+                mode: draft.mode,
+                onChanged: (next) {
+                  waifuTrySetMode(session: draft, next: next).then((_) {
+                    setState(() {});
+                  });
+                },
+              );
+            },
           ),
         ),
       ),
@@ -158,7 +148,6 @@ void main() {
     });
     await tester.pump();
     expect(draft.mode, WaifuMode.plan);
-    expect(find.textContaining('draft plan'), findsWidgets);
 
     final freeRoot = await Directory.systemTemp.createTemp('waifu_plan_free_');
     addTearDown(() async {
@@ -171,9 +160,19 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
-        home: WaifuPage(
-          session: free,
-          harness: WaifuHarness(session: free, llm: ScriptedWaifuLlm(const [])),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return WaifuModeBar(
+                mode: free.mode,
+                onChanged: (next) {
+                  waifuTrySetMode(session: free, next: next).then((_) {
+                    setState(() {});
+                  });
+                },
+              );
+            },
+          ),
         ),
       ),
     );

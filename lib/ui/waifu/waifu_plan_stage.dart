@@ -29,11 +29,13 @@ class WaifuPlanStage extends StatelessWidget {
     required this.session,
     this.harness,
     this.onChanged,
+    this.initialPlan,
   });
 
   final WaifuSession session;
   final WaifuHarness? harness;
   final VoidCallback? onChanged;
+  final WaifuPlan? initialPlan;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +57,7 @@ class WaifuPlanStage extends StatelessWidget {
             session: session,
             harness: harness,
             onChanged: onChanged,
+            initialPlan: initialPlan,
           ),
         ),
       ),
