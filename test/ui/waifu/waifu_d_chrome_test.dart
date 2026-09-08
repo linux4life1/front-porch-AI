@@ -76,10 +76,15 @@ void main() {
     expect(find.textContaining('**'), findsNothing);
     final rich = tester.widget<Text>(find.byKey(const Key('waifu-honesty-body')));
     final span = rich.textSpan;
-    expect(span, isNotNull);
-    final children = span!.children!.cast<TextSpan>();
-    expect(children.first.style?.fontWeight, FontWeight.w800);
-    expect(children.first.text, 'Folder jail is the safer default.');
+    expect(span, isA<TextSpan>());
+    final root = span! as TextSpan;
+    expect(root.children, isNotNull);
+    expect(root.children, isNotEmpty);
+    final first = root.children!.first;
+    expect(first, isA<TextSpan>());
+    final bold = first as TextSpan;
+    expect(bold.style?.fontWeight, FontWeight.w800);
+    expect(bold.text, 'Folder jail is the safer default.');
   });
 
   testWidgets('multi-file turn receipt lists every touched path plus verify', (

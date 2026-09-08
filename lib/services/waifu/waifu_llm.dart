@@ -110,6 +110,12 @@ class LlmServiceWaifuLlm implements WaifuLlm {
 
   @override
   void abort() => _serviceOf().abortGeneration();
+
+  /// Production wrap has no probe of its own. Session / ChatService stamp
+  /// the fail-closed verdict; this door stays open unless a test injects
+  /// [ScriptedWaifuLlm] with `toolsSupported: false`.
+  @override
+  bool get toolsSupported => true;
 }
 
 /// Deterministic LLM for harness tests and widget pumps.
