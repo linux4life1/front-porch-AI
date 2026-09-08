@@ -5,9 +5,10 @@
   missed mid-stream text because `send()` awaited `_refreshPlanBlock()`
   before recording the user line / `running`.
 - **What:** Record user message + `running` before any await. Accept
-  buttons use `unawaited(_run(…))`. Widget test drives
-  `acceptActivePlan(editedBody:)` inside `runAsync` (no tap). Sync-prefix
-  + encode/parse pins. Existing tests under Guard were edited.
+  buttons use `unawaited(_run(…))`. Accept product pin is a plain
+  `test()` (FakeAsync + dart:io still hung even inside `runAsync`).
+  Widget test only mounts the button. Sync-prefix + encode/parse pins.
+  Existing tests under Guard were edited.
 - **Commit:** (this tip)
 
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
