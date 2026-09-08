@@ -27,7 +27,7 @@
   recap case pumped the step as bare `MaterialApp.home`.
 - **What:** Wrap the sit-down step in `Scaffold` like the other
   d_chrome leaf pumps and the real wizard. Product chips unchanged.
-- **Commit:** (this commit)
+- **Commit:** 22f6f8ed
 
 ## 2026-09-08 — fix(waifu): sit-down honesty key is below the ListView fold
 - **Why:** `waifu_d_chrome_test` sit-down recap case expected
