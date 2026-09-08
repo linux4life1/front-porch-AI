@@ -166,7 +166,11 @@ void main() {
     expect(find.byKey(const Key('waifu-sit-down-mode')), findsOneWidget);
     expect(find.byKey(const Key('waifu-sit-down-scope')), findsOneWidget);
     expect(find.text('Jail'), findsOneWidget);
-    expect(find.byKey(const Key('waifu-honesty-body')), findsOneWidget);
+    // Sit-down is a lazy ListView; honesty lives below the fold (same as
+    // waifu_wizard_test scrolling to the checkbox / confirm).
+    final honesty = find.byKey(const Key('waifu-honesty-body'));
+    await tester.scrollUntilVisible(honesty, 300);
+    expect(honesty, findsOneWidget);
     expect(find.textContaining('**'), findsNothing);
   });
 }

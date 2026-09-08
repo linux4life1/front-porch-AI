@@ -20,6 +20,16 @@
   Conflict files: none (changelog + `docs/Rawhide.md` auto-merged).
   No Guard-protected existing tests were edited.
 - **Commit:** (this tip)
+## 2026-09-08 — fix(waifu): sit-down honesty key is below the ListView fold
+- **Why:** `waifu_d_chrome_test` sit-down recap case expected
+  `waifu-honesty-body` at pump and found 0. Product already uses
+  `WaifuHonestyText` on the live sit-down path; the step is a lazy
+  `ListView`, so the body is not built until you scroll (wizard tests
+  already scroll to the checkbox).
+- **What:** Scroll to the honesty key before asserting — pins the real
+  chrome, not a second widget.
+- **Commit:** (this commit)
+
 ## 2026-09-08 — fix(waifu): Epic D analyze — LlmServiceWaifuLlm + TextSpan
 - **Why:** CI `changed Dart files` analyze red on `c15698c0`.
   `implements WaifuLlm` does not inherit the default
