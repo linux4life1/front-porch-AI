@@ -12,7 +12,7 @@
   `onChunk` is forwarded again. json_schema stays primary for named OR judges
   and can stream when the overlay is live. Nano / oMLX / LM Studio unchanged
   aside from now forcing the named tool on the stream path too.
-- **Commit:** (this tip)
+- **Commit:** 2877dd72
 
 ## 2026-09-08 — fix(realism): OpenRouter judges use json_schema, not forced tools
 - **Why:** #230 (e00fb2ba) salvaged call-less prose and added
