@@ -10,7 +10,7 @@
   Conflict files: `waifu_harness.dart`, `waifu_harness_turn.dart`,
   `waifu_turn_contract.dart`. Changelog / Rawhide.md auto-merged.
   No existing Guard tests were edited in the rebase.
-- **Commit:** (this tip)
+- **Commit:** 9cc3264e
 
 ## 2026-09-08 — rebase(waifu): Epic B onto #239 Rawhide tip
 - **Why:** #239 squash-merged as `cd9bcd49`. PR #237 could not
