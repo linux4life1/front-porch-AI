@@ -19,6 +19,7 @@ import {
   type GenSettings,
 } from '../components/GenerationSettingsFields';
 import { VoiceMediaSettings } from '../components/VoiceMediaSettings';
+import { urlHasStoredApiKey } from '../remoteApiKeys';
 
 // A single backend picker (replacing the old Backend + Provider dropdowns,
 // which overlapped). Each entry maps to a real BackendType; the OpenAI-compatible
@@ -51,6 +52,7 @@ interface Settings {
   remoteApiUrl: string;
   remoteModelName: string;
   hasApiKey: boolean;
+  remoteApiUrlsWithKeys?: string[];
   remoteConfigured?: boolean;
   remoteReachability?: 'unknown' | 'checking' | 'reachable' | 'unreachable';
   contextSize: number;
@@ -245,6 +247,7 @@ export function SettingsPage() {
     const next: Partial<Settings> = { backend: opt.backend };
     if (id === 'custom') next.remoteApiUrl = '';
     else if (opt.url) next.remoteApiUrl = opt.url;
+    setApiKey('');
     patch(next);
   };
 
@@ -382,7 +385,11 @@ export function SettingsPage() {
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={s.hasApiKey ? '•••••• (leave blank to keep)' : 'paste your API key'}
+                  placeholder={
+                    urlHasStoredApiKey(s.remoteApiUrl, s.remoteApiUrlsWithKeys)
+                      ? '•••••• (leave blank to keep)'
+                      : 'paste your API key'
+                  }
                 />
               </label>
             )}

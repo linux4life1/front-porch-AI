@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🔑 **OpenRouter and Nano-GPT keep their own API keys** — switching the Backend chips restores that host's key (or leaves the box empty). Check Connection can no longer go green on the other provider's leftover key while a story fails with a missing auth header.
+
 - 🧭 **Waifu Coder chrome tells the truth at a glance** — Plan/Build/Yolo and Jail vs Disk stay in the top bar with the folder path, honesty copy no longer shows raw `**`, a turn that touches several files lists all of them (and what they verified), and a backend that cannot call tools is blocked instead of pretending they can code.
 
 - 📋 **Waifu Coder Plan mode now writes a real plan** — in Plan they explore, then save a markdown plan under `.waifu/plans/` (a turn without that file is not done). The Plan panel sits on the main stage: Accept → Build (steps become todos), Revise, or Discard. A draft plan will not silently flip to Build — Accept it, or stay in Plan. They still cannot change project source until you accept. Personality stays the card’s.

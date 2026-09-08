@@ -1,3 +1,21 @@
+## 2026-09-08 — fix(backend): per-host OpenRouter / Nano-GPT API keys
+- **Why:** Switching Settings → Backend chips between OpenRouter and
+  Nano-GPT left the shared `remote_api_key` in the field. Check
+  Connection hits public `GET /models` with that leftover key and went
+  green; live chat/completions used an empty or wrong Bearer and failed
+  with a missing authentication header. Re-pasting the key was the
+  workaround.
+- **What:** Store keys per normalized API URL. Switching the URL
+  restores that host's key (or empty). Check Connection, the live
+  OpenRouterService, and generate headers share `remoteAuthHeaders`.
+  Web preview uses `remoteApiKeyFor(url)` so Test connection cannot
+  ride the other host's key. Desktop chip switch updates the key field.
+- **Files:** `remote_api_key_vault.dart`, `backend_settings.dart`,
+  `remote_reachability.dart`, `open_router_service.dart`,
+  `remote_api_section.dart`, `backend_facade.dart`, `settings_facade.dart`,
+  `SettingsPage.tsx`, `remoteApiKeys.ts`,
+  `remote_api_key_switch_test.dart`, `docs/Rawhide.md`
+
 ## 2026-09-08 — style: dart fix braces / unused import / cacheExtent
 - **Why:** `dart fix --dry-run` reported 8 infos (curly braces from
   tall-style wraps, unused `dart:typed_data`, deprecated ListView

@@ -210,10 +210,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       final uri = Uri.parse('$url/models');
       debugPrint('[OpenRouter] Fetching models from: $uri');
       final response = await client
-          .get(
-            uri,
-            headers: {if (key.isNotEmpty) 'Authorization': 'Bearer $key'},
-          )
+          .get(uri, headers: remoteAuthHeaders(key))
           .timeout(const Duration(seconds: 15));
 
       debugPrint('[OpenRouter] Response status: ${response.statusCode}');
@@ -451,12 +448,16 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   }
 
   /// Shared identification/auth headers for both request paths.
+  /// Auth is [remoteAuthHeaders] — the same map Check Connection sends.
   Map<String, String> get _chatHeaders => {
     'Content-Type': 'application/json',
-    'Authorization': 'Bearer $_apiKey',
+    ...remoteAuthHeaders(_apiKey),
     'HTTP-Referer': 'https://github.com/linux4life1/front-porch-AI',
     'X-Title': 'Front Porch AI',
   };
+
+  /// Test seam: the exact headers [generateStream] puts on chat/completions.
+  Map<String, String> get chatRequestHeaders => _chatHeaders;
 
   /// OpenRouter named evals: `response_format` json_schema first, then tools.
   Future<LlmToolResponse?> generateStructuredJson(
@@ -679,7 +680,8 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     request.headers.addAll(_chatHeaders);
     request.body = jsonEncode(_chatPayload(params, stream: true));
 
-    final client = http.Client();
+    final client = httpClientFactory?.call() ?? http.Client();
+    final owned = httpClientFactory == null;
     _activeClients.add(client);
     // Only wrap reasoning in <think> tags when the app explicitly requested it.
     // Some models (e.g. Qwen on LM Studio) send the entire response as
@@ -877,7 +879,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       if (tail.isNotEmpty) yield tail;
     } finally {
       _activeClients.remove(client);
-      client.close();
+      if (owned) client.close();
     }
   }
 

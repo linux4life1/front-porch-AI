@@ -54,11 +54,12 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
 
   Future<void> _selectPreset(String label, String url) async {
     final storageService = Provider.of<StorageService>(context, listen: false);
-    // Always preserve the API key in storage — just change the URL. LM Studio
-    // won't use an API key since it's local, and when we switch back to
-    // Nano-GPT/OpenRouter the key will still be there.
-    storageService.setRemoteApiUrl(url);
+    // Per-host key: stash the current URL's key and restore this host's
+    // (or empty). Sharing one key made Check Connection look filled while
+    // generate hit Nano-GPT without that host's Authorization header.
+    await storageService.setRemoteApiUrl(url);
     widget.apiUrlController.text = url;
+    widget.apiKeyController.text = storageService.remoteApiKey;
 
     // setRemoteApiUrl above already triggered LLMProvider's storage sync,
     // which applies the live config per active backend; the picker fetch
