@@ -64,27 +64,32 @@ bool waifuReadVerifiesMutate(String readPath, Iterable<String> mutated) {
 
 /// Test/analyze class only. `echo`, `ls`, and `test -f` are not verify.
 /// Every `&&` / `||` / `;` segment is scanned so `cd pkg && flutter test`
-/// receipts. `--help` / `-h` / dry-run flags are theater, not verify.
+/// receipts. `--help` / `-h` / dry-run anywhere in the command (or any
+/// segment) fails the whole receipt — a later clean segment is not an
+/// escape (`flutter test --help || flutter test`).
 bool waifuLooksVerifyCommand(String command) {
-  for (final segment in command.trim().toLowerCase().split(
-    RegExp(r'(?:&&|\|\||[;|\n])'),
-  )) {
-    final words = segment
-        .replaceAll(RegExp(r'''["'`(){}\[\],;|&<>]'''), ' ')
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .toList();
+  final lowered = command.trim().toLowerCase();
+  final segments = lowered.split(RegExp(r'(?:&&|\|\||[;|\n])'));
+  List<String> wordsOf(String raw) => raw
+      .replaceAll(RegExp(r'''["'`(){}\[\],;|&<>]'''), ' ')
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .toList();
+  bool theater(List<String> words) => words.any((w) {
+    if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
+    return w == '--dry-run' ||
+        w == '--dryrun' ||
+        w == '--dry_run' ||
+        w.startsWith('--dry-run') ||
+        w.startsWith('--dryrun');
+  });
+  if (theater(wordsOf(lowered))) return false;
+  for (final segment in segments) {
+    if (theater(wordsOf(segment))) return false;
+  }
+  for (final segment in segments) {
+    final words = wordsOf(segment);
     if (words.isEmpty) continue;
-    if (words.any((w) {
-      if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
-      return w == '--dry-run' ||
-          w == '--dryrun' ||
-          w == '--dry_run' ||
-          w.startsWith('--dry-run') ||
-          w.startsWith('--dryrun');
-    })) {
-      continue;
-    }
     var cmd = words.first;
     if (cmd.contains('/')) cmd = cmd.split('/').last;
     if (cmd == 'npx' && words.length > 1) {

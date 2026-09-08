@@ -18,6 +18,15 @@
   `test()` (FakeAsync + dart:io still hung even inside `runAsync`).
   Widget test only mounts the button. Sync-prefix + encode/parse pins.
   Existing tests under Guard were edited.
+## 2026-09-08 — fix(waifu): help/dry-run theater fails the whole verify command
+- **Why:** Hostile HOLD on #237 tip 197381d8. Any-segment verify meant
+  `flutter test --help || flutter test` receipted: help exits 0, the
+  shell never runs the real test.
+- **What:** Theater (`--help` / `-h` / dry-run) on the full command or
+  any segment fails the whole receipt. `cd pkg && flutter test` and
+  plain `flutter test` still verify.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(waifu): Epic B verify HOLDs (segments, todos, pre-read, help)
 - **Why:** Senior Dev + hostile HOLDs on #237 tip 5a063f4d. First
   `&&` segment only meant `cd pkg && flutter test` never receipted.

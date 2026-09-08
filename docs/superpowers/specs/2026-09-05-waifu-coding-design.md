@@ -232,7 +232,8 @@ Accept/done: re-`read` a touched path **after** the last project mutate (a
 pre-mutate read of the same path does not count; `absorbChild` follows the
 same rule), a project test/analyze bash command (hard-deny still applies;
 `cd pkg && flutter test` receipts because every `&&` / `||` / `;` segment
-is scanned; `--help` / `-h` / dry-run flags are theater), or an explicit
+is scanned; `--help` / `-h` / dry-run anywhere in the command fails the
+whole receipt — a later clean segment after `||` is not an escape), or an explicit
 verify result recorded on the turn. Plan-file writes under `.waifu/plans/`
 are not project mutates and do not require that verify. Nested workers
 record mutate/verify for the parent to absorb; only the root turn fails

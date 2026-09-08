@@ -91,6 +91,15 @@ void main() {
     expect(waifuLooksVerifyCommand('flutter test -h'), isFalse);
     expect(waifuLooksVerifyCommand('dart analyze --dry-run'), isFalse);
     expect(waifuLooksVerifyCommand('cd pkg && flutter test --help'), isFalse);
+    expect(
+      waifuLooksVerifyCommand('flutter test --help || flutter test'),
+      isFalse,
+    );
+    expect(
+      waifuLooksVerifyCommand('flutter test --dry-run || flutter test'),
+      isFalse,
+    );
+    expect(waifuLooksVerifyCommand('cd pkg && flutter test'), isTrue);
     expect(waifuLooksVerifyCommand('flutter test'), isTrue);
     expect(waifuLooksVerifyCommand('dart analyze'), isTrue);
     final help = afterWrite();
@@ -98,7 +107,7 @@ void main() {
       kWaifuToolBash,
       const WaifuToolResult(ok: true, output: 'Usage: flutter test'),
       writeOk('parser.dart').write,
-      args: {'command': 'flutter test --help'},
+      args: {'command': 'flutter test --help || flutter test'},
     );
     expectVerifyFail(help);
   });
