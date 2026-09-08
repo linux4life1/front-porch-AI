@@ -163,6 +163,7 @@ class WaifuHarness {
       session.lastWrite,
       mode: session.mode,
       exploreOnly: exploreOnly,
+      enforceVerify: depth == 0 && !exploreOnly,
     );
     // Record the send before any await. Plan-file I/O used to sit here
     // first (#236), so a kicked-off send left transcript empty and
@@ -301,7 +302,7 @@ class WaifuHarness {
         waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
       session.activePlanPath = result.write!.relativePath;
     }
-    _turn.noteResult(canon, result, session.lastWrite);
+    _turn.noteResult(canon, result, session.lastWrite, args: work);
     final detail = result.ok
         ? waifuChipDetail(canon, work)
         : waifuClipChipError(result.output);

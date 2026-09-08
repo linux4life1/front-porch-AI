@@ -326,32 +326,49 @@ void waifuSyncPlanTodos(WaifuTodos todos, WaifuPlan plan) {
   ]);
 }
 
+class WaifuPlanTodoSync {
+  const WaifuPlanTodoSync({this.wroteFile = false, this.blockedDone = false});
+
+  final bool wroteFile;
+  final bool blockedDone;
+}
+
 /// Build progress: write todo statuses back onto the accepted plan file.
-Future<bool> waifuSyncTodosOntoPlan({
+/// Completed/done stamps require [allowCompleted] (mutate+verify this turn).
+Future<WaifuPlanTodoSync> waifuSyncTodosOntoPlan({
   required WaifuSession session,
   required WaifuTodos todos,
+  bool allowCompleted = true,
 }) async {
-  if (session.mode != WaifuMode.build) return false;
+  if (session.mode != WaifuMode.build) return const WaifuPlanTodoSync();
   final path = session.activePlanPath?.trim();
-  if (path == null || path.isEmpty) return false;
+  if (path == null || path.isEmpty) return const WaifuPlanTodoSync();
   final plan = await waifuReadPlanFile(session.folderRoot, path);
-  if (plan == null || plan.status != WaifuPlanStatus.accepted) return false;
-  if (plan.steps.isEmpty) return false;
+  if (plan == null || plan.status != WaifuPlanStatus.accepted) {
+    return const WaifuPlanTodoSync();
+  }
+  if (plan.steps.isEmpty) return const WaifuPlanTodoSync();
   final byId = {for (final todo in todos.items) todo.id: todo.status};
   var changed = false;
+  var blockedDone = false;
   final steps = <WaifuPlanStep>[];
   for (final step in plan.steps) {
     final next = byId[step.id];
     if (next != null && next != step.status) {
+      if (waifuTodoStatusIsDone(next) && !allowCompleted) {
+        steps.add(step);
+        blockedDone = true;
+        continue;
+      }
       steps.add(step.copyWith(status: next));
       changed = true;
     } else {
       steps.add(step);
     }
   }
-  if (!changed) return false;
+  if (!changed) return WaifuPlanTodoSync(blockedDone: blockedDone);
   await waifuWritePlanFile(session.folderRoot, plan.copyWith(steps: steps));
-  return true;
+  return WaifuPlanTodoSync(wroteFile: true, blockedDone: blockedDone);
 }
 
 Future<WaifuPlan?> waifuAcceptPlan({
@@ -425,6 +442,10 @@ Future<String> waifuPlanPromptBlock({
       }
       if (step.verify.isNotEmpty) buf.writeln('  verify: ${step.verify}');
     }
+    buf.writeln(
+      'A pending step is not done until a project mutate and a verify '
+      '(re-read or test/analyze) land this turn.',
+    );
   }
   if (encoded.length <= 8000) {
     buf

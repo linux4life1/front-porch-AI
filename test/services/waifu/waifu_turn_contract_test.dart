@@ -60,6 +60,12 @@ void main() {
           text: '',
         ),
         const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(
           calls: [],
           text: 'Hmph. Your parser is fixed. Try to keep up. Obviously.',
         ),
@@ -76,8 +82,11 @@ void main() {
       final reply = session.transcript
           .where((message) => !message.isUser)
           .single;
-      expect(reply.chips.map((chip) => chip.name), [kWaifuToolApplyPatch]);
-      expect(reply.chips.single.ok, isTrue);
+      expect(reply.chips.map((chip) => chip.name), [
+        kWaifuToolApplyPatch,
+        kWaifuToolRead,
+      ]);
+      expect(reply.chips.every((chip) => chip.ok), isTrue);
       expect(reply.text, contains('Hmph.'));
       expect(reply.text, contains('Try to keep up.'));
       expect(reply.text, contains('Obviously.'));
@@ -142,6 +151,12 @@ void main() {
           ],
           text: '',
         ),
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'read', arguments: {'path': 'new.dart'}),
+          ],
+          text: '',
+        ),
         const LlmToolResponse(calls: [], text: 'Done.'),
         const LlmToolResponse(
           calls: [],
@@ -157,7 +172,7 @@ void main() {
       await WaifuHarness(session: session, llm: llm).send('create new.dart');
 
       expect(await File(p.join(root.path, 'new.dart')).exists(), isTrue);
-      expect(llm.calls, hasLength(3));
+      expect(llm.calls, hasLength(4));
       expect(llm.calls.last.tools, isEmpty);
       final reply = session.transcript
           .where((message) => !message.isUser)
@@ -185,6 +200,12 @@ void main() {
           ],
           text: 'Hmph. I am cleaning up your parser. Obviously.',
         ),
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
+          ],
+          text: '',
+        ),
         const LlmToolResponse(calls: [], text: ''),
       ]);
       final session = WaifuSession(
@@ -200,7 +221,7 @@ void main() {
           .where((message) => !message.isUser)
           .single;
       expect(reply.text, 'Hmph. I am cleaning up your parser. Obviously.');
-      expect(llm.calls, hasLength(2));
+      expect(llm.calls, hasLength(3));
     },
   );
 
@@ -233,5 +254,4 @@ void main() {
       expect(reply.text, isNot(contains('Consider it fixed')));
     },
   );
-
 }

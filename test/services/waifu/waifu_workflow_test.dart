@@ -40,9 +40,10 @@ void main() {
       if (await root.exists()) await root.delete(recursive: true);
     });
     final items = await waifuListWorkflows(root.path);
-    expect(items, isEmpty);
-    expect(waifuWorkflowListing(items), contains(kWaifuWorkflowDir));
-    expect(waifuWorkflowListing(items), contains('Not a Rhai'));
+    expect(items.map((i) => i.name), [kWaifuBuiltinRunPlanStep]);
+    expect(waifuWorkflowListing(items), contains(kWaifuBuiltinRunPlanStep));
+    expect(waifuWorkflowListing(const []), contains(kWaifuWorkflowDir));
+    expect(waifuWorkflowListing(const []), contains('Not a Rhai'));
   });
 
   test(

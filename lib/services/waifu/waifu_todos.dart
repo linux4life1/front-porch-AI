@@ -16,6 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+bool waifuTodoStatusIsDone(String status) {
+  switch (status.trim().toLowerCase()) {
+    case 'completed':
+    case 'complete':
+    case 'done':
+      return true;
+    default:
+      return false;
+  }
+}
+
 class WaifuTodo {
   WaifuTodo({required this.id, required this.content, this.status = 'pending'});
 

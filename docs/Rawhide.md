@@ -7,7 +7,9 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 📋 **Waifu Coder Plan mode now writes a real plan** — in Plan they explore, then save a markdown plan under `.waifu/plans/` (a turn without that file is not done). The Plan panel sits on the main stage: Accept → Build (steps become todos, and they mark those steps on the plan as they go), Revise, or Discard. A draft plan will not silently flip to Build — Accept it, or stay in Plan. They still cannot change project source until you accept. Personality stays the card’s.
+- 📋 **Waifu Coder Plan mode now writes a real plan** — in Plan they explore, then save a markdown plan under `.waifu/plans/` (a turn without that file is not done). The Plan panel sits on the main stage: Accept → Build (steps become todos), Revise, or Discard. A draft plan will not silently flip to Build — Accept it, or stay in Plan. They still cannot change project source until you accept. Personality stays the card’s.
+
+- ✅ **A patch is not “done” until they check it** — after they write, edit, or patch a project file in Build or Yolo, they must re-read that file or run a real test/analyze command before claiming the step finished. Same rule with or without a pinned plan. A plan step stays pending until both the change and that check land. Personality stays on the spoken line.
 
 - 📊 **Waifu Coder remembers how full the context bar is** — sit back down on a porch and the meter shows the last turn, not a fake 0. Old sessions still start at 0 until you send once.
 

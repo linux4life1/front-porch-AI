@@ -38,6 +38,12 @@ void main() {
         text: '<think>write the file</think>\nWrote a.txt.',
         reasoning: 'write the file',
       ),
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(name: 'read', arguments: {'path': 'a.txt'}),
+        ],
+        text: '',
+      ),
       const LlmToolResponse(calls: [], text: 'Hmph. Your scaffold is on disk.'),
     ]);
     final session = WaifuSession(
@@ -48,7 +54,7 @@ void main() {
     await WaifuHarness(session: session, llm: llm).send('scaffold');
     final spoken = session.transcript.where((m) => !m.isUser).toList();
     expect(spoken, hasLength(1));
-    expect(spoken.single.chips.map((c) => c.name), ['bash', 'write']);
+    expect(spoken.single.chips.map((c) => c.name), ['bash', 'write', 'read']);
     expect(spoken.single.text, 'Hmph. Your scaffold is on disk.');
     expect(spoken.single.reasoning, contains('write the file'));
     expect(spoken.single.reasoning, isNot(contains('look around')));

@@ -297,9 +297,8 @@ void main() {
 
     expect(session.activePlanPath, '.waifu/plans/empty-email.md');
     expect(
-      await File(
-        p.join(root.path, '.waifu', 'plans', 'empty-email.md'),
-      ).exists(),
+      await File(p.join(root.path, '.waifu', 'plans', 'empty-email.md'))
+          .exists(),
       isTrue,
     );
     final reply = session.transcript.where((m) => !m.isUser).single;
@@ -475,60 +474,72 @@ void main() {
     }
   });
 
-  test('Build todowrite writes step.status back onto the plan file', () async {
-    final rel = '.waifu/plans/empty-email.md';
-    await File(p.join(root.path, rel)).create(recursive: true);
-    await File(p.join(root.path, rel)).writeAsString(_planMd);
-    final session = WaifuSession(
-      folderRoot: root.path,
-      coworker: _iris(),
-      mode: WaifuMode.plan,
-      activePlanPath: rel,
-    );
-    final llm = ScriptedWaifuLlm([
-      const LlmToolResponse(
-        calls: [
-          LlmToolCall(
-            name: 'todowrite',
-            arguments: {
-              'todos': [
-                {
-                  'id': 's1',
-                  'content': 'Add failing test',
-                  'status': 'completed',
-                },
-                {'id': 's2', 'content': 'Fix the parser', 'status': 'pending'},
-              ],
-            },
-          ),
-        ],
-        text: '',
-      ),
-      const LlmToolResponse(
-        calls: [],
-        text: 'Hmph. Step one is done. Obviously.',
-      ),
-    ]);
-    final harness = WaifuHarness(session: session, llm: llm);
-    await harness.acceptActivePlan();
-    expect(session.mode, WaifuMode.build);
-    expect(
-      waifuPlanParse(
-        await File(p.join(root.path, rel)).readAsString(),
-      ).steps.first.status,
-      'pending',
-    );
+  test(
+    'Build todowrite completed without verify does not stamp the plan',
+    () async {
+      final rel = '.waifu/plans/empty-email.md';
+      await File(p.join(root.path, rel)).create(recursive: true);
+      await File(p.join(root.path, rel)).writeAsString(_planMd);
+      final session = WaifuSession(
+        folderRoot: root.path,
+        coworker: _iris(),
+        mode: WaifuMode.plan,
+        activePlanPath: rel,
+      );
+      final llm = ScriptedWaifuLlm([
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(
+              name: 'todowrite',
+              arguments: {
+                'todos': [
+                  {
+                    'id': 's1',
+                    'content': 'Add failing test',
+                    'status': 'completed',
+                  },
+                  {
+                    'id': 's2',
+                    'content': 'Fix the parser',
+                    'status': 'pending',
+                  },
+                ],
+              },
+            ),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(
+          calls: [],
+          text: 'Hmph. Step one is done. Obviously.',
+        ),
+      ]);
+      final harness = WaifuHarness(session: session, llm: llm);
+      await harness.acceptActivePlan();
+      expect(session.mode, WaifuMode.build);
+      expect(
+        waifuPlanParse(await File(p.join(root.path, rel)).readAsString())
+            .steps
+            .first
+            .status,
+        'pending',
+      );
 
-    await harness.send('mark the first plan step done');
-    final after = waifuPlanParse(
-      await File(p.join(root.path, rel)).readAsString(),
-    );
-    expect(after.status, WaifuPlanStatus.accepted);
-    expect(after.steps.map((s) => '${s.id}:${s.status}'), [
-      's1:completed',
-      's2:pending',
-    ]);
-  });
+      await harness.send('mark the first plan step done');
+      final after = waifuPlanParse(
+        await File(p.join(root.path, rel)).readAsString(),
+      );
+      expect(after.status, WaifuPlanStatus.accepted);
+      expect(after.steps.map((s) => '${s.id}:${s.status}'), [
+        's1:pending',
+        's2:pending',
+      ]);
+      expect(
+        session.toolChips.any((c) => c.name == kWaifuToolTodoWrite && !c.ok),
+        isTrue,
+      );
+    },
+  );
 
   test('draft plan blocks Build; freeform Build stays open', () async {
     expect(

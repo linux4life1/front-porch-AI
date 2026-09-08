@@ -26,6 +26,19 @@
   Mutating MCP was still hard-blocked (`mutationCalls == 0`).
 - **What:** Assert a failed `create_issue` chip and a successful
   `search_docs` chip without assuming exactly one chip.
+## 2026-09-08 — feat(waifu): Epic B verify-after-mutate + Build workflow
+- **Why:** Plan P0 (#236) left a P1 ship lock: Build/Yolo could
+  write/edit/apply_patch and Accept/done with no re-read or test.
+  Plan `todowrite` could stamp `step.status` completed the same way.
+- **What:** Turn contract requires a verify receipt after a successful
+  project mutate in Build/Yolo (freeform and accepted-plan share the
+  gate). Verify is re-read of a touched path, a test/analyze bash
+  command (hard-deny unchanged), or an explicit result on the turn.
+  Plan artifacts are exempt. Root turn fails closed; nested workers
+  absorb into the parent. `waifuSyncTodosOntoPlan` will not write
+  completed until mutate+verify land. Built-in `run-plan-step`
+  workflow is implement then verify. No Desk naming. No weak-GGUF
+  paths. Epic C/D untouched.
 - **Commit:** (this tip)
 
 ## 2026-09-08 — fix(waifu): main-stage Plan panel + soft Plan→Build gate

@@ -24,6 +24,8 @@ import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_subagent.dart';
+import 'package:front_porch_ai/services/waifu/waifu_turn_contract.dart';
+import 'package:front_porch_ai/services/waifu/waifu_workflow.dart';
 
 /// Short coding constitution. Card identity and author voice rules sit above.
 const kWaifuPreamble =
@@ -52,7 +54,8 @@ String waifuNestCue(int remainingTaskDepth) {
   return 'You may call task for a nested explore (read-only) or general '
       'worker. $remainingTaskDepth bounded task layer(s) remain. The root '
       'worker may call workflow for a JSON pipeline from '
-      '$kWaifuDotDir/workflows.';
+      '$kWaifuDotDir/workflows, or the built-in $kWaifuBuiltinRunPlanStep '
+      'pipeline.';
 }
 
 const kWaifuBuiltinsCue =
@@ -211,6 +214,7 @@ String waifuLoopUserPrompt({
       ..writeln(kWaifuLookupCue)
       ..writeln(waifuNestCue(taskDepthRemaining))
       ..writeln(kWaifuBuiltinsCue)
+      ..writeln(kWaifuBuildVerifyCue)
       ..writeln();
   }
   if (planBlock.trim().isNotEmpty) {

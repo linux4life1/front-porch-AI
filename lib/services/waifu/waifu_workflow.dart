@@ -30,6 +30,40 @@ const kWaifuWorkflowMaxParallel = 4;
 const kWaifuWorkflowMaxAgents = 12;
 const kWaifuWorkflowMaxBytes = 65536;
 
+const kWaifuBuiltinRunPlanStep = 'run-plan-step';
+const kWaifuBuiltinRunPlanStepDescription =
+    'Work the next pending accepted-plan step, then verify.';
+
+WaifuWorkflow waifuBuiltinRunPlanStepWorkflow() => const WaifuWorkflow(
+  name: kWaifuBuiltinRunPlanStep,
+  description: kWaifuBuiltinRunPlanStepDescription,
+  steps: [
+    WaifuWorkflowStep(
+      agents: [
+        WaifuWorkflowAgent(
+          subagent: 'general',
+          prompt:
+              'Execute the next pending step of the accepted plan. '
+              'Read the listed files, then put the change on disk with '
+              'write, edit, or apply_patch. Do not mark the step done yet.',
+        ),
+      ],
+    ),
+    WaifuWorkflowStep(
+      agents: [
+        WaifuWorkflowAgent(
+          subagent: 'general',
+          prompt:
+              'Verify the change from {{prev}}. Re-read every touched path '
+              'or run the step verify command (flutter test, dart analyze, '
+              'or the command written on the step). Bash stays hard-deny '
+              'protected. Do not claim the step done without that receipt.',
+        ),
+      ],
+    ),
+  ],
+);
+
 /// JSON pipelines, not Grok's Rhai dialect.
 final kWaifuWorkflowToolSchema = <String, dynamic>{
   'type': 'function',
@@ -264,8 +298,13 @@ List<Directory> waifuWorkflowDirectories(String folderRoot) => [
 ];
 
 Future<List<WaifuWorkflowInfo>> waifuListWorkflows(String folderRoot) async {
-  final seen = <String>{};
-  final out = <WaifuWorkflowInfo>[];
+  final seen = <String>{kWaifuBuiltinRunPlanStep};
+  final out = <WaifuWorkflowInfo>[
+    const WaifuWorkflowInfo(
+      name: kWaifuBuiltinRunPlanStep,
+      description: kWaifuBuiltinRunPlanStepDescription,
+    ),
+  ];
   for (final dir in waifuWorkflowDirectories(folderRoot)) {
     if (!await dir.exists()) continue;
     await for (final e in dir.list()) {
@@ -295,6 +334,9 @@ Future<WaifuWorkflowParse> waifuLoadWorkflow(
   final stem = name.trim().toLowerCase().replaceAll(RegExp(r'\.json$'), '');
   final rhai = waifuWorkflowRhaiReject(name, null);
   if (rhai != null) return WaifuWorkflowParse.fail(rhai);
+  if (stem == kWaifuBuiltinRunPlanStep) {
+    return WaifuWorkflowParse.ok(waifuBuiltinRunPlanStepWorkflow());
+  }
   if (!waifuWorkflowNameOk(stem)) {
     return const WaifuWorkflowParse.fail('workflow: bad name');
   }

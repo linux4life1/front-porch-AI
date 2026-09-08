@@ -70,6 +70,7 @@ extension _WaifuHarnessSpawn on WaifuHarness {
     if (child.session.lastWrite != null) {
       session.lastWrite = child.session.lastWrite;
     }
+    _turn.absorbChild(child._turn);
     return _childSpeech(child);
   }
 

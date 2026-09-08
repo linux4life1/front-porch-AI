@@ -226,9 +226,19 @@ That is the whole “waifu” layer. If the harness is solid, this is enough. If
 **Work + voice completion contract:** a request that clearly asks for a code/file
 change is not complete until a write/edit/apply_patch receipt lands. Character
 sass without a mutation is retried, then shown as a red failed turn rather than
-a false success. After successful tools, empty or generic “Done” text gets a
-tool-free voice retry. Character speech emitted beside a tool call is retained
-as the fallback, so one assistant bubble always finishes with a spoken line.
+a false success. After a successful **project** mutate in Build or Yolo (freeform
+or accepted-plan — same gate), the turn also needs a verify receipt before
+Accept/done: re-`read` a touched path, a project test/analyze bash command
+(hard-deny still applies), or an explicit verify result recorded on the turn.
+Plan-file writes under `.waifu/plans/` are not project mutates and do not
+require that verify. Nested workers record mutate/verify for the parent to
+absorb; only the root turn fails closed. After successful tools, empty or
+generic “Done” text gets a tool-free voice retry. Character speech emitted
+beside a tool call is retained as the fallback, so one assistant bubble always
+finishes with a spoken line. An accepted-plan step stays `pending` until
+mutate+verify land on the same turn; `todowrite` completed cannot stamp
+`step.status` until then. The built-in `run-plan-step` workflow is implement
+then verify.
 
 This is the opposite of search/MCP v1’s “one round then stream.” Waifu Coder **is** the loop.
 
