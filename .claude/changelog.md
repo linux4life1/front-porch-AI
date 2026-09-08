@@ -13,8 +13,9 @@
 - **Files:** `remote_api_key_vault.dart`, `backend_settings.dart`,
   `remote_reachability.dart`, `open_router_service.dart`,
   `remote_api_section.dart`, `backend_facade.dart`, `settings_facade.dart`,
-  `SettingsPage.tsx`, `remoteApiKeys.ts`,
+  `SettingsPage.tsx`,   `remoteApiKeys.ts`,
   `remote_api_key_switch_test.dart`, `docs/Rawhide.md`
+- **Commit:** 64254b0b
 
 ## 2026-09-08 — style: dart fix braces / unused import / cacheExtent
 - **Why:** `dart fix --dry-run` reported 8 infos (curly braces from
