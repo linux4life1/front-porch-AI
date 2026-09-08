@@ -376,7 +376,7 @@ Future<String> waifuPlanPromptBlock({
   required WaifuMode mode,
   String? activePlanPath,
 }) async {
-  if (mode == WaifuMode.plan) return kWaifuPlanModeCue;
+  if (mode == WaifuMode.plan) return '';
   if (activePlanPath == null || activePlanPath.trim().isEmpty) return '';
   final plan = await waifuReadPlanFile(root, activePlanPath);
   if (plan == null || plan.status != WaifuPlanStatus.accepted) return '';

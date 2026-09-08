@@ -48,7 +48,9 @@ class _WaifuPlanPanelState extends State<WaifuPlanPanel> {
   @override
   void initState() {
     super.initState();
-    _reload();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reload();
+    });
   }
 
   @override

@@ -318,7 +318,7 @@ void main() {
     expect(named.keys, isNot(contains(kWaifuToolSkillInstall)));
     expect(named.keys, isNot(contains(kWaifuToolWorkflow)));
     expect(named[kWaifuToolWrite], contains(kWaifuPlansDir));
-    expect(named[kWaifuToolBash], contains('read-only'));
+    expect(named[kWaifuToolBash]!.toLowerCase(), contains('read-only'));
 
     final pms = WaifuPermissions(
       mode: WaifuMode.plan,

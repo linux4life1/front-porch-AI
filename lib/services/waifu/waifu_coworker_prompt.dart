@@ -200,6 +200,7 @@ String waifuLoopUserPrompt({
       ..writeln(kWaifuLookupCue)
       ..writeln(waifuNestCue(taskDepthRemaining))
       ..writeln(kWaifuPlanBuiltinsCue)
+      ..writeln(kWaifuPlanModeCue)
       ..writeln();
   } else {
     buf
