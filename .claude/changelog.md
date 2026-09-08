@@ -1,3 +1,17 @@
+## 2026-09-08 — rebase(waifu): #238 onto Rawhide after #237
+- **Why:** #237 squash-merged as `94ff43bd` (and #239 as `cd9bcd49`).
+  PR #238 was CONFLICTING / DIRTY vs Rawhide.
+- **What:** Rebased `cursor/waifu-tool-todo-chrome-e885` onto that tip.
+  Kept #238 live chips + Tasks checklist + todo-claim contract
+  (pending→done, try/finally settle, spoken todo / “updated the todos”
+  / todowrite needs a successful todowrite chip) and Rawhide #239
+  send-order (user+running before await) + plan panel
+  `unawaited(_run)` / try/finally + Epic B verify-after-mutate.
+  Conflict files: `waifu_harness.dart`, `waifu_harness_turn.dart`,
+  `waifu_turn_contract.dart`. Changelog / Rawhide.md auto-merged.
+  No existing Guard tests were edited in the rebase.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — rebase(waifu): Epic B onto #239 Rawhide tip
 - **Why:** #239 squash-merged as `cd9bcd49`. PR #237 could not
   squash-merge (DIRTY / CONFLICTING).
