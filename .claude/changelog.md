@@ -18,13 +18,26 @@
   `test()` (FakeAsync + dart:io still hung even inside `runAsync`).
   Widget test only mounts the button. Sync-prefix + encode/parse pins.
   Existing tests under Guard were edited.
+- **Commit:** cd9bcd49
+
+## 2026-09-08 — test(waifu): unstick thought-token and Accept widget tests
+- **Why:** Unit CI on #237. Thought tokens read `transcript.last` before
+  `send()` added a message (`Bad state: No element`) and left generate
+  parked on a Completer. Accept → Build mixed file I/O with
+  `tester.tap` / `runAsync` after `pumpWidget` and hung the unit job
+  for ten minutes.
+- **What:** Wait until a reasoning chunk lands; always complete the
+  generate gate. Accept / Build-gate stay in plain `test()`; widget
+  tests only pump chrome (no disk after the tree is up).
+- **Commit:** a48672d9
+
 ## 2026-09-08 — test(waifu): chrome scripts re-read after mutate
 - **Why:** Unit CI on #237 tip 996ce4e3. Verify-after-mutate is the
   product. The loop chrome scripts wrote then spoke with no re-read, so
   the spoken line became the failure line instead of “Hmph. There.”
 - **What:** After write/apply_patch, script a `read` of the touched path
   before speech — same receipt the turn-contract tests already use.
-- **Commit:** 66b494bd
+- **Commit:** 614b07fd
 
 ## 2026-09-08 — fix(waifu): help/dry-run theater fails the whole verify command
 - **Why:** Hostile HOLD on #237 tip 197381d8. Any-segment verify meant
@@ -33,7 +46,7 @@
 - **What:** Theater (`--help` / `-h` / dry-run) on the full command or
   any segment fails the whole receipt. `cd pkg && flutter test` and
   plain `flutter test` still verify.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — fix(waifu): Epic B verify HOLDs (segments, todos, pre-read, help)
 - **Why:** Senior Dev + hostile HOLDs on #237 tip 5a063f4d. First
@@ -45,7 +58,7 @@
   `-h` / dry-run. Clear readPaths on each project mutate (absorbChild
   same). `waifuSyncTodosOntoPlan` rolls blocked done todos back to the
   plan step status; todowrite chip output re-reads after that.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
 - **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a
@@ -77,7 +90,7 @@
   panel. `waifuTrySetMode` blocks Plan→Build while a draft exists
   (cue to Accept/Revise/Discard). Accepted pin and no-plan Build
   unchanged. Epic D (M4 AppBar / M5 honesty chrome) not in this tip.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — fix(waifu): drop find from the Plan bash allowlist
 - **Why:** SecBot HOLD on 158cd1ae. A named `-exec/-ok/-fprint` denylist
@@ -86,7 +99,7 @@
 - **What:** `find` is no longer in `kWaifuPlanBashAllow`. Any Plan `find …`
   (name search, exec family, print/exfil, `\find`, `/usr/bin/find`) is
   denied. Discovery stays on read / glob / grep / rg / ls / cat.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — fix(waifu): Plan find denies exec/ok/fprint family
 - **Why:** SecBot HOLD on 77c42ee7. `find` stayed on the Plan RO allowlist
@@ -110,7 +123,7 @@
   status onto the accepted plan file. Restored a real widget tap
   Accept → Build. Slash Plan blurb is explore + `.waifu/plans/` +
   source read-only. Rebased onto Rawhide 14925eee.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — fix(realism): do not persist tool_choice auto for named judges
 - **Why:** Style retry remembered `auto` after a `tool_choice` 400. The next
@@ -164,7 +177,7 @@
   todowrite + read-only bash allowlist; plan-file turn receipt; mode-aware
   loop prompt; catalog honesty; sidebar Plan panel Accept/Revise/Discard;
   pin `activePlanPath`, sync steps→todos, flip to Build. Spec §4.1 updated.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — fix(waifu): persist context tokens + bind chat themes
 
@@ -183,7 +196,7 @@
   tearDown db.close. Not Waifu product; Stories+golden+E2E were green.
 - **What:** `AppDatabase.forTesting(sameIsolate: true)` + drain before/after
   close (same pattern as greeting_opening_seed / session_load_regression).
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-07 — test(stories): harden Style→Format on Windows E2E
 - **Why:** Windows shard story_pipeline timed out 2m waiting for Next: Format
@@ -191,7 +204,7 @@
   gated on non-empty concept; live-binding enterText can no-op on Windows.
 - **What:** Controller-set title/concept after enterText, unfocus, assert
   Next: Style before advance; ValueKey on wizard Next for scroll-safe taps.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-07 — ci: rewake after golden timeout + Stories E2E flake
 - **Why:** Tip d40e3e74 unit green; Widget Golden wall-clock timed out after all

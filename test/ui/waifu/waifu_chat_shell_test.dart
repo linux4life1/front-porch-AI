@@ -88,28 +88,33 @@ void main() {
       ),
     );
 
-    late Future<void> done;
-    await tester.runAsync(() async {
-      done = harness.send('count');
-      for (var i = 0; i < 100; i++) {
-        if (s.transcript.any((m) => !m.isUser && m.reasoning.isNotEmpty)) {
-          break;
+    var done = Future<void>.value();
+    try {
+      await tester.runAsync(() async {
+        done = harness.send('count');
+        final deadline = DateTime.now().add(const Duration(seconds: 2));
+        while (DateTime.now().isBefore(deadline)) {
+          if (s.transcript.any(
+            (m) => !m.isUser && m.reasoning.contains('one two three'),
+          )) {
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 10));
         }
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-      }
-    });
-    await tester.pump();
-    expect(
-      s.transcript.any(
-        (m) => !m.isUser && m.reasoning.contains('one two three'),
-      ),
-      isTrue,
-    );
-    expect(find.textContaining('one two three'), findsWidgets);
-    expect(find.textContaining('Thinking'), findsWidgets);
-
-    gate.complete();
-    await tester.runAsync(() => done);
-    await tester.pump();
+      });
+      await tester.pump();
+      expect(
+        s.transcript.any(
+          (m) => !m.isUser && m.reasoning.contains('one two three'),
+        ),
+        isTrue,
+      );
+      expect(find.textContaining('one two three'), findsWidgets);
+      expect(find.textContaining('Thinking'), findsWidgets);
+    } finally {
+      if (!gate.isCompleted) gate.complete();
+      await tester.runAsync(() => done);
+      await tester.pump();
+    }
   });
 }
