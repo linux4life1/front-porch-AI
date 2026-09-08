@@ -35,6 +35,22 @@ class WaifuTodo {
   String status;
 }
 
+/// Display kind only. [WaifuTodos.write] still stores the raw status string.
+String waifuTodoMark(String raw) {
+  switch (raw.trim().toLowerCase().replaceAll('-', '_')) {
+    case 'completed':
+    case 'complete':
+    case 'done':
+      return 'completed';
+    case 'in_progress':
+    case 'doing':
+    case 'active':
+      return 'in_progress';
+    default:
+      return 'pending';
+  }
+}
+
 class WaifuTodos {
   final items = <WaifuTodo>[];
 

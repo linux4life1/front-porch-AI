@@ -72,6 +72,17 @@
   same). `waifuSyncTodosOntoPlan` rolls blocked done todos back to the
   plan step status; todowrite chip output re-reads after that.
 - **Commit:** a48672d9
+## 2026-09-08 — polish(waifu): live tool chips + Tasks checklist chrome
+- **Why:** Tool work was a black box (`_runTool` only `_pushChip` after
+  await). Tasks accordion dumped raw `status: content` as a wall of
+  primary text. A hallucinated `todowrite` did not change data — the
+  write path is fine; chrome was the bug.
+- **What:** Pending chip at `noteAttempt` + `_emit`, update-in-place to
+  ok/fail (abort → stopped). Tool log spinner while pending. Tasks rows
+  use checkbox / play / checked+strikethrough; content is the label.
+  Write() semantics unchanged. Soft spoken-vs-todowrite honesty skipped
+  (would fight turn-contract pins).
+- **Commit:** (this tip)
 
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
 - **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a

@@ -30,8 +30,6 @@ class WaifuToolLog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (chips.isEmpty) return const SizedBox.shrink();
-    final amber = AppColors.porchAmberOf(context);
-    final fail = AppColors.negativeAccentOf(context);
     return Padding(
       key: const Key('waifu-tool-log'),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
@@ -42,41 +40,62 @@ class WaifuToolLog extends StatelessWidget {
             Padding(
               key: Key('waifu-tool-row-$i'),
               padding: const EdgeInsets.only(top: 2),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.circle,
-                    size: 6,
-                    color: chips[i].ok ? amber : fail,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    chips[i].name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary(context),
-                    ),
-                  ),
-                  if (chips[i].detail.trim().isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        chips[i].detail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textTertiary(context),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              child: _WaifuToolRow(chip: chips[i], index: i),
             ),
         ],
       ),
+    );
+  }
+}
+
+class _WaifuToolRow extends StatelessWidget {
+  const _WaifuToolRow({required this.chip, required this.index});
+
+  final WaifuToolChip chip;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final amber = AppColors.porchAmberOf(context);
+    final fail = AppColors.negativeAccentOf(context);
+    final pending = chip.pending;
+    final mark = pending
+        ? SizedBox(
+            key: Key('waifu-tool-pending-$index'),
+            width: 10,
+            height: 10,
+            child: CircularProgressIndicator(strokeWidth: 1.6, color: amber),
+          )
+        : Icon(Icons.circle, size: 6, color: chip.ok ? amber : fail);
+    return Row(
+      children: [
+        SizedBox(width: 10, height: 10, child: Center(child: mark)),
+        const SizedBox(width: 8),
+        Text(
+          chip.name,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            fontStyle: pending ? FontStyle.italic : FontStyle.normal,
+            color: pending ? amber : AppColors.textSecondary(context),
+          ),
+        ),
+        if (chip.detail.trim().isNotEmpty) ...[
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              chip.detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: pending ? FontStyle.italic : FontStyle.normal,
+                color: AppColors.textTertiary(context),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -26,11 +26,15 @@ class WaifuToolChip {
     required this.name,
     required this.detail,
     required this.ok,
+    this.pending = false,
   });
 
   final String name;
   final String detail;
   final bool ok;
+
+  /// Live attempt — [ok] is ignored until the tool settles.
+  final bool pending;
 }
 
 class WaifuWriteRecord {
