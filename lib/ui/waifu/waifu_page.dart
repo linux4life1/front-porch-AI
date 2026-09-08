@@ -106,6 +106,11 @@ class _WaifuPageState extends State<WaifuPage> {
     if (mounted) setState(() {});
   }
 
+  void _onThemeChanged() {
+    unawaited(_storeOf(context)?.saveLast(widget.session));
+    _refresh();
+  }
+
   void rebuildState(VoidCallback fn) => setState(fn);
 
   WaifuStore? _storeOf(BuildContext context) {
@@ -470,6 +475,7 @@ class _WaifuPageState extends State<WaifuPage> {
               mcpLine: waifuMcpStatusLine(context),
               skills: _skillsOf(),
               onSkillsChanged: _refresh,
+              onThemeChanged: _onThemeChanged,
             ),
           ),
         ],

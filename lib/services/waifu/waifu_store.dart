@@ -141,6 +141,8 @@ class WaifuStore {
     'preserveThinking': session.preserveThinking,
     if (session.activePlanPath != null && session.activePlanPath!.isNotEmpty)
       'activePlanPath': session.activePlanPath,
+    'tokensUsed': session.tokensUsed,
+    'themeOverrides': session.themeOverrides.toJson(),
     'coworker': _coworkerMap(session.coworker),
     'transcript': [
       for (final m in session.transcript)
@@ -269,6 +271,8 @@ class WaifuStore {
           );
         }
       }
+      final used = (map['tokensUsed'] as num?)?.toInt() ?? 0;
+      final rawTheme = map['themeOverrides'];
       return WaifuSession(
         folderRoot: folder,
         coworker: _coworkerFrom(coworker),
@@ -279,7 +283,10 @@ class WaifuStore {
         mcpOptIn: map['mcpOptIn'] == true,
         preserveThinking: map['preserveThinking'] == true,
         activePlanPath: map['activePlanPath']?.toString(),
-      );
+        themeOverrides: rawTheme is Map
+            ? ChatThemeOverrides.fromJson(Map<String, dynamic>.from(rawTheme))
+            : null,
+      )..tokensUsed = used < 0 ? 0 : used;
     } catch (_) {
       return null;
     }

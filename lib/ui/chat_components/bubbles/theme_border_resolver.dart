@@ -32,8 +32,9 @@ class ThemeBorderResolver {
     required CharacterCard? character,
     required bool isUser,
     required bool isDirectorNote,
+    ChatThemeOverrides? themeOverrides,
   }) {
-    final overrides = chatService?.sessionThemeOverrides;
+    final overrides = themeOverrides ?? chatService?.sessionThemeOverrides;
     final preset = ChatThemePreset.byId(overrides?.themeId);
     final accent = preset != null
         ? storage.getUserTextColor(character, preset, overrides)

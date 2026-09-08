@@ -55,6 +55,10 @@ class MessageBubble extends StatefulWidget {
   /// (Waifu Coder). Chat leaves this null and uses [chatService].
   final bool? isGenerating;
 
+  /// Waifu Coder session theme. Chat leaves this null and reads
+  /// [ChatService.sessionThemeOverrides] instead.
+  final ChatThemeOverrides? themeOverrides;
+
   const MessageBubble({
     super.key,
     required this.message,
@@ -66,6 +70,7 @@ class MessageBubble extends StatefulWidget {
     this.character,
     this.chatService,
     this.isGenerating,
+    this.themeOverrides,
   });
 
   @override
@@ -139,6 +144,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             character: character,
             isUser: message.isUser,
             isDirectorNote: isDirectorNote,
+            themeOverrides: widget.themeOverrides,
           );
     final boundToChat = widget.chatService != null;
 

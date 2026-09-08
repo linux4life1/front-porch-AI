@@ -31,7 +31,17 @@ part 'ui_settings_dialog.updates.dart';
 class UiSettingsDialog extends StatefulWidget {
   final CharacterCard? character;
 
-  const UiSettingsDialog({super.key, this.character});
+  /// When set with [onThemeOverrides], theme reads/writes stay on this
+  /// object (Waifu Coder). Chat keeps using [ChatService.sessionThemeOverrides].
+  final ChatThemeOverrides? themeOverrides;
+  final ValueChanged<ChatThemeOverrides>? onThemeOverrides;
+
+  const UiSettingsDialog({
+    super.key,
+    this.character,
+    this.themeOverrides,
+    this.onThemeOverrides,
+  });
 
   @override
   State<UiSettingsDialog> createState() => _UiSettingsDialogState();
@@ -53,6 +63,25 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
   /// State's protected members directly.
   void rebuildState(VoidCallback fn) => setState(fn);
 
+  ChatThemeOverrides? _boundTheme;
+
+  ChatThemeOverrides _themeOf(ChatService chat) {
+    if (widget.onThemeOverrides != null) {
+      return _boundTheme ?? widget.themeOverrides ?? ChatThemeOverrides();
+    }
+    return chat.sessionThemeOverrides;
+  }
+
+  void _commitTheme(ChatService chat, ChatThemeOverrides next) {
+    if (widget.onThemeOverrides != null) {
+      _boundTheme = next;
+      widget.onThemeOverrides!(next);
+      rebuildState(() {});
+      return;
+    }
+    chat.sessionThemeOverrides = next;
+  }
+
   @override
   void dispose() {
     _characterNotifier.dispose();
@@ -64,7 +93,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
   Widget build(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
     final chatService = Provider.of<ChatService>(context);
-    final overrides = chatService.sessionThemeOverrides;
+    final overrides = _themeOf(chatService);
     final activePreset = ChatThemePreset.byId(overrides.themeId);
     final hasTheme = activePreset != null;
 
@@ -319,7 +348,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
     required Color globalColor,
     required Color? charColor,
   }) {
-    final overrides = chatService.sessionThemeOverrides;
+    final overrides = _themeOf(chatService);
     if (overrides.hasTheme && themeColor != null) return themeColor;
     return charColor ?? globalColor;
   }

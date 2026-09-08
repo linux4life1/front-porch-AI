@@ -20,25 +20,26 @@ part of 'ui_settings_dialog.dart';
 
 /// Dual-routed persistence helpers for [UiSettingsDialog]'s Chat Colors rows
 /// and avatar-lock toggle: when a session theme is active, writes go to
-/// [ChatService.sessionThemeOverrides]; otherwise they go to the per-character
-/// extension (if a character is open) or the global [StorageService]
-/// preference. Extracted verbatim from UiSettingsDialog; the two `setState`
-/// call sites now go through the shell's `rebuildState` bridge because
-/// extensions can't call a State's protected members directly.
+/// [ChatService.sessionThemeOverrides] (or the bound Waifu overrides when
+/// [UiSettingsDialog.onThemeOverrides] is set); otherwise they go to the
+/// per-character extension (if a character is open) or the global
+/// [StorageService] preference. Extracted verbatim from UiSettingsDialog;
+/// the two `setState` call sites now go through the shell's `rebuildState`
+/// bridge because extensions can't call a State's protected members directly.
 extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
   /// When a theme is active, writes go to session theme overrides.
   /// When no theme, writes go to per-character extensions or global prefs.
   bool _hasActiveTheme(ChatService chatService) =>
-      chatService.sessionThemeOverrides.hasTheme;
+      _themeOf(chatService).hasTheme;
 
   Future<void> _updateUserBubbleColor(BuildContext context, Color color) async {
     final storage = Provider.of<StorageService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
 
     if (_hasActiveTheme(chatService)) {
-      final o = chatService.sessionThemeOverrides;
+      final o = _themeOf(chatService);
       o.userBubbleColor = _colorToHex(color);
-      chatService.sessionThemeOverrides = o;
+      _commitTheme(chatService, o);
       return;
     }
     final character = _characterNotifier.value;
@@ -57,9 +58,9 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
     final chatService = Provider.of<ChatService>(context, listen: false);
 
     if (_hasActiveTheme(chatService)) {
-      final o = chatService.sessionThemeOverrides;
+      final o = _themeOf(chatService);
       o.userTextColor = _colorToHex(color);
-      chatService.sessionThemeOverrides = o;
+      _commitTheme(chatService, o);
       return;
     }
     final character = _characterNotifier.value;
@@ -78,9 +79,9 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
     final chatService = Provider.of<ChatService>(context, listen: false);
 
     if (_hasActiveTheme(chatService)) {
-      final o = chatService.sessionThemeOverrides;
+      final o = _themeOf(chatService);
       o.aiBubbleColor = _colorToHex(color);
-      chatService.sessionThemeOverrides = o;
+      _commitTheme(chatService, o);
       return;
     }
     final character = _characterNotifier.value;
@@ -99,9 +100,9 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
     final chatService = Provider.of<ChatService>(context, listen: false);
 
     if (_hasActiveTheme(chatService)) {
-      final o = chatService.sessionThemeOverrides;
+      final o = _themeOf(chatService);
       o.aiTextColor = _colorToHex(color);
-      chatService.sessionThemeOverrides = o;
+      _commitTheme(chatService, o);
       return;
     }
     final character = _characterNotifier.value;
@@ -120,9 +121,9 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
     final chatService = Provider.of<ChatService>(context, listen: false);
 
     if (_hasActiveTheme(chatService)) {
-      final o = chatService.sessionThemeOverrides;
+      final o = _themeOf(chatService);
       o.dialogueColor = _colorToHex(color);
-      chatService.sessionThemeOverrides = o;
+      _commitTheme(chatService, o);
       return;
     }
     final character = _characterNotifier.value;
@@ -141,9 +142,9 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
     final chatService = Provider.of<ChatService>(context, listen: false);
 
     if (_hasActiveTheme(chatService)) {
-      final o = chatService.sessionThemeOverrides;
+      final o = _themeOf(chatService);
       o.actionColor = _colorToHex(color);
-      chatService.sessionThemeOverrides = o;
+      _commitTheme(chatService, o);
       return;
     }
     final character = _characterNotifier.value;

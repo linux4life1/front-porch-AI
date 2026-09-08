@@ -55,6 +55,7 @@ class WaifuTranscript extends StatelessWidget {
           ? (null, null)
           : (waifuCoworkerFace(context, session.coworker), null),
       characterFor: (_) => session.coworker,
+      themeOverrides: session.themeOverrides,
       isGenerating: session.running,
       generatingAt: (i) => session.running && i == chats.length - 1,
       aboveBubble: (msg, index) {

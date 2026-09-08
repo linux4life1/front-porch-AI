@@ -94,10 +94,12 @@ class WaifuSession {
     this.mcpOptIn = false,
     this.preserveThinking = false,
     this.activePlanPath,
+    ChatThemeOverrides? themeOverrides,
     Set<String>? suggestedLangs,
     List<WaifuMessage>? transcript,
   }) : suggestedLangs = suggestedLangs ?? <String>{},
-       transcript = transcript ?? <WaifuMessage>[];
+       transcript = transcript ?? <WaifuMessage>[],
+       themeOverrides = themeOverrides ?? ChatThemeOverrides();
 
   final String folderRoot;
   final CharacterCard coworker;
@@ -112,6 +114,7 @@ class WaifuSession {
   bool mcpOptIn;
   bool preserveThinking;
   String? activePlanPath;
+  ChatThemeOverrides themeOverrides;
   final ChatGenerationSettings genSettings = ChatGenerationSettings();
   int contextBudget = 8192;
   int tokensUsed = 0;

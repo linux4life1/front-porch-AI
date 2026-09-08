@@ -58,7 +58,7 @@ extension _UiSettingsThemeSection on _UiSettingsDialogState {
   // ── Theme preset picker ──────────────────────────────────────────────────
 
   Widget _buildPresetPicker(ChatService chatService) {
-    final overrides = chatService.sessionThemeOverrides;
+    final overrides = _themeOf(chatService);
 
     return Row(
       children: [
@@ -94,7 +94,7 @@ extension _UiSettingsThemeSection on _UiSettingsDialogState {
                   final isSelected = !overrides.hasTheme;
                   return GestureDetector(
                     onTap: () {
-                      chatService.sessionThemeOverrides = ChatThemeOverrides();
+                      _commitTheme(chatService, ChatThemeOverrides());
                     },
                     child: Container(
                       width: 64,
@@ -127,8 +127,9 @@ extension _UiSettingsThemeSection on _UiSettingsDialogState {
                 final isSelected = overrides.themeId == preset.id;
                 return GestureDetector(
                   onTap: () {
-                    chatService.sessionThemeOverrides = ChatThemeOverrides(
-                      themeId: preset.id,
+                    _commitTheme(
+                      chatService,
+                      ChatThemeOverrides(themeId: preset.id),
                     );
                   },
                   child: Container(
@@ -262,7 +263,7 @@ extension _UiSettingsThemeSection on _UiSettingsDialogState {
                     overrides.fontFamily = val == preset.defaultFontFamily
                         ? null
                         : val;
-                    chatService.sessionThemeOverrides = overrides;
+                    _commitTheme(chatService, overrides);
                   }
                 },
               ),
@@ -277,7 +278,7 @@ extension _UiSettingsThemeSection on _UiSettingsDialogState {
               ),
               onPressed: () {
                 overrides.fontFamily = null;
-                chatService.sessionThemeOverrides = overrides;
+                _commitTheme(chatService, overrides);
               },
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -333,7 +334,7 @@ extension _UiSettingsThemeSection on _UiSettingsDialogState {
                     overrides.borderStyle = val == preset.defaultBorderStyle
                         ? null
                         : val;
-                    chatService.sessionThemeOverrides = overrides;
+                    _commitTheme(chatService, overrides);
                   }
                 },
               ),
@@ -348,7 +349,7 @@ extension _UiSettingsThemeSection on _UiSettingsDialogState {
               ),
               onPressed: () {
                 overrides.borderStyle = null;
-                chatService.sessionThemeOverrides = overrides;
+                _commitTheme(chatService, overrides);
               },
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -368,7 +369,7 @@ extension _UiSettingsThemeSection on _UiSettingsDialogState {
         overrides.resolvedBorderColor(preset) ?? preset.defaultUserTextColor;
     return _buildColorRow(context, 'Border', currentColor, (color) {
       overrides.borderColor = _colorToHex(color);
-      chatService.sessionThemeOverrides = overrides;
+      _commitTheme(chatService, overrides);
     });
   }
 }

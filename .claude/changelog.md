@@ -104,6 +104,16 @@
   pin `activePlanPath`, sync steps→todos, flip to Build. Spec §4.1 updated.
 - **Commit:** (this tip)
 
+## 2026-09-08 — fix(waifu): persist context tokens + bind chat themes
+
+- **Why:** Sitting back down showed Context 0/N with a full transcript. UI
+  Settings themes wrote to ChatService (last 1:1 chat) while Waifu bubbles
+  passed chatService: null, so Sakura colors never painted.
+- **What:** Persist/restore `tokensUsed` and `themeOverrides` next to
+  `activePlanPath`. WaifuSession owns ChatThemeOverrides; UI Settings and
+  `WaifuTranscript` pass them so Sakura paints after the Plan extract.
+- **Commit:** (this tip)
+
 ## 2026-09-07 — test(chat): harden picker-hold Drift isolate tearDown
 - **Why:** CI @ 767b3bc6 unit failed `session_picker_overlay_hold_test`
   (picker hold stays up when setActive loads another card's tail) with Drift

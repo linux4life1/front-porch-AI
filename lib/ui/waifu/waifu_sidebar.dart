@@ -48,6 +48,7 @@ class WaifuSidebar extends StatelessWidget {
     this.mcpLine,
     this.skills,
     this.onSkillsChanged,
+    this.onThemeChanged,
   });
 
   final WaifuSession session;
@@ -61,6 +62,7 @@ class WaifuSidebar extends StatelessWidget {
   final String? mcpLine;
   final WaifuSkillHub? skills;
   final VoidCallback? onSkillsChanged;
+  final VoidCallback? onThemeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +225,14 @@ class WaifuSidebar extends StatelessWidget {
       case 'ui':
         showDialog<void>(
           context: context,
-          builder: (_) => UiSettingsDialog(character: session.coworker),
+          builder: (_) => UiSettingsDialog(
+            character: session.coworker,
+            themeOverrides: session.themeOverrides,
+            onThemeOverrides: (next) {
+              session.themeOverrides = next;
+              onThemeChanged?.call();
+            },
+          ),
         );
     }
   }

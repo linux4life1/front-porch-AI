@@ -46,6 +46,7 @@ class ChatMessageList extends StatelessWidget {
     this.belowBubble,
     this.isGenerating,
     this.generatingAt,
+    this.themeOverrides,
     this.padding = const EdgeInsets.all(20),
   });
 
@@ -66,6 +67,9 @@ class ChatMessageList extends StatelessWidget {
   /// When set, overrides [isGenerating] per transcript index. Waifu Coder
   /// uses this so only the live tool-loop step shows the thinking timer.
   final bool Function(int index)? generatingAt;
+
+  /// Waifu Coder session theme. Chat leaves this null.
+  final ChatThemeOverrides? themeOverrides;
   final EdgeInsetsGeometry padding;
 
   @override
@@ -93,6 +97,7 @@ class ChatMessageList extends StatelessWidget {
           character: characterFor?.call(msg),
           chatService: chatService,
           isGenerating: generatingAt?.call(reversedIndex) ?? isGenerating,
+          themeOverrides: themeOverrides,
         );
         final above = aboveBubble?.call(msg, reversedIndex);
         final extra = belowBubble?.call(msg, reversedIndex);
