@@ -23,6 +23,15 @@
   New guards in `thought_toggle_chat_live_test.dart` (did not edit
   the existing Guard file).
 - **Commit:** efd78c4f
+## 2026-09-08 — rebase(waifu): Epic C onto #237 Rawhide tip
+- **Why:** #237 squash-merged as `94ff43bd` after #240 branched from
+  `cd9bcd49`, so the draft was CONFLICTING vs Rawhide.
+- **What:** Rebased `cursor/waifu-mcp-stdio-panel-8111` onto that tip.
+  Kept Epic C stdio/Docker-easy/panel and Rawhide #239+#237
+  (`send()` records user+running before await; verify-after-mutate).
+  Conflict files: none (changelog + Rawhide.md auto-merged).
+  No Guard-protected existing tests were edited.
+- **Commit:** (this tip)
 
 ## 2026-09-08 — rebase(waifu): Epic B onto #239 Rawhide tip
 - **Why:** #239 squash-merged as `cd9bcd49`. PR #237 could not
