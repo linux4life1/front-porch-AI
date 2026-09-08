@@ -72,6 +72,13 @@
   same). `waifuSyncTodosOntoPlan` rolls blocked done todos back to the
   plan step status; todowrite chip output re-reads after that.
 - **Commit:** a48672d9
+## 2026-09-08 — fix(waifu): pending tool chip settles if dispatch throws
+- **Why:** Bug Hunter on #238. `_runTool` had no try/finally around
+  settle, so a mid-dispatch throw left a forever-pending spinner.
+- **What:** try/catch/finally after the pending push. Throw → `_reject`
+  fail chip + `_emit`. Leftover pending flips to fail/stopped.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(waifu): “updated the todos” is a todo-receipt claim
 - **Why:** GO wording includes updated todos, not only “todo list”.
 - **What:** Detector treats update/write + todos as a claim. Pin added.

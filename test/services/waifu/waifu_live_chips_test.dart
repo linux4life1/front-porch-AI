@@ -89,4 +89,46 @@ void main() {
     expect(session.toolChips.single.pending, isFalse);
     expect(session.toolChips.single.ok, isFalse);
   });
+
+  test('dispatch throw flips the pending chip to fail', () async {
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: CharacterCard(name: 'Mira', personality: 'tsundere'),
+      mode: WaifuMode.yolo,
+    );
+    final llm = ScriptedWaifuLlm([
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(name: 'read', arguments: {'path': 'notes.txt'}),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(calls: [], text: 'Hmph. It blew up.'),
+    ]);
+    final harness = WaifuHarness(
+      session: session,
+      llm: llm,
+      fs: _ThrowingFs(root.path),
+    );
+
+    await harness.send('read the notes');
+
+    expect(session.toolChips, hasLength(1));
+    expect(session.toolChips.single.name, 'read');
+    expect(session.toolChips.single.pending, isFalse);
+    expect(session.toolChips.single.ok, isFalse);
+    expect(session.toolChips.single.detail, contains('exploded'));
+  });
+}
+
+class _ThrowingFs extends WaifuFs {
+  _ThrowingFs(super.root);
+
+  @override
+  Future<WaifuToolResult> dispatch(
+    String name,
+    Map<String, dynamic> args,
+  ) async {
+    throw StateError('dispatch exploded');
+  }
 }

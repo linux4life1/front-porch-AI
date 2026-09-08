@@ -129,4 +129,17 @@ extension _WaifuHarnessTurn on WaifuHarness {
     _reject('turn', 'runaway fuse stopped this turn');
     _say(_turn.failureLine(''));
   }
+
+  void _settlePendingChip(String name) {
+    if (!_liveAssistant().chips.any((c) => c.pending && c.name == name)) {
+      return;
+    }
+    _pushChip(
+      WaifuToolChip(
+        name: name,
+        detail: _aborted ? 'stopped' : 'error',
+        ok: false,
+      ),
+    );
+  }
 }
