@@ -1,3 +1,14 @@
+## 2026-09-08 — rebase(waifu): Epic C onto #238 Rawhide tip
+- **Why:** #238 squash-merged as `2196e839` after #240 branched from
+  `94ff43bd`, so the draft was CONFLICTING vs Rawhide.
+- **What:** Rebased `cursor/waifu-mcp-stdio-panel-8111` onto that tip.
+  Kept Epic C stdio/Docker-easy/panel + busy try/finally and Rawhide
+  #238 chips/Tasks/claim-vs-chip + #237 verify-after-mutate + #239
+  send-order (`send()` records user+running before await).
+  Conflict files: none (changelog + `docs/Rawhide.md` auto-merged).
+  No Guard-protected existing tests were edited.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — rebase(waifu): #238 onto Rawhide after #237
 - **Why:** #237 squash-merged as `94ff43bd` (and #239 as `cd9bcd49`).
   PR #238 was CONFLICTING / DIRTY vs Rawhide.
