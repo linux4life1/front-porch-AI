@@ -39,7 +39,7 @@
   completed until mutate+verify land. Built-in `run-plan-step`
   workflow is implement then verify. No Desk naming. No weak-GGUF
   paths. Epic C/D untouched.
-- **Commit:** (this tip)
+- **Commit:** 0e52364a
 
 ## 2026-09-08 — fix(waifu): main-stage Plan panel + soft Plan→Build gate
 - **Why:** UIC HOLD on #236. Plan panel was sidebar-only (FAIL). Mode
