@@ -29,7 +29,7 @@
 - **What:** Wait until a reasoning chunk lands; always complete the
   generate gate. Accept / Build-gate stay in plain `test()`; widget
   tests only pump chrome (no disk after the tree is up).
-- **Commit:** a48672d9
+- **Commit:** 551025f6
 
 ## 2026-09-08 — test(waifu): chrome scripts re-read after mutate
 - **Why:** Unit CI on #237 tip 996ce4e3. Verify-after-mutate is the
