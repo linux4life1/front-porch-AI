@@ -1,3 +1,16 @@
+## 2026-09-08 — rebase(waifu): Epic B onto #239 Rawhide tip
+- **Why:** #239 squash-merged as `cd9bcd49`. PR #237 could not
+  squash-merge (DIRTY / CONFLICTING).
+- **What:** Rebased `cursor/waifu-epic-b-verify-36b7` onto that tip.
+  Kept Epic B verify-after-mutate + HOLDs (compound segments, theater
+  `--help`/`-h`/dry-run and `||` theater, pre-mutate read clear,
+  blockedDone rollback) and #239 unit-unblock (`send()` records
+  user+running before any await; `unawaited(_run)` + `try/finally`).
+  Conflict files: `waifu_chat_shell_test.dart`,
+  `waifu_plan_panel_test.dart`, changelog (docs only on earlier
+  picks). Existing Guard tests were re-resolved; CoS label stays.
+- **Commit:** 8308325b
+
 ## 2026-09-08 — fix(waifu): Plan panel _run clears busy after throw
 - **Why:** Senior Dev residual on #239. Accept/Revise/Discard now
   `unawaited(_run(…))`. If `fn()` or `_reload()` threw, `_busy` stayed
@@ -5,7 +18,7 @@
 - **What:** `try/finally` clears `_busy` when still mounted. Flash/ok
   only on success. Did not widen `send()` (pre-gen I/O still sits
   after `running=true`, outside that try).
-- **Commit:** (this tip)
+- **Commit:** cd9bcd49
 
 ## 2026-09-08 — fix(waifu): unit CI hang after Plan P0 + mid-stream thoughts
 - **Why:** After #236, `Tests (unit + integration)` was deterministically
@@ -18,7 +31,47 @@
   `test()` (FakeAsync + dart:io still hung even inside `runAsync`).
   Widget test only mounts the button. Sync-prefix + encode/parse pins.
   Existing tests under Guard were edited.
-- **Commit:** (this tip)
+- **Commit:** cd9bcd49
+
+## 2026-09-08 — test(waifu): unstick thought-token and Accept widget tests
+- **Why:** Unit CI on #237. Thought tokens read `transcript.last` before
+  `send()` added a message (`Bad state: No element`) and left generate
+  parked on a Completer. Accept → Build mixed file I/O with
+  `tester.tap` / `runAsync` after `pumpWidget` and hung the unit job
+  for ten minutes.
+- **What:** Wait until a reasoning chunk lands; always complete the
+  generate gate. Accept / Build-gate stay in plain `test()`; widget
+  tests only pump chrome (no disk after the tree is up).
+- **Commit:** a0ca09b3
+
+## 2026-09-08 — test(waifu): chrome scripts re-read after mutate
+- **Why:** Unit CI on #237 tip 996ce4e3. Verify-after-mutate is the
+  product. The loop chrome scripts wrote then spoke with no re-read, so
+  the spoken line became the failure line instead of “Hmph. There.”
+- **What:** After write/apply_patch, script a `read` of the touched path
+  before speech — same receipt the turn-contract tests already use.
+- **Commit:** 614b07fd
+
+## 2026-09-08 — fix(waifu): help/dry-run theater fails the whole verify command
+- **Why:** Hostile HOLD on #237 tip 197381d8. Any-segment verify meant
+  `flutter test --help || flutter test` receipted: help exits 0, the
+  shell never runs the real test.
+- **What:** Theater (`--help` / `-h` / dry-run) on the full command or
+  any segment fails the whole receipt. `cd pkg && flutter test` and
+  plain `flutter test` still verify.
+- **Commit:** a48672d9
+
+## 2026-09-08 — fix(waifu): Epic B verify HOLDs (segments, todos, pre-read, help)
+- **Why:** Senior Dev + hostile HOLDs on #237 tip 5a063f4d. First
+  `&&` segment only meant `cd pkg && flutter test` never receipted.
+  blockedDone left Tasks chrome completed while the plan stayed
+  pending. A pre-mutate read of the same path counted as verify.
+  `flutter test --help` counted as verify.
+- **What:** Scan every `&&` / `||` / `;` segment. Reject `--help` /
+  `-h` / dry-run. Clear readPaths on each project mutate (absorbChild
+  same). `waifuSyncTodosOntoPlan` rolls blocked done todos back to the
+  plan step status; todowrite chip output re-reads after that.
+- **Commit:** a48672d9
 
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
 - **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a
@@ -26,7 +79,20 @@
   Mutating MCP was still hard-blocked (`mutationCalls == 0`).
 - **What:** Assert a failed `create_issue` chip and a successful
   `search_docs` chip without assuming exactly one chip.
-- **Commit:** (this tip)
+## 2026-09-08 — feat(waifu): Epic B verify-after-mutate + Build workflow
+- **Why:** Plan P0 (#236) left a P1 ship lock: Build/Yolo could
+  write/edit/apply_patch and Accept/done with no re-read or test.
+  Plan `todowrite` could stamp `step.status` completed the same way.
+- **What:** Turn contract requires a verify receipt after a successful
+  project mutate in Build/Yolo (freeform and accepted-plan share the
+  gate). Verify is re-read of a touched path, a test/analyze bash
+  command (hard-deny unchanged), or an explicit result on the turn.
+  Plan artifacts are exempt. Root turn fails closed; nested workers
+  absorb into the parent. `waifuSyncTodosOntoPlan` will not write
+  completed until mutate+verify land. Built-in `run-plan-step`
+  workflow is implement then verify. The spoken line stays the
+  card. No weak-GGUF paths. Epic C/D untouched.
+- **Commit:** fb574f33
 
 ## 2026-09-08 — fix(waifu): main-stage Plan panel + soft Plan→Build gate
 - **Why:** UIC HOLD on #236. Plan panel was sidebar-only (FAIL). Mode
@@ -37,7 +103,7 @@
   panel. `waifuTrySetMode` blocks Plan→Build while a draft exists
   (cue to Accept/Revise/Discard). Accepted pin and no-plan Build
   unchanged. Epic D (M4 AppBar / M5 honesty chrome) not in this tip.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — fix(waifu): drop find from the Plan bash allowlist
 - **Why:** SecBot HOLD on 158cd1ae. A named `-exec/-ok/-fprint` denylist
@@ -46,7 +112,7 @@
 - **What:** `find` is no longer in `kWaifuPlanBashAllow`. Any Plan `find …`
   (name search, exec family, print/exfil, `\find`, `/usr/bin/find`) is
   denied. Discovery stays on read / glob / grep / rg / ls / cat.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — fix(waifu): Plan find denies exec/ok/fprint family
 - **Why:** SecBot HOLD on 77c42ee7. `find` stayed on the Plan RO allowlist
@@ -70,7 +136,7 @@
   status onto the accepted plan file. Restored a real widget tap
   Accept → Build. Slash Plan blurb is explore + `.waifu/plans/` +
   source read-only. Rebased onto Rawhide 14925eee.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — fix(realism): do not persist tool_choice auto for named judges
 - **Why:** Style retry remembered `auto` after a `tool_choice` 400. The next
@@ -124,7 +190,7 @@
   todowrite + read-only bash allowlist; plan-file turn receipt; mode-aware
   loop prompt; catalog honesty; sidebar Plan panel Accept/Revise/Discard;
   pin `activePlanPath`, sync steps→todos, flip to Build. Spec §4.1 updated.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-08 — fix(waifu): persist context tokens + bind chat themes
 
@@ -134,7 +200,7 @@
 - **What:** Persist/restore `tokensUsed` and `themeOverrides` next to
   `activePlanPath`. WaifuSession owns ChatThemeOverrides; UI Settings and
   `WaifuTranscript` pass them so Sakura paints after the Plan extract.
-- **Commit:** (this tip)
+- **Commit:** edcce19f
 
 ## 2026-09-07 — test(chat): harden picker-hold Drift isolate tearDown
 - **Why:** CI @ 767b3bc6 unit failed `session_picker_overlay_hold_test`
@@ -143,7 +209,7 @@
   tearDown db.close. Not Waifu product; Stories+golden+E2E were green.
 - **What:** `AppDatabase.forTesting(sameIsolate: true)` + drain before/after
   close (same pattern as greeting_opening_seed / session_load_regression).
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-07 — test(stories): harden Style→Format on Windows E2E
 - **Why:** Windows shard story_pipeline timed out 2m waiting for Next: Format
@@ -151,7 +217,7 @@
   gated on non-empty concept; live-binding enterText can no-op on Windows.
 - **What:** Controller-set title/concept after enterText, unfocus, assert
   Next: Style before advance; ValueKey on wizard Next for scroll-safe taps.
-- **Commit:** (this tip)
+- **Commit:** a48672d9
 
 ## 2026-09-07 — ci: rewake after golden timeout + Stories E2E flake
 - **Why:** Tip d40e3e74 unit green; Widget Golden wall-clock timed out after all

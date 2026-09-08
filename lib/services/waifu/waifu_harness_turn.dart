@@ -87,6 +87,9 @@ extension _WaifuHarnessTurn on WaifuHarness {
           case WaifuFinalAction.retrySpeech:
             _turn.requestSpeech();
             continue;
+          case WaifuFinalAction.retryVerify:
+            _turn.requestVerify();
+            continue;
           case WaifuFinalAction.failMutation:
             _reject('turn', 'no file change landed for a code-change request');
             _say(_turn.failureLine(body));
@@ -96,6 +99,10 @@ extension _WaifuHarnessTurn on WaifuHarness {
               'turn',
               'tool work ended without an in-character spoken line',
             );
+            _say(_turn.failureLine(body));
+            return;
+          case WaifuFinalAction.failVerify:
+            _reject('turn', 'no verify after a project file change');
             _say(_turn.failureLine(body));
             return;
         }

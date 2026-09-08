@@ -30,8 +30,21 @@ extension _WaifuHarnessDispatch on WaifuHarness {
       case kWaifuToolTodoRead:
         return WaifuToolResult(ok: true, output: todos.read());
       case kWaifuToolTodoWrite:
-        final out = todos.write(args['todos']);
-        await waifuSyncTodosOntoPlan(session: session, todos: todos);
+        todos.write(args['todos']);
+        final sync = await waifuSyncTodosOntoPlan(
+          session: session,
+          todos: todos,
+          allowCompleted: _turn.allowsPlanStepDone,
+        );
+        final out = todos.read();
+        if (sync.blockedDone) {
+          return WaifuToolResult(
+            ok: false,
+            output:
+                '$out\nplan step stayed pending: mutate+verify required '
+                'before a step can be marked done',
+          );
+        }
         return WaifuToolResult(ok: true, output: out);
       case kWaifuToolQuestion:
         return _answerQuestion(args);

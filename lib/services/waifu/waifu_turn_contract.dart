@@ -30,13 +30,119 @@ const kWaifuReceiptMutationTools = {
   kWaifuToolWrite,
 };
 
+const kWaifuBuildVerifyCue =
+    'After write, edit, or apply_patch changes a project file, re-read '
+    'that path or run a project test/analyze command before claiming the '
+    'work done. An accepted-plan step stays pending until both land. '
+    'Prefer the built-in run-plan-step workflow when a plan is pinned.';
+
 enum WaifuFinalAction {
   accept,
   useRememberedSpeech,
   retryMutation,
   retrySpeech,
+  retryVerify,
   failMutation,
   failSpeech,
+  failVerify,
+}
+
+String waifuNormalizeVerifyPath(String path) =>
+    path.trim().replaceAll('\\', '/').replaceFirst(RegExp(r'^\./'), '');
+
+bool waifuReadVerifiesMutate(String readPath, Iterable<String> mutated) {
+  final want = waifuNormalizeVerifyPath(readPath);
+  if (want.isEmpty) return false;
+  for (final raw in mutated) {
+    final have = waifuNormalizeVerifyPath(raw);
+    if (have.isEmpty) continue;
+    if (have == want) return true;
+    if (have.endsWith('/$want') || want.endsWith('/$have')) return true;
+  }
+  return false;
+}
+
+/// Test/analyze class only. `echo`, `ls`, and `test -f` are not verify.
+/// Every `&&` / `||` / `;` segment is scanned so `cd pkg && flutter test`
+/// receipts. `--help` / `-h` / dry-run anywhere in the command (or any
+/// segment) fails the whole receipt — a later clean segment is not an
+/// escape (`flutter test --help || flutter test`).
+bool waifuLooksVerifyCommand(String command) {
+  final lowered = command.trim().toLowerCase();
+  final segments = lowered.split(RegExp(r'(?:&&|\|\||[;|\n])'));
+  List<String> wordsOf(String raw) => raw
+      .replaceAll(RegExp(r'''["'`(){}\[\],;|&<>]'''), ' ')
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .toList();
+  bool theater(List<String> words) => words.any((w) {
+    if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
+    return w == '--dry-run' ||
+        w == '--dryrun' ||
+        w == '--dry_run' ||
+        w.startsWith('--dry-run') ||
+        w.startsWith('--dryrun');
+  });
+  if (theater(wordsOf(lowered))) return false;
+  for (final segment in segments) {
+    if (theater(wordsOf(segment))) return false;
+  }
+  for (final segment in segments) {
+    final words = wordsOf(segment);
+    if (words.isEmpty) continue;
+    var cmd = words.first;
+    if (cmd.contains('/')) cmd = cmd.split('/').last;
+    if (cmd == 'npx' && words.length > 1) {
+      if (const {'vitest', 'jest', 'eslint'}.contains(words[1])) return true;
+      continue;
+    }
+    if (cmd == 'flutter' || cmd == 'dart') {
+      if (words.length > 1 && const {'test', 'analyze'}.contains(words[1])) {
+        return true;
+      }
+      continue;
+    }
+    if (cmd == 'cargo') {
+      if (words.length > 1 && const {'test', 'clippy'}.contains(words[1])) {
+        return true;
+      }
+      continue;
+    }
+    if (cmd == 'go') {
+      if (words.length > 1 && words[1] == 'test') return true;
+      continue;
+    }
+    if (cmd == 'make') {
+      if (words.length > 1 &&
+          const {'test', 'check', 'lint'}.contains(words[1])) {
+        return true;
+      }
+      continue;
+    }
+    if (cmd == 'npm' || cmd == 'pnpm' || cmd == 'yarn') {
+      if (words.length > 1 && words[1] == 'test') return true;
+      if (words.length > 2 && words[1] == 'run') {
+        final script = words[2];
+        if (script == 'test' ||
+            script == 'lint' ||
+            script == 'analyze' ||
+            script.startsWith('test:')) {
+          return true;
+        }
+      }
+      continue;
+    }
+    if (cmd == 'python' || cmd == 'python3' || cmd == 'py') {
+      if (words.length > 2 &&
+          words[1] == '-m' &&
+          const {'pytest', 'unittest'}.contains(words[2])) {
+        return true;
+      }
+      continue;
+    }
+    if (const {'pytest', 'vitest', 'jest'}.contains(cmd)) return true;
+  }
+  return false;
 }
 
 bool waifuTaskRequestsFileChange(String task) {
@@ -80,6 +186,7 @@ class WaifuTurnContract {
     WaifuWriteRecord? initialWrite, {
     this.mode = WaifuMode.build,
     bool exploreOnly = false,
+    this.enforceVerify = true,
   }) : mutationRequired =
            (!exploreOnly && mode == WaifuMode.plan) ||
            waifuTaskRequestsFileChange(task),
@@ -87,20 +194,29 @@ class WaifuTurnContract {
 
   final WaifuMode mode;
   final bool mutationRequired;
+  final bool enforceVerify;
   final WaifuWriteRecord? _initialWrite;
+  final mutatedPaths = <String>{};
+  final readPaths = <String>{};
   bool mutationAttempted = false;
   bool mutationSucceeded = false;
+  bool verifyRequired = false;
+  bool verified = false;
   bool successfulTool = false;
   bool speechOnly = false;
   int mutationCorrectionAttempts = 0;
   int speechCorrectionAttempts = 0;
+  int verifyCorrectionAttempts = 0;
   String rememberedSpeech = '';
   String cue = '';
 
   bool get canRetrySpeech =>
       speechCorrectionAttempts < kWaifuTurnCorrectionAttempts;
   bool get canUseRememberedSpeech =>
-      rememberedSpeech.isNotEmpty && (!mutationRequired || mutationSucceeded);
+      rememberedSpeech.isNotEmpty &&
+      (!mutationRequired || mutationSucceeded) &&
+      (!verifyRequired || verified);
+  bool get allowsPlanStepDone => mutationSucceeded && verified;
 
   void rememberToolSpeech(String body) {
     final trimmed = body.trim();
@@ -118,13 +234,21 @@ class WaifuTurnContract {
   void noteResult(
     String toolName,
     WaifuToolResult result,
-    WaifuWriteRecord? currentWrite,
-  ) {
+    WaifuWriteRecord? currentWrite, {
+    Map<String, dynamic>? args,
+  }) {
     successfulTool = successfulTool || result.ok;
     if (kWaifuReceiptMutationTools.contains(toolName) && result.write != null) {
       if (mode != WaifuMode.plan ||
           waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
         mutationSucceeded = true;
+      }
+      if (mode != WaifuMode.plan &&
+          !waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
+        mutatedPaths.add(waifuNormalizeVerifyPath(result.write!.relativePath));
+        verifyRequired = true;
+        readPaths.clear();
+        verified = false;
       }
     }
     if (result.ok &&
@@ -134,7 +258,49 @@ class WaifuTurnContract {
                 waifuRelativeIsPlanArtifact(currentWrite.relativePath)))) {
       mutationSucceeded = true;
     }
-    if (mutationSucceeded) cue = '';
+    if (result.ok && args != null) {
+      if (toolName == kWaifuToolRead) {
+        final path = waifuToolPathArg(args);
+        if (path != null) readPaths.add(waifuNormalizeVerifyPath(path));
+      }
+      if (toolName == kWaifuToolBash &&
+          waifuLooksVerifyCommand(
+            (args['command'] ?? args['cmd'] ?? '').toString(),
+          )) {
+        noteVerify();
+      }
+    }
+    if (!verified &&
+        readPaths.any((r) => waifuReadVerifiesMutate(r, mutatedPaths))) {
+      noteVerify();
+    }
+    if (mutationSucceeded && (!verifyRequired || verified)) cue = '';
+  }
+
+  void noteVerify() {
+    verified = true;
+    if (verifyRequired) cue = '';
+  }
+
+  void absorbChild(WaifuTurnContract child) {
+    successfulTool = successfulTool || child.successfulTool;
+    mutationAttempted = mutationAttempted || child.mutationAttempted;
+    if (child.mutationSucceeded) mutationSucceeded = true;
+    if (child.verifyRequired) verifyRequired = true;
+    if (child.mutatedPaths.isNotEmpty) {
+      readPaths.clear();
+      verified = false;
+    }
+    mutatedPaths.addAll(child.mutatedPaths);
+    readPaths.addAll(child.readPaths);
+    if (child.verified) {
+      noteVerify();
+      return;
+    }
+    if (!verified &&
+        readPaths.any((r) => waifuReadVerifiesMutate(r, mutatedPaths))) {
+      noteVerify();
+    }
   }
 
   WaifuFinalAction decideFinal(String body) {
@@ -145,6 +311,12 @@ class WaifuTurnContract {
       return mutationCorrectionAttempts < kWaifuTurnCorrectionAttempts
           ? WaifuFinalAction.retryMutation
           : WaifuFinalAction.failMutation;
+    }
+    if (enforceVerify && verifyRequired && !verified) {
+      rememberToolSpeech(trimmed);
+      return verifyCorrectionAttempts < kWaifuTurnCorrectionAttempts
+          ? WaifuFinalAction.retryVerify
+          : WaifuFinalAction.failVerify;
     }
     if (trimmed.isEmpty ||
         (generic && successfulTool) ||
@@ -183,6 +355,15 @@ class WaifuTurnContract {
         '“Done”, or empty answer.';
   }
 
+  void requestVerify() {
+    verifyCorrectionAttempts++;
+    speechOnly = false;
+    cue =
+        'TURN CONTRACT: A project file changed. Re-read a touched path or '
+        'run a project test/analyze command before claiming this done. '
+        'Personality without that verify is not completion.';
+  }
+
   String failureLine(String body) {
     if (mutationRequired && !mutationSucceeded) {
       if (mode == WaifuMode.plan) {
@@ -191,6 +372,10 @@ class WaifuTurnContract {
       }
       return 'I could not put a real change on disk, so I stopped instead of '
           'pretending I did.';
+    }
+    if (enforceVerify && verifyRequired && !verified) {
+      return 'I put a change on disk but did not re-read or test it, so I '
+          'stopped instead of pretending the work was done.';
     }
     if (canUseRememberedSpeech) return rememberedSpeech;
     final trimmed = body.trim();
