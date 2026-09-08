@@ -1,3 +1,12 @@
+## 2026-09-08 — fix(waifu): Plan find denies exec/ok/fprint family
+- **Why:** SecBot HOLD on 77c42ee7. `find` stayed on the Plan RO allowlist
+  with only `-delete` denied. `-exec` / `-execdir` / `-ok` / `-okdir` /
+  `-fprint` / `-fprintf` (and `--fprint` / `--fprintf`) could still mutate
+  or write outside the plans folder.
+- **What:** Same message family as `-delete`. Token-exact deny of that
+  family. Plain `find . -name` still allowed.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(waifu): Plan receipt, Build step stamps, Accept widget pin
 - **Why:** Senior Dev HOLD on tip 54fbf1db. Plan receipt still keyed off
   `waifuTaskRequestsFileChange`, so a soft Plan ask could finish with

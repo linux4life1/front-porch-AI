@@ -82,6 +82,18 @@ const kWaifuPlanBashAllow = {
   'column',
 };
 
+const _kWaifuPlanFindMutate = {
+  '-delete',
+  '-exec',
+  '-execdir',
+  '-ok',
+  '-okdir',
+  '-fprint',
+  '-fprintf',
+  '--fprint',
+  '--fprintf',
+};
+
 const _kWaifuPlanGitMutate = {
   'add',
   'commit',
@@ -317,8 +329,12 @@ String? waifuPlanBashDenied(String command) {
     if (cmd == 'git' && _gitMutates(words)) {
       return 'plan mode bash is read-only: git ${words.length > 1 ? words[1] : ''}';
     }
-    if (cmd == 'find' && words.contains('-delete')) {
-      return 'plan mode bash is read-only: find -delete is denied';
+    if (cmd == 'find') {
+      for (final flag in words) {
+        if (_kWaifuPlanFindMutate.contains(flag)) {
+          return 'plan mode bash is read-only: find $flag is denied';
+        }
+      }
     }
     if (cmd == 'sed' &&
         words.any((w) => w == '-i' || w.startsWith('-i') && w != '-i')) {

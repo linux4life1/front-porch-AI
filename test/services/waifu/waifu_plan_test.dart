@@ -438,6 +438,52 @@ void main() {
     );
   });
 
+  test(
+    'Plan find is RO: exec/ok/fprint family denied, name search allowed',
+    () {
+      expect(waifuPlanBashDenied(r"find . -name '*.dart'"), isNull);
+      expect(waifuPlanBashDenied('find . -type f'), isNull);
+      expect(waifuPlanBashDenied('find . -delete'), isNotNull);
+      expect(waifuPlanBashDenied(r'find . -exec rm {} +'), isNotNull);
+      expect(waifuPlanBashDenied(r'find . -execdir rm {} +'), isNotNull);
+      expect(waifuPlanBashDenied(r'find . -ok rm {} +'), isNotNull);
+      expect(waifuPlanBashDenied(r'find . -okdir rm {} +'), isNotNull);
+      expect(waifuPlanBashDenied('find . -fprint /tmp/x'), isNotNull);
+      expect(waifuPlanBashDenied(r"find . -fprintf /tmp/x '%p\n'"), isNotNull);
+      expect(waifuPlanBashDenied('find . --fprint /tmp/x'), isNotNull);
+      expect(waifuPlanBashDenied(r"find . --fprintf /tmp/x '%p\n'"), isNotNull);
+      for (final cmd in [
+        r'find . -exec rm {} +',
+        r'find . -execdir rm {} +',
+        r'find . -ok rm {} +',
+        r'find . -okdir rm {} +',
+        'find . -fprint /tmp/x',
+        r"find . -fprintf /tmp/x '%p\n'",
+      ]) {
+        expect(
+          waifuPlanBashDenied(cmd)!.toLowerCase(),
+          contains('read-only'),
+          reason: cmd,
+        );
+        expect(
+          WaifuPermissions(
+            mode: WaifuMode.plan,
+            workingDirectory: root.path,
+          ).hardBlock(name: 'bash', args: {'command': cmd}),
+          isNotNull,
+          reason: cmd,
+        );
+      }
+      expect(
+        WaifuPermissions(
+          mode: WaifuMode.plan,
+          workingDirectory: root.path,
+        ).hardBlock(name: 'bash', args: {'command': r"find . -name '*.dart'"}),
+        isNull,
+      );
+    },
+  );
+
   test('Build todowrite writes step.status back onto the plan file', () async {
     final rel = '.waifu/plans/empty-email.md';
     await File(p.join(root.path, rel)).create(recursive: true);
