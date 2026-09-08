@@ -1,3 +1,17 @@
+## 2026-09-08 — rebase(waifu): Epic D onto #240 Rawhide tip
+- **Why:** #240 squash-merged as `34a006a2` (after #241 `9e010cc4`),
+  so PR #242 was CONFLICTING / DIRTY vs Rawhide.
+- **What:** Rebased `cursor/waifu-epic-d-chrome-1690` onto that tip.
+  Kept Epic D chrome (AppBar mode/path, honesty `**`, Jail/Disk,
+  multi-file receipts, toolsSupported fail-closed, Scaffold harness
+  tests) plus Rawhide Epic C stdio MCP / Docker-easy / in-Waifu panel
+  and #241 Thought collapsed-unless-live.
+  Conflict files: none — changelog, `docs/Rawhide.md`, and
+  `lib/ui/waifu/waifu.dart` auto-merged (barrel keeps `waifu_mcp_panel`
+  and Epic D `waifu_honesty_text` / `waifu_scope_badge`).
+  No Guard-protected existing tests were edited.
+- **Commit:** (this commit)
+
 ## 2026-09-08 — rebase(waifu): Epic C onto #241 Rawhide tip
 - **Why:** #241 squash-merged as `9e010cc4` after #240 last rebased onto
   `2196e839`, so the draft was CONFLICTING / DIRTY vs Rawhide.
