@@ -8,7 +8,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const get = vi.fn(async () => ({
+const get = vi.fn(async (_url?: string) => ({
   mcpDefault: false,
   servers: [] as unknown[],
 }));
