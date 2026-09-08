@@ -1,3 +1,13 @@
+## 2026-09-08 — fix(realism): do not persist tool_choice auto for named judges
+- **Why:** Style retry remembered `auto` after a `tool_choice` 400. The next
+  overlay `report_*` judge on that identity started at auto — #230's
+  streaming-auto bug after one bad provider 400. Tests hid it with
+  `resetForTest`.
+- **What:** Probe persists only named/required. Auto is a one-shot for this
+  request. `styleFor` treats leftover auto as unset. Stream door also retries
+  mandatory-reasoning 400s the POST path already did.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(realism): stream OpenRouter tools with the same force as POST
 - **Why:** Live judges pass overlay `onChunk`, so `generateWithTools` took the
   streaming branch. That door hardcoded `tool_choice:auto`, skipped

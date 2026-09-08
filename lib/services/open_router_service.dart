@@ -580,7 +580,8 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         );
       }
       if (streaming) {
-        return await streamOpenAiChatToolsWithStyleRetry(
+        String? streamErr;
+        final streamed = await streamOpenAiChatToolsWithStyleRetry(
           identity: identity,
           tools: tools,
           toolChoice: params.toolChoice,
@@ -591,7 +592,21 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
           wrapReasoning: params.reasoningEnabled,
           salvage: params.salvageReasoning,
           onChunk: params.onChunk,
+          onHttpError: (_, body) => streamErr = body,
         );
+        if (streamed != null) return streamed;
+        final rejected = streamErr;
+        if (rejected != null &&
+            !reasoningCannotDisable(modelName) &&
+            _isMandatoryReasoningRejection(rejected)) {
+          rememberMandatoryReasoning(modelName);
+          debugPrint(
+            '[RemoteAPI] $modelName cannot disable reasoning — retrying '
+            'streamed tool call with reasoning.exclude only',
+          );
+          return await generateWithTools(params, tools);
+        }
+        return null;
       }
       final response = await attachToolsWithStyleRetry(
         identity: identity,

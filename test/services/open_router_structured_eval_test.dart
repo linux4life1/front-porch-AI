@@ -645,6 +645,161 @@ void main() {
     );
   });
 
+  group('tool_choice probe must not persist auto for named judges', () {
+    const tools = [
+      {
+        'type': 'function',
+        'function': {
+          'name': 'report_relationship',
+          'parameters': {
+            'type': 'object',
+            'properties': {
+              'relationship_delta': {'type': 'integer'},
+            },
+          },
+        },
+      },
+    ];
+
+    const sseOk =
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"report_relationship","arguments":"{}"}}]}}]}\n\n'
+        'data: [DONE]\n';
+
+    const toolChoice400 = '{"error":{"message":"unknown tool_choice value"}}';
+    const postOk =
+        '{"choices":[{"message":{"tool_calls":[{"function":{"name":"report_relationship","arguments":"{}"}}]}}]}';
+
+    final isForcedToolChoice = anyOf('required', {
+      'type': 'function',
+      'function': {'name': 'report_relationship'},
+    });
+
+    GenerationParams named({void Function(String)? onChunk}) =>
+        GenerationParams(
+          prompt: 'score this',
+          maxLength: 512,
+          minP: 0.05,
+          topK: 40,
+          repeatPenalty: 1.15,
+          toolChoice: 'report_relationship',
+          salvageReasoning: true,
+          reasoningEnabled: false,
+          reasoningMaxTokens: 0,
+          onChunk: onChunk,
+        );
+
+    http.Response replyFor(Map<String, dynamic> body, {required bool stream}) {
+      if (body['tool_choice'] == 'auto') {
+        return http.Response(stream ? sseOk : postOk, 200);
+      }
+      return http.Response(toolChoice400, 400);
+    }
+
+    setUp(ToolChoiceStyleProbe.instance.resetForTest);
+
+    test(
+      'stream tool_choice 400 does not leave the next overlay judge on auto',
+      () async {
+        final payloads = <Map<String, dynamic>>[];
+        final remote = OpenRouterService(
+          apiUrl: 'https://openrouter.ai/api/v1',
+          apiKey: 'test-key',
+          modelName: 'sticky-auto-stream',
+        );
+        remote.httpClientFactory = () => MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          payloads.add(body);
+          return replyFor(body, stream: true);
+        });
+
+        await remote.generateWithTools(named(onChunk: (_) {}), tools);
+        final afterFirst = payloads.length;
+        expect(payloads.any((p) => p['tool_choice'] == 'auto'), isTrue);
+
+        await remote.generateWithTools(named(onChunk: (_) {}), tools);
+        expect(payloads.length, greaterThan(afterFirst));
+        expect(payloads[afterFirst]['tool_choice'], isForcedToolChoice);
+        expect(payloads[afterFirst]['tool_choice'], isNot('auto'));
+        expect(payloads[afterFirst]['provider'], {'require_parameters': true});
+      },
+    );
+
+    test(
+      'POST tool_choice 400 does not leave the next named judge on auto',
+      () async {
+        final payloads = <Map<String, dynamic>>[];
+        final remote = OpenRouterService(
+          apiUrl: 'https://openrouter.ai/api/v1',
+          apiKey: 'test-key',
+          modelName: 'sticky-auto-post',
+        );
+        remote.httpClientFactory = () => MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          payloads.add(body);
+          return replyFor(body, stream: false);
+        });
+
+        await remote.generateWithTools(named(), tools);
+        final afterFirst = payloads.length;
+        expect(payloads.any((p) => p['tool_choice'] == 'auto'), isTrue);
+
+        await remote.generateWithTools(named(), tools);
+        expect(payloads[afterFirst]['tool_choice'], isForcedToolChoice);
+        expect(payloads[afterFirst]['tool_choice'], isNot('auto'));
+      },
+    );
+
+    test(
+      'Journal empty toolChoice still sends auto after a named step-down',
+      () async {
+        final payloads = <Map<String, dynamic>>[];
+        final remote = OpenRouterService(
+          apiUrl: 'https://openrouter.ai/api/v1',
+          apiKey: 'test-key',
+          modelName: 'sticky-auto-journal',
+        );
+        remote.httpClientFactory = () => MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          payloads.add(body);
+          return replyFor(body, stream: true);
+        });
+
+        await remote.generateWithTools(named(onChunk: (_) {}), tools);
+        payloads.clear();
+        await remote.generateWithTools(
+          GenerationParams(prompt: 'journal', maxLength: 4000, onChunk: (_) {}),
+          tools,
+        );
+        expect(payloads, isNotEmpty);
+        expect(payloads.first['tool_choice'], 'auto');
+      },
+    );
+
+    test(
+      'Nano stream after a tool_choice 400 still has no provider pin',
+      () async {
+        final payloads = <Map<String, dynamic>>[];
+        final remote = OpenRouterService(
+          apiUrl: 'https://nano-gpt.com/api/v1',
+          apiKey: 'test-key',
+          modelName: 'sticky-auto-nano',
+        );
+        remote.httpClientFactory = () => MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          payloads.add(body);
+          return replyFor(body, stream: true);
+        });
+
+        await remote.generateWithTools(named(onChunk: (_) {}), tools);
+        final afterFirst = payloads.length;
+        await remote.generateWithTools(named(onChunk: (_) {}), tools);
+        expect(payloads[afterFirst]['tool_choice'], isForcedToolChoice);
+        expect(payloads[afterFirst].containsKey('provider'), isFalse);
+        expect(payloads[afterFirst]['min_p'], 0.05);
+      },
+    );
+  });
+
   group('eval door call site', () {
     test('named judges go through generateStructuredJson and keep overlay', () {
       final wiring = File(

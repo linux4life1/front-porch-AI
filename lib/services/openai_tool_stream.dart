@@ -228,12 +228,10 @@ Future<LlmToolResponse?> streamOpenAiChatToolsWithStyleRetry({
   bool salvage = false,
   void Function(String chunk)? onChunk,
   ToolChoiceStyleProbe? probe,
+  void Function(int status, String body)? onHttpError,
 }) async {
   final styleProbe = probe ?? ToolChoiceStyleProbe.instance;
-  var style = styleProbe.styleFor(identity);
-  if (toolChoice == null || toolChoice.isEmpty) {
-    style = ToolChoiceStyle.auto;
-  }
+  var style = styleProbe.startingStyleFor(identity, toolChoice: toolChoice);
 
   Future<http.StreamedResponse> once(ToolChoiceStyle s) {
     final payload = Map<String, dynamic>.from(basePayload);
@@ -264,9 +262,11 @@ Future<LlmToolResponse?> streamOpenAiChatToolsWithStyleRetry({
         onChunk: onChunk,
       );
     }
+    final buffered = await http.Response.fromStream(response);
+    onHttpError?.call(buffered.statusCode, buffered.body);
     debugPrint(
       '[OpenAiChat] Streamed tool call rejected '
-      '(HTTP ${response.statusCode}) — falling back to text transport',
+      '(HTTP ${buffered.statusCode}) — falling back to text transport',
     );
     return null;
   }
@@ -280,6 +280,7 @@ Future<LlmToolResponse?> streamOpenAiChatToolsWithStyleRetry({
   }
   final first = await http.Response.fromStream(response);
   if (!isToolChoiceStyleRejection(first.statusCode, first.body)) {
+    onHttpError?.call(first.statusCode, first.body);
     debugPrint(
       '[OpenAiChat] Streamed tool call rejected '
       '(HTTP ${first.statusCode}) — falling back to text transport',
@@ -293,6 +294,7 @@ Future<LlmToolResponse?> streamOpenAiChatToolsWithStyleRetry({
     if (response.statusCode != 400) return finish(response);
     final second = await http.Response.fromStream(response);
     if (!isToolChoiceStyleRejection(second.statusCode, second.body)) {
+      onHttpError?.call(second.statusCode, second.body);
       debugPrint(
         '[OpenAiChat] Streamed tool call rejected '
         '(HTTP ${second.statusCode}) — falling back to text transport',
@@ -302,7 +304,7 @@ Future<LlmToolResponse?> streamOpenAiChatToolsWithStyleRetry({
     style = ToolChoiceStyle.required;
   }
   if (style == ToolChoiceStyle.required) {
-    styleProbe.remember(identity, ToolChoiceStyle.auto);
+    // One-shot for this request. Do not persist auto.
     return finish(await once(ToolChoiceStyle.auto));
   }
   return null;

@@ -80,11 +80,7 @@ Future<http.Response> attachToolsWithStyleRetry({
   bool stream = false,
 }) async {
   final styleProbe = probe ?? ToolChoiceStyleProbe.instance;
-  var style = styleProbe.styleFor(identity);
-  // Journal/Growth (`toolChoice` null) always send `'auto'` — do not step.
-  if (toolChoice == null || toolChoice.isEmpty) {
-    style = ToolChoiceStyle.auto;
-  }
+  var style = styleProbe.startingStyleFor(identity, toolChoice: toolChoice);
 
   Future<http.Response> once(ToolChoiceStyle s) {
     final payload = Map<String, dynamic>.from(basePayload);
@@ -113,7 +109,8 @@ Future<http.Response> attachToolsWithStyleRetry({
     style = ToolChoiceStyle.required;
   }
   if (style == ToolChoiceStyle.required) {
-    styleProbe.remember(identity, ToolChoiceStyle.auto);
+    // One-shot for this request. Do not persist auto — that disarms
+    // the next named overlay judge on this identity.
     return once(ToolChoiceStyle.auto);
   }
   return response;
