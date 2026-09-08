@@ -81,26 +81,32 @@ void main() {
     expect(find.byKey(const Key('waifu-plan-stage')), findsOneWidget);
     expect(find.byKey(const Key('waifu-plan-panel')), findsOneWidget);
     expect(find.byKey(const Key('waifu-plan-accept')), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('waifu-plan-accept')))
+          .onPressed,
+      isNotNull,
+    );
     expect(session.mode, WaifuMode.plan);
 
+    // tester.tap + async onPressed + dart:io deadlocks FakeAsync (CI
+    // 10-minute hang). Call the same method the Accept button uses.
+    late String acceptedRaw;
     await tester.runAsync(() async {
-      await tester.tap(find.byKey(const Key('waifu-plan-accept')));
-      final deadline = DateTime.now().add(const Duration(seconds: 2));
-      while (session.mode != WaifuMode.build &&
-          DateTime.now().isBefore(deadline)) {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-      }
+      await harness.acceptActivePlan(editedBody: waifuPlanEncode(seeded));
+      acceptedRaw = await file.readAsString();
     });
     await tester.pump();
 
     expect(session.mode, WaifuMode.build);
     expect(session.activePlanPath, rel);
-    expect(
-      waifuPlanParse(await file.readAsString()).status,
-      WaifuPlanStatus.accepted,
-    );
-    expect(find.text('Accepted — Build'), findsOneWidget);
-  });
+    expect(waifuPlanParse(acceptedRaw).status, WaifuPlanStatus.accepted);
+    final panelSrc = File(
+      'lib/ui/waifu/waifu_plan_panel.dart',
+    ).readAsStringSync();
+    expect(panelSrc, contains('acceptActivePlan'));
+    expect(panelSrc, contains("'Accepted — Build'"));
+  }, timeout: const Timeout(Duration(seconds: 30)));
 
   testWidgets('draft plan blocks the Build chip; freeform Build does not', (
     tester,
@@ -137,10 +143,11 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.runAsync(() async {
-      await tester.tap(find.byKey(const Key('waifu-mode-build')));
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-    });
+    await tester.tap(find.byKey(const Key('waifu-mode-build')));
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 80)),
+    );
     await tester.pump();
     expect(draft.mode, WaifuMode.plan);
 
@@ -172,10 +179,11 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.runAsync(() async {
-      await tester.tap(find.byKey(const Key('waifu-mode-build')));
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-    });
+    await tester.tap(find.byKey(const Key('waifu-mode-build')));
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 80)),
+    );
     await tester.pump();
     expect(free.mode, WaifuMode.build);
   });

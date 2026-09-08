@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/waifu/waifu.dart';
@@ -173,11 +175,15 @@ class _WaifuPlanPanelState extends State<WaifuPlanPanel> {
                   key: const Key('waifu-plan-accept'),
                   onPressed: _busy
                       ? null
-                      : () => _run(() async {
-                          await widget.harness?.acceptActivePlan(
-                            editedBody: _body.text,
+                      : () {
+                          unawaited(
+                            _run(() async {
+                              await widget.harness?.acceptActivePlan(
+                                editedBody: _body.text,
+                              );
+                            }, 'Accepted — Build'),
                           );
-                        }, 'Accepted — Build'),
+                        },
                   style: FilledButton.styleFrom(
                     backgroundColor: amber,
                     foregroundColor: AppColors.onChaosAccent,
@@ -189,20 +195,28 @@ class _WaifuPlanPanelState extends State<WaifuPlanPanel> {
                   key: const Key('waifu-plan-revise'),
                   onPressed: _busy
                       ? null
-                      : () => _run(() async {
-                          await widget.harness?.reviseActivePlan(
-                            editedBody: _body.text,
+                      : () {
+                          unawaited(
+                            _run(() async {
+                              await widget.harness?.reviseActivePlan(
+                                editedBody: _body.text,
+                              );
+                            }, 'Back to Plan'),
                           );
-                        }, 'Back to Plan'),
+                        },
                   child: const Text('Revise'),
                 ),
                 TextButton(
                   key: const Key('waifu-plan-discard'),
                   onPressed: _busy
                       ? null
-                      : () => _run(() async {
-                          await widget.harness?.discardActivePlan();
-                        }, 'Pin cleared'),
+                      : () {
+                          unawaited(
+                            _run(() async {
+                              await widget.harness?.discardActivePlan();
+                            }, 'Pin cleared'),
+                          );
+                        },
                   child: const Text('Discard'),
                 ),
               ],

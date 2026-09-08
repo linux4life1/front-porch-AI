@@ -164,12 +164,15 @@ class WaifuHarness {
       mode: session.mode,
       exploreOnly: exploreOnly,
     );
-    await _refreshPlanBlock();
+    // Record the send before any await. Plan-file I/O used to sit here
+    // first (#236), so a kicked-off send left transcript empty and
+    // mid-stream thought chrome never painted.
     session.running = true;
     session.transcript.add(
       WaifuMessage(isUser: true, text: text, imagePath: imagePath),
     );
     if (session.title.isEmpty) session.title = waifuTitleFrom(text);
+    await _refreshPlanBlock();
     _mentionBlock = await waifuExpandMentions(text, session.folderRoot);
     waifuRewriteSlashUser(session.transcript, text);
     await skills.refreshLocal();

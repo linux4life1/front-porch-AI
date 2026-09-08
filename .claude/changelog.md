@@ -1,3 +1,15 @@
+## 2026-09-08 — fix(waifu): unit CI hang after Plan P0 + mid-stream thoughts
+- **Why:** After #236, `Tests (unit + integration)` was deterministically
+  red. `waifu_plan_panel_test` Accept→Build hung 10 minutes (`tester.tap`
+  + async `onPressed` + dart:io vs FakeAsync). Thought-token chrome
+  missed mid-stream text because `send()` awaited `_refreshPlanBlock()`
+  before recording the user line / `running`.
+- **What:** Record user message + `running` before any await. Accept
+  buttons use `unawaited(_run(…))`. Widget test drives
+  `acceptActivePlan(editedBody:)` inside `runAsync` (no tap). Sync-prefix
+  + encode/parse pins. Existing tests under Guard were edited.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
 - **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a
   blocked mutating MCP call, so `toolChips.single` threw Too many elements.
