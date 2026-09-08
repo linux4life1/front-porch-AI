@@ -33,6 +33,7 @@ import 'package:front_porch_ai/ui/waifu/waifu_mcp_bind.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_question_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_composer.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_plan_stage.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_session_chrome.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_sidebar.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_transcript.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_work_strip.dart';
@@ -85,6 +86,7 @@ class _WaifuPageState extends State<WaifuPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _syncToolsSupported(context);
     if (_parked) return;
     _parked = true;
     _storeOf(context)?.saveLast(widget.session);
@@ -104,6 +106,16 @@ class _WaifuPageState extends State<WaifuPage> {
 
   void _refresh() {
     if (mounted) setState(() {});
+  }
+
+  void _syncToolsSupported(BuildContext context) {
+    try {
+      final chat = Provider.of<ChatService>(context, listen: false);
+      widget.session.toolsSupported = waifuResolveToolsSupported(
+        knownUnsupported: chat.toolCallSupport.name == 'unsupported',
+        paused: chat.toolCallingPaused,
+      );
+    } catch (_) {}
   }
 
   void _onThemeChanged() {
@@ -368,26 +380,14 @@ class _WaifuPageState extends State<WaifuPage> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final amber = AppColors.porchAmberOf(context);
-    final folderName = p.basename(session.folderRoot);
     final harness = widget.harness ?? _created;
     final coworker = session.coworker.name;
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceOf(context),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(session.title.isEmpty ? coworker : session.title),
-            Text(
-              folderName,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary(context),
-              ),
-            ),
-          ],
-        ),
+        toolbarHeight: 76,
+        title: WaifuSessionChrome(session: session),
         actions: [
           IconButton(
             key: const Key('waifu-language-help'),
@@ -415,6 +415,8 @@ class _WaifuPageState extends State<WaifuPage> {
           Expanded(
             child: Column(
               children: [
+                if (!session.toolsSupported)
+                  const WaifuToolsUnsupportedBanner(),
                 Expanded(
                   child: WaifuTranscript(session: session, coworker: coworker),
                 ),
@@ -423,10 +425,19 @@ class _WaifuPageState extends State<WaifuPage> {
                   harness: harness,
                   onChanged: _refresh,
                 ),
-                if (session.lastWrite != null)
+                if (waifuTurnReceiptVisible(
+                  lastWrite: session.lastWrite,
+                  writes: session.turnWrites,
+                ))
                   WaifuWorkStrip(
-                    record: session.lastWrite!,
-                    onClose: () => setState(() => session.lastWrite = null),
+                    record: session.lastWrite ?? session.turnWrites.last,
+                    writes: session.turnWrites,
+                    verifiedPaths: session.turnVerifyPaths,
+                    onClose: () => setState(() {
+                      session.lastWrite = null;
+                      session.turnWrites.clear();
+                      session.turnVerifyPaths.clear();
+                    }),
                   ),
                 WaifuComposer(
                   controller: _composer,

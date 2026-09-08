@@ -20,6 +20,20 @@
   Conflict files: none (changelog + `docs/Rawhide.md` auto-merged).
   No Guard-protected existing tests were edited.
 - **Commit:** (this tip)
+## 2026-09-08 — feat(waifu): Epic D chrome / honesty
+- **Why:** After Plan/Build/verify/Tasks, OpenCode-class chrome was
+  still missing: mode/path lived in a sidebar accordion, honesty
+  `**` rendered as sludge, jail vs disk was a sentence, the work
+  strip was last-file-only, and home never passed `toolsSupported`
+  so Sit down could claim she can code on a no-tools backend.
+- **What:** Always-visible AppBar mode + Jail/Disk badges + full
+  path. Honesty body renders closed `**…**` as weight. Work strip
+  lists every file this turn plus a verify line. `send()` fail-closes
+  before the loop when session or LLM `toolsSupported` is false
+  (home/resume stamp the live ChatService verdict). Plan artifacts,
+  Accept→Build, verify-after-mutate, live chips, Tasks, and
+  claim-vs-chip unchanged. Epic C (stdio MCP) not in this tip.
+- **Commit:** (this commit)
 
 ## 2026-09-08 — rebase(waifu): #238 onto Rawhide after #237
 - **Why:** #237 squash-merged as `94ff43bd` (and #239 as `cd9bcd49`).

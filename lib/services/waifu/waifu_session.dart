@@ -97,6 +97,7 @@ class WaifuSession {
     this.langs,
     this.mcpOptIn = false,
     this.preserveThinking = false,
+    this.toolsSupported = true,
     this.activePlanPath,
     ChatThemeOverrides? themeOverrides,
     Set<String>? suggestedLangs,
@@ -114,9 +115,18 @@ class WaifuSession {
   final Set<String> suggestedLangs;
   final List<WaifuMessage> transcript;
   WaifuWriteRecord? lastWrite;
+
+  /// Writes landed on the current send. Cleared at the start of [send].
+  final List<WaifuWriteRecord> turnWrites = [];
+
+  /// Mutated paths that got a verify receipt this send.
+  final List<String> turnVerifyPaths = [];
   bool running = false;
   bool mcpOptIn;
   bool preserveThinking;
+
+  /// Sit-down / live probe. False fail-closes the loop — no silent coding.
+  bool toolsSupported;
   String? activePlanPath;
   ChatThemeOverrides themeOverrides;
   final ChatGenerationSettings genSettings = ChatGenerationSettings();
