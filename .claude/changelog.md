@@ -6,7 +6,7 @@
 - **What:** Probe persists only named/required. Auto is a one-shot for this
   request. `styleFor` treats leftover auto as unset. Stream door also retries
   mandatory-reasoning 400s the POST path already did.
-- **Commit:** (this tip)
+- **Commit:** c010620d
 
 ## 2026-09-08 — fix(realism): stream OpenRouter tools with the same force as POST
 - **Why:** Live judges pass overlay `onChunk`, so `generateWithTools` took the
