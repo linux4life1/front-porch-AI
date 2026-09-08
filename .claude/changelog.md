@@ -20,6 +20,15 @@
   Conflict files: none (changelog + `docs/Rawhide.md` auto-merged).
   No Guard-protected existing tests were edited.
 - **Commit:** (this tip)
+## 2026-09-08 — fix(waifu): sit-down recap test needs Scaffold/Material
+- **Why:** After scrolling to honesty, `ChoiceChip` at sit-down:195
+  threw `No Material widget found`. Production `WaifuWizardPage` is a
+  Scaffold; radio tiles wrap their own Material; chips do not. The
+  recap case pumped the step as bare `MaterialApp.home`.
+- **What:** Wrap the sit-down step in `Scaffold` like the other
+  d_chrome leaf pumps and the real wizard. Product chips unchanged.
+- **Commit:** (this commit)
+
 ## 2026-09-08 — fix(waifu): sit-down honesty key is below the ListView fold
 - **Why:** `waifu_d_chrome_test` sit-down recap case expected
   `waifu-honesty-body` at pump and found 0. Product already uses

@@ -147,19 +147,21 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: WaifuWizardSitDownStep(
-          folderPath: '/tmp/porch',
-          coworker: CharacterCard(name: 'Mira'),
-          backendLabel: 'remote',
-          isLocalBackend: false,
-          toolsSupported: true,
-          mode: WaifuMode.build,
-          pathMode: WaifuPathMode.folderJail,
-          honestyAccepted: false,
-          onModeChanged: (_) {},
-          onPathModeChanged: (_) {},
-          onHonestyChanged: (_) {},
-          onConfirm: () {},
+        home: Scaffold(
+          body: WaifuWizardSitDownStep(
+            folderPath: '/tmp/porch',
+            coworker: CharacterCard(name: 'Mira'),
+            backendLabel: 'remote',
+            isLocalBackend: false,
+            toolsSupported: true,
+            mode: WaifuMode.build,
+            pathMode: WaifuPathMode.folderJail,
+            honestyAccepted: false,
+            onModeChanged: (_) {},
+            onPathModeChanged: (_) {},
+            onHonestyChanged: (_) {},
+            onConfirm: () {},
+          ),
         ),
       ),
     );
