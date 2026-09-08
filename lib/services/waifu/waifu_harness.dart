@@ -162,6 +162,7 @@ class WaifuHarness {
       text,
       session.lastWrite,
       mode: session.mode,
+      exploreOnly: exploreOnly,
     );
     await _refreshPlanBlock();
     session.running = true;

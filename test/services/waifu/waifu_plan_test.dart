@@ -237,6 +237,102 @@ void main() {
     );
   });
 
+  test('soft Plan ask without a plan file fails the contract', () async {
+    final llm = ScriptedWaifuLlm([
+      for (var i = 0; i < 3; i++)
+        const LlmToolResponse(
+          calls: [],
+          text: 'Hmph. Start with the validator.',
+        ),
+    ]);
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: _iris(),
+      mode: WaifuMode.plan,
+    );
+    await WaifuHarness(
+      session: session,
+      llm: llm,
+    ).send('what should we do about the empty emails?');
+
+    expect(session.lastWrite, isNull);
+    expect(
+      Directory(p.join(root.path, '.waifu', 'plans')).existsSync(),
+      isFalse,
+    );
+    final reply = session.transcript.where((m) => !m.isUser).single;
+    expect(reply.chips.last.ok, isFalse);
+    expect(reply.text, contains('could not write a plan file'));
+    expect(reply.text, isNot(contains('Start with the validator')));
+  });
+
+  test('soft Plan ask with a plan file passes the contract', () async {
+    final llm = ScriptedWaifuLlm([
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(
+            name: 'write',
+            arguments: {
+              'path': '.waifu/plans/empty-email.md',
+              'contents': _planMd,
+            },
+          ),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(
+        calls: [],
+        text: 'Hmph. The plan is on the porch. Obviously.',
+      ),
+    ]);
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: _iris(),
+      mode: WaifuMode.plan,
+    );
+    await WaifuHarness(
+      session: session,
+      llm: llm,
+    ).send('what should we do about the empty emails?');
+
+    expect(session.activePlanPath, '.waifu/plans/empty-email.md');
+    expect(
+      await File(
+        p.join(root.path, '.waifu', 'plans', 'empty-email.md'),
+      ).exists(),
+      isTrue,
+    );
+    final reply = session.transcript.where((m) => !m.isUser).single;
+    expect(reply.chips.single.ok, isTrue);
+    expect(reply.text, contains('plan is on the porch'));
+    expect(reply.text, isNot(contains('could not write a plan file')));
+  });
+
+  test('explore-only Plan speech does not require a plan file', () {
+    final plan = WaifuTurnContract.start(
+      'what should we do about the empty emails?',
+      null,
+      mode: WaifuMode.plan,
+    );
+    expect(plan.mutationRequired, isTrue);
+    expect(
+      plan.decideFinal('Start with the validator.'),
+      WaifuFinalAction.retryMutation,
+    );
+
+    final explore = WaifuTurnContract.start(
+      'what should we do about the empty emails?',
+      null,
+      mode: WaifuMode.plan,
+      exploreOnly: true,
+    );
+    expect(explore.mutationRequired, isFalse);
+    expect(
+      explore.decideFinal('Start with the validator.'),
+      WaifuFinalAction.accept,
+    );
+  });
+
   test('Accept → Build injects plan path, digest, and steps', () async {
     final rel = '.waifu/plans/empty-email.md';
     await File(p.join(root.path, rel)).create(recursive: true);
@@ -340,6 +436,68 @@ void main() {
       pms.hardBlock(name: 'bash', args: {'command': 'rm -rf build'}),
       isNotNull,
     );
+  });
+
+  test('Build todowrite writes step.status back onto the plan file', () async {
+    final rel = '.waifu/plans/empty-email.md';
+    await File(p.join(root.path, rel)).create(recursive: true);
+    await File(p.join(root.path, rel)).writeAsString(_planMd);
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: _iris(),
+      mode: WaifuMode.plan,
+      activePlanPath: rel,
+    );
+    final llm = ScriptedWaifuLlm([
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(
+            name: 'todowrite',
+            arguments: {
+              'todos': [
+                {
+                  'id': 's1',
+                  'content': 'Add failing test',
+                  'status': 'completed',
+                },
+                {'id': 's2', 'content': 'Fix the parser', 'status': 'pending'},
+              ],
+            },
+          ),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(
+        calls: [],
+        text: 'Hmph. Step one is done. Obviously.',
+      ),
+    ]);
+    final harness = WaifuHarness(session: session, llm: llm);
+    await harness.acceptActivePlan();
+    expect(session.mode, WaifuMode.build);
+    expect(
+      waifuPlanParse(
+        await File(p.join(root.path, rel)).readAsString(),
+      ).steps.first.status,
+      'pending',
+    );
+
+    await harness.send('mark the first plan step done');
+    final after = waifuPlanParse(
+      await File(p.join(root.path, rel)).readAsString(),
+    );
+    expect(after.status, WaifuPlanStatus.accepted);
+    expect(after.steps.map((s) => '${s.id}:${s.status}'), [
+      's1:completed',
+      's2:pending',
+    ]);
+  });
+
+  test('slash Plan blurb does not claim she asks before writes', () {
+    final plan = kWaifuSlashCommands.firstWhere((c) => c.name == 'plan');
+    expect(plan.blurb.toLowerCase(), isNot(contains('asks before writes')));
+    expect(plan.blurb, contains('.waifu/plans/'));
+    expect(plan.blurb.toLowerCase(), contains('read-only'));
   });
 
   test('Discard clears the pin; Revise returns Plan', () async {

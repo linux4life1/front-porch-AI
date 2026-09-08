@@ -326,6 +326,34 @@ void waifuSyncPlanTodos(WaifuTodos todos, WaifuPlan plan) {
   ]);
 }
 
+/// Build progress: write todo statuses back onto the accepted plan file.
+Future<bool> waifuSyncTodosOntoPlan({
+  required WaifuSession session,
+  required WaifuTodos todos,
+}) async {
+  if (session.mode != WaifuMode.build) return false;
+  final path = session.activePlanPath?.trim();
+  if (path == null || path.isEmpty) return false;
+  final plan = await waifuReadPlanFile(session.folderRoot, path);
+  if (plan == null || plan.status != WaifuPlanStatus.accepted) return false;
+  if (plan.steps.isEmpty) return false;
+  final byId = {for (final todo in todos.items) todo.id: todo.status};
+  var changed = false;
+  final steps = <WaifuPlanStep>[];
+  for (final step in plan.steps) {
+    final next = byId[step.id];
+    if (next != null && next != step.status) {
+      steps.add(step.copyWith(status: next));
+      changed = true;
+    } else {
+      steps.add(step);
+    }
+  }
+  if (!changed) return false;
+  await waifuWritePlanFile(session.folderRoot, plan.copyWith(steps: steps));
+  return true;
+}
+
 Future<WaifuPlan?> waifuAcceptPlan({
   required WaifuSession session,
   required WaifuTodos todos,

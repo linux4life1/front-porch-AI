@@ -79,7 +79,10 @@ class WaifuTurnContract {
     String task,
     WaifuWriteRecord? initialWrite, {
     this.mode = WaifuMode.build,
-  }) : mutationRequired = waifuTaskRequestsFileChange(task),
+    bool exploreOnly = false,
+  }) : mutationRequired =
+           (!exploreOnly && mode == WaifuMode.plan) ||
+           waifuTaskRequestsFileChange(task),
        _initialWrite = initialWrite;
 
   final WaifuMode mode;

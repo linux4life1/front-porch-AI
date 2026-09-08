@@ -29,11 +29,16 @@ class WaifuPlanPanel extends StatefulWidget {
     required this.session,
     this.harness,
     this.onChanged,
+    this.initialPlan,
   });
 
   final WaifuSession session;
   final WaifuHarness? harness;
   final VoidCallback? onChanged;
+
+  /// Test / first-frame seam: skip the post-frame disk load when the
+  /// caller already has the plan. Accept still goes through the harness.
+  final WaifuPlan? initialPlan;
 
   @override
   State<WaifuPlanPanel> createState() => _WaifuPlanPanelState();
@@ -48,9 +53,15 @@ class _WaifuPlanPanelState extends State<WaifuPlanPanel> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _reload();
-    });
+    final seeded = widget.initialPlan;
+    if (seeded != null) {
+      _plan = seeded;
+      _body.text = waifuPlanEncode(seeded);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reload();
+      });
+    }
   }
 
   @override

@@ -1,3 +1,17 @@
+## 2026-09-08 — fix(waifu): Plan receipt, Build step stamps, Accept widget pin
+- **Why:** Senior Dev HOLD on tip 54fbf1db. Plan receipt still keyed off
+  `waifuTaskRequestsFileChange`, so a soft Plan ask could finish with
+  speech only. Accept synced todos once; Build never wrote `step.status`
+  back onto `.waifu/plans/*.md`. The Accept→Build widget pin had been
+  demoted to a source-string contains. `/plan` still said “asks before
+  writes” while Plan cannot write source.
+- **What:** Plan mode always requires a plan-artifact receipt (explore-only
+  nested workers are the only exemption). Build `todowrite` persists todo
+  status onto the accepted plan file. Restored a real widget tap
+  Accept → Build. Slash Plan blurb is explore + `.waifu/plans/` +
+  source read-only. Rebased onto Rawhide 14925eee.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(realism): do not persist tool_choice auto for named judges
 - **Why:** Style retry remembered `auto` after a `tool_choice` 400. The next
   overlay `report_*` judge on that identity started at auto — #230's

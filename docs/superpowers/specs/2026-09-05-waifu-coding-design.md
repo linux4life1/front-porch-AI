@@ -179,7 +179,7 @@ Same idea as OpenCode. One session, three permission gears — not three persona
 
 Yolo is “stop asking,” not “no safety.” Switching into Yolo from the session chrome repeats a one-line warning; it does not re-tick the wizard checkbox.
 
-The Plan loop cue is explore + author the plan file. It does **not** say “put work on disk.” A Plan turn that asked for work is incomplete without a plan-file receipt (same spirit as a Build patch receipt). Build with an accepted plan injects that artifact. The advertised catalog in Plan does not offer source mutators as if they were live; a leaked call is still hard-blocked.
+The Plan loop cue is explore + author the plan file. It does **not** say “put work on disk.” **Every Plan turn requires a plan-file receipt** (wrote/updated `.waifu/plans/<slug>.md`) — soft asks included. The only exemption is an explicit explore-only nested worker. Build with an accepted plan injects that artifact, and Build `todowrite` writes step status back onto that file. The advertised catalog in Plan does not offer source mutators as if they were live; a leaked call is still hard-blocked.
 
 Target models are tool-fluent remotes (OpenRouter / nano-GPT / Qwen3.8-class). Do not add weak-GGUF coax paths.
 

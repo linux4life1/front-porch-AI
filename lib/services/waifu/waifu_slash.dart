@@ -73,7 +73,9 @@ const kWaifuSlashCommands = <WaifuSlashCommand>[
   WaifuSlashCommand(
     name: 'plan',
     hint: '/plan',
-    blurb: 'Switch to Plan — she asks before writes and shell.',
+    blurb:
+        'Switch to Plan — explore and write a plan under .waifu/plans/. '
+        'Project source stays read-only.',
   ),
   WaifuSlashCommand(
     name: 'build',
@@ -191,7 +193,10 @@ void waifuRewriteSlashUser(List<WaifuMessage> transcript, String text) {
   if (cmd == null || cmd.local) return;
   final expanded = waifuSlashAgentTask(text);
   if (expanded == text || transcript.isEmpty) return;
-  transcript[transcript.length - 1] = WaifuMessage(isUser: true, text: expanded);
+  transcript[transcript.length - 1] = WaifuMessage(
+    isUser: true,
+    text: expanded,
+  );
 }
 
 Map<String, dynamic>? waifuWorkflowSlashArgs(String text) {

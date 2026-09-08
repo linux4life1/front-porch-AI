@@ -178,6 +178,7 @@ class WaifuPlan {
     WaifuPlanStatus? status,
     String? body,
     String? relativePath,
+    List<WaifuPlanStep>? steps,
   }) => WaifuPlan(
     id: id,
     slug: slug,
@@ -188,7 +189,7 @@ class WaifuPlan {
     constraints: constraints,
     risks: risks,
     openQuestions: openQuestions,
-    steps: steps,
+    steps: steps ?? this.steps,
     body: body ?? this.body,
     relativePath: relativePath ?? this.relativePath,
   );
