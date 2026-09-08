@@ -63,15 +63,15 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: Column(
-            children: [
-              const Expanded(child: SizedBox.shrink()),
-              WaifuPlanStage(
+          body: SingleChildScrollView(
+            child: Container(
+              key: const Key('waifu-plan-stage'),
+              child: WaifuPlanPanel(
                 session: session,
                 harness: harness,
                 initialPlan: seeded,
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -83,11 +83,6 @@ void main() {
     expect(find.byKey(const Key('waifu-plan-accept')), findsOneWidget);
     expect(session.mode, WaifuMode.plan);
 
-    await tester.drag(
-      find.byKey(const Key('waifu-plan-stage')),
-      const Offset(0, -240),
-    );
-    await tester.pump();
     await tester.runAsync(() async {
       await tester.tap(find.byKey(const Key('waifu-plan-accept')));
       final deadline = DateTime.now().add(const Duration(seconds: 2));
