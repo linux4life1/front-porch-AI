@@ -563,40 +563,43 @@ extension ChatServiceWiringEvals on ChatService {
         ? kEvalToolCallTimeout
         : kEvalStreamChunkTimeout;
     try {
-      final resp = await service
-          .generateStructuredJson(
-            GenerationParams(
-              prompt: spec.prompt,
-              maxLength: spec.maxLength,
-              temperature: 0.1,
-              repeatPenalty: spec.repeatPenalty,
-              topP: 0.5,
-              xtcProbability: 0.0,
-              reasoningEnabled: false,
-              // Explicit thinking-off: Nano-GPT/OpenRouter only receive the
-              // disable signal when the reasoning block is present, and it is
-              // only emitted when a reasoning field is set. Without this a
-              // ":thinking" model (e.g. Kimi K2.6) keeps reasoning during the
-              // journal tool call, which returns tool calls only intermittently
-              // (the "had to regen twice" symptom). 0 → {enabled:false,
-              // max_tokens:0, exclude:true}, the strongest disable signal.
-              reasoningMaxTokens: 0,
-              // Keep the think channel on mandatory models so a 400-then-
-              // exclude path cannot swallow the JSON / tool call (Kimi 2.6).
-              salvageReasoning: true,
-              stopSequences: const [],
-              toolChoice: spec.toolChoice,
-              // Named evals stay on the buffered POST. Forwarding overlay
-              // onChunk made generateWithTools stream with tool_choice:auto,
-              // which is how #230's OpenRouter routing never ran live.
-              onChunk: named ? null : spec.onChunk,
-              backendIdentity: _evalBackendIdentity,
-              stillWantTools: () =>
-                  _toolProbe.shouldPostAfterIdle(_evalBackendIdentity),
-            ),
-            spec.tools,
-          )
-          .timeout(timeout);
+      // OpenRouter named evals use json_schema; Kobold / fakes stay on tools.
+      // Kept off LLMService so implementers do not need a stub.
+      final evalCall = service is OpenRouterService
+          ? service.generateStructuredJson
+          : service.generateWithTools;
+      final resp = await evalCall(
+        GenerationParams(
+          prompt: spec.prompt,
+          maxLength: spec.maxLength,
+          temperature: 0.1,
+          repeatPenalty: spec.repeatPenalty,
+          topP: 0.5,
+          xtcProbability: 0.0,
+          reasoningEnabled: false,
+          // Explicit thinking-off: Nano-GPT/OpenRouter only receive the
+          // disable signal when the reasoning block is present, and it is
+          // only emitted when a reasoning field is set. Without this a
+          // ":thinking" model (e.g. Kimi K2.6) keeps reasoning during the
+          // journal tool call, which returns tool calls only intermittently
+          // (the "had to regen twice" symptom). 0 → {enabled:false,
+          // max_tokens:0, exclude:true}, the strongest disable signal.
+          reasoningMaxTokens: 0,
+          // Keep the think channel on mandatory models so a 400-then-
+          // exclude path cannot swallow the JSON / tool call (Kimi 2.6).
+          salvageReasoning: true,
+          stopSequences: const [],
+          toolChoice: spec.toolChoice,
+          // Named evals stay on the buffered POST. Forwarding overlay
+          // onChunk made generateWithTools stream with tool_choice:auto,
+          // which is how #230's OpenRouter routing never ran live.
+          onChunk: named ? null : spec.onChunk,
+          backendIdentity: _evalBackendIdentity,
+          stillWantTools: () =>
+              _toolProbe.shouldPostAfterIdle(_evalBackendIdentity),
+        ),
+        spec.tools,
+      ).timeout(timeout);
       recordTraffic(resp);
       return resp;
     } on TimeoutException {

@@ -470,7 +470,8 @@ void main() {
         final wiring = File(
           'lib/services/chat/chat_service_wiring_evals.dart',
         ).readAsStringSync();
-        expect(wiring, contains('generateStructuredJson('));
+        expect(wiring, contains('service is OpenRouterService'));
+        expect(wiring, contains('generateStructuredJson'));
         expect(wiring, contains('onChunk: named ? null : spec.onChunk'));
         expect(
           wiring,

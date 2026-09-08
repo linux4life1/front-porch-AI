@@ -205,16 +205,6 @@ abstract class LLMService extends ChangeNotifier {
     List<Map<String, dynamic>> tools,
   ) async => null;
 
-  /// Named realism/needs-style evals that want a JSON object. Default is
-  /// [generateWithTools]. OpenRouter overrides this to send
-  /// `response_format: json_schema` (forced `tool_choice` is ignored by
-  /// several of its providers). Nano-GPT, oMLX, LM Studio, and Kobold stay
-  /// on tools via the default.
-  Future<LlmToolResponse?> generateStructuredJson(
-    GenerationParams params,
-    List<Map<String, dynamic>> tools,
-  ) => generateWithTools(params, tools);
-
   /// Abort the current in-flight generation request (closes the HTTP client).
   void abortGeneration() {}
 

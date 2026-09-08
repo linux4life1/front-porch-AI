@@ -29,13 +29,13 @@ import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/capability/vision_support_resolver.dart';
 import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/services/vision_eval.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
-
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
@@ -58,7 +58,6 @@ import 'package:front_porch_ai/services/mcp/mcp.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:drift/drift.dart' as drift;
 
-// Parts share this library's imports and privates. Keep this file under 1000.
 part 'chat/chat_service_group_read.dart';
 part 'chat/chat_service_group_settings.dart';
 part 'chat/chat_service_growth.dart';
@@ -781,7 +780,8 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   // building/saving, and the TTS drain buffer. 1:1 vs group parity is
   // preserved for all of it via callbacks + the impersonation dance. See
   // docs/refactor-god-file-modularization.md for the full extraction history.
-  Completer<void>? _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination, stays in god)
+  Completer<void>?
+  _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination, stays in god)
 
   // ── Trust Repair ──
   // Armed on each severe trust drop (≥ -20 delta). Consumed on the very

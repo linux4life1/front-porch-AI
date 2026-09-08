@@ -460,7 +460,6 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   };
 
   /// OpenRouter named evals: `response_format` json_schema first, then tools.
-  @override
   Future<LlmToolResponse?> generateStructuredJson(
     GenerationParams params,
     List<Map<String, dynamic>> tools,
