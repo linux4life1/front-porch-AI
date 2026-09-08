@@ -51,8 +51,10 @@ class MessageBubble extends StatefulWidget {
   final CharacterCard? character;
   final ChatService? chatService;
 
-  /// When set, drives the live Thought timer without [ChatService]
-  /// (Waifu Coder). Chat leaves this null and uses [chatService].
+  /// When set, drives live Thought expand (Waifu `generatingAt`). Chat
+  /// leaves this null; [_thoughtOpen] then uses this message's mid-think
+  /// stamps — never [ChatService.isGenerating] (that opens every
+  /// historical Thought while any turn is running).
   final bool? isGenerating;
 
   /// Waifu Coder session theme. Chat leaves this null and reads
@@ -98,7 +100,8 @@ class _MessageBubbleState extends State<MessageBubble> {
   bool get _thoughtOpen {
     if (_thoughtPinned) return _thoughtExpanded;
     final live =
-        widget.isGenerating ?? widget.chatService?.isGenerating ?? false;
+        widget.isGenerating ??
+        (message.thinkingStartTime != null && message.thinkingDurationMs == 0);
     return live && message.hasThinking;
   }
 

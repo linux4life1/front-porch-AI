@@ -11,6 +11,18 @@
   `waifu_turn_contract.dart`. Changelog / Rawhide.md auto-merged.
   No existing Guard tests were edited in the rebase.
 - **Commit:** 9cc3264e
+## 2026-09-08 — fix(chat): Thought chips stay collapsed unless live or tapped
+- **Why:** PR #233 made `_thoughtOpen` fall back to
+  `chatService.isGenerating`. ChatPage never passes `isGenerating` /
+  `generatingAt`, so every historical Thought chip auto-expanded for
+  the whole turn.
+- **What:** Prefer explicit `widget.isGenerating` (Waifu `generatingAt`).
+  When null, treat as live only if this message is mid-think
+  (`thinkingStartTime != null && thinkingDurationMs == 0`). Do not
+  use `chatService.isGenerating` for expand. Pin/chevron unchanged.
+  New guards in `thought_toggle_chat_live_test.dart` (did not edit
+  the existing Guard file).
+- **Commit:** efd78c4f
 
 ## 2026-09-08 — rebase(waifu): Epic B onto #239 Rawhide tip
 - **Why:** #239 squash-merged as `cd9bcd49`. PR #237 could not
