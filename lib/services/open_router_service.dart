@@ -27,7 +27,6 @@ import 'package:front_porch_ai/services/openai_tool_payload.dart';
 import 'package:front_porch_ai/services/openai_tool_stream.dart';
 import 'package:front_porch_ai/services/openrouter_structured_eval.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
-import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
 import 'package:front_porch_ai/services/remote_model_info.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
@@ -473,6 +472,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     final client = httpClientFactory?.call() ?? http.Client();
     _activeClients.add(client);
     try {
+      final streaming = params.onChunk != null;
       final payload = applyOpenRouterStructuredEvalRouting(
         _chatPayload(
           GenerationParams(
@@ -486,12 +486,38 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
             stopSequences: params.stopSequences ?? const [],
             toolChoice: toolName,
             backendIdentity: params.backendIdentity,
+            onChunk: params.onChunk,
           ),
-          stream: false,
+          stream: streaming,
         ),
         jsonSchema: schema,
         mandatoryReasoning: reasoningCannotDisable(modelName),
       );
+      if (streaming) {
+        final streamed = await streamOpenAiChatTools(
+          uri: Uri.parse('$_apiUrl/chat/completions'),
+          headers: _chatHeaders,
+          payload: payload,
+          client: client,
+          wrapReasoning: false,
+          salvage: true,
+          onChunk: params.onChunk,
+        );
+        if (streamed != null) {
+          if (streamed.calls.isNotEmpty) return streamed;
+          final fromSchema = toolResponseFromStructuredEvalContent(
+            content: streamed.text,
+            reasoning: streamed.reasoning,
+            toolName: toolName,
+          );
+          if (fromSchema != null) return fromSchema;
+        }
+        debugPrint(
+          '[RemoteAPI] Structured eval stream unusable — '
+          'falling back to tools',
+        );
+        return await generateWithTools(params, tools);
+      }
       final response = await client.post(
         Uri.parse('$_apiUrl/chat/completions'),
         headers: _chatHeaders,
@@ -542,38 +568,30 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     final client = httpClientFactory?.call() ?? http.Client();
     _activeClients.add(client);
     try {
-      if (params.onChunk != null) {
-        final payload = _chatPayload(params, stream: true);
-        attachTools(
+      final identity = params.backendIdentity.isEmpty
+          ? '$backendName|$_modelName|'
+          : params.backendIdentity;
+      final streaming = params.onChunk != null;
+      var payload = _chatPayload(params, stream: streaming);
+      if (isOpenRouterApiUrl(_apiUrl)) {
+        payload = applyOpenRouterToolRouting(
           payload,
+          mandatoryReasoning: reasoningCannotDisable(modelName),
+        );
+      }
+      if (streaming) {
+        return await streamOpenAiChatToolsWithStyleRetry(
+          identity: identity,
           tools: tools,
           toolChoice: params.toolChoice,
-          stream: true,
-          style: ToolChoiceStyle.auto,
-        );
-        return await streamOpenAiChatTools(
+          basePayload: payload,
           uri: Uri.parse('$_apiUrl/chat/completions'),
           headers: _chatHeaders,
-          payload: payload,
           client: client,
           wrapReasoning: params.reasoningEnabled,
           salvage: params.salvageReasoning,
           onChunk: params.onChunk,
         );
-      }
-      final identity = params.backendIdentity.isEmpty
-          ? '$backendName|$_modelName|'
-          : params.backendIdentity;
-      final payload = _chatPayload(params, stream: false);
-      if (isOpenRouterApiUrl(_apiUrl)) {
-        payload
-          ..remove('repetition_penalty')
-          ..remove('min_p')
-          ..remove('top_k')
-          // `reasoning` + `require_parameters` only routes to thinking
-          // endpoints — the same class that ignores forced tool_choice.
-          ..remove('reasoning')
-          ..['provider'] = {'require_parameters': true};
       }
       final response = await attachToolsWithStyleRetry(
         identity: identity,

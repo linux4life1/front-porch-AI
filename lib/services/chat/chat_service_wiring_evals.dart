@@ -590,10 +590,7 @@ extension ChatServiceWiringEvals on ChatService {
           salvageReasoning: true,
           stopSequences: const [],
           toolChoice: spec.toolChoice,
-          // Named evals stay on the buffered POST. Forwarding overlay
-          // onChunk made generateWithTools stream with tool_choice:auto,
-          // which is how #230's OpenRouter routing never ran live.
-          onChunk: named ? null : spec.onChunk,
+          onChunk: spec.onChunk,
           backendIdentity: _evalBackendIdentity,
           stillWantTools: () =>
               _toolProbe.shouldPostAfterIdle(_evalBackendIdentity),

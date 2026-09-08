@@ -61,6 +61,10 @@ Map<String, dynamic> attachTools(
 
 final _toolChoiceBody = RegExp(r'tool[_ ]?choice', caseSensitive: false);
 
+/// A 400 whose body mentions `tool_choice` — step named → required → auto.
+bool isToolChoiceStyleRejection(int statusCode, String body) =>
+    statusCode == 400 && _toolChoiceBody.hasMatch(body);
+
 /// POST [basePayload] with tools attached, stepping named → required → auto
 /// on a 400 whose body mentions `tool_choice`. Returns the last
 /// [http.Response] — **never null**, even on an unrelated 400. The OpenRouter
@@ -96,14 +100,16 @@ Future<http.Response> attachToolsWithStyleRetry({
 
   var response = await once(style);
   if (toolChoice == null || toolChoice.isEmpty) return response;
-  if (response.statusCode != 400) return response;
-  if (!_toolChoiceBody.hasMatch(response.body)) return response;
+  if (!isToolChoiceStyleRejection(response.statusCode, response.body)) {
+    return response;
+  }
 
   if (style == ToolChoiceStyle.named) {
     styleProbe.remember(identity, ToolChoiceStyle.required);
     response = await once(ToolChoiceStyle.required);
-    if (response.statusCode != 400) return response;
-    if (!_toolChoiceBody.hasMatch(response.body)) return response;
+    if (!isToolChoiceStyleRejection(response.statusCode, response.body)) {
+      return response;
+    }
     style = ToolChoiceStyle.required;
   }
   if (style == ToolChoiceStyle.required) {

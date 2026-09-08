@@ -18,6 +18,7 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/openrouter_structured_eval.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
+import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 
 void main() {
   setUpAll(() => HttpOverrides.global = null);
@@ -107,6 +108,35 @@ void main() {
         },
         mandatoryReasoning: true,
       );
+      expect(
+        payload['max_tokens'],
+        kOpenRouterStructuredEvalMinTokens +
+            kMandatoryReasoningThinkHeadroomTokens,
+      );
+    });
+  });
+
+  group('applyOpenRouterToolRouting', () {
+    test('forces require_parameters and strips OR-hostile samplers', () {
+      final payload = applyOpenRouterToolRouting({
+        'max_tokens': 512,
+        'repetition_penalty': 1.15,
+        'min_p': 0.05,
+        'top_k': 40,
+        'reasoning': {'enabled': false},
+      }, mandatoryReasoning: false);
+      expect(payload.containsKey('min_p'), isFalse);
+      expect(payload.containsKey('top_k'), isFalse);
+      expect(payload.containsKey('repetition_penalty'), isFalse);
+      expect(payload.containsKey('reasoning'), isFalse);
+      expect(payload['provider'], {'require_parameters': true});
+      expect(payload['max_tokens'], kOpenRouterStructuredEvalMinTokens);
+    });
+
+    test('thinking models get the same headroom as text evals', () {
+      final payload = applyOpenRouterToolRouting({
+        'max_tokens': 512,
+      }, mandatoryReasoning: true);
       expect(
         payload['max_tokens'],
         kOpenRouterStructuredEvalMinTokens +
@@ -463,21 +493,171 @@ void main() {
     );
   });
 
-  group('eval door call site', () {
+  group('OpenRouterService.generateWithTools streaming', () {
+    const tools = [
+      {
+        'type': 'function',
+        'function': {
+          'name': 'report_relationship',
+          'parameters': {
+            'type': 'object',
+            'properties': {
+              'relationship_delta': {'type': 'integer'},
+            },
+          },
+        },
+      },
+    ];
+
+    const sseOk =
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"report_relationship","arguments":"{}"}}]}}]}\n\n'
+        'data: [DONE]\n';
+
+    GenerationParams liveJudge() => GenerationParams(
+      prompt: 'score this',
+      maxLength: 512,
+      temperature: 0.1,
+      minP: 0.05,
+      topK: 40,
+      repeatPenalty: 1.15,
+      toolChoice: 'report_relationship',
+      salvageReasoning: true,
+      reasoningEnabled: false,
+      reasoningMaxTokens: 0,
+      onChunk: (_) {},
+    );
+
+    setUp(ToolChoiceStyleProbe.instance.resetForTest);
+
     test(
-      'named judges go through generateStructuredJson on a buffered POST',
-      () {
-        final wiring = File(
-          'lib/services/chat/chat_service_wiring_evals.dart',
-        ).readAsStringSync();
-        expect(wiring, contains('service is OpenRouterService'));
-        expect(wiring, contains('generateStructuredJson'));
-        expect(wiring, contains('onChunk: named ? null : spec.onChunk'));
-        expect(
-          wiring,
-          contains('named || spec.maxLength > kScalarToolMaxTokens'),
+      'OpenRouter stream forces the named tool, require_parameters, and no OR-hostile samplers',
+      () async {
+        Map<String, dynamic>? payload;
+        final remote = OpenRouterService(
+          apiUrl: 'https://openrouter.ai/api/v1',
+          apiKey: 'test-key',
+          modelName: 'x-ai/grok-4',
         );
+        remote.httpClientFactory = () => MockClient((request) async {
+          payload = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(sseOk, 200);
+        });
+
+        await remote.generateWithTools(liveJudge(), tools);
+        expect(payload!['stream'], isTrue);
+        expect(payload!['tool_choice'], {
+          'type': 'function',
+          'function': {'name': 'report_relationship'},
+        });
+        expect(payload!['provider'], {'require_parameters': true});
+        expect(payload!.containsKey('min_p'), isFalse);
+        expect(payload!.containsKey('top_k'), isFalse);
+        expect(payload!.containsKey('repetition_penalty'), isFalse);
+        expect(payload!['max_tokens'], kOpenRouterStructuredEvalMinTokens);
       },
     );
+
+    test(
+      'Nano-GPT stream keeps named tool_choice, samplers, and no provider pin',
+      () async {
+        Map<String, dynamic>? payload;
+        final remote = OpenRouterService(
+          apiUrl: 'https://nano-gpt.com/api/v1',
+          apiKey: 'test-key',
+          modelName: 'same-model',
+        );
+        remote.httpClientFactory = () => MockClient((request) async {
+          payload = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(sseOk, 200);
+        });
+
+        await remote.generateWithTools(liveJudge(), tools);
+        expect(payload!['stream'], isTrue);
+        expect(payload!['tool_choice'], {
+          'type': 'function',
+          'function': {'name': 'report_relationship'},
+        });
+        expect(payload!.containsKey('provider'), isFalse);
+        expect(payload!['min_p'], 0.05);
+        expect(payload!['top_k'], 40);
+        expect(payload!['repetition_penalty'], 1.15);
+        expect(payload!['max_tokens'], 512);
+      },
+    );
+
+    test(
+      'OpenRouter stream raises the think-headroom floor on mandatory models',
+      () async {
+        kMandatoryReasoningModels.add('stream-think-test');
+        addTearDown(
+          () => kMandatoryReasoningModels.remove('stream-think-test'),
+        );
+        Map<String, dynamic>? payload;
+        final remote = OpenRouterService(
+          apiUrl: 'https://openrouter.ai/api/v1',
+          apiKey: 'test-key',
+          modelName: 'stream-think-test',
+        );
+        remote.httpClientFactory = () => MockClient((request) async {
+          payload = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(sseOk, 200);
+        });
+
+        await remote.generateWithTools(liveJudge(), tools);
+        expect(
+          payload!['max_tokens'],
+          kOpenRouterStructuredEvalMinTokens +
+              kMandatoryReasoningThinkHeadroomTokens,
+        );
+        expect(payload!['provider'], {'require_parameters': true});
+        expect(payload!['tool_choice'], {
+          'type': 'function',
+          'function': {'name': 'report_relationship'},
+        });
+      },
+    );
+
+    test(
+      'OpenRouter json_schema stream stays off tools when overlay onChunk is set',
+      () async {
+        Map<String, dynamic>? payload;
+        final remote = OpenRouterService(
+          apiUrl: 'https://openrouter.ai/api/v1',
+          apiKey: 'test-key',
+          modelName: 'x-ai/grok-4',
+        );
+        remote.httpClientFactory = () => MockClient((request) async {
+          payload = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            'data: {"choices":[{"delta":{"content":"{\\"relationship_delta\\":2,\\"trust_delta\\":1}"}}]}\n\n'
+            'data: [DONE]\n',
+            200,
+          );
+        });
+
+        final resp = await remote.generateStructuredJson(liveJudge(), tools);
+        expect(payload!['stream'], isTrue);
+        expect(payload!['response_format']['type'], 'json_schema');
+        expect(payload!.containsKey('tools'), isFalse);
+        expect(payload!['provider'], {'require_parameters': true});
+        expect(resp!.calls.single.arguments['relationship_delta'], 2);
+      },
+    );
+  });
+
+  group('eval door call site', () {
+    test('named judges go through generateStructuredJson and keep overlay', () {
+      final wiring = File(
+        'lib/services/chat/chat_service_wiring_evals.dart',
+      ).readAsStringSync();
+      expect(wiring, contains('service is OpenRouterService'));
+      expect(wiring, contains('generateStructuredJson'));
+      expect(wiring, contains('onChunk: spec.onChunk'));
+      expect(wiring, isNot(contains('onChunk: named ? null')));
+      expect(
+        wiring,
+        contains('named || spec.maxLength > kScalarToolMaxTokens'),
+      );
+    });
   });
 }

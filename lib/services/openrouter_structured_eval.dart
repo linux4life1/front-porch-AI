@@ -27,10 +27,40 @@ bool isOpenRouterApiUrl(String apiUrl) {
   return host == 'openrouter.ai' || (host?.endsWith('.openrouter.ai') ?? false);
 }
 
-/// Floor for OpenRouter `response_format` evals. Forced-tool judges used
-/// 512 tokens; thinking endpoints that still honor the schema spend that
-/// budget on the think and return empty `content`.
+/// Floor for OpenRouter structured / tool evals. Scalar judges used 512
+/// tokens; thinking endpoints spend that budget on the think and return
+/// empty `content` / `tool_calls` with `finish_reason=length`.
 const int kOpenRouterStructuredEvalMinTokens = 4000;
+
+/// Strip OR-hostile optional samplers, require the params on THIS request,
+/// and raise a 512-token judge budget so a think cannot starve the call.
+Map<String, dynamic> applyOpenRouterToolRouting(
+  Map<String, dynamic> payload, {
+  required bool mandatoryReasoning,
+}) {
+  final next = Map<String, dynamic>.from(payload)
+    ..remove('repetition_penalty')
+    ..remove('min_p')
+    ..remove('top_k')
+    // `reasoning` + `require_parameters` only routes to thinking
+    // endpoints — the same class that ignores forced tool_choice.
+    ..remove('reasoning')
+    ..['provider'] = {'require_parameters': true};
+  _floorOpenRouterEvalTokens(next, mandatoryReasoning: mandatoryReasoning);
+  return next;
+}
+
+void _floorOpenRouterEvalTokens(
+  Map<String, dynamic> payload, {
+  required bool mandatoryReasoning,
+}) {
+  var floor = kOpenRouterStructuredEvalMinTokens;
+  if (mandatoryReasoning) {
+    floor += kMandatoryReasoningThinkHeadroomTokens;
+  }
+  final current = payload['max_tokens'];
+  if (current is! num || current < floor) payload['max_tokens'] = floor;
+}
 
 /// Build the OpenRouter `json_schema` object from the named eval tool.
 ///
@@ -87,12 +117,7 @@ Map<String, dynamic> applyOpenRouterStructuredEvalRouting(
     ..remove('reasoning')
     ..['response_format'] = {'type': 'json_schema', 'json_schema': jsonSchema}
     ..['provider'] = {'require_parameters': true};
-  var floor = kOpenRouterStructuredEvalMinTokens;
-  if (mandatoryReasoning) {
-    floor += kMandatoryReasoningThinkHeadroomTokens;
-  }
-  final current = next['max_tokens'];
-  if (current is! num || current < floor) next['max_tokens'] = floor;
+  _floorOpenRouterEvalTokens(next, mandatoryReasoning: mandatoryReasoning);
   return next;
 }
 
