@@ -23,15 +23,18 @@ import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/services/mcp/mcp_models.dart';
+import 'package:front_porch_ai/services/mcp/mcp_stdio.dart';
 import 'package:front_porch_ai/services/mcp/mcp_transport.dart';
 
-/// In-process MCP client over Streamable HTTP, with legacy HTTP+SSE fallback.
-/// No child-process spawn, no sidecar, no Node/Python host.
+/// In-process MCP client over Streamable HTTP, with legacy HTTP+SSE fallback
+/// and an injected stdio session (spawn lives in [McpStdioSession], not here).
 class McpClient {
-  McpClient({required this.config, this.sendRequest});
+  McpClient({required this.config, this.sendRequest, this.openStdio});
 
   McpServerConfig config;
   Future<http.Response> Function(http.BaseRequest request)? sendRequest;
+  McpStdioOpener? openStdio;
+  McpStdioSession? _stdio;
 
   McpConnectionStatus status = McpConnectionStatus.disconnected;
   String? lastError;
@@ -68,10 +71,17 @@ class McpClient {
     sessionId = null;
     _messageUrl = null;
     _nextId = 1;
+    await _stdio?.close();
+    _stdio = null;
     debugPrint(
-      '[MCP] connect name="${config.displayName}" url=${config.url} '
-      'id=${config.id}',
+      '[MCP] connect name="${config.displayName}" '
+      'transport=${config.transport.name} url=${config.url} '
+      'command=${config.command} id=${config.id}',
     );
+    if (config.isStdio) {
+      await _connectStdio();
+      return;
+    }
     try {
       _messageUrl = Uri.parse(config.url);
       await _sendInitialize();
@@ -94,8 +104,36 @@ class McpClient {
     await listTools();
   }
 
+  Future<void> _connectStdio() async {
+    final opener = openStdio;
+    if (opener == null) {
+      status = McpConnectionStatus.error;
+      lastError = 'stdio MCP opener missing';
+      return;
+    }
+    try {
+      _stdio = await opener(config);
+      await _sendInitialize();
+    } catch (e) {
+      status = McpConnectionStatus.error;
+      final hint = mcpHumanizeStdioError('$e', command: config.command);
+      lastError = hint.isEmpty ? e.toString() : hint;
+      debugPrint(
+        '[MCP] stdio handshake failure name="${config.displayName}": $e',
+      );
+      await _stdio?.close();
+      _stdio = null;
+      return;
+    }
+    status = McpConnectionStatus.connected;
+    debugPrint('[MCP] stdio connected name="${config.displayName}"');
+    await listTools();
+  }
+
   Future<void> disconnect() async {
     debugPrint('[MCP] disconnect name="${config.displayName}"');
+    await _stdio?.close();
+    _stdio = null;
     status = McpConnectionStatus.disconnected;
     lastError = null;
     tools = const [];
@@ -251,6 +289,11 @@ class McpClient {
   }
 
   Future<void> _notify(String method, Map<String, dynamic> params) async {
+    final stdio = _stdio;
+    if (stdio != null) {
+      await stdio.notify(method, params);
+      return;
+    }
     final payload = {'jsonrpc': '2.0', 'method': method, 'params': params};
     debugPrint('[MCP] notify $method');
     await _post(payload, timeout: kMcpHandshakeTimeout);
@@ -261,6 +304,12 @@ class McpClient {
     Map<String, dynamic> params, {
     required Duration timeout,
   }) async {
+    final stdio = _stdio;
+    if (stdio != null) {
+      final msg = await stdio.rpc(method, params, timeout: timeout);
+      if (msg == null && stdio.lastError != null) lastError = stdio.lastError;
+      return msg;
+    }
     final id = _nextId++;
     final payload = {
       'jsonrpc': '2.0',

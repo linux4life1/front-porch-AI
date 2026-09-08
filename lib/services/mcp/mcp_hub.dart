@@ -22,17 +22,25 @@ import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/mcp/mcp_client.dart';
 import 'package:front_porch_ai/services/mcp/mcp_models.dart';
 import 'package:front_porch_ai/services/mcp/mcp_settings.dart';
+import 'package:front_porch_ai/services/mcp/mcp_stdio.dart';
+import 'package:front_porch_ai/services/mcp/mcp_stdio_spawn.dart';
 
 /// Owns one [McpClient] per configured server. Connect order is the
 /// collision tie-break: first successful connect wins the tool name.
 class McpHub {
-  McpHub({required this.settings, required this.onNotify, this.sendRequest});
+  McpHub({
+    required this.settings,
+    required this.onNotify,
+    this.sendRequest,
+    McpStdioOpener? openStdio,
+  }) : openStdio = openStdio ?? mcpSpawnStdio;
 
   final McpSettings settings;
   final VoidCallback onNotify;
 
   /// Test seam forwarded to every client.
   Future<http.Response> Function(http.BaseRequest request)? sendRequest;
+  final McpStdioOpener openStdio;
 
   final Map<String, McpClient> _clients = {};
   int _connectSeq = 0;
@@ -68,13 +76,15 @@ class McpHub {
         McpChatServerView(
           id: snap.config.id,
           displayName: snap.config.displayName,
-          url: snap.config.url,
+          url: snap.config.endpointLabel,
           status: snap.status,
           enabledForChat: enabledForChat.contains(snap.config.id),
           enabledGlobal: snap.config.enabledGlobal,
           lastError: snap.lastError,
           toolNames: [for (final t in snap.tools) t.name],
           conflictToolNames: conflictsByServer[snap.config.id] ?? const [],
+          transport: snap.config.transport,
+          command: snap.config.command,
         ),
     ];
   }
@@ -104,30 +114,42 @@ class McpHub {
     required String url,
     String displayName = '',
     String authToken = '',
+    McpTransportKind transport = McpTransportKind.http,
+    String command = '',
+    List<String> args = const [],
   }) async {
     final trimmed = url.trim();
-    if (trimmed.isEmpty) {
+    final stdio =
+        transport == McpTransportKind.stdio || command.trim().isNotEmpty;
+    if (!stdio && trimmed.isEmpty) {
       return mcpCheckResultLine(
         url: '',
         status: McpConnectionStatus.disconnected,
         toolNames: const [],
       );
     }
+    if (stdio && command.trim().isEmpty) {
+      return 'Enter a command first';
+    }
+    final label = stdio ? mcpStdioCommandLine(command, args) : trimmed;
     final cfg = McpServerConfig(
       id: draftId,
       displayName: displayName.trim().isEmpty
-          ? mcpDefaultDisplayName(trimmed)
+          ? mcpDefaultDisplayName(trimmed, command: command)
           : displayName.trim(),
-      url: trimmed,
+      url: label,
       authToken: authToken.trim(),
       enabledGlobal: false,
+      transport: stdio ? McpTransportKind.stdio : McpTransportKind.http,
+      command: command.trim(),
+      args: args,
     );
-    debugPrint('[MCP] hub checkDraft url=$trimmed');
+    debugPrint('[MCP] hub checkDraft url=$trimmed command=${cfg.command}');
     await _handshake(cfg);
     onNotify();
     final client = _clients[draftId];
     final line = mcpCheckResultLine(
-      url: trimmed,
+      url: label,
       status: client?.status ?? McpConnectionStatus.error,
       toolNames: [for (final t in client?.tools ?? const []) t.name],
       lastError: client?.lastError,
@@ -161,7 +183,9 @@ class McpHub {
 
   Future<void> _handshake(McpServerConfig cfg) async {
     final existing = _clients[cfg.id];
-    final client = existing ?? McpClient(config: cfg, sendRequest: sendRequest);
+    final client =
+        existing ??
+        McpClient(config: cfg, sendRequest: sendRequest, openStdio: openStdio);
     client
       ..config = cfg
       ..sendRequest = sendRequest;

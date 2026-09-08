@@ -32,6 +32,7 @@ class WebMcpRoutes {
     router.post('/api/mcp/servers', _add);
     router.post('/api/mcp/servers/default', _default);
     router.post('/api/mcp/servers/check-draft', _checkDraft);
+    router.post('/api/mcp/servers/docker-easy', _dockerEasy);
     router.post('/api/mcp/servers/<id>', _update);
     router.post('/api/mcp/servers/<id>/delete', _delete);
     router.post('/api/mcp/servers/<id>/refresh', _refresh);
@@ -50,7 +51,10 @@ class WebMcpRoutes {
     final body = await _json(request);
     if (body == null) return JsonResponse.badRequest('Invalid JSON body');
     final url = body['url']?.toString().trim() ?? '';
-    if (url.isEmpty) return JsonResponse.badRequest('url is required');
+    final command = body['command']?.toString().trim() ?? '';
+    if (url.isEmpty && command.isEmpty) {
+      return JsonResponse.badRequest('url or command is required');
+    }
     return JsonResponse.ok(await _mcp.addServer(body));
   }
 
@@ -83,6 +87,9 @@ class WebMcpRoutes {
     if (body == null) return JsonResponse.badRequest('Invalid JSON body');
     return JsonResponse.ok(await _mcp.checkDraft(body));
   }
+
+  Future<shelf.Response> _dockerEasy(shelf.Request request) async =>
+      JsonResponse.ok(await _mcp.connectDockerEasy());
 
   Future<Map<String, dynamic>?> _json(shelf.Request request) async {
     try {

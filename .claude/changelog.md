@@ -36,6 +36,19 @@
   `waifu_plan_panel_test.dart`, changelog (docs only on earlier
   picks). Existing Guard tests were re-resolved; CoS label stays.
 - **Commit:** 8308325b
+## 2026-09-08 — feat(waifu): Epic C stdio MCP + Docker-easy + in-Waifu panel
+- **Why:** HTTP-only MCP and a Settings URL ceremony were the gap vs
+  OpenCode-class connect. Waifu Coder needed spawn+protocol, one-tap
+  Docker Desktop, and an in-session manage surface on the existing
+  hub/opt-in/bindings — not a parallel system.
+- **What:** `McpStdioSession` + `mcpSpawnStdio` (Process.start stays out
+  of the HTTP client files). `McpServerConfig` grows additive
+  transport/command/args/env. `McpDockerEasy` reuses a live :8811
+  gateway or spawns `docker mcp gateway run`. Waifu MCP accordion is
+  now `WaifuMcpPanel` (opt-in, Docker-easy, stdio command, chat enable
+  switches). Settings + web Porch Life get the same one-tap. Plan/Build
+  gates unchanged. Failed easy-connect still does not leave a dead row.
+- **Commit:** (this tip)
 
 ## 2026-09-08 — fix(waifu): Plan panel _run clears busy after throw
 - **Why:** Senior Dev residual on #239. Accept/Revise/Discard now

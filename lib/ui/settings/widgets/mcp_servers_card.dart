@@ -40,6 +40,7 @@ class _McpServersPanelState extends State<McpServersPanel> {
   final _name = TextEditingController();
   final _url = TextEditingController();
   final _token = TextEditingController();
+  final _command = TextEditingController();
   bool _checking = false;
   bool _wantToken = false;
   String? _result;
@@ -49,6 +50,7 @@ class _McpServersPanelState extends State<McpServersPanel> {
     _name.dispose();
     _url.dispose();
     _token.dispose();
+    _command.dispose();
     super.dispose();
   }
 
@@ -75,7 +77,31 @@ class _McpServersPanelState extends State<McpServersPanel> {
     });
   }
 
+  Future<void> _connectDockerEasy() async {
+    final storage = context.read<StorageService>();
+    final chat = context.read<ChatService>();
+    setState(() {
+      _checking = true;
+      _result = null;
+    });
+    final line = await McpDockerEasy.connect(
+      settings: storage.mcpSettings,
+      hub: chat.mcpHub,
+      probe: widget.probe,
+    );
+    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      _result = line;
+    });
+  }
+
   Future<void> _checkDraft() async {
+    final commandLine = _command.text.trim();
+    if (commandLine.isNotEmpty) {
+      await _checkStdio(commandLine);
+      return;
+    }
     final url = _url.text.trim();
     if (url.isEmpty) {
       setState(
@@ -127,6 +153,41 @@ class _McpServersPanelState extends State<McpServersPanel> {
     });
   }
 
+  Future<void> _checkStdio(String commandLine) async {
+    final parts = mcpSplitStdioArgs(commandLine);
+    final command = parts.isEmpty ? '' : parts.first;
+    final args = parts.length < 2 ? const <String>[] : parts.sublist(1);
+    final storage = context.read<StorageService>();
+    final chat = context.read<ChatService>();
+    setState(() {
+      _checking = true;
+      _result = null;
+    });
+    final line = await chat.mcpHub.checkDraft(
+      url: '',
+      displayName: _name.text,
+      transport: McpTransportKind.stdio,
+      command: command,
+      args: args,
+    );
+    if (!mounted) return;
+    if (line.startsWith('Connected')) {
+      final server = await storage.mcpSettings.addServer(
+        displayName: _name.text.trim(),
+        transport: McpTransportKind.stdio,
+        command: command,
+        args: args,
+      );
+      await chat.mcpHub.check(server.id);
+      _name.clear();
+      _command.clear();
+    }
+    setState(() {
+      _checking = false;
+      _result = line;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final storage = context.watch<StorageService>();
@@ -140,8 +201,9 @@ class _McpServersPanelState extends State<McpServersPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Docker Desktop MCP does not give Front Porch a URL. Tap Docker, '
-            'then Check. A token is only needed if the server asks.',
+            'Connect Docker MCP starts Docker Desktop’s toolkit on stdio — '
+            'one tap, no URL. Or tap Docker, then Check, for the HTTP gateway. '
+            'A token is only needed if the HTTP server asks.',
             style: TextStyle(
               fontSize: 11,
               height: 1.35,
@@ -153,6 +215,17 @@ class _McpServersPanelState extends State<McpServersPanel> {
             spacing: 8,
             runSpacing: 8,
             children: [
+              ActionChip(
+                key: const Key('mcp-docker-stdio'),
+                label: const Text('Connect Docker MCP'),
+                onPressed: _checking ? null : _connectDockerEasy,
+                backgroundColor: AppColors.surfaceContainerOf(context),
+                side: BorderSide(color: AppColors.borderOf(context)),
+                labelStyle: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontSize: 13,
+                ),
+              ),
               ActionChip(
                 key: const Key('mcp-docker-preset'),
                 label: const Text('Docker'),
@@ -188,6 +261,19 @@ class _McpServersPanelState extends State<McpServersPanel> {
             decoration: InputDecoration(
               isDense: true,
               hintText: 'Or paste a URL',
+              hintStyle: TextStyle(color: AppColors.textTertiary(context)),
+            ),
+          ),
+          TextField(
+            key: const Key('mcp-add-command'),
+            controller: _command,
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontSize: 13,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Or a stdio command (npx -y @scope/mcp-server)',
               hintStyle: TextStyle(color: AppColors.textTertiary(context)),
             ),
           ),

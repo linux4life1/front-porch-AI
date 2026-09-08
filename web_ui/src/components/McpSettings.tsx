@@ -94,6 +94,7 @@ export function McpSettings() {
   const [st, setSt] = useState<McpState>(emptyState);
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
+  const [command, setCommand] = useState('');
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [wantToken, setWantToken] = useState(false);
@@ -128,9 +129,29 @@ export function McpSettings() {
       .catch(() => {});
   };
 
+  const connectDockerEasy = async () => {
+    setBusy(true);
+    try {
+      const checked = await api.post<McpState>(
+        '/api/mcp/servers/docker-easy',
+        {},
+      );
+      setSt({
+        mcpDefault: checked.mcpDefault === true,
+        servers: Array.isArray(checked.servers) ? checked.servers : [],
+      });
+      setResult(checked.checkResult ?? '');
+    } catch {
+      setResult('Could not start Docker MCP.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const checkDraft = async () => {
+    const cmd = command.trim();
     const trimmed = url.trim();
-    if (!trimmed) {
+    if (!trimmed && !cmd) {
       setResult(mcpCheckResultLine({ url: '', status: 'disconnected', toolNames: [] }));
       return;
     }
@@ -138,7 +159,16 @@ export function McpSettings() {
     try {
       const checked = await api.post<McpState & { wantsToken?: boolean }>(
         '/api/mcp/servers/check-draft',
-        { displayName: name, url: trimmed, authToken: token },
+        cmd
+          ? {
+              displayName: name,
+              url: trimmed,
+              authToken: token,
+              transport: 'stdio',
+              command: cmd.split(/\s+/)[0] ?? cmd,
+              args: cmd.split(/\s+/).slice(1),
+            }
+          : { displayName: name, url: trimmed, authToken: token },
       );
       setSt({
         mcpDefault: checked.mcpDefault === true,
@@ -149,6 +179,7 @@ export function McpSettings() {
       if ((checked.checkResult ?? '').startsWith('Connected')) {
         setName('');
         setUrl('');
+        setCommand('');
         setToken('');
         setWantToken(false);
       }
@@ -198,10 +229,20 @@ export function McpSettings() {
         />
       </label>
       <p className="muted small">
-        Docker Desktop MCP does not give Front Porch a URL. Tap Docker, then
-        Check. A token is only needed if the server asks.
+        Connect Docker MCP starts Docker Desktop’s toolkit on stdio — one tap,
+        no URL. Or tap Docker, then Check, for the HTTP gateway. A token is
+        only needed if the HTTP server asks.
       </p>
       <div className="mcp-presets">
+        <button
+          type="button"
+          data-testid="mcp-docker-stdio"
+          className="ghost"
+          disabled={busy}
+          onClick={() => void connectDockerEasy()}
+        >
+          Connect Docker MCP
+        </button>
         <button
           type="button"
           data-testid="mcp-docker-preset"
@@ -229,6 +270,12 @@ export function McpSettings() {
         placeholder="Or paste a URL"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
+      />
+      <input
+        data-testid="mcp-add-command"
+        placeholder="Or a stdio command (npx -y @scope/mcp-server)"
+        value={command}
+        onChange={(e) => setCommand(e.target.value)}
       />
       {wantToken && (
         <input

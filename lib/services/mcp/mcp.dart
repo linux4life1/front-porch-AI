@@ -21,9 +21,12 @@ library;
 
 export 'mcp_catalog.dart';
 export 'mcp_client.dart';
+export 'mcp_docker.dart';
 export 'mcp_hub.dart';
 export 'mcp_local_probe.dart';
 export 'mcp_models.dart';
 export 'mcp_settings.dart';
+export 'mcp_stdio.dart';
+export 'mcp_stdio_spawn.dart';
 export 'mcp_tools_round.dart';
 export 'mcp_transport.dart';

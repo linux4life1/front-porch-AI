@@ -25,7 +25,7 @@ import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_context_bar.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_mcp_opt_in.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_mcp_panel.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mode_bar.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_skills_panel.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_todo_list.dart';
@@ -166,27 +166,11 @@ class WaifuSidebar extends StatelessWidget {
                     subtitle: mcpLine ?? 'off',
                     accent: amber,
                     initiallyExpanded: true,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        WaifuMcpOptIn(
-                          value: mcpOptIn,
-                          pathMode: session.pathMode,
-                          onChanged: onMcpOptIn,
-                        ),
-                        if (mcpLine != null)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: Text(
-                              mcpLine!,
-                              key: const Key('waifu-mcp-status'),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary(context),
-                              ),
-                            ),
-                          ),
-                      ],
+                    child: WaifuMcpPanel(
+                      session: session,
+                      mcpOptIn: mcpOptIn,
+                      onMcpOptIn: onMcpOptIn,
+                      mcpLine: mcpLine,
                     ),
                   ),
                   if (todos != null && todos!.items.isNotEmpty) ...[
