@@ -91,11 +91,20 @@ void main() {
     late Future<void> done;
     await tester.runAsync(() async {
       done = harness.send('count');
-      for (var i = 0; i < 40 && s.transcript.last.reasoning.isEmpty; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
+      for (var i = 0; i < 100; i++) {
+        if (s.transcript.any((m) => !m.isUser && m.reasoning.isNotEmpty)) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
       }
     });
     await tester.pump();
+    expect(
+      s.transcript.any(
+        (m) => !m.isUser && m.reasoning.contains('one two three'),
+      ),
+      isTrue,
+    );
     expect(find.textContaining('one two three'), findsWidgets);
     expect(find.textContaining('Thinking'), findsWidgets);
 

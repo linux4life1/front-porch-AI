@@ -1,3 +1,25 @@
+## 2026-09-08 — fix(waifu): Plan panel _run clears busy after throw
+- **Why:** Senior Dev residual on #239. Accept/Revise/Discard now
+  `unawaited(_run(…))`. If `fn()` or `_reload()` threw, `_busy` stayed
+  true and the buttons died.
+- **What:** `try/finally` clears `_busy` when still mounted. Flash/ok
+  only on success. Did not widen `send()` (pre-gen I/O still sits
+  after `running=true`, outside that try).
+- **Commit:** (this tip)
+
+## 2026-09-08 — fix(waifu): unit CI hang after Plan P0 + mid-stream thoughts
+- **Why:** After #236, `Tests (unit + integration)` was deterministically
+  red. `waifu_plan_panel_test` Accept→Build hung 10 minutes (`tester.tap`
+  + async `onPressed` + dart:io vs FakeAsync). Thought-token chrome
+  missed mid-stream text because `send()` awaited `_refreshPlanBlock()`
+  before recording the user line / `running`.
+- **What:** Record user message + `running` before any await. Accept
+  buttons use `unawaited(_run(…))`. Accept product pin is a plain
+  `test()` (FakeAsync + dart:io still hung even inside `runAsync`).
+  Widget test only mounts the button. Sync-prefix + encode/parse pins.
+  Existing tests under Guard were edited.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
 - **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a
   blocked mutating MCP call, so `toolChips.single` threw Too many elements.
