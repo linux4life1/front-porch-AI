@@ -36,7 +36,9 @@ void main() {
     expect(sidebar, isNot(contains("id: 'waifu_plan'")));
   });
 
-  testWidgets('Accept → Build flips the session mode', (tester) async {
+  testWidgets('main-stage Accept → Build flips the session mode', (
+    tester,
+  ) async {
     final root = await Directory.systemTemp.createTemp('waifu_plan_ui_');
     addTearDown(() async {
       if (await root.exists()) await root.delete(recursive: true);
@@ -55,26 +57,29 @@ void main() {
       session: session,
       llm: ScriptedWaifuLlm(const []),
     );
-    final seeded = waifuPlanParse(_planMd, relativePath: rel);
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: WaifuPlanPanel(
-              session: session,
-              harness: harness,
-              initialPlan: seeded,
-            ),
-          ),
-        ),
+        home: WaifuPage(session: session, harness: harness),
       ),
     );
     await tester.pump();
+    expect(find.byKey(const Key('waifu-plan-stage')), findsOneWidget);
 
+    for (
+      var i = 0;
+      i < 20 && find.byKey(const Key('waifu-plan-accept')).evaluate().isEmpty;
+      i++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+    }
     expect(find.byKey(const Key('waifu-plan-accept')), findsOneWidget);
     expect(session.mode, WaifuMode.plan);
 
+    await tester.ensureVisible(find.byKey(const Key('waifu-plan-accept')));
     await tester.runAsync(() async {
       await tester.tap(find.byKey(const Key('waifu-plan-accept')));
       final deadline = DateTime.now().add(const Duration(seconds: 2));
