@@ -54,6 +54,12 @@ void main() {
         ],
         text: '',
       ),
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(name: 'read', arguments: {'path': 'hello.txt'}),
+        ],
+        text: '',
+      ),
       const LlmToolResponse(calls: [], text: 'Hmph. There. hello.txt.'),
     ]);
     final s = session();
@@ -86,7 +92,6 @@ void main() {
     expect(find.text('Regenerate'), findsNothing);
   });
 
-
   testWidgets(
     'apply_patch mutates disk and the bubble keeps in-character speech',
     (tester) async {
@@ -104,6 +109,12 @@ void main() {
                     '+String parse() => "fixed";\n',
               },
             ),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
           ],
           text: '',
         ),

@@ -18,6 +18,14 @@
   `test()` (FakeAsync + dart:io still hung even inside `runAsync`).
   Widget test only mounts the button. Sync-prefix + encode/parse pins.
   Existing tests under Guard were edited.
+## 2026-09-08 — test(waifu): chrome scripts re-read after mutate
+- **Why:** Unit CI on #237 tip 996ce4e3. Verify-after-mutate is the
+  product. The loop chrome scripts wrote then spoke with no re-read, so
+  the spoken line became the failure line instead of “Hmph. There.”
+- **What:** After write/apply_patch, script a `read` of the touched path
+  before speech — same receipt the turn-contract tests already use.
+- **Commit:** 66b494bd
+
 ## 2026-09-08 — fix(waifu): help/dry-run theater fails the whole verify command
 - **Why:** Hostile HOLD on #237 tip 197381d8. Any-segment verify meant
   `flutter test --help || flutter test` receipted: help exits 0, the
