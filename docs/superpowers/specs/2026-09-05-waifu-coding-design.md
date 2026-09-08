@@ -169,15 +169,21 @@ Composer: you type a task (“fix the empty-email test”). Send starts a loop, 
 
 Same idea as OpenCode. One session, three permission gears — not three personalities. The card does not change.
 
+**Plan is a real planning mode**, not a mute switch. A Plan turn authors a durable markdown artifact under the sit-down folder at `.waifu/plans/<slug>.md` (front matter: id, slug, title, goal, status `draft|accepted|superseded|discarded`, assumptions, constraints, risks, openQuestions, and steps with id/title/detail/files/verify/status). The sidebar **Plan panel** opens that file. **Accept → Build** marks it accepted, pins `activePlanPath` on the session, syncs steps into todos, and flips the gear to Build so the next loop sees path + digest + body/steps. **Revise** returns status to draft and Plan. **Discard** clears the pin (the file stays, status discarded).
+
 | Mode | She can | She cannot | Asks “are you sure?” |
 |---|---|---|---|
-| **Plan** | `read`, `glob`, `grep`, `todoread` | `edit` / `write` / `apply_patch`, `bash`, `todowrite` | N/A (nothing mutates) |
+| **Plan** | `read`, `glob`, `grep`, `todoread` / `todowrite` (session list, not project files), read-only bash allowlist, and `write` / `edit` / `apply_patch` **only** when the resolved realpath is a `.md` under `<root>/.waifu/plans/` | Source-tree mutate, symlink/absolute/`~`/`/tmp` escape (even in Whole-disk), `skill_install`, mutating bash, MCP mutation. Hard-deny wipe/secret rules unchanged. | No. Plan writes never reach the Build ask layer. |
 | **Build** (default) | Full catalog inside the selected path scope | Hard-deny list (see §6.3) | **Yes** on mutate: Allow once / Always this session / Deny |
 | **Yolo** | Same as Build | Same hard-deny list | **No** (OpenCode `--auto`). Selected scope + hard-deny still apply |
 
 Yolo is “stop asking,” not “no safety.” Switching into Yolo from the session chrome repeats a one-line warning; it does not re-tick the wizard checkbox.
 
-Plan is how you let a chaotic local model *look* without letting it save. Build is how a human stays in the loop. Yolo is for throwaway folders when the clicking is the annoying part.
+The Plan loop cue is explore + author the plan file. It does **not** say “put work on disk.” A Plan turn that asked for work is incomplete without a plan-file receipt (same spirit as a Build patch receipt). Build with an accepted plan injects that artifact. The advertised catalog in Plan does not offer source mutators as if they were live; a leaked call is still hard-blocked.
+
+Target models are tool-fluent remotes (OpenRouter / nano-GPT / Qwen3.8-class). Do not add weak-GGUF coax paths.
+
+Build is how a human stays in the loop on source mutate. Yolo is for throwaway folders when the clicking is the annoying part.
 
 ---
 
@@ -240,7 +246,7 @@ Three layers. They stack. Yolo only turns off layer 3.
 
 1. **Path scope (always).** Folder jail confines lexical paths, realpaths/symlinks, and bash path arguments/cd to the selected root. Whole-disk permits absolute, `~`, `..`, and cd-out. The default is Folder jail and the session persists the choice.
 2. **Hard deny (always, including Whole-disk + Yolo).** Block `.env`, `.ssh`, `.aws`, parent environment dumps, destructive Git/force-push, recursive root/home/system/ancestor deletes (with or without `-f`, quotes, or nested `bash -c`), `find … -delete` on broad roots, format/wipe/device commands, permission bombs, and obvious recursive Python wipes. Normal project reads, patches, writes, tests, and scoped cleanup remain available.
-3. **Ask (Build only).** Mutating tools pause for Allow / Deny. Reads never ask. Plan never reaches this layer because those tools are not in her catalog.
+3. **Ask (Build only).** Mutating tools pause for Allow / Deny. Reads never ask. Plan never reaches this layer: source mutators are hard-blocked, and plan-file writes under `.waifu/plans/` do not ask.
 
 - `write_file` / patch: record before-bytes for the work strip. Prefer patches over whole-file overwrite when the model emits a patch; whole-file allowed for new files.
 - Git tools only if `.git` exists under root. Commit is allowed in Build (after ask) and Yolo; rewrite/history destroy is not, ever.
@@ -312,7 +318,7 @@ Chat turn-event matrix is **N/A** (no ChatService). Waifu Coder events:
 | Delete last turn | Transcript only |
 | Leave Waifu Coder | Loop aborts; folder unchanged except what she already wrote |
 | Tools unsupported | Cannot sit down |
-| Plan + write/run | Tool error; nothing on disk |
+| Plan + write/run | Source-tree write/run is a tool error (disk unchanged). A write whose realpath is `<root>/.waifu/plans/*.md` is allowed and is the Plan receipt. Absolute / `~` / symlink escape is denied even in Whole-disk. |
 | Build + mutate | Modal; Deny = tool error, disk unchanged |
 | Yolo + mutate | Runs if selected path scope + hard-deny pass |
 | Yolo + `git checkout --` | Still refused |
@@ -332,7 +338,7 @@ Twins: none on web (deferred). MCP chat catalog is a sibling, not this pipeline.
 - Wizard: step indicator is the Create Character pattern (dots + linear nav); folder step does not call `FilePicker`.
 - Honesty gate: Sit down Confirm is disabled until the checkbox is ticked; copy names Claude Code / Grok Build / OpenCode and “never on a critical codebase.”
 - Home: Waifu Coder is a sibling of Porch Stories, not a chat sidebar switch.
-- Plan: a scripted `write_file` does not touch disk.
+- Plan: a scripted source-tree `write_file` does not touch disk; a write under `.waifu/plans/*.md` does; symlink/absolute escape is denied; a Plan turn without a plan receipt fails the contract; Accept → Build injects the plan into the next loop prompt.
 - Build: a scripted `write_file` does not touch disk until Allow; Deny leaves the file absent.
 - Yolo: a scripted write inside scope runs with no modal; `git checkout -- .` still does not run.
 - `apply_patch`: exact hunk succeeds atomically; ambiguous context and out-of-scope paths fail.
@@ -368,7 +374,7 @@ Yolo = OpenCode `--auto`: skip asks, never skip hard denies or the selected path
 Waifu Coder is shippable when:
 
 1. Wizard (folder walker + character + sit down) works on macOS, Windows, Linux. Sit down cannot proceed without the honesty checkbox. The copy says this is not Claude Code / Grok Build / OpenCode and must not be used on critical code.
-2. A tool-fluent remote model can complete a small real task (e.g. add a test, run it, fix fail) inside a throwaway folder, with diffs visible. Plan cannot write; Build asks; Yolo writes without asking and still cannot `git checkout --`.
+2. A tool-fluent remote model can complete a small real task (e.g. add a test, run it, fix fail) inside a throwaway folder, with diffs visible. Plan authors `.waifu/plans/*.md` and cannot touch source; Accept → Build asks on source mutate; Yolo writes without asking and still cannot `git checkout --`.
 3. The same session, with a card that has a strong personality, **sounds like the card** in the bubbles — not a generic coding assistant. Sass + a real patch is the win. Sass with no patch, or a patch without their voice, is not.
 4. Both path modes, structured patching, abort-kill, and ruthless hard-denies are red-then-green.
 5. Local/XML-only backends cannot silently wreck a folder.

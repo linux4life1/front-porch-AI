@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 📋 **Waifu Coder Plan mode now writes a real plan** — in Plan they explore, then save a markdown plan under `.waifu/plans/`. The Plan panel lets you read it, Accept → Build (steps become todos), Revise, or Discard. They still cannot change project source until you accept. Personality stays the card’s.
+
 - ♾️ **Waifu Coder is not capped at chat Max Output Tokens** — a turn can fill the rest of the context window so a tool call is not cut off mid-file. Chat still uses that slider. One reply bubble per send: reads/writes/bash stack as a quiet log above it, then she speaks. The old 20-step cutoff is a runaway fuse at 80.
 
 - 🎭 **OpenRouter models move relationships, Needs, and scene time again** — those judges now ask OpenRouter for a JSON schema (and the live overlay path finally sends the same forced tool / `require_parameters` payload as the background POST, with room for thinking models). Nano-GPT, local MLX, and LM Studio stay on tools. Same on the phone.

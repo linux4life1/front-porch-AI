@@ -20,7 +20,9 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
+import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
+import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_subagent.dart';
 
 /// Short coding constitution. Card identity and author voice rules sit above.
@@ -170,6 +172,8 @@ String waifuLoopUserPrompt({
   WaifuPathMode pathMode = WaifuPathMode.folderJail,
   int taskDepthRemaining = kWaifuMaxTaskDepth,
   String turnContractCue = '',
+  WaifuMode mode = WaifuMode.build,
+  String planBlock = '',
 }) {
   final buf = StringBuffer();
   if (pathMode == WaifuPathMode.folderJail) {
@@ -187,15 +191,32 @@ String waifuLoopUserPrompt({
         'are allowed when the task needs them.',
       );
   }
-  buf
-    ..writeln(
-      'Do not prefix the folder’s own name. Put code on disk with tools. '
-      'Visible replies are in-character speech only — no source dumps.',
-    )
-    ..writeln(kWaifuLookupCue)
-    ..writeln(waifuNestCue(taskDepthRemaining))
-    ..writeln(kWaifuBuiltinsCue)
-    ..writeln();
+  if (mode == WaifuMode.plan) {
+    buf
+      ..writeln(
+        'Do not prefix the folder’s own name. Visible replies are '
+        'in-character speech only — no source dumps.',
+      )
+      ..writeln(kWaifuLookupCue)
+      ..writeln(waifuNestCue(taskDepthRemaining))
+      ..writeln(kWaifuPlanBuiltinsCue)
+      ..writeln();
+  } else {
+    buf
+      ..writeln(
+        'Do not prefix the folder’s own name. Put code on disk with tools. '
+        'Visible replies are in-character speech only — no source dumps.',
+      )
+      ..writeln(kWaifuLookupCue)
+      ..writeln(waifuNestCue(taskDepthRemaining))
+      ..writeln(kWaifuBuiltinsCue)
+      ..writeln();
+  }
+  if (planBlock.trim().isNotEmpty) {
+    buf
+      ..writeln(planBlock.trim())
+      ..writeln();
+  }
   if (turnContractCue.isNotEmpty) {
     buf
       ..writeln(turnContractCue)

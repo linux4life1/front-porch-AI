@@ -30,6 +30,8 @@ import 'package:front_porch_ai/services/waifu/waifu_llm.dart';
 import 'package:front_porch_ai/services/waifu/waifu_mcp_filter.dart';
 import 'package:front_porch_ai/services/waifu/waifu_mentions.dart';
 import 'package:front_porch_ai/services/waifu/waifu_permissions.dart';
+import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
+import 'package:front_porch_ai/services/waifu/waifu_plan_codec.dart';
 import 'package:front_porch_ai/services/waifu/waifu_question.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_skill_market.dart';
@@ -47,6 +49,7 @@ import 'package:front_porch_ai/services/waifu/waifu_webfetch.dart';
 import 'package:front_porch_ai/services/waifu/waifu_workflow.dart';
 
 part 'waifu_harness_dispatch.dart';
+part 'waifu_harness_plan.dart';
 part 'waifu_harness_spawn.dart';
 part 'waifu_harness_turn.dart';
 
@@ -114,6 +117,7 @@ class WaifuHarness {
   Completer<WaifuAskDecision>? _askWait;
   Completer<String>? _questionWait;
   String _mentionBlock = '';
+  String _planBlock = '';
   List<String>? _turnImages;
   final _children = <WaifuHarness>[];
   late WaifuTurnContract _turn;
@@ -154,7 +158,12 @@ class WaifuHarness {
     _stepAt = null;
     _trace = '';
     _turnImages = imagePng == null ? null : [base64Encode(imagePng)];
-    _turn = WaifuTurnContract.start(text, session.lastWrite);
+    _turn = WaifuTurnContract.start(
+      text,
+      session.lastWrite,
+      mode: session.mode,
+    );
+    await _refreshPlanBlock();
     session.running = true;
     session.transcript.add(
       WaifuMessage(isUser: true, text: text, imagePath: imagePath),
@@ -239,6 +248,20 @@ class WaifuHarness {
       _reject(canon, block);
       return;
     }
+    if (session.mode == WaifuMode.plan &&
+        (canon == kWaifuToolWrite ||
+            canon == kWaifuToolEdit ||
+            canon == kWaifuToolApplyPatch)) {
+      final path = waifuToolPathArg(work);
+      final live = path == null
+          ? 'plan mode can only write under $kWaifuPlansDir'
+          : await waifuPlanWriteLiveBlock(session.folderRoot, path);
+      if (live != null) {
+        permissions.record(name: name, args: work);
+        _reject(canon, live);
+        return;
+      }
+    }
     if (permissions.needsAsk(name: name, args: work, mutates: mcpMutates)) {
       final doom = permissions.isDoom(name, work);
       final decision = await _decide(
@@ -268,6 +291,11 @@ class WaifuHarness {
     if (result.write != null) {
       session.lastWrite = result.write;
       undoLog.push(result.write!);
+    }
+    if (session.mode == WaifuMode.plan &&
+        result.write != null &&
+        waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
+      session.activePlanPath = result.write!.relativePath;
     }
     _turn.noteResult(canon, result, session.lastWrite);
     final detail = result.ok
@@ -423,6 +451,8 @@ class WaifuHarness {
       pathMode: session.pathMode,
       taskDepthRemaining: kWaifuMaxTaskDepth - depth,
       turnContractCue: _turn.cue,
+      mode: session.mode,
+      planBlock: _planBlock,
     );
   }
 

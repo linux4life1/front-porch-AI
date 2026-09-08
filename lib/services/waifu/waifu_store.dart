@@ -139,6 +139,8 @@ class WaifuStore {
     'pathMode': session.pathMode.name,
     'mcpOptIn': session.mcpOptIn,
     'preserveThinking': session.preserveThinking,
+    if (session.activePlanPath != null && session.activePlanPath!.isNotEmpty)
+      'activePlanPath': session.activePlanPath,
     'coworker': _coworkerMap(session.coworker),
     'transcript': [
       for (final m in session.transcript)
@@ -276,6 +278,7 @@ class WaifuStore {
         transcript: transcript,
         mcpOptIn: map['mcpOptIn'] == true,
         preserveThinking: map['preserveThinking'] == true,
+        activePlanPath: map['activePlanPath']?.toString(),
       );
     } catch (_) {
       return null;

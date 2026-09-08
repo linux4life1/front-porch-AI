@@ -39,6 +39,18 @@
   Journal stay on tools. Salvage JSON from `reasoning_content` and mixed
   prose.
 - **Commit:** 539d7a12 / a9f14724
+## 2026-09-08 — feat(waifu): real Plan mode artifacts + Accept→Build
+- **Why:** `WaifuMode.plan` was only a permission mute: every mutate
+  (including todowrite) was blocked, there was no `.waifu/plans/`
+  artifact, no Plan panel, and no Accept→Build handoff. User lock
+  superseded spec §4.1 sludge.
+- **What:** Durable `.waifu/plans/<slug>.md` (front matter + steps);
+  Plan write/edit/apply_patch only when realpath is under that folder
+  (folder-jail even in Whole-disk; symlink/absolute/`~`/`/tmp` denied);
+  todowrite + read-only bash allowlist; plan-file turn receipt; mode-aware
+  loop prompt; catalog honesty; sidebar Plan panel Accept/Revise/Discard;
+  pin `activePlanPath`, sync steps→todos, flip to Build. Spec §4.1 updated.
+- **Commit:** (this tip)
 
 ## 2026-09-07 — test(chat): harden picker-hold Drift isolate tearDown
 - **Why:** CI @ 767b3bc6 unit failed `session_picker_overlay_hold_test`

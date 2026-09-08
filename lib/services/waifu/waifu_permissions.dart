@@ -18,6 +18,7 @@
 
 import 'dart:convert';
 
+import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 import 'package:path/path.dart' as p;
@@ -342,8 +343,10 @@ bool _isDangerousWipeTarget(String raw, String? workingDirectory) {
   );
 }
 
-/// Plan / Build / Yolo gears plus doom-loop and .env. Null [WaifuHarness.onAsk]
-/// auto-allows Build (headless / slice B tests); WaifuPage installs the modal.
+/// Plan / Build / Yolo gears plus doom-loop and .env. Plan may write only
+/// under `.waifu/plans/`; source mutate stays denied. Null
+/// [WaifuHarness.onAsk] auto-allows Build (headless / slice B tests);
+/// WaifuPage installs the modal.
 class WaifuPermissions {
   WaifuPermissions({this.mode = WaifuMode.build, this.workingDirectory});
 
@@ -383,9 +386,17 @@ class WaifuPermissions {
       );
       if (denied != null) return denied;
     }
-    final changesDisk = mutates ?? waifuToolMutates(canon);
-    if (mode == WaifuMode.plan && changesDisk) {
-      return 'plan mode cannot $canon: switch to Build or Yolo to change files';
+    if (mode == WaifuMode.plan) {
+      final planBlock = waifuPlanMutationBlock(
+        name: canon,
+        args: args,
+        root: workingDirectory,
+      );
+      if (planBlock != null) return planBlock;
+      if (mutates == true) {
+        return 'plan mode cannot $canon: switch to Build or Yolo to change files';
+      }
+      return null;
     }
     return null;
   }

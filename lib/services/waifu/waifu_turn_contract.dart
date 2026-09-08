@@ -17,7 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/waifu/waifu_fs.dart';
+import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
+import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 
 const kWaifuTurnCorrectionAttempts = 2;
@@ -73,10 +75,14 @@ bool waifuLooksGenericCompletion(String body) {
 }
 
 class WaifuTurnContract {
-  WaifuTurnContract.start(String task, WaifuWriteRecord? initialWrite)
-    : mutationRequired = waifuTaskRequestsFileChange(task),
-      _initialWrite = initialWrite;
+  WaifuTurnContract.start(
+    String task,
+    WaifuWriteRecord? initialWrite, {
+    this.mode = WaifuMode.build,
+  }) : mutationRequired = waifuTaskRequestsFileChange(task),
+       _initialWrite = initialWrite;
 
+  final WaifuMode mode;
   final bool mutationRequired;
   final WaifuWriteRecord? _initialWrite;
   bool mutationAttempted = false;
@@ -113,9 +119,16 @@ class WaifuTurnContract {
   ) {
     successfulTool = successfulTool || result.ok;
     if (kWaifuReceiptMutationTools.contains(toolName) && result.write != null) {
-      mutationSucceeded = true;
+      if (mode != WaifuMode.plan ||
+          waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
+        mutationSucceeded = true;
+      }
     }
-    if (result.ok && !identical(currentWrite, _initialWrite)) {
+    if (result.ok &&
+        !identical(currentWrite, _initialWrite) &&
+        (mode != WaifuMode.plan ||
+            (currentWrite != null &&
+                waifuRelativeIsPlanArtifact(currentWrite.relativePath)))) {
       mutationSucceeded = true;
     }
     if (mutationSucceeded) cue = '';
@@ -148,10 +161,14 @@ class WaifuTurnContract {
   void requestMutation() {
     mutationCorrectionAttempts++;
     speechOnly = false;
-    cue =
-        'TURN CONTRACT: The user asked for a code/file change, but no '
-        'write, edit, or apply_patch receipt landed. Do the real change with '
-        'a file tool now; personality without a patch is not completion.';
+    cue = mode == WaifuMode.plan
+        ? 'TURN CONTRACT: Plan mode needs a real $kWaifuPlansDir/<slug>.md '
+              'receipt (write, edit, or apply_patch). Exploring or talking '
+              'without that artifact is not completion.'
+        : 'TURN CONTRACT: The user asked for a code/file change, but no '
+              'write, edit, or apply_patch receipt landed. Do the real change '
+              'with a file tool now; personality without a patch is not '
+              'completion.';
   }
 
   void requestSpeech() {
@@ -165,6 +182,10 @@ class WaifuTurnContract {
 
   String failureLine(String body) {
     if (mutationRequired && !mutationSucceeded) {
+      if (mode == WaifuMode.plan) {
+        return 'I could not write a plan file under $kWaifuPlansDir, so I '
+            'stopped instead of pretending I planned.';
+      }
       return 'I could not put a real change on disk, so I stopped instead of '
           'pretending I did.';
     }

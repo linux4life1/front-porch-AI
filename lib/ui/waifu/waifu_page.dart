@@ -451,7 +451,7 @@ class _WaifuPageState extends State<WaifuPage> {
                 setState(() => session.preserveThinking = v);
                 unawaited(_storeOf(context)?.saveLast(session));
               },
-              todos: harness?.todos,
+              harness: harness,
               mcpLine: waifuMcpStatusLine(context),
               skills: _skillsOf(),
               onSkillsChanged: _refresh,
