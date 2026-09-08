@@ -77,6 +77,17 @@ extension _WaifuHarnessTurn on WaifuHarness {
         switch (_turn.decideFinal(body)) {
           case WaifuFinalAction.accept:
             _say(body);
+            if (!_turn.todoMarkedCompleted &&
+                (waifuSpeechClaimsTodoDone(body) ||
+                    waifuSpeechClaimsTodoDone(_turn.rememberedSpeech))) {
+              _pushChip(
+                WaifuToolChip(
+                  name: kWaifuToolTodoWrite,
+                  detail: 'claimed without a completed write',
+                  ok: false,
+                ),
+              );
+            }
             return;
           case WaifuFinalAction.useRememberedSpeech:
             _say(_turn.rememberedSpeech);

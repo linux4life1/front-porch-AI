@@ -31,6 +31,12 @@ extension _WaifuHarnessDispatch on WaifuHarness {
         return WaifuToolResult(ok: true, output: todos.read());
       case kWaifuToolTodoWrite:
         final out = todos.write(args['todos']);
+        if (out.startsWith('error:')) {
+          return WaifuToolResult(ok: false, output: out);
+        }
+        if (todos.items.any((t) => t.status == kWaifuTodoCompleted)) {
+          _turn.todoMarkedCompleted = true;
+        }
         await waifuSyncTodosOntoPlan(session: session, todos: todos);
         return WaifuToolResult(ok: true, output: out);
       case kWaifuToolQuestion:

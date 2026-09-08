@@ -1,3 +1,19 @@
+## 2026-09-08 — fix(waifu): live tool chips + honest todowrite completed
+- **Why:** Live repro: she claimed `todowrite` marked the first todo
+  completed, but Tasks stayed `in_progress` / `pending`, and the only
+  chips on that turn were workflows. Root cause 1: `_runTool` only
+  `_pushChip` after `await` dispatch, so the sidebar/transcript looked
+  idle mid-tool. Root cause 2: `todowrite` schema had no status enum,
+  aliases like `done` were stored raw, and a bad `todos` shape silently
+  cleared the list (`raw is List ? raw : const []`).
+- **What:** Push a `running` chip at attempt and flip it to ok/fail
+  (spinner in `WaifuToolLog`). Tighten `todowrite` to require
+  `pending|in_progress|completed`, normalize `done`/`complete`/
+  `in-progress`, parse a stringified JSON array once, and return a
+  tool error without wiping. Completed Tasks are struck through. Soft
+  harness chip if speech claims a todo done with no completed write.
+- **Commit:** (this tip)
+
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
 - **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a
   blocked mutating MCP call, so `toolChips.single` threw Too many elements.

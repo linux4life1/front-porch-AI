@@ -26,11 +26,15 @@ class WaifuToolChip {
     required this.name,
     required this.detail,
     required this.ok,
+    this.running = false,
   });
 
   final String name;
   final String detail;
   final bool ok;
+
+  /// True from attempt until the tool finishes; [ok] is meaningless then.
+  final bool running;
 }
 
 class WaifuWriteRecord {

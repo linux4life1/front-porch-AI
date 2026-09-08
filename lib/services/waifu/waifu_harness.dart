@@ -231,6 +231,14 @@ class WaifuHarness {
     final kind = waifuSubagentKind(name, work);
     final canon = canonicalWaifuToolName(name);
     _turn.noteAttempt(canon);
+    _pushChip(
+      WaifuToolChip(
+        name: canon,
+        detail: waifuChipDetail(canon, work),
+        ok: false,
+        running: true,
+      ),
+    );
     final mcpMutates = waifuMcpMutationHint(name, mcpTools);
     if (exploreOnly &&
         !kWaifuExploreToolNames.contains(canon) &&
@@ -272,7 +280,10 @@ class WaifuHarness {
           doomLoop: doom,
         ),
       );
-      if (_aborted) return;
+      if (_aborted) {
+        _reject(canon, 'stopped');
+        return;
+      }
       if (decision == WaifuAskDecision.deny) {
         permissions.record(name: name, args: work);
         _reject(canon, 'denied by user');
@@ -288,7 +299,10 @@ class WaifuHarness {
       kWaifuToolWorkflow => await _runWorkflow(work),
       _ => await _dispatch(canon, work, original: name),
     };
-    if (_aborted) return;
+    if (_aborted) {
+      _reject(canon, 'stopped');
+      return;
+    }
     if (result.write != null) {
       session.lastWrite = result.write;
       undoLog.push(result.write!);
@@ -302,7 +316,10 @@ class WaifuHarness {
     final detail = result.ok
         ? waifuChipDetail(canon, work)
         : waifuClipChipError(result.output);
-    _pushChip(WaifuToolChip(name: canon, detail: detail, ok: result.ok));
+    _pushChip(
+      WaifuToolChip(name: canon, detail: detail, ok: result.ok),
+      replaceRunning: true,
+    );
     _trace += '\n[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
   }
 
@@ -329,17 +346,29 @@ class WaifuHarness {
   void _reject(String name, String message) {
     _pushChip(
       WaifuToolChip(name: name, detail: waifuClipChipError(message), ok: false),
+      replaceRunning: true,
     );
     _trace += '\n[$name] error\n$message\n';
   }
 
-  void _pushChip(WaifuToolChip chip) {
+  void _pushChip(WaifuToolChip chip, {bool replaceRunning = false}) {
     final last = _liveAssistant();
+    final chips = [...last.chips];
+    if (replaceRunning) {
+      final i = chips.lastIndexWhere((c) => c.running);
+      if (i >= 0) {
+        chips[i] = chip;
+      } else {
+        chips.add(chip);
+      }
+    } else {
+      chips.add(chip);
+    }
     _writeLive(
       WaifuMessage(
         isUser: false,
         text: last.text,
-        chips: [...last.chips, chip],
+        chips: chips,
         reasoning: last.reasoning,
         thinkingStartMs: last.thinkingStartMs,
         thinkingMs: last.thinkingMs,

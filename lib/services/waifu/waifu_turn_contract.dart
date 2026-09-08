@@ -91,6 +91,7 @@ class WaifuTurnContract {
   bool mutationAttempted = false;
   bool mutationSucceeded = false;
   bool successfulTool = false;
+  bool todoMarkedCompleted = false;
   bool speechOnly = false;
   int mutationCorrectionAttempts = 0;
   int speechCorrectionAttempts = 0;

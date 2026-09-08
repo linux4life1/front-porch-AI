@@ -44,11 +44,21 @@ class WaifuToolLog extends StatelessWidget {
               padding: const EdgeInsets.only(top: 2),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.circle,
-                    size: 6,
-                    color: chips[i].ok ? amber : fail,
-                  ),
+                  chips[i].running
+                      ? SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            key: Key('waifu-tool-pending-$i'),
+                            strokeWidth: 1.6,
+                            color: amber,
+                          ),
+                        )
+                      : Icon(
+                          Icons.circle,
+                          size: 6,
+                          color: chips[i].ok ? amber : fail,
+                        ),
                   const SizedBox(width: 8),
                   Text(
                     chips[i].name,

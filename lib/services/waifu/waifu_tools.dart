@@ -142,11 +142,28 @@ List<Map<String, dynamic>> waifuFileToolsFor(WaifuPathMode pathMode) {
     _fn(kWaifuToolTodoRead, 'Read the current todo list.', const {}, const []),
     _fn(
       kWaifuToolTodoWrite,
-      'Replace the todo list. Each item: id, content, status.',
+      'Replace the todo list. Each item must include id, content, and '
+      'status (pending, in_progress, or completed). Use completed for '
+      'finished items — not done or complete.',
       {
         'todos': {
           'type': 'array',
-          'items': {'type': 'object'},
+          'description':
+              'Full replacement list. Each object requires id, content, '
+              'and status: pending | in_progress | completed.',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {'type': 'string'},
+              'content': {'type': 'string'},
+              'status': {
+                'type': 'string',
+                'enum': ['pending', 'in_progress', 'completed'],
+                'description': 'pending, in_progress, or completed',
+              },
+            },
+            'required': ['id', 'content', 'status'],
+          },
         },
       },
       const ['todos'],

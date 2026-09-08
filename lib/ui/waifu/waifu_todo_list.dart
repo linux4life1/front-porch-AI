@@ -55,10 +55,16 @@ class WaifuTodoList extends StatelessWidget {
           const SizedBox(height: 6),
           for (final t in todos.items)
             Text(
+              key: Key('waifu-todo-${t.id}'),
               '${t.status}: ${t.content}',
               style: TextStyle(
-                color: AppColors.textPrimary(context),
+                color: t.status == kWaifuTodoCompleted
+                    ? AppColors.textTertiary(context)
+                    : AppColors.textPrimary(context),
                 fontSize: 13,
+                decoration: t.status == kWaifuTodoCompleted
+                    ? TextDecoration.lineThrough
+                    : TextDecoration.none,
               ),
             ),
         ],
