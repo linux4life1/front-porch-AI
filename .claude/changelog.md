@@ -1,3 +1,12 @@
+## 2026-09-08 — fix(waifu): Plan panel _run clears busy after throw
+- **Why:** Senior Dev residual on #239. Accept/Revise/Discard now
+  `unawaited(_run(…))`. If `fn()` or `_reload()` threw, `_busy` stayed
+  true and the buttons died.
+- **What:** `try/finally` clears `_busy` when still mounted. Flash/ok
+  only on success. Did not widen `send()` (pre-gen I/O still sits
+  after `running=true`, outside that try).
+- **Commit:** (this tip)
+
 ## 2026-09-08 — fix(waifu): unit CI hang after Plan P0 + mid-stream thoughts
 - **Why:** After #236, `Tests (unit + integration)` was deterministically
   red. `waifu_plan_panel_test` Accept→Build hung 10 minutes (`tester.tap`

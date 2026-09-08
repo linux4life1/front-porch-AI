@@ -113,6 +113,7 @@ void main() {
     ).readAsStringSync();
     expect(panelSrc, contains('acceptActivePlan'));
     expect(panelSrc, contains("'Accepted — Build'"));
+    expect(panelSrc, contains('finally'));
   }, timeout: const Timeout(Duration(seconds: 10)));
 
   test('draft plan blocks Build; freeform Build does not', () async {

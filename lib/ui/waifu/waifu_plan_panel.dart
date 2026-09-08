@@ -95,15 +95,22 @@ class _WaifuPlanPanelState extends State<WaifuPlanPanel> {
       _busy = true;
       _flash = '';
     });
-    await fn();
-    if (!mounted) return;
-    await _reload();
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _flash = ok;
-    });
-    widget.onChanged?.call();
+    var succeeded = false;
+    try {
+      await fn();
+      if (!mounted) return;
+      await _reload();
+      if (!mounted) return;
+      succeeded = true;
+      widget.onChanged?.call();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          if (succeeded) _flash = ok;
+        });
+      }
+    }
   }
 
   @override
