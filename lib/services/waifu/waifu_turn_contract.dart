@@ -45,6 +45,8 @@ enum WaifuFinalAction {
   failMutation,
   failSpeech,
   failVerify,
+  retryTodoWrite,
+  failTodoWrite,
 }
 
 String waifuNormalizeVerifyPath(String path) =>
@@ -165,6 +167,29 @@ bool waifuTaskRequestsFileChange(String task) {
   return changeVerb && codeTarget;
 }
 
+bool waifuLooksTodoReceiptClaim(String body) {
+  final lower = body.toLowerCase();
+  if (RegExp(r'\btodowrite\b').hasMatch(lower)) return true;
+  final list = RegExp(r'\b(?:todo|to-do|task) lists?\b').hasMatch(lower);
+  final updated = RegExp(
+    r'\b(?:updated?|wrote|replaced|rewrote|changed)\b',
+  ).hasMatch(lower);
+  final todo = RegExp(r'\b(?:todos?|to-dos?)\b').hasMatch(lower);
+  if ((list || todo) && updated) return true;
+  final done = RegExp(
+    r'\b(?:completed?|finished|checked\s+off|marked\s+(?:as\s+)?done)\b',
+  ).hasMatch(lower);
+  return todo && done;
+}
+
+bool waifuTurnHasTodoWriteReceipt(Iterable<WaifuToolChip> chips) {
+  for (final chip in chips) {
+    if (chip.pending || !chip.ok) continue;
+    if (canonicalWaifuToolName(chip.name) == kWaifuToolTodoWrite) return true;
+  }
+  return false;
+}
+
 bool waifuLooksGenericCompletion(String body) {
   final normalized = body.trim().toLowerCase().replaceAll(
     RegExp(r'[.!…\s]+$'),
@@ -203,10 +228,13 @@ class WaifuTurnContract {
   bool verifyRequired = false;
   bool verified = false;
   bool successfulTool = false;
+  bool todoWriteSucceeded = false;
+  bool todoWriteRequired = false;
   bool speechOnly = false;
   int mutationCorrectionAttempts = 0;
   int speechCorrectionAttempts = 0;
   int verifyCorrectionAttempts = 0;
+  int todoCorrectionAttempts = 0;
   String rememberedSpeech = '';
   String cue = '';
 
@@ -238,6 +266,11 @@ class WaifuTurnContract {
     Map<String, dynamic>? args,
   }) {
     successfulTool = successfulTool || result.ok;
+    if (toolName == kWaifuToolTodoWrite && result.ok) {
+      todoWriteSucceeded = true;
+      todoWriteRequired = false;
+      cue = '';
+    }
     if (kWaifuReceiptMutationTools.contains(toolName) && result.write != null) {
       if (mode != WaifuMode.plan ||
           waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
@@ -285,6 +318,10 @@ class WaifuTurnContract {
   void absorbChild(WaifuTurnContract child) {
     successfulTool = successfulTool || child.successfulTool;
     mutationAttempted = mutationAttempted || child.mutationAttempted;
+    if (child.todoWriteSucceeded) {
+      todoWriteSucceeded = true;
+      todoWriteRequired = false;
+    }
     if (child.mutationSucceeded) mutationSucceeded = true;
     if (child.verifyRequired) verifyRequired = true;
     if (child.mutatedPaths.isNotEmpty) {
@@ -303,7 +340,10 @@ class WaifuTurnContract {
     }
   }
 
-  WaifuFinalAction decideFinal(String body) {
+  WaifuFinalAction decideFinal(
+    String body, {
+    List<WaifuToolChip> chips = const [],
+  }) {
     final trimmed = body.trim();
     final generic = waifuLooksGenericCompletion(trimmed);
     if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
@@ -330,6 +370,13 @@ class WaifuTurnContract {
                 ? WaifuFinalAction.failMutation
                 : WaifuFinalAction.failSpeech);
     }
+    final todoReceipt =
+        todoWriteSucceeded || waifuTurnHasTodoWriteReceipt(chips);
+    if (waifuLooksTodoReceiptClaim(trimmed) && !todoReceipt) {
+      return todoCorrectionAttempts < kWaifuTurnCorrectionAttempts
+          ? WaifuFinalAction.retryTodoWrite
+          : WaifuFinalAction.failTodoWrite;
+    }
     return WaifuFinalAction.accept;
   }
 
@@ -344,6 +391,17 @@ class WaifuTurnContract {
               'write, edit, or apply_patch receipt landed. Do the real change '
               'with a file tool now; personality without a patch is not '
               'completion.';
+  }
+
+  void requestTodoWrite() {
+    todoCorrectionAttempts++;
+    todoWriteRequired = true;
+    speechOnly = false;
+    cue =
+        'TURN CONTRACT: You claimed a todo update (completed, todowrite, or '
+        'the todo list), but no successful todowrite landed this turn. Call '
+        'todowrite for real, or stop claiming the list changed. Thoughts are '
+        'not a receipt.';
   }
 
   void requestSpeech() {
@@ -365,6 +423,10 @@ class WaifuTurnContract {
   }
 
   String failureLine(String body) {
+    if (todoWriteRequired && !todoWriteSucceeded) {
+      return 'I did not actually update the todo list, so I stopped instead of '
+          'pretending I did.';
+    }
     if (mutationRequired && !mutationSucceeded) {
       if (mode == WaifuMode.plan) {
         return 'I could not write a plan file under $kWaifuPlansDir, so I '

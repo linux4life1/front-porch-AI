@@ -74,7 +74,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
       }
 
       if (resp.calls.isEmpty) {
-        switch (_turn.decideFinal(body)) {
+        switch (_turn.decideFinal(body, chips: _liveAssistant().chips)) {
           case WaifuFinalAction.accept:
             _say(body);
             return;
@@ -90,6 +90,9 @@ extension _WaifuHarnessTurn on WaifuHarness {
           case WaifuFinalAction.retryVerify:
             _turn.requestVerify();
             continue;
+          case WaifuFinalAction.retryTodoWrite:
+            _turn.requestTodoWrite();
+            continue;
           case WaifuFinalAction.failMutation:
             _reject('turn', 'no file change landed for a code-change request');
             _say(_turn.failureLine(body));
@@ -103,6 +106,10 @@ extension _WaifuHarnessTurn on WaifuHarness {
             return;
           case WaifuFinalAction.failVerify:
             _reject('turn', 'no verify after a project file change');
+            _say(_turn.failureLine(body));
+            return;
+          case WaifuFinalAction.failTodoWrite:
+            _reject('turn', 'no todowrite receipt for a claimed todo update');
             _say(_turn.failureLine(body));
             return;
         }
@@ -121,5 +128,18 @@ extension _WaifuHarnessTurn on WaifuHarness {
     if (_aborted) return;
     _reject('turn', 'runaway fuse stopped this turn');
     _say(_turn.failureLine(''));
+  }
+
+  void _settlePendingChip(String name) {
+    if (!_liveAssistant().chips.any((c) => c.pending && c.name == name)) {
+      return;
+    }
+    _pushChip(
+      WaifuToolChip(
+        name: name,
+        detail: _aborted ? 'stopped' : 'error',
+        ok: false,
+      ),
+    );
   }
 }

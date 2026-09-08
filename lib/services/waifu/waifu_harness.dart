@@ -235,79 +235,99 @@ class WaifuHarness {
     final kind = waifuSubagentKind(name, work);
     final canon = canonicalWaifuToolName(name);
     _turn.noteAttempt(canon);
-    final mcpMutates = waifuMcpMutationHint(name, mcpTools);
-    if (exploreOnly &&
-        !kWaifuExploreToolNames.contains(canon) &&
-        canon != kWaifuToolTask) {
-      permissions.record(name: name, args: work);
-      _reject(canon, 'explore is read-only');
-      return;
-    }
-    final block = permissions.hardBlock(
-      name: name,
-      args: work,
-      mutates: mcpMutates,
+    _pushChip(
+      WaifuToolChip(
+        name: canon,
+        detail: waifuChipDetail(canon, work),
+        ok: false,
+        pending: true,
+      ),
     );
-    if (block != null) {
-      permissions.record(name: name, args: work);
-      _reject(canon, block);
-      return;
-    }
-    if (session.mode == WaifuMode.plan &&
-        (canon == kWaifuToolWrite ||
-            canon == kWaifuToolEdit ||
-            canon == kWaifuToolApplyPatch)) {
-      final path = waifuToolPathArg(work);
-      final live = path == null
-          ? 'plan mode can only write under $kWaifuPlansDir'
-          : await waifuPlanWriteLiveBlock(session.folderRoot, path);
-      if (live != null) {
+    try {
+      final mcpMutates = waifuMcpMutationHint(name, mcpTools);
+      if (exploreOnly &&
+          !kWaifuExploreToolNames.contains(canon) &&
+          canon != kWaifuToolTask) {
         permissions.record(name: name, args: work);
-        _reject(canon, live);
+        _reject(canon, 'explore is read-only');
         return;
       }
-    }
-    if (permissions.needsAsk(name: name, args: work, mutates: mcpMutates)) {
-      final doom = permissions.isDoom(name, work);
-      final decision = await _decide(
-        WaifuAskRequest(
-          toolName: canon,
-          summary: permissions.summaryFor(name, work),
-          doomLoop: doom,
-        ),
+      final block = permissions.hardBlock(
+        name: name,
+        args: work,
+        mutates: mcpMutates,
       );
-      if (_aborted) return;
-      if (decision == WaifuAskDecision.deny) {
+      if (block != null) {
         permissions.record(name: name, args: work);
-        _reject(canon, 'denied by user');
+        _reject(canon, block);
         return;
       }
-      if (decision == WaifuAskDecision.allowAlways) {
-        permissions.allowAlways();
+      if (session.mode == WaifuMode.plan &&
+          (canon == kWaifuToolWrite ||
+              canon == kWaifuToolEdit ||
+              canon == kWaifuToolApplyPatch)) {
+        final path = waifuToolPathArg(work);
+        final live = path == null
+            ? 'plan mode can only write under $kWaifuPlansDir'
+            : await waifuPlanWriteLiveBlock(session.folderRoot, path);
+        if (live != null) {
+          permissions.record(name: name, args: work);
+          _reject(canon, live);
+          return;
+        }
       }
+      if (permissions.needsAsk(name: name, args: work, mutates: mcpMutates)) {
+        final doom = permissions.isDoom(name, work);
+        final decision = await _decide(
+          WaifuAskRequest(
+            toolName: canon,
+            summary: permissions.summaryFor(name, work),
+            doomLoop: doom,
+          ),
+        );
+        if (_aborted) {
+          _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
+          return;
+        }
+        if (decision == WaifuAskDecision.deny) {
+          permissions.record(name: name, args: work);
+          _reject(canon, 'denied by user');
+          return;
+        }
+        if (decision == WaifuAskDecision.allowAlways) {
+          permissions.allowAlways();
+        }
+      }
+      permissions.record(name: name, args: work);
+      final result = switch (canon) {
+        kWaifuToolTask => await _runTask(kind, work),
+        kWaifuToolWorkflow => await _runWorkflow(work),
+        _ => await _dispatch(canon, work, original: name),
+      };
+      if (_aborted) {
+        _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
+        return;
+      }
+      if (result.write != null) {
+        session.lastWrite = result.write;
+        undoLog.push(result.write!);
+      }
+      if (session.mode == WaifuMode.plan &&
+          result.write != null &&
+          waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
+        session.activePlanPath = result.write!.relativePath;
+      }
+      _turn.noteResult(canon, result, session.lastWrite, args: work);
+      final detail = result.ok
+          ? waifuChipDetail(canon, work)
+          : waifuClipChipError(result.output);
+      _pushChip(WaifuToolChip(name: canon, detail: detail, ok: result.ok));
+      _trace += '\n[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
+    } catch (e) {
+      _reject(canon, '$e');
+    } finally {
+      _settlePendingChip(canon);
     }
-    permissions.record(name: name, args: work);
-    final result = switch (canon) {
-      kWaifuToolTask => await _runTask(kind, work),
-      kWaifuToolWorkflow => await _runWorkflow(work),
-      _ => await _dispatch(canon, work, original: name),
-    };
-    if (_aborted) return;
-    if (result.write != null) {
-      session.lastWrite = result.write;
-      undoLog.push(result.write!);
-    }
-    if (session.mode == WaifuMode.plan &&
-        result.write != null &&
-        waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
-      session.activePlanPath = result.write!.relativePath;
-    }
-    _turn.noteResult(canon, result, session.lastWrite, args: work);
-    final detail = result.ok
-        ? waifuChipDetail(canon, work)
-        : waifuClipChipError(result.output);
-    _pushChip(WaifuToolChip(name: canon, detail: detail, ok: result.ok));
-    _trace += '\n[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
   }
 
   Set<String> get _mcpNames => {
@@ -339,11 +359,22 @@ class WaifuHarness {
 
   void _pushChip(WaifuToolChip chip) {
     final last = _liveAssistant();
+    final chips = List<WaifuToolChip>.from(last.chips);
+    if (!chip.pending) {
+      final i = chips.lastIndexWhere((c) => c.pending && c.name == chip.name);
+      if (i >= 0) {
+        chips[i] = chip;
+      } else {
+        chips.add(chip);
+      }
+    } else {
+      chips.add(chip);
+    }
     _writeLive(
       WaifuMessage(
         isUser: false,
         text: last.text,
-        chips: [...last.chips, chip],
+        chips: chips,
         reasoning: last.reasoning,
         thinkingStartMs: last.thinkingStartMs,
         thinkingMs: last.thinkingMs,

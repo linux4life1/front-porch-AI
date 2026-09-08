@@ -1,3 +1,17 @@
+## 2026-09-08 — rebase(waifu): #238 onto Rawhide after #237
+- **Why:** #237 squash-merged as `94ff43bd` (and #239 as `cd9bcd49`).
+  PR #238 was CONFLICTING / DIRTY vs Rawhide.
+- **What:** Rebased `cursor/waifu-tool-todo-chrome-e885` onto that tip.
+  Kept #238 live chips + Tasks checklist + todo-claim contract
+  (pending→done, try/finally settle, spoken todo / “updated the todos”
+  / todowrite needs a successful todowrite chip) and Rawhide #239
+  send-order (user+running before await) + plan panel
+  `unawaited(_run)` / try/finally + Epic B verify-after-mutate.
+  Conflict files: `waifu_harness.dart`, `waifu_harness_turn.dart`,
+  `waifu_turn_contract.dart`. Changelog / Rawhide.md auto-merged.
+  No existing Guard tests were edited in the rebase.
+- **Commit:** 9cc3264e
+
 ## 2026-09-08 — rebase(waifu): Epic B onto #239 Rawhide tip
 - **Why:** #239 squash-merged as `cd9bcd49`. PR #237 could not
   squash-merge (DIRTY / CONFLICTING).
@@ -72,6 +86,38 @@
   same). `waifuSyncTodosOntoPlan` rolls blocked done todos back to the
   plan step status; todowrite chip output re-reads after that.
 - **Commit:** a48672d9
+## 2026-09-08 — fix(waifu): pending tool chip settles if dispatch throws
+- **Why:** Bug Hunter on #238. `_runTool` had no try/finally around
+  settle, so a mid-dispatch throw left a forever-pending spinner.
+- **What:** try/catch/finally after the pending push. Throw → `_reject`
+  fail chip + `_emit`.   Leftover pending flips to fail/stopped.
+- **Commit:** 566f190f
+
+## 2026-09-08 — fix(waifu): “updated the todos” is a todo-receipt claim
+- **Why:** GO wording includes updated todos, not only “todo list”.
+- **What:** Detector treats update/write + todos as a claim. Pin added.
+- **Commit:** 58efdd32
+
+## 2026-09-08 — feat(waifu): todo-claim turn contract (no chip, no receipt)
+- **Why:** Kimi/thinking can narrate todowrite or “I marked it complete”
+  without a real tool call. write() is fine; the spoken line was a lie.
+- **What:** Same family as sass-without-patches. Visible speech that
+  claims a todo completion / todowrite / todo-list update, with no
+  successful todowrite chip this turn, soft-retries then failTodoWrite.
+  Thoughts are not receipts. Live chips + Tasks chrome unchanged.
+- **Commit:** d1ad6c3b
+
+## 2026-09-08 — polish(waifu): live tool chips + Tasks checklist chrome
+- **Why:** Tool work was a black box (`_runTool` only `_pushChip` after
+  await). Tasks accordion dumped raw `status: content` as a wall of
+  primary text. A hallucinated `todowrite` did not change data — the
+  write path is fine; chrome was the bug.
+- **What:** Pending chip at `noteAttempt` + `_emit`, update-in-place to
+  ok/fail (abort → stopped). Tool log spinner while pending. Tasks rows
+  use checkbox / play / checked+strikethrough; content is the label.
+  Write() semantics unchanged. Soft spoken-vs-todowrite honesty skipped
+  (would fight turn-contract pins).
+- **Commit:** 5b68bef5
 
 ## 2026-09-08 — test(waifu): Plan MCP chips are not .single after receipt
 - **Why:** Unit CI red on cb441af6. Plan receipt always-on retries after a

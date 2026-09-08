@@ -15,6 +15,12 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - 🎨 **Waifu Coder themes actually paint the bubbles** — Sakura (and the rest) plus your custom bubble/text colors apply in the session instead of writing to the last 1:1 chat and leaving the coworker in default colors.
 
+- 🔧 **Waifu Coder tools show while they run** — a live chip appears the moment they pick up a tool, then flips to ok or fail when it finishes. You are not staring at a black box until the receipt lands.
+
+- 🧾 **A spoken “todo done” needs a real todowrite** — if they claim they marked a todo complete or ran `todowrite` but no successful chip landed this turn, the turn contract asks again, then stops instead of pretending. Thinking out loud does not count.
+
+- ✅ **Waifu Coder Tasks look like a real list** — pending is an empty box, the current job is a play mark, done is checked and struck through. No more raw `in_progress: …` sludge in the sidebar.
+
 - ♾️ **Waifu Coder is not capped at chat Max Output Tokens** — a turn can fill the rest of the context window so a tool call is not cut off mid-file. Chat still uses that slider. One reply bubble per send: reads/writes/bash stack as a quiet log above it, then she speaks. The old 20-step cutoff is a runaway fuse at 80.
 
 - 🎭 **OpenRouter models move relationships, Needs, and scene time again** — those judges now ask OpenRouter for a JSON schema (and the live overlay path finally sends the same forced tool / `require_parameters` payload as the background POST, with room for thinking models). Nano-GPT, local MLX, and LM Studio stay on tools. Same on the phone.

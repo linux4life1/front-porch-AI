@@ -29,40 +29,82 @@ class WaifuTodoList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (todos.items.isEmpty) return const SizedBox.shrink();
-    return Container(
+    return Padding(
       key: const Key('waifu-todos'),
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.porchAmberOf(context).withValues(alpha: 0.35),
-        ),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [for (final t in todos.items) _WaifuTodoRow(todo: t)],
+      ),
+    );
+  }
+}
+
+class _WaifuTodoRow extends StatelessWidget {
+  const _WaifuTodoRow({required this.todo});
+
+  final WaifuTodo todo;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = waifuTodoMark(todo.status);
+    final amber = AppColors.porchAmberOf(context);
+    final done = mark == 'completed';
+    final doing = mark == 'in_progress';
+    final color = done
+        ? AppColors.textTertiary(context)
+        : doing
+        ? amber
+        : AppColors.textSecondary(context);
+    return Padding(
+      key: Key('waifu-todo-row-${todo.id}'),
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Todos',
-            style: TextStyle(
-              color: AppColors.porchAmberOf(context),
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Semantics(label: mark, child: _markIcon(mark, amber, color)),
           ),
-          const SizedBox(height: 6),
-          for (final t in todos.items)
-            Text(
-              '${t.status}: ${t.content}',
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              todo.content,
               style: TextStyle(
-                color: AppColors.textPrimary(context),
+                color: color,
                 fontSize: 13,
+                height: 1.3,
+                fontWeight: doing ? FontWeight.w600 : FontWeight.w400,
+                decoration: done ? TextDecoration.lineThrough : null,
+                decorationColor: color,
               ),
             ),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _markIcon(String mark, Color amber, Color color) {
+    return switch (mark) {
+      'completed' => Icon(
+        Icons.check_box,
+        key: Key('waifu-todo-mark-${todo.id}'),
+        size: 18,
+        color: color,
+      ),
+      'in_progress' => Icon(
+        Icons.play_circle_fill,
+        key: Key('waifu-todo-mark-${todo.id}'),
+        size: 18,
+        color: amber,
+      ),
+      _ => Icon(
+        Icons.check_box_outline_blank,
+        key: Key('waifu-todo-mark-${todo.id}'),
+        size: 18,
+        color: color,
+      ),
+    };
   }
 }
