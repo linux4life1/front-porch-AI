@@ -6,7 +6,7 @@
   aborts the live turn.
 - **Files:** `waifu_composer.dart`, `waifu_harness.dart`,
   `waifu_session.dart`, `waifu_page.dart`
-- **Commit:**
+- **Commit:** dc5deed1
 
 ## 2026-09-10 — fix(waifu): plan JSON, one todo file, nested work returns a receipt
 - **Why:** Plan titles with colons corrupted YAML. Accept wiped in-progress
