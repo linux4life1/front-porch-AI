@@ -8,7 +8,7 @@
 - **Files:** `waifu_turn.dart`, `waifu_harness.dart`,
   `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
   `waifu_turn_contract.dart`
-- **Commit:**
+- **Commit:** 73d172d5
 
 ## 2026-09-10 — fix(waifu): recap is a message kind
 - **Why:** Recap was still `hidden` + a `[Session compact]` prefix, so a
