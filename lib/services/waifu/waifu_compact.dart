@@ -33,10 +33,7 @@ const kWaifuCompactPrefix = '[Session compact]';
 const kWaifuExtractiveRecapPrefix = 'Earlier recap:';
 
 /// Recap lines are not spoken by the user or the coworker.
-bool waifuIsPromptRecap(WaifuMessage m) =>
-    m.hidden ||
-    m.text.startsWith(kWaifuCompactPrefix) ||
-    m.text.startsWith(kWaifuExtractiveRecapPrefix);
+bool waifuIsPromptRecap(WaifuMessage m) => m.kind == WaifuMsgKind.recap;
 
 /// Fallback only — the bar prefers server `usage` when the backend sent it.
 int waifuEstimateTokens(String text) {
@@ -233,13 +230,10 @@ List<WaifuMessage> waifuCompactTranscript(
   final clipped = excerpt.length <= kWaifuRecapClipChars
       ? excerpt
       : '${excerpt.substring(0, kWaifuRecapClipChars).trimRight()}\n…';
-  final recap = WaifuMessage(
-    isUser: false,
-    hidden: true,
-    text:
-        '$kWaifuCompactPrefix\n'
-        '$kWaifuExtractiveRecapPrefix $dropped messages folded. Facts only '
-        'from those lines. Do not invent files.\n$clipped',
+  final recap = WaifuMessage.recap(
+    '$kWaifuCompactPrefix\n'
+    '$kWaifuExtractiveRecapPrefix $dropped messages folded. Facts only '
+    'from those lines. Do not invent files.\n$clipped',
   );
   return [recap, ...msgs.sublist(dropped)];
 }

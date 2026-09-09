@@ -167,9 +167,7 @@ class WaifuHarness {
     _clearTurnReceipts();
     // Record the send before any await so live thought chrome can paint.
     session.running = true;
-    session.transcript.add(
-      WaifuMessage(isUser: true, text: text, imagePath: imagePath),
-    );
+    session.transcript.add(WaifuMessage.user(text, imagePath: imagePath));
     if (session.title.isEmpty) session.title = waifuTitleFrom(text);
     await _refreshPlanBlock();
     _mentionBlock = await waifuExpandMentions(text, session.folderRoot);
@@ -376,16 +374,7 @@ class WaifuHarness {
     } else {
       chips.add(chip);
     }
-    _writeLive(
-      WaifuMessage(
-        isUser: false,
-        text: last.text,
-        chips: chips,
-        reasoning: last.reasoning,
-        thinkingStartMs: last.thinkingStartMs,
-        thinkingMs: last.thinkingMs,
-      ),
-    );
+    _writeLive(last.copyWith(chips: chips));
     _emit();
   }
 
@@ -394,7 +383,7 @@ class WaifuHarness {
     if (i != null && _isLiveAssistantAt(i)) {
       return session.transcript[i];
     }
-    session.transcript.add(const WaifuMessage(isUser: false, text: ''));
+    session.transcript.add(const WaifuMessage.assistant(''));
     _stepAt = session.transcript.length - 1;
     return session.transcript.last;
   }
@@ -454,18 +443,9 @@ class WaifuHarness {
     final i = _stepAt;
     if (i != null && _isLiveAssistantAt(i)) {
       final last = session.transcript[i];
-      _writeLive(
-        WaifuMessage(
-          isUser: false,
-          text: text,
-          chips: last.chips,
-          reasoning: last.reasoning,
-          thinkingStartMs: last.thinkingStartMs,
-          thinkingMs: last.thinkingMs,
-        ),
-      );
+      _writeLive(last.copyWith(text: text));
     } else {
-      session.transcript.add(WaifuMessage(isUser: false, text: text));
+      session.transcript.add(WaifuMessage.assistant(text));
       _stepAt = session.transcript.length - 1;
     }
     _emit();

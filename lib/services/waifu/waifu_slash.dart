@@ -195,10 +195,7 @@ void waifuRewriteSlashUser(List<WaifuMessage> transcript, String text) {
   if (cmd == null || cmd.local) return;
   final expanded = waifuSlashAgentTask(text);
   if (expanded == text || transcript.isEmpty) return;
-  transcript[transcript.length - 1] = WaifuMessage(
-    isUser: true,
-    text: expanded,
-  );
+  transcript[transcript.length - 1] = WaifuMessage.user(expanded);
 }
 
 Map<String, dynamic>? waifuWorkflowSlashArgs(String text) {

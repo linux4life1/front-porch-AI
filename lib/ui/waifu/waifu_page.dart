@@ -231,11 +231,11 @@ class _WaifuPageState extends State<WaifuPage> {
     setState(() {
       if (result == WaifuModeApply.blockedDraft) {
         widget.session.transcript.add(
-          const WaifuMessage(isUser: false, text: kWaifuPlanBuildGateCue),
+          const WaifuMessage.assistant(kWaifuPlanBuildGateCue),
         );
       } else if (announce) {
         widget.session.transcript.add(
-          WaifuMessage(isUser: false, text: 'Mode is ${mode.name}.'),
+          WaifuMessage.assistant('Mode is ${mode.name}.'),
         );
       }
     });
@@ -257,7 +257,7 @@ class _WaifuPageState extends State<WaifuPage> {
     }
     if (!mounted) return;
     setState(() {
-      widget.session.transcript.add(WaifuMessage(isUser: false, text: line));
+      widget.session.transcript.add(WaifuMessage.assistant(line));
     });
   }
 
@@ -305,9 +305,8 @@ class _WaifuPageState extends State<WaifuPage> {
     if (harness == null) {
       setState(() {
         widget.session.transcript.add(
-          WaifuMessage(
-            isUser: true,
-            text: text.isEmpty ? '(photo)' : text,
+          WaifuMessage.user(
+            text.isEmpty ? '(photo)' : text,
             imagePath: imagePath,
           ),
         );
@@ -343,9 +342,7 @@ class _WaifuPageState extends State<WaifuPage> {
     switch (cmd.name) {
       case 'help':
         setState(() {
-          session.transcript.add(
-            WaifuMessage(isUser: false, text: waifuSlashHelpText()),
-          );
+          session.transcript.add(WaifuMessage.assistant(waifuSlashHelpText()));
         });
         return true;
       case 'undo':

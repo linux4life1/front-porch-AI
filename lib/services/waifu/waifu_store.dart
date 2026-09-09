@@ -20,7 +20,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
@@ -156,11 +155,14 @@ class WaifuStore {
     'transcript': [
       for (final m in session.transcript)
         {
+          'kind': m.kind.name,
           'isUser': m.isUser,
           'text': m.text,
           if (m.reasoning.isNotEmpty) 'reasoning': m.reasoning,
           if (m.imagePath != null) 'imagePath': m.imagePath,
           if (m.hidden) 'hidden': true,
+          if (m.toolName != null) 'toolName': m.toolName,
+          if (m.toolOk != null) 'toolOk': m.toolOk,
         },
     ],
   };
@@ -272,15 +274,18 @@ class WaifuStore {
         for (final e in raw) {
           if (e is! Map) continue;
           final text = e['text']?.toString() ?? '';
-          final recap =
-              e['hidden'] == true || text.startsWith(kWaifuCompactPrefix);
           transcript.add(
             WaifuMessage(
-              isUser: e['isUser'] == true && !recap,
+              kind: waifuMsgKindFromStored(
+                kindName: e['kind']?.toString(),
+                isUser: e['isUser'] == true,
+                hidden: e['hidden'] == true,
+              ),
               text: text,
               reasoning: e['reasoning']?.toString() ?? '',
               imagePath: e['imagePath']?.toString(),
-              hidden: recap,
+              toolName: e['toolName']?.toString(),
+              toolOk: e.containsKey('toolOk') ? e['toolOk'] == true : null,
             ),
           );
         }

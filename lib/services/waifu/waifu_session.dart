@@ -50,28 +50,108 @@ class WaifuWriteRecord {
   final String after;
 }
 
+enum WaifuMsgKind { user, assistant, tool, recap }
+
+/// Kind from disk. [kindName] wins; else hidden recap; else isUser.
+/// Never sniffs message text — a typed `[Session compact]` stays a user line.
+WaifuMsgKind waifuMsgKindFromStored({
+  String? kindName,
+  required bool isUser,
+  required bool hidden,
+}) {
+  final name = kindName?.trim() ?? '';
+  if (name.isNotEmpty) {
+    for (final k in WaifuMsgKind.values) {
+      if (k.name == name) return k;
+    }
+  }
+  if (hidden) return WaifuMsgKind.recap;
+  return isUser ? WaifuMsgKind.user : WaifuMsgKind.assistant;
+}
+
 class WaifuMessage {
   const WaifuMessage({
-    required this.isUser,
+    WaifuMsgKind? kind,
+    bool isUser = false,
+    bool hidden = false,
     required this.text,
     this.chips = const [],
     this.reasoning = '',
     this.thinkingStartMs,
     this.thinkingMs = 0,
     this.imagePath,
-    this.hidden = false,
-  });
+    this.toolName,
+    this.toolOk,
+  }) : kind =
+           kind ??
+           (hidden
+               ? WaifuMsgKind.recap
+               : (isUser ? WaifuMsgKind.user : WaifuMsgKind.assistant));
 
-  final bool isUser;
+  const WaifuMessage.user(String text, {String? imagePath})
+    : this(kind: WaifuMsgKind.user, text: text, imagePath: imagePath);
+
+  const WaifuMessage.assistant(
+    String text, {
+    List<WaifuToolChip> chips = const [],
+    String reasoning = '',
+    int? thinkingStartMs,
+    int thinkingMs = 0,
+    String? imagePath,
+  }) : this(
+         kind: WaifuMsgKind.assistant,
+         text: text,
+         chips: chips,
+         reasoning: reasoning,
+         thinkingStartMs: thinkingStartMs,
+         thinkingMs: thinkingMs,
+         imagePath: imagePath,
+       );
+
+  const WaifuMessage.recap(String text)
+    : this(kind: WaifuMsgKind.recap, text: text);
+
+  const WaifuMessage.tool({
+    required String name,
+    required String output,
+    required bool ok,
+  }) : this(kind: WaifuMsgKind.tool, text: output, toolName: name, toolOk: ok);
+
+  final WaifuMsgKind kind;
   final String text;
   final List<WaifuToolChip> chips;
   final String reasoning;
   final int? thinkingStartMs;
   final int thinkingMs;
   final String? imagePath;
+  final String? toolName;
+  final bool? toolOk;
+
+  bool get isUser => kind == WaifuMsgKind.user;
 
   /// Prompt-only (session recap). Not painted as a bubble.
-  final bool hidden;
+  bool get hidden => kind == WaifuMsgKind.recap;
+
+  WaifuMessage copyWith({
+    String? text,
+    List<WaifuToolChip>? chips,
+    String? reasoning,
+    int? thinkingStartMs,
+    int? thinkingMs,
+    String? imagePath,
+  }) {
+    return WaifuMessage(
+      kind: kind,
+      text: text ?? this.text,
+      chips: chips ?? this.chips,
+      reasoning: reasoning ?? this.reasoning,
+      thinkingStartMs: thinkingStartMs ?? this.thinkingStartMs,
+      thinkingMs: thinkingMs ?? this.thinkingMs,
+      imagePath: imagePath ?? this.imagePath,
+      toolName: toolName,
+      toolOk: toolOk,
+    );
+  }
 
   /// Same shape chat bubbles parse: `<think>` + spoken line.
   ChatMessage toChatMessage(String coworkerName) {

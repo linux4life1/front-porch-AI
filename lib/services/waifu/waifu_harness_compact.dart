@@ -22,7 +22,7 @@ extension _WaifuHarnessCompact on WaifuHarness {
   bool _isLiveAssistantAt(int i) {
     if (i < 0 || i >= session.transcript.length) return false;
     final m = session.transcript[i];
-    return !m.isUser && !m.hidden;
+    return m.kind == WaifuMsgKind.assistant;
   }
 
   String _safeCue() {
@@ -161,15 +161,13 @@ extension _WaifuHarnessCompact on WaifuHarness {
     } else {
       session.transcript
         ..clear()
-        ..add(WaifuMessage(isUser: false, text: recap, hidden: true))
+        ..add(WaifuMessage.recap(recap))
         ..addAll(recent);
     }
     session.compactPasses++;
     _stepAt = null;
     if (force) {
-      session.transcript.add(
-        const WaifuMessage(isUser: false, text: 'Folded old turns.'),
-      );
+      session.transcript.add(const WaifuMessage.assistant('Folded old turns.'));
     }
     session.tokensFromApi = false;
     _emit();

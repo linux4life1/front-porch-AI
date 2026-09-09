@@ -24,14 +24,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 export 'waifu_tool_leak.dart';
 
 WaifuMessage waifuBeginStream(WaifuMessage last, int nowMs) {
-  return WaifuMessage(
-    isUser: false,
-    text: '',
-    chips: last.chips,
-    reasoning: last.reasoning,
-    thinkingStartMs: nowMs,
-    thinkingMs: 0,
-  );
+  return last.copyWith(text: '', thinkingStartMs: nowMs, thinkingMs: 0);
 }
 
 WaifuMessage waifuApplyChunk({
@@ -46,12 +39,9 @@ WaifuMessage waifuApplyChunk({
       ? (priorReasoning.isEmpty ? last.reasoning : priorReasoning)
       : think;
   final visible = waifuStripToolLeak(split.body);
-  return WaifuMessage(
-    isUser: false,
+  return last.copyWith(
     text: !paintBody || visible.isEmpty ? last.text : visible,
-    chips: last.chips,
     reasoning: reasoning,
-    thinkingStartMs: last.thinkingStartMs,
   );
 }
 
@@ -61,14 +51,7 @@ WaifuMessage? waifuMergeReasoning(WaifuMessage last, LlmToolResponse resp) {
   if (thinking.isEmpty) thinking = split.thinking;
   if (thinking.isEmpty) return null;
   if (last.reasoning == thinking) return null;
-  return WaifuMessage(
-    isUser: false,
-    text: last.text,
-    chips: last.chips,
-    reasoning: thinking,
-    thinkingStartMs: last.thinkingStartMs,
-    thinkingMs: last.thinkingMs,
-  );
+  return last.copyWith(reasoning: thinking);
 }
 
 String waifuVisibleText(String raw) =>
@@ -82,12 +65,7 @@ String waifuClipChipError(String raw) {
 
 WaifuMessage waifuEndStream(WaifuMessage last, int nowMs) {
   final start = last.thinkingStartMs;
-  return WaifuMessage(
-    isUser: false,
-    text: last.text,
-    chips: last.chips,
-    reasoning: last.reasoning,
-    thinkingStartMs: start,
+  return last.copyWith(
     thinkingMs: start == null ? last.thinkingMs : nowMs - start,
   );
 }

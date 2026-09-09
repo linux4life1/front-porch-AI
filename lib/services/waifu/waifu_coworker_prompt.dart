@@ -282,20 +282,26 @@ String waifuPromptSpeech(
   String coworkerName, {
   required bool preserveThinking,
 }) {
-  if (waifuIsPromptRecap(m)) {
-    final body = m.text.trim();
-    if (body.isEmpty) return '';
-    return 'Session recap (not a user message, not spoken by $coworkerName):\n'
-        '$body';
+  switch (m.kind) {
+    case WaifuMsgKind.recap:
+      final body = m.text.trim();
+      if (body.isEmpty) return '';
+      return 'Session recap (not a user message, not spoken by '
+          '$coworkerName):\n$body';
+    case WaifuMsgKind.tool:
+      final raw = m.toolName?.trim() ?? '';
+      final name = raw.isEmpty ? 'unknown' : raw;
+      final ok = m.toolOk == true ? 'ok' : 'error';
+      return '[tool $name $ok]\n${m.text}';
+    case WaifuMsgKind.user:
+      final photo = m.imagePath == null ? '' : '\n[user attached a photo]';
+      return 'User: ${m.text}$photo';
+    case WaifuMsgKind.assistant:
+      if (m.text.trim().isEmpty) return '';
+      final think = m.reasoning.trim();
+      if (preserveThinking && think.isNotEmpty) {
+        return '$coworkerName: <think>$think</think>\n${m.text}';
+      }
+      return '$coworkerName: ${m.text}';
   }
-  if (m.isUser) {
-    final photo = m.imagePath == null ? '' : '\n[user attached a photo]';
-    return 'User: ${m.text}$photo';
-  }
-  if (m.text.trim().isEmpty) return '';
-  final think = m.reasoning.trim();
-  if (preserveThinking && think.isNotEmpty) {
-    return '$coworkerName: <think>$think</think>\n${m.text}';
-  }
-  return '$coworkerName: ${m.text}';
 }
