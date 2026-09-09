@@ -8,7 +8,8 @@
 - **Files:** `waifu_coworker_prompt.dart`, `waifu_compact.dart`,
   `waifu_harness.dart`, `waifu_harness_compact.dart`,
   `waifu_store.dart`, `waifu_prompt_roles_test.dart`
-- **Commit:**
+- **Commit:** 5e85a85d
+
 ## 2026-09-09 — fix(waifu): restore tip unit green after overnight sit-down
 - **Why:** Rawhide tip `e29dff59` went red on six Waifu unit tests after
   the sit-down / verify-before-speech / compact overnight. Sit-down
