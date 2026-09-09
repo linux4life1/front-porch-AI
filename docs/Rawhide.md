@@ -7,6 +7,10 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 📋 **Waifu Coder Tasks survive leaving the porch** — open and done items are saved in the sit-down folder at `.waifu/todos.json` (same idea as Claude’s hidden project folder). Close the app, sit down again, the list is still there.
+
+- 💬 **A spoken line ends the turn** — on a larger job they stop after a handful of file changes and talk in character (where they got, what’s next). That is a chat message, not a Keep-going popup, and it does not pile a second speech into the same bubble. A small one-file fix still just does the work. Reply in the composer to continue.
+
 - 🔑 **Tavily key stays after a restart** — it is saved with the rest of Settings (same place as OpenRouter keys and MCP URLs). The macOS keychain copy was vanishing on relaunch.
 
 - 🎭 **Realism still runs when a model will not turn thinking off** — if an eval gets a 400 while asking for thinking off (GLM 5.3, Kimi, or the next host's wording), we keep going the Kimi way: let it think, salvage the JSON, don't drop bond/needs. Remembered for that model so the next judge is not two wasted 400s.
@@ -15,9 +19,13 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - 🔑 **OpenRouter and Nano-GPT keep their own API keys** — switching the Backend chips restores that host's key (or leaves the box empty). Check Connection can no longer go green on the other provider's leftover key while a story fails with a missing auth header.
 
+- 🔓 **She does not ask to edit the project you sat down on** — writes, edits, and patches inside that folder just happen (same idea as Claude Code). `ls` / `cat` / `git status` never asked. What still stops the loop: deleting files, installing packages, git commits, or touching something outside the porch. The prompt then says in English what would happen ("permanently delete files"), not just `rm -rf`. **Always this session** covers nested workers too.
+
+- ❓ **When she asks, you can type your own answer** — the question dialog still has the chips, plus a box for a custom reply. Skip cancels. Same pause-the-loop tool as before.
+
 - 🧭 **Waifu Coder chrome tells the truth at a glance** — Plan/Build/Yolo and Jail vs Disk stay in the top bar with the folder path, honesty copy no longer shows raw `**`, a turn that touches several files lists all of them (and what they verified), and a backend that cannot call tools is blocked instead of pretending they can code.
 
-- 📋 **Waifu Coder Plan mode now writes a real plan** — in Plan they explore, then save a markdown plan under `.waifu/plans/` (a turn without that file is not done). The Plan panel sits on the main stage: Accept → Build (steps become todos), Revise, or Discard. A draft plan will not silently flip to Build — Accept it, or stay in Plan. They still cannot change project source until you accept. Personality stays the card’s.
+- 📋 **Waifu Coder Plan mode now writes a real plan** — in Plan they explore, then save a markdown plan under `.waifu/plans/` (a turn without that file is not done). That folder is hidden (it starts with a dot — Finder: Cmd+Shift+., terminal: `ls -a`). The Plan panel sits on the main stage while you are in Plan. **Accept → Build** flips to Build and the editor card goes away so you can talk. Switch back to Plan to revise. A draft plan will not silently flip to Build from the Harness chip — Accept it, or stay in Plan. They still cannot change project source until you accept. Personality stays the card’s.
 
 - ✅ **A patch is not “done” until they check it** — after they write, edit, or patch a project file in Build or Yolo, they must re-read that file or run a real test/analyze command before claiming the step finished. Looking at the file before they change it does not count, and `--help` / dry-run anywhere in the command is not a test — even if a real test is chained after `||`. Same rule with or without a pinned plan. A plan step stays pending until both the change and that check land — the task list cannot show the step finished while the plan still says pending. Personality stays on the spoken line.
 

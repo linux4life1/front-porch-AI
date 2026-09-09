@@ -86,7 +86,7 @@ class WaifuHarness {
            ),
        bash = bash ?? WaifuBash(session.folderRoot, pathMode: session.pathMode),
        undoLog = undo ?? WaifuUndo(),
-       todos = todos ?? WaifuTodos(),
+       todos = todos ?? session.todos,
        skills = skills ?? WaifuSkillHub(projectRoot: session.folderRoot);
 
   final WaifuSession session;
@@ -166,9 +166,7 @@ class WaifuHarness {
       enforceVerify: depth == 0 && !exploreOnly,
     );
     _clearTurnReceipts();
-    // Record the send before any await. Plan-file I/O used to sit here
-    // first (#236), so a kicked-off send left transcript empty and
-    // mid-stream thought chrome never painted.
+    // Record the send before any await so live thought chrome can paint.
     session.running = true;
     session.transcript.add(
       WaifuMessage(isUser: true, text: text, imagePath: imagePath),
@@ -284,6 +282,7 @@ class WaifuHarness {
           WaifuAskRequest(
             toolName: canon,
             summary: permissions.summaryFor(name, work),
+            why: permissions.whyFor(name: name, args: work, doomLoop: doom),
             doomLoop: doom,
           ),
         );
@@ -420,6 +419,7 @@ class WaifuHarness {
         last: _liveAssistant(),
         priorReasoning: _priorReasoning,
         streamBuf: _streamBuf,
+        paintBody: _turn.speechOnly,
       ),
     );
     _emit();

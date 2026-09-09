@@ -31,6 +31,7 @@ extension _WaifuHarnessDispatch on WaifuHarness {
         return WaifuToolResult(ok: true, output: todos.read());
       case kWaifuToolTodoWrite:
         todos.write(args['todos']);
+        await store?.saveLast(session);
         final sync = await waifuSyncTodosOntoPlan(
           session: session,
           todos: todos,

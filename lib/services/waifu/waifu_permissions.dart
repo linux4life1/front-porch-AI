@@ -18,6 +18,8 @@
 
 import 'dart:convert';
 
+import 'package:front_porch_ai/services/waifu/waifu_ask_why.dart';
+import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
@@ -29,22 +31,30 @@ class WaifuAskRequest {
   const WaifuAskRequest({
     required this.toolName,
     required this.summary,
+    this.why = '',
     this.doomLoop = false,
   });
 
   final String toolName;
   final String summary;
+  final String why;
   final bool doomLoop;
 }
 
 typedef WaifuAskFn = Future<WaifuAskDecision> Function(WaifuAskRequest request);
 
-bool waifuToolMutates(String name) {
+/// Bash mutates unless Plan would allow it as a read-only listing/cat.
+bool waifuBashMutates(String command) => waifuPlanBashDenied(command) != null;
+
+bool waifuToolMutates(String name, [Map<String, dynamic>? args]) {
   switch (canonicalWaifuToolName(name)) {
+    case kWaifuToolBash:
+      final cmd =
+          args?['command']?.toString() ?? args?['cmd']?.toString() ?? '';
+      return waifuBashMutates(cmd);
     case kWaifuToolEdit:
     case kWaifuToolApplyPatch:
     case kWaifuToolWrite:
-    case kWaifuToolBash:
     case kWaifuToolTodoWrite:
     case kWaifuToolSkillInstall:
       return true;
@@ -347,13 +357,31 @@ bool _isDangerousWipeTarget(String raw, String? workingDirectory) {
 /// under `.waifu/plans/`; source mutate stays denied. Null
 /// [WaifuHarness.onAsk] auto-allows Build (headless / slice B tests);
 /// WaifuPage installs the modal.
+class _WaifuAlways {
+  bool on = false;
+}
+
 class WaifuPermissions {
-  WaifuPermissions({this.mode = WaifuMode.build, this.workingDirectory});
+  WaifuPermissions({this.mode = WaifuMode.build, this.workingDirectory})
+    : _always = _WaifuAlways();
+
+  WaifuPermissions._share({
+    required this.mode,
+    this.workingDirectory,
+    required _WaifuAlways always,
+  }) : _always = always;
 
   WaifuMode mode;
   String? workingDirectory;
-  bool _alwaysMutate = false;
+  final _WaifuAlways _always;
   final _counts = <String, int>{};
+
+  /// Nested workers share "Always this session" with the parent harness.
+  WaifuPermissions fork({required WaifuMode mode}) => WaifuPermissions._share(
+    mode: mode,
+    workingDirectory: workingDirectory,
+    always: _always,
+  );
 
   String fingerprint(String name, Map<String, dynamic> args) =>
       '${canonicalWaifuToolName(name)}:${jsonEncode(args)}';
@@ -409,19 +437,43 @@ class WaifuPermissions {
     required Map<String, dynamic> args,
     bool? mutates,
   }) {
-    if (!(mutates ?? waifuToolMutates(name))) return false;
+    if (!(mutates ?? waifuToolMutates(name, args))) return false;
     if (mode == WaifuMode.plan) return false;
     if (isDoom(name, args)) return true;
-    if (_alwaysMutate) return false;
-    return mode == WaifuMode.build;
+    if (_always.on) return false;
+    if (mode != WaifuMode.build) return false;
+    final canon = canonicalWaifuToolName(name);
+    if (canon == kWaifuToolTodoWrite) return false;
+    if (_fileToolOnPorch(canon, args)) return false;
+    return true;
   }
+
+  /// Sit-down already consented to this folder. Claude/OpenCode do not
+  /// prompt on every in-project edit; neither do we.
+  bool _fileToolOnPorch(String canon, Map<String, dynamic> args) {
+    if (canon != kWaifuToolWrite &&
+        canon != kWaifuToolEdit &&
+        canon != kWaifuToolApplyPatch) {
+      return false;
+    }
+    final path = waifuToolPathArg(args);
+    final root = workingDirectory;
+    if (path == null || root == null || root.isEmpty) return false;
+    return WaifuJail.resolve(root, path).ok;
+  }
+
+  String whyFor({
+    required String name,
+    required Map<String, dynamic> args,
+    bool doomLoop = false,
+  }) => waifuAskWhy(name: name, args: args, doomLoop: doomLoop);
 
   void record({required String name, required Map<String, dynamic> args}) {
     final fp = fingerprint(name, args);
     _counts[fp] = (_counts[fp] ?? 0) + 1;
   }
 
-  void allowAlways() => _alwaysMutate = true;
+  void allowAlways() => _always.on = true;
 
   String summaryFor(String name, Map<String, dynamic> args) {
     final path = waifuToolPathArg(args);

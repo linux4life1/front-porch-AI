@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/waifu/waifu_checkin.dart';
 import 'package:front_porch_ai/services/waifu/waifu_fs.dart';
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
@@ -230,6 +231,8 @@ class WaifuTurnContract {
   bool successfulTool = false;
   bool todoWriteSucceeded = false;
   bool todoWriteRequired = false;
+  int mutationsSinceCheckIn = 0;
+  bool checkInWrapUp = false;
   bool speechOnly = false;
   int mutationCorrectionAttempts = 0;
   int speechCorrectionAttempts = 0;
@@ -242,8 +245,9 @@ class WaifuTurnContract {
       speechCorrectionAttempts < kWaifuTurnCorrectionAttempts;
   bool get canUseRememberedSpeech =>
       rememberedSpeech.isNotEmpty &&
-      (!mutationRequired || mutationSucceeded) &&
-      (!verifyRequired || verified);
+      (checkInWrapUp ||
+          ((!mutationRequired || mutationSucceeded) &&
+              (!verifyRequired || verified)));
   bool get allowsPlanStepDone => mutationSucceeded && verified;
 
   void rememberToolSpeech(String body) {
@@ -271,7 +275,11 @@ class WaifuTurnContract {
       todoWriteRequired = false;
       cue = '';
     }
+    if (toolName == kWaifuToolQuestion && result.ok) {
+      mutationsSinceCheckIn = 0;
+    }
     if (kWaifuReceiptMutationTools.contains(toolName) && result.write != null) {
+      mutationsSinceCheckIn++;
       if (mode != WaifuMode.plan ||
           waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
         mutationSucceeded = true;
@@ -330,6 +338,7 @@ class WaifuTurnContract {
     }
     mutatedPaths.addAll(child.mutatedPaths);
     readPaths.addAll(child.readPaths);
+    mutationsSinceCheckIn += child.mutationsSinceCheckIn;
     if (child.verified) {
       noteVerify();
       return;
@@ -346,6 +355,17 @@ class WaifuTurnContract {
   }) {
     final trimmed = body.trim();
     final generic = waifuLooksGenericCompletion(trimmed);
+    if (checkInWrapUp) {
+      if (trimmed.isEmpty || generic) {
+        if (rememberedSpeech.isNotEmpty) {
+          return WaifuFinalAction.useRememberedSpeech;
+        }
+        return speechCorrectionAttempts < kWaifuTurnCorrectionAttempts
+            ? WaifuFinalAction.retrySpeech
+            : WaifuFinalAction.failSpeech;
+      }
+      return WaifuFinalAction.accept;
+    }
     if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
       rememberToolSpeech(trimmed);
       return mutationCorrectionAttempts < kWaifuTurnCorrectionAttempts
@@ -411,6 +431,12 @@ class WaifuTurnContract {
         'TURN CONTRACT: Tool work is over. Give one short spoken wrap-up in '
         'the selected card’s diction now. No tool call, source dump, generic '
         '“Done”, or empty answer.';
+  }
+
+  void requestCheckInSpeech() {
+    checkInWrapUp = true;
+    speechOnly = true;
+    cue = kWaifuCheckInTurnCue;
   }
 
   void requestVerify() {

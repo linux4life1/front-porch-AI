@@ -23,6 +23,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
+import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 import 'package:path/path.dart' as p;
 
 const kWaifuLastFile = 'last_waifu.json';
@@ -97,6 +98,7 @@ class WaifuStore {
     await _sessionFile(
       session.folderRoot,
     ).writeAsString(const JsonEncoder.withIndent('  ').convert(map));
+    await waifuSaveTodos(session.folderRoot, session.todos);
     await _upsertIndex(session);
   }
 
@@ -145,6 +147,7 @@ class WaifuStore {
     'tokensUsed': session.tokensUsed,
     'themeOverrides': session.themeOverrides.toJson(),
     'coworker': _coworkerMap(session.coworker),
+    'todos': session.todos.toJson(),
     'transcript': [
       for (final m in session.transcript)
         {
@@ -274,13 +277,15 @@ class WaifuStore {
       }
       final used = (map['tokensUsed'] as num?)?.toInt() ?? 0;
       final rawTheme = map['themeOverrides'];
-      return WaifuSession(
+      final todos = WaifuTodos()..write(map['todos']);
+      final session = WaifuSession(
         folderRoot: folder,
         coworker: _coworkerFrom(coworker),
         mode: mode,
         pathMode: pathMode,
         title: map['title']?.toString() ?? '',
         transcript: transcript,
+        todos: todos,
         mcpOptIn: map['mcpOptIn'] == true,
         preserveThinking: map['preserveThinking'] == true,
         toolsSupported: map['toolsSupported'] != false,
@@ -289,6 +294,10 @@ class WaifuStore {
             ? ChatThemeOverrides.fromJson(Map<String, dynamic>.from(rawTheme))
             : null,
       )..tokensUsed = used < 0 ? 0 : used;
+      if (session.todos.items.isEmpty) {
+        await waifuLoadTodos(folder, session.todos);
+      }
+      return session;
     } catch (_) {
       return null;
     }

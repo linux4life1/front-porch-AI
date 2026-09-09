@@ -41,8 +41,8 @@ class WaifuPlanStage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!waifuPlanStageVisible(session)) return const SizedBox.shrink();
     final amber = AppColors.porchAmberOf(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 280),
+    return SizedBox(
+      height: 280,
       child: Container(
         key: const Key('waifu-plan-stage'),
         width: double.infinity,
@@ -52,13 +52,11 @@ class WaifuPlanStage extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: amber.withValues(alpha: 0.45)),
         ),
-        child: SingleChildScrollView(
-          child: WaifuPlanPanel(
-            session: session,
-            harness: harness,
-            onChanged: onChanged,
-            initialPlan: initialPlan,
-          ),
+        child: WaifuPlanPanel(
+          session: session,
+          harness: harness,
+          onChanged: onChanged,
+          initialPlan: initialPlan,
         ),
       ),
     );

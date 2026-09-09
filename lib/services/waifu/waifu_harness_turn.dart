@@ -116,12 +116,26 @@ extension _WaifuHarnessTurn on WaifuHarness {
       }
 
       _turn.rememberToolSpeech(body);
-      if (body.isNotEmpty && !waifuLooksGenericCompletion(body)) {
-        _say(body);
-      }
+      var checkIn = false;
       for (final call in resp.calls) {
         if (_aborted) return;
+        if (waifuShouldCheckInBefore(
+          rootTurn: depth == 0,
+          mutationsSinceCheckIn: _turn.mutationsSinceCheckIn,
+          toolName: call.name,
+        )) {
+          _turn.requestCheckInSpeech();
+          checkIn = true;
+          break;
+        }
         await _runTool(call.name, call.arguments);
+      }
+      if (checkIn) {
+        if (_turn.rememberedSpeech.isNotEmpty) {
+          _say(_turn.rememberedSpeech);
+          return;
+        }
+        continue;
       }
     }
 

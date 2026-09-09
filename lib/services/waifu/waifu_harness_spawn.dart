@@ -38,10 +38,7 @@ extension _WaifuHarnessSpawn on WaifuHarness {
       onAsk: onAsk,
       onQuestion: onQuestion,
       onChanged: _emit,
-      permissions: WaifuPermissions(
-        mode: childSession.mode,
-        workingDirectory: childSession.folderRoot,
-      ),
+      permissions: permissions.fork(mode: childSession.mode),
       depth: depth + 1,
       exploreOnly: exploreOnly,
       skills: skills,

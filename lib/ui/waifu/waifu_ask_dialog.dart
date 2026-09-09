@@ -35,9 +35,30 @@ class WaifuAskDialog extends StatelessWidget {
         request.doomLoop ? 'Same tool again' : 'Allow this change?',
         style: TextStyle(color: AppColors.textPrimary(context)),
       ),
-      content: Text(
-        '${request.toolName}: ${request.summary}',
-        style: TextStyle(color: AppColors.textSecondary(context)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (request.why.isNotEmpty) ...[
+            Text(
+              request.why,
+              key: const Key('waifu-ask-why'),
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.35,
+                color: AppColors.textPrimary(context),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          Text(
+            '${request.toolName}: ${request.summary}',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary(context),
+            ),
+          ),
+        ],
       ),
       actions: [
         TextButton(

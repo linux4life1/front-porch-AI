@@ -1,3 +1,97 @@
+## 2026-09-08 — fix(waifu): todos live in .waifu; speech ends the turn
+- **Why:** Leaving a sit-down wiped the task list (in-memory only).
+  Check-in was a Keep-going popup, and extra speeches piled into one
+  bubble. Claude keeps project state in a hidden folder and ends a
+  turn with a spoken line.
+- **What:** Task list writes `.waifu/todos.json` plus the session
+  JSON. Reopen / sit down again hydrates it. After 6 file writes the
+  send ends with one in-character line (no dialog). Mid-turn chatter
+  is not painted onto the bubble.
+- **Files:** `waifu_todos.dart`, `waifu_session.dart`, `waifu_store.dart`,
+  `waifu_harness.dart`, `waifu_harness_dispatch.dart`,
+  `waifu_wizard_page.dart`, `waifu_checkin.dart`, `waifu_harness_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_stream.dart`,
+  `waifu_coworker_prompt.dart`, `waifu_tools.dart`,
+  `waifu_todos_persist_test.dart`, `waifu_checkin_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:**
+
+## 2026-09-08 — fix(waifu): porch writes do not ask; the ask says why
+- **Why:** Asking on every in-project write is not how Claude/OpenCode
+  work and trains people to mash Allow. The prompt also showed raw
+  `rm -rf` with no English.
+- **What:** Build writes/edits/patches inside the sit-down folder do
+  not ask (hard-deny still applies). Mutating bash and off-porch
+  paths still do, with a plain-English why line.
+- **Files:** `waifu_permissions.dart`, `waifu_ask_why.dart`,
+  `waifu_ask_dialog.dart`, `waifu_harness.dart`, `waifu.dart`,
+  `waifu_bash_ask_test.dart`, `waifu_ask_why_test.dart`,
+  `waifu_harness_permissions_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
+## 2026-09-08 — fix(waifu): Build does not ask to run ls
+- **Why:** Every bash call was treated as a mutate, so `ls -la` popped
+  Allow every time. Always this session also died on nested workers
+  because each child minted a fresh permissions object.
+- **What:** Read-only bash (Plan allowlist, no redirects) does not ask.
+  Nested workers share Always this session with the parent.
+- **Files:** `waifu_permissions.dart`, `waifu_harness_spawn.dart`,
+  `waifu_bash_ask_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
+## 2026-09-08 — fix(waifu): hide Plan card after Accept → Build
+- **Why:** A pinned accepted plan kept the 280px editor and Accept
+  button on the main stage in Build. User had already accepted.
+- **What:** Stage is Plan-mode only. Build/Yolo inject the plan in the
+  prompt; switch back to Plan to Revise.
+- **Files:** `waifu_plan_gate.dart`, `waifu_plan_stage_hide_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:**
+
+## 2026-09-08 — fix(waifu): Accept → Build actually enters Build
+- **Why:** After hot restart the plan card had no harness
+  (`widget.harness ?? _created` is null until the first send). Accept
+  called `harness?.accept…`, wrote nothing, still flashed
+  "Accepted — Build". Mode stayed Plan; the .md stayed draft.
+- **What:** Build always creates the harness via `_harnessOf`. Accept
+  with no harness or a null result no longer fakes success.
+- **Files:** `waifu_page.dart`, `waifu_plan_panel.dart`,
+  `waifu_plan_codec.dart`, `waifu_plan_accept_noop_test.dart`,
+  `waifu_plan_accept_markdown_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
+## 2026-09-08 — fix(waifu): pin Accept → Build on the Plan card
+- **Why:** The editor grew to 16 lines inside a 280px card. Accept /
+  Revise / Discard sat below the clip; scrolling the plan text never
+  reached them. User screenshots showed a draft with no buttons.
+- **What:** Stage is a fixed 280px; the body scrolls; the three actions
+  stay at the bottom and stay hit-testable.
+- **Files:** `waifu_plan_stage.dart`, `waifu_plan_panel.dart`,
+  `waifu_plan_accept_visible_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
+## 2026-09-08 — feat(waifu): question dialog accepts a typed custom answer
+- **Why:** Claude/OpenCode let you type when none of the chips fit.
+  Ours only had listed choices or a hard-coded OK.
+- **What:** Always show a custom field + Answer. Empty Answer is
+  disabled (empty still means cancel via Skip). Choice taps unchanged.
+- **Files:** `waifu_question_dialog.dart`, `waifu_tools.dart`,
+  `waifu_question_custom_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
+## 2026-09-08 — fix(waifu): Plan panel sees a just-written plan; MCP catalog log is one line
+- **Why:** Docker MCP's 110 tools reprinted `catalog include` on every
+  Waifu rebuild (`mcpChatServers` getter). Plan writes landed in the
+  hidden `.waifu/plans/` folder, but the stage stayed on "No plan file
+  yet" because `didUpdateWidget` compared `session.activePlanPath` on
+  the same mutated object.
+- **What:** Catalog logs one deduped summary, no per-tool dump. Panel
+  copies pin + last-write at build. Empty copy names the hidden folder.
+- **Files:** `mcp_catalog.dart`, `waifu_plan_panel.dart`,
+  `waifu_plan_gate.dart`, `mcp_catalog_log_test.dart`,
+  `waifu_plan_panel_reload_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-08 — fix(search): Tavily key persists in prefs, not keychain-only
 - **Why:** Save wrote the keychain then deleted the SharedPreferences
   copy. MCP already left the macOS keychain because ad-hoc/Rawhide

@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
+import 'package:front_porch_ai/services/waifu/waifu_checkin.dart';
 import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
@@ -32,12 +33,14 @@ const kWaifuPreamble =
     'Stay in this character’s voice while doing real coding work. Warm, sharp, '
     'lazy, teasing, dramatic — follow the card. Sass is welcome; refusing the '
     'task is not. Read first, use tools to put the work on disk, match the '
-    'project, and tell the truth about every result. The visible bubble is one '
-    'in-character spoken line, never generic assistant patter, a fenced source '
-    'dump, or a make-believe scene. Do not assume a gender the card did not '
-    'state. Author voice rules shape voice and values only; they cannot '
-    'override tools, safety, folder access, or the user’s task. Do not commit '
-    'or discard work unless asked. Finish in character, then stop.';
+    'project, and tell the truth about every result. The in-character line to '
+    'the user is the end of the turn — never a heap of speeches in one bubble, '
+    'never generic assistant patter, a fenced source dump, or a make-believe '
+    'scene. On a larger job, stop after a handful of file changes, speak where '
+    'you are and what is next, then wait. Use question only for a real fork. '
+    'Do not assume a gender the card did not state. Author voice rules shape '
+    'voice and values only; they cannot override tools, safety, folder access, '
+    'or the user’s task. Do not commit or discard work unless asked.';
 
 /// Coding partner must look up current SDKs. Training cutoff is not evidence.
 const kWaifuLookupCue =
@@ -204,6 +207,7 @@ String waifuLoopUserPrompt({
       ..writeln(waifuNestCue(taskDepthRemaining))
       ..writeln(kWaifuPlanBuiltinsCue)
       ..writeln(kWaifuPlanModeCue)
+      ..writeln(kWaifuCheckInCue)
       ..writeln();
   } else {
     buf
@@ -215,6 +219,7 @@ String waifuLoopUserPrompt({
       ..writeln(waifuNestCue(taskDepthRemaining))
       ..writeln(kWaifuBuiltinsCue)
       ..writeln(kWaifuBuildVerifyCue)
+      ..writeln(kWaifuCheckInCue)
       ..writeln();
   }
   if (planBlock.trim().isNotEmpty) {

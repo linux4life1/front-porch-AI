@@ -16,6 +16,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
+import 'package:path/path.dart' as p;
+
+const kWaifuTodosRel = '$kWaifuDotDir/todos.json';
+
 bool waifuTodoStatusIsDone(String status) {
   switch (status.trim().toLowerCase()) {
     case 'completed':
@@ -77,4 +85,31 @@ class WaifuTodos {
     }
     return read();
   }
+
+  List<Map<String, String>> toJson() => [
+    for (final t in items)
+      {'id': t.id, 'content': t.content, 'status': t.status},
+  ];
+}
+
+File waifuTodosFile(String folderRoot) =>
+    File(p.join(folderRoot, kWaifuDotDir, 'todos.json'));
+
+/// Sit-down folder copy. Claude keeps session state in a hidden project
+/// folder; this is that file for the task list.
+Future<void> waifuSaveTodos(String folderRoot, WaifuTodos todos) async {
+  final file = waifuTodosFile(folderRoot);
+  await file.parent.create(recursive: true);
+  await file.writeAsString(
+    const JsonEncoder.withIndent('  ').convert(todos.toJson()),
+  );
+}
+
+Future<void> waifuLoadTodos(String folderRoot, WaifuTodos todos) async {
+  final file = waifuTodosFile(folderRoot);
+  if (!await file.exists()) return;
+  try {
+    final decoded = jsonDecode(await file.readAsString());
+    if (decoded is List) todos.write(decoded);
+  } catch (_) {}
 }

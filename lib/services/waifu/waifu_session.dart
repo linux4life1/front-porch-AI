@@ -20,6 +20,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_lang_runtime.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
+import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 
 class WaifuToolChip {
   const WaifuToolChip({
@@ -102,9 +103,11 @@ class WaifuSession {
     ChatThemeOverrides? themeOverrides,
     Set<String>? suggestedLangs,
     List<WaifuMessage>? transcript,
+    WaifuTodos? todos,
   }) : suggestedLangs = suggestedLangs ?? <String>{},
        transcript = transcript ?? <WaifuMessage>[],
-       themeOverrides = themeOverrides ?? ChatThemeOverrides();
+       themeOverrides = themeOverrides ?? ChatThemeOverrides(),
+       todos = todos ?? WaifuTodos();
 
   final String folderRoot;
   final CharacterCard coworker;
@@ -114,6 +117,7 @@ class WaifuSession {
   WaifuLangRuntime? langs;
   final Set<String> suggestedLangs;
   final List<WaifuMessage> transcript;
+  final WaifuTodos todos;
   WaifuWriteRecord? lastWrite;
 
   /// Writes landed on the current send. Cleared at the start of [send].

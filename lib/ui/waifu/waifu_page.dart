@@ -380,7 +380,7 @@ class _WaifuPageState extends State<WaifuPage> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final amber = AppColors.porchAmberOf(context);
-    final harness = widget.harness ?? _created;
+    final harness = _harnessOf(context);
     final coworker = session.coworker.name;
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),

@@ -64,6 +64,8 @@ CatalogTool inProcessWebSearchTool() {
 /// 2. Last `tools/list` must have succeeded (connected).
 /// 3. Name already taken → omit the later server's tool (first-connected wins).
 ///    In-process tools always occupy the name first.
+String? _lastCatalogLogSig;
+
 CatalogBuildResult buildMcpCatalog({
   required List<CatalogTool> inProcess,
   required List<McpServerSnapshot> servers,
@@ -76,7 +78,6 @@ CatalogBuildResult buildMcpCatalog({
   for (final t in inProcess) {
     tools.add(t);
     taken[t.name] = 'in-process';
-    debugPrint('[MCP] catalog include ${t.name} (in-process)');
   }
 
   final ordered = [...servers]
@@ -84,18 +85,9 @@ CatalogBuildResult buildMcpCatalog({
   for (final snap in ordered) {
     final cfg = snap.config;
     if (!enabledForChat.contains(cfg.id)) {
-      debugPrint(
-        '[MCP] catalog exclude server "${cfg.displayName}" '
-        '(${cfg.id}): not enabled for this chat',
-      );
       continue;
     }
     if (snap.status != McpConnectionStatus.connected) {
-      debugPrint(
-        '[MCP] catalog exclude server "${cfg.displayName}": '
-        'status=${snap.status.name} error=${snap.lastError ?? "none"} '
-        '(tools/list did not succeed)',
-      );
       continue;
     }
     for (final def in snap.tools) {
@@ -133,18 +125,26 @@ CatalogBuildResult buildMcpCatalog({
           serverDisplayName: cfg.displayName,
         ),
       );
-      debugPrint(
-        '[MCP] catalog include ${def.name} from "${cfg.displayName}" '
-        '(chat-enabled, tools/list ok)',
-      );
     }
   }
 
+  _logCatalogBuilt(tools, exclusions);
+  return CatalogBuildResult(tools: tools, exclusions: exclusions);
+}
+
+void _logCatalogBuilt(
+  List<CatalogTool> tools,
+  List<CatalogExclusion> exclusions,
+) {
+  final sig =
+      '${tools.length}|${exclusions.length}|'
+      '${[for (final t in tools) t.name].join(',')}';
+  if (sig == _lastCatalogLogSig) return;
+  _lastCatalogLogSig = sig;
   debugPrint(
     '[MCP] catalog built: ${tools.length} tool(s), '
-    '${exclusions.length} excluded; names=${[for (final t in tools) t.name]}',
+    '${exclusions.length} excluded',
   );
-  return CatalogBuildResult(tools: tools, exclusions: exclusions);
 }
 
 Map<String, dynamic> _schemaToParameters(Map<String, dynamic> schema) {

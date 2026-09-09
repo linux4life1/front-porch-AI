@@ -68,34 +68,8 @@ void main() {
     expect(harness.session.transcript.last.text, contains('did not write'));
   });
 
-  test('Build write waits; Deny leaves the file absent', () async {
-    final gate = Completer<WaifuAskDecision>();
+  test('Build porch write does not ask; the file lands', () async {
     var asked = 0;
-    final llm = ScriptedWaifuLlm([
-      _write('hello.txt', 'secret'),
-      const LlmToolResponse(calls: [], text: 'You would not let me.'),
-    ]);
-    final harness = WaifuHarness(
-      session: session(WaifuMode.build),
-      llm: llm,
-      onAsk: (req) async {
-        asked++;
-        return gate.future;
-      },
-    );
-    final done = harness.send('add hello.txt');
-    for (var i = 0; i < 40 && asked == 0; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-    }
-    expect(asked, 1);
-    expect(File(p.join(root.path, 'hello.txt')).existsSync(), isFalse);
-    gate.complete(WaifuAskDecision.deny);
-    await done;
-    expect(File(p.join(root.path, 'hello.txt')).existsSync(), isFalse);
-    expect(harness.session.transcript.last.text, contains('would not let me'));
-  });
-
-  test('Build Allow once writes the file', () async {
     final llm = ScriptedWaifuLlm([
       _write('hello.txt', 'ok'),
       const LlmToolResponse(calls: [], text: 'Hmph. The file is written.'),
@@ -103,10 +77,45 @@ void main() {
     final harness = WaifuHarness(
       session: session(WaifuMode.build),
       llm: llm,
-      onAsk: (req) async => WaifuAskDecision.allowOnce,
+      onAsk: (req) async {
+        asked++;
+        return WaifuAskDecision.deny;
+      },
     );
     await harness.send('add hello.txt');
+    expect(asked, 0);
     expect(await File(p.join(root.path, 'hello.txt')).readAsString(), 'ok');
+  });
+
+  test('Build Deny on mutating bash leaves the tree unchanged', () async {
+    final gate = Completer<WaifuAskDecision>();
+    var asked = 0;
+    final llm = ScriptedWaifuLlm([
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(name: 'bash', arguments: {'command': 'rm -rf build'}),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(calls: [], text: 'You would not let me.'),
+    ]);
+    final harness = WaifuHarness(
+      session: session(WaifuMode.build),
+      llm: llm,
+      onAsk: (req) async {
+        asked++;
+        expect(req.why.toLowerCase(), contains('delete'));
+        return gate.future;
+      },
+    );
+    final done = harness.send('wipe build');
+    for (var i = 0; i < 40 && asked == 0; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(asked, 1);
+    gate.complete(WaifuAskDecision.deny);
+    await done;
+    expect(harness.session.transcript.last.text, contains('would not let me'));
   });
 
   test('Yolo write does not ask', () async {

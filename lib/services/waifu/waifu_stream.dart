@@ -23,7 +23,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 WaifuMessage waifuBeginStream(WaifuMessage last, int nowMs) {
   return WaifuMessage(
     isUser: false,
-    text: last.text,
+    text: '',
     chips: last.chips,
     reasoning: last.reasoning,
     thinkingStartMs: nowMs,
@@ -35,6 +35,7 @@ WaifuMessage waifuApplyChunk({
   required WaifuMessage last,
   required String priorReasoning,
   required String streamBuf,
+  bool paintBody = true,
 }) {
   final split = splitMessageForEdit(streamBuf);
   final think = split.thinking;
@@ -43,7 +44,7 @@ WaifuMessage waifuApplyChunk({
       : think;
   return WaifuMessage(
     isUser: false,
-    text: split.body.isEmpty ? last.text : split.body,
+    text: !paintBody || split.body.isEmpty ? last.text : split.body,
     chips: last.chips,
     reasoning: reasoning,
     thinkingStartMs: last.thinkingStartMs,

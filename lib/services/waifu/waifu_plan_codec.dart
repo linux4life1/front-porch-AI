@@ -380,10 +380,12 @@ Future<WaifuPlan?> waifuAcceptPlan({
   String? editedBody,
 }) async {
   var plan = await waifuLoadActivePlan(session);
-  if (plan == null) return null;
-  if (editedBody != null) {
-    plan = waifuPlanParse(editedBody, relativePath: plan.relativePath);
+  if (editedBody != null && editedBody.trim().isNotEmpty) {
+    var rel = plan?.relativePath ?? '';
+    if (rel.isEmpty) rel = session.activePlanPath?.trim() ?? '';
+    plan = waifuPlanParse(editedBody, relativePath: rel);
   }
+  if (plan == null) return null;
   final next = plan.copyWith(status: WaifuPlanStatus.accepted);
   await waifuWritePlanFile(session.folderRoot, next);
   session.activePlanPath = next.relativePath;

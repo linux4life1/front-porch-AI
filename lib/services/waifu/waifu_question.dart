@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+export 'waifu_checkin.dart';
+
 class WaifuQuestionRequest {
   const WaifuQuestionRequest({required this.prompt, this.choices = const []});
 

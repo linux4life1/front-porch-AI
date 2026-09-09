@@ -27,11 +27,27 @@ const kWaifuPlanBuildGateCue =
 
 enum WaifuModeApply { applied, blockedDraft }
 
-/// Main-stage Plan chrome: Plan mode, or a pinned draft/accepted plan.
+/// Main-stage Plan chrome is Plan mode only. Build/Yolo keep the accepted
+/// plan in the prompt; the 280px editor does not stay on the composer.
 bool waifuPlanStageVisible(WaifuSession session) {
-  if (session.mode == WaifuMode.plan) return true;
-  final pin = session.activePlanPath?.trim() ?? '';
-  return pin.isNotEmpty;
+  return session.mode == WaifuMode.plan;
+}
+
+/// Pin and last-write must be copied onto the panel widget at build.
+/// `didUpdateWidget` comparing `oldWidget.session.activePlanPath` is a
+/// no-op: the session is mutated in place, so both widgets see the new
+/// value. Captured strings from the previous frame still differ.
+bool waifuPlanPanelShouldReload({
+  required String? previousPin,
+  required String? nextPin,
+  required String? previousWrite,
+  required String? nextWrite,
+  required WaifuMode previousMode,
+  required WaifuMode nextMode,
+}) {
+  return previousPin != nextPin ||
+      previousWrite != nextWrite ||
+      previousMode != nextMode;
 }
 
 /// Soft gate: Build with no plan stays freeform. A draft pin/file blocks

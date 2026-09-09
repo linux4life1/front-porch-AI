@@ -153,7 +153,9 @@ List<Map<String, dynamic>> waifuFileToolsFor(WaifuPathMode pathMode) {
     ),
     _fn(
       kWaifuToolQuestion,
-      'Ask the user a question with optional choices. Pauses until they answer.',
+      'Ask the user a question with optional choices. They can pick a '
+      'choice or type a custom answer. Pauses until they answer. Use only '
+      'for a real fork, not a keep-going prompt.',
       {
         'prompt': {'type': 'string'},
         'choices': {
