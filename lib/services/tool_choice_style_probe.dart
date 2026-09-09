@@ -36,6 +36,10 @@ import 'package:flutter/foundation.dart';
 /// still speak tools.
 enum ToolChoiceStyle { named, required, auto }
 
+/// [GenerationParams.toolChoice] sentinel: OpenAI `tool_choice: "required"`
+/// (any advertised tool), not a named function. Null/empty still means auto.
+const kToolChoiceRequired = 'required';
+
 /// Per-identity memory of which `tool_choice` encoding this host accepts.
 ///
 /// Injectable default singleton, same shape as [SystemRoleProbe]: tests
@@ -61,11 +65,15 @@ class ToolChoiceStyleProbe {
     return remembered;
   }
 
-  /// Journal/Growth (`toolChoice` empty) always send auto. Named
+  /// Journal/Growth (`toolChoice` empty) always send auto. The
+  /// [kToolChoiceRequired] sentinel starts at required (any tool). Named
   /// functions use [styleFor] and never start at auto.
   ToolChoiceStyle startingStyleFor(String identity, {String? toolChoice}) {
     if (toolChoice == null || toolChoice.isEmpty) {
       return ToolChoiceStyle.auto;
+    }
+    if (toolChoice == kToolChoiceRequired) {
+      return ToolChoiceStyle.required;
     }
     return styleFor(identity);
   }

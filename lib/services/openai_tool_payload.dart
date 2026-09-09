@@ -38,7 +38,7 @@ Object _styleValue(ToolChoiceStyle style, {String? functionName}) {
     case ToolChoiceStyle.named:
       return toolChoiceValue(functionName: functionName);
     case ToolChoiceStyle.required:
-      return 'required';
+      return kToolChoiceRequired;
     case ToolChoiceStyle.auto:
       return 'auto';
   }

@@ -95,7 +95,16 @@ extension _WaifuHarnessCompact on WaifuHarness {
       if (force) _emit();
       return;
     }
-    if (!force && !_measureLive().shouldCompact) return;
+    if (!force) {
+      final used = waifuFillUsed(
+        tokensUsed: session.tokensUsed,
+        fromApi: session.tokensFromApi,
+        estimated: _measureLive().used,
+      );
+      if (!waifuShouldCompact(used: used, budget: session.contextBudget)) {
+        return;
+      }
+    }
     await _compactNow(force: force);
   }
 

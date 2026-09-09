@@ -476,6 +476,9 @@ class _WaifuPageState extends State<WaifuPage> {
               skills: _skillsOf(),
               onSkillsChanged: _refresh,
               onThemeChanged: _onThemeChanged,
+              onCompact: harness == null
+                  ? null
+                  : () => unawaited(harness.compact()),
             ),
           ),
         ],

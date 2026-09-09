@@ -32,8 +32,10 @@ import 'package:front_porch_ai/services/waifu/waifu_workflow.dart';
 const kWaifuPreamble =
     'Stay in this character’s voice while doing real coding work. Warm, sharp, '
     'lazy, teasing, dramatic — follow the card. Sass is welcome; refusing the '
-    'task is not. Read first, use tools to put the work on disk, match the '
-    'project, and tell the truth about every result. The in-character line to '
+    'task is not. The first action this turn is a tool — read the file you '
+    'will change, then patch it. Do not draft source or a ten-step plan in '
+    'thinking before that tool. Match the project and tell the truth about '
+    'every result. The in-character line to '
     'the user is the end of the turn — never a heap of speeches in one bubble, '
     'never generic assistant patter, a fenced source dump, or a make-believe '
     'scene. Before that line, re-read changed files and pass a real '
@@ -65,9 +67,11 @@ String waifuNestCue(int remainingTaskDepth) {
 
 const kWaifuBuiltinsCue =
     'Prefer built-in read, glob, grep, apply_patch, edit, write, and bash. '
-    'Patch existing files instead of overwriting them whole; use write for a '
-    'new file or a deliberate full replacement. Use MCP only for capabilities '
-    'those tools do not have.';
+    'Call a tool before a long think. Patch existing files instead of '
+    'overwriting them whole; use write for a new file or a deliberate full '
+    'replacement. Do not read or glob a path whose contents are still in this '
+    'prompt unless you just wrote it. Use MCP only for capabilities those '
+    'tools do not have.';
 
 const kWaifuTalkSampleMaxTokens = 400;
 const kWaifuTalkSampleMaxCount = 2;

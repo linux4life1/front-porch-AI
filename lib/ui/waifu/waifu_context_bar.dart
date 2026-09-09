@@ -23,9 +23,12 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Used tokens vs context window. Fill ≥ 75% is the compact line.
 class WaifuContextBar extends StatelessWidget {
-  const WaifuContextBar({super.key, required this.session});
+  const WaifuContextBar({super.key, required this.session, this.onCompact});
 
   final WaifuSession session;
+
+  /// When fill ≥ 75%, tap folds old turns. Null = display only.
+  final VoidCallback? onCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +41,7 @@ class WaifuContextBar extends StatelessWidget {
     final amber = AppColors.porchAmberOf(context);
     final danger = AppColors.negativeAccentOf(context);
     final bar = hot ? danger : amber;
-    return Padding(
+    final body = Padding(
       key: const Key('waifu-context-bar'),
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       child: Column(
@@ -76,6 +79,16 @@ class WaifuContextBar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+    if (!hot || onCompact == null) return body;
+    return Semantics(
+      button: true,
+      label: 'Fold old turns',
+      child: InkWell(
+        key: const Key('waifu-context-bar-compact'),
+        onTap: onCompact,
+        child: body,
       ),
     );
   }

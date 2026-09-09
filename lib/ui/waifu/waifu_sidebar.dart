@@ -49,6 +49,7 @@ class WaifuSidebar extends StatelessWidget {
     this.skills,
     this.onSkillsChanged,
     this.onThemeChanged,
+    this.onCompact,
   });
 
   final WaifuSession session;
@@ -63,6 +64,7 @@ class WaifuSidebar extends StatelessWidget {
   final WaifuSkillHub? skills;
   final VoidCallback? onSkillsChanged;
   final VoidCallback? onThemeChanged;
+  final VoidCallback? onCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +126,7 @@ class WaifuSidebar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  WaifuContextBar(session: session),
+                  WaifuContextBar(session: session, onCompact: onCompact),
                   if (skills != null) ...[
                     PorchAccordion(
                       id: 'waifu_skills',

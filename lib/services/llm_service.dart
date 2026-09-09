@@ -83,9 +83,11 @@ class GenerationParams {
   /// content, byte-identical to the pre-vision text-only path.
   final List<String>? images;
 
-  /// Named OpenAI `tool_choice` function, or null → `'auto'`. Rides the
-  /// params object so [generateWithTools] overrides keep their two-arg
-  /// signature (existing test fakes must not be edited).
+  /// Named OpenAI `tool_choice` function, or null → `'auto'`. The sentinel
+  /// `'required'` (`kToolChoiceRequired`) forces any advertised tool (Waifu
+  /// first mutation step). Rides the params object so [generateWithTools]
+  /// overrides keep their two-arg signature (existing test fakes must not
+  /// be edited).
   final String? toolChoice;
 
   /// Live token callback (Waifu Coder think tokens, realism overlay).

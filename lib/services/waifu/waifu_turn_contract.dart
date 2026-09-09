@@ -68,6 +68,14 @@ bool waifuReadVerifiesMutate(String readPath, Iterable<String> mutated) {
   return false;
 }
 
+/// First generate of a file-change send must call a tool, not wrap up.
+bool waifuForceFirstTool({
+  required int step,
+  required bool speechOnly,
+  required bool mutationRequired,
+  required bool mutationSucceeded,
+}) => step == 0 && !speechOnly && mutationRequired && !mutationSucceeded;
+
 bool waifuTaskRequestsFileChange(String task) {
   final lower = task.toLowerCase();
   final strong = RegExp(
@@ -312,9 +320,9 @@ class WaifuTurnContract {
               'receipt (write, edit, or apply_patch). Exploring or talking '
               'without that artifact is not completion.'
         : 'TURN CONTRACT: The user asked for a code/file change, but no '
-              'write, edit, or apply_patch receipt landed. Do the real change '
-              'with a file tool now; personality without a patch is not '
-              'completion.';
+              'write, edit, or apply_patch receipt landed. Call a file tool '
+              'now. Do not draft source in thinking or speak a plan; '
+              'personality without a patch is not completion.';
   }
 
   void requestTodoWrite() {

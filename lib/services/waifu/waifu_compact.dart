@@ -79,6 +79,13 @@ bool waifuShouldCompact({required int used, required int budget}) {
   return used >= (cap * kWaifuCompactAt).ceil();
 }
 
+/// Same number the sidebar bar shows: API usage when we have it.
+int waifuFillUsed({
+  required int tokensUsed,
+  required bool fromApi,
+  required int estimated,
+}) => fromApi && tokensUsed > 0 ? tokensUsed : estimated;
+
 /// System + user + advertised tools. [totalTokens] / [promptTokens] from
 /// the last API `usage` win over the chars/4 guess.
 WaifuBudgetSnapshot waifuMeasureRequest({

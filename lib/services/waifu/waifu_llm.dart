@@ -20,6 +20,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 
 class WaifuLlmTurn {
   const WaifuLlmTurn({
@@ -27,12 +28,14 @@ class WaifuLlmTurn {
     required this.prompt,
     required this.tools,
     this.images,
+    this.forceTool = false,
   });
 
   final String systemPrompt;
   final String prompt;
   final List<Map<String, dynamic>> tools;
   final List<String>? images;
+  final bool forceTool;
 }
 
 /// Thin generateWithTools door. Production wraps [LLMService]; tests inject
@@ -45,6 +48,7 @@ abstract class WaifuLlm {
     List<String>? images,
     void Function(String chunk)? onChunk,
     int? maxTokens,
+    bool forceTool = false,
   });
 
   void abort() {}
@@ -82,9 +86,11 @@ class LlmServiceWaifuLlm implements WaifuLlm {
     List<String>? images,
     void Function(String chunk)? onChunk,
     int? maxTokens,
+    bool forceTool = false,
   }) {
     final g = settingsOf?.call();
     final s = storage;
+    final mustTool = forceTool && tools.isNotEmpty;
     return _serviceOf().generateWithTools(
       GenerationParams(
         prompt: prompt,
@@ -104,6 +110,8 @@ class LlmServiceWaifuLlm implements WaifuLlm {
         reasoningEffort: g != null && s != null
             ? g.resolveReasoningEffort(s)
             : reasoningEffort,
+        reasoningMaxTokens: mustTool ? 0 : null,
+        toolChoice: mustTool ? kToolChoiceRequired : null,
         images: images,
         onChunk: onChunk,
       ),
@@ -171,6 +179,7 @@ class ScriptedWaifuLlm implements WaifuLlm {
     List<String>? images,
     void Function(String chunk)? onChunk,
     int? maxTokens,
+    bool forceTool = false,
   }) async {
     waitingAt = _i;
     await beforeGenerate?.call(_i);
@@ -185,6 +194,7 @@ class ScriptedWaifuLlm implements WaifuLlm {
         prompt: prompt,
         tools: tools,
         images: images,
+        forceTool: forceTool,
       ),
     );
     if (_unsupported) return null;

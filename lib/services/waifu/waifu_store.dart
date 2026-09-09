@@ -146,6 +146,7 @@ class WaifuStore {
     if (session.activePlanPath != null && session.activePlanPath!.isNotEmpty)
       'activePlanPath': session.activePlanPath,
     'tokensUsed': session.tokensUsed,
+    'contextBudget': session.contextBudget,
     'tokensFromApi': session.tokensFromApi,
     'compactPasses': session.compactPasses,
     if (session.toolTraces.isNotEmpty) 'toolTraces': session.toolTraces,
@@ -285,6 +286,7 @@ class WaifuStore {
         }
       }
       final used = (map['tokensUsed'] as num?)?.toInt() ?? 0;
+      final budgetRaw = (map['contextBudget'] as num?)?.toInt();
       final rawTheme = map['themeOverrides'];
       final todos = WaifuTodos()..write(map['todos']);
       final session =
@@ -308,7 +310,10 @@ class WaifuStore {
             )
             ..tokensUsed = used < 0 ? 0 : used
             ..tokensFromApi = map['tokensFromApi'] == true
-            ..compactPasses = (map['compactPasses'] as num?)?.toInt() ?? 0;
+            ..compactPasses = (map['compactPasses'] as num?)?.toInt() ?? 0
+            ..contextBudget = (budgetRaw != null && budgetRaw > 0)
+                ? budgetRaw
+                : 8192;
       final traces = map['toolTraces'];
       if (traces is List) {
         for (final t in traces) {

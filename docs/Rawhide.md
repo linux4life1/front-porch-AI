@@ -7,7 +7,7 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 🖥️ **Waifu Coder** — sit down with a character who codes: Plan/Build, in-folder edits without nagging, tasks saved under `.waifu`, they review and test before they talk, and that spoken line ends the turn. The context bar is the real request (system, tools, and the model's own token count). Old turns fold into a recap when the window fills, like other coding agents. Desktop only.
+- 🖥️ **Waifu Coder** — sit down with a character who codes: Plan/Build, in-folder edits without nagging, tasks saved under `.waifu`, they review and test before they talk, and that spoken line ends the turn. The first move on a code change is a tool, not a ten-step think. The context bar is the real request (system, tools, and the model's own token count). Old turns fold into a recap when the window fills, like other coding agents. Desktop only.
 
 - 🔑 **Tavily key stays after a restart** — it is saved with the rest of Settings (same place as OpenRouter keys and MCP URLs). The macOS keychain copy was vanishing on relaunch.
 

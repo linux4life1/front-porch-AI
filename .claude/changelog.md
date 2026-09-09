@@ -1,3 +1,20 @@
+## 2026-09-10 — fix(waifu): first tool soon; compact between sends
+- **Why:** She drafted Swift in thinking for a long time with zero
+  writes. Compact also stole the first model call on a hot window, and
+  reload reset the context size to 8192.
+- **What:** First file-change generate sends `tool_choice: required`
+  and turns thinking off so the first action is a tool, not a ten-step
+  think. Compact runs after the send, not inside the tool loop. Bar
+  and fold share one fill number. Window size persists. Hot bar tap
+  folds.
+- **Files:** `waifu_coworker_prompt.dart`, `waifu_harness_turn.dart`,
+  `waifu_harness_compact.dart`, `waifu_compact.dart`, `waifu_store.dart`,
+  `waifu_context_bar.dart`, `waifu_sidebar.dart`, `waifu_page.dart`,
+  `waifu_llm.dart`, `waifu_turn_contract.dart`,
+  `tool_choice_style_probe.dart`, `openai_tool_payload.dart`,
+  `llm_service.dart`
+- **Commit:**
+
 ## 2026-09-09 — fix(waifu): recap is not a user message
 - **Why:** Compact recap was stored `isUser: true`, so the next prompt
   labeled the agent's own summary `User:`. She then treated her recap

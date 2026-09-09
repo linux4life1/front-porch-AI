@@ -23,7 +23,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
     final system = _system();
     for (var step = 0; step < kWaifuMaxSteps; step++) {
       if (_aborted) return;
-      await _maybeCompact();
+      _pruneTraces();
       _beginStream();
       final prompt = _prompt();
       final tools = _advertisedTools(speechOnly: _turn.speechOnly);
@@ -34,6 +34,12 @@ extension _WaifuHarnessTurn on WaifuHarness {
         tools: tools,
         images: step == 0 ? _turnImages : null,
         onChunk: _onChunk,
+        forceTool: waifuForceFirstTool(
+          step: step,
+          speechOnly: _turn.speechOnly,
+          mutationRequired: _turn.mutationRequired,
+          mutationSucceeded: _turn.mutationSucceeded,
+        ),
       );
       if (resp != null) _applyUsage(resp);
       _endStream();
