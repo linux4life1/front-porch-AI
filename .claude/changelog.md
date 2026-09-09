@@ -9,7 +9,7 @@
   `waifu_coworker_prompt.dart`, `waifu_store.dart`,
   `waifu_harness.dart`, `waifu_harness_compact.dart`,
   `waifu_stream.dart`, `waifu_slash.dart`, `waifu_page.dart`
-- **Commit:**
+- **Commit:** a6fb4f9b
 
 ## 2026-09-10 — fix(waifu): first tool soon; compact between sends
 - **Why:** She drafted Swift in thinking for a long time with zero
