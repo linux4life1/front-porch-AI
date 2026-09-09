@@ -10,7 +10,7 @@
 - **Files:** `reasoning_effort.dart`, `open_router_service.dart`,
   `openai_tool_payload.dart`, `mandatory_reasoning_failover_test.dart`,
   `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** d7d44e46
 
 ## 2026-09-08 — fix(tts): macOS Sherpa dylib path after sherpa_onnx 1.13.6
 - **Why:** Stable v1.3.2 Kokoro/Piper/Whisper loaded no audio. The C
