@@ -57,79 +57,55 @@ extension _WaifuHarnessTurn on WaifuHarness {
       _noteReasoning(resp);
       final body = waifuVisibleText(resp.text);
       final calls = waifuEffectiveToolCalls(resp);
-      if (_turn.speechOnly && calls.isNotEmpty) {
-        _turn.rememberToolSpeech(body);
-        if (_turn.canUseRememberedSpeech) {
-          _say(_turn.rememberedSpeech);
-          return;
-        }
-        if (_turn.canRetrySpeech) {
-          _turn.requestSpeech();
-          continue;
-        }
-        _reject('turn', 'tool work ended without an in-character spoken line');
-        _say(_turn.failureLine(body));
-        return;
-      }
-
-      if (calls.isEmpty) {
-        switch (_turn.decideFinal(body, chips: _liveAssistant().chips)) {
-          case WaifuFinalAction.accept:
-            _say(body);
-            return;
-          case WaifuFinalAction.useRememberedSpeech:
+      if (calls.isNotEmpty) {
+        if (_turn.speechOnly) {
+          _turn.rememberToolSpeech(body);
+          if (_turn.canUseRememberedSpeech) {
             _say(_turn.rememberedSpeech);
+            _turn.phase = WaifuPhase.done;
             return;
-          case WaifuFinalAction.retryMutation:
-            _turn.requestMutation();
-            continue;
-          case WaifuFinalAction.retrySpeech:
+          }
+          if (_turn.canRetrySpeech) {
             _turn.requestSpeech();
             continue;
-          case WaifuFinalAction.retryVerify:
-            _turn.requestVerify();
-            continue;
-          case WaifuFinalAction.retryTodoWrite:
-            _turn.requestTodoWrite();
-            continue;
-          case WaifuFinalAction.failMutation:
-            _reject('turn', 'no file change landed for a code-change request');
-            _say(_turn.failureLine(body));
-            return;
-          case WaifuFinalAction.failSpeech:
-            _reject(
-              'turn',
-              'tool work ended without an in-character spoken line',
-            );
-            _say(_turn.failureLine(body));
-            return;
-          case WaifuFinalAction.failVerify:
-            _reject('turn', 'no verify after a project file change');
-            _say(_turn.failureLine(body));
-            return;
-          case WaifuFinalAction.failTodoWrite:
-            _reject('turn', 'no todowrite receipt for a claimed todo update');
-            _say(_turn.failureLine(body));
-            return;
+          }
+          _reject(
+            'turn',
+            'tool work ended without an in-character spoken line',
+          );
+          _say(_turn.failureLine(body));
+          return;
         }
+        _turn.rememberToolSpeech(body);
+        var checkIn = false;
+        for (final call in calls) {
+          if (_aborted) return;
+          if (waifuShouldCheckInBefore(
+            rootTurn: depth == 0,
+            mutationsSinceCheckIn: _turn.mutationsSinceCheckIn,
+            toolName: call.name,
+          )) {
+            _turn.requestCheckInSpeech();
+            checkIn = true;
+            break;
+          }
+          await _runTool(call.name, call.arguments);
+        }
+        if (checkIn) continue;
+        continue;
       }
 
-      _turn.rememberToolSpeech(body);
-      var checkIn = false;
-      for (final call in calls) {
-        if (_aborted) return;
-        if (waifuShouldCheckInBefore(
-          rootTurn: depth == 0,
-          mutationsSinceCheckIn: _turn.mutationsSinceCheckIn,
-          toolName: call.name,
-        )) {
-          _turn.requestCheckInSpeech();
-          checkIn = true;
-          break;
-        }
-        await _runTool(call.name, call.arguments);
+      switch (_turn.onEmptyCalls(body)) {
+        case WaifuTurnStep.accept:
+          _say(_turn.pendingSpeech);
+          return;
+        case WaifuTurnStep.retry:
+          continue;
+        case WaifuTurnStep.fail:
+          _reject('turn', _turn.failReason);
+          _say(_turn.pendingSpeech);
+          return;
       }
-      if (checkIn) continue;
     }
 
     if (_aborted) return;
@@ -177,5 +153,89 @@ extension _WaifuHarnessTurn on WaifuHarness {
         ok: false,
       ),
     );
+  }
+
+  WaifuMessage _liveAssistant() {
+    final live = _turn.live;
+    if (live != null) {
+      final i = session.transcript.indexOf(live);
+      if (i >= 0 && session.transcript[i].kind == WaifuMsgKind.assistant) {
+        return session.transcript[i];
+      }
+    }
+    session.transcript.add(const WaifuMessage.assistant(''));
+    _turn.live = session.transcript.last;
+    return session.transcript.last;
+  }
+
+  void _writeLive(WaifuMessage msg) {
+    final live = _turn.live;
+    if (live != null) {
+      final i = session.transcript.indexOf(live);
+      if (i >= 0 && session.transcript[i].kind == WaifuMsgKind.assistant) {
+        session.transcript[i] = msg;
+        _turn.live = msg;
+        return;
+      }
+    }
+    session.transcript.add(msg);
+    _turn.live = msg;
+  }
+
+  void _beginStream() {
+    _streamBuf = '';
+    _priorReasoning = '';
+    _writeLive(
+      waifuBeginStream(_liveAssistant(), DateTime.now().millisecondsSinceEpoch),
+    );
+    _emit();
+  }
+
+  void _onChunk(String chunk) {
+    if (_aborted || chunk.isEmpty) return;
+    _streamBuf += chunk;
+    _writeLive(
+      waifuApplyChunk(
+        last: _liveAssistant(),
+        priorReasoning: _priorReasoning,
+        streamBuf: _streamBuf,
+        paintBody: _turn.speechOnly,
+      ),
+    );
+    if (!session.tokensFromApi) {
+      session.tokensUsed += waifuEstimateTokens(chunk);
+    }
+    _emit();
+  }
+
+  void _endStream() {
+    if (_aborted) return;
+    _writeLive(
+      waifuEndStream(_liveAssistant(), DateTime.now().millisecondsSinceEpoch),
+    );
+    _emit();
+  }
+
+  void _noteReasoning(LlmToolResponse resp) {
+    final next = waifuMergeReasoning(_liveAssistant(), resp);
+    if (next == null) return;
+    _writeLive(next);
+    _emit();
+  }
+
+  void _say(String text) {
+    final live = _turn.live;
+    if (live != null) {
+      final i = session.transcript.indexOf(live);
+      if (i >= 0 && session.transcript[i].kind == WaifuMsgKind.assistant) {
+        _writeLive(live.copyWith(text: text));
+        _emit();
+        return;
+      }
+    }
+    final msg = WaifuMessage.assistant(text);
+    session.transcript.add(msg);
+    _turn.live = msg;
+    _emit();
   }
 }

@@ -19,12 +19,6 @@
 part of 'waifu_harness.dart';
 
 extension _WaifuHarnessCompact on WaifuHarness {
-  bool _isLiveAssistantAt(int i) {
-    if (i < 0 || i >= session.transcript.length) return false;
-    final m = session.transcript[i];
-    return m.kind == WaifuMsgKind.assistant;
-  }
-
   String _safeCue() {
     try {
       return _turn.cue;
@@ -165,7 +159,9 @@ extension _WaifuHarnessCompact on WaifuHarness {
         ..addAll(recent);
     }
     session.compactPasses++;
-    _stepAt = null;
+    try {
+      _turn.live = null;
+    } catch (_) {}
     if (force) {
       session.transcript.add(const WaifuMessage.assistant('Folded old turns.'));
     }

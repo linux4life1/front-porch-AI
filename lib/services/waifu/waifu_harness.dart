@@ -43,6 +43,7 @@ import 'package:front_porch_ai/services/waifu/waifu_stream.dart';
 import 'package:front_porch_ai/services/waifu/waifu_subagent.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
+import 'package:front_porch_ai/services/waifu/waifu_turn.dart';
 import 'package:front_porch_ai/services/waifu/waifu_turn_contract.dart';
 import 'package:front_porch_ai/services/waifu/waifu_undo.dart';
 import 'package:front_porch_ai/services/waifu/waifu_webfetch.dart';
@@ -111,7 +112,6 @@ class WaifuHarness {
   WaifuQuestionFn? onQuestion;
 
   bool _aborted = false;
-  int? _stepAt;
   String _streamBuf = '';
   String _priorReasoning = '';
   Completer<WaifuAskDecision>? _askWait;
@@ -120,7 +120,7 @@ class WaifuHarness {
   String _planBlock = '';
   List<String>? _turnImages;
   final _children = <WaifuHarness>[];
-  late WaifuTurnContract _turn;
+  late WaifuTurn _turn;
 
   bool get isRunning => session.running;
   bool get canUndo => undoLog.canUndo;
@@ -155,9 +155,8 @@ class WaifuHarness {
     if ((text.isEmpty && imagePng == null) || session.running) return;
     if (text.isEmpty) text = '(photo)';
     _aborted = false;
-    _stepAt = null;
     _turnImages = imagePng == null ? null : [base64Encode(imagePng)];
-    _turn = WaifuTurnContract.start(
+    _turn = WaifuTurn.start(
       text,
       session.lastWrite,
       mode: session.mode,
@@ -219,12 +218,10 @@ class WaifuHarness {
     final q = _questionWait;
     if (q != null && !q.isCompleted) q.complete('');
     if (session.running) {
-      final i = _stepAt;
-      final keep =
-          i != null &&
-          _isLiveAssistantAt(i) &&
-          session.transcript[i].text.trim().isNotEmpty;
-      if (keep) _stepAt = null;
+      final live = _turn.live;
+      if (live != null && live.text.trim().isNotEmpty) {
+        _turn.live = null;
+      }
       _say('Stopped.');
     }
     _emit();
@@ -375,79 +372,6 @@ class WaifuHarness {
       chips.add(chip);
     }
     _writeLive(last.copyWith(chips: chips));
-    _emit();
-  }
-
-  WaifuMessage _liveAssistant() {
-    final i = _stepAt;
-    if (i != null && _isLiveAssistantAt(i)) {
-      return session.transcript[i];
-    }
-    session.transcript.add(const WaifuMessage.assistant(''));
-    _stepAt = session.transcript.length - 1;
-    return session.transcript.last;
-  }
-
-  void _writeLive(WaifuMessage msg) {
-    final i = _stepAt ?? session.transcript.length - 1;
-    if (i < 0 || i >= session.transcript.length || !_isLiveAssistantAt(i)) {
-      session.transcript.add(msg);
-      _stepAt = session.transcript.length - 1;
-      return;
-    }
-    session.transcript[i] = msg;
-  }
-
-  void _beginStream() {
-    _streamBuf = '';
-    _priorReasoning = '';
-    _writeLive(
-      waifuBeginStream(_liveAssistant(), DateTime.now().millisecondsSinceEpoch),
-    );
-    _emit();
-  }
-
-  void _onChunk(String chunk) {
-    if (_aborted || chunk.isEmpty) return;
-    _streamBuf += chunk;
-    _writeLive(
-      waifuApplyChunk(
-        last: _liveAssistant(),
-        priorReasoning: _priorReasoning,
-        streamBuf: _streamBuf,
-        paintBody: _turn.speechOnly,
-      ),
-    );
-    if (!session.tokensFromApi) {
-      session.tokensUsed += waifuEstimateTokens(chunk);
-    }
-    _emit();
-  }
-
-  void _endStream() {
-    if (_aborted) return;
-    _writeLive(
-      waifuEndStream(_liveAssistant(), DateTime.now().millisecondsSinceEpoch),
-    );
-    _emit();
-  }
-
-  void _noteReasoning(LlmToolResponse resp) {
-    final next = waifuMergeReasoning(_liveAssistant(), resp);
-    if (next == null) return;
-    _writeLive(next);
-    _emit();
-  }
-
-  void _say(String text) {
-    final i = _stepAt;
-    if (i != null && _isLiveAssistantAt(i)) {
-      final last = session.transcript[i];
-      _writeLive(last.copyWith(text: text));
-    } else {
-      session.transcript.add(WaifuMessage.assistant(text));
-      _stepAt = session.transcript.length - 1;
-    }
     _emit();
   }
 

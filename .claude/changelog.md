@@ -1,3 +1,15 @@
+## 2026-09-10 — fix(waifu): turn wrap-up is receipts and phases
+- **Why:** Wrap-up was a 10-way English nanny on the bubble, and the
+  live assistant pointer was a transcript integer that compact could
+  steal.
+- **What:** `WaifuTurn` owns the live bubble, receipts, and phase
+  (tools / verify / speak / done). The loop accepts, retries, or fails.
+  “Done” is accept after write+verify. `_stepAt` is gone.
+- **Files:** `waifu_turn.dart`, `waifu_harness.dart`,
+  `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
+  `waifu_turn_contract.dart`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): recap is a message kind
 - **Why:** Recap was still `hidden` + a `[Session compact]` prefix, so a
   user who typed that string became a recap, and the prompt had to sniff

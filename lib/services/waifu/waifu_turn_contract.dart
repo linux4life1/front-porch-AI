@@ -162,7 +162,6 @@ class WaifuTurnContract {
   bool todoWriteSucceeded = false;
   bool todoWriteRequired = false;
   int mutationsSinceCheckIn = 0;
-  bool checkInWrapUp = false;
   bool speechOnly = false;
   int mutationCorrectionAttempts = 0;
   int speechCorrectionAttempts = 0;
@@ -346,7 +345,6 @@ class WaifuTurnContract {
   }
 
   void requestCheckInSpeech() {
-    checkInWrapUp = true;
     speechOnly = false;
     mutationsSinceCheckIn = 0;
     cue = kWaifuCheckInTurnCue;
