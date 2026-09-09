@@ -8,7 +8,7 @@
   `waifu_harness_turn.dart`, `waifu_harness_dispatch.dart`,
   `waifu_compact.dart`, `waifu_store.dart`, `waifu_coworker_prompt.dart`,
   `waifu_transcript.dart`
-- **Commit:**
+- **Commit:** 95181bb5
 
 ## 2026-09-10 — fix(waifu): one permission decide() after jail
 - **Why:** Nine permission gates, unknown MCP names falling through to
