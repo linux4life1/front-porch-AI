@@ -72,8 +72,10 @@ class WaifuHarness {
     WaifuWebFetch? webfetch,
     this.webSearch,
     this.mcpTools = const [],
+    this.mcpToolsOf,
     this.mcpOptIn = false,
     this.mcpCall,
+    this.mcpCallOf,
     this.store,
     this.depth = 0,
     this.exploreOnly = false,
@@ -102,8 +104,10 @@ class WaifuHarness {
   final WaifuWebFetch webfetch;
   final WaifuWebSearchFn? webSearch;
   final List<Map<String, dynamic>> mcpTools;
+  final List<Map<String, dynamic>> Function()? mcpToolsOf;
   bool mcpOptIn;
   final WaifuMcpCallFn? mcpCall;
+  final WaifuMcpCallFn? Function()? mcpCallOf;
   final WaifuStore? store;
   final int depth;
   final bool exploreOnly;
@@ -234,7 +238,7 @@ class WaifuHarness {
     final call = WaifuCall.parse(
       name,
       args,
-      mcpMutates: waifuMcpMutationHint(name, mcpTools),
+      mcpMutates: waifuMcpMutationHint(name, _mcpToolsNow()),
     );
     final work = call.args;
     final kind = waifuSubagentKind(name, work);
@@ -334,7 +338,7 @@ class WaifuHarness {
   }
 
   Set<String> get _mcpNames => {
-    for (final t in waifuKeepMcpTools(mcpTools))
+    for (final t in waifuKeepMcpTools(_mcpToolsNow()))
       ((t['function'] as Map?)?['name'] ?? '').toString(),
   }.difference({''});
 
@@ -388,7 +392,9 @@ class WaifuHarness {
       mentionBlock: _mentionBlock,
       toolTrace: '',
       skillBlock: skills.catalogPrompt,
-      mcpBlock: mcpOptIn ? waifuMcpToolsLine(waifuKeepMcpTools(mcpTools)) : '',
+      mcpBlock: mcpOptIn
+          ? waifuMcpToolsLine(waifuKeepMcpTools(_mcpToolsNow()))
+          : '',
       preserveThinking: session.preserveThinking,
       pathMode: session.pathMode,
       taskDepthRemaining: kWaifuMaxTaskDepth - depth,

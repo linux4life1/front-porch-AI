@@ -138,6 +138,7 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
           initialFolder: folder,
           initialCoworker: coworker,
           skipProject: skipProject,
+          store: _storeOf(),
         ),
       ),
     );

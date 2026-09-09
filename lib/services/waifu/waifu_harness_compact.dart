@@ -27,13 +27,29 @@ extension _WaifuHarnessCompact on WaifuHarness {
     }
   }
 
+  List<Map<String, dynamic>> _mcpToolsNow() {
+    try {
+      return List<Map<String, dynamic>>.from(mcpToolsOf?.call() ?? mcpTools);
+    } catch (_) {
+      return mcpTools;
+    }
+  }
+
+  WaifuMcpCallFn? _mcpCallNow() {
+    try {
+      return mcpCallOf?.call() ?? mcpCall;
+    } catch (_) {
+      return mcpCall;
+    }
+  }
+
   List<Map<String, dynamic>> _advertisedTools({required bool speechOnly}) {
     if (speechOnly) return const <Map<String, dynamic>>[];
     return waifuAdvertisedTools(
       exploreOnly: exploreOnly,
       includeWebSearch: webSearch != null,
       mcpOptIn: mcpOptIn,
-      mcpTools: mcpTools,
+      mcpTools: _mcpToolsNow(),
       includeTask: depth < kWaifuMaxTaskDepth,
       includeWorkflow: depth == 0,
       pathMode: session.pathMode,

@@ -43,6 +43,7 @@ export 'waifu_honesty_text.dart';
 export 'waifu_page.dart';
 export 'waifu_scope_badge.dart';
 export 'waifu_session_chrome.dart';
+export 'waifu_session_scope.dart';
 export 'waifu_sidebar.dart';
 export 'waifu_transcript.dart';
 export 'waifu_question_dialog.dart';

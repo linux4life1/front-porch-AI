@@ -21,7 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Compact Plan/Build/Yolo or Jail/Disk chip. Reused on AppBar and mode bar.
+/// Compact Plan/Build/Yolo or Jail/Disk receipt. Display only — mode
+/// chips live on [WaifuModeBar]. Jail/Disk is sit-down, not a live chip.
 class WaifuChromeBadge extends StatelessWidget {
   const WaifuChromeBadge({
     super.key,

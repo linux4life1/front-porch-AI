@@ -1,3 +1,16 @@
+## 2026-09-10 — fix(waifu): one mode control, live MCP catalog, Stop on leave
+- **Why:** Plan/Build/Yolo chips were duplicated, MCP tools froze at sit-down,
+  leaving the page did not Stop, and a new session in a known folder re-quizzed
+  honesty.
+- **What:** Factory file owns `WaifuHarness(`. Catalog re-reads each generate.
+  Dispose aborts. Sidebar chips are the only mode control. Jail/Disk is a
+  receipt. MCP is “Let her use MCP”. Empty Plan is a one-line hint. Known
+  porches skip the honesty re-quiz.
+- **Files:** `waifu_session_scope.dart`, `waifu_page.dart`, `waifu_harness.dart`,
+  `waifu_mode_bar.dart`, `waifu_mcp_opt_in.dart`, `waifu_plan_stage.dart`,
+  `waifu_wizard_page.dart`, `waifu_store.dart`, `waifu_sit_down.dart`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): one history list; tool results are messages
 - **Why:** Tool dumps lived in a sidecar `toolTraces` list, so a fold
   could drop speech while the model still saw a novel of old reads.

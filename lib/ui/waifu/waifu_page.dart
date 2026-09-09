@@ -34,6 +34,7 @@ import 'package:front_porch_ai/ui/waifu/waifu_question_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_composer.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_plan_stage.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_chrome.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_sidebar.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_transcript.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_work_strip.dart';
@@ -101,6 +102,11 @@ class _WaifuPageState extends State<WaifuPage> {
   void dispose() {
     _composer.dispose();
     widget.session.langs?.killAll();
+    final h = widget.harness ?? _created;
+    if (h != null) {
+      h.onChanged = null;
+      h.abort();
+    }
     super.dispose();
   }
 
@@ -125,17 +131,8 @@ class _WaifuPageState extends State<WaifuPage> {
 
   void rebuildState(VoidCallback fn) => setState(fn);
 
-  WaifuStore? _storeOf(BuildContext context) {
-    if (widget.store != null) return widget.store;
-    try {
-      final storage = Provider.of<StorageService>(context, listen: false);
-      final root = storage.rootPath;
-      if (root == null || root.isEmpty) return null;
-      return WaifuStore(waifuStoreDirectory(root));
-    } catch (_) {
-      return null;
-    }
-  }
+  WaifuStore? _storeOf(BuildContext context) =>
+      waifuStoreForContext(context, injected: widget.store);
 
   WaifuSkillHub _skillsOf() {
     final fromHarness = (widget.harness ?? _created)?.skills;
@@ -151,58 +148,31 @@ class _WaifuPageState extends State<WaifuPage> {
     final injected = widget.harness;
     if (injected != null) return injected;
     if (_created != null) return _created;
-    final store = _storeOf(context);
-    final llm = widget.llm;
-    final mcp = waifuMcpBind(context);
-    final webSearch = waifuWebSearchBind(context);
-    final skills = _skillsOf();
-    if (llm != null) {
-      return _created = WaifuHarness(
-        session: widget.session,
-        llm: llm,
-        store: store,
-        onChanged: _refresh,
-        onAsk: _ask,
-        onQuestion: _askQuestion,
-        mcpTools: mcp.tools,
-        mcpCall: mcp.call,
-        mcpOptIn: widget.session.mcpOptIn,
-        webSearch: webSearch,
-        skills: skills,
-      );
-    }
+    LLMProvider? provider;
+    StorageService? storage;
     try {
-      final provider = Provider.of<LLMProvider>(context, listen: false);
-      StorageService? storage;
+      storage = Provider.of<StorageService>(context, listen: false);
+    } catch (_) {}
+    if (widget.llm == null) {
       try {
-        storage = Provider.of<StorageService>(context, listen: false);
-      } catch (_) {}
-      return _created = WaifuHarness(
-        session: widget.session,
-        llm: LlmServiceWaifuLlm(
-          () => provider.activeService,
-          settingsOf: () => widget.session.genSettings,
-          storage: storage,
-          remainingTokensOf: () => waifuOutputTokenBudget(
-            budget: widget.session.contextBudget,
-            used: widget.session.tokensUsed,
-          ),
-          reasoningEnabled: storage?.reasoningEnabled ?? false,
-          reasoningEffort: storage?.reasoningEffort ?? 'medium',
-        ),
-        store: store,
-        onChanged: _refresh,
-        onAsk: _ask,
-        onQuestion: _askQuestion,
-        mcpTools: mcp.tools,
-        mcpCall: mcp.call,
-        mcpOptIn: widget.session.mcpOptIn,
-        webSearch: webSearch,
-        skills: skills,
-      );
-    } catch (_) {
-      return null;
+        provider = Provider.of<LLMProvider>(context, listen: false);
+      } catch (_) {
+        return null;
+      }
     }
+    return _created = waifuBindSessionHarness(
+      session: widget.session,
+      llm: widget.llm,
+      provider: provider,
+      storage: storage,
+      store: _storeOf(context),
+      onChanged: _refresh,
+      onAsk: _ask,
+      onQuestion: _askQuestion,
+      mcpOf: waifuLiveMcpOf(context),
+      webSearch: waifuWebSearchBind(context),
+      skills: _skillsOf(),
+    );
   }
 
   Future<WaifuAskDecision> _ask(WaifuAskRequest request) async {

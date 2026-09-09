@@ -41,6 +41,21 @@ class WaifuPlanStage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!waifuPlanStageVisible(session)) return const SizedBox.shrink();
     final amber = AppColors.porchAmberOf(context);
+    final hasFile = (session.activePlanPath ?? '').isNotEmpty;
+    if (!hasFile) {
+      return Padding(
+        key: const Key('waifu-plan-stage-hint'),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Text(
+          'No plan file yet. Stay in Plan and ask them to write '
+          '$kWaifuPlansDir/<slug>.md.',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary(context),
+          ),
+        ),
+      );
+    }
     return SizedBox(
       height: 280,
       child: Container(

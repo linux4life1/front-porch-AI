@@ -48,9 +48,11 @@ class WaifuSessionChrome extends StatelessWidget {
               key: const Key('waifu-appbar-mode'),
               mode: session.mode,
             ),
-            WaifuScopeBadge(
-              key: const Key('waifu-appbar-scope'),
-              pathMode: session.pathMode,
+            IgnorePointer(
+              child: WaifuScopeBadge(
+                key: const Key('waifu-appbar-scope'),
+                pathMode: session.pathMode,
+              ),
             ),
             Text(
               folderName,

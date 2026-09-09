@@ -123,6 +123,32 @@ class WaifuStore {
     return null;
   }
 
+  /// Jail/Disk + honesty already on file for [folderRoot], or null.
+  Future<WaifuPorchConsent?> loadPorchConsent(String folderRoot) async {
+    final own = await _readConsentFile(_sessionFile(folderRoot));
+    if (own != null) return own;
+    if (!await _lastFile.exists()) return null;
+    try {
+      final map = jsonDecode(await _lastFile.readAsString());
+      if (map is! Map) return null;
+      if (map['folderRoot']?.toString() != folderRoot) return null;
+      return waifuPorchConsentFromMap(map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<WaifuPorchConsent?> _readConsentFile(File file) async {
+    if (!await file.exists()) return null;
+    try {
+      final map = jsonDecode(await file.readAsString());
+      if (map is! Map) return null;
+      return waifuPorchConsentFromMap(map);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> forgetProject(String folderRoot) async {
     final file = _sessionFile(folderRoot);
     if (await file.exists()) await file.delete();
@@ -139,6 +165,7 @@ class WaifuStore {
     'folderRoot': session.folderRoot,
     'mode': session.mode.name,
     'pathMode': session.pathMode.name,
+    'honestyAccepted': true,
     'mcpOptIn': session.mcpOptIn,
     'preserveThinking': session.preserveThinking,
     'toolsSupported': session.toolsSupported,

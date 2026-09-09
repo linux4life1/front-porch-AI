@@ -16,8 +16,42 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
+
 /// Permission gear for one Waifu Coder session. Not a personality.
 enum WaifuMode { plan, build, yolo }
+
+/// Sit-down Jail/Disk + honesty already on file for this porch.
+class WaifuPorchConsent {
+  const WaifuPorchConsent({
+    required this.pathMode,
+    required this.honestyAccepted,
+  });
+
+  final WaifuPathMode pathMode;
+  final bool honestyAccepted;
+}
+
+/// New session in a known folder skips the honesty re-quiz when the
+/// store already has pathMode + honesty for that porch.
+bool waifuSkipHonestyQuiz(WaifuPorchConsent? consent) =>
+    consent != null && consent.honestyAccepted;
+
+/// Parse the parked-session map. A saved porch is sit-down consent;
+/// [honestyAccepted] false is an explicit withhold.
+WaifuPorchConsent? waifuPorchConsentFromMap(Map<dynamic, dynamic> map) {
+  final folder = map['folderRoot']?.toString() ?? '';
+  if (folder.isEmpty) return null;
+  final pathModeName = map['pathMode']?.toString() ?? '';
+  if (pathModeName.isEmpty && map['honestyAccepted'] != true) return null;
+  final pathMode = pathModeName == 'wholeDisk'
+      ? WaifuPathMode.wholeDisk
+      : WaifuPathMode.folderJail;
+  if (map['honestyAccepted'] == false) return null;
+  final honesty = map['honestyAccepted'] == true || pathModeName.isNotEmpty;
+  if (!honesty) return null;
+  return WaifuPorchConsent(pathMode: pathMode, honestyAccepted: true);
+}
 
 /// Sit down Confirm is live only when every required piece is present.
 /// Tools-unsupported is a hard block even with the honesty box ticked.
@@ -41,4 +75,3 @@ bool waifuResolveToolsSupported({
   required bool knownUnsupported,
   required bool paused,
 }) => !knownUnsupported && !paused;
-

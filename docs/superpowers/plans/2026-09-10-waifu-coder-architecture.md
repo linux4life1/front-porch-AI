@@ -398,7 +398,7 @@ Target ≤ 200 lines after extract.
 - Test (new): `test/ui/waifu/waifu_chrome_once_test.dart` — one ModeBar control; scope badge not tappable to change pathMode.
 - Test (new): `test/services/waifu/waifu_mcp_live_catalog_test.dart` — after construction, changing the tools callback changes advertised names on the next generate.
 
-- [ ] Commit: `fix(waifu): one mode control, live MCP catalog, Stop on leave`
+- [x] Commit: `fix(waifu): one mode control, live MCP catalog, Stop on leave`
 
 **Wave 6 acceptance:** grep `WaifuHarness(` in `waifu_page.dart` is zero (factory file owns it). `dispose` aborts. Ticking MCP after sit-down without leaving the page affects the next send.
 

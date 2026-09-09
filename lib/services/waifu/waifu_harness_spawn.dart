@@ -43,7 +43,9 @@ extension _WaifuHarnessSpawn on WaifuHarness {
       exploreOnly: exploreOnly,
       skills: skills,
       mcpTools: mcpTools,
+      mcpToolsOf: mcpToolsOf,
       mcpCall: mcpCall,
+      mcpCallOf: mcpCallOf,
       mcpOptIn: mcpOptIn,
     );
   }

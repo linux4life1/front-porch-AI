@@ -42,6 +42,7 @@ class WaifuWizardPage extends StatefulWidget {
     this.skipProject = false,
     this.onSatDown,
     this.listDirectory,
+    this.store,
   });
 
   final List<CharacterCard>? characters;
@@ -55,6 +56,9 @@ class WaifuWizardPage extends StatefulWidget {
 
   /// Test seam. Production uses [listWaifuDirectory].
   final Future<WaifuFolderListing> Function(String path)? listDirectory;
+
+  /// When this porch already has pathMode + honesty, skip the re-quiz.
+  final WaifuStore? store;
 
   @override
   State<WaifuWizardPage> createState() => _WaifuWizardPageState();
@@ -70,6 +74,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
   bool _folderConfirmed = false;
   CharacterCard? _coworker;
   bool _honesty = false;
+  bool _skipHonesty = false;
   WaifuMode _mode = WaifuMode.build;
   WaifuPathMode _pathMode = WaifuPathMode.folderJail;
 
@@ -83,6 +88,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
       _currentStep = widget.initialCoworker == null ? 1 : 2;
     }
     _load();
+    _hydrateConsent();
   }
 
   Future<void> _load() async {
@@ -100,8 +106,25 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
     setState(() {
       _path = path;
       _folderConfirmed = false;
+      _honesty = false;
+      _skipHonesty = false;
+      _pathMode = WaifuPathMode.folderJail;
     });
     _load();
+    _hydrateConsent();
+  }
+
+  Future<void> _hydrateConsent() async {
+    final store = widget.store;
+    if (store == null || _path.isEmpty) return;
+    final consent = await store.loadPorchConsent(_path);
+    if (!mounted) return;
+    if (!waifuSkipHonestyQuiz(consent)) return;
+    setState(() {
+      _pathMode = consent!.pathMode;
+      _honesty = true;
+      _skipHonesty = true;
+    });
   }
 
   List<CharacterCard> get _cards {
@@ -211,6 +234,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
           }),
           onHonestyChanged: (v) => setState(() => _honesty = v),
           onConfirm: _confirm,
+          skipHonestyQuiz: _skipHonesty,
         );
     }
   }

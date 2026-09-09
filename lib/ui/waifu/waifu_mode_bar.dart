@@ -20,7 +20,6 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_scope_badge.dart';
 
 class WaifuModeBar extends StatelessWidget {
   const WaifuModeBar({
@@ -48,22 +47,6 @@ class WaifuModeBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              WaifuModeBadge(
-                key: const Key('waifu-harness-mode'),
-                mode: mode,
-              ),
-              WaifuScopeBadge(
-                key: const Key('waifu-harness-scope'),
-                pathMode: pathMode,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             children: [

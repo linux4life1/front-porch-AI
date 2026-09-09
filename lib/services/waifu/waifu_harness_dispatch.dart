@@ -85,10 +85,11 @@ extension _WaifuHarnessDispatch on WaifuHarness {
         if (kWaifuFsToolNames.contains(canon)) {
           return fs.dispatch(canon, args);
         }
+        final mcp = _mcpCallNow();
         if (mcpOptIn &&
-            mcpCall != null &&
+            mcp != null &&
             (_mcpNames.contains(raw) || _mcpNames.contains(canon))) {
-          final result = await mcpCall!(raw, args);
+          final result = await mcp(raw, args);
           return WaifuToolResult(
             ok: result.ok,
             output: waifuSanitizeMcpOutput(result.output),

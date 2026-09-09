@@ -27,8 +27,9 @@ const kWaifuPlanBuildGateCue =
 
 enum WaifuModeApply { applied, blockedDraft }
 
-/// Main-stage Plan chrome is Plan mode only. Build/Yolo keep the accepted
-/// plan in the prompt; the 280px editor does not stay on the composer.
+/// Main-stage Plan chrome is Plan mode only. Empty Plan is a one-line
+/// hint. Build/Yolo keep the accepted plan in the prompt; the editor
+/// does not stay on the composer.
 bool waifuPlanStageVisible(WaifuSession session) {
   return session.mode == WaifuMode.plan;
 }
