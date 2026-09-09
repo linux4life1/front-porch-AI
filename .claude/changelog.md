@@ -12,7 +12,7 @@
 - **Files:** `waifu_wizard_page.dart`, `waifu_slash.dart`,
   `waifu_slice_e_test.dart`, `waifu_tools_fail_closed_test.dart`,
   `waifu_loop_chrome_test.dart`
-- **Commit:** (this commit)
+- **Commit:** c140247f
 
 ## 2026-09-09 — fix(waifu): real context meter + OpenCode-style compact
 - **Why:** The sidebar bar was chars÷4 of the user prompt, so system and
