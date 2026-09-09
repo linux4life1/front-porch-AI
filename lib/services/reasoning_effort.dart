@@ -184,6 +184,33 @@ bool reasoningEffortIsToggleOnly(String model) {
 bool reasoningEffortIsMandatory(String model) =>
     model.isNotEmpty && kMandatoryReasoningModels.contains(model);
 
+/// Evals, Continue, and "Request thinking = off" all send enabled:false.
+bool askedToDisableThinking({
+  required bool reasoningEnabled,
+  int? reasoningMaxTokens,
+}) => !reasoningEnabled || reasoningMaxTokens == 0;
+
+/// A 400/422 while we asked to switch thinking off is the Kimi salvage
+/// signal for **every** model. Provider wording is not a contract — GLM 5.3
+/// says "always thinks and does not support disabling reasoning"; Kimi says
+/// "mandatory-reasoning model". Phrase-matching those is the mole.
+///
+/// Effort-listing 400s ("Supported values: none, high, max") stay on the
+/// effort-learn path. 401/404/429/5xx are not a thinking-off verdict.
+bool shouldFailoverToMandatoryReasoning({
+  required int statusCode,
+  required bool askedToDisableThinking,
+  String errorMessage = '',
+}) {
+  if (!askedToDisableThinking) return false;
+  if (statusCode != 400 && statusCode != 422) return false;
+  if (errorMessage.isNotEmpty &&
+      supportedReasoningEffortsFromError(errorMessage) != null) {
+    return false;
+  }
+  return true;
+}
+
 /// Models that 400 `reasoning.enabled=false` even before we have learned
 /// them. Kimi's thinking variants did this live on 2026-08-08 and again
 /// on kimi-k2.6:thinking 2026-08-15. Used on the wire so the first eval

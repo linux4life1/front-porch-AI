@@ -1,3 +1,17 @@
+## 2026-09-08 — fix(realism): thinking-off 400 failovers to Kimi salvage
+- **Why:** GLM 5.3 400s "always thinks and does not support disabling
+  reasoning." The old matcher wanted Kimi's "mandatory" / "exclude=true"
+  phrasing, so both eval attempts died and Realism/Needs dropped. The
+  next model would be another phrase mole.
+- **What:** Any 400/422 while we asked to disable thinking (every model)
+  remembers mandatory-reasoning and retries with Kimi salvage (no
+  `enabled:false`, keep the think channel, +16k headroom). Effort-listing
+  400s and 429/5xx stay on their own paths. Stream + tools doors.
+- **Files:** `reasoning_effort.dart`, `open_router_service.dart`,
+  `openai_tool_payload.dart`, `mandatory_reasoning_failover_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-08 — fix(tts): macOS Sherpa dylib path after sherpa_onnx 1.13.6
 - **Why:** Stable v1.3.2 Kokoro/Piper/Whisper loaded no audio. The C
   API dylib ships at `Contents/Frameworks/libsherpa-onnx-c-api.dylib`,

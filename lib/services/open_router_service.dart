@@ -34,22 +34,6 @@ import 'package:front_porch_ai/services/remote_reachability.dart';
 // RemoteModelInfo lived here for years — re-export so importers keep working.
 export 'package:front_porch_ai/services/remote_model_info.dart';
 
-/// Does this provider error mean "you may not switch my reasoning off"?
-///
-/// Matched on the message rather than a status code because 400 covers every
-/// malformed-request case; keyed on the two words every provider phrasing so
-/// far shares. Nano-GPT: "Kimi K2 Thinking is a mandatory-reasoning model. Use
-/// reasoning.exclude=true to hide reasoning output." Deliberately narrow — a
-/// false positive here would silently stop us disabling reasoning on a model
-/// that supports it, which costs the user tokens on every eval forever.
-bool _isMandatoryReasoningRejection(String msg) {
-  final m = msg.toLowerCase();
-  return m.contains('reasoning') &&
-      (m.contains('mandatory') ||
-          m.contains('cannot be disabled') ||
-          m.contains('exclude=true'));
-}
-
 /// Pull a human error string out of a provider JSON body (or the raw body).
 /// Several Nano/OpenRouter shapes exist; we try them all so the effort
 /// learn-path is not skipped just because the envelope moved.
@@ -102,6 +86,18 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   /// `contains('localhost')` gate left those servers on the OpenRouter
   /// `reasoning` object, which they ignore.
   bool get _isLocalUrl => isLocalRemoteUrl(_apiUrl);
+
+  /// Thinking-off 400/422 → Kimi salvage for this model, any host phrasing.
+  bool _thinkingOffRejected(int status, GenerationParams params, String err) =>
+      !reasoningCannotDisable(modelName) &&
+      shouldFailoverToMandatoryReasoning(
+        statusCode: status,
+        askedToDisableThinking: askedToDisableThinking(
+          reasoningEnabled: params.reasoningEnabled,
+          reasoningMaxTokens: params.reasoningMaxTokens,
+        ),
+        errorMessage: err,
+      );
 
   /// Credentials + model are filled in. Not a live ping.
   bool get isConfigured =>
@@ -582,6 +578,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       }
       if (streaming) {
         String? streamErr;
+        int? streamStatus;
         final streamed = await streamOpenAiChatToolsWithStyleRetry(
           identity: identity,
           tools: tools,
@@ -593,13 +590,15 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
           wrapReasoning: params.reasoningEnabled,
           salvage: params.salvageReasoning,
           onChunk: params.onChunk,
-          onHttpError: (_, body) => streamErr = body,
+          onHttpError: (status, body) {
+            streamStatus = status;
+            streamErr = body;
+          },
         );
         if (streamed != null) return streamed;
         final rejected = streamErr;
         if (rejected != null &&
-            !reasoningCannotDisable(modelName) &&
-            _isMandatoryReasoningRejection(rejected)) {
+            _thinkingOffRejected(streamStatus ?? 0, params, rejected)) {
           rememberMandatoryReasoning(modelName);
           debugPrint(
             '[RemoteAPI] $modelName cannot disable reasoning — retrying '
@@ -628,8 +627,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       }
       if (response.statusCode != 200) {
         final err = _remoteApiErrorMessage(response.body, response.statusCode);
-        if (!reasoningCannotDisable(modelName) &&
-            _isMandatoryReasoningRejection(err)) {
+        if (_thinkingOffRejected(response.statusCode, params, err)) {
           rememberMandatoryReasoning(modelName);
           debugPrint(
             '[RemoteAPI] $modelName cannot disable reasoning — retrying '
@@ -717,12 +715,11 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         // without the retry the caller still loses this eval, and for the
         // reported case that is every judge on the turn the user is waiting on.
         // The rejection then costs one round trip for the life of the process.
-        if (!reasoningCannotDisable(modelName) &&
-            _isMandatoryReasoningRejection(errorMsg)) {
+        if (_thinkingOffRejected(response.statusCode, params, errorMsg)) {
           rememberMandatoryReasoning(modelName);
           debugPrint(
             '[RemoteAPI] $modelName cannot disable reasoning — retrying with '
-            'reasoning.exclude only (remembered for this session)',
+            'Kimi salvage (remembered for this session)',
           );
           yield* generateStream(params);
           return;

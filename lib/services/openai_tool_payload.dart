@@ -68,7 +68,7 @@ bool isToolChoiceStyleRejection(int statusCode, String body) =>
 /// POST [basePayload] with tools attached, stepping named → required → auto
 /// on a 400 whose body mentions `tool_choice`. Returns the last
 /// [http.Response] — **never null**, even on an unrelated 400. The OpenRouter
-/// door must still see `_isMandatoryReasoningRejection`. 429/5xx are returned
+/// door must still see `shouldFailoverToMandatoryReasoning`. 429/5xx are returned
 /// as-is; the door throws. Never brands XML-only.
 Future<http.Response> attachToolsWithStyleRetry({
   required String identity,
