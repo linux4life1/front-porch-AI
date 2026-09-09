@@ -28,8 +28,7 @@ import 'package:front_porch_ai/services/storage/settings/settings_base.dart';
 ///
 /// Auth tokens live in the same prefs JSON as the URL. The macOS login
 /// keychain prompts for the user password on every ad-hoc launch, which
-/// made MCP unusable. Tavily stays in the keychain; a local Docker
-/// bearer token is not that class of secret.
+/// made MCP unusable. Tavily uses the same prefs store for that reason.
 class McpSettings with SettingsBase {
   McpSettings();
 

@@ -25,13 +25,14 @@ import 'settings_base.dart';
 ///
 /// Default OFF. The global is read live at generation time, so flipping it
 /// applies to already-open chats. There is no per-chat or sidebar override.
-/// The key lives in platform secure storage; no key → Wikipedia.
+///
+/// The key lives in SharedPreferences — the same durable store as OpenRouter
+/// keys and MCP tokens. macOS keychain was the previous store; ad-hoc /
+/// Rawhide launches often come back empty (the reason MCP left the
+/// keychain). A leftover keychain value is copied into prefs on load.
+/// No key → Wikipedia.
 class WebSearchSettings with SettingsBase {
   WebSearchSettings({
-    // Front Porch is a non-sandboxed, directly distributed macOS app. The
-    // data-protection keychain needs a provisioned keychain access group,
-    // which makes ad-hoc debug builds fail before Dart can start. The legacy
-    // login keychain remains encrypted by macOS without that entitlement.
     FlutterSecureStorage secureStorage = const FlutterSecureStorage(
       mOptions: MacOsOptions(usesDataProtectionKeychain: false),
     ),
@@ -50,27 +51,26 @@ class WebSearchSettings with SettingsBase {
   Future<void> load() async {
     _webSearchDefault = prefs?.getBool(k('web_search_default')) ?? false;
     final key = k(_apiKeyName);
-    final legacy = prefs?.getString(key);
-    try {
-      final secured = (await _secureStorage.read(key: key))?.trim() ?? '';
-      if (secured.isNotEmpty) {
-        _searchApiKey = secured;
-      } else if (legacy != null && legacy.trim().isNotEmpty) {
-        _searchApiKey = legacy.trim();
-        await _secureStorage.write(key: key, value: _searchApiKey);
-      } else {
-        _searchApiKey = '';
+    final fromPrefs = prefs?.getString(key)?.trim() ?? '';
+    if (fromPrefs.isNotEmpty) {
+      _searchApiKey = fromPrefs;
+      if (prefs?.getString(key) != fromPrefs) {
+        await prefs?.setString(key, fromPrefs);
       }
-    } catch (e, st) {
-      _searchApiKey = '';
-      debugPrint(
-        '[WebSearch] secure API-key load/migration failed; '
-        'using keyless Wikipedia and retaining any legacy value for retry: '
-        '$e\n$st',
-      );
       return;
     }
-    if (legacy != null) await _removePlaintext(key);
+    try {
+      final secured = (await _secureStorage.read(key: key))?.trim() ?? '';
+      if (secured.isEmpty) {
+        _searchApiKey = '';
+        return;
+      }
+      _searchApiKey = secured;
+      await prefs?.setString(key, secured);
+    } catch (e, st) {
+      _searchApiKey = '';
+      debugPrint('[WebSearch] keychain read failed (prefs empty): $e\n$st');
+    }
   }
 
   Future<void> setWebSearchDefault(bool value) async {
@@ -82,6 +82,11 @@ class WebSearchSettings with SettingsBase {
   Future<void> setSearchApiKey(String value) async {
     final key = k(_apiKeyName);
     final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      await prefs?.remove(key);
+    } else {
+      await prefs?.setString(key, trimmed);
+    }
     try {
       if (trimmed.isEmpty) {
         await _secureStorage.delete(key: key);
@@ -89,22 +94,9 @@ class WebSearchSettings with SettingsBase {
         await _secureStorage.write(key: key, value: trimmed);
       }
     } catch (e, st) {
-      debugPrint('[WebSearch] secure API-key write failed: $e\n$st');
-      rethrow;
+      debugPrint('[WebSearch] keychain write failed (prefs kept): $e\n$st');
     }
     _searchApiKey = trimmed;
-    await _removePlaintext(key);
     notify();
-  }
-
-  Future<void> _removePlaintext(String key) async {
-    try {
-      final removed = await prefs?.remove(key);
-      if (removed == false) {
-        debugPrint('[WebSearch] could not remove legacy plaintext key');
-      }
-    } catch (e, st) {
-      debugPrint('[WebSearch] legacy plaintext-key cleanup failed: $e\n$st');
-    }
   }
 }

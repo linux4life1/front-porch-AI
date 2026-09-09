@@ -68,7 +68,10 @@ void main() {
       await const FlutterSecureStorage().read(key: _key),
       'tavily-desktop-secret',
     );
-    expect((await SharedPreferences.getInstance()).containsKey(_key), isFalse);
+    expect(
+      (await SharedPreferences.getInstance()).getString(_key),
+      'tavily-desktop-secret',
+    );
     expect(find.text('Tavily key saved securely.'), findsOneWidget);
 
     await tester.tap(find.text('Remove key'));
@@ -76,6 +79,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     expect(storage.webSearchSettings.hasApiKey, isFalse);
     expect(await const FlutterSecureStorage().read(key: _key), isNull);
+    expect((await SharedPreferences.getInstance()).containsKey(_key), isFalse);
     expect(find.text('Key removed — searches use Wikipedia.'), findsOneWidget);
   });
 }

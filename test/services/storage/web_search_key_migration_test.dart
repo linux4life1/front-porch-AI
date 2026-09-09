@@ -1,11 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// One-way migration for the Tavily key: plaintext SharedPreferences must be
-// copied into platform secure storage and then removed.
-//
-// Guard proven red before passing: skip the legacy remove after secure write
-// → the plaintext-key assertion failed.
+// Tavily lives in SharedPreferences (same durable store as MCP tokens and
+// OpenRouter keys). The previous contract deleted the prefs copy after a
+// keychain write; that is why a macOS relaunch with an empty keychain
+// dropped the key. These tests now pin prefs as source of truth.
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,54 +18,48 @@ String get _key => isPreRelease ? 'beta_search_api_key' : 'search_api_key';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('migrates the plaintext Tavily key and deletes the old copy', () async {
-    SharedPreferences.setMockInitialValues({_key: '  tavily-legacy  '});
-    FlutterSecureStorage.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final settings = WebSearchSettings()..initializeBase(prefs, () {});
-
-    await settings.load();
-
-    expect(settings.searchApiKey, 'tavily-legacy');
-    expect(settings.hasApiKey, isTrue);
-    expect(prefs.containsKey(_key), isFalse);
-    expect(await const FlutterSecureStorage().read(key: _key), 'tavily-legacy');
-  });
-
-  test('an existing secure key wins and stale plaintext is removed', () async {
-    SharedPreferences.setMockInitialValues({_key: 'stale-plaintext'});
-    FlutterSecureStorage.setMockInitialValues({_key: 'secure-current'});
-    final prefs = await SharedPreferences.getInstance();
-    final settings = WebSearchSettings()..initializeBase(prefs, () {});
-
-    await settings.load();
-
-    expect(settings.searchApiKey, 'secure-current');
-    expect(prefs.containsKey(_key), isFalse);
-    expect(
-      await const FlutterSecureStorage().read(key: _key),
-      'secure-current',
-    );
-  });
-
   test(
-    'saving and clearing never recreates the plaintext preference',
+    'a prefs value is the durable copy and is not deleted on load',
     () async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({_key: '  tavily-legacy  '});
       FlutterSecureStorage.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final settings = WebSearchSettings()..initializeBase(prefs, () {});
+
       await settings.load();
 
-      await settings.setSearchApiKey('tavily-new');
+      expect(settings.searchApiKey, 'tavily-legacy');
       expect(settings.hasApiKey, isTrue);
-      expect(prefs.containsKey(_key), isFalse);
-      expect(await const FlutterSecureStorage().read(key: _key), 'tavily-new');
-
-      await settings.setSearchApiKey('');
-      expect(settings.hasApiKey, isFalse);
-      expect(prefs.containsKey(_key), isFalse);
-      expect(await const FlutterSecureStorage().read(key: _key), isNull);
+      expect(prefs.getString(_key), 'tavily-legacy');
     },
   );
+
+  test('prefs wins when both stores have a value', () async {
+    SharedPreferences.setMockInitialValues({_key: 'from-prefs'});
+    FlutterSecureStorage.setMockInitialValues({_key: 'from-keychain'});
+    final prefs = await SharedPreferences.getInstance();
+    final settings = WebSearchSettings()..initializeBase(prefs, () {});
+
+    await settings.load();
+
+    expect(settings.searchApiKey, 'from-prefs');
+  });
+
+  test('saving writes prefs; clearing removes prefs and keychain', () async {
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final settings = WebSearchSettings()..initializeBase(prefs, () {});
+    await settings.load();
+
+    await settings.setSearchApiKey('tavily-new');
+    expect(settings.hasApiKey, isTrue);
+    expect(prefs.getString(_key), 'tavily-new');
+    expect(await const FlutterSecureStorage().read(key: _key), 'tavily-new');
+
+    await settings.setSearchApiKey('');
+    expect(settings.hasApiKey, isFalse);
+    expect(prefs.containsKey(_key), isFalse);
+    expect(await const FlutterSecureStorage().read(key: _key), isNull);
+  });
 }

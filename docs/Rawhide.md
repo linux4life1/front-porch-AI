@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🔑 **Tavily key stays after a restart** — it is saved with the rest of Settings (same place as OpenRouter keys and MCP URLs). The macOS keychain copy was vanishing on relaunch.
+
 - 🎭 **Realism still runs when a model will not turn thinking off** — if an eval gets a 400 while asking for thinking off (GLM 5.3, Kimi, or the next host's wording), we keep going the Kimi way: let it think, salvage the JSON, don't drop bond/needs. Remembered for that model so the next judge is not two wasted 400s.
 
 - 🔊 **Mac voices speak again** — Kokoro, Piper, and Whisper on macOS were looking for the Sherpa library inside a nested folder the app never ships. Test Voice and the chat speaker buttons work; the model download was never the problem.

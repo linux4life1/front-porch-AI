@@ -1,3 +1,15 @@
+## 2026-09-08 — fix(search): Tavily key persists in prefs, not keychain-only
+- **Why:** Save wrote the keychain then deleted the SharedPreferences
+  copy. MCP already left the macOS keychain because ad-hoc/Rawhide
+  launches come back empty. Restart → keychain miss → Wikipedia only.
+- **What:** Prefs is the durable store (same as OpenRouter keys / MCP
+  tokens). A leftover keychain value is copied into prefs on load.
+  Keychain write/delete is best-effort and no longer required for save.
+- **Files:** `web_search_settings.dart`, `web_search_key_persist_test.dart`,
+  `web_search_key_migration_test.dart`, `web_search_key_field_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-08 — fix(realism): thinking-off 400 failovers to Kimi salvage
 - **Why:** GLM 5.3 400s "always thinks and does not support disabling
   reasoning." The old matcher wanted Kimi's "mandatory" / "exclude=true"
