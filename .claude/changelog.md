@@ -8,7 +8,7 @@
 - **Files:** `waifu_deny.dart`, `waifu_call.dart`,
   `waifu_permissions.dart`, `waifu_harness.dart`,
   `waifu_harness_dispatch.dart`, `waifu_harness_spawn.dart`
-- **Commit:**
+- **Commit:** 8c786cd8
 
 ## 2026-09-10 — fix(waifu): turn wrap-up is receipts and phases
 - **Why:** Wrap-up was a 10-way English nanny on the bubble, and the
