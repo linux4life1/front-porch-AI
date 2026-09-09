@@ -9,6 +9,8 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:path/path.dart' as p;
 
+import 'waifu_analyze_bash.dart';
+
 void main() {
   late Directory root;
   late File source;
@@ -65,6 +67,7 @@ void main() {
           ],
           text: '',
         ),
+        const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
         const LlmToolResponse(
           calls: [],
           text: 'Hmph. Your parser is fixed. Try to keep up. Obviously.',
@@ -76,7 +79,11 @@ void main() {
         mode: WaifuMode.yolo,
       );
 
-      await WaifuHarness(session: session, llm: llm).send('fix parser.dart');
+      await WaifuHarness(
+        session: session,
+        llm: llm,
+        bash: WaifuAnalyzeBash(root.path),
+      ).send('fix parser.dart');
 
       expect(await source.readAsString(), 'String parse() => "fixed";\n');
       final reply = session.transcript
@@ -85,6 +92,7 @@ void main() {
       expect(reply.chips.map((chip) => chip.name), [
         kWaifuToolApplyPatch,
         kWaifuToolRead,
+        kWaifuToolBash,
       ]);
       expect(reply.chips.every((chip) => chip.ok), isTrue);
       expect(reply.text, contains('Hmph.'));
@@ -141,6 +149,7 @@ void main() {
   test(
     'successful tools replace generic Done with a card-voice retry',
     () async {
+      await File(p.join(root.path, 'new.dart')).writeAsString('old\n');
       final llm = ScriptedWaifuLlm([
         const LlmToolResponse(
           calls: [
@@ -157,6 +166,7 @@ void main() {
           ],
           text: '',
         ),
+        const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
         const LlmToolResponse(calls: [], text: 'Done.'),
         const LlmToolResponse(
           calls: [],
@@ -169,10 +179,14 @@ void main() {
         mode: WaifuMode.yolo,
       );
 
-      await WaifuHarness(session: session, llm: llm).send('create new.dart');
+      await WaifuHarness(
+        session: session,
+        llm: llm,
+        bash: WaifuAnalyzeBash(root.path),
+      ).send('create new.dart');
 
       expect(await File(p.join(root.path, 'new.dart')).exists(), isTrue);
-      expect(llm.calls, hasLength(4));
+      expect(llm.calls, hasLength(5));
       expect(llm.calls.last.tools, isEmpty);
       final reply = session.transcript
           .where((message) => !message.isUser)
@@ -206,6 +220,7 @@ void main() {
           ],
           text: '',
         ),
+        const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
         const LlmToolResponse(calls: [], text: ''),
       ]);
       final session = WaifuSession(
@@ -214,14 +229,18 @@ void main() {
         mode: WaifuMode.yolo,
       );
 
-      await WaifuHarness(session: session, llm: llm).send('patch parser.dart');
+      await WaifuHarness(
+        session: session,
+        llm: llm,
+        bash: WaifuAnalyzeBash(root.path),
+      ).send('patch parser.dart');
 
       expect(await source.readAsString(), 'String parse() => "kept";\n');
       final reply = session.transcript
           .where((message) => !message.isUser)
           .single;
       expect(reply.text, 'Hmph. I am cleaning up your parser. Obviously.');
-      expect(llm.calls, hasLength(3));
+      expect(llm.calls, hasLength(4));
     },
   );
 

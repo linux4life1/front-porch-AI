@@ -58,7 +58,8 @@ extension _WaifuHarnessTurn on WaifuHarness {
 
       _noteReasoning(resp);
       final body = waifuVisibleText(resp.text);
-      if (_turn.speechOnly && resp.calls.isNotEmpty) {
+      final calls = waifuEffectiveToolCalls(resp);
+      if (_turn.speechOnly && calls.isNotEmpty) {
         _turn.rememberToolSpeech(body);
         if (_turn.canUseRememberedSpeech) {
           _say(_turn.rememberedSpeech);
@@ -73,7 +74,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
         return;
       }
 
-      if (resp.calls.isEmpty) {
+      if (calls.isEmpty) {
         switch (_turn.decideFinal(body, chips: _liveAssistant().chips)) {
           case WaifuFinalAction.accept:
             _say(body);
@@ -117,7 +118,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
 
       _turn.rememberToolSpeech(body);
       var checkIn = false;
-      for (final call in resp.calls) {
+      for (final call in calls) {
         if (_aborted) return;
         if (waifuShouldCheckInBefore(
           rootTurn: depth == 0,
@@ -130,13 +131,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
         }
         await _runTool(call.name, call.arguments);
       }
-      if (checkIn) {
-        if (_turn.rememberedSpeech.isNotEmpty) {
-          _say(_turn.rememberedSpeech);
-          return;
-        }
-        continue;
-      }
+      if (checkIn) continue;
     }
 
     if (_aborted) return;

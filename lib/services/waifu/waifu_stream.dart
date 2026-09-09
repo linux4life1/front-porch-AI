@@ -16,9 +16,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/waifu/waifu_session.dart';
+import 'package:front_porch_ai/services/waifu/waifu_tool_leak.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+export 'waifu_tool_leak.dart';
 
 WaifuMessage waifuBeginStream(WaifuMessage last, int nowMs) {
   return WaifuMessage(
@@ -42,9 +45,10 @@ WaifuMessage waifuApplyChunk({
   final reasoning = think.isEmpty
       ? (priorReasoning.isEmpty ? last.reasoning : priorReasoning)
       : think;
+  final visible = waifuStripToolLeak(split.body);
   return WaifuMessage(
     isUser: false,
-    text: !paintBody || split.body.isEmpty ? last.text : split.body,
+    text: !paintBody || visible.isEmpty ? last.text : visible,
     chips: last.chips,
     reasoning: reasoning,
     thinkingStartMs: last.thinkingStartMs,
@@ -67,7 +71,8 @@ WaifuMessage? waifuMergeReasoning(WaifuMessage last, LlmToolResponse resp) {
   );
 }
 
-String waifuVisibleText(String raw) => splitMessageForEdit(raw).body.trim();
+String waifuVisibleText(String raw) =>
+    waifuStripToolLeak(splitMessageForEdit(raw).body);
 
 String waifuClipChipError(String raw) {
   final t = raw.trim().replaceAll(RegExp(r'\s+'), ' ');

@@ -24,15 +24,16 @@ const kWaifuCheckInEvery = 6;
 
 const kWaifuCheckInCue =
     'Do not one-shot a large job in silence. After a handful of project '
-    'file writes, stop tools and speak in character: where you are and what '
-    'is next. That spoken line ends this turn — wait for the user. Use '
-    'question only for a real fork they must pick, never a keep-going prompt. '
-    'Do not dump extra speeches into the same bubble.';
+    'file writes, stop adding files, re-read what you changed, and run a '
+    'real test/analyze. If it fails, fix and run it again. Only then speak '
+    'in character: where you are and what is next. That spoken line ends '
+    'this turn. Use question only for a real fork, never a keep-going prompt.';
 
 const kWaifuCheckInTurnCue =
-    'TURN CONTRACT: Stop tools. Speak one in-character line: where you are '
-    'and what is next. That line ends this turn. No more tools, no keep-going '
-    'dialog, no second speech in this bubble.';
+    'TURN CONTRACT: Stop adding files. Re-read the files you changed, then '
+    'run a real test/analyze. If it fails, fix them and test again. Speak '
+    'one in-character line only after that check passes — that line ends '
+    'this turn.';
 
 const kWaifuCheckInTools = {
   kWaifuToolEdit,

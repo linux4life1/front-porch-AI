@@ -9,6 +9,8 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:path/path.dart' as p;
 
+import 'waifu_analyze_bash.dart';
+
 void main() {
   late Directory root;
 
@@ -62,6 +64,8 @@ void main() {
     expect(waifuLooksVerifyCommand('dart analyze lib/parser.dart'), isTrue);
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
+    expect(waifuLooksVerifyCommand('swift test'), isTrue);
+    expect(waifuLooksVerifyCommand('swift build'), isTrue);
     expect(waifuLooksVerifyCommand('echo flutter test'), isFalse);
     expect(waifuLooksVerifyCommand('ls -la'), isFalse);
     expect(waifuLooksVerifyCommand('test -f parser.dart'), isFalse);
@@ -78,7 +82,7 @@ void main() {
       WaifuFinalAction.retryVerify,
     );
     turn.requestVerify();
-    expect(turn.cue, contains('Re-read a touched path'));
+    expect(turn.cue, contains('Re-read the files you changed'));
     expect(
       turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
       WaifuFinalAction.retryVerify,
@@ -88,10 +92,10 @@ void main() {
       turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
       WaifuFinalAction.failVerify,
     );
-    expect(turn.failureLine('Hmph.'), contains('did not re-read or test'));
+    expect(turn.failureLine('Hmph.'), contains('did not re-read the files'));
   });
 
-  test('mutate then re-read the touched path passes', () {
+  test('mutate then re-read the touched path is not enough', () {
     final turn = afterWrite();
     turn.noteAttempt(kWaifuToolRead);
     turn.noteResult(
@@ -100,11 +104,12 @@ void main() {
       writeOk('parser.dart').write,
       args: {'path': 'parser.dart'},
     );
-    expect(turn.verified, isTrue);
-    expect(turn.allowsPlanStepDone, isTrue);
+    expect(turn.reviewed, isTrue);
+    expect(turn.tested, isFalse);
+    expect(turn.verified, isFalse);
     expect(
       turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
-      WaifuFinalAction.accept,
+      WaifuFinalAction.retryVerify,
     );
   });
 
@@ -131,9 +136,44 @@ void main() {
       writeOk('parser.dart').write,
       args: {'command': 'flutter test test/parser_test.dart'},
     );
-    expect(testRun.verified, isTrue);
+    expect(testRun.tested, isTrue);
+    expect(testRun.reviewed, isFalse);
+    expect(testRun.verified, isFalse);
     expect(
       testRun.decideFinal('Hmph. Tests are green. Obviously.'),
+      WaifuFinalAction.retryVerify,
+    );
+  });
+
+  test('re-read AND passing test/analyze may accept; failing test loops', () {
+    final turn = afterWrite();
+    turn.noteResult(
+      kWaifuToolRead,
+      const WaifuToolResult(ok: true, output: 'new'),
+      writeOk('parser.dart').write,
+      args: {'path': 'parser.dart'},
+    );
+    turn.noteResult(
+      kWaifuToolBash,
+      const WaifuToolResult(ok: false, output: 'error • slop at line 1'),
+      writeOk('parser.dart').write,
+      args: {'command': 'dart analyze'},
+    );
+    expect(turn.reviewed, isTrue);
+    expect(turn.tested, isFalse);
+    expect(
+      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
+      WaifuFinalAction.retryVerify,
+    );
+    turn.noteResult(
+      kWaifuToolBash,
+      const WaifuToolResult(ok: true, output: 'No issues found!'),
+      writeOk('parser.dart').write,
+      args: {'command': 'dart analyze'},
+    );
+    expect(turn.verified, isTrue);
+    expect(
+      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
       WaifuFinalAction.accept,
     );
   });
@@ -214,10 +254,10 @@ void main() {
     final reply = session.transcript.where((m) => !m.isUser).single;
     expect(reply.chips.last.ok, isFalse);
     expect(reply.chips.last.detail, contains('no verify'));
-    expect(reply.text, contains('did not re-read or test'));
+    expect(reply.text, contains('did not re-read the files'));
   });
 
-  test('Build mutate then re-read may accept', () async {
+  test('Build mutate then re-read still needs a passing test', () async {
     await File(p.join(root.path, 'parser.dart')).writeAsString('old\n');
     final llm = ScriptedWaifuLlm([
       const LlmToolResponse(
@@ -239,6 +279,14 @@ void main() {
         calls: [],
         text: 'Hmph. Parser is fixed. Obviously.',
       ),
+      const LlmToolResponse(
+        calls: [],
+        text: 'Hmph. Parser is fixed. Obviously.',
+      ),
+      const LlmToolResponse(
+        calls: [],
+        text: 'Hmph. Parser is fixed. Obviously.',
+      ),
     ]);
     final session = WaifuSession(
       folderRoot: root.path,
@@ -252,10 +300,114 @@ void main() {
     ).send('fix parser.dart');
 
     final reply = session.transcript.where((m) => !m.isUser).single;
+    expect(reply.chips.last.ok, isFalse);
+    expect(reply.text, contains('did not re-read the files'));
+  });
+
+  test('Build mutate, re-read, passing analyze, then she may speak', () async {
+    await File(p.join(root.path, 'parser.dart')).writeAsString('old\n');
+    final llm = ScriptedWaifuLlm([
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(
+            name: 'write',
+            arguments: {'path': 'parser.dart', 'contents': 'new\n'},
+          ),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
+      const LlmToolResponse(
+        calls: [],
+        text: 'Hmph. Parser is fixed. Obviously.',
+      ),
+    ]);
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: iris(),
+      mode: WaifuMode.build,
+    );
+    await WaifuHarness(
+      session: session,
+      llm: llm,
+      bash: WaifuAnalyzeBash(root.path),
+      onAsk: (_) async => WaifuAskDecision.allowAlways,
+    ).send('fix parser.dart');
+
+    final reply = session.transcript.where((m) => !m.isUser).single;
     expect(reply.chips.last.ok, isTrue);
     expect(reply.text, contains('Obviously.'));
     expect(reply.text, isNot(contains('did not re-read')));
   });
+
+  test(
+    'failing analyze loops to a fix then a passing check before speech',
+    () async {
+      await File(p.join(root.path, 'parser.dart')).writeAsString('old\n');
+      final llm = ScriptedWaifuLlm([
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(
+              name: 'write',
+              arguments: {'path': 'parser.dart', 'contents': 'slop\n'},
+            ),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(
+              name: 'write',
+              arguments: {'path': 'parser.dart', 'contents': 'fixed\n'},
+            ),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
+        const LlmToolResponse(
+          calls: [],
+          text: 'Hmph. Parser is fixed. Obviously.',
+        ),
+      ]);
+      final session = WaifuSession(
+        folderRoot: root.path,
+        coworker: iris(),
+        mode: WaifuMode.yolo,
+      );
+      await WaifuHarness(
+        session: session,
+        llm: llm,
+        bash: WaifuQueuedAnalyzeBash(root.path, [false, true]),
+      ).send('fix parser.dart');
+
+      expect(
+        await File(p.join(root.path, 'parser.dart')).readAsString(),
+        'fixed\n',
+      );
+      final reply = session.transcript.where((m) => !m.isUser).single;
+      expect(reply.text, contains('Obviously.'));
+      expect(reply.text, isNot(contains('did not re-read')));
+    },
+  );
 
   test('accepted plan step stays pending without mutate+verify', () async {
     final rel = '.waifu/plans/empty-email.md';
@@ -388,6 +540,7 @@ steps:
         ],
         text: '',
       ),
+      const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
       const LlmToolResponse(
         calls: [
           LlmToolCall(
@@ -413,6 +566,7 @@ steps:
     await WaifuHarness(
       session: session,
       llm: llm,
+      bash: WaifuAnalyzeBash(root.path),
       onAsk: (_) async => WaifuAskDecision.allowAlways,
     ).send('implement the first plan step');
     final after = waifuPlanParse(
@@ -445,7 +599,7 @@ steps:
     },
   );
 
-  test('parent absorbs child mutate then child re-read as verify', () {
+  test('parent absorbs child mutate then child re-read and test', () {
     final parent = WaifuTurnContract.start(
       'implement the first plan step',
       null,
@@ -468,6 +622,12 @@ steps:
       const WaifuToolResult(ok: true, output: 'new'),
       null,
       args: {'path': 'parser.dart'},
+    );
+    childVerify.noteResult(
+      kWaifuToolBash,
+      const WaifuToolResult(ok: true, output: 'No issues found!'),
+      null,
+      args: {'command': 'dart analyze'},
     );
     parent.absorbChild(childVerify);
     expect(parent.verified, isTrue);

@@ -75,7 +75,9 @@ void main() {
       writeOk('parser.dart').write,
       args: {'command': 'cd pkg && flutter test'},
     );
-    expect(ok.verified, isTrue);
+    expect(ok.tested, isTrue);
+    expect(ok.reviewed, isFalse);
+    expect(ok.verified, isFalse);
     final no = afterWrite();
     no.noteResult(
       kWaifuToolBash,
@@ -112,7 +114,7 @@ void main() {
     expectVerifyFail(help);
   });
 
-  test('pre-mutate read is not verify; post-mutate read is', () {
+  test('pre-mutate read is not review; post-mutate read is review only', () {
     final turn = WaifuTurnContract.start(
       'fix parser.dart',
       null,
@@ -140,7 +142,9 @@ void main() {
       writeOk('parser.dart').write,
       args: {'path': 'parser.dart'},
     );
-    expect(post.verified, isTrue);
+    expect(post.reviewed, isTrue);
+    expect(post.tested, isFalse);
+    expect(post.verified, isFalse);
   });
 
   test('absorbChild does not treat a pre-mutate parent read as verify', () {

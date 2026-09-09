@@ -1,3 +1,38 @@
+## 2026-09-09 — docs: collapse Waifu Coder Rawhide notes to one bullet
+- **Why:** Unreleased notes had piled into a Waifu-Coder pamphlet. Most
+  users are here for chat.
+- **What:** One short Waifu Coder bullet. Dropped shipped-detail and
+  duplicate Waifu lines. Left the chat/realism/voice/search notes.
+- **Files:** `docs/Rawhide.md`
+- **Commit:**
+
+## 2026-09-09 — fix(waifu): strip leaked tool-call wire format from speech
+- **Why:** MiniMax/GLM-style `◁tool_call_begin▷` landed in the bubble as
+  orange JSON when the backend left `tool_calls` empty. That is protocol,
+  not the character.
+- **What:** Visible text strips those blocks. If native calls are empty,
+  the leak is salvaged into a real edit/read so the work still runs.
+- **Files:** `waifu_tool_leak.dart`, `waifu_stream.dart`,
+  `waifu_harness_turn.dart`, `waifu.dart`, `waifu_tool_leak_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:**
+
+## 2026-09-08 — fix(waifu): review + passing test before she may speak
+- **Why:** Re-read-only counted as verify, so slop on disk still got a
+  spoken wrap-up. Check-in also skipped verify and talked early.
+- **What:** After a project write, she must re-read the files AND pass
+  a real test/analyze (`dart analyze`, `flutter test`, `swift test`…).
+  A failing run clears the test receipt; she fixes and runs again.
+  The in-character line is emitted only after that, then the turn ends.
+- **Files:** `waifu_turn_contract.dart`, `waifu_verify.dart`,
+  `waifu_harness_turn.dart`, `waifu_checkin.dart`,
+  `waifu_coworker_prompt.dart`, `waifu.dart`,
+  `waifu_verify_contract_test.dart`, `waifu_verify_holds_test.dart`,
+  `waifu_checkin_test.dart`, `waifu_turn_contract_test.dart`,
+  `waifu_loop_bubbles_test.dart`, `waifu_analyze_bash.dart`,
+  `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-08 — fix(waifu): todos live in .waifu; speech ends the turn
 - **Why:** Leaving a sit-down wiped the task list (in-memory only).
   Check-in was a Keep-going popup, and extra speeches piled into one

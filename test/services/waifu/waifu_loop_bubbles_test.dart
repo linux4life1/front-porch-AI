@@ -8,6 +8,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 
+import 'waifu_analyze_bash.dart';
+
 void main() {
   late Directory root;
 
@@ -44,6 +46,7 @@ void main() {
         ],
         text: '',
       ),
+      const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
       const LlmToolResponse(calls: [], text: 'Hmph. Your scaffold is on disk.'),
     ]);
     final session = WaifuSession(
@@ -51,10 +54,19 @@ void main() {
       coworker: CharacterCard(name: 'Iris'),
       mode: WaifuMode.yolo,
     );
-    await WaifuHarness(session: session, llm: llm).send('scaffold');
+    await WaifuHarness(
+      session: session,
+      llm: llm,
+      bash: WaifuAnalyzeBash(root.path),
+    ).send('scaffold');
     final spoken = session.transcript.where((m) => !m.isUser).toList();
     expect(spoken, hasLength(1));
-    expect(spoken.single.chips.map((c) => c.name), ['bash', 'write', 'read']);
+    expect(spoken.single.chips.map((c) => c.name), [
+      'bash',
+      'write',
+      'read',
+      'bash',
+    ]);
     expect(spoken.single.text, 'Hmph. Your scaffold is on disk.');
     expect(spoken.single.reasoning, contains('write the file'));
     expect(spoken.single.reasoning, isNot(contains('look around')));

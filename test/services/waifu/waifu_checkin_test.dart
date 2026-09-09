@@ -12,6 +12,8 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:path/path.dart' as p;
 
+import 'waifu_analyze_bash.dart';
+
 CharacterCard _mira() => CharacterCard(
   name: 'Mira',
   personality: 'tsundere, dry, teases then does the work anyway',
@@ -88,12 +90,23 @@ void main() {
       final llm = ScriptedWaifuLlm([
         LlmToolResponse(calls: _writes(kWaifuCheckInEvery + 1), text: ''),
         const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'read', arguments: {'path': 'f1.txt'}),
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
+        const LlmToolResponse(
           calls: [],
           text: 'Hmph. Scaffold is up. Parser is next unless you want the UI.',
         ),
       ]);
       final session = _session(root.path);
-      await WaifuHarness(session: session, llm: llm).send('build the app');
+      await WaifuHarness(
+        session: session,
+        llm: llm,
+        bash: WaifuAnalyzeBash(root.path),
+      ).send('build the app');
       expect(
         await File(
           p.join(root.path, 'f$kWaifuCheckInEvery.txt'),
@@ -110,7 +123,6 @@ void main() {
       expect(spoken, hasLength(1));
       expect(spoken.single.text, contains('Scaffold is up'));
       expect(spoken.single.text, isNot(contains('---')));
-      expect(llm.calls.last.tools, isEmpty);
     },
   );
 
@@ -123,10 +135,15 @@ void main() {
         ],
         text: '',
       ),
+      const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
       const LlmToolResponse(calls: [], text: 'Hmph. The files are on disk.'),
     ]);
     final session = _session(root.path);
-    await WaifuHarness(session: session, llm: llm).send('build the app');
+    await WaifuHarness(
+      session: session,
+      llm: llm,
+      bash: WaifuAnalyzeBash(root.path),
+    ).send('build the app');
     expect(
       await File(
         p.join(root.path, 'f${kWaifuCheckInEvery - 1}.txt'),
