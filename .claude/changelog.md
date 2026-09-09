@@ -6,7 +6,7 @@
   parent absorbs; the child does not saveLast over parent todos.
 - **Files:** `waifu_plan_codec.dart`, `waifu_plan_yaml.dart`,
   `waifu_store.dart`, `waifu_harness_spawn.dart`, `waifu_turn.dart`
-- **Commit:**
+- **Commit:** 4fc8c2dd
 
 ## 2026-09-10 — fix(waifu): one mode control, live MCP catalog, Stop on leave
 - **Why:** Plan/Build/Yolo chips were duplicated, MCP tools froze at sit-down,
