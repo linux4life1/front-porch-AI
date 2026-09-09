@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
@@ -269,13 +270,16 @@ class WaifuStore {
       if (raw is List) {
         for (final e in raw) {
           if (e is! Map) continue;
+          final text = e['text']?.toString() ?? '';
+          final recap =
+              e['hidden'] == true || text.startsWith(kWaifuCompactPrefix);
           transcript.add(
             WaifuMessage(
-              isUser: e['isUser'] == true,
-              text: e['text']?.toString() ?? '',
+              isUser: e['isUser'] == true && !recap,
+              text: text,
               reasoning: e['reasoning']?.toString() ?? '',
               imagePath: e['imagePath']?.toString(),
-              hidden: e['hidden'] == true,
+              hidden: recap,
             ),
           );
         }

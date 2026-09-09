@@ -19,6 +19,12 @@
 part of 'waifu_harness.dart';
 
 extension _WaifuHarnessCompact on WaifuHarness {
+  bool _isLiveAssistantAt(int i) {
+    if (i < 0 || i >= session.transcript.length) return false;
+    final m = session.transcript[i];
+    return !m.isUser && !m.hidden;
+  }
+
   String _safeCue() {
     try {
       return _turn.cue;
@@ -146,10 +152,11 @@ extension _WaifuHarnessCompact on WaifuHarness {
     } else {
       session.transcript
         ..clear()
-        ..add(WaifuMessage(isUser: true, text: recap, hidden: true))
+        ..add(WaifuMessage(isUser: false, text: recap, hidden: true))
         ..addAll(recent);
     }
     session.compactPasses++;
+    _stepAt = null;
     if (force) {
       session.transcript.add(
         const WaifuMessage(isUser: false, text: 'Folded old turns.'),

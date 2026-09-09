@@ -224,8 +224,7 @@ class WaifuHarness {
       final i = _stepAt;
       final keep =
           i != null &&
-          i < session.transcript.length &&
-          !session.transcript[i].isUser &&
+          _isLiveAssistantAt(i) &&
           session.transcript[i].text.trim().isNotEmpty;
       if (keep) _stepAt = null;
       _say('Stopped.');
@@ -392,10 +391,7 @@ class WaifuHarness {
 
   WaifuMessage _liveAssistant() {
     final i = _stepAt;
-    if (i != null &&
-        i >= 0 &&
-        i < session.transcript.length &&
-        !session.transcript[i].isUser) {
+    if (i != null && _isLiveAssistantAt(i)) {
       return session.transcript[i];
     }
     session.transcript.add(const WaifuMessage(isUser: false, text: ''));
@@ -405,6 +401,11 @@ class WaifuHarness {
 
   void _writeLive(WaifuMessage msg) {
     final i = _stepAt ?? session.transcript.length - 1;
+    if (i < 0 || i >= session.transcript.length || !_isLiveAssistantAt(i)) {
+      session.transcript.add(msg);
+      _stepAt = session.transcript.length - 1;
+      return;
+    }
     session.transcript[i] = msg;
   }
 
@@ -451,10 +452,7 @@ class WaifuHarness {
 
   void _say(String text) {
     final i = _stepAt;
-    if (i != null &&
-        i >= 0 &&
-        i < session.transcript.length &&
-        !session.transcript[i].isUser) {
+    if (i != null && _isLiveAssistantAt(i)) {
       final last = session.transcript[i];
       _writeLive(
         WaifuMessage(

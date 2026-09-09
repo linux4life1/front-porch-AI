@@ -1,3 +1,15 @@
+## 2026-09-09 — fix(waifu): recap is not a user message
+- **Why:** Compact recap was stored `isUser: true`, so the next prompt
+  labeled the agent's own summary `User:`. She then treated her recap
+  (and later, her own lines) as the human.
+- **What:** Recap is hidden, not a user turn. Prompt speech tags it
+  `Session recap`, never `User:` or `Iris:`. Live stream will not
+  overwrite a user bubble or a recap.
+- **Files:** `waifu_coworker_prompt.dart`, `waifu_compact.dart`,
+  `waifu_harness.dart`, `waifu_harness_compact.dart`,
+  `waifu_store.dart`, `waifu_prompt_roles_test.dart`
+- **Commit:**
+
 ## 2026-09-09 — fix(waifu): real context meter + OpenCode-style compact
 - **Why:** The sidebar bar was chars÷4 of the user prompt, so system and
   tool schemas were invisible, and every send folded the transcript at

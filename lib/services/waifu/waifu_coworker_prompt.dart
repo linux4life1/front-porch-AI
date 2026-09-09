@@ -278,6 +278,12 @@ String waifuPromptSpeech(
   String coworkerName, {
   required bool preserveThinking,
 }) {
+  if (waifuIsPromptRecap(m)) {
+    final body = m.text.trim();
+    if (body.isEmpty) return '';
+    return 'Session recap (not a user message, not spoken by $coworkerName):\n'
+        '$body';
+  }
   if (m.isUser) {
     final photo = m.imagePath == null ? '' : '\n[user attached a photo]';
     return 'User: ${m.text}$photo';
