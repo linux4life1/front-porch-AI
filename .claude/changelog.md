@@ -1,3 +1,21 @@
+## 2026-09-08 — fix(tts): macOS Sherpa dylib path after sherpa_onnx 1.13.6
+- **Why:** Stable v1.3.2 Kokoro/Piper/Whisper loaded no audio. The C
+  API dylib ships at `Contents/Frameworks/libsherpa-onnx-c-api.dylib`,
+  but 1.13.6 treats a non-null `initBindings` path as a Dart CLI package
+  root and opens
+  `$path/sherpa_onnx_macos/sherpa-onnx.xcframework/macos-arm64_x86_64/…`.
+  Passing Frameworks produced the Discord "Failed to load dynamic
+  library" miss.
+- **What:** `initSherpaBindings()` preloads the flattened dylib on
+  macOS (`flutter run` debug does not link it) then calls
+  `initBindings` with a null path (`DynamicLibrary.process()`).
+  Linux/Windows still pass the folder that contains the `.so`/`.dll`.
+  Kokoro, Piper, and Whisper workers all go through it.
+- **Files:** `sherpa_runtime.dart`, `sherpa_kokoro_engine.dart`,
+  `sherpa_piper_engine.dart`, `sherpa_whisper_engine.dart`,
+  `services.dart`, `sherpa_runtime_test.dart`, `docs/Rawhide.md`
+- **Commit:** 346ece10
+
 ## 2026-09-09 — fix(image): Image Studio reads the per-URL vault key
 - **Why:** #243 vault made `setRemoteApiKey` then `setRemoteApiUrl` park
   the key on the default OpenRouter slot. Image Studio / `fetchImageModels`

@@ -74,6 +74,7 @@ export 'chat/context_viewer_snapshot.dart';
 export 'tts_service.dart';
 export 'tts_voice_info.dart';
 export 'stt_service.dart';
+export 'sherpa_runtime.dart';
 export 'image_gen_service.dart';
 
 // Sync & data

@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🔊 **Mac voices speak again** — Kokoro, Piper, and Whisper on macOS were looking for the Sherpa library inside a nested folder the app never ships. Test Voice and the chat speaker buttons work; the model download was never the problem.
+
 - 🔑 **OpenRouter and Nano-GPT keep their own API keys** — switching the Backend chips restores that host's key (or leaves the box empty). Check Connection can no longer go green on the other provider's leftover key while a story fails with a missing auth header.
 
 - 🧭 **Waifu Coder chrome tells the truth at a glance** — Plan/Build/Yolo and Jail vs Disk stay in the top bar with the folder path, honesty copy no longer shows raw `**`, a turn that touches several files lists all of them (and what they verified), and a backend that cannot call tools is blocked instead of pretending they can code.
