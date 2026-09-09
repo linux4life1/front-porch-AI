@@ -14,7 +14,7 @@
 - **Files:** `sherpa_runtime.dart`, `sherpa_kokoro_engine.dart`,
   `sherpa_piper_engine.dart`, `sherpa_whisper_engine.dart`,
   `services.dart`, `sherpa_runtime_test.dart`, `docs/Rawhide.md`
-- **Commit:** 346ece10
+- **Commit:** a091ae72
 
 ## 2026-09-09 — fix(image): Image Studio reads the per-URL vault key
 - **Why:** #243 vault made `setRemoteApiKey` then `setRemoteApiUrl` park
