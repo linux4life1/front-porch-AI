@@ -14,7 +14,7 @@
   `waifu_coworker_prompt.dart`, `waifu_tools.dart`,
   `waifu_todos_persist_test.dart`, `waifu_checkin_test.dart`,
   `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 16f668df
 
 ## 2026-09-08 — fix(waifu): porch writes do not ask; the ask says why
 - **Why:** Asking on every in-project write is not how Claude/OpenCode
@@ -27,7 +27,7 @@
   `waifu_ask_dialog.dart`, `waifu_harness.dart`, `waifu.dart`,
   `waifu_bash_ask_test.dart`, `waifu_ask_why_test.dart`,
   `waifu_harness_permissions_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 16f668df
 
 ## 2026-09-08 — fix(waifu): Build does not ask to run ls
 - **Why:** Every bash call was treated as a mutate, so `ls -la` popped
@@ -37,7 +37,7 @@
   Nested workers share Always this session with the parent.
 - **Files:** `waifu_permissions.dart`, `waifu_harness_spawn.dart`,
   `waifu_bash_ask_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 16f668df
 
 ## 2026-09-08 — fix(waifu): hide Plan card after Accept → Build
 - **Why:** A pinned accepted plan kept the 280px editor and Accept
@@ -46,7 +46,7 @@
   prompt; switch back to Plan to Revise.
 - **Files:** `waifu_plan_gate.dart`, `waifu_plan_stage_hide_test.dart`,
   `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 16f668df
 
 ## 2026-09-08 — fix(waifu): Accept → Build actually enters Build
 - **Why:** After hot restart the plan card had no harness
@@ -58,7 +58,7 @@
 - **Files:** `waifu_page.dart`, `waifu_plan_panel.dart`,
   `waifu_plan_codec.dart`, `waifu_plan_accept_noop_test.dart`,
   `waifu_plan_accept_markdown_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 16f668df
 
 ## 2026-09-08 — fix(waifu): pin Accept → Build on the Plan card
 - **Why:** The editor grew to 16 lines inside a 280px card. Accept /
@@ -68,7 +68,7 @@
   stay at the bottom and stay hit-testable.
 - **Files:** `waifu_plan_stage.dart`, `waifu_plan_panel.dart`,
   `waifu_plan_accept_visible_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 16f668df
 
 ## 2026-09-08 — feat(waifu): question dialog accepts a typed custom answer
 - **Why:** Claude/OpenCode let you type when none of the chips fit.
@@ -77,7 +77,7 @@
   disabled (empty still means cancel via Skip). Choice taps unchanged.
 - **Files:** `waifu_question_dialog.dart`, `waifu_tools.dart`,
   `waifu_question_custom_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 16f668df
 
 ## 2026-09-08 — fix(waifu): Plan panel sees a just-written plan; MCP catalog log is one line
 - **Why:** Docker MCP's 110 tools reprinted `catalog include` on every
@@ -90,7 +90,7 @@
 - **Files:** `mcp_catalog.dart`, `waifu_plan_panel.dart`,
   `waifu_plan_gate.dart`, `mcp_catalog_log_test.dart`,
   `waifu_plan_panel_reload_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 16f668df
 
 ## 2026-09-08 — fix(search): Tavily key persists in prefs, not keychain-only
 - **Why:** Save wrote the keychain then deleted the SharedPreferences
