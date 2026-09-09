@@ -147,17 +147,22 @@ void main() {
     expect(llm.calls.last.prompt, contains('Be terse.'));
   });
 
-  test('/init does not write AGENTS.md when Build denies', () async {
+  test('/init writes AGENTS.md in Build without asking', () async {
+    var asked = 0;
     final llm = ScriptedWaifuLlm([
       const LlmToolResponse(calls: [], text: 'idle'),
     ]);
     final harness = WaifuHarness(
       session: _session(root.path, WaifuMode.build),
       llm: llm,
-      onAsk: (req) async => WaifuAskDecision.deny,
+      onAsk: (req) async {
+        asked++;
+        return WaifuAskDecision.deny;
+      },
     );
     await harness.send('/init');
-    expect(File(p.join(root.path, 'AGENTS.md')).existsSync(), isFalse);
+    expect(asked, 0);
+    expect(File(p.join(root.path, 'AGENTS.md')).existsSync(), isTrue);
   });
 
   test('/init writes AGENTS.md in Yolo', () async {

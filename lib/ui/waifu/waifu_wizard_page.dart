@@ -129,12 +129,12 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
       pathMode: _pathMode,
       toolsSupported: widget.toolsSupported,
     );
-    await waifuLoadTodos(_path, session.todos);
     final onSat = widget.onSatDown;
     if (onSat != null) {
       onSat(session);
       return;
     }
+    await waifuLoadTodos(_path, session.todos);
     await waifuPrepareLangs(session);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(

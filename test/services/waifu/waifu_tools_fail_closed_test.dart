@@ -24,6 +24,8 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:path/path.dart' as p;
 
+import 'waifu_analyze_bash.dart';
+
 void main() {
   test('resolve + can-use fail closed on unsupported or paused', () {
     expect(
@@ -61,10 +63,10 @@ void main() {
     final llm = ScriptedWaifuLlm([
       const LlmToolResponse(
         calls: [
-          LlmToolCall(name: 'write', arguments: {
-            'path': 'hello.txt',
-            'contents': 'nope',
-          }),
+          LlmToolCall(
+            name: 'write',
+            arguments: {'path': 'hello.txt', 'contents': 'nope'},
+          ),
         ],
         text: '',
       ),
@@ -108,6 +110,7 @@ void main() {
         ],
         text: '',
       ),
+      const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
       const LlmToolResponse(calls: [], text: 'Both files are down.'),
     ]);
     final session = WaifuSession(
@@ -115,41 +118,45 @@ void main() {
       coworker: CharacterCard(name: 'Mira', personality: 'dry'),
       mode: WaifuMode.yolo,
     );
-    await WaifuHarness(session: session, llm: llm).send('add a.txt and b.txt');
+    await WaifuHarness(
+      session: session,
+      llm: llm,
+      bash: WaifuAnalyzeBash(root.path),
+    ).send('add a.txt and b.txt');
 
-    expect(
-      session.turnWrites.map((w) => w.relativePath).toList(),
-      ['a.txt', 'b.txt'],
-    );
+    expect(session.turnWrites.map((w) => w.relativePath).toList(), [
+      'a.txt',
+      'b.txt',
+    ]);
     expect(session.lastWrite?.relativePath, 'b.txt');
     expect(waifuTurnReceiptHeadline(session.turnWrites), '2 files this turn');
     expect(session.turnVerifyPaths, containsAll(['a.txt', 'b.txt']));
   });
 
-  test('send does not loop when the LLM door is toolsSupported false', () async {
-    final root = await Directory.systemTemp.createTemp('waifu_tools_llm_');
-    addTearDown(() async {
-      if (await root.exists()) await root.delete(recursive: true);
-    });
-    final llm = ScriptedWaifuLlm(
-      [
+  test(
+    'send does not loop when the LLM door is toolsSupported false',
+    () async {
+      final root = await Directory.systemTemp.createTemp('waifu_tools_llm_');
+      addTearDown(() async {
+        if (await root.exists()) await root.delete(recursive: true);
+      });
+      final llm = ScriptedWaifuLlm([
         const LlmToolResponse(calls: [], text: 'I can code just fine.'),
-      ],
-      toolsSupported: false,
-    );
-    final session = WaifuSession(
-      folderRoot: root.path,
-      coworker: CharacterCard(name: 'Mira', personality: 'dry'),
-    );
-    await WaifuHarness(session: session, llm: llm).send('fix the test');
+      ], toolsSupported: false);
+      final session = WaifuSession(
+        folderRoot: root.path,
+        coworker: CharacterCard(name: 'Mira', personality: 'dry'),
+      );
+      await WaifuHarness(session: session, llm: llm).send('fix the test');
 
-    expect(llm.calls, isEmpty);
-    expect(session.transcript.last.text, kWaifuToolsUnsupported);
-    expect(
-      session.transcript.any((m) => m.text.contains('I can code just fine')),
-      isFalse,
-    );
-  });
+      expect(llm.calls, isEmpty);
+      expect(session.transcript.last.text, kWaifuToolsUnsupported);
+      expect(
+        session.transcript.any((m) => m.text.contains('I can code just fine')),
+        isFalse,
+      );
+    },
+  );
 
   test('store round-trips toolsSupported false', () async {
     final dir = await Directory.systemTemp.createTemp('waifu_tools_store_');
