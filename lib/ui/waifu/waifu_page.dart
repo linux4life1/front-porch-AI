@@ -401,6 +401,7 @@ class _WaifuPageState extends State<WaifuPage> {
                   onSend: _send,
                   onPickSlash: _pickSlash,
                   onStop: () => _harnessOf(context)?.abort(),
+                  onQueueChanged: _refresh,
                   onUndo: () => (widget.harness ?? _created)?.undo(),
                   onRedo: () => (widget.harness ?? _created)?.redo(),
                   canUndo: (widget.harness ?? _created)?.canUndo == true,

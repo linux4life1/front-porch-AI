@@ -1,3 +1,13 @@
+## 2026-09-10 — fix(waifu): queue follow-ups while she is busy
+- **Why:** The composer was disabled during a turn, so typing and Enter
+  did nothing until she finished.
+- **What:** The box stays live. Send/Enter queues a follow-up. The next
+  turn starts when the current one ends. Chips show the queue. Stop still
+  aborts the live turn.
+- **Files:** `waifu_composer.dart`, `waifu_harness.dart`,
+  `waifu_session.dart`, `waifu_page.dart`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): plan JSON, one todo file, nested work returns a receipt
 - **Why:** Plan titles with colons corrupted YAML. Accept wiped in-progress
   todos. Nested explore/general could fight the parent wrap-up and todos.

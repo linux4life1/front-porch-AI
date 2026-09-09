@@ -56,6 +56,7 @@ class WaifuComposer extends StatelessWidget {
     required this.onSend,
     required this.onPickSlash,
     required this.onStop,
+    this.onQueueChanged,
     required this.onUndo,
     required this.onRedo,
     this.canUndo = false,
@@ -73,6 +74,7 @@ class WaifuComposer extends StatelessWidget {
   final VoidCallback onSend;
   final ValueChanged<WaifuSlashCommand> onPickSlash;
   final VoidCallback onStop;
+  final VoidCallback? onQueueChanged;
   final VoidCallback onUndo;
   final VoidCallback onRedo;
   final bool canUndo;
@@ -106,6 +108,38 @@ class WaifuComposer extends StatelessWidget {
             },
           ),
           if (session.running) WaifuStopBar(onStop: onStop),
+          if (session.queued.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Wrap(
+                key: const Key('waifu-queued'),
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (var i = 0; i < session.queued.length; i++)
+                    InputChip(
+                      key: Key('waifu-queued-$i'),
+                      label: Text(
+                        session.queued[i],
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onDeleted: onQueueChanged == null
+                          ? null
+                          : () {
+                              session.queued.removeAt(i);
+                              onQueueChanged!();
+                            },
+                      backgroundColor: AppColors.surfaceContainerOf(context),
+                      side: BorderSide(color: AppColors.borderOf(context)),
+                      labelStyle: TextStyle(
+                        color: AppColors.textPrimary(context),
+                        fontSize: 12,
+                      ),
+                      deleteIconColor: AppColors.iconSecondary(context),
+                    ),
+                ],
+              ),
+            ),
           if (pendingImage != null)
             Builder(
               builder: (context) {
@@ -144,20 +178,22 @@ class WaifuComposer extends StatelessWidget {
                     onKeyEvent: (node, event) => waifuComposerKeyEvent(
                       event,
                       shiftPressed: HardwareKeyboard.instance.isShiftPressed,
-                      enabled: !session.running,
+                      enabled: true,
                       onSend: onSend,
                     ),
                     child: TextField(
                       key: const Key('waifu-composer'),
                       controller: controller,
-                      enabled: !session.running,
+                      enabled: true,
                       minLines: 1,
                       maxLines: 10,
                       keyboardType: TextInputType.multiline,
                       textInputAction: TextInputAction.newline,
                       style: TextStyle(color: AppColors.textPrimary(context)),
                       decoration: InputDecoration(
-                        hintText: 'A task for ${session.coworker.name}',
+                        hintText: session.running
+                            ? 'Queue a follow-up for ${session.coworker.name}'
+                            : 'A task for ${session.coworker.name}',
                         filled: true,
                         fillColor: AppColors.surfaceContainerOf(context),
                         border: OutlineInputBorder(
@@ -183,12 +219,12 @@ class WaifuComposer extends StatelessWidget {
                   onPressed: session.running || !canRedo ? null : onRedo,
                   icon: Icon(Icons.redo, color: amber),
                 ),
-                if (!session.running)
-                  IconButton(
-                    key: const Key('waifu-send'),
-                    onPressed: onSend,
-                    icon: Icon(Icons.send, color: amber),
-                  ),
+                IconButton(
+                  key: const Key('waifu-send'),
+                  tooltip: session.running ? 'Queue follow-up' : 'Send',
+                  onPressed: onSend,
+                  icon: Icon(Icons.send, color: amber),
+                ),
               ],
             ),
           ),

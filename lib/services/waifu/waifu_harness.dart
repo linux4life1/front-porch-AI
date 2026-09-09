@@ -126,6 +126,7 @@ class WaifuHarness {
   List<String>? _turnImages;
   final _children = <WaifuHarness>[];
   late WaifuTurn _turn;
+  var _hasTurn = false;
 
   bool get isRunning => session.running;
   bool get canUndo => undoLog.canUndo;
@@ -157,7 +158,12 @@ class WaifuHarness {
     String? imagePath,
   }) async {
     var text = task.trim();
-    if ((text.isEmpty && imagePng == null) || session.running) return;
+    if (text.isEmpty && imagePng == null) return;
+    if (session.running) {
+      session.queued.add(text.isEmpty ? '(photo)' : text);
+      _emit();
+      return;
+    }
     if (text.isEmpty) text = '(photo)';
     _aborted = false;
     _turnImages = imagePng == null ? null : [base64Encode(imagePng)];
@@ -168,6 +174,7 @@ class WaifuHarness {
       exploreOnly: exploreOnly,
       enforceVerify: depth == 0 && !exploreOnly,
     );
+    _hasTurn = true;
     _clearTurnReceipts();
     // Record the send before any await so live thought chrome can paint.
     session.running = true;
@@ -199,6 +206,9 @@ class WaifuHarness {
       session.running = false;
       _emit();
     }
+    if (session.queued.isEmpty) return;
+    final next = session.queued.removeAt(0);
+    await send(next);
   }
 
   /// `/compact`. LLM recap when there is enough history; always remeters.
@@ -222,7 +232,7 @@ class WaifuHarness {
     }
     final q = _questionWait;
     if (q != null && !q.isCompleted) q.complete('');
-    if (session.running) {
+    if (session.running && _hasTurn) {
       final live = _turn.live;
       if (live != null && live.text.trim().isNotEmpty) {
         _turn.live = null;

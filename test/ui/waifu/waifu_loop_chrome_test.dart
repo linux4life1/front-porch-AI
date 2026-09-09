@@ -189,7 +189,8 @@ void main() {
       });
       await tester.pump();
       expect(find.byKey(const Key('waifu-abort')), findsOneWidget);
-      expect(find.byKey(const Key('waifu-send')), findsNothing);
+      // Send stays up while she works so a follow-up can queue.
+      expect(find.byKey(const Key('waifu-send')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('waifu-abort')));
       await tester.pump();

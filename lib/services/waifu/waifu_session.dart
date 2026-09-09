@@ -220,6 +220,9 @@ class WaifuSession {
   /// Mutated paths that got a verify receipt this send.
   final List<String> turnVerifyPaths = [];
   bool running = false;
+
+  /// Follow-ups typed while a turn is running. Drained after that turn.
+  final queued = <String>[];
   bool mcpOptIn;
   bool preserveThinking;
 
