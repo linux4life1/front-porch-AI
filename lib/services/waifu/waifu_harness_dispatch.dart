@@ -67,9 +67,6 @@ extension _WaifuHarnessDispatch on WaifuHarness {
         if (kWaifuFsToolNames.contains(canon)) {
           return fs.dispatch(canon, args);
         }
-        if (waifuMcpNameBlocked(raw) || waifuMcpNameBlocked(canon)) {
-          return fs.dispatch(canon, args);
-        }
         if (mcpOptIn &&
             mcpCall != null &&
             (_mcpNames.contains(raw) || _mcpNames.contains(canon))) {
@@ -80,7 +77,7 @@ extension _WaifuHarnessDispatch on WaifuHarness {
             write: result.write,
           );
         }
-        return fs.dispatch(canon, args);
+        return WaifuToolResult.error('unknown tool $raw');
     }
   }
 }

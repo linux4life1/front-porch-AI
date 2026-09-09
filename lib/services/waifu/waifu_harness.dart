@@ -85,6 +85,7 @@ class WaifuHarness {
            WaifuPermissions(
              mode: session.mode,
              workingDirectory: session.folderRoot,
+             pathMode: session.pathMode,
            ),
        bash = bash ?? WaifuBash(session.folderRoot, pathMode: session.pathMode),
        undoLog = undo ?? WaifuUndo(),
@@ -229,9 +230,15 @@ class WaifuHarness {
 
   Future<void> _runTool(String name, Map<String, dynamic> args) async {
     permissions.mode = session.mode;
-    final work = waifuNormalizeToolArgs(name, args);
+    permissions.pathMode = session.pathMode;
+    final call = WaifuCall.parse(
+      name,
+      args,
+      mcpMutates: waifuMcpMutationHint(name, mcpTools),
+    );
+    final work = call.args;
     final kind = waifuSubagentKind(name, work);
-    final canon = canonicalWaifuToolName(name);
+    final canon = call.name;
     _turn.noteAttempt(canon);
     _pushChip(
       WaifuToolChip(
@@ -242,7 +249,6 @@ class WaifuHarness {
       ),
     );
     try {
-      final mcpMutates = waifuMcpMutationHint(name, mcpTools);
       if (exploreOnly &&
           !kWaifuExploreToolNames.contains(canon) &&
           canon != kWaifuToolTask) {
@@ -250,52 +256,36 @@ class WaifuHarness {
         _reject(canon, 'explore is read-only');
         return;
       }
-      final block = permissions.hardBlock(
-        name: name,
-        args: work,
-        mutates: mcpMutates,
-      );
-      if (block != null) {
-        permissions.record(name: name, args: work);
-        _reject(canon, block);
-        return;
-      }
-      if (session.mode == WaifuMode.plan &&
-          (canon == kWaifuToolWrite ||
-              canon == kWaifuToolEdit ||
-              canon == kWaifuToolApplyPatch)) {
-        final path = waifuToolPathArg(work);
-        final live = path == null
-            ? 'plan mode can only write under $kWaifuPlansDir'
-            : await waifuPlanWriteLiveBlock(session.folderRoot, path);
-        if (live != null) {
+      final verdict = permissions.decide(call, pathMode: session.pathMode);
+      switch (verdict.kind) {
+        case WaifuDecisionKind.deny:
           permissions.record(name: name, args: work);
-          _reject(canon, live);
+          _reject(canon, verdict.reason);
           return;
-        }
-      }
-      if (permissions.needsAsk(name: name, args: work, mutates: mcpMutates)) {
-        final doom = permissions.isDoom(name, work);
-        final decision = await _decide(
-          WaifuAskRequest(
-            toolName: canon,
-            summary: permissions.summaryFor(name, work),
-            why: permissions.whyFor(name: name, args: work, doomLoop: doom),
-            doomLoop: doom,
-          ),
-        );
-        if (_aborted) {
-          _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
-          return;
-        }
-        if (decision == WaifuAskDecision.deny) {
-          permissions.record(name: name, args: work);
-          _reject(canon, 'denied by user');
-          return;
-        }
-        if (decision == WaifuAskDecision.allowAlways) {
-          permissions.allowAlways();
-        }
+        case WaifuDecisionKind.ask:
+          final doom = permissions.isDoom(name, work);
+          final decision = await _decide(
+            WaifuAskRequest(
+              toolName: canon,
+              summary: permissions.summaryFor(name, work),
+              why: permissions.whyFor(name: name, args: work, doomLoop: doom),
+              doomLoop: doom,
+            ),
+          );
+          if (_aborted) {
+            _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
+            return;
+          }
+          if (decision == WaifuAskDecision.deny) {
+            permissions.record(name: name, args: work);
+            _reject(canon, 'denied by user');
+            return;
+          }
+          if (decision == WaifuAskDecision.allowAlways) {
+            permissions.allowAlways();
+          }
+        case WaifuDecisionKind.allow:
+          break;
       }
       permissions.record(name: name, args: work);
       final result = switch (canon) {

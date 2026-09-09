@@ -37,6 +37,8 @@ export 'waifu_mcp_filter.dart';
 export 'waifu_mentions.dart';
 export 'waifu_patch.dart';
 export 'waifu_ask_why.dart';
+export 'waifu_call.dart';
+export 'waifu_deny.dart';
 export 'waifu_permissions.dart';
 export 'waifu_plan.dart';
 export 'waifu_plan_codec.dart';

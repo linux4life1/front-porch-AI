@@ -23,7 +23,7 @@ extension _WaifuHarnessSpawn on WaifuHarness {
     final childSession = WaifuSession(
       folderRoot: session.folderRoot,
       coworker: session.coworker,
-      mode: exploreOnly ? WaifuMode.plan : session.mode,
+      mode: session.mode,
       pathMode: session.pathMode,
       preserveThinking: session.preserveThinking,
     );

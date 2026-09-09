@@ -1,3 +1,15 @@
+## 2026-09-10 — fix(waifu): one permission decide() after jail
+- **Why:** Nine permission gates, unknown MCP names falling through to
+  file tools, and bash “mutate” meaning “not on the Plan allowlist.”
+- **What:** `decide(call)` after the hard floor. `ls` still does not
+  ask. In-porch Build writes still do not ask. Plan + unknown MCP is
+  deny. Explore nested workers keep the parent’s mode. `/var` sit-down
+  folders on macOS still write (private-symlink peel).
+- **Files:** `waifu_deny.dart`, `waifu_call.dart`,
+  `waifu_permissions.dart`, `waifu_harness.dart`,
+  `waifu_harness_dispatch.dart`, `waifu_harness_spawn.dart`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): turn wrap-up is receipts and phases
 - **Why:** Wrap-up was a 10-way English nanny on the bubble, and the
   live assistant pointer was a transcript integer that compact could

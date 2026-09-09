@@ -49,6 +49,7 @@ class WaifuTurn {
 
   bool get mutationRequired => contract.mutationRequired;
   bool get mutationSucceeded => contract.mutationSucceeded;
+  bool get mutationAttempted => contract.mutationAttempted;
   bool get successfulTool => contract.successfulTool;
   bool get verified => contract.verified;
   bool get verifyRequired => contract.verifyRequired;
@@ -110,7 +111,7 @@ class WaifuTurn {
     rememberToolSpeech(body);
     switch (phase) {
       case WaifuPhase.tools:
-        if (mutationRequired && !mutationSucceeded) {
+        if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
           return _retryOrFailMutation(body);
         }
         if (enforceVerify && verifyRequired && !verified) {
