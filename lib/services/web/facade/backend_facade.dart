@@ -202,7 +202,9 @@ class BackendFacade {
     final b = _storage.backendSettings;
     final override = apiUrl != null && apiUrl.trim().isNotEmpty;
     final url = override ? apiUrl.trim() : b.remoteApiUrl;
-    final key = (apiKey != null && apiKey.isNotEmpty) ? apiKey : b.remoteApiKey;
+    final key = (apiKey != null && apiKey.isNotEmpty)
+        ? apiKey
+        : b.remoteApiKeyFor(url);
     if (override) {
       final uri = Uri.tryParse(url);
       if (uri == null || !isSafeOutboundUrl(uri)) return null;

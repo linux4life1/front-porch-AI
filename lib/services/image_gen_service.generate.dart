@@ -418,7 +418,7 @@ extension _ImageGenGenerate on ImageGenService {
 
         final imageSize = size ?? _storage.imageGenSettings.imageGenSize;
         final apiUrl = _storage.backendSettings.remoteApiUrl;
-        final apiKey = _storage.backendSettings.remoteApiKey;
+        final apiKey = _storage.backendSettings.remoteApiKeyFor(apiUrl);
 
         // Remote EDIT when an edit model + a reference are in play: the
         // instruction (`prompt`) + the reference image go to the provider's edit

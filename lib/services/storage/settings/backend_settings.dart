@@ -17,8 +17,10 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:io';
+
 import 'settings_base.dart';
 import 'preset_settings.dart'; // for parseKcppsFile (static)
+import 'remote_api_key_vault.dart';
 
 /// Backend, remote API, reasoning, Kobold launch flags, model/kcpps paths,
 /// GPU/context etc.
@@ -31,6 +33,7 @@ class BackendSettings with SettingsBase {
   String _remoteApiKey = '';
   String _remoteApiUrl = 'https://openrouter.ai/api/v1';
   String _remoteModelName = '';
+  RemoteApiKeyVault _remoteApiKeys = RemoteApiKeyVault();
 
   bool _reasoningEnabled = false;
   String _reasoningEffort = 'medium';
@@ -60,9 +63,18 @@ class BackendSettings with SettingsBase {
   int _kvQuantizationLevel = 0;
 
   String get backendType => _backendType;
-  String get remoteApiKey => _remoteApiKey;
+
+  /// Key for the *active* URL's vault slot. Image Studio, chat, and Check
+  /// Connection must all read this — never a leftover parked on another host.
+  String get remoteApiKey => _remoteApiKeys.keyFor(_remoteApiUrl);
   String get remoteApiUrl => _remoteApiUrl;
   String get remoteModelName => _remoteModelName;
+
+  /// Key stored for [url], independent of the currently selected host.
+  String remoteApiKeyFor(String url) => _remoteApiKeys.keyFor(url);
+
+  /// Normalized URLs that have a non-empty saved key (web placeholder).
+  List<String> get remoteApiUrlsWithKeys => _remoteApiKeys.urlsWithKeys;
   bool get reasoningEnabled => _reasoningEnabled;
   String get reasoningEffort => _reasoningEffort;
   bool get koboldThinkingModel => _koboldThinkingModel;
@@ -136,6 +148,23 @@ class BackendSettings with SettingsBase {
     _remoteApiUrl =
         prefs?.getString(k('remote_api_url')) ?? 'https://openrouter.ai/api/v1';
     _remoteModelName = prefs?.getString(k('remote_model_name')) ?? '';
+    _remoteApiKeys = RemoteApiKeyVault.decode(
+      prefs?.getString(k('remote_api_keys')),
+    );
+    // Pre-fix installs had one shared key. Never put a leftover `sk-or-`
+    // into the Nano slot (or the inverse) — that is the community stuck
+    // state. Attribute by key shape; persist when migration changes either.
+    final beforeKey = _remoteApiKey;
+    final beforeVault = _remoteApiKeys.encode();
+    _remoteApiKey = applyLegacySharedRemoteApiKey(
+      vault: _remoteApiKeys,
+      activeUrl: _remoteApiUrl,
+      sharedKey: _remoteApiKey,
+    );
+    if (_remoteApiKey != beforeKey || _remoteApiKeys.encode() != beforeVault) {
+      prefs?.setString(k('remote_api_key'), _remoteApiKey);
+      prefs?.setString(k('remote_api_keys'), _remoteApiKeys.encode());
+    }
     _reasoningEnabled = prefs?.getBool(k('reasoning_enabled')) ?? false;
     _reasoningEffort = prefs?.getString(k('reasoning_effort')) ?? 'medium';
     _koboldThinkingModel = prefs?.getBool(k('kobold_thinking_model')) ?? false;
@@ -209,14 +238,27 @@ class BackendSettings with SettingsBase {
 
   Future<void> setRemoteApiKey(String value) async {
     _remoteApiKey = value;
+    _remoteApiKeys.put(_remoteApiUrl, value);
     await prefs?.setString(k('remote_api_key'), value);
+    await _persistRemoteApiKeys();
     notify();
   }
 
   Future<void> setRemoteApiUrl(String value) async {
+    if (_remoteApiKey.isNotEmpty &&
+        remoteApiKeyBelongsToUrl(_remoteApiKey, _remoteApiUrl)) {
+      _remoteApiKeys.put(_remoteApiUrl, _remoteApiKey);
+    }
     _remoteApiUrl = value;
+    _remoteApiKey = _remoteApiKeys.keyFor(value);
     await prefs?.setString(k('remote_api_url'), value);
+    await prefs?.setString(k('remote_api_key'), _remoteApiKey);
+    await _persistRemoteApiKeys();
     notify();
+  }
+
+  Future<void> _persistRemoteApiKeys() async {
+    await prefs?.setString(k('remote_api_keys'), _remoteApiKeys.encode());
   }
 
   Future<void> setRemoteModelName(String value) async {

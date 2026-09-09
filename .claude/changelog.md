@@ -1,3 +1,51 @@
+## 2026-09-09 — fix(image): Image Studio reads the per-URL vault key
+- **Why:** #243 vault made `setRemoteApiKey` then `setRemoteApiUrl` park
+  the key on the default OpenRouter slot. Image Studio / `fetchImageModels`
+  then saw empty → curated catalog `[]`, no `/models` fetch, no billing
+  banner. CI red on tip `a8d49418`.
+- **What:** `remoteApiKey` getter is the active URL's vault slot. Image
+  Studio, generate, and the web image facade pair URL + `remoteApiKeyFor`.
+  Catalog / billing tests bind the host first, then the key.
+- **Files:** `backend_settings.dart`, `image_gen_service.dart`,
+  `image_gen_service.generate.dart`, `generation_options_tab.source.dart`,
+  `image_facade.dart`, `image_gen_generate_test.dart`,
+  `generation_options_tab_test.dart`
+- **Commit:** 92b06cf6
+
+## 2026-09-08 — fix(backend): do not seed a leftover OR key into the Nano slot
+- **Why:** HOLD on #243 — load always `put` the shared `remote_api_key`
+  into the active URL. Community stuck state is `url=Nano` + leftover
+  `sk-or-`. That wrote the OpenRouter key into the Nano vault; the
+  first switch back to OpenRouter stashed it under Nano and restored
+  an empty OpenRouter slot.
+- **What:** Attribute leftover shared keys by shape (`sk-or-` /
+  `sk-nano-`). Foreign leftovers seed their home host and clear the
+  active key. URL switch refuses to stash a key that does not belong
+  on the current host. Web `urlHasStoredApiKey` uses the same
+  normalize (slash/case) as Dart.
+- **Files:** `remote_api_key_vault.dart`, `backend_settings.dart`,
+  `remote_api_key_switch_test.dart`, `remoteApiKeys.ts`
+- **Commit:** 9b95aba7
+
+## 2026-09-08 — fix(backend): per-host OpenRouter / Nano-GPT API keys
+- **Why:** Switching Settings → Backend chips between OpenRouter and
+  Nano-GPT left the shared `remote_api_key` in the field. Check
+  Connection hits public `GET /models` with that leftover key and went
+  green; live chat/completions used an empty or wrong Bearer and failed
+  with a missing authentication header. Re-pasting the key was the
+  workaround.
+- **What:** Store keys per normalized API URL. Switching the URL
+  restores that host's key (or empty). Check Connection, the live
+  OpenRouterService, and generate headers share `remoteAuthHeaders`.
+  Web preview uses `remoteApiKeyFor(url)` so Test connection cannot
+  ride the other host's key. Desktop chip switch updates the key field.
+- **Files:** `remote_api_key_vault.dart`, `backend_settings.dart`,
+  `remote_reachability.dart`, `open_router_service.dart`,
+  `remote_api_section.dart`, `backend_facade.dart`, `settings_facade.dart`,
+  `SettingsPage.tsx`,   `remoteApiKeys.ts`,
+  `remote_api_key_switch_test.dart`, `docs/Rawhide.md`
+- **Commit:** 64254b0b
+
 ## 2026-09-08 — style: dart fix braces / unused import / cacheExtent
 - **Why:** `dart fix --dry-run` reported 8 infos (curly braces from
   tall-style wraps, unused `dart:typed_data`, deprecated ListView

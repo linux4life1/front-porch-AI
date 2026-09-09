@@ -229,7 +229,7 @@ class ImageGenService extends ChangeNotifier {
   ///   endpoint only returns text models; there is no image-specific listing API)
   Future<List<ImageModelInfo>> fetchImageModels() async {
     final apiUrl = _storage.backendSettings.remoteApiUrl;
-    final apiKey = _storage.backendSettings.remoteApiKey;
+    final apiKey = _storage.backendSettings.remoteApiKeyFor(apiUrl);
     // No account = no models. This used to fall back to the curated catalog,
     // which is how the Remote API option showed a real-looking model menu to
     // a user with no key configured at all — who reasonably concluded the

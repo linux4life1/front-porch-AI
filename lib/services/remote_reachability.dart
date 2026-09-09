@@ -46,6 +46,14 @@ String remoteBackendStatusLabel({
   };
 }
 
+/// Authorization header used by Check Connection (`GET /models`) and by
+/// live chat/completions. Empty key → omit the header so the two paths
+/// cannot disagree (a `Bearer ` blank used to look like a missing header
+/// on generate while `/models` still went green).
+Map<String, String> remoteAuthHeaders(String apiKey) => {
+  if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey',
+};
+
 /// Result of `GET {apiUrl}/models` — the cheapest auth+connectivity probe
 /// OpenAI-compatible providers share.
 class RemotePingResult {
@@ -76,10 +84,7 @@ Future<RemotePingResult> pingRemoteModels({
   try {
     final uri = Uri.parse('$apiUrl/models');
     final response = await client
-        .get(
-          uri,
-          headers: {if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey'},
-        )
+        .get(uri, headers: remoteAuthHeaders(apiKey))
         .timeout(timeout);
 
     if (response.statusCode == 200) {

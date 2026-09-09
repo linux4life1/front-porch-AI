@@ -554,10 +554,12 @@ void main() {
       () => _withRealHttp(() async {
         final fake = await _FakeLocalImageServer.start();
         final storage = _FakeStorageForGenerate('/does/not/matter');
-        await storage.backendSettings.setRemoteApiKey('key-123');
+        // Vault is per-URL. Bind the host first or the key parks on the
+        // default OpenRouter slot and this catalog sees empty.
         await storage.backendSettings.setRemoteApiUrl(
           '${fake.baseUrl}/nano-gpt',
         );
+        await storage.backendSettings.setRemoteApiKey('key-123');
         final service = ImageGenService(storage);
         final models = await service.fetchImageModels();
         expect(models, hasLength(45));
@@ -583,10 +585,10 @@ void main() {
           ],
         };
         final storage = _FakeStorageForGenerate('/does/not/matter');
-        await storage.backendSettings.setRemoteApiKey('key-123');
         await storage.backendSettings.setRemoteApiUrl(
           '${fake.baseUrl}/openrouter.ai',
         );
+        await storage.backendSettings.setRemoteApiKey('key-123');
         final service = ImageGenService(storage);
         final models = await service.fetchImageModels();
 
@@ -612,10 +614,10 @@ void main() {
         final fake = await _FakeLocalImageServer.start();
         fake.openRouterStatusCode = 500;
         final storage = _FakeStorageForGenerate('/does/not/matter');
-        await storage.backendSettings.setRemoteApiKey('key-123');
         await storage.backendSettings.setRemoteApiUrl(
           '${fake.baseUrl}/openrouter.ai',
         );
+        await storage.backendSettings.setRemoteApiKey('key-123');
         final service = ImageGenService(storage);
         final models = await service.fetchImageModels();
         expect(models, isEmpty);

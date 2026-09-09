@@ -171,6 +171,7 @@ class SettingsFacade {
       'remoteApiUrl': b.remoteApiUrl,
       'remoteModelName': b.remoteModelName,
       'hasApiKey': b.remoteApiKey.isNotEmpty,
+      'remoteApiUrlsWithKeys': b.remoteApiUrlsWithKeys,
       'remoteConfigured': _llm.openRouterService.isConfigured,
       'remoteReachability': _llm.openRouterService.reachability.name,
       'contextSize': b.contextSize,
