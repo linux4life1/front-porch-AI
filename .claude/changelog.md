@@ -8,7 +8,7 @@
 - **Files:** `web_search_settings.dart`, `web_search_key_persist_test.dart`,
   `web_search_key_migration_test.dart`, `web_search_key_field_test.dart`,
   `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 45b167b1
 
 ## 2026-09-08 — fix(realism): thinking-off 400 failovers to Kimi salvage
 - **Why:** GLM 5.3 400s "always thinks and does not support disabling
