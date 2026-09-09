@@ -9,6 +9,21 @@
   `waifu_harness.dart`, `waifu_harness_compact.dart`,
   `waifu_store.dart`, `waifu_prompt_roles_test.dart`
 - **Commit:**
+## 2026-09-09 — fix(waifu): restore tip unit green after overnight sit-down
+- **Why:** Rawhide tip `e29dff59` went red on six Waifu unit tests after
+  the sit-down / verify-before-speech / compact overnight. Sit-down
+  Confirm never fired `onSatDown` because `waifuLoadTodos` awaited disk
+  on the widget-test clock. `/init` still expected a Build ask after
+  in-porch writes stopped asking. Chrome and `turnVerifyPaths` still
+  treated re-read-only as a finished turn.
+- **What:** Confirm hands off the session before any disk read.
+  `/init` + work-strip + loop-chrome scripts match the shipped contract
+  (porch writes do not ask; wrap-up needs re-read AND test/analyze).
+  `/build` slash blurb no longer claims she asks on the first write.
+- **Files:** `waifu_wizard_page.dart`, `waifu_slash.dart`,
+  `waifu_slice_e_test.dart`, `waifu_tools_fail_closed_test.dart`,
+  `waifu_loop_chrome_test.dart`
+- **Commit:** c140247f
 
 ## 2026-09-09 — fix(waifu): real context meter + OpenCode-style compact
 - **Why:** The sidebar bar was chars÷4 of the user prompt, so system and

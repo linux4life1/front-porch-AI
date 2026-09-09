@@ -80,7 +80,9 @@ const kWaifuSlashCommands = <WaifuSlashCommand>[
   WaifuSlashCommand(
     name: 'build',
     hint: '/build',
-    blurb: 'Switch to Build — asks on the first write, then goes.',
+    blurb:
+        'Switch to Build — in-folder writes just happen; mutating bash '
+        'and off-porch paths still ask.',
   ),
   WaifuSlashCommand(
     name: 'yolo',
