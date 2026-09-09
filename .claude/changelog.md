@@ -4,7 +4,7 @@
 - **What:** One short Waifu Coder bullet. Dropped shipped-detail and
   duplicate Waifu lines. Left the chat/realism/voice/search notes.
 - **Files:** `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 582b11ea
 
 ## 2026-09-09 — fix(waifu): strip leaked tool-call wire format from speech
 - **Why:** MiniMax/GLM-style `◁tool_call_begin▷` landed in the bubble as
@@ -15,7 +15,7 @@
 - **Files:** `waifu_tool_leak.dart`, `waifu_stream.dart`,
   `waifu_harness_turn.dart`, `waifu.dart`, `waifu_tool_leak_test.dart`,
   `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 582b11ea
 
 ## 2026-09-08 — fix(waifu): review + passing test before she may speak
 - **Why:** Re-read-only counted as verify, so slop on disk still got a
@@ -31,7 +31,7 @@
   `waifu_checkin_test.dart`, `waifu_turn_contract_test.dart`,
   `waifu_loop_bubbles_test.dart`, `waifu_analyze_bash.dart`,
   `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 582b11ea
 
 ## 2026-09-08 — fix(waifu): todos live in .waifu; speech ends the turn
 - **Why:** Leaving a sit-down wiped the task list (in-memory only).
