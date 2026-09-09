@@ -9,7 +9,7 @@
 - **Files:** `waifu_session_scope.dart`, `waifu_page.dart`, `waifu_harness.dart`,
   `waifu_mode_bar.dart`, `waifu_mcp_opt_in.dart`, `waifu_plan_stage.dart`,
   `waifu_wizard_page.dart`, `waifu_store.dart`, `waifu_sit_down.dart`
-- **Commit:**
+- **Commit:** efb70416
 
 ## 2026-09-10 — fix(waifu): one history list; tool results are messages
 - **Why:** Tool dumps lived in a sidecar `toolTraces` list, so a fold
