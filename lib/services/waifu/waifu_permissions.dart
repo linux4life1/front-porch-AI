@@ -130,17 +130,11 @@ class WaifuPermissions {
       return 'plan mode cannot ${call.original}: switch to Build or Yolo '
           'to change files';
     }
-    final planBlock = waifuPlanMutationBlock(
+    return waifuPlanMutationBlock(
       name: call.name,
       args: call.args,
       root: workingDirectory,
     );
-    if (planBlock != null) return planBlock;
-    if (call.mutates) {
-      return 'plan mode cannot ${call.name}: switch to Build or Yolo to '
-          'change files';
-    }
-    return null;
   }
 
   String? hardBlock({

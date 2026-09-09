@@ -281,7 +281,16 @@ Future<String?> waifuPlanWriteLiveBlock(String root, String requested) async {
   final rootReal = await WaifuJail.canonicalRoot(root);
   final plans = p.normalize(p.join(rootReal, kWaifuDotDir, 'plans'));
   final resolved = p.normalize(hit.path!);
-  if (p.equals(resolved, plans) || !p.isWithin(plans, resolved)) {
+  String peel(String raw) {
+    var s = p.normalize(raw);
+    if (s.startsWith('/private/')) s = s.substring('/private'.length);
+    return s;
+  }
+
+  final plansPeeled = peel(plans);
+  final resolvedPeeled = peel(resolved);
+  if (p.equals(resolvedPeeled, plansPeeled) ||
+      !p.isWithin(plansPeeled, resolvedPeeled)) {
     return 'plan mode can only write under $kWaifuPlansDir '
         '(realpath escaped the plans folder)';
   }

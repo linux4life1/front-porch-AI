@@ -25,6 +25,24 @@ extension _WaifuHarnessDispatch on WaifuHarness {
     String original = '',
   }) async {
     switch (canon) {
+      case kWaifuToolRead:
+        final path = waifuToolPathArg(args);
+        if (path != null) {
+          final stub = waifuDuplicateReadStub(
+            transcript: session.transcript,
+            path: path,
+          );
+          if (stub != null) {
+            return WaifuToolResult(ok: true, output: stub);
+          }
+        }
+        return fs.dispatch(canon, args);
+      case kWaifuToolGlob:
+        final stub = waifuDuplicateGlobStub(transcript: session.transcript);
+        if (stub != null) {
+          return WaifuToolResult(ok: true, output: stub);
+        }
+        return fs.dispatch(canon, args);
       case kWaifuToolBash:
         return bash.run(args);
       case kWaifuToolTodoRead:

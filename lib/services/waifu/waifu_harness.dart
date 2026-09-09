@@ -287,6 +287,20 @@ class WaifuHarness {
         case WaifuDecisionKind.allow:
           break;
       }
+      if (session.mode == WaifuMode.plan &&
+          (canon == kWaifuToolWrite ||
+              canon == kWaifuToolEdit ||
+              canon == kWaifuToolApplyPatch)) {
+        final path = call.path;
+        final live = path == null
+            ? 'plan mode can only write under $kWaifuPlansDir'
+            : await waifuPlanWriteLiveBlock(session.folderRoot, path);
+        if (live != null) {
+          permissions.record(name: name, args: work);
+          _reject(canon, live);
+          return;
+        }
+      }
       permissions.record(name: name, args: work);
       final result = switch (canon) {
         kWaifuToolTask => await _runTask(kind, work),
@@ -311,9 +325,7 @@ class WaifuHarness {
           ? waifuChipDetail(canon, work)
           : waifuClipChipError(result.output);
       _pushChip(WaifuToolChip(name: canon, detail: detail, ok: result.ok));
-      session.toolTraces.add(
-        '[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}',
-      );
+      _noteToolHistory(canon, result.output, result.ok, path: call.path);
     } catch (e) {
       _reject(canon, '$e');
     } finally {
@@ -345,7 +357,7 @@ class WaifuHarness {
     _pushChip(
       WaifuToolChip(name: name, detail: waifuClipChipError(message), ok: false),
     );
-    session.toolTraces.add('[$name] error\n$message');
+    _noteToolHistory(name, message, false);
   }
 
   void _pushChip(WaifuToolChip chip) {
@@ -374,7 +386,7 @@ class WaifuHarness {
       transcript: session.transcript,
       todos: todos.items.isEmpty ? '' : todos.read(),
       mentionBlock: _mentionBlock,
-      toolTrace: waifuRenderToolTrace(session.toolTraces),
+      toolTrace: '',
       skillBlock: skills.catalogPrompt,
       mcpBlock: mcpOptIn ? waifuMcpToolsLine(waifuKeepMcpTools(mcpTools)) : '',
       preserveThinking: session.preserveThinking,

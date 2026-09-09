@@ -177,7 +177,7 @@ String waifuLoopUserPrompt({
   required List<WaifuMessage> transcript,
   required String todos,
   required String mentionBlock,
-  required String toolTrace,
+  String toolTrace = '',
   String skillBlock = '',
   String mcpBlock = '',
   bool preserveThinking = false,
@@ -266,12 +266,6 @@ String waifuLoopUserPrompt({
       preserveThinking: preserveThinking,
     );
     if (line.isNotEmpty) buf.writeln(line);
-  }
-  if (toolTrace.isNotEmpty) {
-    buf
-      ..writeln()
-      ..writeln('Tool results for this turn:')
-      ..writeln(toolTrace);
   }
   return buf.toString();
 }

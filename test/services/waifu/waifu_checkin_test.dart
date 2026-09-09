@@ -119,7 +119,7 @@ void main() {
         ).readAsString(),
         'old ${kWaifuCheckInEvery + 1}',
       );
-      final spoken = session.transcript.where((m) => !m.isUser).toList();
+      final spoken = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).toList();
       expect(spoken, hasLength(1));
       expect(spoken.single.text, contains('Scaffold is up'));
       expect(spoken.single.text, isNot(contains('---')));

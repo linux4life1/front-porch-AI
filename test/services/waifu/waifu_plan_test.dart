@@ -227,7 +227,7 @@ void main() {
       Directory(p.join(root.path, '.waifu', 'plans')).existsSync(),
       isFalse,
     );
-    final reply = session.transcript.where((m) => !m.isUser).single;
+    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
     expect(reply.chips.last.ok, isFalse);
     expect(reply.text, contains('could not write a plan file'));
     expect(reply.text, isNot(contains('Consider it planned')));
@@ -260,7 +260,7 @@ void main() {
       Directory(p.join(root.path, '.waifu', 'plans')).existsSync(),
       isFalse,
     );
-    final reply = session.transcript.where((m) => !m.isUser).single;
+    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
     expect(reply.chips.last.ok, isFalse);
     expect(reply.text, contains('could not write a plan file'));
     expect(reply.text, isNot(contains('Start with the validator')));
@@ -301,7 +301,7 @@ void main() {
           .exists(),
       isTrue,
     );
-    final reply = session.transcript.where((m) => !m.isUser).single;
+    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
     expect(reply.chips.single.ok, isTrue);
     expect(reply.text, contains('plan is on the porch'));
     expect(reply.text, isNot(contains('could not write a plan file')));

@@ -282,8 +282,14 @@ class WaifuFs {
   }
 
   Future<String> _rel(String abs) async {
+    String peel(String raw) {
+      var s = p.normalize(raw).replaceAll('\\', '/');
+      if (s.startsWith('/private/')) s = s.substring('/private'.length);
+      return s;
+    }
+
     final rootReal = await WaifuJail.canonicalRoot(root);
-    final rel = p.relative(abs, from: rootReal).replaceAll('\\', '/');
+    final rel = p.relative(peel(abs), from: peel(rootReal));
     if (rel.startsWith('..')) return abs.replaceAll('\\', '/');
     return p.posix.normalize(rel);
   }

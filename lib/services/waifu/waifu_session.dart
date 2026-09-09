@@ -82,6 +82,7 @@ class WaifuMessage {
     this.imagePath,
     this.toolName,
     this.toolOk,
+    this.toolPath,
   }) : kind =
            kind ??
            (hidden
@@ -115,7 +116,14 @@ class WaifuMessage {
     required String name,
     required String output,
     required bool ok,
-  }) : this(kind: WaifuMsgKind.tool, text: output, toolName: name, toolOk: ok);
+    String? path,
+  }) : this(
+         kind: WaifuMsgKind.tool,
+         text: output,
+         toolName: name,
+         toolOk: ok,
+         toolPath: path,
+       );
 
   final WaifuMsgKind kind;
   final String text;
@@ -126,6 +134,7 @@ class WaifuMessage {
   final String? imagePath;
   final String? toolName;
   final bool? toolOk;
+  final String? toolPath;
 
   bool get isUser => kind == WaifuMsgKind.user;
 
@@ -150,6 +159,7 @@ class WaifuMessage {
       imagePath: imagePath ?? this.imagePath,
       toolName: toolName,
       toolOk: toolOk,
+      toolPath: toolPath,
     );
   }
 
@@ -224,9 +234,6 @@ class WaifuSession {
   /// True when [tokensUsed] came from the last API `usage` block.
   bool tokensFromApi = false;
   int compactPasses = 0;
-
-  /// Tool results kept across sends (OpenCode/Claude). Pruned when old.
-  final List<String> toolTraces = [];
 
   List<WaifuToolChip> get toolChips => [for (final m in transcript) ...m.chips];
 }

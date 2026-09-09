@@ -59,7 +59,7 @@ void main() {
       llm: llm,
       bash: WaifuAnalyzeBash(root.path),
     ).send('scaffold');
-    final spoken = session.transcript.where((m) => !m.isUser).toList();
+    final spoken = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).toList();
     expect(spoken, hasLength(1));
     expect(spoken.single.chips.map((c) => c.name), [
       'bash',

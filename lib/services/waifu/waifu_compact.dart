@@ -20,6 +20,8 @@ import 'dart:convert';
 
 import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
+import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
+import 'package:front_porch_ai/services/waifu/waifu_turn_contract.dart';
 
 const kWaifuTranscriptBudgetChars = 12000;
 const kWaifuCompactKeep = 8;
@@ -168,9 +170,79 @@ String _stubTrace(String raw, int tokens) {
   return '$name\n(pruned, was $tokens tokens)';
 }
 
-String waifuRenderToolTrace(List<String> traces) {
-  if (traces.isEmpty) return '';
-  return traces.join('\n');
+/// Stub old tool-kind messages in the live transcript.
+void waifuPruneOldToolMessages(List<WaifuMessage> msgs, {required int budget}) {
+  final tools = <int>[];
+  for (var i = 0; i < msgs.length; i++) {
+    if (msgs[i].kind == WaifuMsgKind.tool) tools.add(i);
+  }
+  if (tools.isEmpty) return;
+  final protect = waifuPruneProtectTokens(budget);
+  var kept = 0;
+  var pruneFrom = -1;
+  for (var t = tools.length - 1; t >= 0; t--) {
+    kept += waifuEstimateTokens(msgs[tools[t]].text);
+    if (kept > protect) {
+      pruneFrom = t;
+      break;
+    }
+  }
+  if (pruneFrom < 0) return;
+  var saved = 0;
+  for (var t = 0; t <= pruneFrom; t++) {
+    final i = tools[t];
+    if (msgs[i].text.contains('(pruned)')) continue;
+    final tokens = waifuEstimateTokens(msgs[i].text);
+    saved += tokens;
+    final name = msgs[i].toolName ?? 'tool';
+    msgs[i] = WaifuMessage.tool(
+      name: name,
+      output: '$name\n(pruned, was $tokens tokens)',
+      ok: msgs[i].toolOk ?? true,
+      path: msgs[i].toolPath,
+    );
+  }
+  if (saved < kWaifuPruneMinimumTokens) {
+    // already stubbed; leave it — next compact is the real fold
+  }
+}
+
+String? waifuDuplicateReadStub({
+  required List<WaifuMessage> transcript,
+  required String path,
+}) {
+  final want = waifuNormalizeVerifyPath(path);
+  if (want.isEmpty) return null;
+  for (final m in transcript.reversed) {
+    if (m.kind != WaifuMsgKind.tool) continue;
+    final name = m.toolName ?? '';
+    if (kWaifuReceiptMutationTools.contains(name) && m.toolOk == true) {
+      return null;
+    }
+    if (name == kWaifuToolRead &&
+        m.toolOk == true &&
+        waifuNormalizeVerifyPath(m.toolPath ?? '') == want &&
+        !m.text.contains('(pruned)')) {
+      return 'already in history, unchanged';
+    }
+  }
+  return null;
+}
+
+String? waifuDuplicateGlobStub({required List<WaifuMessage> transcript}) {
+  for (final m in transcript.reversed) {
+    if (m.kind != WaifuMsgKind.tool) continue;
+    final name = m.toolName ?? '';
+    if (kWaifuReceiptMutationTools.contains(name) && m.toolOk == true) {
+      return null;
+    }
+    if (name == kWaifuToolGlob &&
+        m.toolOk == true &&
+        !m.text.contains('(pruned)')) {
+      return 'already in history, unchanged';
+    }
+  }
+  return null;
 }
 
 const kWaifuCompactSystem =

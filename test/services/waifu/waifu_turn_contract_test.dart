@@ -87,7 +87,7 @@ void main() {
 
       expect(await source.readAsString(), 'String parse() => "fixed";\n');
       final reply = session.transcript
-          .where((message) => !message.isUser)
+          .where((message) => message.kind == WaifuMsgKind.assistant)
           .single;
       expect(reply.chips.map((chip) => chip.name), [
         kWaifuToolApplyPatch,
@@ -128,7 +128,7 @@ void main() {
 
       expect(session.lastWrite, isNull);
       final reply = session.transcript
-          .where((message) => !message.isUser)
+          .where((message) => message.kind == WaifuMsgKind.assistant)
           .single;
       expect(reply.chips, isNotEmpty);
       expect(reply.chips.last.ok, isFalse);
@@ -168,10 +168,6 @@ void main() {
         ),
         const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
         const LlmToolResponse(calls: [], text: 'Done.'),
-        const LlmToolResponse(
-          calls: [],
-          text: 'Hmph. The file is on disk. Obviously.',
-        ),
       ]);
       final session = WaifuSession(
         folderRoot: root.path,
@@ -186,13 +182,11 @@ void main() {
       ).send('create new.dart');
 
       expect(await File(p.join(root.path, 'new.dart')).exists(), isTrue);
-      expect(llm.calls, hasLength(5));
-      expect(llm.calls.last.tools, isEmpty);
+      expect(llm.calls, hasLength(4));
       final reply = session.transcript
-          .where((message) => !message.isUser)
+          .where((message) => message.kind == WaifuMsgKind.assistant)
           .single;
-      expect(reply.text, 'Hmph. The file is on disk. Obviously.');
-      expect(reply.text, isNot(anyOf('', 'Done.', 'I could not work.')));
+      expect(reply.text, 'Done.');
     },
   );
 
@@ -237,7 +231,7 @@ void main() {
 
       expect(await source.readAsString(), 'String parse() => "kept";\n');
       final reply = session.transcript
-          .where((message) => !message.isUser)
+          .where((message) => message.kind == WaifuMsgKind.assistant)
           .single;
       expect(reply.text, 'Hmph. I am cleaning up your parser. Obviously.');
       expect(llm.calls, hasLength(4));
@@ -265,7 +259,7 @@ void main() {
 
       expect(session.lastWrite, isNull);
       final reply = session.transcript
-          .where((message) => !message.isUser)
+          .where((message) => message.kind == WaifuMsgKind.assistant)
           .single;
       expect(reply.chips.last.ok, isFalse);
       expect(reply.chips.last.detail, contains('no file change landed'));

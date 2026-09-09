@@ -251,7 +251,7 @@ void main() {
       await File(p.join(root.path, 'parser.dart')).readAsString(),
       'new\n',
     );
-    final reply = session.transcript.where((m) => !m.isUser).single;
+    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
     expect(reply.chips.last.ok, isFalse);
     expect(reply.chips.last.detail, contains('no verify'));
     expect(reply.text, contains('did not re-read the files'));
@@ -299,7 +299,7 @@ void main() {
       onAsk: (_) async => WaifuAskDecision.allowAlways,
     ).send('fix parser.dart');
 
-    final reply = session.transcript.where((m) => !m.isUser).single;
+    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
     expect(reply.chips.last.ok, isFalse);
     expect(reply.text, contains('did not re-read the files'));
   });
@@ -340,7 +340,7 @@ void main() {
       onAsk: (_) async => WaifuAskDecision.allowAlways,
     ).send('fix parser.dart');
 
-    final reply = session.transcript.where((m) => !m.isUser).single;
+    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
     expect(reply.chips.last.ok, isTrue);
     expect(reply.text, contains('Obviously.'));
     expect(reply.text, isNot(contains('did not re-read')));
@@ -403,7 +403,7 @@ void main() {
         await File(p.join(root.path, 'parser.dart')).readAsString(),
         'fixed\n',
       );
-      final reply = session.transcript.where((m) => !m.isUser).single;
+      final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
       expect(reply.text, contains('Obviously.'));
       expect(reply.text, isNot(contains('did not re-read')));
     },

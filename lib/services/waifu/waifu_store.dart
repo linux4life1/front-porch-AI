@@ -148,7 +148,6 @@ class WaifuStore {
     'contextBudget': session.contextBudget,
     'tokensFromApi': session.tokensFromApi,
     'compactPasses': session.compactPasses,
-    if (session.toolTraces.isNotEmpty) 'toolTraces': session.toolTraces,
     'themeOverrides': session.themeOverrides.toJson(),
     'coworker': _coworkerMap(session.coworker),
     'todos': session.todos.toJson(),
@@ -163,6 +162,7 @@ class WaifuStore {
           if (m.hidden) 'hidden': true,
           if (m.toolName != null) 'toolName': m.toolName,
           if (m.toolOk != null) 'toolOk': m.toolOk,
+          if (m.toolPath != null) 'toolPath': m.toolPath,
         },
     ],
   };
@@ -286,6 +286,7 @@ class WaifuStore {
               imagePath: e['imagePath']?.toString(),
               toolName: e['toolName']?.toString(),
               toolOk: e.containsKey('toolOk') ? e['toolOk'] == true : null,
+              toolPath: e['toolPath']?.toString(),
             ),
           );
         }
@@ -322,7 +323,20 @@ class WaifuStore {
       final traces = map['toolTraces'];
       if (traces is List) {
         for (final t in traces) {
-          if (t is String && t.isNotEmpty) session.toolTraces.add(t);
+          if (t is! String || t.isEmpty) continue;
+          final first = t.split('\n').first;
+          final name = first
+              .replaceAll(RegExp(r'[\[\]]'), ' ')
+              .trim()
+              .split(' ')
+              .first;
+          transcript.add(
+            WaifuMessage.tool(
+              name: name.isEmpty ? 'tool' : name,
+              output: t,
+              ok: !t.contains('error'),
+            ),
+          );
         }
       }
       if (session.todos.items.isEmpty) {

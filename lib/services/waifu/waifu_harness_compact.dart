@@ -42,14 +42,10 @@ extension _WaifuHarnessCompact on WaifuHarness {
   }
 
   void _pruneTraces() {
-    final next = waifuPruneToolTraces(
-      session.toolTraces,
+    waifuPruneOldToolMessages(
+      session.transcript,
       budget: session.contextBudget,
     );
-    if (identical(next, session.toolTraces)) return;
-    session.toolTraces
-      ..clear()
-      ..addAll(next);
   }
 
   WaifuBudgetSnapshot _measureLive({

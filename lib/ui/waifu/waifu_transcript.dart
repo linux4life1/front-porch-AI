@@ -48,7 +48,7 @@ class WaifuTranscript extends StatelessWidget {
     }
     final visible = [
       for (final m in session.transcript)
-        if (!m.hidden) m,
+        if (m.kind == WaifuMsgKind.user || m.kind == WaifuMsgKind.assistant) m,
     ];
     final chats = [for (final m in visible) m.toChatMessage(coworker)];
     return ChatMessageList(

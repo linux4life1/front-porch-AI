@@ -1,3 +1,15 @@
+## 2026-09-10 — fix(waifu): one history list; tool results are messages
+- **Why:** Tool dumps lived in a sidecar `toolTraces` list, so a fold
+  could drop speech while the model still saw a novel of old reads.
+- **What:** Tool results are `WaifuMsgKind.tool` on the transcript.
+  The “this turn” dump is gone. Duplicate read/glob of an unchanged
+  path returns a stub. Old JSON `toolTraces` loads as tool messages.
+- **Files:** `waifu_session.dart`, `waifu_harness.dart`,
+  `waifu_harness_turn.dart`, `waifu_harness_dispatch.dart`,
+  `waifu_compact.dart`, `waifu_store.dart`, `waifu_coworker_prompt.dart`,
+  `waifu_transcript.dart`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): one permission decide() after jail
 - **Why:** Nine permission gates, unknown MCP names falling through to
   file tools, and bash “mutate” meaning “not on the Plan allowlist.”

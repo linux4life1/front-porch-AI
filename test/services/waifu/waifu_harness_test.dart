@@ -65,7 +65,7 @@ void main() {
 
       expect(llm.calls, hasLength(2));
       expect(session.transcript.where((m) => m.isUser), hasLength(1));
-      final spoken = session.transcript.where((m) => !m.isUser).toList();
+      final spoken = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).toList();
       expect(spoken, hasLength(1));
       expect(spoken.single.chips.single.name, 'read');
       expect(spoken.single.chips.single.detail, 'notes.txt');
@@ -89,7 +89,7 @@ void main() {
       final session = _session(root.path);
       final harness = WaifuHarness(session: session, llm: llm);
       await harness.send('what is here');
-      final spoken = session.transcript.where((m) => !m.isUser).toList();
+      final spoken = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).toList();
       expect(spoken, hasLength(1));
       expect(spoken.single.chips.single.name, 'bash');
       expect(spoken.single.chips.single.detail, 'ls -la');

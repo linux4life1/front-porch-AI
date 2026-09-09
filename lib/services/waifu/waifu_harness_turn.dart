@@ -223,6 +223,24 @@ extension _WaifuHarnessTurn on WaifuHarness {
     _emit();
   }
 
+  void _noteToolHistory(String name, String output, bool ok, {String? path}) {
+    final msg = WaifuMessage.tool(
+      name: name,
+      output: output,
+      ok: ok,
+      path: path,
+    );
+    final live = _turn.live;
+    if (live != null) {
+      final i = session.transcript.indexOf(live);
+      if (i >= 0) {
+        session.transcript.insert(i, msg);
+        return;
+      }
+    }
+    session.transcript.add(msg);
+  }
+
   void _say(String text) {
     final live = _turn.live;
     if (live != null) {

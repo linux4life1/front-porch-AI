@@ -164,8 +164,14 @@ class WaifuJail {
   }
 
   static bool _inside(String rootAbs, String candidate) {
-    final rootNorm = p.normalize(rootAbs);
-    final candidateNorm = p.normalize(candidate);
+    String peel(String raw) {
+      var s = p.normalize(raw);
+      if (s.startsWith('/private/')) s = s.substring('/private'.length);
+      return s;
+    }
+
+    final rootNorm = peel(rootAbs);
+    final candidateNorm = peel(candidate);
     if (p.equals(candidateNorm, rootNorm)) return true;
     if (Platform.isWindows) {
       final prefix = rootNorm.endsWith(p.separator)

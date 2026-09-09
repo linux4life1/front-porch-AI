@@ -80,7 +80,7 @@ bool waifuBashLooksRecursive(Iterable<String> words) =>
     );
 
 /// macOS `/var` is a symlink to `/private/var`; [p.isWithin] misses that.
-bool _insideRoot(String path, String root) {
+bool waifuPathIsInsideRoot(String path, String root) {
   String peel(String raw) {
     var s = p.normalize(raw).replaceAll(r'\', '/').toLowerCase();
     if (s.startsWith('/private/')) s = s.substring('/private'.length);
@@ -105,7 +105,7 @@ bool waifuIsCriticalSystemMutationPath(
     final resolved = p.isAbsolute(normalized)
         ? p.normalize(normalized)
         : p.normalize(p.join(cwdAbs, normalized));
-    if (_insideRoot(resolved, cwdAbs)) return false;
+    if (waifuPathIsInsideRoot(resolved, cwdAbs)) return false;
   }
   if (RegExp(r'^[a-z]:/?$').hasMatch(normalized)) return true;
   final withoutDrive = normalized.replaceFirst(RegExp(r'^[a-z]:'), '');
@@ -281,9 +281,9 @@ bool _isDangerousWipeTarget(String raw, String? workingDirectory) {
     final resolved = p.isAbsolute(target)
         ? p.normalize(target)
         : p.normalize(p.join(cwdAbs, target));
-    if (_insideRoot(resolved, cwdAbs)) return false;
+    if (waifuPathIsInsideRoot(resolved, cwdAbs)) return false;
     if (p.equals(resolved, cwdAbs) ||
-        _insideRoot(cwdAbs, resolved) ||
+        waifuPathIsInsideRoot(cwdAbs, resolved) ||
         p.isWithin(resolved, cwdAbs)) {
       return true;
     }

@@ -104,7 +104,7 @@ void main() {
       await harness.send('track the work');
 
       expect(harness.todos.items, isEmpty);
-      final reply = session.transcript.where((m) => !m.isUser).single;
+      final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
       expect(reply.chips.last.ok, isFalse);
       expect(reply.chips.last.detail, contains('no todowrite receipt'));
       expect(reply.text, contains('did not actually update the todo list'));
@@ -149,7 +149,7 @@ void main() {
 
       expect(harness.todos.items, hasLength(1));
       expect(harness.todos.items.single.status, 'completed');
-      final reply = session.transcript.where((m) => !m.isUser).single;
+      final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
       expect(
         reply.chips.any((c) => c.name == kWaifuToolTodoWrite && c.ok),
         isTrue,
@@ -180,7 +180,7 @@ void main() {
 
     await WaifuHarness(session: session, llm: llm).send('look around');
 
-    final reply = session.transcript.where((m) => !m.isUser).single;
+    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
     expect(reply.text, contains('look around first'));
     expect(reply.chips.any((c) => c.detail.contains('no todowrite')), isFalse);
   });
