@@ -27,6 +27,8 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_page.dart';
 import 'package:path/path.dart' as p;
 
+import '../../services/waifu/waifu_analyze_bash.dart';
+
 void main() {
   late Directory root;
 
@@ -60,10 +62,15 @@ void main() {
         ],
         text: '',
       ),
+      const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
       const LlmToolResponse(calls: [], text: 'Hmph. There. hello.txt.'),
     ]);
     final s = session();
-    final harness = WaifuHarness(session: s, llm: llm);
+    final harness = WaifuHarness(
+      session: s,
+      llm: llm,
+      bash: WaifuAnalyzeBash(root.path),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: WaifuPage(session: s, harness: harness),
@@ -118,13 +125,18 @@ void main() {
           ],
           text: '',
         ),
+        const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
         const LlmToolResponse(
           calls: [],
           text: 'Hmph. Your parser is fixed. Try to keep up.',
         ),
       ]);
       final s = session()..mode = WaifuMode.yolo;
-      final harness = WaifuHarness(session: s, llm: llm);
+      final harness = WaifuHarness(
+        session: s,
+        llm: llm,
+        bash: WaifuAnalyzeBash(root.path),
+      );
       await tester.pumpWidget(
         MaterialApp(
           home: WaifuPage(session: s, harness: harness),
