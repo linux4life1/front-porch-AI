@@ -13,7 +13,7 @@
   `waifu_harness.dart`, `waifu_harness_turn.dart`, `waifu_llm.dart`,
   `waifu_session.dart`, `waifu_store.dart`, `waifu_transcript.dart`,
   `waifu_page.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 1e775b09
 
 ## 2026-09-09 — docs: collapse Waifu Coder Rawhide notes to one bullet
 - **Why:** Unreleased notes had piled into a Waifu-Coder pamphlet. Most
