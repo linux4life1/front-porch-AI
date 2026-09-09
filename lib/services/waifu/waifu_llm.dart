@@ -44,6 +44,7 @@ abstract class WaifuLlm {
     required List<Map<String, dynamic>> tools,
     List<String>? images,
     void Function(String chunk)? onChunk,
+    int? maxTokens,
   });
 
   void abort() {}
@@ -80,6 +81,7 @@ class LlmServiceWaifuLlm implements WaifuLlm {
     required List<Map<String, dynamic>> tools,
     List<String>? images,
     void Function(String chunk)? onChunk,
+    int? maxTokens,
   }) {
     final g = settingsOf?.call();
     final s = storage;
@@ -88,6 +90,7 @@ class LlmServiceWaifuLlm implements WaifuLlm {
         prompt: prompt,
         systemPrompt: systemPrompt,
         maxLength:
+            maxTokens ??
             remainingTokensOf?.call() ??
             waifuOutputTokenBudget(budget: kWaifuDefaultContextTokens, used: 0),
         minLength: 0,
@@ -167,6 +170,7 @@ class ScriptedWaifuLlm implements WaifuLlm {
     required List<Map<String, dynamic>> tools,
     List<String>? images,
     void Function(String chunk)? onChunk,
+    int? maxTokens,
   }) async {
     waitingAt = _i;
     await beforeGenerate?.call(_i);

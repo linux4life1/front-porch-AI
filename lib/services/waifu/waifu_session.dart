@@ -59,6 +59,7 @@ class WaifuMessage {
     this.thinkingStartMs,
     this.thinkingMs = 0,
     this.imagePath,
+    this.hidden = false,
   });
 
   final bool isUser;
@@ -68,6 +69,9 @@ class WaifuMessage {
   final int? thinkingStartMs;
   final int thinkingMs;
   final String? imagePath;
+
+  /// Prompt-only (session recap). Not painted as a bubble.
+  final bool hidden;
 
   /// Same shape chat bubbles parse: `<think>` + spoken line.
   ChatMessage toChatMessage(String coworkerName) {
@@ -136,7 +140,13 @@ class WaifuSession {
   final ChatGenerationSettings genSettings = ChatGenerationSettings();
   int contextBudget = 8192;
   int tokensUsed = 0;
+
+  /// True when [tokensUsed] came from the last API `usage` block.
+  bool tokensFromApi = false;
   int compactPasses = 0;
+
+  /// Tool results kept across sends (OpenCode/Claude). Pruned when old.
+  final List<String> toolTraces = [];
 
   List<WaifuToolChip> get toolChips => [for (final m in transcript) ...m.chips];
 }

@@ -355,18 +355,7 @@ class _WaifuPageState extends State<WaifuPage> {
         _harnessOf(context)?.abort();
         return true;
       case 'compact':
-        setState(() {
-          final next = waifuCompactTranscript(
-            session.transcript,
-            budgetTokens: session.contextBudget,
-          );
-          session.transcript
-            ..clear()
-            ..addAll(next);
-          session.transcript.add(
-            const WaifuMessage(isUser: false, text: 'Folded old turns.'),
-          );
-        });
+        unawaited(_harnessOf(context)?.compact());
         return true;
       case 'skills':
         unawaited(_slashSkills(text));

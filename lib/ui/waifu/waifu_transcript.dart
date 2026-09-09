@@ -46,9 +46,11 @@ class WaifuTranscript extends StatelessWidget {
         ),
       );
     }
-    final chats = [
-      for (final m in session.transcript) m.toChatMessage(coworker),
+    final visible = [
+      for (final m in session.transcript)
+        if (!m.hidden) m,
     ];
+    final chats = [for (final m in visible) m.toChatMessage(coworker)];
     return ChatMessageList(
       messages: chats,
       resolveSpeaker: (msg) => msg.isUser
@@ -60,8 +62,8 @@ class WaifuTranscript extends StatelessWidget {
       generatingAt: (i) => session.running && i == chats.length - 1,
       aboveBubble: (msg, index) {
         if (msg.isUser) return null;
-        if (index < 0 || index >= session.transcript.length) return null;
-        final chips = session.transcript[index].chips;
+        if (index < 0 || index >= visible.length) return null;
+        final chips = visible[index].chips;
         if (chips.isEmpty) return null;
         return WaifuToolLog(chips: chips);
       },

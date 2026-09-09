@@ -1,3 +1,20 @@
+## 2026-09-09 — fix(waifu): real context meter + OpenCode-style compact
+- **Why:** The sidebar bar was chars÷4 of the user prompt, so system and
+  tool schemas were invisible, and every send folded the transcript at
+  12k characters. Compaction could not work if the meter was a guess.
+- **What:** Prefer the model's `usage` (stream `include_usage`). Until
+  that lands, count system + prompt + advertised tools. Keep newest
+  tool output, stub the rest. At 75% of the window, ask the model for
+  a recap and hide it; `/compact` forces that. Extractive recap is the
+  fallback if the model is silent.
+- **Files:** `llm_service.dart`, `llm_tool_parsing.dart`,
+  `openai_tool_stream.dart`, `openai_tool_payload.dart`,
+  `waifu_compact.dart`, `waifu_harness_compact.dart`,
+  `waifu_harness.dart`, `waifu_harness_turn.dart`, `waifu_llm.dart`,
+  `waifu_session.dart`, `waifu_store.dart`, `waifu_transcript.dart`,
+  `waifu_page.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-09 — docs: collapse Waifu Coder Rawhide notes to one bullet
 - **Why:** Unreleased notes had piled into a Waifu-Coder pamphlet. Most
   users are here for chat.

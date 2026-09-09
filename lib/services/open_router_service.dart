@@ -590,6 +590,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
           wrapReasoning: params.reasoningEnabled,
           salvage: params.salvageReasoning,
           onChunk: params.onChunk,
+          includeUsage: true,
           onHttpError: (status, body) {
             streamStatus = status;
             streamErr = body;

@@ -20,6 +20,26 @@ import 'dart:convert';
 
 import 'llm_service.dart';
 
+/// OpenAI `usage` object, or a parent map that contains one.
+LlmTokenUsage? parseLlmTokenUsage(dynamic json) {
+  if (json is! Map) return null;
+  final usage = json['usage'] is Map ? json['usage'] as Map : json;
+  final prompt = (usage['prompt_tokens'] as num?)?.toInt();
+  final completion = (usage['completion_tokens'] as num?)?.toInt();
+  final total = (usage['total_tokens'] as num?)?.toInt();
+  if (prompt == null && completion == null && total == null) return null;
+  if ((prompt == null || prompt <= 0) &&
+      (completion == null || completion <= 0) &&
+      (total == null || total <= 0)) {
+    return null;
+  }
+  return LlmTokenUsage(
+    promptTokens: prompt,
+    completionTokens: completion,
+    totalTokens: total,
+  );
+}
+
 /// Parse a non-streaming OpenAI chat-completions response body into an
 /// [LlmToolResponse]: the assistant message's `tool_calls` (arguments
 /// JSON-decoded; malformed arguments become `{}` so the downstream op parser
@@ -59,9 +79,13 @@ LlmToolResponse? parseOpenAiToolResponse(String body) {
     calls.add(LlmToolCall(name: name, arguments: args));
   }
   final reasoningRaw = message['reasoning_content'] ?? message['reasoning'];
+  final usage = parseLlmTokenUsage(json);
   return LlmToolResponse(
     calls: calls,
     text: message['content'] is String ? message['content'] as String : '',
     reasoning: reasoningRaw is String ? reasoningRaw : '',
+    promptTokens: usage?.promptTokens,
+    completionTokens: usage?.completionTokens,
+    totalTokens: usage?.totalTokens,
   );
 }

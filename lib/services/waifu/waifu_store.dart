@@ -145,6 +145,9 @@ class WaifuStore {
     if (session.activePlanPath != null && session.activePlanPath!.isNotEmpty)
       'activePlanPath': session.activePlanPath,
     'tokensUsed': session.tokensUsed,
+    'tokensFromApi': session.tokensFromApi,
+    'compactPasses': session.compactPasses,
+    if (session.toolTraces.isNotEmpty) 'toolTraces': session.toolTraces,
     'themeOverrides': session.themeOverrides.toJson(),
     'coworker': _coworkerMap(session.coworker),
     'todos': session.todos.toJson(),
@@ -155,6 +158,7 @@ class WaifuStore {
           'text': m.text,
           if (m.reasoning.isNotEmpty) 'reasoning': m.reasoning,
           if (m.imagePath != null) 'imagePath': m.imagePath,
+          if (m.hidden) 'hidden': true,
         },
     ],
   };
@@ -271,6 +275,7 @@ class WaifuStore {
               text: e['text']?.toString() ?? '',
               reasoning: e['reasoning']?.toString() ?? '',
               imagePath: e['imagePath']?.toString(),
+              hidden: e['hidden'] == true,
             ),
           );
         }
@@ -278,22 +283,34 @@ class WaifuStore {
       final used = (map['tokensUsed'] as num?)?.toInt() ?? 0;
       final rawTheme = map['themeOverrides'];
       final todos = WaifuTodos()..write(map['todos']);
-      final session = WaifuSession(
-        folderRoot: folder,
-        coworker: _coworkerFrom(coworker),
-        mode: mode,
-        pathMode: pathMode,
-        title: map['title']?.toString() ?? '',
-        transcript: transcript,
-        todos: todos,
-        mcpOptIn: map['mcpOptIn'] == true,
-        preserveThinking: map['preserveThinking'] == true,
-        toolsSupported: map['toolsSupported'] != false,
-        activePlanPath: map['activePlanPath']?.toString(),
-        themeOverrides: rawTheme is Map
-            ? ChatThemeOverrides.fromJson(Map<String, dynamic>.from(rawTheme))
-            : null,
-      )..tokensUsed = used < 0 ? 0 : used;
+      final session =
+          WaifuSession(
+              folderRoot: folder,
+              coworker: _coworkerFrom(coworker),
+              mode: mode,
+              pathMode: pathMode,
+              title: map['title']?.toString() ?? '',
+              transcript: transcript,
+              todos: todos,
+              mcpOptIn: map['mcpOptIn'] == true,
+              preserveThinking: map['preserveThinking'] == true,
+              toolsSupported: map['toolsSupported'] != false,
+              activePlanPath: map['activePlanPath']?.toString(),
+              themeOverrides: rawTheme is Map
+                  ? ChatThemeOverrides.fromJson(
+                      Map<String, dynamic>.from(rawTheme),
+                    )
+                  : null,
+            )
+            ..tokensUsed = used < 0 ? 0 : used
+            ..tokensFromApi = map['tokensFromApi'] == true
+            ..compactPasses = (map['compactPasses'] as num?)?.toInt() ?? 0;
+      final traces = map['toolTraces'];
+      if (traces is List) {
+        for (final t in traces) {
+          if (t is String && t.isNotEmpty) session.toolTraces.add(t);
+        }
+      }
       if (session.todos.items.isEmpty) {
         await waifuLoadTodos(folder, session.todos);
       }

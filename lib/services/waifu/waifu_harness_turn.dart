@@ -23,27 +23,19 @@ extension _WaifuHarnessTurn on WaifuHarness {
     final system = _system();
     for (var step = 0; step < kWaifuMaxSteps; step++) {
       if (_aborted) return;
+      await _maybeCompact();
       _beginStream();
       final prompt = _prompt();
-      _setBudget(system, prompt);
+      final tools = _advertisedTools(speechOnly: _turn.speechOnly);
+      _armBudget(tools: tools);
       final resp = await llm.generate(
         systemPrompt: system,
         prompt: prompt,
-        tools: _turn.speechOnly
-            ? const <Map<String, dynamic>>[]
-            : waifuAdvertisedTools(
-                exploreOnly: exploreOnly,
-                includeWebSearch: webSearch != null,
-                mcpOptIn: mcpOptIn,
-                mcpTools: mcpTools,
-                includeTask: depth < kWaifuMaxTaskDepth,
-                includeWorkflow: depth == 0,
-                pathMode: session.pathMode,
-                mode: session.mode,
-              ),
+        tools: tools,
         images: step == 0 ? _turnImages : null,
         onChunk: _onChunk,
       );
+      if (resp != null) _applyUsage(resp);
       _endStream();
       if (_aborted) return;
       if (resp == null) {

@@ -96,7 +96,7 @@ const kWaifuSlashCommands = <WaifuSlashCommand>[
   WaifuSlashCommand(
     name: 'compact',
     hint: '/compact',
-    blurb: 'Fold old turns into a recap to free context.',
+    blurb: 'Fold old turns into a recap when the context window is filling.',
   ),
   WaifuSlashCommand(
     name: 'stop',

@@ -37,6 +37,9 @@ class OpenAiToolStreamParser {
   final text = StringBuffer();
   final reasoning = StringBuffer();
   var _closed = false;
+  int? promptTokens;
+  int? completionTokens;
+  int? totalTokens;
 
   /// Returns text the UI should append (think-wrapped), or empty.
   String onDelta(Map<dynamic, dynamic> delta) {
@@ -76,6 +79,14 @@ class OpenAiToolStreamParser {
     return out.toString();
   }
 
+  void onUsage(dynamic usage) {
+    if (usage is! Map) return;
+    promptTokens = (usage['prompt_tokens'] as num?)?.toInt() ?? promptTokens;
+    completionTokens =
+        (usage['completion_tokens'] as num?)?.toInt() ?? completionTokens;
+    totalTokens = (usage['total_tokens'] as num?)?.toInt() ?? totalTokens;
+  }
+
   /// Close an open think block. Idempotent. Yield this through [onChunk].
   String closeThink() {
     if (_closed) return '';
@@ -103,6 +114,9 @@ class OpenAiToolStreamParser {
       calls: calls,
       text: text.toString(),
       reasoning: reasoning.toString(),
+      promptTokens: promptTokens,
+      completionTokens: completionTokens,
+      totalTokens: totalTokens,
     );
   }
 }
@@ -162,6 +176,7 @@ void _ingestDataLine(
   try {
     final json = jsonDecode(data);
     if (json is! Map) return;
+    parser.onUsage(json['usage']);
     final choices = json['choices'];
     final choice = choices is List && choices.isNotEmpty ? choices.first : null;
     if (choice is! Map) return;
@@ -229,6 +244,7 @@ Future<LlmToolResponse?> streamOpenAiChatToolsWithStyleRetry({
   void Function(String chunk)? onChunk,
   ToolChoiceStyleProbe? probe,
   void Function(int status, String body)? onHttpError,
+  bool includeUsage = false,
 }) async {
   final styleProbe = probe ?? ToolChoiceStyleProbe.instance;
   var style = styleProbe.startingStyleFor(identity, toolChoice: toolChoice);
@@ -240,6 +256,7 @@ Future<LlmToolResponse?> streamOpenAiChatToolsWithStyleRetry({
       tools: tools,
       toolChoice: toolChoice,
       stream: true,
+      includeUsage: includeUsage,
       style: s,
     );
     final request = http.Request('POST', uri);

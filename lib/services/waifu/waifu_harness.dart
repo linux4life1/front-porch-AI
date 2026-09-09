@@ -52,6 +52,7 @@ part 'waifu_harness_dispatch.dart';
 part 'waifu_harness_plan.dart';
 part 'waifu_harness_spawn.dart';
 part 'waifu_harness_turn.dart';
+part 'waifu_harness_compact.dart';
 
 /// In-process generateWithTools loop. Max [kWaifuMaxSteps]. Abort stops
 /// further tools; disk is left as the last successful write.
@@ -111,7 +112,6 @@ class WaifuHarness {
 
   bool _aborted = false;
   int? _stepAt;
-  String _trace = '';
   String _streamBuf = '';
   String _priorReasoning = '';
   Completer<WaifuAskDecision>? _askWait;
@@ -156,7 +156,6 @@ class WaifuHarness {
     if (text.isEmpty) text = '(photo)';
     _aborted = false;
     _stepAt = null;
-    _trace = '';
     _turnImages = imagePng == null ? null : [base64Encode(imagePng)];
     _turn = WaifuTurnContract.start(
       text,
@@ -190,17 +189,22 @@ class WaifuHarness {
         await _runTool(kWaifuToolWorkflow, wf);
       }
       await _loop();
-      final compacted = waifuCompactTranscript(session.transcript);
-      session.transcript
-        ..clear()
-        ..addAll(compacted);
-      _setBudget(_system(), _prompt());
+      await _maybeCompact();
+      _armBudget();
       await store?.saveLast(session);
     } finally {
       _turnImages = null;
       session.running = false;
       _emit();
     }
+  }
+
+  /// `/compact`. LLM recap when there is enough history; always remeters.
+  Future<void> compact() async {
+    await _maybeCompact(force: true);
+    _armBudget();
+    await store?.saveLast(session);
+    _emit();
   }
 
   void abort() {
@@ -323,7 +327,9 @@ class WaifuHarness {
           ? waifuChipDetail(canon, work)
           : waifuClipChipError(result.output);
       _pushChip(WaifuToolChip(name: canon, detail: detail, ok: result.ok));
-      _trace += '\n[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}\n';
+      session.toolTraces.add(
+        '[$canon] ${result.ok ? 'ok' : 'error'}\n${result.output}',
+      );
     } catch (e) {
       _reject(canon, '$e');
     } finally {
@@ -355,7 +361,7 @@ class WaifuHarness {
     _pushChip(
       WaifuToolChip(name: name, detail: waifuClipChipError(message), ok: false),
     );
-    _trace += '\n[$name] error\n$message\n';
+    session.toolTraces.add('[$name] error\n$message');
   }
 
   void _pushChip(WaifuToolChip chip) {
@@ -422,6 +428,9 @@ class WaifuHarness {
         paintBody: _turn.speechOnly,
       ),
     );
+    if (!session.tokensFromApi) {
+      session.tokensUsed += waifuEstimateTokens(chunk);
+    }
     _emit();
   }
 
@@ -466,15 +475,6 @@ class WaifuHarness {
 
   String _system() => buildWaifuCoworkerPrompt(session.coworker);
 
-  void _setBudget(String system, String prompt) {
-    final snap = waifuMeasurePrompt(
-      systemPrompt: system,
-      prompt: prompt,
-      budget: session.contextBudget,
-    );
-    session.tokensUsed = snap.used;
-  }
-
   String _prompt() {
     return waifuLoopUserPrompt(
       folderName: session.folderRoot,
@@ -482,13 +482,13 @@ class WaifuHarness {
       transcript: session.transcript,
       todos: todos.items.isEmpty ? '' : todos.read(),
       mentionBlock: _mentionBlock,
-      toolTrace: _trace,
+      toolTrace: waifuRenderToolTrace(session.toolTraces),
       skillBlock: skills.catalogPrompt,
       mcpBlock: mcpOptIn ? waifuMcpToolsLine(waifuKeepMcpTools(mcpTools)) : '',
       preserveThinking: session.preserveThinking,
       pathMode: session.pathMode,
       taskDepthRemaining: kWaifuMaxTaskDepth - depth,
-      turnContractCue: _turn.cue,
+      turnContractCue: _safeCue(),
       mode: session.mode,
       planBlock: _planBlock,
     );

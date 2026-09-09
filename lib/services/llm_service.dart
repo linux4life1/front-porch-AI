@@ -159,6 +159,25 @@ class LlmToolCall {
   const LlmToolCall({required this.name, required this.arguments});
 }
 
+/// OpenAI-style `usage` block. Null fields mean the server omitted them.
+class LlmTokenUsage {
+  const LlmTokenUsage({
+    this.promptTokens,
+    this.completionTokens,
+    this.totalTokens,
+  });
+
+  final int? promptTokens;
+  final int? completionTokens;
+  final int? totalTokens;
+
+  int? get usedTokens {
+    if (totalTokens != null && totalTokens! > 0) return totalTokens;
+    if (promptTokens == null && completionTokens == null) return null;
+    return (promptTokens ?? 0) + (completionTokens ?? 0);
+  }
+}
+
 /// Result of a tool-enabled, non-streaming generation: the tool calls the
 /// model made (possibly none) plus any plain assistant text it also wrote.
 class LlmToolResponse {
@@ -169,11 +188,25 @@ class LlmToolResponse {
   /// (`reasoning_content`). Empty on text-only backends.
   final String reasoning;
 
+  /// Server-reported tokens when the backend sent `usage`. Null = guess.
+  final int? promptTokens;
+  final int? completionTokens;
+  final int? totalTokens;
+
   const LlmToolResponse({
     required this.calls,
     required this.text,
     this.reasoning = '',
+    this.promptTokens,
+    this.completionTokens,
+    this.totalTokens,
   });
+
+  int? get usedTokens => LlmTokenUsage(
+    promptTokens: promptTokens,
+    completionTokens: completionTokens,
+    totalTokens: totalTokens,
+  ).usedTokens;
 }
 
 /// Opt-in identity surface for OpenAI-compatible services with a live URL.
