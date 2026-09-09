@@ -300,10 +300,11 @@ void main() {
       tester,
     ) async {
       final fakeStorage = _TabFakeStorage();
-      await fakeStorage.backendSettings.setRemoteApiKey('nk-test');
+      // Per-host vault: URL first, then the key for that host.
       await fakeStorage.backendSettings.setRemoteApiUrl(
         'https://nano-gpt.com/api/v1',
       );
+      await fakeStorage.backendSettings.setRemoteApiKey('nk-test');
       final fakeSvc = _TabFakeImageGenService();
       _setupViewport(tester);
       await tester.pumpWidget(
@@ -341,7 +342,7 @@ class _TabFakeStorage extends ChangeNotifier implements StorageService {
   final String backend;
 
   // Real settings object (null prefs = memory-only): the remote panel reads
-  // remoteApiKey/remoteApiUrl for its no-key warning vs billing note
+  // remoteApiKeyFor(remoteApiUrl) for its no-key warning vs billing note
   // (2026-08-13 — the "looked free" report). Default: no key, so the
   // long-standing tests exercise the warning state.
   @override

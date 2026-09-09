@@ -108,8 +108,9 @@ extension _GenerationOptionsSource on _GenerationOptionsTabState {
     // never set one saw a working-looking model menu and reasonably
     // concluded remote images were free. Say where the key lives and who
     // bills, BEFORE they craft a prompt and hit a dead Generate.
-    final apiKey = st.backendSettings.remoteApiKey;
-    final host = Uri.tryParse(st.backendSettings.remoteApiUrl)?.host ?? '';
+    final apiUrl = st.backendSettings.remoteApiUrl;
+    final apiKey = st.backendSettings.remoteApiKeyFor(apiUrl);
+    final host = Uri.tryParse(apiUrl)?.host ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -63,7 +63,10 @@ class BackendSettings with SettingsBase {
   int _kvQuantizationLevel = 0;
 
   String get backendType => _backendType;
-  String get remoteApiKey => _remoteApiKey;
+
+  /// Key for the *active* URL's vault slot. Image Studio, chat, and Check
+  /// Connection must all read this — never a leftover parked on another host.
+  String get remoteApiKey => _remoteApiKeys.keyFor(_remoteApiUrl);
   String get remoteApiUrl => _remoteApiUrl;
   String get remoteModelName => _remoteModelName;
 

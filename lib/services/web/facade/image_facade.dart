@@ -58,7 +58,7 @@ class ImageFacade {
       // Remote (API) image gen reuses the shared remote backend config.
       'remoteApiUrl': b.remoteApiUrl,
       'remoteModelName': b.remoteModelName,
-      'hasApiKey': b.remoteApiKey.isNotEmpty,
+      'hasApiKey': b.remoteApiKeyFor(b.remoteApiUrl).isNotEmpty,
     };
   }
 

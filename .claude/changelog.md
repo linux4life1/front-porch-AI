@@ -1,3 +1,17 @@
+## 2026-09-09 — fix(image): Image Studio reads the per-URL vault key
+- **Why:** #243 vault made `setRemoteApiKey` then `setRemoteApiUrl` park
+  the key on the default OpenRouter slot. Image Studio / `fetchImageModels`
+  then saw empty → curated catalog `[]`, no `/models` fetch, no billing
+  banner. CI red on tip `a8d49418`.
+- **What:** `remoteApiKey` getter is the active URL's vault slot. Image
+  Studio, generate, and the web image facade pair URL + `remoteApiKeyFor`.
+  Catalog / billing tests bind the host first, then the key.
+- **Files:** `backend_settings.dart`, `image_gen_service.dart`,
+  `image_gen_service.generate.dart`, `generation_options_tab.source.dart`,
+  `image_facade.dart`, `image_gen_generate_test.dart`,
+  `generation_options_tab_test.dart`
+- **Commit:** (this commit)
+
 ## 2026-09-08 — fix(backend): do not seed a leftover OR key into the Nano slot
 - **Why:** HOLD on #243 — load always `put` the shared `remote_api_key`
   into the active URL. Community stuck state is `url=Nano` + leftover
