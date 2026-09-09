@@ -10,7 +10,7 @@
   `image_gen_service.generate.dart`, `generation_options_tab.source.dart`,
   `image_facade.dart`, `image_gen_generate_test.dart`,
   `generation_options_tab_test.dart`
-- **Commit:** (this commit)
+- **Commit:** 92b06cf6
 
 ## 2026-09-08 — fix(backend): do not seed a leftover OR key into the Nano slot
 - **Why:** HOLD on #243 — load always `put` the shared `remote_api_key`
