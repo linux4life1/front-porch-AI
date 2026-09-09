@@ -1,3 +1,13 @@
+## 2026-09-10 — fix(waifu): plan JSON, one todo file, nested work returns a receipt
+- **Why:** Plan titles with colons corrupted YAML. Accept wiped in-progress
+  todos. Nested explore/general could fight the parent wrap-up and todos.
+- **What:** Plans encode JSON (YAML still reads). `.waifu/todos.json` is the
+  only full copy. Accept merges steps. Nested work returns a receipt the
+  parent absorbs; the child does not saveLast over parent todos.
+- **Files:** `waifu_plan_codec.dart`, `waifu_plan_yaml.dart`,
+  `waifu_store.dart`, `waifu_harness_spawn.dart`, `waifu_turn.dart`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): one mode control, live MCP catalog, Stop on leave
 - **Why:** Plan/Build/Yolo chips were duplicated, MCP tools froze at sit-down,
   leaving the page did not Stop, and a new session in a known folder re-quizzed

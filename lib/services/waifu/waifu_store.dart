@@ -177,7 +177,6 @@ class WaifuStore {
     'compactPasses': session.compactPasses,
     'themeOverrides': session.themeOverrides.toJson(),
     'coworker': _coworkerMap(session.coworker),
-    'todos': session.todos.toJson(),
     'transcript': [
       for (final m in session.transcript)
         {
@@ -321,7 +320,16 @@ class WaifuStore {
       final used = (map['tokensUsed'] as num?)?.toInt() ?? 0;
       final budgetRaw = (map['contextBudget'] as num?)?.toInt();
       final rawTheme = map['themeOverrides'];
-      final todos = WaifuTodos()..write(map['todos']);
+      final todos = WaifuTodos();
+      final todoFile = waifuTodosFile(folder);
+      if (await todoFile.exists()) {
+        await waifuLoadTodos(folder, todos);
+      } else {
+        todos.write(map['todos']);
+        if (todos.items.isNotEmpty) {
+          await waifuSaveTodos(folder, todos);
+        }
+      }
       final session =
           WaifuSession(
               folderRoot: folder,

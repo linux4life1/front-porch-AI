@@ -25,6 +25,14 @@ enum WaifuPhase { tools, verify, speak, done }
 
 enum WaifuTurnStep { accept, retry, fail }
 
+/// Nested explore/general result. Parent [absorbChild]s [turn].
+class WaifuTurnReceipt {
+  const WaifuTurnReceipt({required this.speech, required this.turn});
+
+  final String speech;
+  final WaifuTurn turn;
+}
+
 /// One send: live bubble + receipts + phase. Wrap-up is receipts, not English.
 class WaifuTurn {
   WaifuTurn.start(

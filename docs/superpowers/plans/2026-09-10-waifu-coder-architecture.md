@@ -413,7 +413,7 @@ Target ≤ 200 lines after extract.
 - Modify: todos — `.waifu/todos.json` is source of truth. `saveLast` does not store a second full copy (store a pointer / omit and always `waifuLoadTodos`). Plan accept **merges** steps into todos, does not blindly wipe in-progress items the user already had.
 - Modify: `waifu_harness_spawn.dart` — `_runNested` returns `WaifuTurnReceipt` + speech string. Parent `absorb(receipt)`. Child must not share a colliding generate with parent (same as today sequentially is OK; do not compact/abort the parent mid-child). Child does not get `store.saveLast` that overwrites parent todos.
 - Test: plan title `fix: login` round-trips. Nested mutate does not clear parent `readPaths` unless absorb copies receipts correctly (pin the Wave 3 absorb behavior).
-- [ ] Commit: `fix(waifu): plan JSON, one todo file, nested work returns a receipt`
+- [x] Commit: `fix(waifu): plan JSON, one todo file, nested work returns a receipt`
 
 ---
 

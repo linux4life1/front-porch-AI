@@ -42,6 +42,7 @@ export 'waifu_deny.dart';
 export 'waifu_permissions.dart';
 export 'waifu_plan.dart';
 export 'waifu_plan_codec.dart';
+export 'waifu_plan_yaml.dart';
 export 'waifu_plan_gate.dart';
 export 'waifu_question.dart';
 export 'waifu_checkin.dart';

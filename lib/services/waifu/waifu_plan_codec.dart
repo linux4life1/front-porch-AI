@@ -16,13 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
+import 'package:front_porch_ai/services/waifu/waifu_plan_yaml.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 import 'package:path/path.dart' as p;
+
+const kWaifuPlanJsonFence = 'waifu-plan';
 
 WaifuPlanStatus waifuPlanStatusFrom(String raw) {
   switch (raw.trim().toLowerCase()) {
@@ -38,53 +42,54 @@ WaifuPlanStatus waifuPlanStatusFrom(String raw) {
 }
 
 String waifuPlanEncode(WaifuPlan plan) {
+  final meta = <String, dynamic>{
+    'id': plan.id,
+    'slug': plan.slug,
+    'title': plan.title,
+    'goal': plan.goal,
+    'status': plan.status.name,
+    'assumptions': plan.assumptions,
+    'constraints': plan.constraints,
+    'risks': plan.risks,
+    'openQuestions': plan.openQuestions,
+    'steps': [
+      for (final step in plan.steps)
+        {
+          'id': step.id,
+          'title': step.title,
+          'detail': step.detail,
+          'verify': step.verify,
+          'status': step.status,
+          'files': step.files,
+        },
+    ],
+  };
   final buf = StringBuffer()
-    ..writeln('---')
-    ..writeln('id: ${plan.id}')
-    ..writeln('slug: ${plan.slug}')
-    ..writeln('title: ${plan.title}')
-    ..writeln('goal: ${plan.goal}')
-    ..writeln('status: ${plan.status.name}');
-  _yamlList(buf, 'assumptions', plan.assumptions);
-  _yamlList(buf, 'constraints', plan.constraints);
-  _yamlList(buf, 'risks', plan.risks);
-  _yamlList(buf, 'openQuestions', plan.openQuestions);
-  buf.writeln('steps:');
-  if (plan.steps.isEmpty) {
-    buf.writeln('  []');
-  }
-  for (final step in plan.steps) {
-    buf
-      ..writeln('- id: ${step.id}')
-      ..writeln('  title: ${step.title}')
-      ..writeln('  detail: ${step.detail}')
-      ..writeln('  verify: ${step.verify}')
-      ..writeln('  status: ${step.status}')
-      ..writeln('  files:');
-    if (step.files.isEmpty) {
-      buf.writeln('    []');
-    } else {
-      for (final f in step.files) {
-        buf.writeln('    - $f');
-      }
-    }
-  }
-  buf
-    ..writeln('---')
+    ..writeln('```$kWaifuPlanJsonFence')
+    ..writeln(const JsonEncoder.withIndent('  ').convert(meta))
+    ..writeln('```')
     ..writeln()
     ..write(plan.body.trimRight());
   if (plan.body.isNotEmpty && !plan.body.endsWith('\n')) buf.writeln();
   return buf.toString();
 }
 
-void _yamlList(StringBuffer buf, String key, List<String> items) {
-  buf.writeln('$key:');
-  if (items.isEmpty) {
-    buf.writeln('  []');
-    return;
-  }
-  for (final item in items) {
-    buf.writeln('- $item');
+({Map<String, dynamic> meta, String body})? waifuPlanJsonFence(String raw) {
+  final match = RegExp(
+    r'^```(?:waifu-plan|json)\s*\n(.*?)\n```',
+    dotAll: true,
+  ).firstMatch(raw.trimLeft());
+  if (match == null) return null;
+  try {
+    final decoded = jsonDecode(match.group(1)!);
+    if (decoded is! Map) return null;
+    final body = raw
+        .trimLeft()
+        .substring(match.end)
+        .replaceFirst(RegExp(r'^\n'), '');
+    return (meta: Map<String, dynamic>.from(decoded), body: body);
+  } catch (_) {
+    return null;
   }
 }
 
@@ -92,10 +97,14 @@ WaifuPlan waifuPlanParse(String raw, {String relativePath = ''}) {
   final trimmed = raw.replaceFirst(RegExp(r'^\uFEFF'), '');
   var matter = <String, dynamic>{};
   var body = trimmed;
-  if (trimmed.startsWith('---')) {
+  final jsonHit = waifuPlanJsonFence(trimmed);
+  if (jsonHit != null) {
+    matter = jsonHit.meta;
+    body = jsonHit.body;
+  } else if (trimmed.startsWith('---')) {
     final end = trimmed.indexOf(RegExp(r'\n---\s*(?:\n|$)'), 3);
     if (end > 0) {
-      matter = _parseYamlMap(trimmed.substring(3, end));
+      matter = waifuPlanParseYamlMap(trimmed.substring(3, end));
       body = trimmed.substring(end).replaceFirst(RegExp(r'^\n---\s*\n?'), '');
     }
   }
@@ -180,94 +189,6 @@ List<WaifuPlanStep> _steps(Object? raw) {
   return out;
 }
 
-Map<String, dynamic> _parseYamlMap(String raw) => _YamlMini(raw).parseMap(0);
-
-class _YamlMini {
-  _YamlMini(String raw) : lines = raw.split('\n');
-
-  final List<String> lines;
-  var i = 0;
-
-  int _indentOf(String line) => line.length - line.trimLeft().length;
-
-  Object? parseScalar(String text) {
-    final t = text.trim();
-    if (t.isEmpty || t == '[]') return <dynamic>[];
-    if (t.startsWith('[') && t.endsWith(']')) {
-      return [
-        for (final part in t.substring(1, t.length - 1).split(','))
-          if (part.trim().isNotEmpty) part.trim(),
-      ];
-    }
-    return t;
-  }
-
-  List<dynamic> parseList(int minIndent) {
-    final list = <dynamic>[];
-    while (i < lines.length) {
-      final line = lines[i];
-      if (line.trim().isEmpty) {
-        i++;
-        continue;
-      }
-      final indent = _indentOf(line);
-      if (indent < minIndent) break;
-      final trimmed = line.trimLeft();
-      if (!trimmed.startsWith('- ')) break;
-      final rest = trimmed.substring(2);
-      i++;
-      if (rest.contains(':')) {
-        final colon = rest.indexOf(':');
-        final map = <String, dynamic>{
-          rest.substring(0, colon).trim(): parseScalar(
-            rest.substring(colon + 1),
-          ),
-        };
-        map.addAll(parseMap(indent + 1));
-        list.add(map);
-      } else {
-        list.add(rest.trim());
-      }
-    }
-    return list;
-  }
-
-  Map<String, dynamic> parseMap(int minIndent) {
-    final map = <String, dynamic>{};
-    while (i < lines.length) {
-      final line = lines[i];
-      if (line.trim().isEmpty) {
-        i++;
-        continue;
-      }
-      final indent = _indentOf(line);
-      if (indent < minIndent) break;
-      final trimmed = line.trimLeft();
-      if (trimmed.startsWith('- ')) break;
-      final colon = trimmed.indexOf(':');
-      if (colon < 0) {
-        i++;
-        continue;
-      }
-      final key = trimmed.substring(0, colon).trim();
-      final rest = trimmed.substring(colon + 1);
-      i++;
-      if (rest.trim().isNotEmpty) {
-        map[key] = parseScalar(rest);
-        continue;
-      }
-      if (i < lines.length && lines[i].trimLeft().startsWith('- ')) {
-        map[key] = parseList(indent);
-      } else if (i < lines.length && _indentOf(lines[i]) > indent) {
-        map[key] = parseMap(indent + 1);
-      } else {
-        map[key] = '';
-      }
-    }
-    return map;
-  }
-}
-
 Future<void> waifuWritePlanFile(String root, WaifuPlan plan) async {
   final rel = plan.relativePath.isEmpty
       ? waifuPlanRelativePath(plan.slug)
@@ -320,10 +241,14 @@ Future<WaifuPlan?> waifuDiscoverLatestPlan(String root) async {
 }
 
 void waifuSyncPlanTodos(WaifuTodos todos, WaifuPlan plan) {
-  todos.write([
-    for (final step in plan.steps)
-      {'id': step.id, 'content': step.title, 'status': step.status},
-  ]);
+  final have = {for (final t in todos.items) t.id: t};
+  for (final step in plan.steps) {
+    final existing = have[step.id];
+    if (existing != null) continue;
+    todos.items.add(
+      WaifuTodo(id: step.id, content: step.title, status: step.status),
+    );
+  }
 }
 
 class WaifuPlanTodoSync {

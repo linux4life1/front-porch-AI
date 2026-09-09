@@ -47,6 +47,7 @@ extension _WaifuHarnessSpawn on WaifuHarness {
       mcpCall: mcpCall,
       mcpCallOf: mcpCallOf,
       mcpOptIn: mcpOptIn,
+      // Child must not saveLast over the parent's todos.json.
     );
   }
 
@@ -58,7 +59,7 @@ extension _WaifuHarnessSpawn on WaifuHarness {
     return out.trim().isEmpty ? '(no output)' : out;
   }
 
-  Future<String> _runNested(String kind, String prompt) async {
+  Future<WaifuTurnReceipt> _runNested(String kind, String prompt) async {
     final child = _makeChild(exploreOnly: kind == 'explore');
     _children.add(child);
     try {
@@ -69,8 +70,12 @@ extension _WaifuHarnessSpawn on WaifuHarness {
     if (child.session.lastWrite != null) {
       session.lastWrite = child.session.lastWrite;
     }
-    _turn.absorbChild(child._turn);
-    return _childSpeech(child);
+    final receipt = WaifuTurnReceipt(
+      speech: _childSpeech(child),
+      turn: child._turn,
+    );
+    _turn.absorbChild(receipt.turn);
+    return receipt;
   }
 
   Future<WaifuToolResult> _runTask(
@@ -91,7 +96,7 @@ extension _WaifuHarnessSpawn on WaifuHarness {
       return WaifuToolResult.error('task: prompt is empty');
     }
     final out = await _runNested(kind!, prompt);
-    return WaifuToolResult(ok: true, output: out);
+    return WaifuToolResult(ok: true, output: out.speech);
   }
 
   Future<WaifuToolResult> _runWorkflow(Map<String, dynamic> args) async {
@@ -133,7 +138,10 @@ extension _WaifuHarnessSpawn on WaifuHarness {
   Future<String> _runStep(WaifuWorkflowStep step, String prev) async {
     if (step.agents.length == 1) {
       final a = step.agents.first;
-      return _runNested(a.subagent, waifuFillPrev(a.prompt, prev));
+      return (await _runNested(
+        a.subagent,
+        waifuFillPrev(a.prompt, prev),
+      )).speech;
     }
     // Independent prompts, same {{prev}}. One local model — run in
     // series so generates do not collide.
@@ -144,7 +152,7 @@ extension _WaifuHarnessSpawn on WaifuHarness {
       final out = await _runNested(a.subagent, waifuFillPrev(a.prompt, prev));
       buf
         ..writeln('--- ${a.subagent} ${i + 1} ---')
-        ..writeln(out);
+        ..writeln(out.speech);
     }
     return buf.toString().trim();
   }
