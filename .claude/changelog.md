@@ -20,7 +20,7 @@
   test` marker receipts `./gradlew test`. `rm test` / `grep test` stay false.
 - **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
   `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 4b080ef6
 
 ## 2026-09-10 — fix(waifu): rip argv[1] test theater from Belt A verify
 - **Why:** `_segmentIsTestAnalyze` treated any command whose second token was
