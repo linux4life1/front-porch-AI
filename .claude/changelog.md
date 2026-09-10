@@ -25,7 +25,7 @@
   unchanged.
 - **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 7421f264
 
 ## 2026-09-10 — fix(waifu): -Ptest filters + Maven failIfNoTests theater
 - **Why:** Tip 63ce60bc theatered `-Dtest.single` / `include` /
