@@ -9,7 +9,7 @@
   `greeting_align_growable_test.dart`,
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 05ec1d15
 
 ## 2026-09-10 — fix(waifu): /tmp inspect is not a disk wipe; wrap-up is not a harness essay
 - **Why:** Whole-disk `mkdir /tmp/epub_inspect && rm -r META-INF` treated
