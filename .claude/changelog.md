@@ -22,7 +22,7 @@
   join.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 710761d9
 
 ## 2026-09-10 — fix(waifu): skip/exclude a check is theater
 - **Why:** `mvn test -DskipTests` and `./gradlew build -x test` /
