@@ -110,6 +110,9 @@ bool _filteredSuiteTheater(
 
 /// Flags whose next token is a value, not a test name / path.
 /// Real suite filters do **not** live here — see [_kSuiteFilterFlags].
+/// Cargo also lists libtest knobs (`--test-threads` / `--format` /
+/// `--shuffle-seed` / `--logfile`) so the post-`--` walk does not treat
+/// the spaced value as a positional filter.
 const _kFilterValueFlags = <String, Set<String>>{
   'cargo': {
     '--features',
@@ -123,6 +126,10 @@ const _kFilterValueFlags = <String, Set<String>>{
     '-j',
     '--jobs',
     '--profile',
+    '--test-threads',
+    '--format',
+    '--shuffle-seed',
+    '--logfile',
   },
   'go': {
     '-count',

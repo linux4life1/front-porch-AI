@@ -1179,4 +1179,37 @@ void main() {
     expect(waifuLooksVerifyCommand('cargo test --features foo'), isFalse);
     expect(waifuLooksVerifyCommand('cargo clippy -p *'), isFalse);
   });
+
+  test('cargo test libtest valued knobs after -- are a full run', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo test -- --test-threads 1',
+      'cargo test -- --format pretty',
+      'cargo test -- --shuffle-seed 42',
+      'cargo test -- --logfile /tmp/t.log',
+      'cargo test -- --test-threads=1',
+      'cargo test -- --format=pretty',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo test -- --ignored'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test -- --skip=foo'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test -- --skip'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test -- --list'), isFalse);
+    expect(
+      waifuLooksVerifyCommand('cargo test -- --exclude-should-panic'),
+      isFalse,
+    );
+    expect(waifuLooksVerifyCommand('cargo test -- --skip foo'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+  });
 }
