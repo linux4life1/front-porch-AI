@@ -107,6 +107,7 @@ bool _filteredSuiteTheater(String val, {Set<String> all = const {'*'}}) =>
 const _kFilterValueFlags = <String, Set<String>>{
   'cargo': {
     '--features',
+    '-F',
     '--target',
     '--target-dir',
     '--manifest-path',
@@ -214,13 +215,13 @@ const _kCargoTestFilterFlags = {
 /// only when they do not also drop crates, restrict targets, or gate
 /// features / triples. `-p` without those is a normal workspace lint.
 /// `--exclude` drops crates (even with `--workspace` / `--all` / `-p`).
-/// `--doc` is docs-only. `--no-default-features` / `--features` /
-/// `--target` gate code (same class as `--exclude`) even with expanders.
-/// Other subset selectors (`--lib`, `--bins`, `--tests`,
+/// `--doc` is docs-only. `--no-default-features` / `--features` / `-F`
+/// / `--target` gate code (same class as `--exclude`) even with
+/// expanders. Other subset selectors (`--lib`, `--bins`, `--tests`,
 /// `--all-targets`, …) restrict the set = theater.
-/// Not a copy of [_kCargoTestFilterFlags]. `--features` / `--target`
-/// stay in [_kFilterValueFlags] so `cargo test` still skips their
-/// values; clippy theater is this set + `flagVal` only.
+/// Not a copy of [_kCargoTestFilterFlags]. `--features` / `-F` /
+/// `--target` stay in [_kFilterValueFlags] so `cargo test` still skips
+/// their values; clippy theater is this set + `flagVal` only.
 const _kCargoClippySubsetFlags = {
   '--lib',
   '--bin',
@@ -236,6 +237,7 @@ const _kCargoClippySubsetFlags = {
   '--doc',
   '--no-default-features',
   '--features',
+  '-F',
   '--target',
 };
 

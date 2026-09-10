@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): clippy -F features alias is theater
+- **Why:** Cargo short `-F` / `-F=` for `--features` was not on the
+  clippy subset set, so `cargo clippy -F foo`, `--workspace -F foo`,
+  and `-F=bar` still receipted.
+- **What:** Same theater. `-F` joins `_kCargoClippySubsetFlags` (and
+  cargo value-skip so `cargo test -F` is not a test name). Bare clippy,
+  `-p`, `--workspace`, `--all` without gates still run. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): clippy feature/target gates are theater
 - **Why:** `--features` / `--target` were cargo skip-as-value only, so
   `cargo clippy --workspace --no-default-features`, `--all --features
