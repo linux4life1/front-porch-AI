@@ -21,7 +21,7 @@
   club.
 - **Files:** `waifu_verify.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** c84510e0
 
 ## 2026-09-10 — fix(waifu): unprefixed Surefire -D aliases are theater
 - **Why:** `_kMavenFilterProps` had `surefire.includesFile` /
