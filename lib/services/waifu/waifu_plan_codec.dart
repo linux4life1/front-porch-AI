@@ -374,7 +374,7 @@ Future<String> waifuPlanPromptBlock({
     }
     buf.writeln(
       'A pending step is not done until a project mutate and a verify '
-      '(re-read or test/analyze) land this turn.',
+      '(re-read AND test/analyze) land this turn.',
     );
   }
   if (encoded.length <= 8000) {

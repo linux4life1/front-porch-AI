@@ -47,6 +47,7 @@ import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 import 'package:front_porch_ai/services/waifu/waifu_turn.dart';
 import 'package:front_porch_ai/services/waifu/waifu_undo.dart';
+import 'package:front_porch_ai/services/waifu/waifu_verify.dart';
 import 'package:front_porch_ai/services/waifu/waifu_webfetch.dart';
 import 'package:front_porch_ai/services/waifu/waifu_workflow.dart';
 
@@ -199,6 +200,13 @@ class WaifuHarness {
     session.running = true;
     session.transcript.add(WaifuMessage.user(text, imagePath: imagePath));
     if (session.title.isEmpty) session.title = waifuTitleFrom(text);
+    _emit();
+    _turn.contract.verifyContext = await waifuBuildVerifyContext(
+      folderRoot: session.folderRoot,
+      task: text,
+      plan: await waifuLoadActivePlan(session),
+    );
+    permissions.verifyContext = _turn.contract.verifyContext;
     await _refreshPlanBlock();
     _mentionBlock = await waifuExpandMentions(text, session.folderRoot);
     waifuRewriteSlashUser(session.transcript, text);
@@ -226,7 +234,7 @@ class WaifuHarness {
       session.running = false;
       _emit();
     }
-    if (session.queued.isEmpty) return;
+    if (_aborted || session.queued.isEmpty) return;
     final next = session.queued.removeAt(0);
     await send(next);
   }
@@ -244,6 +252,7 @@ class WaifuHarness {
 
   void abort() {
     _aborted = true;
+    session.queued.clear();
     for (final c in List<WaifuHarness>.from(_children)) {
       c.abort();
     }
@@ -272,6 +281,7 @@ class WaifuHarness {
       name,
       args,
       mcpMutates: waifuMcpMutationHint(name, _mcpToolsNow()),
+      verifyContext: permissions.verifyContext,
     );
     final work = call.args;
     final kind = waifuSubagentKind(name, work);
@@ -436,26 +446,6 @@ class WaifuHarness {
     'skills': skills.catalogPrompt,
     'mcp': mcpOptIn ? waifuMcpToolsLine(waifuKeepMcpTools(_mcpToolsNow())) : '',
   };
-
-  String _prompt() {
-    final blocks = _loopBlocks();
-    return waifuLoopUserPrompt(
-      folderName: session.folderRoot,
-      coworkerName: session.coworker.name,
-      transcript: session.transcript,
-      todos: blocks['todos']!,
-      mentionBlock: _mentionBlock,
-      toolTrace: '',
-      skillBlock: blocks['skills']!,
-      mcpBlock: blocks['mcp']!,
-      preserveThinking: session.preserveThinking,
-      pathMode: session.pathMode,
-      taskDepthRemaining: kWaifuMaxTaskDepth - depth,
-      turnContractCue: _safeCue(),
-      mode: session.mode,
-      planBlock: _planBlock,
-    );
-  }
 
   List<Map<String, Object>> _openaiMessages() {
     final blocks = _loopBlocks();

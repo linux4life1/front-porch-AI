@@ -55,9 +55,12 @@ WaifuWorkflow waifuBuiltinRunPlanStepWorkflow() => const WaifuWorkflow(
           subagent: 'general',
           prompt:
               'Verify the change from {{prev}}. Re-read every touched path '
-              'or run the step verify command (flutter test, dart analyze, '
-              'or the command written on the step). Bash stays hard-deny '
-              'protected. Do not claim the step done without that receipt.',
+              'AND run the step verify command written on the plan step. '
+              'If the step has no verify field, run this repo’s native '
+              'check (whatever the project already uses — cargo test, '
+              'npm test, pytest, go test, dart test, and the rest). '
+              'Do not assume a host-app stack. Bash stays hard-deny '
+              'protected. Do not claim the step done without both receipts.',
         ),
       ],
     ),

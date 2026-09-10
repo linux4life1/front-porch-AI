@@ -139,9 +139,9 @@ void main() {
   testWidgets('sidebar Disk chip confirm opens the disk', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final dir = await Directory.systemTemp.createTemp('waifu_switch_store_');
-    addTearDown(() async {
-      if (await dir.exists()) await dir.delete(recursive: true);
+    final dir = Directory.systemTemp.createTempSync('waifu_switch_store_');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
     });
     final store = WaifuStore(dir.path);
     const folder = '/tmp/throwaway-waifu';
@@ -154,31 +154,36 @@ void main() {
       llm: ScriptedWaifuLlm(const [LlmToolResponse(calls: [], text: 'idle')]),
       store: store,
     );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: WaifuPage(session: session, harness: harness, store: store),
-      ),
-    );
-    await tester.ensureVisible(
-      find.byKey(const Key('waifu-path-mode-wholeDisk')),
-    );
-    await tester.tap(find.byKey(const Key('waifu-path-mode-wholeDisk')));
-    await tester.pump();
-    expect(
-      tester
-          .widget<ElevatedButton>(
-            find.byKey(const Key('waifu-whole-disk-honesty-confirm')),
-          )
-          .onPressed,
-      isNull,
-    );
-    await tester.tap(find.byKey(const Key('waifu-whole-disk-honesty-check')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('waifu-whole-disk-honesty-confirm')));
-    await tester.pump();
+    late WaifuPorchConsent? consent;
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WaifuPage(session: session, harness: harness, store: store),
+        ),
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('waifu-path-mode-wholeDisk')),
+      );
+      await tester.tap(find.byKey(const Key('waifu-path-mode-wholeDisk')));
+      await tester.pump();
+      expect(
+        tester
+            .widget<ElevatedButton>(
+              find.byKey(const Key('waifu-whole-disk-honesty-confirm')),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byKey(const Key('waifu-whole-disk-honesty-check')));
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('waifu-whole-disk-honesty-confirm')),
+      );
+      await tester.pump();
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      consent = await store.loadPorchConsent(folder);
+    });
     expect(session.pathMode, WaifuPathMode.wholeDisk);
-    await tester.pump(const Duration(milliseconds: 50));
-    final consent = await store.loadPorchConsent(folder);
     expect(consent, isNotNull);
     expect(consent!.pathMode, WaifuPathMode.wholeDisk);
   });

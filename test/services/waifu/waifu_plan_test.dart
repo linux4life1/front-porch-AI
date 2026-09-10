@@ -227,7 +227,9 @@ void main() {
       Directory(p.join(root.path, '.waifu', 'plans')).existsSync(),
       isFalse,
     );
-    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+    final reply = session.transcript
+        .where((m) => m.kind == WaifuMsgKind.assistant)
+        .single;
     expect(reply.chips.last.ok, isFalse);
     expect(reply.text, contains('could not write a plan file'));
     expect(reply.text, isNot(contains('Consider it planned')));
@@ -260,7 +262,9 @@ void main() {
       Directory(p.join(root.path, '.waifu', 'plans')).existsSync(),
       isFalse,
     );
-    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+    final reply = session.transcript
+        .where((m) => m.kind == WaifuMsgKind.assistant)
+        .single;
     expect(reply.chips.last.ok, isFalse);
     expect(reply.text, contains('could not write a plan file'));
     expect(reply.text, isNot(contains('Start with the validator')));
@@ -297,11 +301,14 @@ void main() {
 
     expect(session.activePlanPath, '.waifu/plans/empty-email.md');
     expect(
-      await File(p.join(root.path, '.waifu', 'plans', 'empty-email.md'))
-          .exists(),
+      await File(
+        p.join(root.path, '.waifu', 'plans', 'empty-email.md'),
+      ).exists(),
       isTrue,
     );
-    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+    final reply = session.transcript
+        .where((m) => m.kind == WaifuMsgKind.assistant)
+        .single;
     expect(reply.chips.single.ok, isTrue);
     expect(reply.text, contains('plan is on the porch'));
     expect(reply.text, isNot(contains('could not write a plan file')));
@@ -315,8 +322,8 @@ void main() {
     );
     expect(plan.mutationRequired, isTrue);
     expect(
-      plan.decideFinal('Start with the validator.'),
-      WaifuFinalAction.retryMutation,
+      WaifuTurn.fromContract(plan).onEmptyCalls('Start with the validator.'),
+      WaifuTurnStep.retry,
     );
 
     final explore = WaifuTurnContract.start(
@@ -327,8 +334,8 @@ void main() {
     );
     expect(explore.mutationRequired, isFalse);
     expect(
-      explore.decideFinal('Start with the validator.'),
-      WaifuFinalAction.accept,
+      WaifuTurn.fromContract(explore).onEmptyCalls('Start with the validator.'),
+      WaifuTurnStep.accept,
     );
   });
 
@@ -518,10 +525,9 @@ void main() {
       await harness.acceptActivePlan();
       expect(session.mode, WaifuMode.build);
       expect(
-        waifuPlanParse(await File(p.join(root.path, rel)).readAsString())
-            .steps
-            .first
-            .status,
+        waifuPlanParse(
+          await File(p.join(root.path, rel)).readAsString(),
+        ).steps.first.status,
         'pending',
       );
 

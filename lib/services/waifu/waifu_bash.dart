@@ -240,7 +240,7 @@ Future<String?> waifuBashScopeBlock(
     final words = waifuShellWords(segment);
     for (var i = 0; i < words.length; i++) {
       final word = words[i];
-      if (word == 'cd' || word == 'pushd') {
+      if (word.toLowerCase() == 'cd' || word.toLowerCase() == 'pushd') {
         final destinations = words
             .skip(i + 1)
             .where((candidate) => !candidate.startsWith('-'));

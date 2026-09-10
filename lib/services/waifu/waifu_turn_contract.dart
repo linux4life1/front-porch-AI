@@ -39,21 +39,9 @@ const kWaifuBuildVerifyCue =
     'AND run a real test/analyze command. If that command fails, fix '
     'the files and run it again. Speak to the user only after it passes. '
     'An accepted-plan step stays pending until mutate, re-read, and a '
-    'passing test/analyze all land. Prefer the built-in run-plan-step '
-    'workflow when a plan is pinned.';
-
-enum WaifuFinalAction {
-  accept,
-  useRememberedSpeech,
-  retryMutation,
-  retrySpeech,
-  retryVerify,
-  failMutation,
-  failSpeech,
-  failVerify,
-  retryTodoWrite,
-  failTodoWrite,
-}
+    'passing project-native check all land. Prefer the built-in '
+    'run-plan-step workflow when a plan is pinned. Use the step verify '
+    'command when the plan wrote one.';
 
 String waifuNormalizeVerifyPath(String path) =>
     path.trim().replaceAll('\\', '/').replaceFirst(RegExp(r'^\./'), '');
@@ -94,9 +82,8 @@ bool waifuLooksTodoReceiptClaim(String body) {
   final lower = body.toLowerCase();
   if (RegExp(r'\btodowrite\b').hasMatch(lower)) return true;
   final list = RegExp(r'\b(?:todo|to-do|task) lists?\b').hasMatch(lower);
-  final updated = RegExp(
-    r'\b(?:updated?|wrote|replaced|rewrote|changed)\b',
-  ).hasMatch(lower);
+  final updated = RegExp(r'\b(?:updated?|wrote|replaced|rewrote|changed)\b')
+      .hasMatch(lower);
   final todo = RegExp(r'\b(?:todos?|to-dos?)\b').hasMatch(lower);
   if ((list || todo) && updated) return true;
   final done = RegExp(
@@ -152,6 +139,7 @@ class WaifuTurnContract {
   bool reviewed = false;
   bool tested = false;
   bool get verified => reviewed && tested;
+  WaifuVerifyContext verifyContext = const WaifuVerifyContext();
   bool successfulTool = false;
   bool todoWriteSucceeded = false;
   bool todoWriteRequired = false;
@@ -172,18 +160,18 @@ class WaifuTurnContract {
       (!verifyRequired || verified);
   bool get allowsPlanStepDone => mutationSucceeded && verified;
 
+  void noteAttempt(String toolName) {
+    if (kWaifuReceiptMutationTools.contains(toolName)) {
+      mutationAttempted = true;
+    }
+  }
+
   void rememberToolSpeech(String body) {
     final trimmed = body.trim();
     if (trimmed.isNotEmpty &&
         !waifuLooksGenericCompletion(trimmed) &&
         !waifuLooksThinkDump(trimmed)) {
       rememberedSpeech = trimmed;
-    }
-  }
-
-  void noteAttempt(String toolName) {
-    if (kWaifuReceiptMutationTools.contains(toolName)) {
-      mutationAttempted = true;
     }
   }
 
@@ -232,14 +220,23 @@ class WaifuTurnContract {
       if (toolName == kWaifuToolBash &&
           waifuLooksVerifyCommand(
             (args['command'] ?? args['cmd'] ?? '').toString(),
+            context: verifyContext,
           )) {
         tested = result.ok;
       }
     }
-    if (readPaths.any((r) => waifuReadVerifiesMutate(r, mutatedPaths))) {
-      reviewed = true;
-    }
+    _recomputeReviewed();
     if (mutationSucceeded && (!verifyRequired || verified)) cue = '';
+  }
+
+  void _recomputeReviewed() {
+    if (mutatedPaths.isEmpty) {
+      reviewed = false;
+      return;
+    }
+    reviewed = mutatedPaths.every(
+      (path) => readPaths.any((r) => waifuReadVerifiesMutate(r, [path])),
+    );
   }
 
   void absorbChild(WaifuTurnContract child) {
@@ -259,52 +256,9 @@ class WaifuTurnContract {
     mutatedPaths.addAll(child.mutatedPaths);
     readPaths.addAll(child.readPaths);
     mutationsSinceCheckIn += child.mutationsSinceCheckIn;
-    if (child.reviewed) reviewed = true;
     if (child.tested) tested = true;
-    if (readPaths.any((r) => waifuReadVerifiesMutate(r, mutatedPaths))) {
-      reviewed = true;
-    }
+    _recomputeReviewed();
     if (verified) cue = '';
-  }
-
-  WaifuFinalAction decideFinal(
-    String body, {
-    List<WaifuToolChip> chips = const [],
-  }) {
-    final trimmed = body.trim();
-    final generic = waifuLooksGenericCompletion(trimmed);
-    if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
-      rememberToolSpeech(trimmed);
-      return mutationCorrectionAttempts < kWaifuTurnCorrectionAttempts
-          ? WaifuFinalAction.retryMutation
-          : WaifuFinalAction.failMutation;
-    }
-    if (enforceVerify && verifyRequired && !verified) {
-      rememberToolSpeech(trimmed);
-      return verifyCorrectionAttempts < kWaifuTurnCorrectionAttempts
-          ? WaifuFinalAction.retryVerify
-          : WaifuFinalAction.failVerify;
-    }
-    if (trimmed.isEmpty ||
-        (generic && successfulTool) ||
-        (generic && mutationRequired && !mutationSucceeded)) {
-      if (canUseRememberedSpeech) {
-        return WaifuFinalAction.useRememberedSpeech;
-      }
-      return speechCorrectionAttempts < kWaifuTurnCorrectionAttempts
-          ? WaifuFinalAction.retrySpeech
-          : (mutationRequired && !mutationSucceeded
-                ? WaifuFinalAction.failMutation
-                : WaifuFinalAction.failSpeech);
-    }
-    final todoReceipt =
-        todoWriteSucceeded || waifuTurnHasTodoWriteReceipt(chips);
-    if (waifuLooksTodoReceiptClaim(trimmed) && !todoReceipt) {
-      return todoCorrectionAttempts < kWaifuTurnCorrectionAttempts
-          ? WaifuFinalAction.retryTodoWrite
-          : WaifuFinalAction.failTodoWrite;
-    }
-    return WaifuFinalAction.accept;
   }
 
   void requestMutation() {
@@ -334,6 +288,7 @@ class WaifuTurnContract {
   void requestSpeech() {
     speechCorrectionAttempts++;
     speechOnly = true;
+    mutationsSinceCheckIn = 0;
     cue =
         'TURN CONTRACT: Tool work is over. Give one short spoken wrap-up in '
         'the selected card’s diction now. No tool call, source dump, generic '
@@ -342,25 +297,28 @@ class WaifuTurnContract {
 
   void requestCheckInSpeech() {
     speechOnly = false;
-    mutationsSinceCheckIn = 0;
     cue = kWaifuCheckInTurnCue;
+  }
+
+  void noteWrapUpAccepted() {
+    mutationsSinceCheckIn = 0;
   }
 
   void requestVerify() {
     verifyCorrectionAttempts++;
     speechOnly = false;
     cue = !reviewed && !tested
-        ? 'TURN CONTRACT: Re-read the files you changed — only those, not '
-              'untouched siblings — then run a real test/analyze command. '
-              'If it fails, fix the files and run it again. Do not speak '
-              'to the user until that check passes.'
+        ? 'TURN CONTRACT: Re-read the files you changed — every touched '
+              'path, not untouched siblings — AND run the project-native '
+              'check (step.verify, the command the user named, or this '
+              'repo’s test/analyze). If it fails, fix the files and run it '
+              'again. Do not speak to the user until both land.'
         : !reviewed
         ? 'TURN CONTRACT: Re-read the files you changed before speaking. '
-              'A passing test without looking at the patch is not a review. '
-              'Do not re-read untouched siblings.'
-        : 'TURN CONTRACT: The test/analyze failed or never ran. Fix the '
-              'files and run a real test/analyze again. Speak only after '
-              'it passes.';
+              'A passing test without looking at each patched path is not '
+              'a review. Do not re-read untouched siblings.'
+        : 'TURN CONTRACT: The project-native check failed or never ran. '
+              'Fix the files and run it again. Speak only after it passes.';
   }
 
   String failureLine(String body) {

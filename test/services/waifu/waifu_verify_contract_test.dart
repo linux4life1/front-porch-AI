@@ -22,6 +22,9 @@ void main() {
     if (await root.exists()) await root.delete(recursive: true);
   });
 
+  WaifuTurnStep wrap(WaifuTurnContract contract, String body) =>
+      WaifuTurn.fromContract(contract).onEmptyCalls(body);
+
   CharacterCard iris() => CharacterCard(
     name: 'Iris',
     personality: 'proud, sharp, and teasing',
@@ -46,7 +49,6 @@ void main() {
       mode: mode,
       enforceVerify: enforceVerify,
     );
-    turn.noteAttempt(kWaifuToolWrite);
     turn.noteResult(
       kWaifuToolWrite,
       writeOk(path),
@@ -57,10 +59,7 @@ void main() {
   }
 
   test('verify command pins test/analyze and rejects echo/ls', () {
-    expect(
-      waifuLooksVerifyCommand('flutter test test/parser_test.dart'),
-      isTrue,
-    );
+    expect(waifuLooksVerifyCommand('flutter test'), isTrue);
     expect(waifuLooksVerifyCommand('dart analyze lib/parser.dart'), isTrue);
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
@@ -77,27 +76,17 @@ void main() {
     expect(turn.verifyRequired, isTrue);
     expect(turn.verified, isFalse);
     expect(turn.allowsPlanStepDone, isFalse);
-    expect(
-      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
-      WaifuFinalAction.retryVerify,
-    );
-    turn.requestVerify();
+    final live = WaifuTurn.fromContract(turn);
+    const line = 'Hmph. Parser is fixed. Obviously.';
+    expect(live.onEmptyCalls(line), WaifuTurnStep.retry);
     expect(turn.cue, contains('Re-read the files you changed'));
-    expect(
-      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
-      WaifuFinalAction.retryVerify,
-    );
-    turn.requestVerify();
-    expect(
-      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
-      WaifuFinalAction.failVerify,
-    );
+    expect(live.onEmptyCalls(line), WaifuTurnStep.retry);
+    expect(live.onEmptyCalls(line), WaifuTurnStep.fail);
     expect(turn.failureLine('Hmph.'), contains('did not re-read the files'));
   });
 
   test('mutate then re-read the touched path is not enough', () {
     final turn = afterWrite();
-    turn.noteAttempt(kWaifuToolRead);
     turn.noteResult(
       kWaifuToolRead,
       const WaifuToolResult(ok: true, output: 'String parse() => "new";\n'),
@@ -108,14 +97,13 @@ void main() {
     expect(turn.tested, isFalse);
     expect(turn.verified, isFalse);
     expect(
-      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
-      WaifuFinalAction.retryVerify,
+      wrap(turn, 'Hmph. Parser is fixed. Obviously.'),
+      WaifuTurnStep.retry,
     );
   });
 
   test('mutate then flutter test bash passes; echo does not', () {
     final echo = afterWrite();
-    echo.noteAttempt(kWaifuToolBash);
     echo.noteResult(
       kWaifuToolBash,
       const WaifuToolResult(ok: true, output: 'ok'),
@@ -123,25 +111,21 @@ void main() {
       args: {'command': 'echo flutter test'},
     );
     expect(echo.verified, isFalse);
-    expect(
-      echo.decideFinal('Hmph. Done talking.'),
-      WaifuFinalAction.retryVerify,
-    );
+    expect(wrap(echo, 'Hmph. Done talking.'), WaifuTurnStep.retry);
 
     final testRun = afterWrite();
-    testRun.noteAttempt(kWaifuToolBash);
     testRun.noteResult(
       kWaifuToolBash,
       const WaifuToolResult(ok: true, output: 'All tests passed!'),
       writeOk('parser.dart').write,
-      args: {'command': 'flutter test test/parser_test.dart'},
+      args: {'command': 'flutter test'},
     );
     expect(testRun.tested, isTrue);
     expect(testRun.reviewed, isFalse);
     expect(testRun.verified, isFalse);
     expect(
-      testRun.decideFinal('Hmph. Tests are green. Obviously.'),
-      WaifuFinalAction.retryVerify,
+      wrap(testRun, 'Hmph. Tests are green. Obviously.'),
+      WaifuTurnStep.retry,
     );
   });
 
@@ -162,8 +146,8 @@ void main() {
     expect(turn.reviewed, isTrue);
     expect(turn.tested, isFalse);
     expect(
-      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
-      WaifuFinalAction.retryVerify,
+      wrap(turn, 'Hmph. Parser is fixed. Obviously.'),
+      WaifuTurnStep.retry,
     );
     turn.noteResult(
       kWaifuToolBash,
@@ -173,8 +157,8 @@ void main() {
     );
     expect(turn.verified, isTrue);
     expect(
-      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
-      WaifuFinalAction.accept,
+      wrap(turn, 'Hmph. Parser is fixed. Obviously.'),
+      WaifuTurnStep.accept,
     );
   });
 
@@ -187,7 +171,7 @@ void main() {
       args: {'path': 'README.md'},
     );
     expect(turn.verified, isFalse);
-    expect(turn.decideFinal('Hmph. Fixed.'), WaifuFinalAction.retryVerify);
+    expect(wrap(turn, 'Hmph. Fixed.'), WaifuTurnStep.retry);
   });
 
   test('Plan artifact writes do not require verify', () {
@@ -196,7 +180,6 @@ void main() {
       null,
       mode: WaifuMode.plan,
     );
-    turn.noteAttempt(kWaifuToolWrite);
     turn.noteResult(
       kWaifuToolWrite,
       writeOk('.waifu/plans/empty-email.md'),
@@ -206,8 +189,8 @@ void main() {
     expect(turn.mutationSucceeded, isTrue);
     expect(turn.verifyRequired, isFalse);
     expect(
-      turn.decideFinal('Hmph. The plan is on the porch. Obviously.'),
-      WaifuFinalAction.accept,
+      wrap(turn, 'Hmph. The plan is on the porch. Obviously.'),
+      WaifuTurnStep.accept,
     );
   });
 
@@ -251,7 +234,9 @@ void main() {
       await File(p.join(root.path, 'parser.dart')).readAsString(),
       'new\n',
     );
-    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+    final reply = session.transcript
+        .where((m) => m.kind == WaifuMsgKind.assistant)
+        .single;
     expect(reply.chips.last.ok, isFalse);
     expect(reply.chips.last.detail, contains('no verify'));
     expect(reply.text, contains('did not re-read the files'));
@@ -299,7 +284,9 @@ void main() {
       onAsk: (_) async => WaifuAskDecision.allowAlways,
     ).send('fix parser.dart');
 
-    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+    final reply = session.transcript
+        .where((m) => m.kind == WaifuMsgKind.assistant)
+        .single;
     expect(reply.chips.last.ok, isFalse);
     expect(reply.text, contains('did not re-read the files'));
   });
@@ -340,7 +327,9 @@ void main() {
       onAsk: (_) async => WaifuAskDecision.allowAlways,
     ).send('fix parser.dart');
 
-    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+    final reply = session.transcript
+        .where((m) => m.kind == WaifuMsgKind.assistant)
+        .single;
     expect(reply.chips.last.ok, isTrue);
     expect(reply.text, contains('Obviously.'));
     expect(reply.text, isNot(contains('did not re-read')));
@@ -403,7 +392,9 @@ void main() {
         await File(p.join(root.path, 'parser.dart')).readAsString(),
         'fixed\n',
       );
-      final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+      final reply = session.transcript
+          .where((m) => m.kind == WaifuMsgKind.assistant)
+          .single;
       expect(reply.text, contains('Obviously.'));
       expect(reply.text, isNot(contains('did not re-read')));
     },
@@ -632,9 +623,6 @@ steps:
     parent.absorbChild(childVerify);
     expect(parent.verified, isTrue);
     expect(parent.allowsPlanStepDone, isTrue);
-    expect(
-      parent.decideFinal('Hmph. Step landed. Obviously.'),
-      WaifuFinalAction.accept,
-    );
+    expect(wrap(parent, 'Hmph. Step landed. Obviously.'), WaifuTurnStep.accept);
   });
 }

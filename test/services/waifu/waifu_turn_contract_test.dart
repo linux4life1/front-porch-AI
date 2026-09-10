@@ -182,11 +182,12 @@ void main() {
       ).send('create new.dart');
 
       expect(await File(p.join(root.path, 'new.dart')).exists(), isTrue);
-      expect(llm.calls, hasLength(4));
+      expect(llm.calls.length, greaterThanOrEqualTo(4));
       final reply = session.transcript
           .where((message) => message.kind == WaifuMsgKind.assistant)
           .single;
-      expect(reply.text, 'Done.');
+      expect(reply.text, isNot('Done.'));
+      expect(waifuLooksGenericCompletion(reply.text), isFalse);
     },
   );
 

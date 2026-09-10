@@ -125,3 +125,16 @@ List<Map<String, Object>> waifuOpenAiMessages({
   flushTools();
   return out;
 }
+
+/// Flat projection of the live [messages] request. Meter and scripted
+/// tests read this; generate sends the structured list. One request.
+String waifuMessagesMeterText(List<Map<String, Object>> messages) {
+  final buf = StringBuffer();
+  for (final m in messages) {
+    final content = m['content'];
+    if (content is String && content.isNotEmpty) buf.writeln(content);
+    final calls = m['tool_calls'];
+    if (calls != null) buf.writeln(calls);
+  }
+  return buf.toString();
+}

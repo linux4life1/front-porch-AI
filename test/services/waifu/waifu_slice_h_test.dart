@@ -126,7 +126,7 @@ void main() {
     );
   });
 
-  test('nested worker inherits whole-disk scope', () async {
+  test('nested general worker inherits whole-disk scope', () async {
     final outside = File(p.join(p.dirname(root.path), 'open_scope.txt'));
     await outside.writeAsString('WHOLE_DISK_OK');
     addTearDown(() async {
@@ -138,7 +138,7 @@ void main() {
           LlmToolCall(
             name: 'task',
             arguments: {
-              'subagent': 'explore',
+              'subagent': 'general',
               'prompt': 'read the file next door',
             },
           ),

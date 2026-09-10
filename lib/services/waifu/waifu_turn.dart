@@ -55,9 +55,11 @@ class WaifuTurn {
   String pendingSpeech = '';
   String failReason = '';
 
+  WaifuTurn.fromContract(this.contract);
+
   bool get mutationRequired => contract.mutationRequired;
-  bool get mutationSucceeded => contract.mutationSucceeded;
   bool get mutationAttempted => contract.mutationAttempted;
+  bool get mutationSucceeded => contract.mutationSucceeded;
   bool get successfulTool => contract.successfulTool;
   bool get verified => contract.verified;
   bool get verifyRequired => contract.verifyRequired;
@@ -77,7 +79,14 @@ class WaifuTurn {
   /// Empty tool list only when wrap-up is actually allowed.
   bool get speechOnly => phase == WaifuPhase.speak && receiptsReady;
 
-  void noteAttempt(String toolName) => contract.noteAttempt(toolName);
+  /// Required until the receipts this turn still owes. Read-only first
+  /// tools still force once. Wrap-up ([speechOnly]) is exempt.
+  bool get shouldForceTool {
+    if (speechOnly) return false;
+    if (mutationRequired && !mutationSucceeded) return true;
+    if (enforceVerify && verifyRequired && !verified) return true;
+    return !successfulTool;
+  }
 
   void noteResult(
     String toolName,
@@ -87,6 +96,8 @@ class WaifuTurn {
   }) => contract.noteResult(toolName, result, currentWrite, args: args);
 
   void rememberToolSpeech(String body) => contract.rememberToolSpeech(body);
+
+  void noteAttempt(String toolName) => contract.noteAttempt(toolName);
 
   void requestMutation() {
     phase = WaifuPhase.tools;
@@ -114,60 +125,53 @@ class WaifuTurn {
 
   String failureLine(String body) => contract.failureLine(body);
 
-  /// Empty-calls wrap-up. Loop only accepts, retries, or fails.
-  WaifuTurnStep onEmptyCalls(String body) {
+  /// Empty-calls wrap-up. Sole authority — no decideFinal, no generic Done.
+  WaifuTurnStep onEmptyCalls(
+    String body, {
+    List<WaifuToolChip> chips = const [],
+  }) {
     rememberToolSpeech(body);
-    switch (phase) {
-      case WaifuPhase.tools:
-        if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
-          return _retryOrFailMutation(body);
-        }
-        if (enforceVerify && verifyRequired && !verified) {
-          return _retryOrFailVerify(body);
-        }
-        phase = WaifuPhase.speak;
-        return _speak(body);
-      case WaifuPhase.verify:
-        if (enforceVerify && verifyRequired && !verified) {
-          return _retryOrFailVerify(body);
-        }
-        phase = WaifuPhase.speak;
-        return _speak(body);
-      case WaifuPhase.speak:
-        return _speak(body);
-      case WaifuPhase.done:
-        pendingSpeech = body.trim().isEmpty ? rememberedSpeech : body;
-        return WaifuTurnStep.accept;
-    }
-  }
-
-  WaifuTurnStep _retryOrFailMutation(String body) {
-    if (contract.mutationCorrectionAttempts < kWaifuTurnCorrectionAttempts) {
-      requestMutation();
-      return WaifuTurnStep.retry;
-    }
-    failReason = 'no file change landed for a code-change request';
-    pendingSpeech = failureLine(body);
-    phase = WaifuPhase.done;
-    return WaifuTurnStep.fail;
-  }
-
-  WaifuTurnStep _retryOrFailVerify(String body) {
-    if (contract.verifyCorrectionAttempts < kWaifuTurnCorrectionAttempts) {
-      requestVerify();
-      return WaifuTurnStep.retry;
-    }
-    failReason = 'no verify after a project file change';
-    pendingSpeech = failureLine(body);
-    phase = WaifuPhase.done;
-    return WaifuTurnStep.fail;
-  }
-
-  WaifuTurnStep _speak(String body) {
     final trimmed = body.trim();
-    final todoOk =
-        contract.todoWriteSucceeded || !waifuLooksTodoReceiptClaim(trimmed);
-    if (!todoOk) {
+    final generic = waifuLooksGenericCompletion(trimmed);
+    if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
+      if (contract.mutationCorrectionAttempts < kWaifuTurnCorrectionAttempts) {
+        requestMutation();
+        return WaifuTurnStep.retry;
+      }
+      failReason = 'no file change landed for a code-change request';
+      pendingSpeech = failureLine(body);
+      phase = WaifuPhase.done;
+      return WaifuTurnStep.fail;
+    }
+    if (enforceVerify && verifyRequired && !verified) {
+      if (contract.verifyCorrectionAttempts < kWaifuTurnCorrectionAttempts) {
+        requestVerify();
+        return WaifuTurnStep.retry;
+      }
+      failReason = 'no verify after a project file change';
+      pendingSpeech = failureLine(body);
+      phase = WaifuPhase.done;
+      return WaifuTurnStep.fail;
+    }
+    if (trimmed.isEmpty || (generic && successfulTool)) {
+      if (canUseRememberedSpeech) {
+        pendingSpeech = rememberedSpeech;
+        phase = WaifuPhase.done;
+        contract.noteWrapUpAccepted();
+        return WaifuTurnStep.accept;
+      }
+      if (canRetrySpeech) {
+        requestSpeech();
+        return WaifuTurnStep.retry;
+      }
+      failReason = 'no in-character spoken wrap-up';
+      pendingSpeech = failureLine(body);
+      phase = WaifuPhase.done;
+      return WaifuTurnStep.fail;
+    }
+    final todoReceipt =
+        contract.todoWriteSucceeded || waifuTurnHasTodoWriteReceipt(chips);
+    if (waifuLooksTodoReceiptClaim(trimmed) && !todoReceipt) {
       if (contract.todoCorrectionAttempts < kWaifuTurnCorrectionAttempts) {
         contract.requestTodoWrite();
         phase = WaifuPhase.tools;
@@ -178,22 +182,9 @@ class WaifuTurn {
       phase = WaifuPhase.done;
       return WaifuTurnStep.fail;
     }
-    if (trimmed.isEmpty) {
-      if (canUseRememberedSpeech) {
-        pendingSpeech = rememberedSpeech;
-        phase = WaifuPhase.done;
-        return WaifuTurnStep.accept;
-      }
-      if (canRetrySpeech) {
-        requestSpeech();
-        return WaifuTurnStep.retry;
-      }
-      pendingSpeech = failureLine(body);
-      phase = WaifuPhase.done;
-      return WaifuTurnStep.accept;
-    }
     pendingSpeech = trimmed;
     phase = WaifuPhase.done;
+    contract.noteWrapUpAccepted();
     return WaifuTurnStep.accept;
   }
 }

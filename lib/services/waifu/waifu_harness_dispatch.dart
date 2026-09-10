@@ -39,7 +39,11 @@ extension _WaifuHarnessDispatch on WaifuHarness {
         }
         return fs.dispatch(canon, args);
       case kWaifuToolGlob:
-        final stub = waifuDuplicateGlobStub(transcript: session.transcript);
+        final stub = waifuDuplicateGlobStub(
+          transcript: session.transcript,
+          pattern: (args['pattern'] ?? args['glob'] ?? '').toString(),
+          path: waifuToolPathArg(args),
+        );
         if (stub != null) {
           return WaifuToolResult(ok: true, output: stub);
         }
@@ -49,13 +53,15 @@ extension _WaifuHarnessDispatch on WaifuHarness {
       case kWaifuToolTodoRead:
         return WaifuToolResult(ok: true, output: todos.read());
       case kWaifuToolTodoWrite:
+        final bad = waifuTodoWriteError(args['todos']);
+        if (bad != null) return WaifuToolResult.error(bad);
         todos.write(args['todos']);
-        await store?.saveLast(session);
         final sync = await waifuSyncTodosOntoPlan(
           session: session,
           todos: todos,
           allowCompleted: _turn.allowsPlanStepDone,
         );
+        await store?.saveLast(session);
         final out = todos.read();
         if (sync.blockedDone) {
           return WaifuToolResult(

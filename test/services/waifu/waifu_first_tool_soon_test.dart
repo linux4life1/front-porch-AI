@@ -37,7 +37,7 @@ class _CaptureLlm extends LLMService {
 
 void main() {
   test(
-    'first generate requires a tool; after one lands, a tool is optional',
+    'first generate requires a tool; mutate still forces until verify',
     () async {
       final root = await Directory.systemTemp.createTemp('waifu_first_tool_');
       addTearDown(() async {
@@ -70,7 +70,7 @@ void main() {
       expect(llm.calls.first.forceTool, isTrue);
       expect(llm.calls.first.tools, isNotEmpty);
       expect(llm.calls.length, greaterThan(1));
-      expect(llm.calls[1].forceTool, isFalse);
+      expect(llm.calls[1].forceTool, isTrue);
     },
   );
 

@@ -31,7 +31,8 @@ extension _WaifuHarnessTurn on WaifuHarness {
       }
       _pruneTraces();
       _beginStream();
-      final prompt = _prompt();
+      final messages = _openaiMessages();
+      final request = waifuMessagesMeterText(messages);
       final tools = _advertisedTools(speechOnly: _turn.speechOnly);
       // Pixels stay on every generate of this send. Step-0-only dropped
       // the screenshot after the first tool, so she hunted for a capture tool.
@@ -42,13 +43,13 @@ extension _WaifuHarnessTurn on WaifuHarness {
       );
       final resp = await llm.generate(
         systemPrompt: system,
-        prompt: prompt,
+        prompt: request,
         tools: tools,
         images: images,
         onChunk: _onChunk,
         maxTokens: _remainingTokens(tools: tools, images: images),
-        forceTool: tools.isNotEmpty && !_turn.successfulTool,
-        messages: _openaiMessages(),
+        forceTool: tools.isNotEmpty && _turn.shouldForceTool,
+        messages: messages,
       );
       if (resp != null) _applyUsage(resp);
       _endStream();
@@ -83,25 +84,17 @@ extension _WaifuHarnessTurn on WaifuHarness {
           return;
         }
         _turn.rememberToolSpeech(body);
-        var checkIn = false;
         for (final call in calls) {
           if (_aborted) return;
-          if (waifuShouldCheckInBefore(
-            rootTurn: depth == 0,
-            mutationsSinceCheckIn: _turn.mutationsSinceCheckIn,
-            toolName: call.name,
-          )) {
-            _turn.requestCheckInSpeech();
-            checkIn = true;
-            break;
-          }
           await _runTool(call.name, call.arguments);
         }
-        if (checkIn) continue;
+        if (depth == 0 && waifuCheckInDue(_turn.mutationsSinceCheckIn)) {
+          _turn.requestCheckInSpeech();
+        }
         continue;
       }
 
-      switch (_turn.onEmptyCalls(body)) {
+      switch (_turn.onEmptyCalls(body, chips: _liveAssistant().chips)) {
         case WaifuTurnStep.accept:
           _say(_turn.pendingSpeech);
           return;

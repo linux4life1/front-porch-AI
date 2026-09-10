@@ -32,35 +32,33 @@ void main() {
     expect(waifuLooksTodoReceiptClaim('Done.'), isFalse);
   });
 
-  test('decideFinal: todo claim without a todowrite chip is a soft fail', () {
-    final turn = WaifuTurnContract.start('track the work', null);
+  test('wrap-up: todo claim without a todowrite chip is a soft fail', () {
+    final turn = WaifuTurn.start('track the work', null);
     const claim = 'Hmph. I marked the todo completed.';
-    expect(turn.decideFinal(claim), WaifuFinalAction.retryTodoWrite);
-    turn.requestTodoWrite();
-    expect(turn.decideFinal(claim), WaifuFinalAction.retryTodoWrite);
-    turn.requestTodoWrite();
-    expect(turn.decideFinal(claim), WaifuFinalAction.failTodoWrite);
-    expect(turn.failureLine(claim), contains('did not actually update'));
+    expect(turn.onEmptyCalls(claim), WaifuTurnStep.retry);
+    expect(turn.onEmptyCalls(claim), WaifuTurnStep.retry);
+    expect(turn.onEmptyCalls(claim), WaifuTurnStep.fail);
+    expect(turn.pendingSpeech, contains('did not actually update'));
   });
 
-  test('decideFinal: todo claim with a successful todowrite chip passes', () {
-    final turn = WaifuTurnContract.start('track the work', null);
+  test('wrap-up: todo claim with a successful todowrite chip passes', () {
+    final turn = WaifuTurn.start('track the work', null);
     expect(
-      turn.decideFinal(
+      turn.onEmptyCalls(
         'Hmph. I marked the todo completed.',
         chips: const [
           WaifuToolChip(name: kWaifuToolTodoWrite, detail: '1 item', ok: true),
         ],
       ),
-      WaifuFinalAction.accept,
+      WaifuTurnStep.accept,
     );
   });
 
   test('failed or pending todowrite chips are not receipts', () {
-    final turn = WaifuTurnContract.start('track the work', null);
+    final turn = WaifuTurn.start('track the work', null);
     const claim = 'Hmph. I marked the todo completed.';
     expect(
-      turn.decideFinal(
+      turn.onEmptyCalls(
         claim,
         chips: const [
           WaifuToolChip(
@@ -71,16 +69,16 @@ void main() {
           ),
         ],
       ),
-      WaifuFinalAction.retryTodoWrite,
+      WaifuTurnStep.retry,
     );
     expect(
-      turn.decideFinal(
+      turn.onEmptyCalls(
         claim,
         chips: const [
           WaifuToolChip(name: kWaifuToolTodoWrite, detail: 'denied', ok: false),
         ],
       ),
-      WaifuFinalAction.retryTodoWrite,
+      WaifuTurnStep.retry,
     );
   });
 
@@ -104,7 +102,9 @@ void main() {
       await harness.send('track the work');
 
       expect(harness.todos.items, isEmpty);
-      final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+      final reply = session.transcript
+          .where((m) => m.kind == WaifuMsgKind.assistant)
+          .single;
       expect(reply.chips.last.ok, isFalse);
       expect(reply.chips.last.detail, contains('no todowrite receipt'));
       expect(reply.text, contains('did not actually update the todo list'));
@@ -149,7 +149,9 @@ void main() {
 
       expect(harness.todos.items, hasLength(1));
       expect(harness.todos.items.single.status, 'completed');
-      final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+      final reply = session.transcript
+          .where((m) => m.kind == WaifuMsgKind.assistant)
+          .single;
       expect(
         reply.chips.any((c) => c.name == kWaifuToolTodoWrite && c.ok),
         isTrue,
@@ -180,7 +182,9 @@ void main() {
 
     await WaifuHarness(session: session, llm: llm).send('look around');
 
-    final reply = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).single;
+    final reply = session.transcript
+        .where((m) => m.kind == WaifuMsgKind.assistant)
+        .single;
     expect(reply.text, contains('look around first'));
     expect(reply.chips.any((c) => c.detail.contains('no todowrite')), isFalse);
   });

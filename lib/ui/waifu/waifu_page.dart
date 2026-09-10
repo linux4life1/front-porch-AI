@@ -166,6 +166,7 @@ class _WaifuPageState extends State<WaifuPage> {
         return null;
       }
     }
+    final webSearch = waifuWebSearchBind(context);
     return _created = waifuBindSessionHarness(
       session: widget.session,
       llm: widget.llm,
@@ -176,7 +177,7 @@ class _WaifuPageState extends State<WaifuPage> {
       onAsk: _ask,
       onQuestion: _askQuestion,
       mcpOf: waifuLiveMcpOf(context),
-      webSearch: waifuWebSearchBind(context),
+      webSearch: webSearch,
       skills: _skillsOf(),
     );
   }
@@ -230,7 +231,7 @@ class _WaifuPageState extends State<WaifuPage> {
     } else {
       widget.session.pathMode = next;
     }
-    unawaited(_storeOf(context)?.saveLast(widget.session));
+    await _storeOf(context)?.saveLast(widget.session);
     if (mounted) setState(() {});
   }
 

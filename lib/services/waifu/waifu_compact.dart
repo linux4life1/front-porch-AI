@@ -270,7 +270,16 @@ String? waifuDuplicateReadStub({
   return null;
 }
 
-String? waifuDuplicateGlobStub({required List<WaifuMessage> transcript}) {
+String waifuGlobStubKey(String pattern, [String? path]) =>
+    '${pattern.trim()}\x1f${waifuNormalizeVerifyPath(path ?? '')}';
+
+String? waifuDuplicateGlobStub({
+  required List<WaifuMessage> transcript,
+  required String pattern,
+  String? path,
+}) {
+  final want = waifuGlobStubKey(pattern, path);
+  if (pattern.trim().isEmpty) return null;
   for (final m in transcript.reversed) {
     if (m.kind != WaifuMsgKind.tool) continue;
     final name = m.toolName ?? '';
@@ -280,7 +289,11 @@ String? waifuDuplicateGlobStub({required List<WaifuMessage> transcript}) {
     if (name == kWaifuToolGlob &&
         m.toolOk == true &&
         !m.text.contains('(pruned)')) {
-      return kWaifuDuplicateInHistory;
+      final have = waifuGlobStubKey(
+        (m.toolArgs?['pattern'] ?? m.toolArgs?['glob'] ?? '').toString(),
+        m.toolPath ?? m.toolArgs?['path']?.toString(),
+      );
+      if (have == want) return kWaifuDuplicateInHistory;
     }
   }
   return null;

@@ -46,13 +46,3 @@ bool waifuCheckInDue(int mutationsSinceCheckIn) =>
 
 bool waifuCheckInCounts(String toolName) =>
     kWaifuCheckInTools.contains(canonicalWaifuToolName(toolName));
-
-bool waifuShouldCheckInBefore({
-  required bool rootTurn,
-  required int mutationsSinceCheckIn,
-  required String toolName,
-}) {
-  return rootTurn &&
-      waifuCheckInDue(mutationsSinceCheckIn) &&
-      waifuCheckInCounts(toolName);
-}

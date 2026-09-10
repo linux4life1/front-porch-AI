@@ -1,3 +1,29 @@
+## 2026-09-10 — fix(waifu): Belt A harness contract — rip lying gates
+- **Why:** Tip f36976dc was MERGEABLE vs Rawhide but unit+integration
+  red. Send awaited verify-context before recording the user line.
+  Plan treated a denied project write as a missing plan file. Named-temp
+  wipe allowed the sit-down parent. `/tmp` scratch writes were classed
+  as OS mutations. Build `needsAsk` lied on `/etc/hosts` because
+  `decide()` hard-denied. Page bound lookup without `webSearch:
+  webSearch`. Sit-down Jail/Disk radios were untappable after honesty
+  reopened. Disk confirm hung under fake-async. A gradle helper name
+  contained the retired product substring.
+- **What:** One contract. Record send first. A denied Plan write is an
+  attempt, not a failed plan file. Sit-down ancestor wipe beats
+  named-temp allow; wipe tokens keep typed path case. `/tmp` children
+  are writable; OS trees still fail at FS. Build asks for off-porch
+  writes. Page binds `webSearch: webSearch`. Sit-down Jail/Disk are
+  chips. Disk confirm awaits store persist; widget test uses sync temp
+  + `runAsync`. Theater logic unchanged — gradle omit-check helper
+  renamed only.
+- **Files:** `waifu_deny.dart`, `waifu_harness.dart`,
+  `waifu_permissions.dart`, `waifu_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_bash.dart`,
+  `waifu_verify_theater.dart`, `waifu_page.dart`,
+  `waifu_wizard_sit_down_step.dart`,
+  `waifu_path_mode_switch_test.dart`, `docs/Rawhide.md`
+- **Commit:** b01fa382
+
 ## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
 - **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable
   list`. `alignGreetingSeeds` returned `const []` when the card had no alts,
@@ -10,6 +36,948 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): npm/pnpm/yarn failed-only + jest -o
+- **Why:** Tip a7731966 still receipted `npm test -- --lf` /
+  `pnpm`/`yarn test -- --onlyFailures` and `jest -o` /
+  `--onlyChanged`.
+- **What:** Same path. JS hosts apply the pytest+jest failed-only
+  set to argv after `--` (`npm run test` peels to `test`).
+  Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): --project is JS subset, not global
+- **Why:** Tip ee9089a3 hoisted `--project` into `_isTheaterFlag`,
+  so `dotnet test --project Foo.Tests.csproj` (assembly
+  selector, same class as `--framework` / `-p` / `-d`) was
+  soft-Done. Vitest `--project` is a real suite subset.
+- **What:** Same path. Global inventory = universal soft-Done
+  only. `--project` / `--dir` / `--ui` / `--selectprojects` /
+  `--runtestsbypath` move to the shared JS set. Dotnet
+  `--project` / `--framework` are value-takers. Bare
+  `dotnet test` and `--project X.csproj` stay full.
+- **Files:** `waifu_verify_families.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 6bf35f1c
+
+## 2026-09-10 — fix(waifu): family theater lock, not flag moles
+- **Why:** Tip 4c96d571 still substring-matched ignore+pattern
+  on any argv token (path / coverage / eslint knobs soft-denied)
+  and the belt was a one-flag babysit list the caps cannot hold.
+- **What:** Same path. New `waifu_verify_families.dart`:
+  flag-shaped only; collection prefixes; pytest `--ignore` /
+  `--ignore-glob` (not `--ignore-pattern`); `--exclude` /
+  `--dir` / `--filter` families. JS hosts + peeled `test:*`
+  share one failed-only and one suite set. `--workspace`
+  JS-only. Coverage / transform / watch-FS / path tokens /
+  selectors stay full. Mole club ripped.
+- **Files:** `waifu_verify_families.dart` (new),
+  `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 0b99e404
+
+## 2026-09-10 — fix(waifu): JS --dir host + drop device theater
+- **Why:** Tip 51c26ca4 receipted `npm test -- --dir=` (`--dir`
+  lived on the vitest suite only) and presence-theatered
+  `dart test -p vm` / `flutter test -d windows` (selector ≠
+  filter). Hostile also named vitest `--exclude` /
+  `--workspace` / `--typecheck`, jest/npm `*IgnorePatterns`
+  cousins, `deno test --doc`, and named TFM/flavor/compiler
+  selectors.
+- **What:** Same path. `--dir` on `_kJsFailedOnly`. Dart/flutter
+  `-p`/`-d`/`--platform`/`--device-id` leave failed-only (stay
+  value-takers). Vitest overlay `--exclude`/`--workspace`;
+  `--typecheck` prefix; ignore+pattern club; deno `--doc`.
+  `--framework=` / `--flavor=` / `--compiler=` stay FULL.
+  Comma platform lists are not babysat (`_wordsOf` splits `,`).
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 5dd64899 (pin 87aaaf1f)
+
+## 2026-09-10 — fix(waifu): rspec raw -P + JS ignore/ui + device
+- **Why:** Tip f0727d58 still receipted spaced `rspec -P foo` /
+  glued `-Pfoo` / bare `-P` (lowered `-p` is profile),
+  `jest --testPathIgnorePatterns=`, `vitest --ui` / `--dir=`,
+  `jest --runTestsByPath=`, `rspec --example-matches=`, and
+  `dart test -p chrome` / `flutter test -d chrome`.
+- **What:** Same path. `_runnerFilterTheater` takes `rawArgs`
+  (Gradle `-P` spirit): raw short `P` is pattern. JS ignore /
+  run-by-path prefixes; vitest `--dir`/`--ui`; rspec
+  `--example-matches`; dart `-p`/`--platform` and flutter
+  `-d`/`--device-id` failed-only. Profile `rspec -p` / `-p 10`
+  and bare hosts stay full.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 7d1fde91 (body e9f670ca)
+
+## 2026-09-10 — fix(waifu): watch=false full + rspec/phpunit/shard
+- **Why:** Tip a5b2dcd1 over-theatered `jest --watchAll=false` /
+  `--watch=false` / `--watchAll=0` (CI full suite) and still
+  receipted rspec `--pattern=` / `-P=`, phpunit `--uses=`,
+  dart/flutter `--total-shards` / `--shard-index`, pytest
+  `--looponfail` / `-f`, jest `--changedFilesWithAncestor`,
+  and `make test SUBDIRS=`.
+- **What:** Same path. Watch flags theater unless `=false`/`=0`
+  (`_flagUnlessFalsey`, JS hosts share `_kJsFailedOnly`).
+  rspec `--pattern`/`--exclude-pattern`/`-P`; phpunit `--uses`;
+  dart/flutter shard prefixes; pytest loop-on-fail (runner
+  `-f`); JS `--changedfileswithancestor`; Make `SUBDIRS=`.
+  Bare hosts / `make test` / `jest --watchAll=false` stay full.
+- **Files:** `waifu_verify_theater.dart`, `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 95460f88 (body 92b130ea)
+
+## 2026-09-10 — fix(waifu): rspec tag + JS shard/watch + go fuzz
+- **Why:** Tip 24c0f315 still receipted `rspec --tag=slow` / `-t`,
+  `phpunit -g=` / `--order-by=` / `--covers=`, `jest --watch` /
+  `--watchAll` / `--shard=` / `--selectProjects=`,
+  `vitest --project=` / `--shard=`, `npm test -- --shard=`,
+  `go test -fuzz=`, and `pytest --sw` / `--stepwise`.
+- **What:** Same path. rspec `--tag`/`-t` on the suite map.
+  phpunit `-g`/`--order-by`/`--covers` on failed-only (presence,
+  space and `=`). JS host set gets `--watch`/`--watchall`/
+  `--shard`/`--project`/`--selectprojects`. Go `-fuzz`. pytest
+  `--sw`/`--stepwise` on the suite map. Bare hosts stay full.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** b13aef18
+
+## 2026-09-10 — fix(waifu): test:* suite-filter + go/mix cousins
+- **Why:** Tip 9383edc7 still receipted `npm run test:unit -- -t Foo`,
+  `go test -skip` / `-list`, mix `--only=` / `--stale`,
+  `phpunit --group=`, and `swift test --skip`.
+- **What:** Same path. `_suiteFiltersFor` is the `test:*` twin of
+  `_failedOnlyFor`. Go `-skip`/`-list`; mix `--stale`/`--only`/
+  `--exclude` (space and `=`); phpunit `--group`/`--exclude-group`;
+  swift `--skip`. Bare hosts stay full.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 616c318c
+
+## 2026-09-10 — fix(waifu): test:* peel + jest/vitest/mix/go subsets
+- **Why:** Tip ec58b256 still receipted `npm run test:unit --
+  --onlyFailures`, `jest --changedSince`, `vitest --changed`,
+  `mix test --failed`, and `go test -short`.
+- **What:** Same path. Peeled `test:*` uses the JS failed-only
+  set. Jest/vitest changed-related flags join that set; mix
+  `--failed` and go `-short` are runner-scoped. Bare hosts full.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** d70f8e98
+
+## 2026-09-10 — fix(waifu): JS host failed-only mirror + jest -o
+- **Why:** Tip a7731966 still receipted `npm test -- --onlyFailures`
+  / `yarn test --onlyFailures` / `bun test --onlyFailures` because
+  `_kFailedOnlyFlags` did not mirror suite-filter JS hosts.
+- **What:** Same path. Failed-only keys on npm/pnpm/yarn/bun/deno/
+  `test` (same spirit as `_kSuiteFilterFlags`). Jest `-o` /
+  `--onlyChanged`. Bare hosts stay full.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 63747c24
+
+## 2026-09-10 — fix(waifu): pytest/jest/rspec failed-only theater
+- **Why:** Tip 32ae263e still receipted `pytest --lf` / `--ff`,
+  `jest --onlyFailures`, and `rspec --only-failures` /
+  `--next-failure` as a full verify.
+- **What:** Same path. Failed-only club on `_runnerFilterTheater`
+  (ctest `--rerun-failed` twin). Long+short aliases per runner.
+  Bare `pytest` / `jest` / `rspec` stay full.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** ef72f050
+
+## 2026-09-10 — fix(waifu): ctest --no-tests ignore + --rerun-failed
+- **Why:** Tip c65ff0be still receipted `ctest --no-tests=ignore`,
+  `--rerun-failed`, and `AM_TESTS_ENVIRONMENT=`.
+- **What:** Same path. `--no-tests` bare/empty/`=ignore` theater;
+  `=error` stays full. `--rerun-failed` presence. Make
+  `*_TESTS_ENVIRONMENT=` family (AM_ twin). `-C/home` and bare
+  `ctest` unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 6e5ca28b
+
+## 2026-09-10 — fix(waifu): ctest -FS/-FC + TESTS_ENVIRONMENT
+- **Why:** Tip ff739407 still receipted `ctest -FS` / `-FC`
+  and `make test TESTS_ENVIRONMENT=foo=1`.
+- **What:** Same path. CTest shorts starting `-F` (len≥3) and
+  longs starting `--fixture-`. Make `TESTS_ENVIRONMENT=` joins
+  the VAR= club. `-C/home` and bare `ctest` unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 4375660c
+
+## 2026-09-10 — fix(waifu): make -kl / XFAIL_TESTS + ctest label/file
+- **Why:** Tip eaa8d784 still receipted `-kl` / `-kt` / `-kv`,
+  `XFAIL_TESTS=`, and CTest `--label-regex` / `--tests-from-file`
+  / `-FA`.
+- **What:** Same path. Soft-clump charset is GNU non-value
+  shorts (still requires iknq; `/` `.` `CfoWIO` reject). Make
+  `XFAIL_TESTS=` / `CHECK_TESTS=` join the VAR= club. CTest
+  `--label-regex` / `--label-exclude` / `--exclude-label` /
+  `--tests-from-file` / `--exclude-from-file` / `-FA` / `-FI`.
+  `-C/home` and bare `ctest` unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** f44fb622
+
+## 2026-09-10 — fix(waifu): make soft-clump + TESTS= + ctest filters
+- **Why:** Tip b77747bd still receipted `-ks` / `-iks` / `-jk` /
+  `-j2k` / `-kr` (non-value shorts + interleaved jobs) and
+  Automake / CTest suite subsets (`TESTS=foo`, `ctest -R`).
+- **What:** Same `_verifyTheater` path. Soft clump allows
+  `[iknqsrRBedpw]` + `j\d*` anywhere, still requires iknq,
+  still rejects glued `-C`/`-f`/`-O` paths. Make `TESTS=` /
+  `TEST=` / `TESTSUITEFLAGS=` presence. CTest `-R`/`-E`/`-L`/
+  `-I` + `--tests-regex` / `--exclude-regex`. Bare `ctest`
+  and `-ik` unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** 43ce94a6
+
+## 2026-09-10 — fix(waifu): make value-flag paths are not theater
+- **Why:** Tip 13e201c2 letter-scanned any short token for
+  `i`/`k`/`n`/`q`, so glued value flags babysat real C/CI
+  (`-C/home/...`, `-f./common.mk`, `-Onone`, `-fmakefile`,
+  `-Cbuild/link`, `-ooutfile`, `-Wquick`).
+- **What:** Same `_makeArgvTheater` path. Pure clumps only
+  (`^-[iknq]+(?:j\d*)?$`). Value-taking `-C`/`-f`/`-o`/`-W`/
+  `-O`/`-I` stay full. `-ik` / `-ni` / `-ikj2` and separated
+  shorts / longs unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** c7f62f48
+
+## 2026-09-10 — fix(waifu): make glued short clusters are theater
+- **Why:** Tip 384f56bf theatered separated `make -i` / `-k` /
+  `-n` / `-q` but still receipted glued clumps
+  (`-ik`, `-ki`, `-ni`, `-in`, `-ikj2`).
+- **What:** Same `_makeArgvTheater` path. Raw short clumps
+  (single `-`, not `--`) theater when they contain `i` / `k` /
+  `n` / `q`. `-I` / `-I…` is include-dir. Digits/`j` in the
+  cluster stay OK. Longs and separated shorts unchanged.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** e50b852e
+
+## 2026-09-10 — fix(waifu): make soft-Done + prefixed failOnNo* theater
+- **Why:** Tip 8b092567 still receipted `make -i` / `-k` /
+  `--ignore-errors` / `--keep-going` (failed recipes still
+  green) and prefixed
+  `-Dtest.failOnNoMatchingTests=false` /
+  `-Dtest.failOnNoDiscoveredTests=false` (empty-suite soft).
+- **What:** Same `_verifyTheater` path. Make shorts `-i` (raw,
+  not `-I` include-dir) / `-k` plus longs via
+  `_polyglotSoftDone`. Gradle whenFalse club adds `test.`
+  failOnNo* twins (`-D`/`-P`, raw `P`). Command-line include/
+  exclude patterns join the Gradle filter set. `-n`/`-q`,
+  Gradle `-i` info, `=true` prefixed, and VIP `--tests *`
+  unchanged.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 7421f264
+
+## 2026-09-10 — fix(waifu): -Ptest filters + Maven failIfNoTests theater
+- **Why:** Tip 63ce60bc theatered `-Dtest.single` / `include` /
+  `exclude` but still receipted the `-P` twins, and receipted
+  `mvn test -DfailIfNoTests=false` (empty-suite soft Done).
+- **What:** Same `_verifyTheater` path. Gradle filter set adds
+  `-ptest.single` / `include` / `exclude` with a raw `P` gate.
+  Maven `failIfNoTests` / `failIfNoSpecifiedTests` (+ surefire /
+  failsafe) join `_kMavenWhenFalseProps` — inverted floor
+  (bare / empty / `=false` theater; `=true` full). Skip-prop
+  `=false` and `-PenableFoo` unchanged.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 3a24d3e8
+
+## 2026-09-10 — fix(waifu): empty-suite / test.single / cargo no-fail-fast
+- **Why:** Tip d93560fa still receipted
+  `-DfailOnNoMatchingTests=false` / `-DfailOnNoDiscoveredTests=false`
+  (empty-suite soft), `-Dtest.single` / `include` / `exclude`
+  (legacy filter), `cargo test --no-fail-fast`, and
+  `jest --passWithNoTests`.
+- **What:** Same `_verifyTheater` path. Gradle inverted floor
+  `_gradlePropWhenFalse` for matching/discovered (`-D`/`-P`).
+  `-Dtest.single` / `include` / `exclude` are presence filter.
+  `_polyglotSoftDone` theaters cargo `--no-fail-fast` and jest
+  `--passWithNoTests` (npm `--` too). `=true` matching/discovered
+  and ignoreFailures `=false` stay full. VIP `--tests *` unchanged.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 4f490532
+
+## 2026-09-10 — fix(waifu): Gradle -g / ignoreFailures theater
+- **Why:** Tip 61aa7d08 still receipted `-g` / `--gradle-user-home`
+  (init.d inject without `-I` in argv) and
+  `-DignoreFailures=true` / `-PignoreFailures=true` (soft Done,
+  Maven `testFailureIgnore` twin).
+- **What:** Same `_gradleArgvTheater` club. `-g` /
+  `--gradle-user-home` is presence theater (raw `-g` only).
+  `ignoreFailures` / `test.ignoreFailures` via `-D` and `-P`
+  theaters unless `=false` (shared `_gradlePropUnlessFalse` with
+  `org.gradle.continue`). `-PenableFoo`, CI-root scripts, `-I`,
+  `-i`, VIP `--tests *` unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** cb7fb547
+
+## 2026-09-10 — fix(waifu): Gradle CI-root build.gradle full; -I / continue -D
+- **Why:** Tip 0d45de4a still theatered abs CI default scripts
+  (`-b /workspace/build.gradle`, GHA/Azure twins), receipted
+  `--init-script` / `-I` injects, and receipted
+  `-Dorg.gradle.continue=true` while CLI `--continue` theaters.
+- **What:** Same `_gradleArgvTheater` club. Maven `-f` and Gradle
+  default scripts share `_ciCheckoutRoot`. Basename
+  `build.gradle` / `.kts` / `settings.gradle` / `.kts` at cwd or
+  a known CI checkout is full; nested modules stay theater.
+  `-p` does not use the script allowlist. `--init-script` /
+  `-I` is presence theater; raw argv keeps `-i` (info) full.
+  `-Dorg.gradle.continue` theaters unless `=false`. VIP
+  `--tests *` unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 2467ede8
+
+## 2026-09-10 — fix(waifu): Gradle -p=/-b=/-c theater; cwd build.gradle full
+- **Why:** Tip bee16f9e still receipted `./gradlew -p= test`,
+  `-b=other.gradle`, and `-c other.settings.gradle` (short `=`
+  and `-c` as `--settings-file` were unmatched). The same relocate
+  club over-theatered cwd default scripts (`-b build.gradle`).
+  `--include-build` still receipted a composite.
+- **What:** Same `_gradleArgvTheater` club. `-p=` / `-b=` / `-c` /
+  `-cPATH` / `-c=` theater when empty or not cwd. Cwd default
+  basenames `build.gradle` / `build.gradle.kts` / `settings.gradle`
+  / `settings.gradle.kts` (optional `./`) stay full. Nested /
+  other names stay theater. `--include-build` is presence theater.
+  `-PenableFoo`, `-p .`, `--tests *`, `--continuous` unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 23d0d32c
+
+## 2026-09-10 — fix(waifu): empty -p theater; -Pprop full; -b relocate theater
+- **Why:** Tip ce76e3f8 treated empty `-p` / `--project-dir=` as cwd
+  (soft verify) and glued lowered `-Pfoo` as project-dir (over-
+  theater). `-b` / `--build-file` / `--settings-file` still
+  receipted a relocated build.
+- **What:** Same `_gradleArgvTheater` club. Empty/missing project-dir
+  is theater; cwd `.` / `./` stays full. Raw argv keeps `-P` vs `-p`
+  so `-PenableFoo` is a full run. `-b` / `--build-file` /
+  `--settings-file` use the same relocate rule. VIP `--tests *`
+  unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** cf87dbd9
+
+## 2026-09-10 — fix(waifu): Gradle -p / bare basedir / Linux Azure / root cousins
+- **Why:** Tip d5f15721 still receipted `./gradlew -p other test`,
+  bare `-Dbasedir`, and basedir cousins. Linux Azure
+  `/home/vsts/work/1/s/pom.xml` over-theatered.
+- **What:** Same `_verifyTheater` path. Gradle `-p` /
+  `--project-dir` theaters when the value is not cwd (`.` / `./`);
+  `--continue` stays in that argv helper. Filter `-D` keys theater
+  on bare presence (`eq < 0`) as well as any value. Linux Azure
+  `/home/vsts/work/<id>/s` joins the `-f` allowlist (same id regex).
+  `maven.multiModuleProjectDirectory` /
+  `session.executionRootDirectory` join `_kMavenFilterProps`.
+  Nested under `s`, GHA, VIP `--tests *` unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 96cf9312
+
+## 2026-09-10 — fix(waifu): Azure -f checkout, Gradle --continue, basedir theater
+- **Why:** Tip 0368c052 still theatered Azure classic
+  `D:/a/1/s/pom.xml`. `./gradlew test --continue` and
+  `-Dbasedir=/other` still receipted a soft / swapped tree.
+- **What:** Same clubs. Drive-letter `-f` allowlists `X:/a/<id>/s`
+  (numeric-or-id); nested under `s` stays theater. Gradle
+  `--continue` is presence theater (soft Done, like `--fail-never`).
+  `basedir` / `project.basedir` join `_kMavenFilterProps` (any
+  value). VIP `--tests *` unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 71d1fa4b
+
+## 2026-09-10 — fix(waifu): --fail-never / error.ignore theater; Windows GHA -f
+- **Why:** Tip 2603298d still receipted `mvn --fail-never test` /
+  `-fn` and `-Dmaven.test.error.ignore=true` (red suite stamps
+  Done). Windows GHA `D:/a/<repo>/<repo>/pom.xml` over-theatered.
+- **What:** Same clubs. `-fn` / `--fail-never` are presence theater;
+  `-fae` / `--fail-at-end` / `-ff` stay full. Error-ignore keys join
+  `_kMavenSkipProps` (`=false` still hard). Drive-letter `-f` still
+  receipts `C:/proj/pom.xml` and now `X:/a/<repo>/<repo>` when the
+  repo pair matches. Nested `D:/a/repo/module` stays theater.
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 24566e5a
+
+## 2026-09-10 — fix(waifu): GHA -f checkout root is a full run; failure-ignore is theater
+- **Why:** Tip 68045b10's single-segment absolute allowlist rejected
+  GitHub Actions `/home/runner/work/<repo>/<repo>/pom.xml`.
+  `-DtestFailureIgnore=true` / `-Dmaven.test.failure.ignore=true`
+  still receipted a suite that treats red as green.
+- **What:** Same clubs. Absolute `-f` still receipts `/<one>/pom.xml`
+  and now the GHA checkout (identical repo segments) plus
+  `/github/workspace/pom.xml`. Nested modules stay theater.
+  Failure-ignore keys join `_kMavenSkipProps` (`=false` still hard).
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** b906503c
+
+## 2026-09-10 — fix(waifu): nested absolute -f …/module/pom.xml and -t are theater
+- **Why:** Tip 0a5c1a95 treated any absolute `…/pom.xml` as a full
+  run, so `mvn -f /workspace/module/pom.xml test` soft-receipted a
+  module POM swap. `-t` / `--toolchains` still receipted.
+- **What:** Same `_mavenArgvTheater` club. Absolute `-f` is a full
+  receipt only for basename `pom.xml` with exactly one segment after
+  the root (`/workspace/pom.xml`, `C:/proj/pom.xml`). Nested
+  absolute and `/home/user/proj/pom.xml` are theater. Toolchains
+  (`-t`/`--toolchains`, `-gt`/`--global-toolchains`) are presence;
+  short `-t` skips a threads spec so `mvn -T 1C test` stays a full
+  run. Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** f08ed289
+
+## 2026-09-10 — fix(waifu): absolute CI -f …/pom.xml is a full run; -s/-P are theater
+- **Why:** Tip 204f0a75 only allowlisted bare/`./` `pom.xml`, so
+  CI `mvn -f /workspace/pom.xml test` over-theaters. `-s` /
+  `--settings` / `-gs` and `-P` / `--activate-profiles` still
+  receipted.
+- **What:** Same `_mavenArgvTheater` club. `-f`/`--file` is a full
+  receipt when basename is `pom.xml` and parent is empty / `.` **or**
+  absolute (CI cwd pom). Relative `other/pom.xml` and non-`pom.xml`
+  basenames stay theater. Settings and profile flags are presence
+  theater (receipts lower `-P` → `-p`; `-pl` stays reactor).
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 8c602731
+
+## 2026-09-10 — fix(waifu): default POM -f is a full run; reactor -pl/-rf/-N are theater
+- **Why:** Tip a4fe55e8 treated every `-f`/`--file` as theater
+  (including `mvn -f pom.xml test`) and missed glued `-fPATH`,
+  reactor `-pl`/`-rf`/`-N`, and lowered
+  `project.build.generatedsourcesdirectory`.
+- **What:** Same `_verifyTheater` path. `-f`/`--file` theaters only
+  when the value is not `pom.xml` / `./pom.xml` (strip leading
+  `./`). Glued `-fPATH` / `--filePATH` use the same rule; fail
+  shorts `-fae`/`-ff`/`-fn` stay receipts. Reactor selectors
+  (`-pl`/`--projects`, `-rf`/`--resume-from`, `-N`/`--non-recursive`,
+  also-make) are presence theater. The generated-sources key joins
+  `_kMavenFilterProps`. Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 42008d89
+
+## 2026-09-10 — fix(waifu): classpath-redirect / POM-file / classes-root theater
+- **Why:** Alternate test-root was closed, but
+  `-DadditionalClasspathElements=*` /
+  `-DgeneratedTestSourcesDirectory=` /
+  `-DclassesDirectory=` / `-Dproject.build.outputDirectory=` and
+  `mvn -f other/pom.xml test` still receipted.
+- **What:** Same theater. Those keys (plus official
+  `maven.test.additionalClasspath` and generated-test-sources
+  twins) join `_kMavenFilterProps` presence. Maven `-f` /
+  `--file` is presence in `_verifyTheater` (not `-fae` / `-fn`).
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 434365f8
+
+## 2026-09-10 — fix(waifu): alternate test-root -D props are theater
+- **Why:** Classpath scan-subset was closed, but
+  `-DtestClassesDirectory=` / `-DtestSourceDirectory=` (and
+  `surefire.` / `failsafe.` twins) still receipted — they swap the
+  suite source.
+- **What:** Same theater. Those keys plus
+  `project.build.testOutputDirectory` /
+  `project.build.testSourceDirectory` and `testClasspathElements`
+  join `_kMavenFilterProps` presence. Gradle/Go VIP unchanged. No
+  second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 3a899964
+
+## 2026-09-10 — fix(waifu): classpath scan-subset -D filters are theater
+- **Why:** `dependenciesToScan` was closed, but
+  `-DclasspathDependencyExcludes=*` / `-DclasspathDependencyIncludes=*`
+  (and `surefire.` / `failsafe.` twins) still receipted.
+- **What:** Same theater. Those keys plus official
+  `maven.test.dependency.excludes` and
+  `classpathDependencyScopeExclude` join `_kMavenFilterProps`
+  presence. Maven prop tables extracted to
+  `waifu_verify_maven.dart` (500-line cap). Gradle/Go VIP
+  unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 254de871
+
+## 2026-09-10 — fix(waifu): Surefire suite XML / scan-subset are theater
+- **Why:** Unprefixed `includesFile` / JUnit5 engines were closed, but
+  `-DsuiteXmlFiles=*` / `=testng.xml` / `-Dsurefire.suiteXmlFiles=`
+  / `-Dfailsafe.suiteXmlFiles=*` and `-DdependenciesToScan=*` still
+  receipted.
+- **What:** Same theater. Those keys (plus singular `suiteXmlFile`
+  and Failsafe `failsafe.dependenciesToScan`) join
+  `_kMavenFilterProps` presence. Gradle/Go VIP unchanged. No second
+  club.
+- **Files:** `waifu_verify.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** c84510e0
+
+## 2026-09-10 — fix(waifu): unprefixed Surefire -D aliases are theater
+- **Why:** `_kMavenFilterProps` had `surefire.includesFile` /
+  `surefire.excludeJUnit5Engines` but not the unprefixed aliases,
+  so `-DincludesFile=*` / `-DexcludesFile=*` /
+  `-DincludeJUnit5Engines=*` / `-DexcludeJUnit5Engines=*` still
+  receipted.
+- **What:** Same theater. Those four lowered keys join the set.
+  Failsafe has no `it.includesFile` twin (`it.test` already in).
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 958d4b6a
+
+## 2026-09-10 — fix(waifu): Surefire/Failsafe -D filters are theater
+- **Why:** Only `-Dtest=` entered `_mavenSkipProperty` as a name
+  filter, so `-Dgroups=*` / `-DexcludedGroups=*` /
+  `-Dsurefire.includes=*` / `-Dit.test=*` still receipted.
+- **What:** Same theater. Those keys (and same-class Surefire /
+  Failsafe filters) are `_kMavenFilterProps` presence. Gradle/Go
+  VIP unchanged. No second club.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 37106f8d
+
+## 2026-09-10 — fix(waifu): maven -Dtest=* is theater
+- **Why:** `_mavenSkipProperty` still VIP-starred Surefire `-Dtest=*`,
+  so `mvn test -Dtest=*` / `./mvnw test -Dtest=*` soft-receipted.
+- **What:** Same theater. `-Dtest=` uses presence (`all: {}`).
+  Gradle `--tests *` and Go `-run=*` stay VIP. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 1cf6e4a6
+
+## 2026-09-10 — fix(waifu): suite-filter default is presence
+- **Why:** VIP `*` was the helper default, so each new name-filter
+  runner was another soft-TRUE mole.
+- **What:** Same theater. `_filteredSuiteTheater` defaults to
+  `all: {}`. Keepers opt in: Go `-run`, Gradle `--tests`, Maven
+  `-Dtest=`. Every other suite-filter key is theater at `*`. No
+  second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 6c6344b2
+
+## 2026-09-10 — fix(waifu): --filter * is theater except Go/JVM
+- **Why:** Suite VIP `*` still soft-receipted
+  `swift`/`dotnet`/`phpunit`/`deno`/`bun` `--filter *` / `=*`.
+- **What:** Same theater. Those (and other non-keeper suite flags)
+  use presence (`all: {}`). Gradle `--tests *` and Go `-run=*` stay
+  VIP. Zig/cargo pins unchanged. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** ff2848e7
+
+## 2026-09-10 — fix(waifu): zig --test-filter * is theater
+- **Why:** Zig used default suite VIP `*`, so
+  `zig test --test-filter *` / `=*` and `zig build test --test-filter
+  *` / `-Dtest-filter=*` soft-receipted.
+- **What:** Same theater. Zig `--test-filter` / `-Dtest-filter` use
+  presence (`all: {}`). Go/JVM VIP keepers left alone. Cargo pins
+  unchanged. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 76f5122c
+
+## 2026-09-10 — fix(waifu): cargo --exact=* / positional * theater
+- **Why:** `--exact=*` / `cargo test --exact *` could still VIP-star
+  (`--exact=*` is a dash token with no leftover positional).
+- **What:** Same theater. `--exact` joins cargo-test presence
+  (`all: {}`) with `-p *` / `-F*`. Positional `*` stays presence.
+  Bare `cargo test` still runs. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** c1e78209
+
+## 2026-09-10 — fix(waifu): cargo test * / --exact * are theater
+- **Why:** Positional and `--exact` used suite VIP `*`, so
+  `cargo test -- *` / `cargo test *` / `cargo test -- --exact *`
+  soft-receipted.
+- **What:** Same theater. Those filters use presence (`all: {}`).
+  `*` is theater. `--include-ignored` / `--nocapture` stay fuller
+  runs. Spaced libtest knobs still skip-value. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 537f9e7d
+
+## 2026-09-10 — fix(waifu): cargo libtest valued knobs are not theater
+- **Why:** After `--`, only cargo `_kFilterValueFlags` skipped the next
+  token, so `--test-threads 1` / `--format pretty` / `--shuffle-seed
+  42` / `--logfile …` over-theatered (spaced value = positional).
+- **What:** Same theater. Those knobs join cargo skip-value. Spaced
+  forms stay a full run. `--ignored` / `--skip` / `--list` /
+  `--exclude-should-panic` still theater. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`
+- **Commit:** 8be1c4a5
+
+## 2026-09-10 — fix(waifu): cargo test libtest harness after -- 
+- **Why:** After `--`, dash tokens were skipped, so `cargo test --
+  --ignored` / `--skip=` / `--list` / `--exclude-should-panic` still
+  receipted.
+- **What:** Same theater. Those flags join `_kCargoTestFilterFlags`
+  (presence; `flagVal` sees tokens after `--`). Bare `cargo test`
+  still runs. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** b7fc219f
+
+## 2026-09-10 — fix(waifu): cargo test feature/target; clippy -p *
+- **Why:** Feature/target gates lived only on clippy subset, so
+  `cargo test --features` / `-F` / `--no-default-features` / `--target`
+  still receipted. `cargo clippy -p *` was a full-lint receipt.
+- **What:** Same theater. Those four gates are
+  `_kCargoFeatureTargetGates` on both test (presence) and clippy.
+  Clippy `-p` / `--package` star-only (`*` / empty); `-p foo` stays
+  verify. `cargo test --exclude *` pinned. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** bc2022c6
+
+## 2026-09-10 — fix(waifu): clippy/cargo presence flags do not VIP-star
+- **Why:** Clippy subset and cargo `-p` / `--exclude` ran values through
+  `_filteredSuiteTheater` with suite VIP `*`, so `-F*` / `--features *`
+  / `--exclude *` / `--target *` / `cargo test -p *` still receipted.
+- **What:** Same theater. Those flags use `all: {}` (presence). Suite
+  VIP `*` stays for real name/package filters (`--tests *`). Bare
+  clippy / `-p` / `--workspace` / `--all` / `--all-features` still run.
+  No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** ef42b6f6
+
+## 2026-09-10 — fix(waifu): clippy glued -FVALUE is theater
+- **Why:** Clap accepts `-Ffoo` / `-Fserde` as `-F VALUE`. After lower
+  those are `-ffoo` / `-fserde`, which matched neither exact `-f` nor
+  `-f=`, so `--workspace -Fserde` still receipted.
+- **What:** Same theater. `flagVal` returns the glued value for a
+  single-letter short (`-f` + rest). Hits `_filteredSuiteTheater`. Bare
+  clippy / `-p` / `--workspace` / `--all` / `--all-features` still run.
+  No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** b1e634dd
+
+## 2026-09-10 — fix(waifu): clippy -F features alias is theater
+- **Why:** Cargo short `-F` / `-F=` for `--features` was not on the
+  clippy subset set, so `cargo clippy -F foo`, `--workspace -F foo`,
+  and `-F=bar` still receipted. Receipts lower first, so the set must
+  store `-f`.
+- **What:** Same theater. `-f` (lowered `-F`) joins
+  `_kCargoClippySubsetFlags` and cargo value-skip. Bare clippy, `-p`,
+  `--workspace`, `--all` without gates still run. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** c8b450ac
+
+## 2026-09-10 — fix(waifu): clippy feature/target gates are theater
+- **Why:** `--features` / `--target` were cargo skip-as-value only, so
+  `cargo clippy --workspace --no-default-features`, `--all --features
+  foo`, and `--workspace --target wasm32-…` still receipted.
+- **What:** Same theater. Those flags join `_kCargoClippySubsetFlags`
+  (alone or with `--workspace` / `--all` / `-p`). Bare clippy, `-p`,
+  `--workspace`, `--all` without gates still run. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 7534de36
+
+## 2026-09-10 — fix(waifu): clippy --exclude/--doc are theater
+- **Why:** `--exclude` lived only on cargo-test flags, so `cargo clippy
+  --exclude` / `--workspace --exclude` / `--all --exclude` still
+  receipted. `--doc` was leftover soft-true.
+- **What:** Same theater. Clippy `--exclude` drops crates even with
+  `--workspace` / `--all` / `-p`. `--doc` is docs-only. Bare clippy,
+  `-p`, `--workspace`, `--all` without those still run.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** e9ea8a08
+
+## 2026-09-10 — fix(waifu): clippy subsets; cargo test --exclude/--all
+- **Why:** Clippy `--lib` / `--bins` / `--all-targets` still receipted.
+  `cargo test --exclude` / `--all` were skip-as-value or an
+  `--all-targets` alias hole. Clippy `--workspace` / `--all` are the
+  full workspace lint.
+- **What:** Same theater. Explicit clippy policy: `--workspace`/`--all`
+  verify; subset selectors theater. Not a copy of the test flag set.
+  `--exclude` and `--all` join cargo-test filters.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 6ce9055b
+
+## 2026-09-10 — fix(waifu): cargo --bins/--workspace; zig --test-filter
+- **Why:** `cargo test --bench` / `--bins` / `--tests` / `--workspace`
+  still receipted. `zig build test --test-filter` and `zig test
+  -Dtest-filter=` still receipted (`-Dtest-filter` was build+test only).
+- **What:** Same theater. Those cargo flags join `_kCargoTestFilterFlags`
+  (`--bench` left the skip-as-value set). Zig `--test-filter` and
+  `-Dtest-filter` apply to both `zig test` and `zig build test`.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** ae3d881d
+
+## 2026-09-10 — fix(waifu): cargo test targets; clippy -p; zig filter
+- **Why:** `cargo test --lib` / `--bin` / `--doc` still receipted. `cargo
+  clippy -p foo` was over-theatered (workspace clippy). `zig build test
+  -Dtest-filter=foo` still receipted.
+- **What:** Same theater. Cargo suite filters (`-p`, `--lib`, `--bin`,
+  `--example`, `--doc`, `--test`) apply to `cargo test` only. Zig
+  `build`+`test` with `-Dtest-filter` is theater. Clippy `-p` stays a
+  run.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 5f288147
+
+## 2026-09-10 — fix(waifu): package, marker, and adjacent filters
+- **Why:** Value-flag skip laundered `pytest -m` / cargo `-p` / `--test`
+  / go `./pkg`. Adjacent `jest -t`, `mix`/`zig`/`rspec`/`phpunit`/
+  `deno`/`bun` paths, and `swift --filter` still receipted.
+- **What:** Same theater. Suite-filter flags are not skip-as-value.
+  Go package paths other than `.` / `./...`, cargo package/target,
+  JS `-t`, and path subsets on mix/zig/rspec/phpunit/deno/bun join
+  the family switch. `zig build test` is a real suite.
+- **Files:** `waifu_verify_theater.dart`, `waifu_verify.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 2b078921
+
+## 2026-09-10 — fix(waifu): flutter/dart --name and tags are theater
+- **Why:** `--name` / `--plain-name` / `--tags` / `--exclude-tags` were
+  only “value flags”, so `flutter test --name Foo` skipped `Foo` and
+  receipted a full suite.
+- **What:** Same theater. Those flags (and `-t` / `-x`) are suite
+  filters like go `-run` / gradle `--tests`. Bare `flutter test` /
+  `dart test` still run.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 44e96921
+
+## 2026-09-10 — fix(waifu): polyglot name/path filters are theater
+- **Why:** Filter theater was Maven/Gradle only, so `go test -run Nope`,
+  `cargo test nope`, `pytest -k nope` / a file path, `dotnet --filter`,
+  and `flutter test test/foo_test.dart` still receipted a full suite.
+- **What:** Same theater. `_runnerFilterTheater` by runner family:
+  go `-run`, cargo positional / `--exact`, pytest `-k` / path, dotnet
+  `--filter`, flutter/dart test file path. JVM empty/non-`*` stays.
+  Full-suite forms (`go test ./...`, `pytest`, `flutter test`,
+  `--tests *`) still run.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`,
+  `waifu_verify_contract_test.dart`, `docs/Rawhide.md`
+- **Commit:** 968a9f12
+
+## 2026-09-10 — fix(waifu): failsafe skip is IT-only; filters are theater
+- **Why:** `failsafe.skip` killed `mvn verify` even though Surefire
+  still runs (same as `skipITs`). Explicit `-Dtest=Nope` /
+  `--tests Nope` / `--tests=` still receipted via a VIP name list.
+- **What:** Same theater. Failsafe skip / skipExec stay off the unit
+  skip set. Empty or any non-`*` `-Dtest=` / `--tests` filter is
+  theater (`--tests *` still runs the suite).
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 2951a1e0
+
+## 2026-09-10 — fix(waifu): exclude glob matches Tests/UnitTest shapes
+- **Why:** Exclude globs only probed `{test, check}`, so
+  `-x '*Tests*'` / `*Tests` / `*UnitTest*` still receipted.
+- **What:** Same theater. Gradle exclude globs also probe `tests`,
+  `unittest`, `testdebugunittest`, `:app:test` / `:app:check` — the
+  `_runnerTaskMatches` family. `-x lint` and `*contest*` stay a run.
+  `failsafe.skip`, `-Dtest=` / `DoesNotExist`, `--tests DoesNotExist`
+  join.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 4dae18a8
+
+## 2026-09-10 — fix(waifu): surefire skip and glob exclude are theater
+- **Why:** `mvn test -Dsurefire.skip=true` / `skipExec` /
+  `maven.test.skip.exec` and `./gradlew test -x '*Test*'` skipped the
+  suite then receipted. Exact-name `-x` missed globs.
+- **What:** Same theater. Maven skip keys add surefire.skip,
+  surefire.skipExec, maven.test.skip.exec (`=false` still runs;
+  `-DskipITs` does not skip units). Gradle `-x` / `--exclude-task`
+  globs match known check names (`*test*` / `*check*`), not
+  `*contest*` or `-x lint`. `-Dtest=None` and `--tests none.Matching`
+  join.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 710761d9
+
+## 2026-09-10 — fix(waifu): skip/exclude a check is theater
+- **Why:** `mvn test -DskipTests` and `./gradlew build -x test` /
+  `--exclude-task test` skipped the suite then receipted and stamped
+  tested.
+- **What:** Same theater gate. Maven `-DskipTests` /
+  `-Dmaven.test.skip` (not `=false`) join the flag walk. Gradle `-x` /
+  `--exclude-task` is theater only when the excluded token is a known
+  check (`test -x lint` still runs). `go test -exec true` and
+  phpunit `--list-suites` / `--list-groups` join.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 632960d3
+
+## 2026-09-10 — fix(waifu): compile/list without execute is theater
+- **Why:** `cargo test --no-run` (and `+nightly` / `--quiet` variants)
+  compiled or listed without running, then receipted and skipped Build
+  ask.
+- **What:** Same `_verifyTheater` gate. `--no-run`, `--list-tests`,
+  `--listTestFiles`, `--question`, `pytest --co` join the flag walk.
+  `go test -c` and `make -q` are runner-scoped (`pytest -q` still
+  runs). Prior +channel / inventory / dry-run pins stay.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart` (part),
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** b0323dbc
+
+## 2026-09-10 — fix(waifu): cargo +channel and Gradle inventory basename
+- **Why:** Subcommand-first treated `+nightly` as the check, so
+  `cargo +nightly test` asked and never stamped. Gradle inventory
+  only matched bare `help`/`dependencies`, so `:app:dependencies`
+  / `app:dependencies` / `:app:help` / `components --configuration
+  test` still receipted.
+- **What:** Same peel + theater. Skip `+toolchain` tokens before the
+  first subcommand. Inventory uses the task basename and treats
+  `--configuration` / `--task` as theater when the task is not a
+  real check (`--configuration-cache` stays a run). `--show-only=`
+  and list-only (`--collect-only`, `--listTests`) join theater.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** 407d79e2
+
+## 2026-09-10 — fix(waifu): dry-run and help do not receipt a check
+- **Why:** `_verifyTheater` only caught `--help` / `--dry-run`. `make -n
+  test`, Gradle `-m`, `gradlew help --task test`, `dependencies
+  --configuration test`, and `ctest -N` / `--show-only` still receipted
+  and skipped Build ask.
+- **What:** Same theater gate. Long dry-run aliases join the existing
+  flag walk. Short `-n` / `-m` are runner-scoped (pytest `-n` stays a
+  check). Gradle inventory tasks `help` / `dependencies` are theater
+  even when a later token is named `test`.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** 50888951
+
+## 2026-09-10 — fix(waifu): subcommand-first runners do not scan later test
+- **Why:** Scan-all treated any later `test`/`clippy` token as a check.
+  `cargo new test`, `cargo install clippy`, `go get test`, `dotnet new
+  test`, `dart create test`, and `mix new test` receipted and skipped
+  Build ask.
+- **What:** One scan, two families. make/gradle/mvn (and wrappers) still
+  scan for the check after flags. cargo/go/dotnet/dart/mix/swift/zig
+  require the first non-flag subcommand to be the check. Fulfill uses
+  the same gate so named `cargo test` does not receipt `cargo new test`.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`
+- **Commit:** 0b9950d0
+
+## 2026-09-10 — fix(waifu): scan runner argv for the check task
+- **Why:** `_segmentIsKnownCheck` required `peeled.words[1]` to be the
+  check. `make -j8 test`, `make -C build test`, `./gradlew :app:test`,
+  `testDebugUnitTest`, `gradle check`, and `mvn verify` failed receipt
+  and still `needsAsk`. Named `make test` did not fulfill `make -j8 test`.
+- **What:** After the same peel+alias, scan non-flag tokens for the
+  runner’s known checks. Gradle also accepts `:module:test`,
+  `test*UnitTest`, and `check`. Maven adds `verify`. Fulfill matches the
+  named task after flags. `rm test` / `make build` / `./gradlew build`
+  stay false.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** 5d1b8e46
+
+## 2026-09-10 — fix(waifu): make/ruff/JS exec join the one verify peel
+- **Why:** Real Android/Java/C still babysat: `make test`, `ruff check`, and
+  `yarn exec jest` / `npm exec jest` were not in the runner/peel path.
+  Named/step `gradle test` must keep fulfilling `./gradlew test`; the
+  wrapper cue must emit `./gradlew test` when the script is present.
+- **What:** Same runner map + peel: `make` `{test,check,lint}`, `ruff`
+  `{check}`, JS hosts peel `exec` like `run` (exec is a binary, not a
+  package script). Makefile marker emits `make test`. Plan digest cue is
+  re-read AND test/analyze. `rm test` / `grep test` stay false.
+- **Files:** `waifu_verify.dart`, `waifu_plan_codec.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 9c3b59a3
+
+## 2026-09-10 — fix(waifu): gradlew/mvnw peel to gradle/mvn verify
+- **Why:** `./gradlew test` / `./mvnw test` used argv0 `gradlew`/`mvnw`, which
+  was not in the runner map (`gradle`/`mvn` only). BashMutates treated them
+  as mutates → Build ask-spam; `tested` never cleared. Markers emitted
+  `gradle test` / `mvn test`, which did not fulfill the wrapper argv0.
+- **What:** Wrapper binaries peel to the same runner keys as `gradle`/`mvn`
+  (same path as poetry/uv). Fulfill compares canonical argv0 so a `gradle
+  test` marker receipts `./gradlew test`. `rm test` / `grep test` stay false.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** 4b080ef6
+
+## 2026-09-10 — fix(waifu): rip argv[1] test theater from Belt A verify
+- **Why:** `_segmentIsTestAnalyze` treated any command whose second token was
+  `test`/`lint`/`check` as a verify. `grep test README.md`, `rm test`,
+  `git test` receipted; `waifuBashMutates` skipped them as non-mutate, so
+  Build did not ask and `rm test` exiting 0 stamped `tested=true`.
+- **What:** One receipt (`waifuLooksVerifyCommand`) for ask and `tested`.
+  Verify is known runners / wrappers / `tsc --noEmit` / cmake `--target
+  test` / step.verify / user-named / repo markers. Never “argv[1] is test.”
+  Small deny list: echo/ls/help/dry-run/build-without-test, plus Unix
+  utilities (`rm`, `grep`, `git`, …) that cannot fulfill even if quoted.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart` (NEW),
+  `docs/Rawhide.md`
+- **Commit:** 8ff32027
+
+## 2026-09-10 — fix(waifu): Belt A ask and tested share one verify context
+- **Why:** `noteResult` marked `tested` with `WaifuVerifyContext` (step.verify /
+  named / markers), but `waifuBashMutates` called `waifuLooksVerifySegment`
+  with no context. `tox -e py` could receipt and still `needsAsk` in Build.
+- **What:** Ask and receipt use the same `waifuLooksVerifyCommand` plus the
+  turn's context. Permissions carry that context; wrapper hosts
+  (`poetry run`, `bundle exec`) strip to the same verb/hint rule — not a
+  second VIP club. `echo` still never receipts.
+- **Files:** `waifu_verify.dart`, `waifu_deny.dart`, `waifu_call.dart`,
+  `waifu_permissions.dart`, `waifu_harness.dart`,
+  `waifu_belt_a_loop_truth_test.dart`
+- **Commit:** 84b6cb9a
+
+## 2026-09-10 — fix(waifu): Belt A loop truth — one wrap-up, one request, polyglot verify
+- **Why:** The coding loop had lying dual paths: `decideFinal` beside a
+  10-way empty-calls adapter, a transcript-stuffed prompt blob metered
+  while generate used OpenAI messages, `mutationAttempted` as an unlock
+  hole, a mid-batch check-in chop helper the live loop no longer ran, a
+  VIP verify runner club, and Flutter-first wrap-up/lookup cues.
+- **What:** `onEmptyCalls` is the only wrap-up authority — `decideFinal`,
+  `WaifuFinalAction`, and `mutationAttempted` are gone. Denied/failed
+  mutate cannot wrap. Generate and the context meter use the same
+  messages projection. Verify is project-native receipt + deny list, not
+  a closed runner club. Lookup and run-plan-step cues are stack-agnostic.
+  Abort clears the follow-up queue. Check-in keeps sibling tool_calls.
+  Multi-file review is AND. Glob stubs key on pattern+path. todowrite
+  schema validates before saveLast. forceTool holds until mutate+verify.
+- **Files:** `waifu_turn.dart`, `waifu_turn_contract.dart`,
+  `waifu_harness.dart`, `waifu_harness_turn.dart`,
+  `waifu_harness_compact.dart`, `waifu_harness_dispatch.dart`,
+  `waifu_openai_messages.dart`, `waifu_verify.dart`, `waifu_deny.dart`,
+  `waifu_checkin.dart`, `waifu_coworker_prompt.dart`, `waifu_workflow.dart`,
+  `waifu_tools.dart`, `waifu_todos.dart`, `waifu_compact.dart`,
+  `waifu_session_scope.dart`, `waifu_belt_a_loop_truth_test.dart` (NEW),
+  plus existing Waifu contract tests moved onto `onEmptyCalls`
+- **Commit:** feebaded
 
 ## 2026-09-10 — fix(waifu): /tmp inspect is not a disk wipe; wrap-up is not a harness essay
 - **Why:** Whole-disk `mkdir /tmp/epub_inspect && rm -r META-INF` treated

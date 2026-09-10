@@ -72,7 +72,7 @@ extension _WaifuHarnessCompact on WaifuHarness {
   }) {
     return waifuMeasureRequest(
       systemPrompt: _system(),
-      prompt: _prompt(),
+      prompt: waifuMessagesMeterText(_openaiMessages()),
       budget: session.contextBudget,
       tools: tools ?? _advertisedTools(speechOnly: false),
       images: images ?? _turnImages,
