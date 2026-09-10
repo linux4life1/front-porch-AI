@@ -1692,7 +1692,26 @@ void main() {
       'vitest --related',
       'vitest --onlyChanged',
       'mix test --failed',
+      'mix test --stale',
+      'mix test --only SomeTest',
+      'mix test --only=slow',
+      'mix test --exclude SomeTest',
+      'mix test --exclude=integration',
       'go test -short',
+      'go test -skip Foo',
+      'go test -skip=Foo',
+      'go test -list .',
+      'go test -list=.',
+      'phpunit --group=slow',
+      'phpunit --group slow',
+      'phpunit --exclude-group=slow',
+      'phpunit --exclude-group slow',
+      'swift test --skip Foo',
+      'swift test --skip=Foo',
+      'npm run test:unit -- -t Foo',
+      'npm run test:unit -- --testNamePattern=Foo',
+      'npm run test:ci -- --testPathPattern=src',
+      'yarn run test:unit -- -t Foo',
       'rspec --only-failures',
       'rspec --next-failure',
       'rspec -n',
@@ -1872,6 +1891,8 @@ void main() {
     expect(waifuLooksVerifyCommand('vitest'), isTrue);
     expect(waifuLooksVerifyCommand('mix test'), isTrue);
     expect(waifuLooksVerifyCommand('go test'), isTrue);
+    expect(waifuLooksVerifyCommand('phpunit'), isTrue);
+    expect(waifuLooksVerifyCommand('swift test'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         './gradlew test -Dtest.failOnNoMatchingTests=true',

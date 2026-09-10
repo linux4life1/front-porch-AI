@@ -17,6 +17,18 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): test:* suite-filter + go/mix cousins
+- **Why:** Tip 9383edc7 still receipted `npm run test:unit -- -t Foo`,
+  `go test -skip` / `-list`, mix `--only=` / `--stale`,
+  `phpunit --group=`, and `swift test --skip`.
+- **What:** Same path. `_suiteFiltersFor` is the `test:*` twin of
+  `_failedOnlyFor`. Go `-skip`/`-list`; mix `--stale`/`--only`/
+  `--exclude` (space and `=`); phpunit `--group`/`--exclude-group`;
+  swift `--skip`. Bare hosts stay full.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** TBD
+
 ## 2026-09-10 — fix(waifu): test:* peel + jest/vitest/mix/go subsets
 - **Why:** Tip ec58b256 still receipted `npm run test:unit --
   --onlyFailures`, `jest --changedSince`, `vitest --changed`,

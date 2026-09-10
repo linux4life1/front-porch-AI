@@ -181,13 +181,13 @@ const _kFilterValueFlags = <String, Set<String>>{
 const _kSuiteFilterFlags = <String, Set<String>>{
   'gradle': {'--tests'},
   'dotnet': {'--filter'},
-  'swift': {'--filter'},
+  'swift': {'--filter', '--skip'},
   'pytest': {'-k', '--keyword', '-m'},
   'flutter': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'dart': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'jest': {'-t', '--testnamepattern', '--testpathpattern'},
   'vitest': {'-t', '--testnamepattern', '--testpathpattern'},
-  'phpunit': {'--filter', '--testsuite'},
+  'phpunit': {'--filter', '--testsuite', '--group', '--exclude-group'},
   'rspec': {'-e', '--example'},
   'npm': {'-t', '--testnamepattern', '--testpathpattern'},
   'pnpm': {'-t', '--testnamepattern', '--testpathpattern'},
@@ -222,8 +222,8 @@ const _kFailedOnlyFlags = <String, Set<String>>{
   'bun': _kJsFailedOnly,
   'deno': _kJsFailedOnly,
   'test': _kJsFailedOnly,
-  'mix': {'--failed'},
-  'go': {'-short'},
+  'mix': {'--failed', '--stale', '--only', '--exclude'},
+  'go': {'-short', '-skip', '-list'},
 };
 
 const _kCargoFeatureTargetGates = {
@@ -305,7 +305,7 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
   }
 
   bool suiteFlags({Set<String> all = const {}}) {
-    for (final f in _kSuiteFilterFlags[cmd] ?? const <String>{}) {
+    for (final f in _suiteFiltersFor(cmd) ?? const <String>{}) {
       final v = flagVal(f);
       if (v != null && _filteredSuiteTheater(v, all: all)) return true;
     }

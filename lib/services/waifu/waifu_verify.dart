@@ -452,9 +452,7 @@ List<String> _wordsOf(String raw) => raw
 List<String> _segments(String command) =>
     command.split(RegExp(r'(?:&&|\|\||[;|\n])'));
 
-/// CTest name / label / index / fixture / file filters and `-n`.
-/// `-I` is index (raw). Any `-F*` short / `--fixture-` long.
-/// `--rerun-failed`; `--no-tests` bare/empty/`=ignore` (`=error` full).
+/// CTest filters / `-n` / `--rerun-failed` / `--no-tests` ignore-class.
 bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
@@ -494,3 +492,8 @@ bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
 /// `test` / `test:*` after `npm run` share [_kJsFailedOnly].
 Set<String>? _failedOnlyFor(String cmd) =>
     _kFailedOnlyFlags[cmd] ?? (cmd.startsWith('test:') ? _kJsFailedOnly : null);
+
+/// Twin: peeled `test:*` shares [_kSuiteFilterFlags] `test`.
+Set<String>? _suiteFiltersFor(String cmd) =>
+    _kSuiteFilterFlags[cmd] ??
+    (cmd.startsWith('test:') ? _kSuiteFilterFlags['test'] : null);
