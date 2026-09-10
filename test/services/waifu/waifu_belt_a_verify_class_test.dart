@@ -712,4 +712,76 @@ void main() {
     expect(waifuLooksVerifyCommand('go test -run Nope'), isFalse);
     expect(waifuLooksVerifyCommand('cargo test'), isTrue);
   });
+
+  test('value-flag, package, and adjacent runner filters are theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'pytest -m nope',
+      'flutter test --name Foo',
+      'flutter test --plain-name Foo',
+      'flutter test --tags golden',
+      'flutter test --exclude-tags golden',
+      'dart test --name Foo',
+      'go test ./pkg',
+      'go test ./internal/...',
+      'cargo test -p foo',
+      'cargo test --test integ',
+      'jest -t',
+      'npx jest -t',
+      'vitest -t',
+      'npm test -- -t',
+      'mix test test/foo_test.exs',
+      'zig test src/foo.zig',
+      'swift test --filter',
+      'rspec spec/foo_spec.rb',
+      'phpunit tests/FooTest.php',
+      'deno test test/foo_test.ts',
+      'bun test test/foo.test.ts',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    for (final cmd in [
+      'go test',
+      'go test ./...',
+      'cargo test',
+      'pytest',
+      'dotnet test',
+      'flutter test',
+      'dart test',
+      'mvn test',
+      './gradlew test',
+      './gradlew test --tests *',
+      'pytest -n auto',
+      'mvn verify -Dfailsafe.skip=true',
+      'zig build test',
+      'swift test',
+      'mix test',
+      'bun test',
+      'jest',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('go test -run Nope'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test nope'), isFalse);
+    expect(waifuLooksVerifyCommand('pytest -k nope'), isFalse);
+    expect(waifuLooksVerifyCommand('flutter test test/foo_test.dart'), isFalse);
+  });
 }

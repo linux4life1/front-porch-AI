@@ -401,6 +401,9 @@ bool _argvHasKnownCheck(List<String> peeled) {
   if (_kFlagBeforeTaskRunners.contains(cmd)) {
     return args.any((t) => _runnerTaskMatches(cmd, t));
   }
+  if (cmd == 'zig' && args.contains('build') && args.contains('test')) {
+    return true;
+  }
   for (final t in args) {
     if (t.startsWith('-') || (t.startsWith('+') && t.length > 1)) continue;
     return _runnerTaskMatches(cmd, t);

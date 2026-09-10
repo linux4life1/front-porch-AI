@@ -103,10 +103,9 @@ bool _filteredSuiteTheater(String val, {Set<String> all = const {'*'}}) =>
     val.isEmpty || !all.contains(val);
 
 /// Flags whose next token is a value, not a test name / path.
+/// Real suite filters do **not** live here — see [_kSuiteFilterFlags].
 const _kFilterValueFlags = <String, Set<String>>{
   'cargo': {
-    '-p',
-    '--package',
     '--features',
     '--exclude',
     '--target',
@@ -119,12 +118,21 @@ const _kFilterValueFlags = <String, Set<String>>{
     '--jobs',
     '--bin',
     '--example',
-    '--test',
     '--bench',
     '--profile',
   },
+  'go': {
+    '-count',
+    '-timeout',
+    '-parallel',
+    '-tags',
+    '-exec',
+    '-bench',
+    '-coverprofile',
+    '-mod',
+    '-c',
+  },
   'pytest': {
-    '-m',
     '-n',
     '--numprocesses',
     '-o',
@@ -145,10 +153,6 @@ const _kFilterValueFlags = <String, Set<String>>{
     '--device-id',
     '-j',
     '--concurrency',
-    '--name',
-    '--plain-name',
-    '--tags',
-    '--exclude-tags',
     '--dart-define',
     '--flavor',
     '--coverage-path',
@@ -158,10 +162,6 @@ const _kFilterValueFlags = <String, Set<String>>{
   'dart': {
     '-j',
     '--concurrency',
-    '--name',
-    '--plain-name',
-    '--tags',
-    '--exclude-tags',
     '--timeout',
     '--reporter',
     '-p',
@@ -169,16 +169,29 @@ const _kFilterValueFlags = <String, Set<String>>{
     '-c',
     '--compiler',
   },
+  'phpunit': {'-c', '--configuration', '-d'},
+  'rspec': {'-f', '--format', '-I', '--require'},
 };
 
-/// Flutter / dart `test` suite filters — not “skip the next token”.
-const _kDartSuiteFilterFlags = {
-  '--name',
-  '--plain-name',
-  '--tags',
-  '--exclude-tags',
-  '-t',
-  '-x',
+/// Name / marker / package flags — not “skip the next token”.
+const _kSuiteFilterFlags = <String, Set<String>>{
+  'gradle': {'--tests'},
+  'dotnet': {'--filter'},
+  'swift': {'--filter'},
+  'pytest': {'-k', '--keyword', '-m'},
+  'cargo': {'-p', '--package', '--test'},
+  'flutter': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
+  'dart': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
+  'jest': {'-t', '--testnamepattern', '--testpathpattern'},
+  'vitest': {'-t', '--testnamepattern', '--testpathpattern'},
+  'phpunit': {'--filter', '--testsuite'},
+  'rspec': {'-e', '--example'},
+  'npm': {'-t', '--testnamepattern', '--testpathpattern'},
+  'pnpm': {'-t', '--testnamepattern', '--testpathpattern'},
+  'yarn': {'-t', '--testnamepattern', '--testpathpattern'},
+  'bun': {'-t', '--testnamepattern', '--testpathpattern', '--filter'},
+  'deno': {'-t', '--filter'},
+  'test': {'-t', '--testnamepattern', '--testpathpattern'},
 };
 
 /// Same gate as JVM `--tests` / `-Dtest=`. Filtered ≠ full suite.
@@ -200,6 +213,14 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
   bool takesValue(String flag) {
     final bare = flag.contains('=') ? flag.split('=').first : flag;
     return (_kFilterValueFlags[cmd] ?? const <String>{}).contains(bare);
+  }
+
+  bool suiteFlags({Set<String> all = const {'*'}}) {
+    for (final f in _kSuiteFilterFlags[cmd] ?? const <String>{}) {
+      final v = flagVal(f);
+      if (v != null && _filteredSuiteTheater(v, all: all)) return true;
+    }
+    return false;
   }
 
   List<String> after(String check) {
@@ -224,78 +245,76 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
     return const [];
   }
 
+  bool paths(List<String> rest, {Set<String> all = const {'.'}}) {
+    for (var i = 0; i < rest.length; i++) {
+      final t = rest[i];
+      if (t == '--') continue;
+      if (t.startsWith('-')) {
+        if (takesValue(t) && !t.contains('=')) {
+          if (i + 1 < rest.length && !rest[i + 1].startsWith('-')) i++;
+        }
+        continue;
+      }
+      if (!all.contains(t)) return true;
+    }
+    return false;
+  }
+
+  if (cmd == 'go') {
+    final run = flagVal('-run');
+    if (run != null &&
+        _filteredSuiteTheater(run, all: const {'*', '.', '.*'})) {
+      return true;
+    }
+    return paths(after('test'), all: const {'.', './...'});
+  }
+  if (suiteFlags()) return true;
+  if (cmd == 'dotnet') {
+    return args.any((t) => t.startsWith('--filter:'));
+  }
+  if (cmd == 'cargo') {
+    final rest = after('test');
+    for (var i = 0; i < rest.length; i++) {
+      final t = rest[i];
+      if (t == '--') continue;
+      if (t == '--exact' || t.startsWith('--exact=')) {
+        final val = t.startsWith('--exact=')
+            ? t.substring('--exact='.length)
+            : (i + 1 < rest.length && !rest[i + 1].startsWith('-')
+                  ? rest[i + 1]
+                  : '');
+        return _filteredSuiteTheater(val);
+      }
+      if (t.startsWith('-')) {
+        if (takesValue(t) && !t.contains('=')) {
+          if (i + 1 < rest.length && !rest[i + 1].startsWith('-')) i++;
+        }
+        continue;
+      }
+      return _filteredSuiteTheater(t);
+    }
+    return false;
+  }
   switch (cmd) {
-    case 'gradle':
-      final tests = flagVal('--tests');
-      return tests != null && _filteredSuiteTheater(tests);
-    case 'go':
-      final run = flagVal('-run');
-      return run != null &&
-          _filteredSuiteTheater(run, all: const {'*', '.', '.*'});
-    case 'dotnet':
-      return flagVal('--filter') != null ||
-          args.any((t) => t.startsWith('--filter:'));
     case 'pytest':
-      for (var i = 0; i < args.length; i++) {
-        final t = args[i];
-        if (t == '-k' || t == '--keyword') {
-          final val = i + 1 < args.length && !args[i + 1].startsWith('-')
-              ? args[i + 1]
-              : '';
-          return _filteredSuiteTheater(val);
-        }
-        if (t.startsWith('-k=') || t.startsWith('--keyword=')) {
-          return _filteredSuiteTheater(t.substring(t.indexOf('=') + 1));
-        }
-        if (t.startsWith('-')) {
-          if (takesValue(t) && !t.contains('=')) {
-            if (i + 1 < args.length && !args[i + 1].startsWith('-')) i++;
-          }
-          continue;
-        }
-        if (t != '.') return true;
-      }
-      return false;
-    case 'cargo':
-      final rest = after('test');
-      for (var i = 0; i < rest.length; i++) {
-        final t = rest[i];
-        if (t == '--') continue;
-        if (t == '--exact' || t.startsWith('--exact=')) {
-          final val = t.startsWith('--exact=')
-              ? t.substring('--exact='.length)
-              : (i + 1 < rest.length && !rest[i + 1].startsWith('-')
-                    ? rest[i + 1]
-                    : '');
-          return _filteredSuiteTheater(val);
-        }
-        if (t.startsWith('-')) {
-          if (takesValue(t) && !t.contains('=')) {
-            if (i + 1 < rest.length && !rest[i + 1].startsWith('-')) i++;
-          }
-          continue;
-        }
-        return _filteredSuiteTheater(t);
-      }
-      return false;
+    case 'rspec':
+    case 'phpunit':
+    case 'jest':
+    case 'vitest':
+      return paths(args);
     case 'flutter':
     case 'dart':
-      for (final f in _kDartSuiteFilterFlags) {
-        final v = flagVal(f);
-        if (v != null && _filteredSuiteTheater(v)) return true;
-      }
+    case 'mix':
+    case 'zig':
+    case 'deno':
+    case 'bun':
+      return paths(after('test'));
+    case 'npm':
+    case 'pnpm':
+    case 'yarn':
       final rest = after('test');
-      for (var i = 0; i < rest.length; i++) {
-        final t = rest[i];
-        if (t.startsWith('-')) {
-          if (takesValue(t) && !t.contains('=')) {
-            if (i + 1 < rest.length && !rest[i + 1].startsWith('-')) i++;
-          }
-          continue;
-        }
-        if (t != '.') return true;
-      }
-      return false;
+      if (rest.isEmpty) return false;
+      return paths(rest);
     default:
       return false;
   }

@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): package, marker, and adjacent filters
+- **Why:** Value-flag skip laundered `pytest -m` / cargo `-p` / `--test`
+  / go `./pkg`. Adjacent `jest -t`, `mix`/`zig`/`rspec`/`phpunit`/
+  `deno`/`bun` paths, and `swift --filter` still receipted.
+- **What:** Same theater. Suite-filter flags are not skip-as-value.
+  Go package paths other than `.` / `./...`, cargo package/target,
+  JS `-t`, and path subsets on mix/zig/rspec/phpunit/deno/bun join
+  the family switch. `zig build test` is a real suite.
+- **Files:** `waifu_verify_theater.dart`, `waifu_verify.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): flutter/dart --name and tags are theater
 - **Why:** `--name` / `--plain-name` / `--tags` / `--exclude-tags` were
   only “value flags”, so `flutter test --name Foo` skipped `Foo` and
