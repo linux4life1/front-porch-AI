@@ -10,6 +10,20 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): scan runner argv for the check task
+- **Why:** `_segmentIsKnownCheck` required `peeled.words[1]` to be the
+  check. `make -j8 test`, `make -C build test`, `./gradlew :app:test`,
+  `testDebugUnitTest`, `gradle check`, and `mvn verify` failed receipt
+  and still `needsAsk`. Named `make test` did not fulfill `make -j8 test`.
+- **What:** After the same peel+alias, scan non-flag tokens for the
+  runner’s known checks. Gradle also accepts `:module:test`,
+  `test*UnitTest`, and `check`. Maven adds `verify`. Fulfill matches the
+  named task after flags. `rm test` / `make build` / `./gradlew build`
+  stay false.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): make/ruff/JS exec join the one verify peel
 - **Why:** Real Android/Java/C still babysat: `make test`, `ruff check`, and
   `yarn exec jest` / `npm exec jest` were not in the runner/peel path.

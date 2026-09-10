@@ -50,8 +50,8 @@ const _kRunnerChecks = <String, Set<String>>{
   'go': {'test'},
   'dart': {'test', 'analyze'},
   'flutter': {'test', 'analyze'},
-  'mvn': {'test'},
-  'gradle': {'test'},
+  'mvn': {'test', 'verify'},
+  'gradle': {'test', 'check'},
   'dotnet': {'test'},
   'mix': {'test'},
   'zig': {'test'},
@@ -283,12 +283,7 @@ bool _segmentIsKnownCheck(String segment) {
   if (_denyCmd(cmd)) return false;
   if (cmd == 'tsc') return _isTscNoEmit(peeled.words);
   if (_kCheckBins.contains(cmd)) return true;
-  final checks = _kRunnerChecks[cmd];
-  if (checks != null &&
-      peeled.words.length > 1 &&
-      checks.contains(peeled.words[1])) {
-    return true;
-  }
+  if (_argvHasKnownCheck(peeled.words)) return true;
   if (peeled.fromPackageRun) {
     final script = peeled.words.first;
     return _kPackageScripts.contains(script) || script.startsWith('test:');
@@ -362,11 +357,39 @@ bool _commandFulfills(String command, String expected) {
     if (got == want || got.startsWith('$want ')) return true;
     final peeled = _peelWrappers(words);
     if (_wordsStartWith(peeled.words, wantCanon) ||
-        _wordsStartWith(words, wantWords)) {
+        _wordsStartWith(words, wantWords) ||
+        _hintTaskFulfilled(peeled.words, wantCanon)) {
       return true;
     }
   }
   return false;
+}
+
+/// Same runner + named check token appears after flags (`make test`
+/// fulfills `make -j8 test`; `gradle test` fulfills `:app:test`).
+bool _hintTaskFulfilled(List<String> got, List<String> want) {
+  if (got.length < 2 || want.length < 2) return false;
+  final cmd = _runnerKey(got.first);
+  if (cmd != _runnerKey(want.first)) return false;
+  if (_kRunnerChecks[cmd] == null) return false;
+  final needed = want.skip(1).where((t) => !t.startsWith('-'));
+  if (needed.isEmpty) return false;
+  final have = got.skip(1).where((t) => !t.startsWith('-'));
+  for (final n in needed) {
+    if (have.contains(n)) continue;
+    if (cmd == 'gradle' &&
+        n == 'test' &&
+        have.any(
+          (t) =>
+              t.endsWith(':test') ||
+              (t.endsWith('unittest') &&
+                  (t.startsWith('test') || t.contains(':'))),
+        )) {
+      continue;
+    }
+    return false;
+  }
+  return true;
 }
 
 bool _wordsStartWith(List<String> words, List<String> prefix) {
@@ -375,6 +398,23 @@ bool _wordsStartWith(List<String> words, List<String> prefix) {
     if (words[i] != prefix[i]) return false;
   }
   return true;
+}
+
+/// Scan argv after the runner. Flags (`-j8`, `-C build`) are not the task.
+bool _argvHasKnownCheck(List<String> peeled) {
+  if (peeled.length < 2) return false;
+  final cmd = _runnerKey(peeled.first);
+  return peeled.skip(1).any((t) => _runnerTaskMatches(cmd, t));
+}
+
+bool _runnerTaskMatches(String cmd, String token) {
+  if (token.startsWith('-')) return false;
+  final checks = _kRunnerChecks[cmd];
+  if (checks != null && checks.contains(token)) return true;
+  if (cmd != 'gradle') return false;
+  if (token.endsWith(':test') || token.endsWith(':check')) return true;
+  return token.endsWith('unittest') &&
+      (token.startsWith('test') || token.contains(':'));
 }
 
 String _base(String cmd) => p.basename(cmd.replaceAll('\\', '/'));

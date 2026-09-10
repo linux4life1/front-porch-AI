@@ -249,6 +249,47 @@ void main() {
     );
   });
 
+  test('flags and qualified tasks still receipt; theater stays false', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    const makeHint = WaifuVerifyContext(
+      named: ['make test'],
+      stepVerify: ['make test'],
+    );
+    for (final cmd in [
+      'make -j8 test',
+      'make -j 8 test',
+      r'make -j$(nproc) test',
+      'make -C build test',
+      './gradlew :app:test',
+      './gradlew testDebugUnitTest',
+      './gradlew check',
+      'gradle check',
+      'mvn verify',
+      './mvnw verify',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('make -j8 test', context: makeHint), isTrue);
+    expect(waifuLooksVerifyCommand('rm test'), isFalse);
+    expect(waifuLooksVerifyCommand('grep test README.md'), isFalse);
+    expect(waifuLooksVerifyCommand('make build'), isFalse);
+    expect(waifuLooksVerifyCommand('ruff format'), isFalse);
+    expect(waifuLooksVerifyCommand('./gradlew build'), isFalse);
+    expect(waifuLooksVerifyCommand('./gradlew package'), isFalse);
+    expect(waifuLooksVerifyCommand('./gradlew assemble'), isFalse);
+    expect(waifuBashMutates('rm test'), isTrue);
+    expect(p.needsAsk(name: 'bash', args: {'command': 'rm test'}), isTrue);
+  });
+
   test('echo / ls / help / dry-run / build-without-test still fail', () {
     expect(waifuLooksVerifyCommand('echo cargo test'), isFalse);
     expect(waifuLooksVerifyCommand('ls -la'), isFalse);
