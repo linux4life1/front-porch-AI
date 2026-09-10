@@ -17,6 +17,21 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): rspec tag + JS shard/watch + go fuzz
+- **Why:** Tip 24c0f315 still receipted `rspec --tag=slow` / `-t`,
+  `phpunit -g=` / `--order-by=` / `--covers=`, `jest --watch` /
+  `--watchAll` / `--shard=` / `--selectProjects=`,
+  `vitest --project=` / `--shard=`, `npm test -- --shard=`,
+  `go test -fuzz=`, and `pytest --sw` / `--stepwise`.
+- **What:** Same path. rspec `--tag`/`-t` on the suite map.
+  phpunit `-g`/`--order-by`/`--covers` on failed-only (presence,
+  space and `=`). JS host set gets `--watch`/`--watchall`/
+  `--shard`/`--project`/`--selectprojects`. Go `-fuzz`. pytest
+  `--sw`/`--stepwise` on the suite map. Bare hosts stay full.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): test:* suite-filter + go/mix cousins
 - **Why:** Tip 9383edc7 still receipted `npm run test:unit -- -t Foo`,
   `go test -skip` / `-list`, mix `--only=` / `--stale`,

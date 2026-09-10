@@ -65,8 +65,7 @@ bool _verifyTheater(String command) {
 
 bool _isTheaterFlag(String w) {
   if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
-  if (_mavenSkipProperty(w)) return true;
-  if (_polyglotSoftDone(w)) return true;
+  if (_mavenSkipProperty(w) || _polyglotSoftDone(w)) return true;
   if (w == '--co' ||
       w == '--listtests' ||
       w == '--listtestfiles' ||
@@ -182,13 +181,13 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'gradle': {'--tests'},
   'dotnet': {'--filter'},
   'swift': {'--filter', '--skip'},
-  'pytest': {'-k', '--keyword', '-m'},
+  'pytest': {'-k', '--keyword', '-m', '--sw', '--stepwise'},
   'flutter': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'dart': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'jest': {'-t', '--testnamepattern', '--testpathpattern'},
   'vitest': {'-t', '--testnamepattern', '--testpathpattern'},
   'phpunit': {'--filter', '--testsuite', '--group', '--exclude-group'},
-  'rspec': {'-e', '--example'},
+  'rspec': {'-e', '--example', '--tag', '-t'},
   'npm': {'-t', '--testnamepattern', '--testpathpattern'},
   'pnpm': {'-t', '--testnamepattern', '--testpathpattern'},
   'yarn': {'-t', '--testnamepattern', '--testpathpattern'},
@@ -210,9 +209,15 @@ const _kJsFailedOnly = {
   '--lastcommit',
   '--changed',
   '--related',
+  '--watch',
+  '--watchall',
+  '--shard',
+  '--project',
+  '--selectprojects',
 };
 const _kFailedOnlyFlags = <String, Set<String>>{
   'pytest': {'--lf', '--last-failed', '--ff', '--failed-first'},
+  'phpunit': {'-g', '--order-by', '--covers'},
   'jest': _kJsFailedOnly,
   'vitest': _kJsFailedOnly,
   'rspec': {'--only-failures', '--next-failure', '-n'},
@@ -223,7 +228,7 @@ const _kFailedOnlyFlags = <String, Set<String>>{
   'deno': _kJsFailedOnly,
   'test': _kJsFailedOnly,
   'mix': {'--failed', '--stale', '--only', '--exclude'},
-  'go': {'-short', '-skip', '-list'},
+  'go': {'-short', '-skip', '-list', '-fuzz'},
 };
 
 const _kCargoFeatureTargetGates = {
@@ -371,23 +376,17 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
       if (afterCheck('clippy') == null) return false;
       for (final f in _kCargoClippySubsetFlags) {
         final v = flagVal(f);
-        if (v != null && _filteredSuiteTheater(v, all: const {})) {
-          return true;
-        }
+        if (v != null && _filteredSuiteTheater(v, all: const {})) return true;
       }
       for (final f in const ['-p', '--package']) {
         final v = flagVal(f);
-        if (v != null && _filteredSuiteTheater(v, starOnly: true)) {
-          return true;
-        }
+        if (v != null && _filteredSuiteTheater(v, starOnly: true)) return true;
       }
       return false;
     }
     for (final f in _kCargoTestFilterFlags) {
       final v = flagVal(f);
-      if (v != null && _filteredSuiteTheater(v, all: const {})) {
-        return true;
-      }
+      if (v != null && _filteredSuiteTheater(v, all: const {})) return true;
     }
     for (var i = 0; i < rest.length; i++) {
       final t = rest[i];
@@ -419,9 +418,7 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
       if (args.contains('test')) {
         for (final f in const ['--test-filter', '-dtest-filter']) {
           final v = flagVal(f);
-          if (v != null && _filteredSuiteTheater(v, all: const {})) {
-            return true;
-          }
+          if (v != null && _filteredSuiteTheater(v, all: const {})) return true;
         }
       }
       return paths(after('test'));
