@@ -19,7 +19,7 @@
   theater (`--tests *` still runs the suite).
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 2951a1e0
 
 ## 2026-09-10 — fix(waifu): exclude glob matches Tests/UnitTest shapes
 - **Why:** Exclude globs only probed `{test, check}`, so
