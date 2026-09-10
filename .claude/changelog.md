@@ -26,7 +26,7 @@
   `--onlyChanged`. Bare hosts stay full.
 - **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** TBD
+- **Commit:** 63747c24
 
 ## 2026-09-10 — fix(waifu): pytest/jest/rspec failed-only theater
 - **Why:** Tip 32ae263e still receipted `pytest --lf` / `--ff`,
