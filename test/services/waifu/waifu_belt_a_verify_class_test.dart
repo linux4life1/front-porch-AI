@@ -1752,12 +1752,21 @@ void main() {
       'rspec -P',
       'rspec --example-matches=foo',
       'jest --testPathIgnorePatterns=e2e',
+      'jest --modulePathIgnorePatterns=e2e',
+      'jest --watchPathIgnorePatterns=e2e',
       'npm test -- --testPathIgnorePatterns=e2e',
+      'npm test -- --modulePathIgnorePatterns=e2e',
+      'npm test -- --watchPathIgnorePatterns=e2e',
       'vitest --ui',
       'vitest --dir=packages/foo',
+      'npm test -- --dir=packages/foo',
+      'npm run test -- --dir=foo',
+      'vitest --exclude=e2e',
+      'vitest --workspace=',
+      'vitest --typecheck',
+      'vitest --typecheck.only',
+      'deno test --doc',
       'jest --runTestsByPath=a.test.js',
-      'dart test -p chrome',
-      'flutter test -d chrome',
       'phpunit --uses=Foo',
       'phpunit --uses Foo',
       'flutter test --total-shards=3',
@@ -1943,6 +1952,15 @@ void main() {
     expect(waifuLooksVerifyCommand('rspec'), isTrue);
     expect(waifuLooksVerifyCommand('rspec -p'), isTrue);
     expect(waifuLooksVerifyCommand('rspec -p 10'), isTrue);
+    expect(waifuLooksVerifyCommand('dart test'), isTrue);
+    expect(waifuLooksVerifyCommand('dart test -p vm'), isTrue);
+    expect(waifuLooksVerifyCommand('dart test --platform=vm,chrome'), isTrue);
+    expect(waifuLooksVerifyCommand('dart test --compiler=dart2js'), isTrue);
+    expect(waifuLooksVerifyCommand('flutter test'), isTrue);
+    expect(waifuLooksVerifyCommand('flutter test -d windows'), isTrue);
+    expect(waifuLooksVerifyCommand('flutter test --device-id=chrome'), isTrue);
+    expect(waifuLooksVerifyCommand('flutter test --flavor=prod'), isTrue);
+    expect(waifuLooksVerifyCommand('dotnet test --framework=net8.0'), isTrue);
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('pnpm test'), isTrue);
     expect(waifuLooksVerifyCommand('yarn test'), isTrue);

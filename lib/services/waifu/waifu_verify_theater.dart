@@ -71,9 +71,10 @@ bool _isTheaterFlag(String w) {
       .contains(w)) {
     return true;
   }
-  return '--show-only,--collect-only,--list-tests,--list-suites,--list-groups,--no-run,--question,--dry-run,--dryrun,--dry_run,--total-shards,--shard-index,--testpathignorepatterns,--runtestsbypath'
-      .split(',')
-      .any(w.startsWith);
+  return (w.contains('ignore') && w.contains('pattern')) ||
+      '--show-only,--collect-only,--list-tests,--list-suites,--list-groups,--no-run,--question,--dry-run,--dryrun,--dry_run,--total-shards,--shard-index,--typecheck,--runtestsbypath'
+          .split(',')
+          .any(w.startsWith);
 }
 
 bool _mavenSkipProperty(String w) {
@@ -176,7 +177,7 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'flutter': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'dart': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'jest': {'-t', '--testnamepattern', '--testpathpattern'},
-  'vitest': {'-t', '--testnamepattern', '--testpathpattern', '--dir', '--ui'},
+  'vitest': {'-t', '--testnamepattern', '--testpathpattern'},
   'phpunit': {'--filter', '--testsuite', '--group', '--exclude-group'},
   'rspec': {'-e', '--example', '--tag', '-t', '--pattern', '--exclude-pattern'},
   'npm': {'-t', '--testnamepattern', '--testpathpattern'},
@@ -207,20 +208,19 @@ const _kJsFailedOnly = {
   '--selectprojects',
   '--changedfileswithancestor',
   '--ui',
+  '--dir',
 };
 const _kFailedOnlyFlags = <String, Set<String>>{
   'pytest': {'--lf', '--last-failed', '--ff', '--failed-first', '-f'},
   'phpunit': {'-g', '--order-by', '--covers', '--uses'},
-  'flutter': {'-d', '--device-id'},
-  'dart': {'-p', '--platform'},
   'jest': _kJsFailedOnly,
-  'vitest': _kJsFailedOnly,
+  'vitest': {..._kJsFailedOnly, '--exclude', '--workspace'},
   'rspec': {'--only-failures', '--next-failure', '-n', '--example-matches'},
   'npm': _kJsFailedOnly,
   'pnpm': _kJsFailedOnly,
   'yarn': _kJsFailedOnly,
   'bun': _kJsFailedOnly,
-  'deno': _kJsFailedOnly,
+  'deno': {..._kJsFailedOnly, '--doc'},
   'test': _kJsFailedOnly,
   'mix': {'--failed', '--stale', '--only', '--exclude'},
   'go': {'-short', '-skip', '-list', '-fuzz'},
