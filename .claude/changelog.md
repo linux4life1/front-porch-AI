@@ -17,8 +17,8 @@
   (`all: {}`) with `-p *` / `-F*`. Positional `*` stays presence.
   Bare `cargo test` still runs. No second club.
 - **Files:** `waifu_verify_theater.dart`,
-  `waifu_belt_a_verify_class_test.dart`
-- **Commit:** (pending)
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** c1e78209
 
 ## 2026-09-10 — fix(waifu): cargo test * / --exact * are theater
 - **Why:** Positional and `--exact` used suite VIP `*`, so
