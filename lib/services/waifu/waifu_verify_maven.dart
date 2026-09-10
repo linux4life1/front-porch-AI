@@ -43,6 +43,7 @@ const _kMavenFilterProps = {
   'maven.test.additionalclasspathdependencies',
   'generatedtestsourcesdirectory',
   'generatedsourcesdirectory',
+  'project.build.generatedsourcesdirectory',
   'project.build.generatedtestsourcesdirectory',
   'classesdirectory',
   'project.build.outputdirectory',
@@ -107,3 +108,53 @@ const _kMavenSkipProps = {
   'surefire.skip',
   'surefire.skipexec',
 };
+
+/// Maven argv theater: reactor subset + non-default `-f`/`--file`.
+///
+/// Default POM (`pom.xml` / `./pom.xml`, after stripping a leading
+/// `./`) is a full receipt. A different path — spaced, `=`, or glued —
+/// is theater. Fail-policy shorts (`-fae`/`-ff`/`-fn`) are not
+/// glued `-fPATH`.
+///
+/// Reactor selectors (`-pl`/`--projects`, `-rf`/`--resume-from`,
+/// `-N`/`--non-recursive`, also-make) are a subset of the reactor.
+bool _mavenArgvTheater(List<String> args) {
+  const failPolicyShorts = {'-fae', '-ff', '-fn'};
+  for (var i = 0; i < args.length; i++) {
+    final t = args[i];
+    if (t.startsWith('-pl') ||
+        t.startsWith('--projects') ||
+        t.startsWith('-rf') ||
+        t.startsWith('--resume-from') ||
+        t == '-n' ||
+        t == '--non-recursive' ||
+        t == '-r' ||
+        t == '--resume' ||
+        t == '-am' ||
+        t == '-amd' ||
+        t.startsWith('--also-make')) {
+      return true;
+    }
+    String? file;
+    if (t == '-f' || t == '--file') {
+      if (i + 1 < args.length) file = args[i + 1];
+    } else if (t.startsWith('-f=')) {
+      file = t.substring(3);
+    } else if (t.startsWith('--file=')) {
+      file = t.substring(7);
+    } else if (t.startsWith('--file') && t != '--file') {
+      file = t.substring(6);
+    } else if (t.startsWith('-f') &&
+        t != '-f' &&
+        !failPolicyShorts.contains(t)) {
+      file = t.substring(2);
+    }
+    if (file == null) continue;
+    var pom = file;
+    while (pom.startsWith('./') || pom.startsWith(r'.\')) {
+      pom = pom.substring(2);
+    }
+    if (pom != 'pom.xml') return true;
+  }
+  return false;
+}

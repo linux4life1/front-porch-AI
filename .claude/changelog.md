@@ -10,6 +10,23 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): default POM -f is a full run; reactor -pl/-rf/-N are theater
+- **Why:** Tip a4fe55e8 treated every `-f`/`--file` as theater
+  (including `mvn -f pom.xml test`) and missed glued `-fPATH`,
+  reactor `-pl`/`-rf`/`-N`, and lowered
+  `project.build.generatedsourcesdirectory`.
+- **What:** Same `_verifyTheater` path. `-f`/`--file` theaters only
+  when the value is not `pom.xml` / `./pom.xml` (strip leading
+  `./`). Glued `-fPATH` / `--filePATH` use the same rule; fail
+  shorts `-fae`/`-ff`/`-fn` stay receipts. Reactor selectors
+  (`-pl`/`--projects`, `-rf`/`--resume-from`, `-N`/`--non-recursive`,
+  also-make) are presence theater. The generated-sources key joins
+  `_kMavenFilterProps`. Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): classpath-redirect / POM-file / classes-root theater
 - **Why:** Alternate test-root was closed, but
   `-DadditionalClasspathElements=*` /

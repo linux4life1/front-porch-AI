@@ -32,16 +32,9 @@ bool _verifyTheater(String lowered) {
       return true;
     }
     if (cmd == 'gradle' && args.contains('-m')) return true;
-    if (cmd == 'mvn' &&
-        args.any(
-          (t) =>
-              t == '-f' ||
-              t == '--file' ||
-              t.startsWith('-f=') ||
-              t.startsWith('--file='),
-        )) {
-      return true;
-    }
+    // Maven reactor subset + non-default `-f`/`--file` (default
+    // `pom.xml` stays a full receipt). One helper — not a side door.
+    if (cmd == 'mvn' && _mavenArgvTheater(args)) return true;
     if (cmd == 'ctest' && args.contains('-n')) return true;
     if (cmd == 'go' && args.contains('-c')) return true;
     if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;

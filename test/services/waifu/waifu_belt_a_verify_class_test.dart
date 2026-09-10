@@ -1491,6 +1491,16 @@ void main() {
       'mvn -f other/pom.xml test',
       'mvn --file other/pom.xml test',
       './mvnw -f other/pom.xml test',
+      'mvn test -Dproject.build.generatedSourcesDirectory=target/alt-gen',
+      'mvn -fother/pom.xml test',
+      'mvn --file=other/pom.xml test',
+      'mvn --fileother/pom.xml test',
+      'mvn test -pl :foo',
+      'mvn test --projects foo',
+      'mvn test -rf :foo',
+      'mvn test --resume-from :foo',
+      'mvn -N test',
+      'mvn test --non-recursive',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1508,6 +1518,11 @@ void main() {
     expect(waifuLooksVerifyCommand('./mvnw test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -fae test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn --fail-never test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn -f pom.xml test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn -f ./pom.xml test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn --file=pom.xml test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn --file=./pom.xml test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn -fpom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
     expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
     expect(waifuLooksVerifyCommand('mvn test -Dtest=*'), isFalse);
