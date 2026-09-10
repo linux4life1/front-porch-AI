@@ -66,7 +66,7 @@
   records the user line before verify I/O.
 - **Files:** `waifu_turn.dart`, `waifu_verify_theater.dart`,
   `waifu_turn_contract_test.dart`
-- **Commit:** (pending)
+- **Commit:** 0e38671d
 
 ## 2026-09-10 — fix(waifu): Belt B harness contract — one path, no lying gates
 - **Why:** Unit+integration on #247 was red (job 102966040004). The
