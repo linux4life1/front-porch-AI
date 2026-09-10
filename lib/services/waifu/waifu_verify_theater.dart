@@ -406,7 +406,10 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
       if (args.contains('test')) {
         for (final f in const ['--test-filter', '-dtest-filter']) {
           final v = flagVal(f);
-          if (v != null && _filteredSuiteTheater(v)) return true;
+          // Presence: `*` is a filter, not JVM / go suite VIP.
+          if (v != null && _filteredSuiteTheater(v, all: const {})) {
+            return true;
+          }
         }
       }
       return paths(after('test'));

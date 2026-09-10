@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): zig --test-filter * is theater
+- **Why:** Zig used default suite VIP `*`, so
+  `zig test --test-filter *` / `=*` and `zig build test --test-filter
+  *` / `-Dtest-filter=*` soft-receipted.
+- **What:** Same theater. Zig `--test-filter` / `-Dtest-filter` use
+  presence (`all: {}`). Go/JVM VIP keepers left alone. Cargo pins
+  unchanged. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): cargo --exact=* / positional * theater
 - **Why:** `--exact=*` / `cargo test --exact *` could still VIP-star
   (`--exact=*` is a dash token with no leftover positional).

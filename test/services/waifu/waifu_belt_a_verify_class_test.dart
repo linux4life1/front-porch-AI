@@ -1255,4 +1255,32 @@ void main() {
     expect(waifuLooksVerifyCommand('cargo test -- --exact nope'), isFalse);
     expect(waifuLooksVerifyCommand('cargo test'), isTrue);
   });
+
+  test('zig --test-filter * is theater; go/JVM VIP and cargo pins hold', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'zig test --test-filter *',
+      'zig test --test-filter=*',
+      'zig build test --test-filter *',
+      'zig build test -Dtest-filter=*',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.zig']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('zig test'), isTrue);
+    expect(waifuLooksVerifyCommand('zig build test'), isTrue);
+    expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test --tests *'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo test *'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test -- --exact *'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+  });
 }
