@@ -980,6 +980,9 @@
   workflow docs say serial. Discover prefers accepted, never discarded;
   pin beats mtime. Fuse reason is spoken; empty wrap after retries fails.
   Catch/abort tool history keeps the same args as success (no rebuild `{}`).
+  Attach/drop stay live while she is working so a queued follow-up can
+  carry a photo. Ledger “verify as-run” keeps the command string that
+  ran and skips theater (`ls` / `echo`).
 - **Files:** `waifu_session.dart`, `waifu_harness.dart`,
   `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
   `waifu_harness_spawn.dart`, `waifu_compact.dart`,
