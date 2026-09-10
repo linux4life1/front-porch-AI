@@ -1501,6 +1501,13 @@ void main() {
       'mvn test --resume-from :foo',
       'mvn -N test',
       'mvn test --non-recursive',
+      'mvn -s settings.xml test',
+      'mvn --settings=ci.xml test',
+      'mvn -gs settings.xml test',
+      'mvn --global-settings=ci.xml test',
+      'mvn -Pprod test',
+      'mvn --activate-profiles prod test',
+      'mvn -f other/module-pom.xml test',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1523,6 +1530,11 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn --file=pom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn --file=./pom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -fpom.xml test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn -f /workspace/pom.xml test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('mvn -f /home/user/proj/pom.xml test'),
+      isTrue,
+    );
     expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
     expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
     expect(waifuLooksVerifyCommand('mvn test -Dtest=*'), isFalse);

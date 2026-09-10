@@ -10,6 +10,22 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): absolute CI -f …/pom.xml is a full run; -s/-P are theater
+- **Why:** Tip 204f0a75 only allowlisted bare/`./` `pom.xml`, so
+  CI `mvn -f /workspace/pom.xml test` over-theaters. `-s` /
+  `--settings` / `-gs` and `-P` / `--activate-profiles` still
+  receipted.
+- **What:** Same `_mavenArgvTheater` club. `-f`/`--file` is a full
+  receipt when basename is `pom.xml` and parent is empty / `.` **or**
+  absolute (CI cwd pom). Relative `other/pom.xml` and non-`pom.xml`
+  basenames stay theater. Settings and profile flags are presence
+  theater (receipts lower `-P` → `-p`; `-pl` stays reactor).
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): default POM -f is a full run; reactor -pl/-rf/-N are theater
 - **Why:** Tip a4fe55e8 treated every `-f`/`--file` as theater
   (including `mvn -f pom.xml test`) and missed glued `-fPATH`,

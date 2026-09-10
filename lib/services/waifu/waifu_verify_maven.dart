@@ -109,15 +109,18 @@ const _kMavenSkipProps = {
   'surefire.skipexec',
 };
 
-/// Maven argv theater: reactor subset + non-default `-f`/`--file`.
+/// Maven argv theater: reactor subset, settings/profiles, and
+/// non-root `-f`/`--file`.
 ///
-/// Default POM (`pom.xml` / `./pom.xml`, after stripping a leading
-/// `./`) is a full receipt. A different path — spaced, `=`, or glued —
-/// is theater. Fail-policy shorts (`-fae`/`-ff`/`-fn`) are not
-/// glued `-fPATH`.
+/// `-f` / `--file` is a full receipt when the basename is `pom.xml`
+/// and the parent is empty / `.` / `./` **or** an absolute prefix
+/// (CI `-f /workspace/pom.xml`). A relative directory
+/// (`other/pom.xml`) or a basename that is not `pom.xml` is theater.
+/// Spaced, `=`, and glued forms share that rule. Fail-policy shorts
+/// (`-fae`/`-ff`/`-fn`) are not glued `-fPATH`.
 ///
-/// Reactor selectors (`-pl`/`--projects`, `-rf`/`--resume-from`,
-/// `-N`/`--non-recursive`, also-make) are a subset of the reactor.
+/// Reactor selectors, `-s`/`--settings`/`-gs`/`--global-settings`,
+/// and `-P`/`--activate-profiles` (lowered `-p`) are presence theater.
 bool _mavenArgvTheater(List<String> args) {
   const failPolicyShorts = {'-fae', '-ff', '-fn'};
   for (var i = 0; i < args.length; i++) {
@@ -132,7 +135,16 @@ bool _mavenArgvTheater(List<String> args) {
         t == '--resume' ||
         t == '-am' ||
         t == '-amd' ||
-        t.startsWith('--also-make')) {
+        t.startsWith('--also-make') ||
+        t == '-s' ||
+        t.startsWith('-s') ||
+        t.startsWith('--settings') ||
+        t == '-gs' ||
+        t.startsWith('-gs') ||
+        t.startsWith('--global-settings') ||
+        t == '-p' ||
+        (t.startsWith('-p') && !t.startsWith('-pl')) ||
+        t.startsWith('--activate-profiles')) {
       return true;
     }
     String? file;
@@ -149,12 +161,26 @@ bool _mavenArgvTheater(List<String> args) {
         !failPolicyShorts.contains(t)) {
       file = t.substring(2);
     }
-    if (file == null) continue;
-    var pom = file;
-    while (pom.startsWith('./') || pom.startsWith(r'.\')) {
-      pom = pom.substring(2);
-    }
-    if (pom != 'pom.xml') return true;
+    if (file != null && _mavenNonRootPom(file)) return true;
   }
   return false;
+}
+
+/// Basename/parent rule for Maven `-f` / `--file`.
+bool _mavenNonRootPom(String raw) {
+  var path = raw.replaceAll(r'\', '/');
+  while (path.length > 1 && path.endsWith('/')) {
+    path = path.substring(0, path.length - 1);
+  }
+  while (path.startsWith('./')) {
+    path = path.substring(2);
+  }
+  final slash = path.lastIndexOf('/');
+  final base = slash < 0 ? path : path.substring(slash + 1);
+  if (base != 'pom.xml') return true;
+  final parent = slash < 0 ? '' : path.substring(0, slash);
+  if (parent.isEmpty || parent == '.') return false;
+  if (parent.startsWith('/')) return false;
+  if (parent.length >= 2 && parent[1] == ':') return false;
+  return true;
 }
