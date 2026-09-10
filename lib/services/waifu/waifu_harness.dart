@@ -200,6 +200,7 @@ class WaifuHarness {
       task: text,
       plan: await waifuLoadActivePlan(session),
     );
+    permissions.verifyContext = _turn.contract.verifyContext;
     _clearTurnReceipts();
     // Record the send before any await so live thought chrome can paint.
     session.running = true;
@@ -279,6 +280,7 @@ class WaifuHarness {
       name,
       args,
       mcpMutates: waifuMcpMutationHint(name, _mcpToolsNow()),
+      verifyContext: permissions.verifyContext,
     );
     final work = call.args;
     final kind = waifuSubagentKind(name, work);

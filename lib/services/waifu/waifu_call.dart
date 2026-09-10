@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/services/waifu/waifu_deny.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
+import 'package:front_porch_ai/services/waifu/waifu_verify.dart';
 
 enum WaifuDecisionKind { allow, ask, deny }
 
@@ -36,12 +37,14 @@ class WaifuCall {
     required this.name,
     required this.args,
     this.mcpMutates,
+    this.verifyContext = const WaifuVerifyContext(),
   });
 
   final String original;
   final String name;
   final Map<String, dynamic> args;
   final bool? mcpMutates;
+  final WaifuVerifyContext verifyContext;
 
   String? get path => waifuToolPathArg(args);
   String get command => (args['command'] ?? args['cmd'] ?? '').toString();
@@ -72,29 +75,35 @@ class WaifuCall {
 
   bool get mutates {
     if (!isLocal) return mcpMutates != false;
-    return waifuToolMutates(name, args);
+    return waifuToolMutates(name, args: args, context: verifyContext);
   }
 
   static WaifuCall parse(
     String name,
     Map<String, dynamic> args, {
     bool? mcpMutates,
+    WaifuVerifyContext verifyContext = const WaifuVerifyContext(),
   }) {
     return WaifuCall(
       original: name,
       name: canonicalWaifuToolName(name),
       args: waifuNormalizeToolArgs(name, args),
       mcpMutates: mcpMutates,
+      verifyContext: verifyContext,
     );
   }
 }
 
-bool waifuToolMutates(String name, [Map<String, dynamic>? args]) {
+bool waifuToolMutates(
+  String name, {
+  Map<String, dynamic>? args,
+  WaifuVerifyContext? context,
+}) {
   switch (canonicalWaifuToolName(name)) {
     case kWaifuToolBash:
       final cmd =
           args?['command']?.toString() ?? args?['cmd']?.toString() ?? '';
-      return waifuBashMutates(cmd);
+      return waifuBashMutates(cmd, context: context);
     case kWaifuToolEdit:
     case kWaifuToolApplyPatch:
     case kWaifuToolWrite:

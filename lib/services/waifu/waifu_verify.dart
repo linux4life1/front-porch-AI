@@ -73,6 +73,25 @@ const _kDenyCmds = {'echo', 'ls', 'printf', 'true', 'false', 'cat', 'pwd'};
 
 const _kShellTestFlags = {'-f', '-d', '-e', '-s', '-w', '-r', '-x', '-z', '-n'};
 
+/// Hosts that wrap a real check (`poetry run pytest`, `bundle exec rspec`).
+/// Not a VIP receipt club — payload after these still has to be a verify
+/// verb or a context hint.
+const _kRunnerHosts = {
+  'npx',
+  'npm',
+  'pnpm',
+  'yarn',
+  'bun',
+  'deno',
+  'poetry',
+  'pipenv',
+  'uv',
+  'hatch',
+  'bundle',
+};
+
+const _kRunnerWords = {'run', 'exec'};
+
 bool waifuLooksVerifyCommand(String command, {WaifuVerifyContext? context}) {
   final lowered = command.trim().toLowerCase();
   if (lowered.isEmpty) return false;
@@ -187,39 +206,63 @@ bool _looksTestAnalyzeClass(String lowered) {
 bool _segmentIsTestAnalyze(String segment) {
   final words = _wordsOf(segment);
   if (words.isEmpty) return false;
-  var cmd = words.first;
-  if (cmd.contains('/')) cmd = cmd.split('/').last;
+  if (_denyCmd(words.first) || _isShellTest(words)) return false;
+  final payload = _payloadWords(words);
+  if (payload.isEmpty) return false;
+  final cmd = payload.first.contains('/')
+      ? payload.first.split('/').last
+      : payload.first;
   if (_denyCmd(cmd)) return false;
-  if (_isShellTest(words)) return false;
-  if (const {'npx', 'npm', 'pnpm', 'yarn', 'bun', 'deno'}.contains(cmd)) {
-    if (words.length > 2 && words[1] == 'run') {
-      final script = words[2];
-      if (_kVerifyVerbs.contains(script) || script.startsWith('test:')) {
-        return true;
-      }
-    }
-    if (words.length > 1 && _kVerifyVerbs.contains(words[1])) return true;
-  }
-  if (const {'python', 'python3', 'py'}.contains(cmd) &&
-      words.length > 2 &&
-      words[1] == '-m' &&
-      _kVerifyVerbs.contains(words[2])) {
-    return true;
-  }
-  if (_kVerifyVerbs.contains(cmd)) return true;
-  if (words.length > 1 && _kVerifyVerbs.contains(words[1])) return true;
-  return false;
+  if (_kVerifyVerbs.contains(cmd) || cmd.startsWith('test:')) return true;
+  return payload.length > 1 && _kVerifyVerbs.contains(payload[1]);
 }
 
 bool _commandFulfills(String command, String expected) {
   final want = expected.trim().toLowerCase();
   if (want.isEmpty) return false;
   if (command == want) return true;
+  final wantWords = _wordsOf(want);
+  if (wantWords.isEmpty) return false;
   for (final segment in _segments(command)) {
     final got = segment.trim();
+    if (got.isEmpty) continue;
+    final words = _wordsOf(got);
+    if (words.isEmpty || _denyCmd(words.first) || _isShellTest(words)) {
+      continue;
+    }
     if (got == want || got.startsWith('$want ')) return true;
+    final payload = _payloadWords(words);
+    if (_wordsStartWith(payload, wantWords) ||
+        _wordsStartWith(words, wantWords)) {
+      return true;
+    }
   }
   return false;
+}
+
+List<String> _payloadWords(List<String> words) {
+  if (words.isEmpty) return words;
+  var cmd = words.first;
+  if (cmd.contains('/')) cmd = cmd.split('/').last;
+  if (const {'python', 'python3', 'py'}.contains(cmd) &&
+      words.length > 2 &&
+      words[1] == '-m') {
+    return words.sublist(2);
+  }
+  if (_kRunnerHosts.contains(cmd)) {
+    var i = 1;
+    if (i < words.length && _kRunnerWords.contains(words[i])) i++;
+    return i < words.length ? words.sublist(i) : const <String>[];
+  }
+  return words;
+}
+
+bool _wordsStartWith(List<String> words, List<String> prefix) {
+  if (prefix.isEmpty || words.length < prefix.length) return false;
+  for (var i = 0; i < prefix.length; i++) {
+    if (words[i] != prefix[i]) return false;
+  }
+  return true;
 }
 
 bool _denyCmd(String cmd) {

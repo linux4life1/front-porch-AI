@@ -95,6 +95,65 @@ void main() {
     expect(waifuLooksVerifyCommand('echo make ci', context: ctx), isFalse);
   });
 
+  test('A1: ask and tested share WaifuVerifyContext — no second club', () {
+    const tox = WaifuVerifyContext(
+      stepVerify: ['tox -e py'],
+      named: ['tox -e py'],
+    );
+    expect(waifuLooksVerifyCommand('tox -e py', context: tox), isTrue);
+    expect(waifuLooksVerifyCommand('tox -e py'), isFalse);
+    expect(waifuBashMutates('tox -e py', context: tox), isFalse);
+    expect(waifuBashMutates('tox -e py'), isTrue);
+    final toxPerms = WaifuPermissions(mode: WaifuMode.build)
+      ..verifyContext = tox;
+    expect(
+      toxPerms.needsAsk(name: 'bash', args: {'command': 'tox -e py'}),
+      isFalse,
+    );
+    expect(
+      WaifuPermissions(
+        mode: WaifuMode.build,
+      ).needsAsk(name: 'bash', args: {'command': 'tox -e py'}),
+      isTrue,
+    );
+    final toxTurn = _afterWrites(['mod.py'])..verifyContext = tox;
+    _bash(toxTurn, 'tox -e py');
+    expect(toxTurn.tested, isTrue);
+    final echoTox = _afterWrites(['mod.py'])..verifyContext = tox;
+    _bash(echoTox, 'echo tox -e py');
+    expect(echoTox.tested, isFalse);
+    expect(waifuLooksVerifyCommand('echo tox -e py', context: tox), isFalse);
+
+    const pytestMarker = WaifuVerifyContext(markers: ['pytest']);
+    expect(
+      waifuLooksVerifyCommand('poetry run pytest', context: pytestMarker),
+      isTrue,
+    );
+    expect(waifuLooksVerifyCommand('poetry run pytest'), isTrue);
+    expect(
+      waifuBashMutates('poetry run pytest', context: pytestMarker),
+      isFalse,
+    );
+    expect(waifuBashMutates('poetry run pytest'), isFalse);
+    expect(
+      waifuLooksVerifyCommand('bundle exec rspec', context: pytestMarker),
+      isTrue,
+    );
+    final pyPerms = WaifuPermissions(mode: WaifuMode.build)
+      ..verifyContext = pytestMarker;
+    expect(
+      pyPerms.needsAsk(name: 'bash', args: {'command': 'poetry run pytest'}),
+      isFalse,
+    );
+    final poetry = _afterWrites(['mod.py'])..verifyContext = pytestMarker;
+    _bash(poetry, 'poetry run pytest');
+    expect(poetry.tested, isTrue);
+    expect(
+      pyPerms.needsAsk(name: 'bash', args: {'command': 'poetry run pytest'}),
+      isFalse,
+    );
+  });
+
   test(
     'A1: cargo/npm/pytest clear tested; echo does not; Build does not ask',
     () {

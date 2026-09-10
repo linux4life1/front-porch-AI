@@ -10,6 +10,19 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): Belt A ask and tested share one verify context
+- **Why:** `noteResult` marked `tested` with `WaifuVerifyContext` (step.verify /
+  named / markers), but `waifuBashMutates` called `waifuLooksVerifySegment`
+  with no context. `tox -e py` could receipt and still `needsAsk` in Build.
+- **What:** Ask and receipt use the same `waifuLooksVerifyCommand` plus the
+  turn's context. Permissions carry that context; wrapper hosts
+  (`poetry run`, `bundle exec`) strip to the same verb/hint rule — not a
+  second VIP club. `echo` still never receipts.
+- **Files:** `waifu_verify.dart`, `waifu_deny.dart`, `waifu_call.dart`,
+  `waifu_permissions.dart`, `waifu_harness.dart`,
+  `waifu_belt_a_loop_truth_test.dart`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Belt A loop truth — one wrap-up, one request, polyglot verify
 - **Why:** The coding loop had lying dual paths: `decideFinal` beside a
   10-way empty-calls adapter, a transcript-stuffed prompt blob metered

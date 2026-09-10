@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
+import 'package:front_porch_ai/services/waifu/waifu_verify.dart';
 
 export 'package:front_porch_ai/services/waifu/waifu_call.dart';
 export 'package:front_porch_ai/services/waifu/waifu_deny.dart';
@@ -65,12 +66,14 @@ class WaifuPermissions {
     required this.mode,
     this.workingDirectory,
     this.pathMode = WaifuPathMode.folderJail,
+    this.verifyContext = const WaifuVerifyContext(),
     required _WaifuAlways always,
   }) : _always = always;
 
   WaifuMode mode;
   String? workingDirectory;
   WaifuPathMode pathMode;
+  WaifuVerifyContext verifyContext = const WaifuVerifyContext();
   final _WaifuAlways _always;
   final _counts = <String, int>{};
 
@@ -78,6 +81,7 @@ class WaifuPermissions {
     mode: mode,
     workingDirectory: workingDirectory,
     pathMode: pathMode,
+    verifyContext: verifyContext,
     always: _always,
   );
 
@@ -146,7 +150,14 @@ class WaifuPermissions {
     required Map<String, dynamic> args,
     bool? mutates,
   }) {
-    final decision = decide(WaifuCall.parse(name, args, mcpMutates: mutates));
+    final decision = decide(
+      WaifuCall.parse(
+        name,
+        args,
+        mcpMutates: mutates,
+        verifyContext: verifyContext,
+      ),
+    );
     return decision.kind == WaifuDecisionKind.deny ? decision.reason : null;
   }
 
@@ -158,7 +169,14 @@ class WaifuPermissions {
     required Map<String, dynamic> args,
     bool? mutates,
   }) {
-    return decide(WaifuCall.parse(name, args, mcpMutates: mutates)).kind ==
+    return decide(
+          WaifuCall.parse(
+            name,
+            args,
+            mcpMutates: mutates,
+            verifyContext: verifyContext,
+          ),
+        ).kind ==
         WaifuDecisionKind.ask;
   }
 
@@ -171,11 +189,7 @@ class WaifuPermissions {
     final path = call.path;
     final root = workingDirectory;
     if (path == null || root == null || root.isEmpty) return false;
-    return WaifuJail.resolve(
-      root,
-      path,
-      pathMode: WaifuPathMode.folderJail,
-    ).ok;
+    return WaifuJail.resolve(root, path, pathMode: WaifuPathMode.folderJail).ok;
   }
 
   String whyFor({

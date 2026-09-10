@@ -385,9 +385,9 @@ bool _isDangerousWipeTarget(String raw, String? workingDirectory) {
 
 /// Command class: redirect / write / rm / pkg / unknown mutate. Not the
 /// Plan allowlist function — Plan still uses [waifuPlanBashDenied].
-/// Verify-shaped non-mutating checks (cargo test, npm test, pytest, …)
-/// are not mutates — Build must not ask for them.
-bool waifuBashMutates(String command) {
+/// Verify-shaped non-mutating checks use the same [waifuLooksVerifyCommand]
+/// receipt as `tested` — [context] must match the turn's verify context.
+bool waifuBashMutates(String command, {WaifuVerifyContext? context}) {
   final raw = command.trim();
   if (raw.isEmpty) return false;
   final lower = raw.toLowerCase();
@@ -426,7 +426,7 @@ bool waifuBashMutates(String command) {
         words.any((w) => w == '-i' || w.startsWith('-i') && w != '-i')) {
       return true;
     }
-    if (waifuLooksVerifySegment(segment)) continue;
+    if (waifuLooksVerifySegment(segment, context: context)) continue;
     if (!kWaifuPlanBashAllow.contains(cmd)) return true;
   }
   return false;
