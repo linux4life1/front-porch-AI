@@ -23,7 +23,7 @@
   and list-only (`--collect-only`, `--listTests`) join theater.
 - **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
   `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 407d79e2
 
 ## 2026-09-10 — fix(waifu): dry-run and help do not receipt a check
 - **Why:** `_verifyTheater` only caught `--help` / `--dry-run`. `make -n
