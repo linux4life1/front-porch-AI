@@ -685,4 +685,31 @@ void main() {
     expect(waifuLooksVerifyCommand('./gradlew test --tests Nope'), isFalse);
     expect(waifuLooksVerifyCommand('pytest -n auto'), isTrue);
   });
+
+  test('flutter/dart --name and tags filters are theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'flutter test --name Foo',
+      'dart test --name Foo',
+      'flutter test --plain-name Foo',
+      'flutter test --tags golden',
+      'dart test --exclude-tags golden',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.dart']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('flutter test'), isTrue);
+    expect(waifuLooksVerifyCommand('dart test'), isTrue);
+    expect(waifuLooksVerifyCommand('flutter test test/foo_test.dart'), isFalse);
+    expect(waifuLooksVerifyCommand('go test -run Nope'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+  });
 }

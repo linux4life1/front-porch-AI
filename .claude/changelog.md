@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): flutter/dart --name and tags are theater
+- **Why:** `--name` / `--plain-name` / `--tags` / `--exclude-tags` were
+  only “value flags”, so `flutter test --name Foo` skipped `Foo` and
+  receipted a full suite.
+- **What:** Same theater. Those flags (and `-t` / `-x`) are suite
+  filters like go `-run` / gradle `--tests`. Bare `flutter test` /
+  `dart test` still run.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): polyglot name/path filters are theater
 - **Why:** Filter theater was Maven/Gradle only, so `go test -run Nope`,
   `cargo test nope`, `pytest -k nope` / a file path, `dotnet --filter`,

@@ -171,6 +171,16 @@ const _kFilterValueFlags = <String, Set<String>>{
   },
 };
 
+/// Flutter / dart `test` suite filters — not “skip the next token”.
+const _kDartSuiteFilterFlags = {
+  '--name',
+  '--plain-name',
+  '--tags',
+  '--exclude-tags',
+  '-t',
+  '-x',
+};
+
 /// Same gate as JVM `--tests` / `-Dtest=`. Filtered ≠ full suite.
 bool _runnerFilterTheater(String cmd, List<String> args) {
   String? flagVal(String name) {
@@ -270,6 +280,10 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
       return false;
     case 'flutter':
     case 'dart':
+      for (final f in _kDartSuiteFilterFlags) {
+        final v = flagVal(f);
+        if (v != null && _filteredSuiteTheater(v)) return true;
+      }
       final rest = after('test');
       for (var i = 0; i < rest.length; i++) {
         final t = rest[i];
