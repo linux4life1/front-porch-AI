@@ -40,6 +40,47 @@ WaifuStore? waifuStoreForContext(BuildContext context, {WaifuStore? injected}) {
   }
 }
 
+/// Sit-down estimate when no harness is bound (system + advertised tools).
+int waifuIdleRequestTokens(WaifuSession session) {
+  return waifuMeasureRequest(
+    systemPrompt: buildWaifuCoworkerPrompt(session.coworker),
+    prompt: waifuLoopUserPrompt(
+      folderName: session.folderRoot,
+      coworkerName: session.coworker.name,
+      transcript: session.transcript,
+      todos: session.todos.items.isEmpty ? '' : session.todos.read(),
+      mentionBlock: '',
+      preserveThinking: session.preserveThinking,
+      pathMode: session.pathMode,
+      mode: session.mode,
+    ),
+    budget: session.contextBudget,
+    tools: waifuAdvertisedTools(
+      exploreOnly: false,
+      includeWebSearch: false,
+      mcpOptIn: session.mcpOptIn,
+      mcpTools: const [],
+      includeTask: true,
+      pathMode: session.pathMode,
+      mode: session.mode,
+    ),
+  ).used;
+}
+
+/// Remeter then persist so sit-down is never saved as 0/N.
+void waifuArmSessionMeter({
+  required WaifuSession session,
+  WaifuHarness? harness,
+  WaifuStore? store,
+}) {
+  if (harness != null) {
+    harness.refreshMeter();
+  } else if (session.tokensUsed == 0 && !session.tokensFromApi) {
+    session.tokensUsed = waifuIdleRequestTokens(session);
+  }
+  store?.saveLast(session);
+}
+
 /// Both production constructor copies live here so the page never writes
 /// `WaifuHarness(`.
 WaifuHarness? waifuBindSessionHarness({
@@ -67,8 +108,6 @@ WaifuHarness? waifuBindSessionHarness({
                 budget: session.contextBudget,
                 used: session.tokensUsed,
               ),
-              reasoningEnabled: storage?.reasoningEnabled ?? false,
-              reasoningEffort: storage?.reasoningEffort ?? 'medium',
             ));
   if (resolved == null) return null;
   return WaifuHarness(

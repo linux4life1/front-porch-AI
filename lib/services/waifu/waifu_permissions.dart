@@ -51,8 +51,9 @@ class _WaifuAlways {
   bool on = false;
 }
 
-/// Plan / Build / Yolo plus doom-loop and Always-this-session.
-/// Hard floor lives in [waifu_deny.dart] — Yolo does not skip it.
+/// Plan / Build / Yolo plus Always-this-session.
+/// Doom-loop ask is Build only. Yolo never asks — hard floor still
+/// lives in [waifu_deny.dart].
 class WaifuPermissions {
   WaifuPermissions({
     this.mode = WaifuMode.build,
@@ -84,7 +85,7 @@ class WaifuPermissions {
       '${canonicalWaifuToolName(name)}:${jsonEncode(args)}';
 
   WaifuDecision decide(WaifuCall call, {WaifuPathMode? pathMode}) {
-    final scope = pathMode ?? this.pathMode;
+    this.pathMode = pathMode ?? this.pathMode;
     final floor = _hardFloor(call);
     if (floor != null) return WaifuDecision.deny(floor);
     if (mode == WaifuMode.plan) {
@@ -93,11 +94,14 @@ class WaifuPermissions {
       return const WaifuDecision.allow();
     }
     if (!call.mutates) return const WaifuDecision.allow();
+    if (mode == WaifuMode.yolo) return const WaifuDecision.allow();
     if (isDoom(call.name, call.args)) return const WaifuDecision.ask();
     if (_always.on) return const WaifuDecision.allow();
     if (mode != WaifuMode.build) return const WaifuDecision.allow();
     if (call.name == kWaifuToolTodoWrite) return const WaifuDecision.allow();
-    if (_fileToolOnPorch(call, scope)) return const WaifuDecision.allow();
+    // On-porch is sit-down folder only. Whole-disk widens IO; it does not
+    // skip Build asks. Yolo already returned allow above.
+    if (_fileToolOnPorch(call)) return const WaifuDecision.allow();
     return const WaifuDecision.ask();
   }
 
@@ -158,7 +162,7 @@ class WaifuPermissions {
         WaifuDecisionKind.ask;
   }
 
-  bool _fileToolOnPorch(WaifuCall call, WaifuPathMode scope) {
+  bool _fileToolOnPorch(WaifuCall call) {
     if (call.name != kWaifuToolWrite &&
         call.name != kWaifuToolEdit &&
         call.name != kWaifuToolApplyPatch) {
@@ -167,7 +171,11 @@ class WaifuPermissions {
     final path = call.path;
     final root = workingDirectory;
     if (path == null || root == null || root.isEmpty) return false;
-    return WaifuJail.resolve(root, path, pathMode: scope).ok;
+    return WaifuJail.resolve(
+      root,
+      path,
+      pathMode: WaifuPathMode.folderJail,
+    ).ok;
   }
 
   String whyFor({

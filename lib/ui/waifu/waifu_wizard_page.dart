@@ -57,7 +57,8 @@ class WaifuWizardPage extends StatefulWidget {
   /// Test seam. Production uses [listWaifuDirectory].
   final Future<WaifuFolderListing> Function(String path)? listDirectory;
 
-  /// When this porch already has pathMode + honesty, skip the re-quiz.
+  /// When this porch already has pathMode + honesty, skip the re-quiz
+  /// for that scope. Jail/Disk radios stay so the porch can switch.
   final WaifuStore? store;
 
   @override
@@ -75,6 +76,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
   CharacterCard? _coworker;
   bool _honesty = false;
   bool _skipHonesty = false;
+  WaifuPorchConsent? _consent;
   WaifuMode _mode = WaifuMode.build;
   WaifuPathMode _pathMode = WaifuPathMode.folderJail;
 
@@ -108,6 +110,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
       _folderConfirmed = false;
       _honesty = false;
       _skipHonesty = false;
+      _consent = null;
       _pathMode = WaifuPathMode.folderJail;
     });
     _load();
@@ -121,9 +124,13 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
     if (!mounted) return;
     if (!waifuSkipHonestyQuiz(consent)) return;
     setState(() {
+      _consent = consent;
       _pathMode = consent!.pathMode;
-      _honesty = true;
-      _skipHonesty = true;
+      _skipHonesty = waifuHideHonestyForScope(
+        consent: consent,
+        pathMode: consent.pathMode,
+      );
+      _honesty = _skipHonesty;
     });
   }
 
@@ -230,7 +237,11 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
           onModeChanged: (m) => setState(() => _mode = m),
           onPathModeChanged: (scope) => setState(() {
             _pathMode = scope;
-            _honesty = false;
+            _skipHonesty = waifuHideHonestyForScope(
+              consent: _consent,
+              pathMode: scope,
+            );
+            _honesty = _skipHonesty;
           }),
           onHonestyChanged: (v) => setState(() => _honesty = v),
           onConfirm: _confirm,

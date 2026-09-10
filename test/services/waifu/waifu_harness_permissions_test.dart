@@ -175,24 +175,25 @@ void main() {
     expect(harness.session.toolChips.single.ok, isFalse);
   });
 
-  test('doom-loop: third identical Yolo write asks', () async {
+  test('doom-loop: third identical Yolo write does not ask', () async {
+    // Product: Yolo does not nanny repeats. Stop is the user abort.
     var asked = 0;
     final llm = ScriptedWaifuLlm([
       _write('a.txt', '1'),
       _write('a.txt', '1'),
       _write('a.txt', '1'),
-      const LlmToolResponse(calls: [], text: 'Stopped repeating.'),
+      const LlmToolResponse(calls: [], text: 'Wrote it three times.'),
     ]);
     final harness = WaifuHarness(
       session: session(WaifuMode.yolo),
       llm: llm,
       onAsk: (req) async {
         asked++;
-        expect(req.doomLoop, isTrue);
         return WaifuAskDecision.deny;
       },
     );
     await harness.send('write three times');
-    expect(asked, 1);
+    expect(asked, 0);
+    expect(await File(p.join(root.path, 'a.txt')).readAsString(), '1');
   });
 }

@@ -77,15 +77,23 @@ Map<String, dynamic> _chatPayload(
   // image_url shape on this endpoint when an mmproj is loaded).
   final messages = <Map<String, Object>>[];
   final system = params.systemPrompt;
-  var userContent = params.openAiUserContent;
-  if (system != null && system.isNotEmpty) {
-    if (foldSystemIntoUser) {
-      userContent = foldSystemIntoUserContent(system, userContent);
-    } else {
+  final custom = params.chatMessages;
+  if (custom != null && custom.isNotEmpty) {
+    if (system != null && system.isNotEmpty && !foldSystemIntoUser) {
       messages.add({'role': 'system', 'content': system});
     }
+    messages.addAll(attachOpenAiImagesToLastUser(custom, params.images));
+  } else {
+    var userContent = params.openAiUserContent;
+    if (system != null && system.isNotEmpty) {
+      if (foldSystemIntoUser) {
+        userContent = foldSystemIntoUserContent(system, userContent);
+      } else {
+        messages.add({'role': 'system', 'content': system});
+      }
+    }
+    messages.add({'role': 'user', 'content': userContent});
   }
-  messages.add({'role': 'user', 'content': userContent});
 
   final payload = <String, dynamic>{
     'model': modelName,
@@ -142,17 +150,16 @@ Map<String, dynamic> _chatPayload(
   final thinkOn = params.reasoningEnabled && params.reasoningMaxTokens != 0;
   payload['chat_template_kwargs'] = {'enable_thinking': thinkOn};
   payload['reasoning_effort'] = thinkOn
-      ? (params.reasoningEffort.isEmpty ? 'high' : params.reasoningEffort)
+      ? (params.reasoningEffort.isEmpty ? 'low' : params.reasoningEffort)
       : 'none';
-  // Same clamp as OpenRouterService for heretic templates that `{% set
-  // enable_thinking = true %}`. llama.cpp / recent Kobold honour
-  // thinking_budget: 0 as a force-close; omitted when the GGUF actually
-  // reads the kwarg (stock Gemma-4).
-  final clamp = thinkingBudgetClampForThinkOff(
-    thinkingModelKey ?? modelName,
+  // Think-on + a numeric cap (Waifu 512) becomes thinking_budget. Think-off
+  // still uses the heretic-template clamp. Never send 0 while thinking is on.
+  final budget = thinkingBudgetForRequest(
+    model: thinkingModelKey ?? modelName,
     thinkOn: thinkOn,
+    reasoningMaxTokens: params.reasoningMaxTokens,
   );
-  if (clamp != null) payload['thinking_budget'] = clamp;
+  if (budget != null) payload['thinking_budget'] = budget;
 
   if (params.stopSequences != null && params.stopSequences!.isNotEmpty) {
     // This transport only ever talks to KoboldCpp (managed local +
@@ -193,33 +200,33 @@ Future<LlmToolResponse?> postOpenAiChatWithTools(
   final client = http.Client();
   registerClient?.call(client);
   try {
+    final identity = params.backendIdentity.isEmpty
+        ? (thinkingModelKey ?? modelName)
+        : params.backendIdentity;
     // Live think tokens (Waifu Coder): stream when the caller asked for
     // chunks. Evals leave onChunk null and stay on the buffered POST so
-    // their JSON parse is byte-identical.
+    // their JSON parse is byte-identical. tool_choice required starts at
+    // required — never hardcode auto while tools are advertised.
     if (params.onChunk != null) {
-      final payload = _chatPayload(
-        params,
-        modelName: modelName,
-        stream: true,
-        foldSystemIntoUser: foldSystemIntoUser,
-        thinkingModelKey: thinkingModelKey,
-      );
-      attachTools(
-        payload,
+      final thinkOn = params.reasoningEnabled && params.reasoningMaxTokens != 0;
+      return await streamOpenAiChatToolsWithStyleRetry(
+        identity: identity,
         tools: tools,
         toolChoice: toolChoice ?? params.toolChoice,
-        stream: true,
-        style: ToolChoiceStyle.auto,
-      );
-      final thinkOn = params.reasoningEnabled && params.reasoningMaxTokens != 0;
-      return await streamOpenAiChatTools(
+        basePayload: _chatPayload(
+          params,
+          modelName: modelName,
+          stream: true,
+          foldSystemIntoUser: foldSystemIntoUser,
+          thinkingModelKey: thinkingModelKey,
+        ),
         uri: Uri.parse('$baseUrl/v1/chat/completions'),
         headers: {'Content-Type': 'application/json'},
-        payload: payload,
         client: client,
         wrapReasoning: thinkOn,
         salvage: params.salvageReasoning,
         onChunk: params.onChunk,
+        probe: styleProbe,
       );
     }
     // No wall-clock timeout: a tool/eval call against a local model can take
@@ -229,9 +236,6 @@ Future<LlmToolResponse?> postOpenAiChatWithTools(
     // in-flight call — so a fixed cap only ever killed work that was fine.
     // Local HTTP max_tokens stays params.maxLength — do NOT add remote
     // think headroom via reasoningCannotDisable(path).
-    final identity = params.backendIdentity.isEmpty
-        ? (thinkingModelKey ?? modelName)
-        : params.backendIdentity;
     final response = await attachToolsWithStyleRetry(
       identity: identity,
       tools: tools,

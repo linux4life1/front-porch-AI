@@ -20,25 +20,33 @@ part of 'waifu_harness.dart';
 
 extension _WaifuHarnessSpawn on WaifuHarness {
   WaifuHarness _makeChild({required bool exploreOnly}) {
+    final childScope =
+        exploreOnly ? WaifuPathMode.folderJail : session.pathMode;
     final childSession = WaifuSession(
       folderRoot: session.folderRoot,
       coworker: session.coworker,
       mode: session.mode,
-      pathMode: session.pathMode,
+      pathMode: childScope,
       preserveThinking: session.preserveThinking,
     );
+    final childPerms = permissions.fork(mode: childSession.mode)
+      ..pathMode = childScope;
     return WaifuHarness(
       session: childSession,
       llm: llm,
-      fs: fs,
-      bash: bash,
+      fs: exploreOnly
+          ? WaifuFs(session.folderRoot, pathMode: WaifuPathMode.folderJail)
+          : fs,
+      bash: exploreOnly
+          ? WaifuBash(session.folderRoot, pathMode: WaifuPathMode.folderJail)
+          : bash,
       undo: undoLog,
       webfetch: webfetch,
       webSearch: webSearch,
       onAsk: onAsk,
       onQuestion: onQuestion,
       onChanged: _emit,
-      permissions: permissions.fork(mode: childSession.mode),
+      permissions: childPerms,
       depth: depth + 1,
       exploreOnly: exploreOnly,
       skills: skills,

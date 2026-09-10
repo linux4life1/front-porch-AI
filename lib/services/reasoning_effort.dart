@@ -119,7 +119,10 @@ Set<String>? reasoningEffortHintForModel(String model) {
   if (id.contains('deepseek') && id.contains(':thinking')) {
     return kHighMaxEffortHint;
   }
-  if (id.contains('glm-5.2') || id.contains('glm5.2')) {
+  if (id.contains('glm-5.2') ||
+      id.contains('glm5.2') ||
+      id.contains('glm-5.3') ||
+      id.contains('glm5.3')) {
     return kHighMaxEffortHint;
   }
   if (id.contains('kimi-k2.6') || id.contains('kimi-k2-6')) {
@@ -354,6 +357,23 @@ int? thinkingBudgetClampForThinkOff(String model, {required bool thinkOn}) {
   return 0;
 }
 
+/// Local think leash. `0` is unlimited or force-close depending on the host
+/// — never send 0 when thinking is on. Chat with no numeric cap omits the
+/// field (same as before). Waifu sends [reasoningMaxTokens] (512).
+int? thinkingBudgetForRequest({
+  required String model,
+  required bool thinkOn,
+  int? reasoningMaxTokens,
+}) {
+  if (thinkOn) {
+    if (reasoningMaxTokens != null && reasoningMaxTokens > 0) {
+      return reasoningMaxTokens;
+    }
+    return null;
+  }
+  return thinkingBudgetClampForThinkOff(model, thinkOn: false);
+}
+
 /// Wired by [attachReasoningEffortMenuStore] so this file does not import disk.
 void Function(String model, {required bool probed})?
 persistReasoningEffortMenuHook;
@@ -376,6 +396,32 @@ void rememberReasoningProfileFromCatalog(String model, Object? reasoning) {
     _bumpReasoningEffortCatalog();
     persistReasoningEffortMenuHook?.call(model, probed: false);
   }
+}
+
+/// Remember a provider effort listing from a 400/422 and retry.
+///
+/// Returns true when the menu changed (caller must retry). Same listing
+/// already learned → false so a second rejection cannot loop. generateStream
+/// and generateWithTools share this so Waifu's first `low` on an unhinted
+/// host still lands with `reasoning.max_tokens` intact.
+bool learnReasoningEffortFromError({
+  required String model,
+  required String errorMessage,
+  String body = '',
+}) {
+  if (model.isEmpty) return false;
+  final supported =
+      supportedReasoningEffortsFromError(errorMessage) ??
+      supportedReasoningEffortsFromError(body);
+  if (supported == null || supported.isEmpty) return false;
+  final prev = kLearnedReasoningEffortsByModel[model];
+  final same =
+      prev != null &&
+      prev.length == supported.length &&
+      prev.containsAll(supported);
+  if (same) return false;
+  rememberReasoningEffortsForModel(model, supported);
+  return true;
 }
 
 /// Test helper: drop process-lifetime catalog state.

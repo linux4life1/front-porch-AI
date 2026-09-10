@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/waifu/waifu_verify.dart';
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
+import 'package:front_porch_ai/services/waifu/waifu_stream.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 
 const kWaifuTurnCorrectionAttempts = 2;
@@ -34,11 +35,12 @@ const kWaifuReceiptMutationTools = {
 
 const kWaifuBuildVerifyCue =
     'After write, edit, or apply_patch changes a project file, re-read '
-    'the touched paths AND run a real test/analyze command. If that '
-    'command fails, fix the files and run it again. Speak to the user '
-    'only after it passes. An accepted-plan step stays pending until '
-    'mutate, re-read, and a passing test/analyze all land. Prefer the '
-    'built-in run-plan-step workflow when a plan is pinned.';
+    'only those touched paths (not every file already in this prompt) '
+    'AND run a real test/analyze command. If that command fails, fix '
+    'the files and run it again. Speak to the user only after it passes. '
+    'An accepted-plan step stays pending until mutate, re-read, and a '
+    'passing test/analyze all land. Prefer the built-in run-plan-step '
+    'workflow when a plan is pinned.';
 
 enum WaifuFinalAction {
   accept,
@@ -67,14 +69,6 @@ bool waifuReadVerifiesMutate(String readPath, Iterable<String> mutated) {
   }
   return false;
 }
-
-/// First generate of a file-change send must call a tool, not wrap up.
-bool waifuForceFirstTool({
-  required int step,
-  required bool speechOnly,
-  required bool mutationRequired,
-  required bool mutationSucceeded,
-}) => step == 0 && !speechOnly && mutationRequired && !mutationSucceeded;
 
 bool waifuTaskRequestsFileChange(String task) {
   final lower = task.toLowerCase();
@@ -180,7 +174,9 @@ class WaifuTurnContract {
 
   void rememberToolSpeech(String body) {
     final trimmed = body.trim();
-    if (trimmed.isNotEmpty && !waifuLooksGenericCompletion(trimmed)) {
+    if (trimmed.isNotEmpty &&
+        !waifuLooksGenericCompletion(trimmed) &&
+        !waifuLooksThinkDump(trimmed)) {
       rememberedSpeech = trimmed;
     }
   }
@@ -354,12 +350,14 @@ class WaifuTurnContract {
     verifyCorrectionAttempts++;
     speechOnly = false;
     cue = !reviewed && !tested
-        ? 'TURN CONTRACT: Re-read the files you changed, then run a real '
-              'test/analyze command. If it fails, fix the files and run it '
-              'again. Do not speak to the user until that check passes.'
+        ? 'TURN CONTRACT: Re-read the files you changed — only those, not '
+              'untouched siblings — then run a real test/analyze command. '
+              'If it fails, fix the files and run it again. Do not speak '
+              'to the user until that check passes.'
         : !reviewed
         ? 'TURN CONTRACT: Re-read the files you changed before speaking. '
-              'A passing test without looking at the patch is not a review.'
+              'A passing test without looking at the patch is not a review. '
+              'Do not re-read untouched siblings.'
         : 'TURN CONTRACT: The test/analyze failed or never ran. Fix the '
               'files and run a real test/analyze again. Speak only after '
               'it passes.';
@@ -390,7 +388,6 @@ class WaifuTurnContract {
     if (mutationSucceeded) {
       return 'The work reached disk, but I lost the words for the porch report.';
     }
-    return 'I stopped without a proper porch report instead of leaving an '
-        'empty bubble.';
+    return kWaifuStuckWrap;
   }
 }

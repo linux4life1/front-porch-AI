@@ -39,13 +39,14 @@ final _callPipe = RegExp(
   caseSensitive: false,
 );
 final _xmlCall = RegExp(
-  r'<tool_call>[\s\S]*?</tool_call>',
+  r'<tool_call>[\s\S]*?(?:</tool_call>|$)',
   caseSensitive: false,
 );
 final _fnTag = RegExp(
   r'<function=\w+>[\s\S]*?(?:</function>|$)',
   caseSensitive: false,
 );
+final _fnHead = RegExp(r'<function=(\w+)>', caseSensitive: false);
 
 final _minimaxHead = RegExp(
   r'◁\s*tool_call_begin\s*▷\s*'
@@ -154,10 +155,16 @@ List<LlmToolCall> waifuLeakedToolCalls(String raw) {
       }
     } catch (_) {}
   }
+  for (final m in _fnHead.allMatches(raw)) {
+    final json = waifuTakeJsonObject(raw, m.end);
+    if (json != null) add(m.group(1) ?? '', json);
+  }
   return out;
 }
 
 List<LlmToolCall> waifuEffectiveToolCalls(LlmToolResponse resp) {
   if (resp.calls.isNotEmpty) return resp.calls;
-  return waifuLeakedToolCalls(resp.text);
+  final fromText = waifuLeakedToolCalls(resp.text);
+  if (fromText.isNotEmpty) return fromText;
+  return waifuLeakedToolCalls(resp.reasoning);
 }

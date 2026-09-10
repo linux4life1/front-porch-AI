@@ -66,6 +66,7 @@ extension _WaifuHarnessCompact on WaifuHarness {
 
   WaifuBudgetSnapshot _measureLive({
     List<Map<String, dynamic>>? tools,
+    List<String>? images,
     LlmToolResponse? resp,
     String streamed = '',
   }) {
@@ -74,6 +75,7 @@ extension _WaifuHarnessCompact on WaifuHarness {
       prompt: _prompt(),
       budget: session.contextBudget,
       tools: tools ?? _advertisedTools(speechOnly: false),
+      images: images ?? _turnImages,
       promptTokens: resp?.promptTokens,
       completionTokens: resp?.completionTokens,
       totalTokens: resp?.totalTokens,
@@ -81,10 +83,36 @@ extension _WaifuHarnessCompact on WaifuHarness {
     );
   }
 
-  void _armBudget({List<Map<String, dynamic>>? tools}) {
-    final snap = _measureLive(tools: tools);
-    session.tokensUsed = snap.used;
-    session.tokensFromApi = snap.fromApi;
+  void _armBudget({List<Map<String, dynamic>>? tools, List<String>? images}) {
+    final snap = _measureLive(tools: tools, images: images);
+    if (!session.tokensFromApi || session.tokensUsed < 1) {
+      session.tokensUsed = snap.used;
+      session.tokensFromApi = snap.fromApi;
+      return;
+    }
+    if (snap.used > session.tokensUsed) {
+      session.tokensUsed = snap.used;
+      session.tokensFromApi = false;
+    }
+  }
+
+  int _remainingTokens({
+    required List<Map<String, dynamic>> tools,
+    List<String>? images,
+  }) {
+    return waifuOutputTokenBudget(
+      budget: session.contextBudget,
+      used: _measureLive(tools: tools, images: images).used,
+    );
+  }
+
+  Future<void> _warmIdleMeter() async {
+    try {
+      await _refreshPlanBlock();
+      await skills.refreshLocal();
+    } catch (_) {}
+    if (_aborted || session.running) return;
+    refreshMeter();
   }
 
   void _applyUsage(LlmToolResponse resp) {
@@ -95,18 +123,14 @@ extension _WaifuHarnessCompact on WaifuHarness {
   }
 
   Future<void> _maybeCompact({bool force = false}) async {
-    if (_aborted) return;
     _pruneTraces();
-    if (session.transcript.length <= kWaifuCompactKeep) {
-      if (force) _emit();
-      return;
-    }
     if (!force) {
-      final used = waifuFillUsed(
-        tokensUsed: session.tokensUsed,
-        fromApi: session.tokensFromApi,
-        estimated: _measureLive().used,
-      );
+      final live = _measureLive(
+        tools: _advertisedTools(speechOnly: false),
+      ).used;
+      final used = session.tokensFromApi && session.tokensUsed > 0
+          ? (session.tokensUsed > live ? session.tokensUsed : live)
+          : live;
       if (!waifuShouldCompact(used: used, budget: session.contextBudget)) {
         return;
       }
@@ -115,61 +139,58 @@ extension _WaifuHarnessCompact on WaifuHarness {
   }
 
   Future<void> _compactNow({required bool force}) async {
-    final keep = kWaifuCompactKeep;
-    if (session.transcript.length <= keep) return;
-    final folded = session.transcript.sublist(
-      0,
-      session.transcript.length - keep,
+    final msgs = session.transcript;
+    waifuPruneOldToolMessages(
+      msgs,
+      budget: session.contextBudget,
+      protectTokens: kWaifuCompactToolProtectTokens,
     );
-    final recent = session.transcript.sublist(session.transcript.length - keep);
-    final prev = folded
-        .where((m) => m.text.startsWith(kWaifuCompactPrefix))
-        .map((m) => m.text)
-        .join('\n');
-    final speech = folded
-        .where((m) => !m.text.startsWith(kWaifuCompactPrefix))
-        .map(
-          (m) => waifuPromptSpeech(
-            m,
-            session.coworker.name,
-            preserveThinking: false,
+    final cut = waifuCompactTailIndex(msgs);
+    final folded = cut > 0 ? msgs.sublist(0, cut) : <WaifuMessage>[];
+    final recent = cut > 0 ? msgs.sublist(cut) : List<WaifuMessage>.from(msgs);
+    var recap = '';
+    if (folded.isNotEmpty) {
+      final prev = folded
+          .where((m) => m.text.startsWith(kWaifuCompactPrefix))
+          .map((m) => m.text)
+          .join('\n');
+      final speech = folded
+          .where((m) => !m.text.startsWith(kWaifuCompactPrefix))
+          .map(
+            (m) => waifuPromptSpeech(
+              m,
+              session.coworker.name,
+              preserveThinking: false,
+            ),
+          )
+          .where((s) => s.isNotEmpty)
+          .join('\n');
+      try {
+        final resp = await llm.generate(
+          systemPrompt: kWaifuCompactSystem,
+          prompt: waifuCompactUserPrompt(
+            foldedSpeech: speech,
+            previousRecap: prev,
           ),
-        )
-        .where((s) => s.isNotEmpty)
-        .join('\n');
-    String recap;
-    try {
-      final resp = await llm.generate(
-        systemPrompt: kWaifuCompactSystem,
-        prompt: waifuCompactUserPrompt(
-          foldedSpeech: speech,
-          previousRecap: prev,
-        ),
-        tools: const [],
-        maxTokens: kWaifuCompactOutputTokens,
-      );
-      final summary = waifuVisibleText(resp?.text ?? '').trim();
-      recap = summary.isEmpty ? '' : '$kWaifuCompactPrefix\n$summary';
-    } catch (_) {
-      recap = '';
-    }
-    if (_aborted) return;
-    if (recap.isEmpty) {
-      session.transcript
-        ..clear()
-        ..addAll(
-          waifuCompactTranscript(
-            [...folded, ...recent],
-            force: true,
-            keep: keep,
-          ),
+          tools: const [],
+          maxTokens: kWaifuCompactOutputTokens,
+          forceTool: false,
         );
-    } else {
-      session.transcript
-        ..clear()
-        ..add(WaifuMessage.recap(recap))
-        ..addAll(recent);
+        final summary = waifuVisibleText(resp?.text ?? '').trim();
+        recap = summary.isEmpty ? '' : '$kWaifuCompactPrefix\n$summary';
+      } catch (_) {
+        recap = '';
+      }
     }
+    session.transcript
+      ..clear()
+      ..addAll([
+        if (folded.isNotEmpty)
+          recap.isNotEmpty
+              ? WaifuMessage.recap(recap)
+              : waifuCompactTranscript(folded, force: true, keep: 0).first,
+        ...recent,
+      ]);
     session.compactPasses++;
     try {
       _turn.live = null;

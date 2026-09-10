@@ -189,6 +189,8 @@ class WaifuStore {
           if (m.toolName != null) 'toolName': m.toolName,
           if (m.toolOk != null) 'toolOk': m.toolOk,
           if (m.toolPath != null) 'toolPath': m.toolPath,
+          if (m.toolCallId != null) 'toolCallId': m.toolCallId,
+          if (m.toolArgs != null) 'toolArgs': m.toolArgs,
         },
     ],
   };
@@ -313,6 +315,10 @@ class WaifuStore {
               toolName: e['toolName']?.toString(),
               toolOk: e.containsKey('toolOk') ? e['toolOk'] == true : null,
               toolPath: e['toolPath']?.toString(),
+              toolCallId: e['toolCallId']?.toString(),
+              toolArgs: e['toolArgs'] is Map
+                  ? Map<String, dynamic>.from(e['toolArgs'] as Map)
+                  : null,
             ),
           );
         }

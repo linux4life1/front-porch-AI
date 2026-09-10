@@ -23,23 +23,32 @@ extension _WaifuHarnessTurn on WaifuHarness {
     final system = _system();
     for (var step = 0; step < kWaifuMaxSteps; step++) {
       if (_aborted) return;
+      // OpenCode folds when the window is hot, between steps — not after
+      // Stop. First generate of a send stays the user's task.
+      if (step > 0) {
+        await _maybeCompact();
+        if (_aborted) return;
+      }
       _pruneTraces();
       _beginStream();
       final prompt = _prompt();
       final tools = _advertisedTools(speechOnly: _turn.speechOnly);
-      _armBudget(tools: tools);
+      // Pixels stay on every generate of this send. Step-0-only dropped
+      // the screenshot after the first tool, so she hunted for a capture tool.
+      final images = _turnImages;
+      _armBudget(
+        tools: tools.isEmpty ? _advertisedTools(speechOnly: false) : tools,
+        images: images,
+      );
       final resp = await llm.generate(
         systemPrompt: system,
         prompt: prompt,
         tools: tools,
-        images: step == 0 ? _turnImages : null,
+        images: images,
         onChunk: _onChunk,
-        forceTool: waifuForceFirstTool(
-          step: step,
-          speechOnly: _turn.speechOnly,
-          mutationRequired: _turn.mutationRequired,
-          mutationSucceeded: _turn.mutationSucceeded,
-        ),
+        maxTokens: _remainingTokens(tools: tools, images: images),
+        forceTool: tools.isNotEmpty && !_turn.successfulTool,
+        messages: _openaiMessages(),
       );
       if (resp != null) _applyUsage(resp);
       _endStream();
@@ -55,7 +64,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
       }
 
       _noteReasoning(resp);
-      final body = waifuVisibleText(resp.text);
+      final body = waifuSpokenLine(resp.text, reasoning: resp.reasoning);
       final calls = waifuEffectiveToolCalls(resp);
       if (calls.isNotEmpty) {
         if (_turn.speechOnly) {
@@ -69,11 +78,8 @@ extension _WaifuHarnessTurn on WaifuHarness {
             _turn.requestSpeech();
             continue;
           }
-          _reject(
-            'turn',
-            'tool work ended without an in-character spoken line',
-          );
-          _say(_turn.failureLine(body));
+          _say(kWaifuStuckWrap);
+          _turn.phase = WaifuPhase.done;
           return;
         }
         _turn.rememberToolSpeech(body);
@@ -200,6 +206,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
         priorReasoning: _priorReasoning,
         streamBuf: _streamBuf,
         paintBody: _turn.speechOnly,
+        nowMs: DateTime.now().millisecondsSinceEpoch,
       ),
     );
     if (!session.tokensFromApi) {
@@ -223,12 +230,20 @@ extension _WaifuHarnessTurn on WaifuHarness {
     _emit();
   }
 
-  void _noteToolHistory(String name, String output, bool ok, {String? path}) {
+  void _noteToolHistory(
+    String name,
+    String output,
+    bool ok, {
+    String? path,
+    Map<String, dynamic>? args,
+  }) {
     final msg = WaifuMessage.tool(
       name: name,
       output: output,
       ok: ok,
       path: path,
+      callId: 'waifu_${name}_${session.transcript.length}',
+      args: args,
     );
     final live = _turn.live;
     if (live != null) {

@@ -37,6 +37,7 @@ import 'package:front_porch_ai/ui/waifu/waifu_session_chrome.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_sidebar.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_transcript.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_whole_disk_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_work_strip.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
@@ -77,6 +78,7 @@ class _WaifuPageState extends State<WaifuPage> {
   Uint8List? _pendingImage;
   bool? _pendingVisionOk;
   String? _pendingBlindReason;
+  String? _lastMcpLine;
 
   @override
   void initState() {
@@ -90,12 +92,16 @@ class _WaifuPageState extends State<WaifuPage> {
     _syncToolsSupported(context);
     if (_parked) return;
     _parked = true;
-    _storeOf(context)?.saveLast(widget.session);
     try {
       final storage = Provider.of<StorageService>(context, listen: false);
       widget.session.contextBudget = widget.session.genSettings
           .resolveContextSize(storage);
     } catch (_) {}
+    waifuArmSessionMeter(
+      session: widget.session,
+      harness: _harnessOf(context),
+      store: _storeOf(context),
+    );
   }
 
   @override
@@ -209,6 +215,23 @@ class _WaifuPageState extends State<WaifuPage> {
         );
       }
     });
+    (widget.harness ?? _created)?.refreshMeter();
+  }
+
+  Future<void> _setPathMode(WaifuPathMode next) async {
+    if (widget.session.pathMode == next) return;
+    if (next == WaifuPathMode.wholeDisk) {
+      final ok = await showWaifuWholeDiskHonesty(context);
+      if (!ok || !mounted) return;
+    }
+    final h = widget.harness ?? _created;
+    if (h != null) {
+      h.applyPathMode(next);
+    } else {
+      widget.session.pathMode = next;
+    }
+    unawaited(_storeOf(context)?.saveLast(widget.session));
+    if (mounted) setState(() {});
   }
 
   Future<void> _slashSkills(String text) async {
@@ -338,6 +361,13 @@ class _WaifuPageState extends State<WaifuPage> {
     final amber = AppColors.porchAmberOf(context);
     final harness = _harnessOf(context);
     final coworker = session.coworker.name;
+    final mcpLine = waifuMcpStatusLine(context);
+    if (mcpLine != _lastMcpLine) {
+      _lastMcpLine = mcpLine;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) (widget.harness ?? _created)?.refreshMeter();
+      });
+    }
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
@@ -431,18 +461,26 @@ class _WaifuPageState extends State<WaifuPage> {
                 setState(() {
                   session.mcpOptIn = v;
                   final h = widget.harness ?? _created ?? _harnessOf(context);
-                  if (h != null) h.mcpOptIn = v;
+                  if (h != null) {
+                    h.mcpOptIn = v;
+                    h.refreshMeter();
+                  }
                 });
               },
               onMode: _setMode,
+              onPathMode: _setPathMode,
               onPreserveThinking: (v) {
                 setState(() => session.preserveThinking = v);
+                (widget.harness ?? _created)?.refreshMeter();
                 unawaited(_storeOf(context)?.saveLast(session));
               },
               harness: harness,
-              mcpLine: waifuMcpStatusLine(context),
+              mcpLine: mcpLine,
               skills: _skillsOf(),
-              onSkillsChanged: _refresh,
+              onSkillsChanged: () {
+                (widget.harness ?? _created)?.refreshMeter();
+                _refresh();
+              },
               onThemeChanged: _onThemeChanged,
               onCompact: harness == null
                   ? null

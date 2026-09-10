@@ -85,12 +85,14 @@ class _WaifuToolRow extends StatelessWidget {
           Expanded(
             child: Text(
               chip.detail,
-              maxLines: 1,
+              maxLines: chip.ok ? 1 : 4,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
                 fontStyle: pending ? FontStyle.italic : FontStyle.normal,
-                color: AppColors.textTertiary(context),
+                color: chip.ok
+                    ? AppColors.textTertiary(context)
+                    : AppColors.negativeAccentOf(context),
               ),
             ),
           ),

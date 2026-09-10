@@ -37,6 +37,18 @@ class WaifuPorchConsent {
 bool waifuSkipHonestyQuiz(WaifuPorchConsent? consent) =>
     consent != null && consent.honestyAccepted;
 
+/// Hide the honesty checkbox for this radio. Jail is always skippable
+/// once the porch has consented; whole-disk skips only when that scope
+/// was the one on file. Radios stay visible so Jail/Disk can change.
+bool waifuHideHonestyForScope({
+  required WaifuPorchConsent? consent,
+  required WaifuPathMode pathMode,
+}) {
+  if (!waifuSkipHonestyQuiz(consent)) return false;
+  if (pathMode == WaifuPathMode.folderJail) return true;
+  return consent!.pathMode == WaifuPathMode.wholeDisk;
+}
+
 /// Parse the parked-session map. A saved porch is sit-down consent;
 /// [honestyAccepted] false is an explicit withhold.
 WaifuPorchConsent? waifuPorchConsentFromMap(Map<dynamic, dynamic> map) {

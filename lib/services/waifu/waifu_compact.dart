@@ -25,6 +25,9 @@ import 'package:front_porch_ai/services/waifu/waifu_turn_contract.dart';
 
 const kWaifuTranscriptBudgetChars = 12000;
 const kWaifuCompactKeep = 8;
+
+/// Tool bodies kept on a fold. The rest stub. 25% of a 277k window was ~70k.
+const kWaifuCompactToolProtectTokens = 4000;
 const kWaifuRecapClipChars = 1500;
 const kWaifuCompactAt = 0.75;
 const kWaifuDefaultContextTokens = 8192;
@@ -46,6 +49,18 @@ int waifuEstimateTokens(String text) {
 int waifuEstimateToolsTokens(List<Map<String, dynamic>> tools) {
   if (tools.isEmpty) return 0;
   return waifuEstimateTokens(jsonEncode(tools));
+}
+
+/// Photo parts on every generate of the send. Floor 85 per image so a
+/// tiny PNG still counts; larger base64 rides chars/4 like the rest.
+int waifuEstimateImageTokens(List<String>? images) {
+  if (images == null || images.isEmpty) return 0;
+  var n = 0;
+  for (final img in images) {
+    final guess = waifuEstimateTokens(img);
+    n += guess < 85 ? 85 : guess;
+  }
+  return n;
 }
 
 int waifuPruneProtectTokens(int budget) {
@@ -92,6 +107,7 @@ WaifuBudgetSnapshot waifuMeasureRequest({
   required String prompt,
   required int budget,
   List<Map<String, dynamic>> tools = const [],
+  List<String>? images,
   int? promptTokens,
   int? completionTokens,
   int? totalTokens,
@@ -114,6 +130,7 @@ WaifuBudgetSnapshot waifuMeasureRequest({
         waifuEstimateTokens(systemPrompt) +
         waifuEstimateTokens(prompt) +
         waifuEstimateToolsTokens(tools) +
+        waifuEstimateImageTokens(images) +
         waifuEstimateTokens(streamed),
     budget: cap,
   );
@@ -170,14 +187,26 @@ String _stubTrace(String raw, int tokens) {
   return '$name\n(pruned, was $tokens tokens)';
 }
 
+/// Index of the last user line (start of the live turn). 0 if none.
+int waifuCompactTailIndex(List<WaifuMessage> msgs) {
+  for (var i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].kind == WaifuMsgKind.user) return i;
+  }
+  return 0;
+}
+
 /// Stub old tool-kind messages in the live transcript.
-void waifuPruneOldToolMessages(List<WaifuMessage> msgs, {required int budget}) {
+void waifuPruneOldToolMessages(
+  List<WaifuMessage> msgs, {
+  required int budget,
+  int? protectTokens,
+}) {
   final tools = <int>[];
   for (var i = 0; i < msgs.length; i++) {
     if (msgs[i].kind == WaifuMsgKind.tool) tools.add(i);
   }
   if (tools.isEmpty) return;
-  final protect = waifuPruneProtectTokens(budget);
+  final protect = protectTokens ?? waifuPruneProtectTokens(budget);
   var kept = 0;
   var pruneFrom = -1;
   for (var t = tools.length - 1; t >= 0; t--) {
@@ -198,7 +227,7 @@ void waifuPruneOldToolMessages(List<WaifuMessage> msgs, {required int budget}) {
     msgs[i] = WaifuMessage.tool(
       name: name,
       output: '$name\n(pruned, was $tokens tokens)',
-      ok: msgs[i].toolOk ?? true,
+      ok: msgs[i].toolOk == true,
       path: msgs[i].toolPath,
     );
   }
@@ -207,23 +236,35 @@ void waifuPruneOldToolMessages(List<WaifuMessage> msgs, {required int budget}) {
   }
 }
 
+const kWaifuDuplicateInHistory = 'already in history, unchanged';
+
+bool waifuIsDuplicateToolStub(String output) =>
+    output.startsWith(kWaifuDuplicateInHistory);
+
 String? waifuDuplicateReadStub({
   required List<WaifuMessage> transcript,
   required String path,
+  Map<String, dynamic>? args,
 }) {
   final want = waifuNormalizeVerifyPath(path);
   if (want.isEmpty) return null;
+  final wantWindow = waifuReadWindowKey(args);
   for (final m in transcript.reversed) {
     if (m.kind != WaifuMsgKind.tool) continue;
     final name = m.toolName ?? '';
     if (kWaifuReceiptMutationTools.contains(name) && m.toolOk == true) {
-      return null;
+      // Only the mutated path is stale. Sibling reads stay in history.
+      if (waifuReadVerifiesMutate(want, [m.toolPath ?? ''])) {
+        return null;
+      }
+      continue;
     }
     if (name == kWaifuToolRead &&
         m.toolOk == true &&
         waifuNormalizeVerifyPath(m.toolPath ?? '') == want &&
-        !m.text.contains('(pruned)')) {
-      return 'already in history, unchanged';
+        !m.text.contains('(pruned)') &&
+        waifuReadWindowKey(m.toolArgs) == wantWindow) {
+      return kWaifuDuplicateInHistory;
     }
   }
   return null;
@@ -239,7 +280,7 @@ String? waifuDuplicateGlobStub({required List<WaifuMessage> transcript}) {
     if (name == kWaifuToolGlob &&
         m.toolOk == true &&
         !m.text.contains('(pruned)')) {
-      return 'already in history, unchanged';
+      return kWaifuDuplicateInHistory;
     }
   }
   return null;

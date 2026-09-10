@@ -63,14 +63,19 @@ const kWaifuLocalModelWarning =
     'Small local models often skip tools or wreck edits. A remote coding '
     'model works much better.';
 
+const kWaifuHonestySkipped =
+    'Honesty is already on file for this scope. You can still switch Jail '
+    'or Disk.';
+
 String waifuYoloWarning(WaifuPathMode pathMode) {
   return switch (pathMode) {
     WaifuPathMode.folderJail =>
-      'Yolo skips “are you sure?” on writes and commands. The folder jail '
-          'still holds, and the wipe/secret hard stops stay awake.',
+      'Yolo skips “are you sure?” on writes, commands, and repeats. The '
+          'folder jail still holds, and the wipe/secret hard stops stay awake.',
     WaifuPathMode.wholeDisk =>
-      'Yolo skips “are you sure?” and this coworker can walk the whole disk. '
-          'The wipe/secret hard stops stay awake; your backup should too.',
+      'Yolo skips “are you sure?” — including repeats — and this coworker '
+          'can walk the whole disk. The wipe/secret hard stops stay awake; '
+          'your backup should too.',
   };
 }
 

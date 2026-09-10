@@ -83,6 +83,8 @@ class WaifuMessage {
     this.toolName,
     this.toolOk,
     this.toolPath,
+    this.toolCallId,
+    this.toolArgs,
   }) : kind =
            kind ??
            (hidden
@@ -117,12 +119,16 @@ class WaifuMessage {
     required String output,
     required bool ok,
     String? path,
+    String? callId,
+    Map<String, dynamic>? args,
   }) : this(
          kind: WaifuMsgKind.tool,
          text: output,
          toolName: name,
          toolOk: ok,
          toolPath: path,
+         toolCallId: callId,
+         toolArgs: args,
        );
 
   final WaifuMsgKind kind;
@@ -135,6 +141,8 @@ class WaifuMessage {
   final String? toolName;
   final bool? toolOk;
   final String? toolPath;
+  final String? toolCallId;
+  final Map<String, dynamic>? toolArgs;
 
   bool get isUser => kind == WaifuMsgKind.user;
 
@@ -160,6 +168,8 @@ class WaifuMessage {
       toolName: toolName,
       toolOk: toolOk,
       toolPath: toolPath,
+      toolCallId: toolCallId,
+      toolArgs: toolArgs,
     );
   }
 
@@ -206,7 +216,7 @@ class WaifuSession {
   final String folderRoot;
   final CharacterCard coworker;
   WaifuMode mode;
-  final WaifuPathMode pathMode;
+  WaifuPathMode pathMode;
   String title;
   WaifuLangRuntime? langs;
   final Set<String> suggestedLangs;

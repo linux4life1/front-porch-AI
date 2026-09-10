@@ -24,7 +24,10 @@ void main() {
     expect(find.byKey(const Key('waifu-mode-plan')), findsOneWidget);
     expect(find.byKey(const Key('waifu-mode-build')), findsOneWidget);
     expect(find.byKey(const Key('waifu-mode-yolo')), findsOneWidget);
-    expect(find.byType(ChoiceChip), findsNWidgets(3));
+    expect(find.byKey(const Key('waifu-path-mode-folderJail')), findsOneWidget);
+    expect(find.byKey(const Key('waifu-path-mode-wholeDisk')), findsOneWidget);
+    // 3 mode chips + 2 Jail/Disk chips. AppBar scope stays a receipt.
+    expect(find.byType(ChoiceChip), findsNWidgets(5));
     expect(find.byKey(const Key('waifu-appbar-mode')), findsOneWidget);
     expect(find.byKey(const Key('waifu-appbar-scope')), findsOneWidget);
     expect(
@@ -97,7 +100,8 @@ void main() {
     );
     expect(find.byKey(const Key('waifu-honesty-checkbox')), findsNothing);
     expect(find.byKey(const Key('waifu-honesty-skipped')), findsOneWidget);
-    expect(find.byKey(const Key('waifu-path-mode-wholeDisk')), findsNothing);
+    // Radios stay so a known porch can leave jail. Honesty is the skip.
+    expect(find.byKey(const Key('waifu-path-mode-wholeDisk')), findsOneWidget);
     final confirm = find.byKey(const Key('waifu-sit-down-confirm'));
     expect(tester.widget<ElevatedButton>(confirm).onPressed, isNotNull);
   });

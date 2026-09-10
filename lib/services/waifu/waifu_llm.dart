@@ -22,6 +22,17 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 
+/// Think budget for a coding turn. `0` is unlimited on several hosts.
+/// `enabled: false` adds `exclude: true`, which hides thoughts and does
+/// not stop GLM 5.3. 8192 tokens at ~20 tok/s is ~400s — a novel, not a
+/// patch. 512 is enough to look at a screenshot and pick a tool.
+/// Do not send `effort`: GLM 5.3 remaps `low`→`high` and then fills the
+/// whole budget.
+const kWaifuThinkCapTokens = 512;
+
+/// Wrap-up (no tools). A 512-token think on Nano-GPT is ~2 minutes.
+const kWaifuWrapThinkCapTokens = 64;
+
 class WaifuLlmTurn {
   const WaifuLlmTurn({
     required this.systemPrompt,
@@ -29,6 +40,8 @@ class WaifuLlmTurn {
     required this.tools,
     this.images,
     this.forceTool = false,
+    this.maxTokens,
+    this.messages,
   });
 
   final String systemPrompt;
@@ -36,6 +49,8 @@ class WaifuLlmTurn {
   final List<Map<String, dynamic>> tools;
   final List<String>? images;
   final bool forceTool;
+  final int? maxTokens;
+  final List<Map<String, Object>>? messages;
 }
 
 /// Thin generateWithTools door. Production wraps [LLMService]; tests inject
@@ -48,7 +63,8 @@ abstract class WaifuLlm {
     List<String>? images,
     void Function(String chunk)? onChunk,
     int? maxTokens,
-    bool forceTool = false,
+    bool forceTool = true,
+    List<Map<String, Object>>? messages,
   });
 
   void abort() {}
@@ -64,8 +80,6 @@ class LlmServiceWaifuLlm implements WaifuLlm {
     this.settingsOf,
     this.storage,
     this.remainingTokensOf,
-    this.reasoningEnabled = false,
-    this.reasoningEffort = 'medium',
   });
 
   /// Fresh each call so Model Settings swapping backends takes effect.
@@ -75,8 +89,6 @@ class LlmServiceWaifuLlm implements WaifuLlm {
 
   /// Remaining context for this turn. Chat Max Output Tokens is ignored.
   final int Function()? remainingTokensOf;
-  final bool reasoningEnabled;
-  final String reasoningEffort;
 
   @override
   Future<LlmToolResponse?> generate({
@@ -86,15 +98,17 @@ class LlmServiceWaifuLlm implements WaifuLlm {
     List<String>? images,
     void Function(String chunk)? onChunk,
     int? maxTokens,
-    bool forceTool = false,
+    bool forceTool = true,
+    List<Map<String, Object>>? messages,
   }) {
     final g = settingsOf?.call();
     final s = storage;
-    final mustTool = forceTool && tools.isNotEmpty;
+    final toolsOn = tools.isNotEmpty;
     return _serviceOf().generateWithTools(
       GenerationParams(
         prompt: prompt,
         systemPrompt: systemPrompt,
+        chatMessages: messages,
         maxLength:
             maxTokens ??
             remainingTokensOf?.call() ??
@@ -104,14 +118,15 @@ class LlmServiceWaifuLlm implements WaifuLlm {
         minP: g != null && s != null ? g.resolveMinP(s) : 0.0,
         topP: g != null && s != null ? g.resolveTopP(s) : 0.9,
         topK: g != null && s != null ? g.resolveTopK(s) : 0,
-        reasoningEnabled: g != null && s != null
-            ? g.resolveReasoningEnabled(s)
-            : reasoningEnabled,
-        reasoningEffort: g != null && s != null
-            ? g.resolveReasoningEffort(s)
-            : reasoningEffort,
-        reasoningMaxTokens: mustTool ? 0 : null,
-        toolChoice: mustTool ? kToolChoiceRequired : null,
+        // Visible short think, then a tool. Off+exclude hides the chevron
+        // and does not stop GLM 5.3. Empty effort: do not remap Low→High.
+        // Required only when the harness asks — after the first tool, auto.
+        reasoningEnabled: true,
+        reasoningEffort: '',
+        reasoningMaxTokens: toolsOn
+            ? kWaifuThinkCapTokens
+            : kWaifuWrapThinkCapTokens,
+        toolChoice: toolsOn && forceTool ? kToolChoiceRequired : null,
         images: images,
         onChunk: onChunk,
       ),
@@ -179,7 +194,8 @@ class ScriptedWaifuLlm implements WaifuLlm {
     List<String>? images,
     void Function(String chunk)? onChunk,
     int? maxTokens,
-    bool forceTool = false,
+    bool forceTool = true,
+    List<Map<String, Object>>? messages,
   }) async {
     waitingAt = _i;
     await beforeGenerate?.call(_i);
@@ -195,6 +211,8 @@ class ScriptedWaifuLlm implements WaifuLlm {
         tools: tools,
         images: images,
         forceTool: forceTool,
+        maxTokens: maxTokens,
+        messages: messages,
       ),
     );
     if (_unsupported) return null;

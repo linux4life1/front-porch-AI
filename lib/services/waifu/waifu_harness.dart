@@ -26,9 +26,11 @@ import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
 import 'package:front_porch_ai/services/waifu/waifu_coworker_prompt.dart';
 import 'package:front_porch_ai/services/waifu/waifu_fs.dart';
 import 'package:front_porch_ai/services/waifu/waifu_honesty.dart';
+import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_llm.dart';
 import 'package:front_porch_ai/services/waifu/waifu_mcp_filter.dart';
 import 'package:front_porch_ai/services/waifu/waifu_mentions.dart';
+import 'package:front_porch_ai/services/waifu/waifu_openai_messages.dart';
 import 'package:front_porch_ai/services/waifu/waifu_permissions.dart';
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_plan_codec.dart';
@@ -44,7 +46,6 @@ import 'package:front_porch_ai/services/waifu/waifu_subagent.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 import 'package:front_porch_ai/services/waifu/waifu_turn.dart';
-import 'package:front_porch_ai/services/waifu/waifu_turn_contract.dart';
 import 'package:front_porch_ai/services/waifu/waifu_undo.dart';
 import 'package:front_porch_ai/services/waifu/waifu_webfetch.dart';
 import 'package:front_porch_ai/services/waifu/waifu_workflow.dart';
@@ -92,7 +93,10 @@ class WaifuHarness {
        bash = bash ?? WaifuBash(session.folderRoot, pathMode: session.pathMode),
        undoLog = undo ?? WaifuUndo(),
        todos = todos ?? session.todos,
-       skills = skills ?? WaifuSkillHub(projectRoot: session.folderRoot);
+       skills = skills ?? WaifuSkillHub(projectRoot: session.folderRoot) {
+    _armBudget();
+    unawaited(_warmIdleMeter());
+  }
 
   final WaifuSession session;
   final WaifuLlm llm;
@@ -131,6 +135,21 @@ class WaifuHarness {
   bool get isRunning => session.running;
   bool get canUndo => undoLog.canUndo;
   bool get canRedo => undoLog.canRedo;
+
+  /// Live Jail/Disk switch. File tools, bash, and decide() all read these.
+  void applyPathMode(WaifuPathMode next) {
+    session.pathMode = next;
+    fs.pathMode = next;
+    bash.pathMode = next;
+    permissions.pathMode = next;
+    _armBudget();
+  }
+
+  /// Re-count system + tools + prompt for the context bar.
+  void refreshMeter() {
+    _armBudget();
+    _emit();
+  }
 
   Future<void> undo() async {
     final rec = await undoLog.undo(
@@ -184,6 +203,7 @@ class WaifuHarness {
     _mentionBlock = await waifuExpandMentions(text, session.folderRoot);
     waifuRewriteSlashUser(session.transcript, text);
     await skills.refreshLocal();
+    _armBudget();
     _emit();
     try {
       if (_refuseIfToolsUnsupported()) return;
@@ -211,9 +231,12 @@ class WaifuHarness {
     await send(next);
   }
 
-  /// `/compact`. LLM recap when there is enough history; always remeters.
+  /// `/compact`. Always remeters. Folds older turns and stubs old tools
+  /// even when the bar is API-stuck over the cap.
   Future<void> compact() async {
+    if (session.running) abort();
     await _maybeCompact(force: true);
+    session.tokensFromApi = false;
     _armBudget();
     await store?.saveLast(session);
     _emit();
@@ -267,14 +290,14 @@ class WaifuHarness {
           !kWaifuExploreToolNames.contains(canon) &&
           canon != kWaifuToolTask) {
         permissions.record(name: name, args: work);
-        _reject(canon, 'explore is read-only');
+        _reject(canon, 'explore is read-only', args: work, path: call.path);
         return;
       }
       final verdict = permissions.decide(call, pathMode: session.pathMode);
       switch (verdict.kind) {
         case WaifuDecisionKind.deny:
           permissions.record(name: name, args: work);
-          _reject(canon, verdict.reason);
+          _reject(canon, verdict.reason, args: work, path: call.path);
           return;
         case WaifuDecisionKind.ask:
           final doom = permissions.isDoom(name, work);
@@ -288,11 +311,12 @@ class WaifuHarness {
           );
           if (_aborted) {
             _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
+            _noteToolHistory(canon, 'stopped', false, path: call.path);
             return;
           }
           if (decision == WaifuAskDecision.deny) {
             permissions.record(name: name, args: work);
-            _reject(canon, 'denied by user');
+            _reject(canon, 'denied by user', args: work, path: call.path);
             return;
           }
           if (decision == WaifuAskDecision.allowAlways) {
@@ -311,7 +335,7 @@ class WaifuHarness {
             : await waifuPlanWriteLiveBlock(session.folderRoot, path);
         if (live != null) {
           permissions.record(name: name, args: work);
-          _reject(canon, live);
+          _reject(canon, live, args: work, path: call.path);
           return;
         }
       }
@@ -323,6 +347,7 @@ class WaifuHarness {
       };
       if (_aborted) {
         _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
+        _noteToolHistory(canon, result.output, false, path: call.path);
         return;
       }
       if (result.write != null) {
@@ -335,11 +360,19 @@ class WaifuHarness {
       }
       _turn.noteResult(canon, result, session.lastWrite, args: work);
       _noteVerifyReceipt();
-      final detail = result.ok
-          ? waifuChipDetail(canon, work)
-          : waifuClipChipError(result.output);
+      final detail = !result.ok
+          ? waifuClipChipError(result.output)
+          : waifuIsDuplicateToolStub(result.output)
+          ? kWaifuDuplicateInHistory
+          : waifuChipDetail(canon, work);
       _pushChip(WaifuToolChip(name: canon, detail: detail, ok: result.ok));
-      _noteToolHistory(canon, result.output, result.ok, path: call.path);
+      _noteToolHistory(
+        canon,
+        result.output,
+        result.ok,
+        path: call.path,
+        args: work,
+      );
     } catch (e) {
       _reject(canon, '$e');
     } finally {
@@ -367,11 +400,16 @@ class WaifuHarness {
     return decision;
   }
 
-  void _reject(String name, String message) {
+  void _reject(
+    String name,
+    String message, {
+    String? path,
+    Map<String, dynamic>? args,
+  }) {
     _pushChip(
       WaifuToolChip(name: name, detail: waifuClipChipError(message), ok: false),
     );
-    _noteToolHistory(name, message, false);
+    _noteToolHistory(name, message, false, path: path, args: args);
   }
 
   void _pushChip(WaifuToolChip chip) {
@@ -393,18 +431,42 @@ class WaifuHarness {
 
   String _system() => buildWaifuCoworkerPrompt(session.coworker);
 
+  Map<String, String> _loopBlocks() => {
+    'todos': todos.items.isEmpty ? '' : todos.read(),
+    'skills': skills.catalogPrompt,
+    'mcp': mcpOptIn ? waifuMcpToolsLine(waifuKeepMcpTools(_mcpToolsNow())) : '',
+  };
+
   String _prompt() {
+    final blocks = _loopBlocks();
     return waifuLoopUserPrompt(
       folderName: session.folderRoot,
       coworkerName: session.coworker.name,
       transcript: session.transcript,
-      todos: todos.items.isEmpty ? '' : todos.read(),
+      todos: blocks['todos']!,
       mentionBlock: _mentionBlock,
       toolTrace: '',
-      skillBlock: skills.catalogPrompt,
-      mcpBlock: mcpOptIn
-          ? waifuMcpToolsLine(waifuKeepMcpTools(_mcpToolsNow()))
-          : '',
+      skillBlock: blocks['skills']!,
+      mcpBlock: blocks['mcp']!,
+      preserveThinking: session.preserveThinking,
+      pathMode: session.pathMode,
+      taskDepthRemaining: kWaifuMaxTaskDepth - depth,
+      turnContractCue: _safeCue(),
+      mode: session.mode,
+      planBlock: _planBlock,
+    );
+  }
+
+  List<Map<String, Object>> _openaiMessages() {
+    final blocks = _loopBlocks();
+    return waifuOpenAiMessages(
+      folderName: session.folderRoot,
+      coworkerName: session.coworker.name,
+      transcript: session.transcript,
+      todos: blocks['todos']!,
+      mentionBlock: _mentionBlock,
+      skillBlock: blocks['skills']!,
+      mcpBlock: blocks['mcp']!,
       preserveThinking: session.preserveThinking,
       pathMode: session.pathMode,
       taskDepthRemaining: kWaifuMaxTaskDepth - depth,

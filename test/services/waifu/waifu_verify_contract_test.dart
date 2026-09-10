@@ -65,7 +65,7 @@ void main() {
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
     expect(waifuLooksVerifyCommand('swift test'), isTrue);
-    expect(waifuLooksVerifyCommand('swift build'), isTrue);
+    expect(waifuLooksVerifyCommand('swift build'), isFalse);
     expect(waifuLooksVerifyCommand('echo flutter test'), isFalse);
     expect(waifuLooksVerifyCommand('ls -la'), isFalse);
     expect(waifuLooksVerifyCommand('test -f parser.dart'), isFalse);

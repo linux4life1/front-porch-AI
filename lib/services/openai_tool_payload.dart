@@ -54,9 +54,14 @@ Map<String, dynamic> attachTools(
   ToolChoiceStyle style = ToolChoiceStyle.named,
   bool includeUsage = false,
 }) {
-  payload['tools'] = tools;
-  payload['tool_choice'] = _styleValue(style, functionName: toolChoice);
   payload['stream'] = stream;
+  if (tools.isEmpty) {
+    payload.remove('tools');
+    payload.remove('tool_choice');
+  } else {
+    payload['tools'] = tools;
+    payload['tool_choice'] = _styleValue(style, functionName: toolChoice);
+  }
   // Last SSE event then carries `usage` (OpenAI / OpenRouter / llama.cpp).
   // Local Kobold is not asked: some builds 400 on stream_options.
   if (stream && includeUsage) {

@@ -36,8 +36,8 @@ extension WaifuHarnessPlan on WaifuHarness {
     );
     permissions.mode = session.mode;
     await _refreshPlanBlock();
+    refreshMeter();
     await store?.saveLast(session);
-    _emit();
     return plan;
   }
 
@@ -48,8 +48,8 @@ extension WaifuHarnessPlan on WaifuHarness {
     );
     permissions.mode = session.mode;
     await _refreshPlanBlock();
+    refreshMeter();
     await store?.saveLast(session);
-    _emit();
     return plan;
   }
 
@@ -57,7 +57,7 @@ extension WaifuHarnessPlan on WaifuHarness {
     await waifuDiscardPlan(session);
     permissions.mode = session.mode;
     await _refreshPlanBlock();
+    refreshMeter();
     await store?.saveLast(session);
-    _emit();
   }
 }

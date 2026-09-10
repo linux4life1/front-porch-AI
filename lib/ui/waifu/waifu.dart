@@ -49,5 +49,6 @@ export 'waifu_transcript.dart';
 export 'waifu_question_dialog.dart';
 export 'waifu_todo_list.dart';
 export 'waifu_tool_log.dart';
+export 'waifu_whole_disk_dialog.dart';
 export 'waifu_wizard_page.dart';
 export 'waifu_work_strip.dart';

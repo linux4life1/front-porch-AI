@@ -99,7 +99,7 @@ class WaifuBash {
 
   final String root;
   final Duration timeout;
-  final WaifuPathMode pathMode;
+  WaifuPathMode pathMode;
   final Map<String, String> environment;
   final Set<Process> _activeProcesses = {};
   int _abortEpoch = 0;
@@ -197,47 +197,12 @@ Future<String?> waifuBashResolvedSecretBlock(
   return null;
 }
 
-/// Re-check existing command paths after symlink resolution. This closes the
-/// whole-disk case where a harmless-looking relative target resolves to the
-/// sit-down folder's parent or another protected root.
+/// Re-check the recursive command's real targets after symlink resolution.
+/// mkdir/cd paths in the same `&&` chain are not wipe targets.
 Future<String?> waifuBashResolvedWipeBlock(String command, String root) async {
-  final lower = command.toLowerCase();
-  final words = waifuShellWords(lower);
-  final recursiveOperation =
-      (words.any((word) => word == 'rm' || word.endsWith('/rm')) &&
-          (words.contains('--recursive') ||
-              words.any(
-                (word) =>
-                    word.startsWith('-') &&
-                    !word.startsWith('--') &&
-                    word.contains('r'),
-              ))) ||
-      (words.any((word) => word == 'find' || word.endsWith('/find')) &&
-          words.contains('-delete')) ||
-      lower.contains('shutil.rmtree') ||
-      ((words.any(
-            (word) =>
-                word == 'chmod' ||
-                word.endsWith('/chmod') ||
-                word == 'chown' ||
-                word.endsWith('/chown'),
-          )) &&
-          (words.contains('--recursive') ||
-              words.any(
-                (word) =>
-                    word.startsWith('-') &&
-                    !word.startsWith('--') &&
-                    word.contains('r'),
-              )));
-  if (!recursiveOperation) return null;
-  for (final word in words) {
-    if (word.startsWith('-') ||
-        word.contains(r'$') ||
-        word.contains('*') ||
-        word.contains('?') ||
-        word.contains('=')) {
-      continue;
-    }
+  final targets = waifuBashRecursiveWipeTargets(command);
+  if (targets.isEmpty) return null;
+  for (final word in targets) {
     final hit = await WaifuJail.resolveLive(
       root,
       word,
@@ -255,13 +220,23 @@ Future<String?> waifuBashResolvedWipeBlock(String command, String root) async {
 
 /// Folder-jail bash preflight. Command names may live outside the project;
 /// model-supplied file arguments, redirects, `cd`, and symlink targets may not.
+String waifuRewriteBashPathAliases(String command) {
+  var t = command;
+  t = t.replaceAll(RegExp(r'\$\{PWD\}', caseSensitive: false), '.');
+  t = t.replaceAll(RegExp(r'\$PWD', caseSensitive: false), '.');
+  return t;
+}
+
 Future<String?> waifuBashScopeBlock(
   String command,
   String root,
   WaifuPathMode pathMode,
 ) async {
   if (pathMode == WaifuPathMode.wholeDisk) return null;
-  for (final segment in command.split(RegExp(r'(?:&&|\|\||[;\n])'))) {
+  const jail =
+      'Folder jail: bash paths and cd cannot leave the sit-down folder';
+  final rewritten = waifuRewriteBashPathAliases(command);
+  for (final segment in rewritten.split(RegExp(r'(?:&&|\|\||[;\n])'))) {
     final words = waifuShellWords(segment);
     for (var i = 0; i < words.length; i++) {
       final word = words[i];
@@ -269,26 +244,22 @@ Future<String?> waifuBashScopeBlock(
         final destinations = words
             .skip(i + 1)
             .where((candidate) => !candidate.startsWith('-'));
-        if (destinations.isEmpty) {
-          return 'Folder jail: bash paths and cd cannot leave the sit-down '
-              'folder';
+        if (destinations.isEmpty ||
+            destinations.any((candidate) => candidate.contains(r'$'))) {
+          return jail;
         }
       }
       final candidate = word.contains('=') ? word.split('=').last : word;
-      if (i == 0 ||
-          (word.startsWith('-') && !word.contains('=')) ||
-          candidate.contains(r'$')) {
+      if (i == 0 || (word.startsWith('-') && !word.contains('='))) {
         continue;
       }
+      if (candidate.contains(r'$')) return jail;
       final hit = await WaifuJail.resolveLive(
         root,
         candidate,
         pathMode: WaifuPathMode.folderJail,
       );
-      if (!hit.ok) {
-        return 'Folder jail: bash paths and cd cannot leave the sit-down '
-            'folder';
-      }
+      if (!hit.ok) return jail;
     }
   }
   return null;

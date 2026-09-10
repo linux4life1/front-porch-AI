@@ -56,13 +56,14 @@ void main() {
     expect(p.hardBlock(name: 'read', args: {'path': 'a.txt'}), isNull);
   });
 
-  test('Yolo does not ask until the 3rd identical tool (doom-loop)', () {
+  test('Yolo never asks, including the 3rd identical tool', () {
+    // Product: Yolo is hard floor only. Repeat-command ask is Build.
     final p = WaifuPermissions(mode: WaifuMode.yolo);
     const args = {'path': 'a.txt', 'contents': 'x'};
     expect(p.needsAsk(name: 'write', args: args), isFalse);
     p.record(name: 'write', args: args);
     expect(p.needsAsk(name: 'write', args: args), isFalse);
     p.record(name: 'write', args: args);
-    expect(p.needsAsk(name: 'write', args: args), isTrue);
+    expect(p.needsAsk(name: 'write', args: args), isFalse);
   });
 }

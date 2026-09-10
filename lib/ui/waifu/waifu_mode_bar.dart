@@ -27,15 +27,21 @@ class WaifuModeBar extends StatelessWidget {
     required this.mode,
     required this.onChanged,
     this.pathMode = WaifuPathMode.folderJail,
+    this.onPathMode,
     this.enabled = true,
+    bool? pathEnabled,
     this.preserveThinking = false,
     this.onPreserveThinking,
-  });
+  }) : pathEnabled = pathEnabled ?? enabled;
 
   final WaifuMode mode;
   final ValueChanged<WaifuMode> onChanged;
   final WaifuPathMode pathMode;
+  final ValueChanged<WaifuPathMode>? onPathMode;
   final bool enabled;
+
+  /// Jail/Disk can switch mid-turn. Plan/Build/Yolo stays [enabled].
+  final bool pathEnabled;
   final bool preserveThinking;
   final ValueChanged<bool>? onPreserveThinking;
 
@@ -58,6 +64,23 @@ class WaifuModeBar extends StatelessWidget {
                   onSelected: !enabled || mode == m
                       ? null
                       : (_) => onChanged(m),
+                  selectedColor: amber.withValues(alpha: 0.3),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final scope in WaifuPathMode.values)
+                ChoiceChip(
+                  key: Key('waifu-path-mode-${scope.name}'),
+                  label: Text(waifuScopeBadgeLabel(scope)),
+                  selected: pathMode == scope,
+                  onSelected:
+                      !pathEnabled || onPathMode == null || pathMode == scope
+                      ? null
+                      : (_) => onPathMode!(scope),
                   selectedColor: amber.withValues(alpha: 0.3),
                 ),
             ],

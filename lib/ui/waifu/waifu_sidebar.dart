@@ -43,6 +43,7 @@ class WaifuSidebar extends StatelessWidget {
     required this.mcpOptIn,
     required this.onMcpOptIn,
     required this.onMode,
+    this.onPathMode,
     this.onPreserveThinking,
     this.harness,
     this.mcpLine,
@@ -57,6 +58,7 @@ class WaifuSidebar extends StatelessWidget {
   final bool mcpOptIn;
   final ValueChanged<bool> onMcpOptIn;
   final ValueChanged<WaifuMode> onMode;
+  final ValueChanged<WaifuPathMode>? onPathMode;
   final ValueChanged<bool>? onPreserveThinking;
   final WaifuHarness? harness;
   WaifuTodos? get todos => harness?.todos;
@@ -155,7 +157,9 @@ class WaifuSidebar extends StatelessWidget {
                       mode: session.mode,
                       pathMode: session.pathMode,
                       enabled: !session.running,
+                      pathEnabled: true,
                       onChanged: onMode,
+                      onPathMode: onPathMode,
                       preserveThinking: session.preserveThinking,
                       onPreserveThinking: onPreserveThinking,
                     ),

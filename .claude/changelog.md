@@ -1,3 +1,225 @@
+## 2026-09-10 — fix(waifu): /tmp inspect is not a disk wipe; wrap-up is not a harness essay
+- **Why:** Whole-disk `mkdir /tmp/epub_inspect && rm -r META-INF` treated
+  every path in the `&&` chain as `rm -r` of that path, so /tmp mkdir was
+  "protected root". Wrap-up that was a planning dump painted "I stopped
+  without a proper porch report instead of leaving an empty bubble" as
+  Iris's spoken line, then the next turn echoed it.
+- **What:** Recursive wipe checks only the rm/find/chmod targets. Named
+  `/tmp/extract` folders may be removed; `/tmp` itself may not. A dump
+  wrap-up keeps Thought and speaks "That's as far as I got." — no red
+  turn chip, no empty-bubble essay.
+- **Files:** `waifu_deny.dart`, `waifu_bash.dart`, `waifu_stream.dart`,
+  `waifu_turn.dart`, `waifu_turn_contract.dart`, `waifu_harness_turn.dart`,
+  `waifu_scratch_bash_test.dart`, `waifu_wrap_fallback_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): dropped screenshots actually reach the model
+- **Why:** Composer kept the PNG, but Waifu's OpenAI `chatMessages` list is
+  text-only. `openAiMessages` and the local stream builder returned that list
+  without attaching `image_url`, and later loop steps passed `images: null`.
+  She only saw the word `(photo)` and hunted for a screenshot tool.
+- **What:** Last user row becomes a multimodal `image_url` PNG. The photo
+  stays on every generate of that send, not only step 0. Chat's single-blob
+  path is unchanged.
+- **Files:** `llm_service.dart`, `openai_chat_stream.dart`,
+  `waifu_harness_turn.dart`, `waifu_compact.dart`,
+  `open_router_service.dart`, `waifu_openai_messages_test.dart`,
+  `waifu_vision_wire_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): wrap-up cannot be a think dump
+- **Why:** Nano-GPT/GLM put planning in `content` with no think tags. Wrap-up
+  painted "The user wants two things…" as the spoken bubble. A 512-token
+  think on that host is ~2 minutes per turn.
+- **What:** Untagged planning stays in Thought, never the porch line.
+  Wrap-up think cap is 64 tokens. "The user wants…" is not remembered speech.
+- **Files:** `waifu_stream.dart`, `waifu_harness_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_llm.dart`, `waifu_leak_contract_test.dart`,
+  `waifu_first_tool_soon_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): /compact actually folds and remeters
+- **Why:** `/compact` no-op'd when there were ≤8 transcript rows (tools
+  hidden in the UI), kept the last 8 tool dumps, and left the bar stuck
+  at the last API total (300k/277k). User saw nothing.
+- **What:** `/compact` always remeters. Keeps the live user turn, recaps
+  older turns, stubs old tool bodies. Visible "Folded old turns." Aborts
+  an in-flight run first. Same path as a hot auto-fold.
+- **Files:** `waifu_harness.dart`, `waifu_harness_compact.dart`,
+  `waifu_compact.dart`, `waifu_compact_llm_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): compact mid-loop like OpenCode
+- **Why:** Bar showed 300086/277518. Compact ran only after a finished
+  send, and Stop skipped it. A long tool loop never folded. sequentialthinking
+  MCP was a second think loop in the same window.
+- **What:** Fold when the window is hot between steps (first generate of a
+  send stays the user's task). Stop still folds. sequentialthinking is not
+  advertised.
+- **Files:** `waifu_harness_compact.dart`, `waifu_harness_turn.dart`,
+  `waifu_mcp_filter.dart`, `waifu_compact_llm_test.dart`,
+  `waifu_mcp_filter_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): stop forcing a tool after the first one
+- **Why:** GLM was required to call a tool on every step. After a write it
+  could not speak, so it re-read files already in history (and ran compile)
+  until Stop. Same trap on Godot/Unreal/anything — not a Swift bug.
+- **What:** First generate still `tool_choice: required`. After any
+  successful tool, tools stay advertised but choice is auto. Door honors
+  `forceTool`.
+- **Files:** `waifu_llm.dart`, `waifu_harness_turn.dart`,
+  `waifu_first_tool_soon_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): stop rewriting Low to High (400s thinks)
+- **Why:** User set reasoning Low. Waifu sent `effort: low`; GLM 5.3's
+  menu is none/high/max so the wire remapped to High, then allowed 8192
+  think tokens. At ~20 tok/s that is ~400s between writes.
+- **What:** Waifu omits `effort` (cap only). Think cap 8192 → 512. Chat
+  still remaps Low→High for that family; the coding loop does not.
+- **Files:** `waifu_llm.dart`, `open_router_service.dart`,
+  `openai_chat_stream.dart`, `reasoning_effort.dart`,
+  `waifu_harness_loop_wire_test.dart`, `waifu_first_tool_soon_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): sibling reads stay stubbed after one edit
+- **Why:** After one `edit`, GLM re-read the whole project. Duplicate-read
+  stub treated ANY successful write as “history is stale” for every path.
+  The turn cue said “re-read changed files,” which she took as the tree.
+- **What:** Stub only expires the mutated path. Sibling `read` returns
+  `already in history, unchanged` and the chip says so. Cue: re-read only
+  the files you just patched, not untouched siblings.
+- **Files:** `waifu_compact.dart`, `waifu_harness.dart`,
+  `waifu_coworker_prompt.dart`, `waifu_turn_contract.dart`,
+  `waifu_read_slice_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): force read into 200-line slices
+- **Why:** Default `read` dumped the whole file (up to 100k chars). GLM 5.3
+  choked on those dumps. Duplicate-read stub keyed only on path, so a later
+  offset of the same file would have been stubbed as "already in history".
+- **What:** `read` always returns a line window (default and max 200). Whole
+  files under 200 lines stay byte-identical. Longer files get a header plus
+  `next offset=N` trailer. `limit` above 200 is clamped. Duplicate stub is
+  path+window. Cue says paging is not a re-read.
+- **Files:** `waifu_tools.dart`, `waifu_fs.dart`, `waifu_compact.dart`,
+  `waifu_harness_dispatch.dart`, `waifu_coworker_prompt.dart`,
+  `waifu_read_slice_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): real harness loop (wire think cap, fail receipts)
+- **Why:** GLM 5.3 still thought for minutes: OpenRouter eval routing
+  stripped `reasoning` (no 256 leash, sometimes `exclude`), Kobold
+  never sent `thinking_budget` while think was on, wrap-up posted
+  `tools: []`, leaked MiniMax/Qwen dumps in reasoning were wrap-up
+  speech, failed writes aborted before `[tool write FAILED]`, Build
+  Whole-disk auto-allowed `../sibling`, Jail `$PWD/..` skipped the
+  fence, and sit-down could persist `0 / N`.
+- **What:** Waifu generate stays `reasoningEnabled: true`, effort
+  `low`, `max_tokens: 256` (never 0, never exclude). OpenRouter eval
+  strip/floor is named-eval/think-off only. Local think-on sends
+  `thinking_budget: 256`. `tool_choice: required` on the stream door.
+  Empty tools omit the keys. Failed write/edit/bash land as FAILED +
+  “Disk was not changed”. Yolo allows after the hard floor. Build
+  on-porch is folder-jail; Disk only widens IO. Explore children get
+  their own jail fs/bash. `$PWD` → `.`, leftover `$` denies. Meter
+  arms on bind, keeps API usage, counts photos, remaining is per
+  harness request.
+- **Files:** `open_router_service.dart`, `openrouter_structured_eval.dart`,
+  `openai_chat_stream.dart`, `openai_tool_payload.dart`,
+  `reasoning_effort.dart`, `waifu_llm.dart`, `waifu_tool_leak.dart`,
+  `waifu_stream.dart`, `waifu_harness*.dart`, `waifu_permissions.dart`,
+  `waifu_bash.dart`, `waifu_compact.dart`, `waifu_page.dart`,
+  `waifu_sidebar.dart`, `waifu_mode_bar.dart`, `waifu_context_bar.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): GLM 5.3 harness loop (think cap, tools, verify)
+- **Why:** Live GLM 5.3 sat in think for minutes with a dead Thought
+  chevron, one `read`, then nothing. OpenRouter tools routing stripped
+  the 256-token leash; streaming tools did not retry effort 400s;
+  `swift build` counted as verified; prune turned failed writes into
+  `[tool write ok]`; sit-down saved `0 / N` before the meter armed.
+- **What:** Keep `reasoning.enabled` + `max_tokens: 256` on Waifu
+  OpenRouter tools (eval strip/floor stays on Journal/Growth). Wrap
+  uses thinkOn so the chevron has a body. Effort 400 learn-and-retry
+  on generateWithTools without dropping the cap. GLM 5.3 stays on the
+  glm-5.2 high/max hint. `swift test` only. Failed stubs stay FAILED.
+  Bind+arm before the first saveLast.
+- **Files:** `open_router_service.dart`, `openrouter_structured_eval.dart`,
+  `openai_chat_stream.dart`, `reasoning_effort.dart`, `waifu_verify.dart`,
+  `waifu_compact.dart`, `waifu_page.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): Yolo does not ask about repeat commands
+- **Why:** Doom-loop asked on the 3rd identical tool even in Yolo, so
+  “are you sure?” still popped on repeats.
+- **What:** After the hard floor, Yolo allows. Repeat-command ask is
+  Build only. Wipe/secret/git-checkout denials stay.
+- **Files:** `waifu_permissions.dart`, `waifu_honesty.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): failed writes say FAILED in the next prompt
+- **Why:** Failures were a buried `[tool write error]` line the UI
+  clipped to 48 characters, so the model and the user both treated them
+  as a shrug.
+- **What:** The next generate gets `[tool … FAILED]` plus “disk was not
+  changed”. Error chips keep the reason and paint red.
+- **Files:** `waifu_coworker_prompt.dart`, `waifu_stream.dart`,
+  `waifu_tool_log.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — feat(waifu): real assistant/tool turns on the wire
+- **Why:** The workflow closed the incident list and left the protocol
+  as one user blob. OpenCode/Grok Build send tool_call then role=tool.
+  Models shrug `[tool write FAILED]` stuffed into the next user pile.
+- **What:** Waifu generateWithTools sends system + user + assistant
+  tool_calls + tool results. Chat still uses the single user blob.
+- **Files:** `waifu_openai_messages.dart`, `llm_service.dart`,
+  `open_router_service.dart`, `openai_chat_stream.dart`,
+  `waifu_harness.dart`, `waifu_session.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): coding think cap is 8192, not 256
+- **Why:** 256 tokens is a tool-name, not a coding think. GLM 5.3 needs
+  room to look at a screenshot and pick a file. Unlimited was the 114s
+  stall; 256 was the overcorrection.
+- **What:** `kWaifuThinkCapTokens` is 8192. Still never 0, never exclude.
+- **Files:** `waifu_llm.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): short visible think, then a tool
+- **Why:** `enabled: false` sent `exclude: true`. GLM 5.3 still thought
+  for minutes, and the Thought chevron had no body to open.
+- **What:** Thinking stays on, effort low, 256-token cap (never 0, never
+  exclude). Tools still send `tool_choice: required`. GLM 5.3 joins the
+  high/max effort hint so `low` does not 400-retry into a long think
+  without a cap.
+- **Files:** `waifu_llm.dart`, `reasoning_effort.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): context bar meters the idle system prompt
+- **Why:** The bar stayed `0 / N` until a generate ran, so sit-down looked
+  like an empty request even though the coworker preamble and tools were
+  already the next payload.
+- **What:** Harness bind counts system + tools + prompt immediately.
+  MCP opt-in and Jail/Disk refresh the same meter.
+- **Files:** `waifu_harness.dart`, `waifu_page.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-10 — fix(waifu): Jail vs Disk can switch after sit-down
+- **Why:** Skip-honesty hid the Jail/Disk radios, and pathMode was frozen
+  on the session/fs/bash. Once jail was on, leaving and coming back could
+  not turn it off.
+- **What:** Radios stay on sit-down. Honesty skip is per scope (jail is
+  always skippable after consent; whole-disk re-asks). Sidebar Jail/Disk
+  chips apply live and persist. Whole-disk still requires honesty.
+- **Files:** `waifu_session.dart`, `waifu_fs.dart`, `waifu_bash.dart`,
+  `waifu_sit_down.dart`, `waifu_wizard_sit_down_step.dart`,
+  `waifu_wizard_page.dart`, `waifu_mode_bar.dart`, `waifu_page.dart`,
+  `waifu_whole_disk_dialog.dart`
+- **Commit:** (uncommitted)
+
 ## 2026-09-10 — fix(waifu): run leaked Kimi writes; clip preserved thinking
 - **Why:** Kimi dumped `functions.write` into the bubble with Swift `}` in
   the file. A non-greedy `{.*?}` stopped at the first brace, so the write

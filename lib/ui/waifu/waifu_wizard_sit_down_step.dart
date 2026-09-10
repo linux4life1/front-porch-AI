@@ -56,6 +56,8 @@ class WaifuWizardSitDownStep extends StatelessWidget {
   final VoidCallback onConfirm;
   final bool skipHonestyQuiz;
 
+  bool get hideHonesty => skipHonestyQuiz && honestyAccepted;
+
   @override
   Widget build(BuildContext context) {
     final amber = AppColors.porchAmberOf(context);
@@ -127,65 +129,63 @@ class WaifuWizardSitDownStep extends StatelessWidget {
               ],
             ),
           ),
-          if (!skipHonestyQuiz) ...[
-            const SizedBox(height: 16),
-            Text(
-              'How far can your coworker roam?',
-              style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontWeight: FontWeight.w800,
-              ),
+          const SizedBox(height: 16),
+          Text(
+            'How far can your coworker roam?',
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 8),
-            RadioGroup<WaifuPathMode>(
-              groupValue: pathMode,
-              onChanged: (value) {
-                if (value != null) onPathModeChanged(value);
-              },
-              child: Column(
-                children: [
-                  for (final scope in WaifuPathMode.values)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: scope == pathMode
-                            ? amber.withValues(alpha: 0.14)
-                            : AppColors.surfaceContainerOf(context),
+          ),
+          const SizedBox(height: 8),
+          RadioGroup<WaifuPathMode>(
+            groupValue: pathMode,
+            onChanged: (value) {
+              if (value != null) onPathModeChanged(value);
+            },
+            child: Column(
+              children: [
+                for (final scope in WaifuPathMode.values)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
+                      color: scope == pathMode
+                          ? amber.withValues(alpha: 0.14)
+                          : AppColors.surfaceContainerOf(context),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(
+                          color: scope == pathMode
+                              ? amber
+                              : AppColors.borderOf(context),
+                        ),
+                      ),
+                      child: RadioListTile<WaifuPathMode>(
+                        key: Key('waifu-path-mode-${scope.name}'),
+                        value: scope,
+                        activeColor: amber,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(
-                            color: scope == pathMode
-                                ? amber
-                                : AppColors.borderOf(context),
+                        ),
+                        title: Text(
+                          waifuPathModeTitle(scope),
+                          style: TextStyle(
+                            color: AppColors.textPrimary(context),
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        child: RadioListTile<WaifuPathMode>(
-                          key: Key('waifu-path-mode-${scope.name}'),
-                          value: scope,
-                          activeColor: amber,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          title: Text(
-                            waifuPathModeTitle(scope),
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          subtitle: Text(
-                            waifuPathModeBlurb(scope),
-                            style: TextStyle(
-                              color: AppColors.textSecondary(context),
-                            ),
+                        subtitle: Text(
+                          waifuPathModeBlurb(scope),
+                          style: TextStyle(
+                            color: AppColors.textSecondary(context),
                           ),
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
-          ],
+          ),
           const SizedBox(height: 8),
           Text(
             'Starting mode',
@@ -225,7 +225,7 @@ class WaifuWizardSitDownStep extends StatelessWidget {
               style: TextStyle(color: AppColors.textPrimary(context)),
             ),
           ],
-          if (!skipHonestyQuiz) ...[
+          if (!hideHonesty) ...[
             const SizedBox(height: 20),
             WaifuHonestyText(text: waifuHonestyBody(pathMode)),
             const SizedBox(height: 12),
@@ -240,7 +240,7 @@ class WaifuWizardSitDownStep extends StatelessWidget {
           ] else ...[
             const SizedBox(height: 16),
             Text(
-              'This porch already sat down. Jail/Disk stays as last time.',
+              kWaifuHonestySkipped,
               key: const Key('waifu-honesty-skipped'),
               style: TextStyle(color: AppColors.textSecondary(context)),
             ),

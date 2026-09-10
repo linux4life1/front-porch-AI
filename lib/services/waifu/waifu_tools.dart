@@ -21,6 +21,9 @@ import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 /// Runaway fuse, not a chat-length cap. The model stops when it stops.
 const kWaifuMaxSteps = 80;
 const kWaifuReadClipChars = 100000;
+
+/// Default and hard max for `read`. Whole-file dumps choke coding models.
+const kWaifuReadDefaultLines = 200;
 const kWaifuGrepMaxHits = 50;
 const kWaifuBashClipChars = 32000;
 
@@ -61,11 +64,23 @@ List<Map<String, dynamic>> waifuFileToolsFor(WaifuPathMode pathMode) {
   return [
     _fn(
       kWaifuToolRead,
-      'Read a file. $pathHelp.',
+      'Read a file in a line window. Default and max '
+      '$kWaifuReadDefaultLines lines from offset (1-based). '
+      'If the result says more lines remain, call again with that '
+      'offset. $pathHelp.',
       {
         'path': {'type': 'string', 'description': pathHelp},
-        'offset': {'type': 'integer', 'description': '1-based start line'},
-        'limit': {'type': 'integer', 'description': 'Max lines to return'},
+        'offset': {
+          'type': 'integer',
+          'description':
+              '1-based start line. Default 1. Use the next offset '
+              'from a previous read to continue.',
+        },
+        'limit': {
+          'type': 'integer',
+          'description':
+              'Lines to return. Default and max $kWaifuReadDefaultLines.',
+        },
       },
       const ['path'],
     ),
@@ -300,6 +315,35 @@ String? waifuToolPathArg(Map<String, dynamic> args) {
   if (v == null) return null;
   final s = v.toString().trim();
   return s.isEmpty ? null : s;
+}
+
+/// 1-based start line for `read`. Missing or invalid → 1.
+int waifuReadOffsetArg(Map<String, dynamic>? args) {
+  final n = _toolInt(args, 'offset');
+  if (n == null || n < 1) return 1;
+  return n;
+}
+
+/// Line window for `read`. Missing, invalid, or over the max → default.
+int waifuReadLimitArg(Map<String, dynamic>? args) {
+  final n = _toolInt(args, 'limit');
+  if (n == null || n < 1) return kWaifuReadDefaultLines;
+  if (n > kWaifuReadDefaultLines) return kWaifuReadDefaultLines;
+  return n;
+}
+
+/// Same path + same window. Used to stub duplicate reads without
+/// blocking a later offset of that file.
+String waifuReadWindowKey(Map<String, dynamic>? args) =>
+    '${waifuReadOffsetArg(args)}:${waifuReadLimitArg(args)}';
+
+int? _toolInt(Map<String, dynamic>? args, String key) {
+  if (args == null) return null;
+  final v = args[key];
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  if (v is String) return int.tryParse(v);
+  return null;
 }
 
 /// Caption for a tool chip. Never repeats the tool name as the detail

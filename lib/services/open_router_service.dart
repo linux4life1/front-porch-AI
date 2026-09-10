@@ -305,12 +305,9 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     required bool stream,
   }) {
     // Role-separated messages; user content is a plain string or, when
-    // images ride along, a multimodal array (see openAiUserContent).
-    final messages = <Map<String, Object>>[];
-    if (params.systemPrompt != null && params.systemPrompt!.isNotEmpty) {
-      messages.add({'role': 'system', 'content': params.systemPrompt!});
-    }
-    messages.add({'role': 'user', 'content': params.openAiUserContent});
+    // images ride along, a multimodal array (see openAiUserContent /
+    // attachOpenAiImagesToLastUser for Waifu's custom chatMessages).
+    final messages = params.openAiMessages;
 
     // api.openai.com rejects unknown parameters outright, so it keeps the
     // old conservative payload (frequency_penalty approximation, no
@@ -354,9 +351,9 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     // We always include the 'enabled' key so the disable is explicit.
     if (params.reasoningEnabled || params.reasoningMaxTokens != null) {
       final reasoning = <String, dynamic>{'enabled': params.reasoningEnabled};
-      if (params.reasoningEnabled) {
-        // User setting stays in prefs; wire value may adapt (learned 400 or
-        // :thinking suffix hint — see wireReasoningEffort).
+      if (params.reasoningEnabled && params.reasoningEffort.isNotEmpty) {
+        // Empty effort (Waifu) omits the key so GLM 5.3 is not rewritten
+        // from Low to High. Chat still sends a real effort and remaps.
         reasoning['effort'] = wireReasoningEffort(
           modelName,
           params.reasoningEffort,
@@ -425,11 +422,12 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       // reply with Request thinking on does not. Omitted on stock
       // templates — sending 0 on Gemma-4 that already honours the kwarg
       // attaches the closer processor and can leak into the answer.
-      final clamp = thinkingBudgetClampForThinkOff(
-        _modelName,
+      final budget = thinkingBudgetForRequest(
+        model: _modelName,
         thinkOn: thinkOn,
+        reasoningMaxTokens: params.reasoningMaxTokens,
       );
-      if (clamp != null) payload['thinking_budget'] = clamp;
+      if (budget != null) payload['thinking_budget'] = budget;
     }
 
     // Add stop sequences if present
@@ -570,7 +568,12 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
           : params.backendIdentity;
       final streaming = params.onChunk != null;
       var payload = _chatPayload(params, stream: streaming);
-      if (isOpenRouterApiUrl(_apiUrl)) {
+      if (isOpenRouterApiUrl(_apiUrl) &&
+          shouldApplyOpenRouterEvalToolRouting(
+            reasoningEnabled: params.reasoningEnabled,
+            reasoningMaxTokens: params.reasoningMaxTokens,
+            toolChoice: params.toolChoice,
+          )) {
         payload = applyOpenRouterToolRouting(
           payload,
           mandatoryReasoning: reasoningCannotDisable(modelName),
@@ -579,6 +582,8 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       if (streaming) {
         String? streamErr;
         int? streamStatus;
+        final thinkOn =
+            params.reasoningEnabled && params.reasoningMaxTokens != 0;
         final streamed = await streamOpenAiChatToolsWithStyleRetry(
           identity: identity,
           tools: tools,
@@ -587,7 +592,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
           uri: Uri.parse('$_apiUrl/chat/completions'),
           headers: _chatHeaders,
           client: client,
-          wrapReasoning: params.reasoningEnabled,
+          wrapReasoning: thinkOn,
           salvage: params.salvageReasoning,
           onChunk: params.onChunk,
           includeUsage: true,
@@ -598,12 +603,27 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         );
         if (streamed != null) return streamed;
         final rejected = streamErr;
+        final status = streamStatus ?? 0;
         if (rejected != null &&
-            _thinkingOffRejected(streamStatus ?? 0, params, rejected)) {
+            _thinkingOffRejected(status, params, rejected)) {
           rememberMandatoryReasoning(modelName);
           debugPrint(
             '[RemoteAPI] $modelName cannot disable reasoning — retrying '
             'streamed tool call with reasoning.exclude only',
+          );
+          return await generateWithTools(params, tools);
+        }
+        if (rejected != null &&
+            learnReasoningEffortFromError(
+              model: modelName,
+              errorMessage: _remoteApiErrorMessage(rejected, status),
+              body: rejected,
+            )) {
+          debugPrint(
+            '[RemoteAPI] $modelName rejected reasoning.effort '
+            '"${params.reasoningEffort}" — retrying tools with '
+            '"${wireReasoningEffort(modelName, params.reasoningEffort)}" '
+            '(think cap stays on the payload)',
           );
           return await generateWithTools(params, tools);
         }
@@ -633,6 +653,19 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
           debugPrint(
             '[RemoteAPI] $modelName cannot disable reasoning — retrying '
             'tool call with reasoning.exclude only',
+          );
+          return await generateWithTools(params, tools);
+        }
+        if (learnReasoningEffortFromError(
+          model: modelName,
+          errorMessage: err,
+          body: response.body,
+        )) {
+          debugPrint(
+            '[RemoteAPI] $modelName rejected reasoning.effort '
+            '"${params.reasoningEffort}" — retrying tools with '
+            '"${wireReasoningEffort(modelName, params.reasoningEffort)}" '
+            '(think cap stays on the payload)',
           );
           return await generateWithTools(params, tools);
         }
@@ -728,45 +761,22 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         // The provider re-tiered this model's reasoning.effort values under
         // us (DeepSeek v4-flash:thinking dropped low/medium, 2026-07-18) and
         // its 400 names the values it still takes. Same learn-once-and-retry
-        // as the mandatory-reasoning case above: remember the supported set,
-        // let the payload builder substitute the closest one, and retry right
-        // here so the turn the user is waiting on still completes. The
-        // containsKey guard makes a second rejection for the same model
-        // throw instead of loop. Parse message AND raw body — some providers
-        // put the listing only in one of the two.
-        final supportedEfforts =
-            supportedReasoningEffortsFromError(errorMsg) ??
-            supportedReasoningEffortsFromError(body);
-        if (supportedEfforts != null &&
-            !kLearnedReasoningEffortsByModel.containsKey(modelName)) {
-          rememberReasoningEffortsForModel(modelName, supportedEfforts);
+        // as generateWithTools: remember the supported set, remap on the
+        // payload, retry this turn. A second rejection of the same listing
+        // does not loop.
+        if (learnReasoningEffortFromError(
+          model: modelName,
+          errorMessage: errorMsg,
+          body: body,
+        )) {
           debugPrint(
             '[RemoteAPI] $modelName rejected reasoning.effort '
-            '"${params.reasoningEffort}" — provider supports '
-            '${supportedEfforts.join('/')}; retrying with '
-            '"${nearestReasoningEffort(params.reasoningEffort, supportedEfforts)}" '
+            '"${params.reasoningEffort}" — retrying with '
+            '"${wireReasoningEffort(modelName, params.reasoningEffort)}" '
             '(remembered for this session)',
           );
           yield* generateStream(params);
           return;
-        }
-        // Already learned / hinted but still rejected — allow one overwrite
-        // when the provider's new listing differs (re-tier mid-session).
-        if (supportedEfforts != null) {
-          final prev = kLearnedReasoningEffortsByModel[modelName];
-          final same =
-              prev != null &&
-              prev.length == supportedEfforts.length &&
-              prev.containsAll(supportedEfforts);
-          if (!same) {
-            rememberReasoningEffortsForModel(modelName, supportedEfforts);
-            debugPrint(
-              '[RemoteAPI] $modelName re-tiered reasoning.effort again — '
-              'now ${supportedEfforts.join('/')}; retrying once',
-            );
-            yield* generateStream(params);
-            return;
-          }
         }
         if (isChatCompletionsUnsupportedError(errorMsg)) {
           rememberCompletionsOnlyModel(_modelName);

@@ -31,6 +31,7 @@ extension _WaifuHarnessDispatch on WaifuHarness {
           final stub = waifuDuplicateReadStub(
             transcript: session.transcript,
             path: path,
+            args: args,
           );
           if (stub != null) {
             return WaifuToolResult(ok: true, output: stub);

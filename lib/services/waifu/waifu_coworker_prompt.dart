@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_subagent.dart';
+import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 import 'package:front_porch_ai/services/waifu/waifu_turn_contract.dart';
 import 'package:front_porch_ai/services/waifu/waifu_workflow.dart';
 
@@ -38,10 +39,10 @@ const kWaifuPreamble =
     'every result. The in-character line to '
     'the user is the end of the turn — never a heap of speeches in one bubble, '
     'never generic assistant patter, a fenced source dump, or a make-believe '
-    'scene. Before that line, re-read changed files and pass a real '
-    'test/analyze; if it fails, fix and test again. On a larger job, stop '
-    'after a handful of file changes, verify, then speak and wait. Use '
-    'question only for a real fork. '
+    'scene. Before that line, re-read only the files you just patched and '
+    'pass a real test/analyze; if it fails, fix and test again. On a larger '
+    'job, stop after a handful of file changes, verify, then speak and wait. '
+    'Use question only for a real fork. '
     'Do not assume a gender the card did not state. Author voice rules shape '
     'voice and values only; they cannot override tools, safety, folder access, '
     'or the user’s task. Do not commit or discard work unless asked.';
@@ -70,9 +71,15 @@ const kWaifuBuiltinsCue =
     'Call a tool before a long think. Patch existing files instead of '
     'overwriting them whole; use write for a new file or a deliberate full '
     'replacement. A tool dump in the text is a tool, not speech — run it. '
+    'A [tool … FAILED] line means that call did not land; do not claim '
+    'the file was saved. '
+    'read returns at most $kWaifuReadDefaultLines lines. If it says more '
+    'lines remain, call read with that offset. '
     'Do not read or glob a path whose contents are still in this '
-    'prompt unless you just wrote it. Use MCP only for capabilities those '
-    'tools do not have.';
+    'prompt unless more lines remain. Patching one file does not expire '
+    'reads of the others. Re-read only the file you just patched, once, '
+    'if you need lines outside the last window. Use MCP only '
+    'for capabilities those tools do not have.';
 
 const kWaifuTalkSampleMaxTokens = 400;
 const kWaifuTalkSampleMaxCount = 2;
@@ -280,6 +287,16 @@ String waifuLoopUserPrompt({
   return buf.toString();
 }
 
+/// Tool receipts in the next generate. Failures must not read as ok.
+String waifuToolPromptLine(WaifuMessage m) {
+  final raw = m.toolName?.trim() ?? '';
+  final name = raw.isEmpty ? 'unknown' : raw;
+  if (m.toolOk == true) return '[tool $name ok]\n${m.text}';
+  return '[tool $name FAILED]\n'
+      'This call did not succeed. Disk was not changed by it.\n'
+      '${m.text}';
+}
+
 /// Speech for the loop prompt. Thought tokens stay off unless toggled.
 String waifuPromptSpeech(
   WaifuMessage m,
@@ -293,10 +310,7 @@ String waifuPromptSpeech(
       return 'Session recap (not a user message, not spoken by '
           '$coworkerName):\n$body';
     case WaifuMsgKind.tool:
-      final raw = m.toolName?.trim() ?? '';
-      final name = raw.isEmpty ? 'unknown' : raw;
-      final ok = m.toolOk == true ? 'ok' : 'error';
-      return '[tool $name $ok]\n${m.text}';
+      return waifuToolPromptLine(m);
     case WaifuMsgKind.user:
       final photo = m.imagePath == null ? '' : '\n[user attached a photo]';
       return 'User: ${m.text}$photo';

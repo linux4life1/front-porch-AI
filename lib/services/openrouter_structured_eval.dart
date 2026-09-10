@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
+import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 
 /// True when [apiUrl] is OpenRouter's public API, not Nano-GPT / oMLX /
 /// LM Studio / a LAN OpenAI-compatible host.
@@ -32,12 +33,39 @@ bool isOpenRouterApiUrl(String apiUrl) {
 /// empty `content` / `tool_calls` with `finish_reason=length`.
 const int kOpenRouterStructuredEvalMinTokens = 4000;
 
+/// Named evals and think-off tool calls (Journal / judges). Waifu keeps
+/// `reasoning.enabled` + `max_tokens` and must not inherit the 4000 floor.
+bool shouldApplyOpenRouterEvalToolRouting({
+  required bool reasoningEnabled,
+  int? reasoningMaxTokens,
+  String? toolChoice,
+}) {
+  if (askedToDisableThinking(
+    reasoningEnabled: reasoningEnabled,
+    reasoningMaxTokens: reasoningMaxTokens,
+  )) {
+    return true;
+  }
+  return toolChoice != null &&
+      toolChoice.isNotEmpty &&
+      toolChoice != kToolChoiceRequired;
+}
+
 /// Strip OR-hostile optional samplers, require the params on THIS request,
 /// and raise a 512-token judge budget so a think cannot starve the call.
+///
+/// Thinking-on tool loops (Waifu) must keep `reasoning` and must not inherit
+/// the eval floor — that cap is a think budget on GLM 5.3. Callers should
+/// skip this helper via [shouldApplyOpenRouterEvalToolRouting]; this is the
+/// same gate if someone still passes a live-think payload in.
 Map<String, dynamic> applyOpenRouterToolRouting(
   Map<String, dynamic> payload, {
   required bool mandatoryReasoning,
 }) {
+  final reasoning = payload['reasoning'];
+  if (reasoning is Map && reasoning['enabled'] == true) {
+    return Map<String, dynamic>.from(payload);
+  }
   final next = Map<String, dynamic>.from(payload)
     ..remove('repetition_penalty')
     ..remove('min_p')

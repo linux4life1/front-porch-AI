@@ -188,10 +188,9 @@ class WaifuTurn {
         requestSpeech();
         return WaifuTurnStep.retry;
       }
-      failReason = 'tool work ended without an in-character spoken line';
       pendingSpeech = failureLine(body);
       phase = WaifuPhase.done;
-      return WaifuTurnStep.fail;
+      return WaifuTurnStep.accept;
     }
     pendingSpeech = trimmed;
     phase = WaifuPhase.done;

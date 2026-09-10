@@ -57,9 +57,8 @@ bool waifuLooksVerifyCommand(String command) {
       continue;
     }
     if (cmd == 'swift') {
-      if (words.length > 1 && const {'test', 'build'}.contains(words[1])) {
-        return true;
-      }
+      // Compile/package/export is not a check on any stack.
+      if (words.length > 1 && words[1] == 'test') return true;
       continue;
     }
     if (cmd == 'cargo') {

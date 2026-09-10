@@ -40,10 +40,23 @@ void main() {
     expect(find.byKey(const Key('waifu-appbar-scope')), findsOneWidget);
     expect(find.byKey(const Key('waifu-appbar-path')), findsOneWidget);
     expect(find.text('Plan'), findsWidgets);
-    expect(find.text('Jail'), findsWidgets);
     expect(find.text('throwaway-waifu'), findsOneWidget);
     expect(find.text('/tmp/throwaway-waifu'), findsOneWidget);
-    expect(find.text('Disk'), findsNothing);
+    // AppBar receipt is Jail. Sidebar chips show both labels on purpose.
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('waifu-appbar-scope')),
+        matching: find.text('Jail'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('waifu-appbar-scope')),
+        matching: find.text('Disk'),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('whole-disk AppBar shows Disk, not Jail', (tester) async {
@@ -53,8 +66,20 @@ void main() {
       pathMode: WaifuPathMode.wholeDisk,
     );
     await tester.pumpWidget(MaterialApp(home: WaifuPage(session: session)));
-    expect(find.text('Disk'), findsWidgets);
-    expect(find.text('Jail'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('waifu-appbar-scope')),
+        matching: find.text('Disk'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('waifu-appbar-scope')),
+        matching: find.text('Jail'),
+      ),
+      findsNothing,
+    );
     expect(find.text('Build'), findsWidgets);
   });
 
@@ -74,7 +99,9 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('**'), findsNothing);
-    final rich = tester.widget<Text>(find.byKey(const Key('waifu-honesty-body')));
+    final rich = tester.widget<Text>(
+      find.byKey(const Key('waifu-honesty-body')),
+    );
     final span = rich.textSpan;
     expect(span, isA<TextSpan>());
     final root = span! as TextSpan;
@@ -120,10 +147,7 @@ void main() {
     expect(find.byKey(const Key('waifu-work-strip-files')), findsOneWidget);
     expect(find.text('lib/a.dart'), findsOneWidget);
     expect(find.text('lib/b.dart'), findsWidgets);
-    expect(
-      find.text('Verified: lib/a.dart, lib/b.dart'),
-      findsOneWidget,
-    );
+    expect(find.text('Verified: lib/a.dart, lib/b.dart'), findsOneWidget);
   });
 
   testWidgets('toolsSupported false shows the fail-closed banner', (

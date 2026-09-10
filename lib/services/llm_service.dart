@@ -77,10 +77,11 @@ class GenerationParams {
   final bool trimStop;
 
   /// Optional base64-encoded PNG images attached to the user chat message
-  /// (Vision QC, portrait describe). When non-empty, the OpenAI-compatible
-  /// chat transports render the user content as a multimodal array via
-  /// [openAiUserContent]; when null/empty the payload keeps the plain string
-  /// content, byte-identical to the pre-vision text-only path.
+  /// (Vision QC, portrait describe, Waifu Coder drop). When non-empty, the
+  /// OpenAI-compatible chat transports render the last user content as a
+  /// multimodal array via [openAiUserContent] / [attachOpenAiImagesToLastUser];
+  /// when null/empty the payload keeps the plain string content,
+  /// byte-identical to the pre-vision text-only path.
   final List<String>? images;
 
   /// Named OpenAI `tool_choice` function, or null → `'auto'`. The sentinel
@@ -101,6 +102,10 @@ class GenerationParams {
   /// Probe identity (`backend|endpoint|model|path`). Style retry and skip/pause
   /// key on the same string [ChatService] uses.
   final String backendIdentity;
+
+  /// When set, chat-completions `messages` is this list (after optional
+  /// system). Null keeps the single user blob chat uses.
+  final List<Map<String, Object>>? chatMessages;
 
   const GenerationParams({
     required this.prompt,
@@ -131,25 +136,75 @@ class GenerationParams {
     this.onChunk,
     this.stillWantTools,
     this.backendIdentity = '',
+    this.chatMessages,
   });
+
+  /// Chat-completions `messages`. Null [chatMessages] is the historical
+  /// system + one user blob. Waifu passes user/assistant/tool turns here;
+  /// [systemPrompt] still prefixes as `system` when set.
+  List<Map<String, Object>> get openAiMessages {
+    final custom = chatMessages;
+    final messages = <Map<String, Object>>[];
+    final system = systemPrompt;
+    if (system != null && system.isNotEmpty) {
+      messages.add({'role': 'system', 'content': system});
+    }
+    if (custom != null && custom.isNotEmpty) {
+      messages.addAll(custom);
+      return attachOpenAiImagesToLastUser(messages, images);
+    }
+    messages.add({'role': 'user', 'content': openAiUserContent});
+    return messages;
+  }
 
   /// The `content` value for the OpenAI chat user message: the plain [prompt]
   /// string when no [images] ride along, or a multimodal content array of one
-  /// text part followed by one `image_url` part per image. Both chat-payload
-  /// builders (openai_chat_stream.dart and OpenRouterService) call this so
-  /// the two wire shapes can't drift.
+  /// text part followed by one `image_url` part per image.
   Object get openAiUserContent {
     final imgs = images;
     if (imgs == null || imgs.isEmpty) return prompt;
-    return [
-      {'type': 'text', 'text': prompt},
-      for (final img in imgs)
-        {
-          'type': 'image_url',
-          'image_url': {'url': 'data:image/png;base64,$img'},
-        },
-    ];
+    return openAiContentWithImages(prompt, imgs);
   }
+}
+
+/// Puts [images] on the last `role: user` row as OpenAI `image_url` parts.
+/// No images, or no user row, returns [messages] unchanged. Does not mutate
+/// the input list or its maps.
+List<Map<String, Object>> attachOpenAiImagesToLastUser(
+  List<Map<String, Object>> messages,
+  List<String>? images,
+) {
+  if (images == null || images.isEmpty) return messages;
+  for (var i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]['role'] != 'user') continue;
+    final next = List<Map<String, Object>>.of(messages);
+    next[i] = {
+      ...messages[i],
+      'content': openAiContentWithImages(messages[i]['content'], images),
+    };
+    return next;
+  }
+  return messages;
+}
+
+/// Text (or existing parts) plus one `image_url` PNG part per image.
+/// Empty [images] leaves [content] unchanged (string stays a string).
+Object openAiContentWithImages(Object? content, List<String> images) {
+  if (images.isEmpty) return content ?? '';
+  final imageParts = [
+    for (final img in images)
+      {
+        'type': 'image_url',
+        'image_url': {'url': 'data:image/png;base64,$img'},
+      },
+  ];
+  if (content is List) {
+    return [...content, ...imageParts];
+  }
+  return [
+    {'type': 'text', 'text': content is String ? content : '${content ?? ''}'},
+    ...imageParts,
+  ];
 }
 
 /// One tool invocation from a tool-calling response (OpenAI `tool_calls`

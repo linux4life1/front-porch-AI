@@ -43,7 +43,7 @@ class WaifuFs {
   WaifuFs(this.root, {this.pathMode = WaifuPathMode.folderJail});
 
   final String root;
-  final WaifuPathMode pathMode;
+  WaifuPathMode pathMode;
 
   Future<WaifuToolResult> dispatch(
     String name,
@@ -91,19 +91,15 @@ class WaifuFs {
     if (bytes.contains(0)) {
       return WaifuToolResult.error('binary file: ${waifuToolPathArg(args)}');
     }
-    var text = utf8.decode(bytes, allowMalformed: true);
-    final offset = _intArg(args, 'offset');
-    final limit = _intArg(args, 'limit');
-    if (offset != null || limit != null) {
-      final lines = text.split('\n');
-      final start = ((offset ?? 1) - 1).clamp(0, lines.length);
-      final end = (start + (limit ?? lines.length)).clamp(0, lines.length);
-      text = lines.sublist(start, end).join('\n');
-    }
-    if (text.length > kWaifuReadClipChars) {
-      text = '${text.substring(0, kWaifuReadClipChars)}\n…(clipped)';
-    }
-    return WaifuToolResult(ok: true, output: text);
+    final text = utf8.decode(bytes, allowMalformed: true);
+    return WaifuToolResult(
+      ok: true,
+      output: waifuSliceReadText(
+        text,
+        offset: waifuReadOffsetArg(args),
+        limit: waifuReadLimitArg(args),
+      ),
+    );
   }
 
   Future<WaifuToolResult> _write(Map<String, dynamic> args) async {
@@ -295,12 +291,41 @@ class WaifuFs {
   }
 }
 
-int? _intArg(Map<String, dynamic> args, String key) {
-  final v = args[key];
-  if (v is int) return v;
-  if (v is num) return v.toInt();
-  if (v is String) return int.tryParse(v);
-  return null;
+/// Line window for `read`. Whole files under the default stay byte-identical.
+/// Longer files get a header, the window, and a next-offset trailer.
+String waifuSliceReadText(
+  String text, {
+  required int offset,
+  required int limit,
+}) {
+  final lines = text.split('\n');
+  final total = lines.length;
+  final start = (offset - 1).clamp(0, total);
+  if (start >= total) {
+    return 'no lines: file has $total lines; offset $offset is past the end';
+  }
+  final end = (start + limit).clamp(0, total);
+  final body = lines.sublist(start, end).join('\n');
+  final whole = start == 0 && end >= total;
+  if (whole) {
+    if (body.length > kWaifuReadClipChars) {
+      return '${body.substring(0, kWaifuReadClipChars)}\n…(clipped)';
+    }
+    return body;
+  }
+  final more = total - end;
+  final buf = StringBuffer('lines ${start + 1}-$end of $total\n')..write(body);
+  if (more > 0) {
+    buf.write('\n…($more more lines; next offset=${end + 1})');
+  }
+  var out = buf.toString();
+  if (out.length > kWaifuReadClipChars) {
+    final next = end < total ? end + 1 : offset;
+    out =
+        '${out.substring(0, kWaifuReadClipChars)}\n'
+        '…(clipped; next offset=$next)';
+  }
+  return out;
 }
 
 RegExp _compile(String pattern) {

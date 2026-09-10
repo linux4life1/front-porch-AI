@@ -234,6 +234,9 @@ List<String> waifuShellWords(String command) {
   ]) {
     normalized = normalized.replaceAll(home, '~');
   }
+  for (final pwd in [r'${pwd}', r'$pwd']) {
+    normalized = normalized.replaceAll(pwd, '.');
+  }
   return normalized
       .replaceAll(RegExp(r'''["'`(){}\[\],;|&<>]'''), ' ')
       .split(RegExp(r'\s+'))
@@ -242,9 +245,92 @@ List<String> waifuShellWords(String command) {
       .toList();
 }
 
+/// `/tmp/extract` is a scratch folder. `/tmp` and `/tmp/*` are not.
+bool waifuIsNamedTempWipePath(String path) {
+  var n = path.trim().replaceAll(r'\', '/').toLowerCase();
+  if (n.startsWith('/private/')) n = n.substring('/private'.length);
+  const roots = ['/tmp', '/var/tmp'];
+  for (final root in roots) {
+    if (n == root || n == '$root/' || n == '$root/*' || n == '$root/.') {
+      return false;
+    }
+    if (!n.startsWith('$root/')) continue;
+    final rest = n.substring(root.length + 1);
+    if (rest.isEmpty ||
+        rest == '*' ||
+        rest == '.' ||
+        rest == '..' ||
+        rest.startsWith('../') ||
+        rest.contains('/../') ||
+        rest.endsWith('/..')) {
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+/// Paths the recursive command would actually delete — not mkdir/cd siblings.
+List<String> waifuBashRecursiveWipeTargets(String command) {
+  final out = <String>[];
+  final lower = command.toLowerCase();
+  for (final segment in lower.split(RegExp(r'(?:&&|\|\||[;\n])'))) {
+    final words = waifuShellWords(segment);
+    if (words.isEmpty) continue;
+    final rmAt = words.indexWhere((w) => w == 'rm' || w.endsWith('/rm'));
+    var take = rmAt >= 0 && waifuBashLooksRecursive(words.skip(rmAt));
+    take =
+        take ||
+        (words.any((w) => w == 'find' || w.endsWith('/find')) &&
+            words.contains('-delete'));
+    take =
+        take ||
+        ((words.any(
+              (w) =>
+                  w == 'chmod' ||
+                  w.endsWith('/chmod') ||
+                  w == 'chown' ||
+                  w.endsWith('/chown'),
+            )) &&
+            waifuBashLooksRecursive(words));
+    take = take || segment.contains('shutil.rmtree');
+    if (!take) continue;
+    final paths = <String>[];
+    for (final word in words) {
+      if (word.startsWith('-') ||
+          word.contains(r'$') ||
+          word.contains('*') ||
+          word.contains('?') ||
+          word.contains('=')) {
+        continue;
+      }
+      if (word == 'rm' ||
+          word.endsWith('/rm') ||
+          word == 'find' ||
+          word.endsWith('/find') ||
+          word == 'chmod' ||
+          word.endsWith('/chmod') ||
+          word == 'chown' ||
+          word.endsWith('/chown') ||
+          word == 'python' ||
+          word == 'python3') {
+        continue;
+      }
+      paths.add(word);
+    }
+    if (paths.isEmpty && rmAt >= 0) {
+      out.add('.');
+    } else {
+      out.addAll(paths);
+    }
+  }
+  return out;
+}
+
 bool _isDangerousWipeTarget(String raw, String? workingDirectory) {
   final target = raw.trim().replaceAll(r'\', '/').toLowerCase();
   if (target.isEmpty || target == '--' || target.startsWith('-')) return false;
+  if (waifuIsNamedTempWipePath(target)) return false;
   const exact = {
     '/',
     '/*',
@@ -282,6 +368,7 @@ bool _isDangerousWipeTarget(String raw, String? workingDirectory) {
         ? p.normalize(target)
         : p.normalize(p.join(cwdAbs, target));
     if (waifuPathIsInsideRoot(resolved, cwdAbs)) return false;
+    if (waifuIsNamedTempWipePath(resolved)) return false;
     if (p.equals(resolved, cwdAbs) ||
         waifuPathIsInsideRoot(cwdAbs, resolved) ||
         p.isWithin(resolved, cwdAbs)) {

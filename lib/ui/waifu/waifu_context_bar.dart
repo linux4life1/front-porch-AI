@@ -21,6 +21,15 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+String waifuContextBarLabel({
+  required int used,
+  required int budget,
+  required bool fromApi,
+}) {
+  if (used == 0 && !fromApi) return '— / $budget';
+  return '$used / $budget';
+}
+
 /// Used tokens vs context window. Fill ≥ 75% is the compact line.
 class WaifuContextBar extends StatelessWidget {
   const WaifuContextBar({super.key, required this.session, this.onCompact});
@@ -32,12 +41,20 @@ class WaifuContextBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final used = session.tokensUsed;
     final budget = session.contextBudget < 1
         ? kWaifuDefaultContextTokens
         : session.contextBudget;
-    final fill = budget <= 0 ? 0.0 : (used / budget).clamp(0.0, 1.0);
-    final hot = fill >= kWaifuCompactAt;
+    final estimated = session.tokensUsed;
+    final used = waifuFillUsed(
+      tokensUsed: session.tokensUsed,
+      fromApi: session.tokensFromApi,
+      estimated: estimated,
+    );
+    final unmetered = session.tokensUsed == 0 && !session.tokensFromApi;
+    final fill = unmetered || budget <= 0
+        ? 0.0
+        : (used / budget).clamp(0.0, 1.0);
+    final hot = !unmetered && fill >= kWaifuCompactAt;
     final amber = AppColors.porchAmberOf(context);
     final danger = AppColors.negativeAccentOf(context);
     final bar = hot ? danger : amber;
@@ -59,7 +76,11 @@ class WaifuContextBar extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                '$used / $budget',
+                waifuContextBarLabel(
+                  used: used,
+                  budget: budget,
+                  fromApi: session.tokensFromApi,
+                ),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,

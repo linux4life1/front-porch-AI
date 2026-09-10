@@ -44,6 +44,8 @@ const kWaifuMcpBlockedBareNames = {
   'set_config_value',
   'start_search',
   'get_more_search_results',
+  'sequentialthinking',
+  'sequential_thinking',
 };
 
 String waifuBareMcpName(String name) {

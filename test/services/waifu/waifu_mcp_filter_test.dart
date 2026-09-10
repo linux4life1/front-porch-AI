@@ -28,6 +28,7 @@ void main() {
       _fn('get_prompts', 'New to Desktop Commander? Try these prompts'),
       _fn('brave_search', 'Search the web'),
       _fn('mcp_ping', 'ping'),
+      _fn('sequentialthinking', 'Think step by step'),
     ]);
     expect(_names(kept), ['brave_search', 'mcp_ping']);
   });
