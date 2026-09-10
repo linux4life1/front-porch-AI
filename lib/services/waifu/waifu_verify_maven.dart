@@ -302,15 +302,35 @@ const _kGradleCwdScripts = {
 /// or empty is theater. [rawArgs] keeps case so glued `-Pfoo` is
 /// not project-dir and `-i` (info) is not `-I` (init-script).
 /// `--continuous` is not `--continue`. `-Dorg.gradle.continue`
-/// theaters unless `=false` (same floor as Maven skip props).
-/// Short `-c` is `--settings-file`; long `--console` is not.
+/// and `ignoreFailures` / `test.ignoreFailures` (`-D` / `-P`)
+/// theater unless `=false`. `-g` / `--gradle-user-home` is
+/// presence theater (init.d inject); raw argv keeps unrelated
+/// shorts. Short `-c` is `--settings-file`; long `--console`
+/// is not.
 bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
     if (t == '--continue' || t.startsWith('--continue=')) return true;
-    if (t == '-dorg.gradle.continue' ||
-        (t.startsWith('-dorg.gradle.continue=') &&
-            t.substring('-dorg.gradle.continue='.length) != 'false')) {
+    if (_gradlePropUnlessFalse(t, '-dorg.gradle.continue')) return true;
+    if (_gradlePropUnlessFalse(t, '-dignorefailures') ||
+        _gradlePropUnlessFalse(t, '-dtest.ignorefailures')) {
+      return true;
+    }
+    if (i < rawArgs.length &&
+        rawArgs[i].length >= 2 &&
+        rawArgs[i][1] == 'P' &&
+        (_gradlePropUnlessFalse(t, '-pignorefailures') ||
+            _gradlePropUnlessFalse(t, '-ptest.ignorefailures'))) {
+      return true;
+    }
+    if (t == '--gradle-user-home' || t.startsWith('--gradle-user-home')) {
+      return true;
+    }
+    if (i < rawArgs.length &&
+        rawArgs[i].length >= 2 &&
+        rawArgs[i][0] == '-' &&
+        rawArgs[i][1] == 'g' &&
+        !rawArgs[i].startsWith('--')) {
       return true;
     }
     if (t == '--include-build' || t.startsWith('--include-build')) {
@@ -402,4 +422,11 @@ bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
     return true;
   }
   return false;
+}
+
+/// `-Dkey` / `-Pkey` token theater unless `=false`.
+bool _gradlePropUnlessFalse(String t, String dashKey) {
+  if (t == dashKey) return true;
+  return t.startsWith('$dashKey=') &&
+      t.substring(dashKey.length + 1) != 'false';
 }

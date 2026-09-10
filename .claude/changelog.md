@@ -10,6 +10,21 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): Gradle -g / ignoreFailures theater
+- **Why:** Tip 61aa7d08 still receipted `-g` / `--gradle-user-home`
+  (init.d inject without `-I` in argv) and
+  `-DignoreFailures=true` / `-PignoreFailures=true` (soft Done,
+  Maven `testFailureIgnore` twin).
+- **What:** Same `_gradleArgvTheater` club. `-g` /
+  `--gradle-user-home` is presence theater (raw `-g` only).
+  `ignoreFailures` / `test.ignoreFailures` via `-D` and `-P`
+  theaters unless `=false` (shared `_gradlePropUnlessFalse` with
+  `org.gradle.continue`). `-PenableFoo`, CI-root scripts, `-I`,
+  `-i`, VIP `--tests *` unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Gradle CI-root build.gradle full; -I / continue -D
 - **Why:** Tip 0d45de4a still theatered abs CI default scripts
   (`-b /workspace/build.gradle`, GHA/Azure twins), receipted

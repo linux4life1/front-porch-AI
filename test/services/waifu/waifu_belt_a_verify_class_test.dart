@@ -1561,6 +1561,15 @@ void main() {
       './gradlew test -Dorg.gradle.continue=true',
       './gradlew test -Dorg.gradle.continue',
       './gradlew test -Dorg.gradle.continue=',
+      './gradlew -g /tmp/ghome test',
+      './gradlew --gradle-user-home=/tmp/ghome test',
+      './gradlew --gradle-user-home /tmp/ghome test',
+      './gradlew -g/tmp/ghome test',
+      './gradlew test -DignoreFailures=true',
+      './gradlew test -Dtest.ignoreFailures=true',
+      './gradlew test -PignoreFailures=true',
+      './gradlew test -DignoreFailures',
+      './gradlew test -DignoreFailures=',
       'mvn -f /home/vsts/work/1/s/module/pom.xml test',
       'mvn test -Dmaven.multiModuleProjectDirectory=/other',
       'mvn test -Dsession.executionRootDirectory=/other',
@@ -1654,6 +1663,18 @@ void main() {
     expect(waifuLooksVerifyCommand('./gradlew test -i'), isTrue);
     expect(
       waifuLooksVerifyCommand('./gradlew test -Dorg.gradle.continue=false'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('./gradlew test -DignoreFailures=false'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('./gradlew test -PignoreFailures=false'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('./gradlew test -Dtest.ignoreFailures=false'),
       isTrue,
     );
     expect(
