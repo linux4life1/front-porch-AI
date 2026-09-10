@@ -10,6 +10,19 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): make value-flag paths are not theater
+- **Why:** Tip 13e201c2 letter-scanned any short token for
+  `i`/`k`/`n`/`q`, so glued value flags babysat real C/CI
+  (`-C/home/...`, `-f./common.mk`, `-Onone`, `-fmakefile`,
+  `-Cbuild/link`, `-ooutfile`, `-Wquick`).
+- **What:** Same `_makeArgvTheater` path. Pure clumps only
+  (`^-[iknq]+(?:j\d*)?$`). Value-taking `-C`/`-f`/`-o`/`-W`/
+  `-O`/`-I` stay full. `-ik` / `-ni` / `-ikj2` and separated
+  shorts / longs unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): make glued short clusters are theater
 - **Why:** Tip 384f56bf theatered separated `make -i` / `-k` /
   `-n` / `-q` but still receipted glued clumps

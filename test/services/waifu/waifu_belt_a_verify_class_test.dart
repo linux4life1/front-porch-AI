@@ -1760,6 +1760,20 @@ void main() {
     expect(waifuLooksVerifyCommand('make test'), isTrue);
     expect(waifuLooksVerifyCommand('make -I extras test'), isTrue);
     expect(waifuLooksVerifyCommand('make -j8 test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -C build test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -f Makefile test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('make -C/home/runner/work/repo/repo test'),
+      isTrue,
+    );
+    expect(waifuLooksVerifyCommand('make -f./common.mk test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -W/tmp/new test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -Onone test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -Oline test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -fmakefile test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -Cbuild/link test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -ooutfile test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -Wquick test'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         './gradlew test -Dtest.failOnNoMatchingTests=true',
