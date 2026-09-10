@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): clippy glued -FVALUE is theater
+- **Why:** Clap accepts `-Ffoo` / `-Fserde` as `-F VALUE`. After lower
+  those are `-ffoo` / `-fserde`, which matched neither exact `-f` nor
+  `-f=`, so `--workspace -Fserde` still receipted.
+- **What:** Same theater. `flagVal` returns the glued value for a
+  single-letter short (`-f` + rest). Hits `_filteredSuiteTheater`. Bare
+  clippy / `-p` / `--workspace` / `--all` / `--all-features` still run.
+  No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): clippy -F features alias is theater
 - **Why:** Cargo short `-F` / `-F=` for `--features` was not on the
   clippy subset set, so `cargo clippy -F foo`, `--workspace -F foo`,

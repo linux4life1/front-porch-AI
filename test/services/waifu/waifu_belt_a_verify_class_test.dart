@@ -1035,4 +1035,38 @@ void main() {
       expect(waifuLooksVerifyCommand('cargo test --all'), isFalse);
     },
   );
+
+  test('clippy glued -FVALUE short features alias is theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo clippy -Ffoo',
+      'cargo clippy -Fserde',
+      'cargo clippy --workspace -Fserde',
+      'cargo clippy --all -Ffoo',
+      'cargo clippy -p foo -Fserde',
+      'cargo clippy -F',
+      'cargo clippy -F foo',
+      'cargo clippy -F=bar',
+      'cargo clippy --features foo',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy -p foo'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --workspace'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --all'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --all-features'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --lib'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo clippy --features foo'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo clippy -F foo'), isFalse);
+  });
 }

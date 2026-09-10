@@ -222,8 +222,9 @@ const _kCargoTestFilterFlags = {
 /// Not a copy of [_kCargoTestFilterFlags]. `--features` / `-F` /
 /// `--target` stay in [_kFilterValueFlags] so `cargo test` still skips
 /// their values; clippy theater is this set + `flagVal` only.
-/// Receipts are lowercased first, so cargo `-F` / `-F=` is stored as
-/// `-f` here and in [_kFilterValueFlags].
+/// Receipts are lowercased first, so cargo `-F` / `-F=` / `-Ffoo` is
+/// stored as `-f` here and in [_kFilterValueFlags]. Clap glued shorts
+/// (`-ffoo`) are a value in [flagVal], not a second club.
 const _kCargoClippySubsetFlags = {
   '--lib',
   '--bin',
@@ -247,6 +248,9 @@ const _kCargoClippySubsetFlags = {
 bool _runnerFilterTheater(String cmd, List<String> args) {
   String? flagVal(String name) {
     final eq = '$name=';
+    // Clap short: `-Ffoo` → lowered `-ffoo`. Long flags stay space/`=`.
+    final gluedShort =
+        name.length == 2 && name.startsWith('-') && name[1] != '-';
     for (var i = 0; i < args.length; i++) {
       final t = args[i];
       if (t == name) {
@@ -255,6 +259,9 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
             : '';
       }
       if (t.startsWith(eq)) return t.substring(eq.length);
+      if (gluedShort && t.startsWith(name) && t.length > name.length) {
+        return t.substring(name.length);
+      }
     }
     return null;
   }
