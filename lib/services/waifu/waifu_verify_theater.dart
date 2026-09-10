@@ -19,20 +19,32 @@
 part of 'waifu_verify.dart';
 
 /// Compile / list / dry-run / help — not a real execute. One gate.
-bool _verifyTheater(String lowered) {
-  for (final segment in _segments(lowered)) {
-    final words = _wordsOf(segment);
+/// [command] is the original (pre-lower) text so Gradle can tell
+/// `-p` (project-dir) from `-P` (project property).
+bool _verifyTheater(String command) {
+  final lowered = command.toLowerCase();
+  final rawSegs = _segments(command);
+  final lowSegs = _segments(lowered);
+  for (var s = 0; s < lowSegs.length; s++) {
+    final words = _wordsOf(lowSegs[s]);
     if (words.isEmpty) continue;
     if (words.any(_isTheaterFlag)) return true;
     final peeled = _peelWrappers(words);
     if (peeled.words.length < 2) continue;
     final cmd = _runnerKey(peeled.words.first);
     final args = peeled.words.skip(1).toList();
+    var rawArgs = args;
+    if (s < rawSegs.length) {
+      final rawPeeled = _peelWrappers(_wordsOf(rawSegs[s])).words;
+      if (rawPeeled.length == peeled.words.length) {
+        rawArgs = rawPeeled.skip(1).toList();
+      }
+    }
     if (cmd == 'make' && (args.contains('-n') || args.contains('-q'))) {
       return true;
     }
     if (cmd == 'gradle' && args.contains('-m')) return true;
-    if (cmd == 'gradle' && _gradleArgvTheater(args)) return true;
+    if (cmd == 'gradle' && _gradleArgvTheater(args, rawArgs)) return true;
     // Maven reactor / settings / profiles / toolchains / fail-never
     // + non-root `-f` (cwd, `/<one>/pom.xml`, or GHA checkout).
     if (cmd == 'mvn' && _mavenArgvTheater(args)) return true;

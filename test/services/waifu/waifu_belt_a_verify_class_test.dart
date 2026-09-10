@@ -1537,6 +1537,11 @@ void main() {
       './gradlew --project-dir other test',
       './gradlew -pother test',
       './gradlew --project-dir=other test',
+      './gradlew test -p',
+      './gradlew --project-dir= test',
+      './gradlew -b other.gradle test',
+      './gradlew --build-file other.gradle test',
+      './gradlew --settings-file other.settings.gradle test',
       'mvn -f /home/vsts/work/1/s/module/pom.xml test',
       'mvn test -Dmaven.multiModuleProjectDirectory=/other',
       'mvn test -Dsession.executionRootDirectory=/other',
@@ -1578,6 +1583,9 @@ void main() {
     expect(waifuLooksVerifyCommand('./gradlew -p . test'), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew -p ./ test'), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew test --continuous'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test -Pfoo'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test -PenableFoo'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test -Pfoo=bar'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         'mvn -f /home/runner/work/repo/repo/pom.xml test',

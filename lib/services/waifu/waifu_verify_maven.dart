@@ -282,25 +282,49 @@ bool _mavenNonRootPom(String raw) {
 /// Azure / GHA agent build-id segment (lowered).
 final _kMavenCiBuildId = RegExp(r'^[0-9a-z][0-9a-z._-]*$');
 
-/// Gradle argv theater: `--continue` (soft Done) and `-p` /
-/// `--project-dir` when the value is not cwd (`.` / `./`).
-/// Missing or empty value is theater. Glued `-Pprop=val` (contains
-/// `=`) is not project-dir. `--continuous` is not `--continue`.
-bool _gradleArgvTheater(List<String> args) {
+/// Gradle argv theater: `--continue` (soft Done), project-dir /
+/// build-file / settings-file relocate.
+///
+/// `-p` / `--project-dir` / `-b` / `--build-file` / `--settings-file`
+/// theater when the value is not cwd (`.` / `./`). Missing or empty
+/// (`-p`, `--project-dir=`) is theater. [rawArgs] keeps case so
+/// glued `-Pfoo` (property) is not project-dir; only raw `-p…` or
+/// `--project-dir…` glue. `--continuous` is not `--continue`.
+bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
     if (t == '--continue' || t.startsWith('--continue=')) return true;
     String? dir;
-    if (t == '-p' || t == '--project-dir') {
+    if (t == '-p' ||
+        t == '--project-dir' ||
+        t == '-b' ||
+        t == '--build-file' ||
+        t == '--settings-file') {
       dir = i + 1 < args.length ? args[i + 1] : '';
     } else if (t.startsWith('--project-dir=')) {
       dir = t.substring(14);
     } else if (t.startsWith('--project-dir') && t != '--project-dir') {
       dir = t.substring(13);
+    } else if (t.startsWith('--build-file=')) {
+      dir = t.substring(13);
+    } else if (t.startsWith('--build-file') && t != '--build-file') {
+      dir = t.substring(12);
+    } else if (t.startsWith('--settings-file=')) {
+      dir = t.substring(16);
+    } else if (t.startsWith('--settings-file') && t != '--settings-file') {
+      dir = t.substring(15);
+    } else if (t.startsWith('-b') && t != '-b' && !t.contains('=')) {
+      dir = t.substring(2);
     } else if (t.startsWith('-p') && t != '-p' && !t.contains('=')) {
+      if (i >= rawArgs.length ||
+          rawArgs[i].length < 2 ||
+          rawArgs[i][1] != 'p') {
+        continue;
+      }
       dir = t.substring(2);
     }
     if (dir == null) continue;
+    if (dir.isEmpty) return true;
     var path = dir.replaceAll(r'\', '/');
     while (path.startsWith('./')) {
       path = path.substring(2);

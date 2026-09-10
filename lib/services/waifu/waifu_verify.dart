@@ -155,7 +155,7 @@ const _kShellTestFlags = {'-f', '-d', '-e', '-s', '-w', '-r', '-x', '-z', '-n'};
 bool waifuLooksVerifyCommand(String command, {WaifuVerifyContext? context}) {
   final lowered = command.trim().toLowerCase();
   if (lowered.isEmpty) return false;
-  if (_verifyTheater(lowered)) return false;
+  if (_verifyTheater(command.trim())) return false;
   if (_isBuildWithoutTest(lowered)) return false;
   if (context != null) {
     for (final hint in context.hints) {
@@ -174,7 +174,7 @@ List<String> waifuNamedVerifyCommands(String task) {
     final cmd = m.group(1)!.trim();
     if (cmd.isEmpty) continue;
     final lowered = cmd.toLowerCase();
-    if (_verifyTheater(lowered) || _isBuildWithoutTest(lowered)) continue;
+    if (_verifyTheater(cmd) || _isBuildWithoutTest(lowered)) continue;
     final words = _wordsOf(lowered);
     if (words.isEmpty || _denyCmd(words.first) || _neverCheck(words)) {
       continue;

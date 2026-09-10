@@ -10,6 +10,21 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): empty -p theater; -Pprop full; -b relocate theater
+- **Why:** Tip ce76e3f8 treated empty `-p` / `--project-dir=` as cwd
+  (soft verify) and glued lowered `-Pfoo` as project-dir (over-
+  theater). `-b` / `--build-file` / `--settings-file` still
+  receipted a relocated build.
+- **What:** Same `_gradleArgvTheater` club. Empty/missing project-dir
+  is theater; cwd `.` / `./` stays full. Raw argv keeps `-P` vs `-p`
+  so `-PenableFoo` is a full run. `-b` / `--build-file` /
+  `--settings-file` use the same relocate rule. VIP `--tests *`
+  unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Gradle -p / bare basedir / Linux Azure / root cousins
 - **Why:** Tip d5f15721 still receipted `./gradlew -p other test`,
   bare `-Dbasedir`, and basedir cousins. Linux Azure
