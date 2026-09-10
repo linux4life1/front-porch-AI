@@ -43,6 +43,30 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): Belt B harness contract — one path, no lying gates
+- **Why:** Unit+integration on #247 was red (job 102966040004). The
+  listed fails were one contract, not twelve bolts: send awaited
+  verify-context before recording the user line; Plan treated a
+  denied project write as “could not write a plan file”; empty
+  wrap-up dropped card speech; `/tmp` scratch writes were OS-denied;
+  named-temp wipe allowed the sit-down parent; Build `needsAsk`
+  lied on `/etc/hosts`; `_excludesKnownCheck` contained the retired
+  product name; WaifuPage bound lookup without `webSearch: webSearch`;
+  sit-down Jail/Disk radios were untappable after honesty reopened.
+- **What:** Record send before any await. Mutation-attempt tracking
+  again — a denied Plan write is an attempt, not a missing plan file.
+  Empty wrap-up keeps remembered card speech. Sit-down ancestor wipe
+  beats named-temp allow; `/tmp` children are writable, OS trees
+  still fail at FS. Build asks for off-porch writes (no decide()
+  hard-deny). Theater helper renamed `_omitsKnownCheck`. Page binds
+  `webSearch: webSearch`. Sit-down Jail/Disk are chips so both stay
+  hittable when honesty returns.
+- **Files:** `waifu_harness.dart`, `waifu_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_deny.dart`,
+  `waifu_permissions.dart`, `waifu_page.dart`,
+  `waifu_wizard_sit_down_step.dart`, `waifu_verify_theater.dart`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Belt B fold fixture is a full as-run
 - **Why:** After A's frozen `--lib` theater, the B2 fold example
   still receipted `cargo test --lib` as as-run. That is a lying
