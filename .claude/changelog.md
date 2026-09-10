@@ -19,7 +19,7 @@
   `-p`, `--workspace`, `--all` without those still run.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** e9ea8a08
 
 ## 2026-09-10 — fix(waifu): clippy subsets; cargo test --exclude/--all
 - **Why:** Clippy `--lib` / `--bins` / `--all-targets` still receipted.
