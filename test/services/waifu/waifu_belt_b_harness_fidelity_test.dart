@@ -532,18 +532,13 @@ void main() {
       final turn = WaifuTurn.start('please write hello.txt', null);
       landHello(turn);
       turn.rememberToolSpeech('Hmph. Real words from the tool step.');
-      expect(turn.onEmptyCalls(''), WaifuTurnStep.accept);
-      expect(turn.pendingSpeech, 'Hmph. Real words from the tool step.');
-
-      final mute = WaifuTurn.start('please write hello.txt', null);
-      landHello(mute);
-      expect(mute.onEmptyCalls(''), WaifuTurnStep.retry);
-      expect(mute.onEmptyCalls('Done.'), WaifuTurnStep.retry);
-      expect(mute.onEmptyCalls(''), WaifuTurnStep.fail);
-      expect(mute.pendingSpeech, kWaifuStuckWrap);
-      expect(mute.pendingSpeech, isNot(contains('Real words')));
-      expect(mute.failReason, contains('spoken wrap-up'));
-      expect(mute.failureLine(''), isNot(contains('Real words')));
+      expect(turn.onEmptyCalls(''), WaifuTurnStep.retry);
+      expect(turn.onEmptyCalls('Done.'), WaifuTurnStep.retry);
+      expect(turn.onEmptyCalls(''), WaifuTurnStep.fail);
+      expect(turn.pendingSpeech, kWaifuStuckWrap);
+      expect(turn.pendingSpeech, isNot(contains('Real words')));
+      expect(turn.failReason, contains('spoken wrap-up'));
+      expect(turn.failureLine(''), isNot(contains('Real words')));
     },
   );
 }
