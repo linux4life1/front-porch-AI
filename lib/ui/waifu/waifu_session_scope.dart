@@ -42,18 +42,19 @@ WaifuStore? waifuStoreForContext(BuildContext context, {WaifuStore? injected}) {
 
 /// Sit-down estimate when no harness is bound (system + advertised tools).
 int waifuIdleRequestTokens(WaifuSession session) {
+  final messages = waifuOpenAiMessages(
+    folderName: session.folderRoot,
+    coworkerName: session.coworker.name,
+    transcript: session.transcript,
+    todos: session.todos.items.isEmpty ? '' : session.todos.read(),
+    mentionBlock: '',
+    preserveThinking: session.preserveThinking,
+    pathMode: session.pathMode,
+    mode: session.mode,
+  );
   return waifuMeasureRequest(
     systemPrompt: buildWaifuCoworkerPrompt(session.coworker),
-    prompt: waifuLoopUserPrompt(
-      folderName: session.folderRoot,
-      coworkerName: session.coworker.name,
-      transcript: session.transcript,
-      todos: session.todos.items.isEmpty ? '' : session.todos.read(),
-      mentionBlock: '',
-      preserveThinking: session.preserveThinking,
-      pathMode: session.pathMode,
-      mode: session.mode,
-    ),
+    prompt: waifuMessagesMeterText(messages),
     budget: session.contextBudget,
     tools: waifuAdvertisedTools(
       exploreOnly: false,

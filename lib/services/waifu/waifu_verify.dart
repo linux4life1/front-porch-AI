@@ -16,90 +16,229 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// Test/analyze class only. `echo`, `ls`, and `test -f` are not verify.
-/// Every `&&` / `||` / `;` segment is scanned so `cd pkg && flutter test`
-/// receipts. `--help` / `-h` / dry-run anywhere in the command (or any
-/// segment) fails the whole receipt — a later clean segment is not an
-/// escape (`flutter test --help || flutter test`).
-bool waifuLooksVerifyCommand(String command) {
-  final lowered = command.trim().toLowerCase();
-  final segments = lowered.split(RegExp(r'(?:&&|\|\||[;|\n])'));
-  List<String> wordsOf(String raw) => raw
-      .replaceAll(RegExp(r'''["'`(){}\[\],;|&<>]'''), ' ')
-      .split(RegExp(r'\s+'))
-      .where((w) => w.isNotEmpty)
-      .toList();
-  bool theater(List<String> words) => words.any((w) {
-    if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
-    return w == '--dry-run' ||
-        w == '--dryrun' ||
-        w == '--dry_run' ||
-        w.startsWith('--dry-run') ||
-        w.startsWith('--dryrun');
+import 'dart:io';
+
+import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
+import 'package:path/path.dart' as p;
+
+/// Project-native check names. Receipt is step.verify, a user-named
+/// command, a repo marker, or the test/analyze class — not a VIP runner
+/// club. Echo / ls / help / dry-run / build-without-test never receipt.
+class WaifuVerifyContext {
+  const WaifuVerifyContext({
+    this.stepVerify = const [],
+    this.named = const [],
+    this.markers = const [],
   });
-  if (theater(wordsOf(lowered))) return false;
-  for (final segment in segments) {
-    if (theater(wordsOf(segment))) return false;
+
+  final List<String> stepVerify;
+  final List<String> named;
+  final List<String> markers;
+
+  Iterable<String> get hints sync* {
+    yield* stepVerify;
+    yield* named;
+    yield* markers;
   }
-  for (final segment in segments) {
-    final words = wordsOf(segment);
-    if (words.isEmpty) continue;
-    var cmd = words.first;
-    if (cmd.contains('/')) cmd = cmd.split('/').last;
-    if (cmd == 'npx' && words.length > 1) {
-      if (const {'vitest', 'jest', 'eslint'}.contains(words[1])) return true;
-      continue;
+}
+
+const _kVerifyVerbs = {
+  'test',
+  'tests',
+  'analyze',
+  'lint',
+  'check',
+  'clippy',
+  'pytest',
+  'unittest',
+  'rspec',
+  'phpunit',
+  'ctest',
+  'vitest',
+  'jest',
+  'eslint',
+};
+
+const _kBuildOnly = {
+  'build',
+  'compile',
+  'package',
+  'export',
+  'assemble',
+  'publish',
+  'bundle',
+};
+
+const _kDenyCmds = {'echo', 'ls', 'printf', 'true', 'false', 'cat', 'pwd'};
+
+const _kShellTestFlags = {'-f', '-d', '-e', '-s', '-w', '-r', '-x', '-z', '-n'};
+
+bool waifuLooksVerifyCommand(String command, {WaifuVerifyContext? context}) {
+  final lowered = command.trim().toLowerCase();
+  if (lowered.isEmpty) return false;
+  if (_verifyTheater(lowered)) return false;
+  if (_isBuildWithoutTest(lowered)) return false;
+  if (context != null) {
+    for (final hint in context.hints) {
+      if (_commandFulfills(lowered, hint)) return true;
     }
-    if (cmd == 'flutter' || cmd == 'dart') {
-      if (words.length > 1 && const {'test', 'analyze'}.contains(words[1])) {
-        return true;
-      }
-      continue;
+  }
+  return _looksTestAnalyzeClass(lowered);
+}
+
+bool waifuLooksVerifySegment(String segment, {WaifuVerifyContext? context}) =>
+    waifuLooksVerifyCommand(segment, context: context);
+
+List<String> waifuNamedVerifyCommands(String task) {
+  final found = <String>{};
+  for (final m in RegExp(r'''[`"'']([^`"']+)[`"'']''').allMatches(task)) {
+    final cmd = m.group(1)!.trim();
+    if (waifuLooksVerifyCommand(cmd)) found.add(cmd);
+  }
+  return found.toList();
+}
+
+Future<List<String>> waifuVerifyMarkerCommands(String root) async {
+  Future<bool> has(String rel) => File(p.join(root, rel)).exists();
+  final out = <String>[];
+  if (await has('Cargo.toml')) out.addAll(['cargo test', 'cargo clippy']);
+  if (await has('package.json')) {
+    out.addAll(['npm test', 'pnpm test', 'yarn test', 'bun test']);
+  }
+  if (await has('go.mod')) out.add('go test');
+  if (await has('pyproject.toml') ||
+      await has('pytest.ini') ||
+      await has('requirements.txt')) {
+    out.add('pytest');
+  }
+  if (await has('pubspec.yaml')) {
+    out.addAll(['dart test', 'dart analyze', 'flutter test']);
+  }
+  if (await has('pom.xml')) out.add('mvn test');
+  if (await has('build.gradle') || await has('build.gradle.kts')) {
+    out.add('gradle test');
+  }
+  if (await has('mix.exs')) out.add('mix test');
+  if (await has('Gemfile')) out.add('rspec');
+  if (await has('composer.json')) out.add('phpunit');
+  if (await has('CMakeLists.txt')) out.add('ctest');
+  if (await has('build.zig')) out.add('zig test');
+  if (await has('Package.swift')) out.add('swift test');
+  return out;
+}
+
+Future<WaifuVerifyContext> waifuBuildVerifyContext({
+  required String folderRoot,
+  required String task,
+  WaifuPlan? plan,
+}) async {
+  final steps = <String>[
+    if (plan != null)
+      for (final step in plan.steps)
+        if (step.verify.trim().isNotEmpty) step.verify.trim(),
+  ];
+  return WaifuVerifyContext(
+    stepVerify: steps,
+    named: waifuNamedVerifyCommands(task),
+    markers: await waifuVerifyMarkerCommands(folderRoot),
+  );
+}
+
+bool _verifyTheater(String lowered) {
+  for (final segment in _segments(lowered)) {
+    final words = _wordsOf(segment);
+    if (words.any((w) {
+      if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
+      return w == '--dry-run' ||
+          w == '--dryrun' ||
+          w == '--dry_run' ||
+          w.startsWith('--dry-run') ||
+          w.startsWith('--dryrun');
+    })) {
+      return true;
     }
-    if (cmd == 'swift') {
-      // Compile/package/export is not a check on any stack.
-      if (words.length > 1 && words[1] == 'test') return true;
-      continue;
-    }
-    if (cmd == 'cargo') {
-      if (words.length > 1 && const {'test', 'clippy'}.contains(words[1])) {
-        return true;
-      }
-      continue;
-    }
-    if (cmd == 'go') {
-      if (words.length > 1 && words[1] == 'test') return true;
-      continue;
-    }
-    if (cmd == 'make') {
-      if (words.length > 1 &&
-          const {'test', 'check', 'lint'}.contains(words[1])) {
-        return true;
-      }
-      continue;
-    }
-    if (cmd == 'npm' || cmd == 'pnpm' || cmd == 'yarn') {
-      if (words.length > 1 && words[1] == 'test') return true;
-      if (words.length > 2 && words[1] == 'run') {
-        final script = words[2];
-        if (script == 'test' ||
-            script == 'lint' ||
-            script == 'analyze' ||
-            script.startsWith('test:')) {
-          return true;
-        }
-      }
-      continue;
-    }
-    if (cmd == 'python' || cmd == 'python3' || cmd == 'py') {
-      if (words.length > 2 &&
-          words[1] == '-m' &&
-          const {'pytest', 'unittest'}.contains(words[2])) {
-        return true;
-      }
-      continue;
-    }
-    if (const {'pytest', 'vitest', 'jest'}.contains(cmd)) return true;
   }
   return false;
 }
+
+bool _isBuildWithoutTest(String lowered) {
+  var sawBuild = false;
+  var sawCheck = false;
+  for (final segment in _segments(lowered)) {
+    final words = _wordsOf(segment);
+    if (words.isEmpty) continue;
+    if (_denyCmd(words.first)) continue;
+    if (_isShellTest(words)) continue;
+    for (final w in words) {
+      if (_kVerifyVerbs.contains(w) || w.startsWith('test:')) sawCheck = true;
+      if (_kBuildOnly.contains(w)) sawBuild = true;
+    }
+  }
+  return sawBuild && !sawCheck;
+}
+
+bool _looksTestAnalyzeClass(String lowered) {
+  for (final segment in _segments(lowered)) {
+    if (_segmentIsTestAnalyze(segment)) return true;
+  }
+  return false;
+}
+
+bool _segmentIsTestAnalyze(String segment) {
+  final words = _wordsOf(segment);
+  if (words.isEmpty) return false;
+  var cmd = words.first;
+  if (cmd.contains('/')) cmd = cmd.split('/').last;
+  if (_denyCmd(cmd)) return false;
+  if (_isShellTest(words)) return false;
+  if (const {'npx', 'npm', 'pnpm', 'yarn', 'bun', 'deno'}.contains(cmd)) {
+    if (words.length > 2 && words[1] == 'run') {
+      final script = words[2];
+      if (_kVerifyVerbs.contains(script) || script.startsWith('test:')) {
+        return true;
+      }
+    }
+    if (words.length > 1 && _kVerifyVerbs.contains(words[1])) return true;
+  }
+  if (const {'python', 'python3', 'py'}.contains(cmd) &&
+      words.length > 2 &&
+      words[1] == '-m' &&
+      _kVerifyVerbs.contains(words[2])) {
+    return true;
+  }
+  if (_kVerifyVerbs.contains(cmd)) return true;
+  if (words.length > 1 && _kVerifyVerbs.contains(words[1])) return true;
+  return false;
+}
+
+bool _commandFulfills(String command, String expected) {
+  final want = expected.trim().toLowerCase();
+  if (want.isEmpty) return false;
+  if (command == want) return true;
+  for (final segment in _segments(command)) {
+    final got = segment.trim();
+    if (got == want || got.startsWith('$want ')) return true;
+  }
+  return false;
+}
+
+bool _denyCmd(String cmd) {
+  final base = cmd.contains('/') ? cmd.split('/').last : cmd;
+  return _kDenyCmds.contains(base);
+}
+
+bool _isShellTest(List<String> words) {
+  final cmd = words.first.contains('/')
+      ? words.first.split('/').last
+      : words.first;
+  return cmd == 'test' && words.any(_kShellTestFlags.contains);
+}
+
+List<String> _wordsOf(String raw) => raw
+    .replaceAll(RegExp(r'''["'`(){}\[\],;|&<>]'''), ' ')
+    .split(RegExp(r'\s+'))
+    .where((w) => w.isNotEmpty)
+    .toList();
+
+List<String> _segments(String command) =>
+    command.split(RegExp(r'(?:&&|\|\||[;|\n])'));

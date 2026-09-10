@@ -40,7 +40,6 @@ void main() {
       mode: WaifuMode.yolo,
       enforceVerify: enforceVerify,
     );
-    turn.noteAttempt(kWaifuToolWrite);
     turn.noteResult(
       kWaifuToolWrite,
       writeOk('parser.dart'),
@@ -52,16 +51,11 @@ void main() {
 
   void expectVerifyFail(WaifuTurnContract turn) {
     expect(turn.verified, isFalse);
-    expect(
-      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
-      WaifuFinalAction.retryVerify,
-    );
-    turn.requestVerify();
-    turn.requestVerify();
-    expect(
-      turn.decideFinal('Hmph. Parser is fixed. Obviously.'),
-      WaifuFinalAction.failVerify,
-    );
+    final live = WaifuTurn.fromContract(turn);
+    const line = 'Hmph. Parser is fixed. Obviously.';
+    expect(live.onEmptyCalls(line), WaifuTurnStep.retry);
+    expect(live.onEmptyCalls(line), WaifuTurnStep.retry);
+    expect(live.onEmptyCalls(line), WaifuTurnStep.fail);
   }
 
   test('compound verify scans any segment; echo&&ls does not', () {
@@ -126,7 +120,6 @@ void main() {
       null,
       args: {'path': 'parser.dart'},
     );
-    turn.noteAttempt(kWaifuToolWrite);
     turn.noteResult(
       kWaifuToolWrite,
       writeOk('parser.dart'),

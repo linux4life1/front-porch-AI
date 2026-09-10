@@ -48,10 +48,11 @@ const kWaifuPreamble =
     'or the user’s task. Do not commit or discard work unless asked.';
 
 /// Coding partner must look up current SDKs. Training cutoff is not evidence.
+/// Stack-agnostic: do not name a host-app language unless that repo is open.
 const kWaifuLookupCue =
-    'If a Flutter/Dart version, package, or API is uncertain — including '
+    'If a language, SDK, package, or API is uncertain — including '
     'anything you are about to say does not exist — call web_search or '
-    'webfetch (docs.flutter.dev, pub.dev, dart.dev) or an MCP search/fetch '
+    'webfetch on that stack’s official docs, or an MCP search/fetch '
     'tool before asserting. Never claim a version is fake from memory.';
 
 String waifuNestCue(int remainingTaskDepth) {

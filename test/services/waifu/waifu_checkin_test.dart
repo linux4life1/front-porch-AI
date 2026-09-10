@@ -36,22 +36,6 @@ void main() {
     expect(waifuCheckInDue(kWaifuCheckInEvery), isTrue);
     expect(waifuCheckInCounts('write'), isTrue);
     expect(waifuCheckInCounts('read'), isFalse);
-    expect(
-      waifuShouldCheckInBefore(
-        rootTurn: true,
-        mutationsSinceCheckIn: kWaifuCheckInEvery,
-        toolName: 'write',
-      ),
-      isTrue,
-    );
-    expect(
-      waifuShouldCheckInBefore(
-        rootTurn: false,
-        mutationsSinceCheckIn: kWaifuCheckInEvery,
-        toolName: 'write',
-      ),
-      isFalse,
-    );
   });
 
   test('constitution ends the turn with speech, not a keep-going dialog', () {
@@ -85,16 +69,15 @@ void main() {
   });
 
   test(
-    'seven writes end the send before the seventh; she speaks once',
+    'seven writes in one model response all land; she speaks once',
     () async {
+      final reads = [
+        for (var i = 1; i <= kWaifuCheckInEvery + 1; i++)
+          LlmToolCall(name: 'read', arguments: {'path': 'f$i.txt'}),
+      ];
       final llm = ScriptedWaifuLlm([
         LlmToolResponse(calls: _writes(kWaifuCheckInEvery + 1), text: ''),
-        const LlmToolResponse(
-          calls: [
-            LlmToolCall(name: 'read', arguments: {'path': 'f1.txt'}),
-          ],
-          text: '',
-        ),
+        LlmToolResponse(calls: reads, text: ''),
         const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
         const LlmToolResponse(
           calls: [],
@@ -117,9 +100,11 @@ void main() {
         await File(
           p.join(root.path, 'f${kWaifuCheckInEvery + 1}.txt'),
         ).readAsString(),
-        'old ${kWaifuCheckInEvery + 1}',
+        'body ${kWaifuCheckInEvery + 1}',
       );
-      final spoken = session.transcript.where((m) => m.kind == WaifuMsgKind.assistant).toList();
+      final spoken = session.transcript
+          .where((m) => m.kind == WaifuMsgKind.assistant)
+          .toList();
       expect(spoken, hasLength(1));
       expect(spoken.single.text, contains('Scaffold is up'));
       expect(spoken.single.text, isNot(contains('---')));
@@ -127,14 +112,13 @@ void main() {
   );
 
   test('five writes still finish the small job in one send', () async {
+    final reads = [
+      for (var i = 1; i <= kWaifuCheckInEvery - 1; i++)
+        LlmToolCall(name: 'read', arguments: {'path': 'f$i.txt'}),
+    ];
     final llm = ScriptedWaifuLlm([
       LlmToolResponse(calls: _writes(kWaifuCheckInEvery - 1), text: ''),
-      const LlmToolResponse(
-        calls: [
-          LlmToolCall(name: 'read', arguments: {'path': 'f1.txt'}),
-        ],
-        text: '',
-      ),
+      LlmToolResponse(calls: reads, text: ''),
       const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
       const LlmToolResponse(calls: [], text: 'Hmph. The files are on disk.'),
     ]);

@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
+import 'package:front_porch_ai/services/waifu/waifu_verify.dart';
 import 'package:path/path.dart' as p;
 
 /// Union of OS-write denials and recursive-wipe roots. Sit-down folder
@@ -384,6 +385,8 @@ bool _isDangerousWipeTarget(String raw, String? workingDirectory) {
 
 /// Command class: redirect / write / rm / pkg / unknown mutate. Not the
 /// Plan allowlist function — Plan still uses [waifuPlanBashDenied].
+/// Verify-shaped non-mutating checks (cargo test, npm test, pytest, …)
+/// are not mutates — Build must not ask for them.
 bool waifuBashMutates(String command) {
   final raw = command.trim();
   if (raw.isEmpty) return false;
@@ -398,7 +401,7 @@ bool waifuBashMutates(String command) {
     if (words.isEmpty) continue;
     var cmd = words.first;
     if (cmd.contains('/')) cmd = cmd.split('/').last;
-    if (!kWaifuPlanBashAllow.contains(cmd)) return true;
+    if (cmd == 'cd' || cmd == 'pushd' || cmd == 'popd') continue;
     if (cmd == 'git' && words.length > 1) {
       const write = {
         'add',
@@ -423,6 +426,8 @@ bool waifuBashMutates(String command) {
         words.any((w) => w == '-i' || w.startsWith('-i') && w != '-i')) {
       return true;
     }
+    if (waifuLooksVerifySegment(segment)) continue;
+    if (!kWaifuPlanBashAllow.contains(cmd)) return true;
   }
   return false;
 }

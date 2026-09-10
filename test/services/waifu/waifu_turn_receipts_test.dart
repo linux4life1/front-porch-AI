@@ -20,7 +20,6 @@ void main() {
 
   WaifuTurn afterWrite() {
     final turn = WaifuTurn.start('fix parser.dart', null, mode: WaifuMode.yolo);
-    turn.noteAttempt(kWaifuToolWrite);
     turn.noteResult(
       kWaifuToolWrite,
       writeOk('parser.dart'),
@@ -64,10 +63,11 @@ void main() {
     expect(turn.phase, WaifuPhase.done);
   });
 
-  test('done is accept when receipts are complete', () {
+  test('generic Done is not accept even when receipts are complete', () {
     final turn = afterWrite();
     verifyTurn(turn);
-    expect(turn.onEmptyCalls('Done.'), WaifuTurnStep.accept);
+    expect(turn.onEmptyCalls('Done.'), WaifuTurnStep.retry);
+    expect(turn.pendingSpeech, isNot('Done.'));
   });
 
   test('please write hello.txt with no write retries then fails', () {
@@ -153,7 +153,7 @@ void main() {
   });
 
   test(
-    'check-in after 6 writes blocks the 7th; verify still allowed',
+    'check-in after 6 writes still runs sibling calls; verify still allowed',
     () async {
       final root = await Directory.systemTemp.createTemp('waifu_checkin_');
       addTearDown(() async {
@@ -191,7 +191,7 @@ void main() {
         bash: WaifuAnalyzeBash(root.path),
         onAsk: (_) async => WaifuAskDecision.allowAlways,
       ).send('implement seven files');
-      expect(await File(p.join(root.path, 'notes.txt')).readAsString(), 'v5\n');
+      expect(await File(p.join(root.path, 'notes.txt')).readAsString(), 'v6\n');
       expect(session.transcript.last.text, 'Paused after a handful.');
     },
   );

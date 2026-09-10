@@ -10,6 +10,29 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): Belt A loop truth — one wrap-up, one request, polyglot verify
+- **Why:** The coding loop had lying dual paths: `decideFinal` beside a
+  10-way empty-calls adapter, a transcript-stuffed prompt blob metered
+  while generate used OpenAI messages, `mutationAttempted` as an unlock
+  hole, a mid-batch check-in chop helper the live loop no longer ran, a
+  VIP verify runner club, and Flutter-first wrap-up/lookup cues.
+- **What:** `onEmptyCalls` is the only wrap-up authority — `decideFinal`,
+  `WaifuFinalAction`, and `mutationAttempted` are gone. Denied/failed
+  mutate cannot wrap. Generate and the context meter use the same
+  messages projection. Verify is project-native receipt + deny list, not
+  a closed runner club. Lookup and run-plan-step cues are stack-agnostic.
+  Abort clears the follow-up queue. Check-in keeps sibling tool_calls.
+  Multi-file review is AND. Glob stubs key on pattern+path. todowrite
+  schema validates before saveLast. forceTool holds until mutate+verify.
+- **Files:** `waifu_turn.dart`, `waifu_turn_contract.dart`,
+  `waifu_harness.dart`, `waifu_harness_turn.dart`,
+  `waifu_harness_compact.dart`, `waifu_harness_dispatch.dart`,
+  `waifu_openai_messages.dart`, `waifu_verify.dart`, `waifu_deny.dart`,
+  `waifu_checkin.dart`, `waifu_coworker_prompt.dart`, `waifu_workflow.dart`,
+  `waifu_tools.dart`, `waifu_todos.dart`, `waifu_compact.dart`,
+  `waifu_session_scope.dart`, `waifu_belt_a_loop_truth_test.dart` (NEW),
+  plus existing Waifu contract tests moved onto `onEmptyCalls`
+- **Commit:** (pending)
 
 ## 2026-09-10 — fix(waifu): /tmp inspect is not a disk wipe; wrap-up is not a harness essay
 - **Why:** Whole-disk `mkdir /tmp/epub_inspect && rm -r META-INF` treated
