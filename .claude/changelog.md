@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): clippy subsets; cargo test --exclude/--all
+- **Why:** Clippy `--lib` / `--bins` / `--all-targets` still receipted.
+  `cargo test --exclude` / `--all` were skip-as-value or an
+  `--all-targets` alias hole. Clippy `--workspace` / `--all` are the
+  full workspace lint.
+- **What:** Same theater. Explicit clippy policy: `--workspace`/`--all`
+  verify; subset selectors theater. Not a copy of the test flag set.
+  `--exclude` and `--all` join cargo-test filters.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): cargo --bins/--workspace; zig --test-filter
 - **Why:** `cargo test --bench` / `--bins` / `--tests` / `--workspace`
   still receipted. `zig build test --test-filter` and `zig test

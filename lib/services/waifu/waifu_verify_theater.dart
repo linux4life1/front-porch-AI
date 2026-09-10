@@ -107,7 +107,6 @@ bool _filteredSuiteTheater(String val, {Set<String> all = const {'*'}}) =>
 const _kFilterValueFlags = <String, Set<String>>{
   'cargo': {
     '--features',
-    '--exclude',
     '--target',
     '--target-dir',
     '--manifest-path',
@@ -190,7 +189,8 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'test': {'-t', '--testnamepattern', '--testpathpattern'},
 };
 
-/// `cargo test` only — clippy `-p` is a normal workspace lint.
+/// `cargo test` only. `--workspace` here is still a non-default set.
+/// `--all` is the `--all-targets` alias hole. `--exclude` drops crates.
 const _kCargoTestFilterFlags = {
   '-p',
   '--package',
@@ -206,6 +206,25 @@ const _kCargoTestFilterFlags = {
   '--tests',
   '--all-targets',
   '--workspace',
+  '--exclude',
+  '--all',
+};
+
+/// Clippy: `--workspace` / `--all` expand to the full workspace = verify.
+/// `-p` is a normal workspace lint. Subset selectors (`--lib`, `--bins`,
+/// `--tests`, `--all-targets`, …) restrict the set = theater.
+/// Not a copy of [_kCargoTestFilterFlags].
+const _kCargoClippySubsetFlags = {
+  '--lib',
+  '--bin',
+  '--bins',
+  '--example',
+  '--examples',
+  '--bench',
+  '--benches',
+  '--test',
+  '--tests',
+  '--all-targets',
 };
 
 /// Same gate as JVM `--tests` / `-Dtest=`. Filtered ≠ full suite.
@@ -290,7 +309,14 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
   }
   if (cmd == 'cargo') {
     final rest = afterCheck('test');
-    if (rest == null) return false;
+    if (rest == null) {
+      if (afterCheck('clippy') == null) return false;
+      for (final f in _kCargoClippySubsetFlags) {
+        final v = flagVal(f);
+        if (v != null && _filteredSuiteTheater(v)) return true;
+      }
+      return false;
+    }
     for (final f in _kCargoTestFilterFlags) {
       final v = flagVal(f);
       if (v != null && _filteredSuiteTheater(v)) return true;

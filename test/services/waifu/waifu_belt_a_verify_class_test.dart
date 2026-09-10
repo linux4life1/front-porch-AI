@@ -869,4 +869,56 @@ void main() {
       isFalse,
     );
   });
+
+  test('clippy subsets and cargo test --exclude/--all are theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo clippy --lib',
+      'cargo clippy --bin foo',
+      'cargo clippy --bin',
+      'cargo clippy --bins',
+      'cargo clippy --tests',
+      'cargo clippy --benches',
+      'cargo clippy --examples',
+      'cargo clippy --all-targets',
+      'cargo test --exclude foo',
+      'cargo test --all',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    for (final cmd in [
+      'cargo test',
+      'cargo clippy',
+      'cargo clippy -p foo',
+      'cargo clippy --workspace',
+      'cargo clippy --all',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo test --lib'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test --bins'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test --workspace'), isFalse);
+    expect(
+      waifuLooksVerifyCommand('zig build test --test-filter foo'),
+      isFalse,
+    );
+  });
 }
