@@ -25,7 +25,7 @@
   `--tests *` unchanged.
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 2467ede8
 
 ## 2026-09-10 — fix(waifu): Gradle -p=/-b=/-c theater; cwd build.gradle full
 - **Why:** Tip bee16f9e still receipted `./gradlew -p= test`,
