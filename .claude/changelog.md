@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): clippy/cargo presence flags do not VIP-star
+- **Why:** Clippy subset and cargo `-p` / `--exclude` ran values through
+  `_filteredSuiteTheater` with suite VIP `*`, so `-F*` / `--features *`
+  / `--exclude *` / `--target *` / `cargo test -p *` still receipted.
+- **What:** Same theater. Those flags use `all: {}` (presence). Suite
+  VIP `*` stays for real name/package filters (`--tests *`). Bare
+  clippy / `-p` / `--workspace` / `--all` / `--all-features` still run.
+  No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): clippy glued -FVALUE is theater
 - **Why:** Clap accepts `-Ffoo` / `-Fserde` as `-F VALUE`. After lower
   those are `-ffoo` / `-fserde`, which matched neither exact `-f` nor

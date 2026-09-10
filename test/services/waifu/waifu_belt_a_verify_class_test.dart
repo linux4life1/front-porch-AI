@@ -1069,4 +1069,45 @@ void main() {
     expect(waifuLooksVerifyCommand('cargo clippy --features foo'), isFalse);
     expect(waifuLooksVerifyCommand('cargo clippy -F foo'), isFalse);
   });
+
+  test('clippy and cargo-test presence flags do not VIP-star', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo clippy -F*',
+      'cargo clippy -F=*',
+      'cargo clippy --features *',
+      'cargo clippy --features=*',
+      'cargo clippy --workspace -F*',
+      'cargo clippy --exclude *',
+      'cargo clippy --exclude=*',
+      'cargo clippy --target *',
+      'cargo test -p*',
+      'cargo test -p *',
+      'cargo test --package *',
+      'cargo clippy --all -F*',
+      'cargo clippy -p foo -F*',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy -p foo'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --workspace'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --all'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --all-features'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test --tests *'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy -Ffoo'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo clippy -F foo'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo clippy -F=bar'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo clippy --exclude foo'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test -p foo'), isFalse);
+  });
 }

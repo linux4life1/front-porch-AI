@@ -98,7 +98,10 @@ bool _mavenSkipProperty(String w) {
   return eq < 0 || body.substring(eq + 1) != 'false';
 }
 
-/// Empty or an explicit class filter is not a full suite. `*` is all.
+/// Empty or a value outside [all] is theater.
+/// Default [all] is `*` — JVM / jest / go name filters mean “all tests”.
+/// Presence theater (clippy subset, cargo `-p` / `--exclude` / features /
+/// target): pass [all] empty; `*` is not a full lint.
 bool _filteredSuiteTheater(String val, {Set<String> all = const {'*'}}) =>
     val.isEmpty || !all.contains(val);
 
@@ -192,6 +195,8 @@ const _kSuiteFilterFlags = <String, Set<String>>{
 
 /// `cargo test` only. `--workspace` here is still a non-default set.
 /// `--all` is the `--all-targets` alias hole. `--exclude` drops crates.
+/// Presence theater via [_filteredSuiteTheater] `all: {}` — `-p *` is
+/// not a full suite.
 const _kCargoTestFilterFlags = {
   '-p',
   '--package',
@@ -225,6 +230,8 @@ const _kCargoTestFilterFlags = {
 /// Receipts are lowercased first, so cargo `-F` / `-F=` / `-Ffoo` is
 /// stored as `-f` here and in [_kFilterValueFlags]. Clap glued shorts
 /// (`-ffoo`) are a value in [flagVal], not a second club.
+/// Presence theater (`all: {}`): `-F*` / `--exclude *` / `--target *`
+/// are not a full lint.
 const _kCargoClippySubsetFlags = {
   '--lib',
   '--bin',
@@ -336,13 +343,17 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
       if (afterCheck('clippy') == null) return false;
       for (final f in _kCargoClippySubsetFlags) {
         final v = flagVal(f);
-        if (v != null && _filteredSuiteTheater(v)) return true;
+        if (v != null && _filteredSuiteTheater(v, all: const {})) {
+          return true;
+        }
       }
       return false;
     }
     for (final f in _kCargoTestFilterFlags) {
       final v = flagVal(f);
-      if (v != null && _filteredSuiteTheater(v)) return true;
+      if (v != null && _filteredSuiteTheater(v, all: const {})) {
+        return true;
+      }
     }
     for (var i = 0; i < rest.length; i++) {
       final t = rest[i];
