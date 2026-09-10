@@ -40,9 +40,7 @@ bool _verifyTheater(String command) {
         rawArgs = rawPeeled.skip(1).toList();
       }
     }
-    if (cmd == 'make' && (args.contains('-n') || args.contains('-q'))) {
-      return true;
-    }
+    if (cmd == 'make' && _makeArgvTheater(args, rawArgs)) return true;
     if (cmd == 'gradle' && args.contains('-m')) return true;
     if (cmd == 'gradle' && _gradleArgvTheater(args, rawArgs)) return true;
     // Maven reactor / settings / profiles / toolchains / fail-never

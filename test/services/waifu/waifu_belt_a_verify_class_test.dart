@@ -1601,6 +1601,21 @@ void main() {
       'mvn verify -Dfailsafe.failIfNoSpecifiedTests=false',
       'mvn test -DfailIfNoTests',
       'mvn test -DfailIfNoTests=',
+      'make -i test',
+      'make --ignore-errors test',
+      'make -k test',
+      'make --keep-going test',
+      'make --ignore-errors= test',
+      'make --keep-going=true test',
+      './gradlew test -Dtest.failOnNoMatchingTests=false',
+      './gradlew test -Dtest.failOnNoDiscoveredTests=false',
+      './gradlew test -Ptest.failOnNoMatchingTests=false',
+      './gradlew test -Ptest.failOnNoDiscoveredTests=false',
+      './gradlew test -Dtest.failOnNoMatchingTests',
+      './gradlew test -Dtest.failOnNoMatchingTests=',
+      './gradlew test -Dtest.filter.commandLineIncludePatterns=',
+      './gradlew test -Dtest.filter.commandLineExcludePatterns=',
+      './gradlew test -Ptest.filter.commandLineIncludePatterns=Foo',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1736,6 +1751,27 @@ void main() {
       isTrue,
     );
     expect(waifuLooksVerifyCommand('mvn test -DfailIfNoTests=true'), isTrue);
+    expect(waifuLooksVerifyCommand('make test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -I extras test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -j8 test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand(
+        './gradlew test -Dtest.failOnNoMatchingTests=true',
+      ),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand(
+        './gradlew test -Ptest.failOnNoMatchingTests=true',
+      ),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand(
+        './gradlew test -Dtest.failOnNoDiscoveredTests=true',
+      ),
+      isTrue,
+    );
     expect(
       waifuLooksVerifyCommand('mvn test -Dmaven.test.error.ignore=false'),
       isTrue,

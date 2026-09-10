@@ -10,6 +10,23 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): make soft-Done + prefixed failOnNo* theater
+- **Why:** Tip 8b092567 still receipted `make -i` / `-k` /
+  `--ignore-errors` / `--keep-going` (failed recipes still
+  green) and prefixed
+  `-Dtest.failOnNoMatchingTests=false` /
+  `-Dtest.failOnNoDiscoveredTests=false` (empty-suite soft).
+- **What:** Same `_verifyTheater` path. Make shorts `-i` (raw,
+  not `-I` include-dir) / `-k` plus longs via
+  `_polyglotSoftDone`. Gradle whenFalse club adds `test.`
+  failOnNo* twins (`-D`/`-P`, raw `P`). Command-line include/
+  exclude patterns join the Gradle filter set. `-n`/`-q`,
+  Gradle `-i` info, `=true` prefixed, and VIP `--tests *`
+  unchanged.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): -Ptest filters + Maven failIfNoTests theater
 - **Why:** Tip 63ce60bc theatered `-Dtest.single` / `include` /
   `exclude` but still receipted the `-P` twins, and receipted

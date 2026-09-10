@@ -303,62 +303,43 @@ const _kGradleCwdScripts = {
   'settings.gradle.kts',
 };
 
-/// Gradle argv theater: `--continue` (soft Done), `--include-build`
-/// (composite), `--init-script` / `-I` (inject), project-dir /
-/// build-file / settings-file relocate.
+/// Gradle argv theater: `--continue`, `--include-build`, `-I` /
+/// `--init-script`, `-g` / `--gradle-user-home`, relocate.
 ///
-/// `-p` / `--project-dir` theater when the value is not cwd (`.` /
-/// `./`), including `-p=` / empty — no script allowlist. `-b` /
-/// `-c` / `--build-file` / `--settings-file` use the same relocate
-/// rule, plus default script basenames at cwd or a CI checkout
-/// root ([_ciCheckoutRoot], same shapes as Maven `-f`). Missing
-/// or empty is theater. [rawArgs] keeps case so glued `-Pfoo` is
-/// not project-dir and `-i` (info) is not `-I` (init-script).
-/// `--continuous` is not `--continue`. `-Dorg.gradle.continue`
-/// and `ignoreFailures` / `test.ignoreFailures` (`-D` / `-P`)
-/// theater unless `=false`. `failOnNoMatchingTests` /
-/// `failOnNoDiscoveredTests` theater when `=false` / bare /
-/// empty (`-D` / `-P`, raw `P`) — inverted floor. `-D`/`-P`
-/// `test.single` / `include` / `exclude` are presence filter
-/// theater (raw `P` on the `-p…` keys).
-/// `-g` / `--gradle-user-home` is presence theater (init.d
-/// inject); raw argv keeps unrelated shorts. Short `-c` is
-/// `--settings-file`; long `--console` is not.
+/// `-p` theater unless cwd; no script allowlist. `-b`/`-c` allow
+/// cwd/CI default scripts ([_ciCheckoutRoot]). [rawArgs] keeps
+/// `-Pfoo` and `-i` (info) off `-p`/`-I`. `--continuous` is not
+/// `--continue`. `ignoreFailures` unless `=false`. Empty-suite
+/// `failOnNo*` + `test.` twins when bare / empty / `=false`
+/// (`-D`/`-P`, raw `P`). `test.single` / `include` / `exclude` /
+/// `commandLineIncludePatterns` / `ExcludePatterns` are presence
+/// filter (raw `P` on `-p…`). Short `-c` is settings, not
+/// `--console`.
 bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
+    final rawP =
+        i < rawArgs.length && rawArgs[i].length >= 2 && rawArgs[i][1] == 'P';
     if (t == '--continue' || t.startsWith('--continue=')) return true;
     if (_gradlePropUnlessFalse(t, '-dorg.gradle.continue')) return true;
     if (_gradlePropUnlessFalse(t, '-dignorefailures') ||
-        _gradlePropUnlessFalse(t, '-dtest.ignorefailures')) {
+        _gradlePropUnlessFalse(t, '-dtest.ignorefailures') ||
+        (rawP &&
+            (_gradlePropUnlessFalse(t, '-pignorefailures') ||
+                _gradlePropUnlessFalse(t, '-ptest.ignorefailures')))) {
       return true;
     }
-    if (i < rawArgs.length &&
-        rawArgs[i].length >= 2 &&
-        rawArgs[i][1] == 'P' &&
-        (_gradlePropUnlessFalse(t, '-pignorefailures') ||
-            _gradlePropUnlessFalse(t, '-ptest.ignorefailures'))) {
+    if (_kGradleWhenFalseKeys.any(
+      (k) =>
+          _gradlePropWhenFalse(t, '-d$k') ||
+          (rawP && _gradlePropWhenFalse(t, '-p$k')),
+    )) {
       return true;
     }
-    if (_gradlePropWhenFalse(t, '-dfailonnomatchingtests') ||
-        _gradlePropWhenFalse(t, '-dfailonnodiscoveredtests')) {
+    if ((_kGradleTestFilterProps.contains(t) ||
+            _kGradleTestFilterProps.any((k) => t.startsWith('$k='))) &&
+        (!t.startsWith('-p') || rawP)) {
       return true;
-    }
-    if (i < rawArgs.length &&
-        rawArgs[i].length >= 2 &&
-        rawArgs[i][1] == 'P' &&
-        (_gradlePropWhenFalse(t, '-pfailonnomatchingtests') ||
-            _gradlePropWhenFalse(t, '-pfailonnodiscoveredtests'))) {
-      return true;
-    }
-    if (_kGradleTestFilterProps.contains(t) ||
-        _kGradleTestFilterProps.any((k) => t.startsWith('$k='))) {
-      if (!t.startsWith('-p') ||
-          (i < rawArgs.length &&
-              rawArgs[i].length >= 2 &&
-              rawArgs[i][1] == 'P')) {
-        return true;
-      }
     }
     if (t == '--gradle-user-home' || t.startsWith('--gradle-user-home')) {
       return true;
@@ -461,34 +442,52 @@ bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
   return false;
 }
 
-/// Cargo `--no-fail-fast` / Jest `--passWithNoTests` (soft Done).
+/// Cargo `--no-fail-fast` / Jest `--passWithNoTests` / Make
+/// `--ignore-errors` / `--keep-going` (soft Done).
 bool _polyglotSoftDone(String w) =>
-    w.startsWith('--no-fail-fast') || w.startsWith('--passwithnotests');
+    w.startsWith('--no-fail-fast') ||
+    w.startsWith('--passwithnotests') ||
+    w.startsWith('--ignore-errors') ||
+    w.startsWith('--keep-going');
 
-/// Legacy Gradle test select (`-D` / `-P` `test.single` / `include` /
-/// `exclude`). `-p…` keys require raw `P`.
+/// Make `-n`/`-q` dry-run; `-k` / raw `-i` soft Done (`-I` ≠ `-i`).
+bool _makeArgvTheater(List<String> args, List<String> rawArgs) =>
+    args.contains('-n') ||
+    args.contains('-q') ||
+    args.contains('-k') ||
+    rawArgs.contains('-i');
+
+/// Legacy Gradle test select + commandLine include/exclude.
+/// `-p…` keys require raw `P`.
 const _kGradleTestFilterProps = {
   '-dtest.single',
   '-dtest.include',
   '-dtest.exclude',
+  '-dtest.filter.commandlineincludepatterns',
+  '-dtest.filter.commandlineexcludepatterns',
   '-ptest.single',
   '-ptest.include',
   '-ptest.exclude',
+  '-ptest.filter.commandlineincludepatterns',
+  '-ptest.filter.commandlineexcludepatterns',
+};
+
+/// Empty-suite soft Done. Prefixed `test.` twins match
+/// `test.ignoreFailures` parity. `-p…` needs raw `P`.
+const _kGradleWhenFalseKeys = {
+  'failonnomatchingtests',
+  'failonnodiscoveredtests',
+  'test.failonnomatchingtests',
+  'test.failonnodiscoveredtests',
 };
 
 /// `-Dkey` / `-Pkey` token theater unless `=false`.
-bool _gradlePropUnlessFalse(String t, String dashKey) {
-  if (t == dashKey) return true;
-  return t.startsWith('$dashKey=') &&
-      t.substring(dashKey.length + 1) != 'false';
-}
+bool _gradlePropUnlessFalse(String t, String dashKey) =>
+    t == dashKey ||
+    (t.startsWith('$dashKey=') && t.substring(dashKey.length + 1) != 'false');
 
-/// `-Dkey` / `-Pkey` token theater when bare, empty, or `=false`.
-/// `=true` is a full run. Opposite polarity of
-/// [_gradlePropUnlessFalse].
-bool _gradlePropWhenFalse(String t, String dashKey) {
-  if (t == dashKey) return true;
-  if (!t.startsWith('$dashKey=')) return false;
-  final v = t.substring(dashKey.length + 1);
-  return v.isEmpty || v == 'false';
-}
+/// `-Dkey` / `-Pkey` theater when bare, empty, or `=false`.
+bool _gradlePropWhenFalse(String t, String dashKey) =>
+    t == dashKey ||
+    (t.startsWith('$dashKey=') &&
+        const {'', 'false'}.contains(t.substring(dashKey.length + 1)));
