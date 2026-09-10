@@ -24,7 +24,7 @@
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** f08ed289
 
 ## 2026-09-10 — fix(waifu): absolute CI -f …/pom.xml is a full run; -s/-P are theater
 - **Why:** Tip 204f0a75 only allowlisted bare/`./` `pom.xml`, so
