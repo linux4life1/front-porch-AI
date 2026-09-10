@@ -10,6 +10,19 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): skip/exclude a check is theater
+- **Why:** `mvn test -DskipTests` and `./gradlew build -x test` /
+  `--exclude-task test` skipped the suite then receipted and stamped
+  tested.
+- **What:** Same theater gate. Maven `-DskipTests` /
+  `-Dmaven.test.skip` (not `=false`) join the flag walk. Gradle `-x` /
+  `--exclude-task` is theater only when the excluded token is a known
+  check (`test -x lint` still runs). `go test -exec true` and
+  phpunit `--list-suites` / `--list-groups` join.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): compile/list without execute is theater
 - **Why:** `cargo test --no-run` (and `+nightly` / `--quiet` variants)
   compiled or listed without running, then receipted and skipped Build

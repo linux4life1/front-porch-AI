@@ -473,4 +473,54 @@ void main() {
     expect(waifuLooksVerifyCommand('ctest -N'), isFalse);
     expect(waifuLooksVerifyCommand('pytest --collect-only'), isFalse);
   });
+
+  test('skip or exclude a check is not verify', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'mvn test -DskipTests',
+      'mvn -DskipTests test',
+      'mvn verify -DskipTests',
+      'mvn test -Dmaven.test.skip=true',
+      './gradlew build -x test',
+      './gradlew assemble -x test',
+      './gradlew check -x test',
+      './gradlew test -x test',
+      './gradlew :app:test -x test',
+      './gradlew build -x testDebugUnitTest',
+      './gradlew --exclude-task test',
+      './gradlew test --exclude-task test',
+      './gradlew build --exclude-task=:app:test',
+      'go test -exec true',
+      'phpunit --list-suites',
+      'phpunit --list-groups',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('mvn test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn verify'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -DskipTests=false'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew :app:test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew check'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test -x lint'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo test --no-run'), isFalse);
+    expect(waifuLooksVerifyCommand('make -n test'), isFalse);
+    expect(waifuLooksVerifyCommand('./gradlew test -m'), isFalse);
+    expect(
+      waifuLooksVerifyCommand(
+        './gradlew :app:dependencies --configuration test',
+      ),
+      isFalse,
+    );
+    expect(waifuLooksVerifyCommand('cargo new test'), isFalse);
+  });
 }
