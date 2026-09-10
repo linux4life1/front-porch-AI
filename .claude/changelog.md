@@ -21,7 +21,7 @@
   Gradle/Go VIP unchanged. No second club.
 - **Files:** `waifu_verify.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 958d4b6a
 
 ## 2026-09-10 — fix(waifu): Surefire/Failsafe -D filters are theater
 - **Why:** Only `-Dtest=` entered `_mavenSkipProperty` as a name
