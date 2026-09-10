@@ -25,7 +25,7 @@
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 42008d89
 
 ## 2026-09-10 — fix(waifu): classpath-redirect / POM-file / classes-root theater
 - **Why:** Alternate test-root was closed, but
