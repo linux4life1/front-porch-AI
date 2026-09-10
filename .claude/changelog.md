@@ -22,7 +22,7 @@
   stay false.
 - **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
   `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 5d1b8e46
 
 ## 2026-09-10 — fix(waifu): make/ruff/JS exec join the one verify peel
 - **Why:** Real Android/Java/C still babysat: `make test`, `ruff check`, and
