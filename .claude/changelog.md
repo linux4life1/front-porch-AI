@@ -23,7 +23,7 @@
   `-i`, VIP `--tests *` unchanged.
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** cb7fb547
 
 ## 2026-09-10 — fix(waifu): Gradle CI-root build.gradle full; -I / continue -D
 - **Why:** Tip 0d45de4a still theatered abs CI default scripts
