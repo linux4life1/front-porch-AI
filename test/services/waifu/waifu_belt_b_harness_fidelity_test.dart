@@ -499,53 +499,51 @@ void main() {
       expect(fuse.failReason, 'runaway fuse stopped this turn');
       expect(fuse.fuseSpeech(), isNot(equals(kWaifuStuckWrap)));
 
-      final turn = WaifuTurn.start('please write hello.txt', null);
-      turn.noteResult(
-        kWaifuToolWrite,
-        WaifuToolResult(
-          ok: true,
-          output: 'wrote hello.txt',
-          write: const WaifuWriteRecord(
-            relativePath: 'hello.txt',
-            before: '',
-            after: 'hi',
+      void landHello(WaifuTurn t) {
+        const write = WaifuWriteRecord(
+          relativePath: 'hello.txt',
+          before: '',
+          after: 'hi',
+        );
+        t.noteResult(
+          kWaifuToolWrite,
+          const WaifuToolResult(
+            ok: true,
+            output: 'wrote hello.txt',
+            write: write,
           ),
-        ),
-        const WaifuWriteRecord(
-          relativePath: 'hello.txt',
-          before: '',
-          after: 'hi',
-        ),
-        args: {'path': 'hello.txt', 'contents': 'hi'},
-      );
-      turn.noteResult(
-        kWaifuToolRead,
-        const WaifuToolResult(ok: true, output: 'hi'),
-        const WaifuWriteRecord(
-          relativePath: 'hello.txt',
-          before: '',
-          after: 'hi',
-        ),
-        args: {'path': 'hello.txt'},
-      );
-      turn.noteResult(
-        kWaifuToolBash,
-        const WaifuToolResult(ok: true, output: 'ok'),
-        const WaifuWriteRecord(
-          relativePath: 'hello.txt',
-          before: '',
-          after: 'hi',
-        ),
-        args: {'command': 'cargo test'},
-      );
+          write,
+          args: {'path': 'hello.txt', 'contents': 'hi'},
+        );
+        t.noteResult(
+          kWaifuToolRead,
+          const WaifuToolResult(ok: true, output: 'hi'),
+          write,
+          args: {'path': 'hello.txt'},
+        );
+        t.noteResult(
+          kWaifuToolBash,
+          const WaifuToolResult(ok: true, output: 'ok'),
+          write,
+          args: {'command': 'cargo test'},
+        );
+      }
+
+      final turn = WaifuTurn.start('please write hello.txt', null);
+      landHello(turn);
       turn.rememberToolSpeech('Hmph. Real words from the tool step.');
-      expect(turn.onEmptyCalls(''), WaifuTurnStep.retry);
-      expect(turn.onEmptyCalls('Done.'), WaifuTurnStep.retry);
-      expect(turn.onEmptyCalls(''), WaifuTurnStep.fail);
-      expect(turn.pendingSpeech, kWaifuStuckWrap);
-      expect(turn.pendingSpeech, isNot(contains('Real words')));
-      expect(turn.failReason, contains('spoken wrap-up'));
-      expect(turn.failureLine(''), isNot(contains('Real words')));
+      expect(turn.onEmptyCalls(''), WaifuTurnStep.accept);
+      expect(turn.pendingSpeech, 'Hmph. Real words from the tool step.');
+
+      final mute = WaifuTurn.start('please write hello.txt', null);
+      landHello(mute);
+      expect(mute.onEmptyCalls(''), WaifuTurnStep.retry);
+      expect(mute.onEmptyCalls('Done.'), WaifuTurnStep.retry);
+      expect(mute.onEmptyCalls(''), WaifuTurnStep.fail);
+      expect(mute.pendingSpeech, kWaifuStuckWrap);
+      expect(mute.pendingSpeech, isNot(contains('Real words')));
+      expect(mute.failReason, contains('spoken wrap-up'));
+      expect(mute.failureLine(''), isNot(contains('Real words')));
     },
   );
 }

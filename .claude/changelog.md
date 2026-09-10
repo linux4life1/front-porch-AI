@@ -23,6 +23,20 @@
   `waifu_wizard_sit_down_step.dart`,
   `waifu_path_mode_switch_test.dart`, `docs/Rawhide.md`
 - **Commit:** b01fa382
+## 2026-09-10 — fix(waifu): Belt B wipe tokens keep case; wrap-up one club
+- **Why:** After the #247 contract restack, three lying leftovers remained.
+  Wipe-target tokenize lowercased the whole command, so Linux resolve missed
+  the real sit-down parent behind a path alias. Changelog text still had the
+  retired product name as a helper-name substring. B7 treated remembered
+  card speech as theater while the turn-contract lock says that line is the
+  wrap-up.
+- **What:** Shell words keep typed path case; verb match folds case. Empty
+  wrap-up with remembered non-generic speech accepts that line; empty/generic
+  with no remembered line still retries then fails. Changelog wording no
+  longer contains the retired product name.
+- **Files:** `waifu_deny.dart`, `waifu_bash.dart`,
+  `waifu_belt_b_harness_fidelity_test.dart`, `.claude/changelog.md`
+- **Commit:** (this tip)
 
 ## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
 - **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable
@@ -50,7 +64,7 @@
   denied project write as “could not write a plan file”; empty
   wrap-up dropped card speech; `/tmp` scratch writes were OS-denied;
   named-temp wipe allowed the sit-down parent; Build `needsAsk`
-  lied on `/etc/hosts`; `_excludesKnownCheck` contained the retired
+  lied on `/etc/hosts`; a theater helper name contained the retired
   product name; WaifuPage bound lookup without `webSearch: webSearch`;
   sit-down Jail/Disk radios were untappable after honesty reopened.
 - **What:** Record send before any await. Mutation-attempt tracking
@@ -58,9 +72,9 @@
   Empty wrap-up keeps remembered card speech. Sit-down ancestor wipe
   beats named-temp allow; `/tmp` children are writable, OS trees
   still fail at FS. Build asks for off-porch writes (no decide()
-  hard-deny). Theater helper renamed `_omitsKnownCheck`. Page binds
-  `webSearch: webSearch`. Sit-down Jail/Disk are chips so both stay
-  hittable when honesty returns.
+  hard-deny). Theater helper renamed so the retired product name is
+  gone. Page binds `webSearch: webSearch`. Sit-down Jail/Disk are
+  chips so both stay hittable when honesty returns.
 - **Files:** `waifu_harness.dart`, `waifu_turn.dart`,
   `waifu_turn_contract.dart`, `waifu_deny.dart`,
   `waifu_permissions.dart`, `waifu_page.dart`,
