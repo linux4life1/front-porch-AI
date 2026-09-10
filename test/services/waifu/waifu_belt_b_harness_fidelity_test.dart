@@ -184,6 +184,13 @@ void main() {
       facts.split('verify as-run').first,
       isNot(contains('lib/invented.dart')),
     );
+    final poisoned = waifuInjectMachineLedger(
+      '$kWaifuCompactPrefix\n$kWaifuMachineLedgerTitle\n'
+      'paths:\n  lib/invented.dart',
+      ledger,
+    );
+    expect(poisoned, contains('src/main.rs'));
+    expect(poisoned, contains('cargo test --lib'));
 
     final msgs = <WaifuMessage>[
       for (var i = 0; i < 12; i++)
@@ -537,6 +544,7 @@ void main() {
       expect(turn.pendingSpeech, kWaifuStuckWrap);
       expect(turn.pendingSpeech, isNot(contains('Real words')));
       expect(turn.failReason, contains('spoken wrap-up'));
+      expect(turn.failureLine(''), isNot(contains('Real words')));
     },
   );
 }

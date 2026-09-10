@@ -885,10 +885,18 @@
   keeps the command string that ran and skips theater (`ls` / `echo` /
   dry-run / `cargo new test` / `:app:dependencies`). Flags-before-task
   and `cargo +nightly test` stay in the as-run list.
+  a photo mark when bytes ride along. Ledger “verify as-run” keeps the
+  command string that ran and skips theater (`ls` / `echo` / dry-run /
+  `cargo new test` / `:app:dependencies` / `cargo test --no-run`).
+  Flags-before-task and `cargo +nightly test` stay in the as-run list.
+  A recap that only names “MACHINE LEDGER” still gets the as-run facts.
+  A lost wrap-up after disk work does not replay remembered tool-step
+  speech.
 - **Files:** `waifu_session.dart`, `waifu_harness.dart`,
   `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
   `waifu_harness_spawn.dart`, `waifu_compact.dart`,
-  `waifu_compact_ledger.dart` (NEW), `waifu_turn.dart`, `waifu_plan.dart`,
+  `waifu_compact_ledger.dart` (NEW), `waifu_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_plan.dart`,
   `waifu_plan_codec.dart`, `waifu_workflow.dart`, `waifu_composer.dart`,
   `llm_service.dart`, `llm_tool_parsing.dart`, `openai_tool_stream.dart`,
   `waifu_belt_b_harness_fidelity_test.dart` (NEW),

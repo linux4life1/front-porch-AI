@@ -81,7 +81,11 @@ String waifuMachineLedger({
 String waifuInjectMachineLedger(String recap, String ledger) {
   final facts = ledger.trim();
   if (facts.isEmpty) return recap;
-  if (recap.contains(kWaifuMachineLedgerTitle)) return recap;
+  // Same facts already in the recap. A title-only invented block is not
+  // a receipt — still inject the as-run ledger.
+  // Same facts already in the recap. A title-only invented block is not
+  // a receipt — still inject the as-run ledger.
+  if (recap.contains(facts)) return recap;
   const prefix = '[Session compact]';
   if (recap.startsWith(prefix)) {
     final rest = recap.substring(prefix.length).trimLeft();

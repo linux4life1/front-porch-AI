@@ -338,7 +338,6 @@ class WaifuTurnContract {
       return 'I put a change on disk but did not re-read the files and pass '
           'a test, so I stopped instead of pretending the work was done.';
     }
-    if (canUseRememberedSpeech) return rememberedSpeech;
     final trimmed = body.trim();
     if (trimmed.isNotEmpty && !waifuLooksGenericCompletion(trimmed)) {
       return trimmed;
