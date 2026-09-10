@@ -273,7 +273,7 @@ class WaifuTurnContract {
   }) {
     final trimmed = body.trim();
     final generic = waifuLooksGenericCompletion(trimmed);
-    if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
+    if (mutationRequired && !mutationSucceeded) {
       rememberToolSpeech(trimmed);
       return mutationCorrectionAttempts < kWaifuTurnCorrectionAttempts
           ? WaifuFinalAction.retryMutation

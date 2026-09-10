@@ -51,14 +51,20 @@ int waifuEstimateToolsTokens(List<Map<String, dynamic>> tools) {
   return waifuEstimateTokens(jsonEncode(tools));
 }
 
-/// Photo parts on every generate of the send. Floor 85 per image so a
-/// tiny PNG still counts; larger base64 rides chars/4 like the rest.
+/// Photo parts on every generate of the send. Vision tokens, not the
+/// base64 string. chars/4 of a 2MB PNG is a novel (~500k) and made
+/// every screenshot look like a blown window.
+const kWaifuImageTokenFloor = 85;
+const kWaifuImageTokenCap = 2048;
+
 int waifuEstimateImageTokens(List<String>? images) {
   if (images == null || images.isEmpty) return 0;
   var n = 0;
   for (final img in images) {
     final guess = waifuEstimateTokens(img);
-    n += guess < 85 ? 85 : guess;
+    var t = guess < kWaifuImageTokenFloor ? kWaifuImageTokenFloor : guess;
+    if (t > kWaifuImageTokenCap) t = kWaifuImageTokenCap;
+    n += t;
   }
   return n;
 }
@@ -270,16 +276,32 @@ String? waifuDuplicateReadStub({
   return null;
 }
 
-String? waifuDuplicateGlobStub({required List<WaifuMessage> transcript}) {
+String? waifuDuplicateGlobStub({
+  required List<WaifuMessage> transcript,
+  required String pattern,
+  String? path,
+}) {
+  final wantPat = pattern.trim();
+  if (wantPat.isEmpty) return null;
+  final wantPath = waifuNormalizeVerifyPath(path ?? '');
   for (final m in transcript.reversed) {
     if (m.kind != WaifuMsgKind.tool) continue;
     final name = m.toolName ?? '';
     if (kWaifuReceiptMutationTools.contains(name) && m.toolOk == true) {
       return null;
     }
-    if (name == kWaifuToolGlob &&
-        m.toolOk == true &&
-        !m.text.contains('(pruned)')) {
+    if (name != kWaifuToolGlob ||
+        m.toolOk != true ||
+        m.text.contains('(pruned)')) {
+      continue;
+    }
+    final havePat = (m.toolArgs?['pattern'] ?? m.toolArgs?['glob'] ?? '')
+        .toString()
+        .trim();
+    final havePath = waifuNormalizeVerifyPath(
+      m.toolPath ?? m.toolArgs?['path']?.toString() ?? '',
+    );
+    if (havePat == wantPat && havePath == wantPath) {
       return kWaifuDuplicateInHistory;
     }
   }

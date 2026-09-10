@@ -1,3 +1,21 @@
+## 2026-09-10 — fix(waifu): glob pattern, photo meter, failed-write wrap
+- **Why:** Tip harness looked OpenCode-shaped and still lied in three
+  places a Mac coding session hits immediately. Second `glob *.md`
+  after `*.swift` returned "already in history, unchanged". A
+  screenshot's base64/4 estimate was ~500k tokens, so every photo
+  send folded mid-loop and orphaned the live bubble. A jail-denied
+  write still accepted "I wrote the file" as wrap-up because the
+  contract only retried when she had not *attempted* a mutate.
+- **What:** Stub glob only for the same pattern+path. Cap vision
+  tokens at 2048 (floor 85). Auto-compact uses the same API fill
+  number as the bar. Keep the live bubble if compact did not drop
+  it. Retry/fail wrap-up until a write actually lands.
+- **Files:** `waifu_compact.dart`, `waifu_harness_compact.dart`,
+  `waifu_harness_dispatch.dart`, `waifu_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_loop_p0_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** pending
+
 ## 2026-09-10 — fix(waifu): /tmp inspect is not a disk wipe; wrap-up is not a harness essay
 - **Why:** Whole-disk `mkdir /tmp/epub_inspect && rm -r META-INF` treated
   every path in the `&&` chain as `rm -r` of that path, so /tmp mkdir was

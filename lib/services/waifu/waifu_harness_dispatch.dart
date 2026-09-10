@@ -39,7 +39,11 @@ extension _WaifuHarnessDispatch on WaifuHarness {
         }
         return fs.dispatch(canon, args);
       case kWaifuToolGlob:
-        final stub = waifuDuplicateGlobStub(transcript: session.transcript);
+        final stub = waifuDuplicateGlobStub(
+          transcript: session.transcript,
+          pattern: (args['pattern'] ?? args['glob'] ?? '*').toString(),
+          path: waifuToolPathArg(args),
+        );
         if (stub != null) {
           return WaifuToolResult(ok: true, output: stub);
         }

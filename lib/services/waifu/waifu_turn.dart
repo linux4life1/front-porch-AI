@@ -119,7 +119,7 @@ class WaifuTurn {
     rememberToolSpeech(body);
     switch (phase) {
       case WaifuPhase.tools:
-        if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
+        if (mutationRequired && !mutationSucceeded) {
           return _retryOrFailMutation(body);
         }
         if (enforceVerify && verifyRequired && !verified) {

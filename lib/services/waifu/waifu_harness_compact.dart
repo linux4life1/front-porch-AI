@@ -128,9 +128,13 @@ extension _WaifuHarnessCompact on WaifuHarness {
       final live = _measureLive(
         tools: _advertisedTools(speechOnly: false),
       ).used;
-      final used = session.tokensFromApi && session.tokensUsed > 0
-          ? (session.tokensUsed > live ? session.tokensUsed : live)
-          : live;
+      // API usage wins. chars/4 of a screenshot must not beat a real
+      // 8k usage and fold the live turn.
+      final used = waifuFillUsed(
+        tokensUsed: session.tokensUsed,
+        fromApi: session.tokensFromApi,
+        estimated: live,
+      );
       if (!waifuShouldCompact(used: used, budget: session.contextBudget)) {
         return;
       }
@@ -193,7 +197,10 @@ extension _WaifuHarnessCompact on WaifuHarness {
       ]);
     session.compactPasses++;
     try {
-      _turn.live = null;
+      final live = _turn.live;
+      if (live == null || !session.transcript.contains(live)) {
+        _turn.live = null;
+      }
     } catch (_) {}
     if (force) {
       session.transcript.add(const WaifuMessage.assistant('Folded old turns.'));
