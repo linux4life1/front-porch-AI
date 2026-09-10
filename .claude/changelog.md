@@ -20,7 +20,7 @@
   `--exclude` and `--all` join cargo-test filters.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 6ce9055b
 
 ## 2026-09-10 — fix(waifu): cargo --bins/--workspace; zig --test-filter
 - **Why:** `cargo test --bench` / `--bins` / `--tests` / `--workspace`
