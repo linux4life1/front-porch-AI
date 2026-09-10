@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): ctest --no-tests ignore + --rerun-failed
+- **Why:** Tip c65ff0be still receipted `ctest --no-tests=ignore`,
+  `--rerun-failed`, and `AM_TESTS_ENVIRONMENT=`.
+- **What:** Same path. `--no-tests` bare/empty/`=ignore` theater;
+  `=error` stays full. `--rerun-failed` presence. Make
+  `*_TESTS_ENVIRONMENT=` family (AM_ twin). `-C/home` and bare
+  `ctest` unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** TBD
+
 ## 2026-09-10 — fix(waifu): ctest -FS/-FC + TESTS_ENVIRONMENT
 - **Why:** Tip ff739407 still receipted `ctest -FS` / `-FC`
   and `make test TESTS_ENVIRONMENT=foo=1`.

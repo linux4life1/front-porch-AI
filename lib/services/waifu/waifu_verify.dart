@@ -454,6 +454,7 @@ List<String> _segments(String command) =>
 
 /// CTest name / label / index / fixture / file filters and `-n`.
 /// `-I` is index (raw). Any `-F*` short / `--fixture-` long.
+/// `--rerun-failed`; `--no-tests` bare/empty/`=ignore` (`=error` full).
 bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
@@ -465,7 +466,11 @@ bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
         t.startsWith('--exclude-label') ||
         t.startsWith('--tests-from-file') ||
         t.startsWith('--exclude-from-file') ||
-        t.startsWith('--fixture-')) {
+        t.startsWith('--fixture-') ||
+        t.startsWith('--rerun-failed') ||
+        t == '--no-tests' ||
+        t == '--no-tests=' ||
+        t.startsWith('--no-tests=ignore')) {
       return true;
     }
     if (!t.startsWith('--') &&

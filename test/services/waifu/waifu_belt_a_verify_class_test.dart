@@ -1634,6 +1634,7 @@ void main() {
       'make test XFAIL_TESTS=foo',
       'make test CHECK_TESTS=foo',
       'make test TESTS_ENVIRONMENT=foo=1',
+      'make test AM_TESTS_ENVIRONMENT=foo=1',
       'ctest -R Foo',
       'ctest --tests-regex Foo',
       'ctest --tests-regex=Foo',
@@ -1657,6 +1658,10 @@ void main() {
       'ctest -FS=Foo',
       'ctest --fixture-exclude-setup Foo',
       'ctest --fixture-exclude-cleanup Foo',
+      'ctest --no-tests=ignore',
+      'ctest --no-tests',
+      'ctest --no-tests=',
+      'ctest --rerun-failed',
       './gradlew test -Dtest.failOnNoMatchingTests=false',
       './gradlew test -Dtest.failOnNoDiscoveredTests=false',
       './gradlew test -Ptest.failOnNoMatchingTests=false',
@@ -1821,6 +1826,7 @@ void main() {
     expect(waifuLooksVerifyCommand('ctest'), isTrue);
     expect(waifuLooksVerifyCommand('ctest -j8'), isTrue);
     expect(waifuLooksVerifyCommand('ctest --output-on-failure'), isTrue);
+    expect(waifuLooksVerifyCommand('ctest --no-tests=error'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         './gradlew test -Dtest.failOnNoMatchingTests=true',
