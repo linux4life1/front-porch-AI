@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): failsafe skip is IT-only; filters are theater
+- **Why:** `failsafe.skip` killed `mvn verify` even though Surefire
+  still runs (same as `skipITs`). Explicit `-Dtest=Nope` /
+  `--tests Nope` / `--tests=` still receipted via a VIP name list.
+- **What:** Same theater. Failsafe skip / skipExec stay off the unit
+  skip set. Empty or any non-`*` `-Dtest=` / `--tests` filter is
+  theater (`--tests *` still runs the suite).
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): exclude glob matches Tests/UnitTest shapes
 - **Why:** Exclude globs only probed `{test, check}`, so
   `-x '*Tests*'` / `*Tests` / `*UnitTest*` still receipted.

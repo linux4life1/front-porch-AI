@@ -37,17 +37,16 @@ bool _verifyTheater(String lowered) {
     if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;
     if (cmd == 'gradle' && _excludesKnownCheck(cmd, args)) return true;
     if (cmd == 'gradle') {
-      const emptyFilters = {'none.matching', 'doesnotexist'};
       for (var i = 0; i < args.length; i++) {
-        if (args[i].startsWith('--tests=')) {
-          if (emptyFilters.contains(args[i].substring('--tests='.length))) {
+        if (args[i] == '--tests') {
+          final val = i + 1 < args.length && !args[i + 1].startsWith('-')
+              ? args[i + 1]
+              : '';
+          if (_filteredSuiteTheater(val)) return true;
+        } else if (args[i].startsWith('--tests=')) {
+          if (_filteredSuiteTheater(args[i].substring('--tests='.length))) {
             return true;
           }
-        }
-        if (args[i] == '--tests' &&
-            i + 1 < args.length &&
-            emptyFilters.contains(args[i + 1])) {
-          return true;
         }
       }
     }
@@ -90,15 +89,14 @@ bool _isTheaterFlag(String w) {
       w.startsWith('--dry_run');
 }
 
-/// Maven `-D` keys that skip the unit suite. `=false` still runs.
-/// `-DskipITs` is not here — that only skips integration tests.
+/// Maven `-D` keys that skip the *unit* suite. `=false` still runs.
+/// Failsafe / `-DskipITs` only skip ITs — Surefire still runs.
 const _kMavenSkipProps = {
   'skiptests',
   'maven.test.skip',
   'maven.test.skip.exec',
   'surefire.skip',
   'surefire.skipexec',
-  'failsafe.skip',
 };
 
 bool _mavenSkipProperty(String w) {
@@ -106,12 +104,15 @@ bool _mavenSkipProperty(String w) {
   final body = w.substring(2);
   final eq = body.indexOf('=');
   final key = eq < 0 ? body : body.substring(0, eq);
-  if (w == '-dtest=none' || w == '-dtest=' || w == '-dtest=doesnotexist') {
-    return true;
+  if (key == 'test') {
+    return eq >= 0 && _filteredSuiteTheater(body.substring(eq + 1));
   }
   if (!_kMavenSkipProps.contains(key)) return false;
   return eq < 0 || body.substring(eq + 1) != 'false';
 }
+
+/// Empty or an explicit class filter is not a full suite. `*` is all.
+bool _filteredSuiteTheater(String val) => val.isEmpty || val != '*';
 
 /// Gradle `-x test` / `--exclude-task test` (or `:app:test`, unit-test
 /// tasks, or a glob that matches check shapes: `test`/`tests`/`check`/

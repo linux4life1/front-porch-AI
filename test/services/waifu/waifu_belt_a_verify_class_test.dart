@@ -571,7 +571,6 @@ void main() {
       'mvn test -Dtest=DoesNotExist',
       'mvn test -Dtest=',
       './gradlew test --tests DoesNotExist',
-      'mvn test -Dfailsafe.skip=true',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -590,5 +589,50 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn test -DskipITs'), isTrue);
     expect(waifuLooksVerifyCommand('mvn test -Dsurefire.skip=false'), isTrue);
     expect(waifuLooksVerifyCommand("./gradlew test -x '*Test*'"), isFalse);
+  });
+
+  test('failsafe skip is IT-only; explicit test filters are theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'mvn verify -Dfailsafe.skip=true',
+      'mvn verify -Dfailsafe.skipExec=true',
+      'mvn verify -DskipITs',
+      'mvn test -Dfailsafe.skip=true',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    for (final cmd in [
+      'mvn test -Dtest=Nope',
+      './gradlew test --tests Nope',
+      './gradlew test --tests=',
+      'mvn test -DfailIfNoTests=false -Dtest=Nope',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('./gradlew test --tests *'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -DskipTests'), isFalse);
+    expect(waifuLooksVerifyCommand('mvn test -Dsurefire.skip=true'), isFalse);
+    expect(waifuLooksVerifyCommand("./gradlew test -x '*Tests*'"), isFalse);
   });
 }
