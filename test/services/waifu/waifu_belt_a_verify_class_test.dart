@@ -1613,6 +1613,28 @@ void main() {
       'make -in test',
       'make -ikj2 test',
       'make -ikj8 test',
+      'make -kj2 test',
+      'make -ks test',
+      'make -sk test',
+      'make -iks test',
+      'make -si test',
+      'make -jk test',
+      'make -j2k test',
+      'make -kr test',
+      'make -kw test',
+      'make -kB test',
+      'make test TESTS=foo',
+      'make check TESTS=test_foo',
+      'make test TEST=foo',
+      'make check TESTSUITEFLAGS=--verbose',
+      'ctest -R Foo',
+      'ctest --tests-regex Foo',
+      'ctest --tests-regex=Foo',
+      'ctest -E Foo',
+      'ctest -L Foo',
+      'ctest -I 1,3',
+      'ctest --exclude-regex Foo',
+      'ctest -RFoo',
       './gradlew test -Dtest.failOnNoMatchingTests=false',
       './gradlew test -Dtest.failOnNoDiscoveredTests=false',
       './gradlew test -Ptest.failOnNoMatchingTests=false',
@@ -1774,6 +1796,9 @@ void main() {
     expect(waifuLooksVerifyCommand('make -Cbuild/link test'), isTrue);
     expect(waifuLooksVerifyCommand('make -ooutfile test'), isTrue);
     expect(waifuLooksVerifyCommand('make -Wquick test'), isTrue);
+    expect(waifuLooksVerifyCommand('ctest'), isTrue);
+    expect(waifuLooksVerifyCommand('ctest -j8'), isTrue);
+    expect(waifuLooksVerifyCommand('ctest --output-on-failure'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         './gradlew test -Dtest.failOnNoMatchingTests=true',

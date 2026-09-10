@@ -303,18 +303,9 @@ const _kGradleCwdScripts = {
   'settings.gradle.kts',
 };
 
-/// Gradle argv theater: `--continue`, `--include-build`, `-I` /
-/// `--init-script`, `-g` / `--gradle-user-home`, relocate.
-///
-/// `-p` theater unless cwd; no script allowlist. `-b`/`-c` allow
-/// cwd/CI default scripts ([_ciCheckoutRoot]). [rawArgs] keeps
-/// `-Pfoo` and `-i` (info) off `-p`/`-I`. `--continuous` is not
-/// `--continue`. `ignoreFailures` unless `=false`. Empty-suite
-/// `failOnNo*` + `test.` twins when bare / empty / `=false`
-/// (`-D`/`-P`, raw `P`). `test.single` / `include` / `exclude` /
-/// `commandLineIncludePatterns` / `ExcludePatterns` are presence
-/// filter (raw `P` on `-p…`). Short `-c` is settings, not
-/// `--console`.
+/// Gradle argv: `--continue`, `-I`/`-g`, relocate, ignoreFailures,
+/// empty-suite whenFalse, test.single / commandLine filters.
+/// `-p` unless cwd; `-b`/`-c` cwd/CI scripts. raw `P`/`i` vs `-p`/`-I`.
 bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
@@ -450,13 +441,22 @@ bool _polyglotSoftDone(String w) =>
     w.startsWith('--ignore-errors') ||
     w.startsWith('--keep-going');
 
-/// Make dry-run / soft Done. Pure clumps only:
-/// `^-[iknq]+(?:j\d*)?$` (`-ik`, `-ni`, `-ikj2`). Value-taking
+/// Soft clumps: iknq plus non-value shorts; `j\d*` anywhere.
+/// Automake `TESTS=` / `TEST=` / `TESTSUITEFLAGS=`. Value-taking
 /// `-C`/`-f`/`-o`/`-W`/`-O`/`-I` glued paths stay full.
-final _kMakeSoftClump = RegExp(r'^-[iknq]+(?:j\d*)?$');
+final _kMakeSoftClump = RegExp(r'^(?=.*[iknq])-(?:[iknqsrRBedpw]|j\d*)+$');
 
-bool _makeArgvTheater(List<String> rawArgs) =>
-    rawArgs.any(_kMakeSoftClump.hasMatch);
+bool _makeArgvTheater(List<String> rawArgs) => rawArgs.any((t) {
+  final low = t.toLowerCase();
+  if (low.startsWith('tests=') ||
+      low.startsWith('test=') ||
+      low.startsWith('testsuiteflags=')) {
+    return true;
+  }
+  if (t.contains('/') || t.contains('.')) return false;
+  if (t.length > 2 && 'CfoWIO'.contains(t[1])) return false;
+  return _kMakeSoftClump.hasMatch(t);
+});
 
 /// Legacy Gradle test select + commandLine include/exclude.
 /// `-p…` keys require raw `P`.

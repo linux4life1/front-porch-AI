@@ -46,7 +46,7 @@ bool _verifyTheater(String command) {
     // Maven reactor / settings / profiles / toolchains / fail-never
     // + non-root `-f` (cwd, `/<one>/pom.xml`, or GHA checkout).
     if (cmd == 'mvn' && _mavenArgvTheater(args)) return true;
-    if (cmd == 'ctest' && args.contains('-n')) return true;
+    if (cmd == 'ctest' && _ctestArgvTheater(args, rawArgs)) return true;
     if (cmd == 'go' && args.contains('-c')) return true;
     if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;
     if (cmd == 'gradle' && _excludesKnownCheck(cmd, args)) return true;

@@ -10,6 +10,21 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): make soft-clump + TESTS= + ctest filters
+- **Why:** Tip b77747bd still receipted `-ks` / `-iks` / `-jk` /
+  `-j2k` / `-kr` (non-value shorts + interleaved jobs) and
+  Automake / CTest suite subsets (`TESTS=foo`, `ctest -R`).
+- **What:** Same `_verifyTheater` path. Soft clump allows
+  `[iknqsrRBedpw]` + `j\d*` anywhere, still requires iknq,
+  still rejects glued `-C`/`-f`/`-O` paths. Make `TESTS=` /
+  `TEST=` / `TESTSUITEFLAGS=` presence. CTest `-R`/`-E`/`-L`/
+  `-I` + `--tests-regex` / `--exclude-regex`. Bare `ctest`
+  and `-ik` unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): make value-flag paths are not theater
 - **Why:** Tip 13e201c2 letter-scanned any short token for
   `i`/`k`/`n`/`q`, so glued value flags babysat real C/CI

@@ -451,3 +451,28 @@ List<String> _wordsOf(String raw) => raw
 
 List<String> _segments(String command) =>
     command.split(RegExp(r'(?:&&|\|\||[;|\n])'));
+
+/// CTest name / label / index filters and dry-run `-n`.
+/// `-I` is index (raw); longs are `--tests-regex` / `--exclude-regex`.
+bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
+  for (var i = 0; i < args.length; i++) {
+    final t = args[i];
+    if (t == '-n' || t == '-r' || t == '-e' || t == '-l') return true;
+    if (t.startsWith('--tests-regex') || t.startsWith('--exclude-regex')) {
+      return true;
+    }
+    if (!t.startsWith('--') &&
+        t.length > 2 &&
+        (t.startsWith('-r') || t.startsWith('-e') || t.startsWith('-l'))) {
+      return true;
+    }
+    final raw = i < rawArgs.length ? rawArgs[i] : t;
+    if (raw.length >= 2 &&
+        raw[0] == '-' &&
+        raw[1] == 'I' &&
+        !raw.startsWith('--')) {
+      return true;
+    }
+  }
+  return false;
+}
