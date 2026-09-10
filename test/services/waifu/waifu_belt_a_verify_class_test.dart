@@ -832,4 +832,41 @@ void main() {
       expect(waifuLooksVerifyCommand('go test ./pkg'), isFalse);
     },
   );
+
+  test('cargo test target sets and zig --test-filter are theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo test --bench',
+      'cargo test --bench foo',
+      'cargo test --bins',
+      'cargo test --benches',
+      'cargo test --examples',
+      'cargo test --tests',
+      'cargo test --all-targets',
+      'cargo test --workspace',
+      'zig build test --test-filter foo',
+      'zig test -Dtest-filter=noop',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy -p foo'), isTrue);
+    expect(waifuLooksVerifyCommand('zig build test'), isTrue);
+    expect(waifuLooksVerifyCommand('zig test'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo test --lib'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test -p foo'), isFalse);
+    expect(
+      waifuLooksVerifyCommand('zig build test -Dtest-filter=foo'),
+      isFalse,
+    );
+  });
 }

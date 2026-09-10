@@ -116,7 +116,6 @@ const _kFilterValueFlags = <String, Set<String>>{
     '--config',
     '-j',
     '--jobs',
-    '--bench',
     '--profile',
   },
   'go': {
@@ -200,6 +199,13 @@ const _kCargoTestFilterFlags = {
   '--bin',
   '--example',
   '--doc',
+  '--bench',
+  '--bins',
+  '--benches',
+  '--examples',
+  '--tests',
+  '--all-targets',
+  '--workspace',
 };
 
 /// Same gate as JVM `--tests` / `-Dtest=`. Filtered ≠ full suite.
@@ -324,12 +330,11 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
     case 'bun':
       return paths(after('test'));
     case 'zig':
-      if (args.contains('build') &&
-          args.contains('test') &&
-          args.any(
-            (t) => t == '-dtest-filter' || t.startsWith('-dtest-filter='),
-          )) {
-        return true;
+      if (args.contains('test')) {
+        for (final f in const ['--test-filter', '-dtest-filter']) {
+          final v = flagVal(f);
+          if (v != null && _filteredSuiteTheater(v)) return true;
+        }
       }
       return paths(after('test'));
     case 'npm':

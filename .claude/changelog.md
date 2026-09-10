@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): cargo --bins/--workspace; zig --test-filter
+- **Why:** `cargo test --bench` / `--bins` / `--tests` / `--workspace`
+  still receipted. `zig build test --test-filter` and `zig test
+  -Dtest-filter=` still receipted (`-Dtest-filter` was build+test only).
+- **What:** Same theater. Those cargo flags join `_kCargoTestFilterFlags`
+  (`--bench` left the skip-as-value set). Zig `--test-filter` and
+  `-Dtest-filter` apply to both `zig test` and `zig build test`.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): cargo test targets; clippy -p; zig filter
 - **Why:** `cargo test --lib` / `--bin` / `--doc` still receipted. `cargo
   clippy -p foo` was over-theatered (workspace clippy). `zig build test
