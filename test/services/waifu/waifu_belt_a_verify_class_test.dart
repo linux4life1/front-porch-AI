@@ -1476,6 +1476,21 @@ void main() {
       'mvn verify -Dfailsafe.testSourceDirectory=src/alt/test/java',
       'mvn test -Dproject.build.testOutputDirectory=target/alt-test-classes',
       'mvn test -DtestClasspathElements=target/alt-test-classes',
+      'mvn test -DadditionalClasspathElements=*',
+      'mvn test -Dsurefire.additionalClasspathElements=*',
+      'mvn verify -Dfailsafe.additionalClasspathElements=*',
+      'mvn test -Dmaven.test.additionalClasspath=*',
+      'mvn test -DgeneratedTestSourcesDirectory=target/alt-gen-test',
+      'mvn test -Dproject.build.generatedTestSourcesDirectory=target/alt-gen-test',
+      'mvn test -Dsurefire.generatedTestSourcesDirectory=target/alt-gen-test',
+      'mvn verify -Dfailsafe.generatedTestSourcesDirectory=target/alt-gen-test',
+      'mvn test -DclassesDirectory=target/alt-classes',
+      'mvn test -Dsurefire.classesDirectory=target/alt-classes',
+      'mvn verify -Dfailsafe.classesDirectory=target/alt-classes',
+      'mvn test -Dproject.build.outputDirectory=target/alt-classes',
+      'mvn -f other/pom.xml test',
+      'mvn --file other/pom.xml test',
+      './mvnw -f other/pom.xml test',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1491,6 +1506,8 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn verify'), isTrue);
     expect(waifuLooksVerifyCommand('./mvnw test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn -fae test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn --fail-never test'), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
     expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
     expect(waifuLooksVerifyCommand('mvn test -Dtest=*'), isFalse);

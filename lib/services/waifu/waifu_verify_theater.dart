@@ -32,6 +32,16 @@ bool _verifyTheater(String lowered) {
       return true;
     }
     if (cmd == 'gradle' && args.contains('-m')) return true;
+    if (cmd == 'mvn' &&
+        args.any(
+          (t) =>
+              t == '-f' ||
+              t == '--file' ||
+              t.startsWith('-f=') ||
+              t.startsWith('--file='),
+        )) {
+      return true;
+    }
     if (cmd == 'ctest' && args.contains('-n')) return true;
     if (cmd == 'go' && args.contains('-c')) return true;
     if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;

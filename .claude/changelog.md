@@ -10,6 +10,22 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): classpath-redirect / POM-file / classes-root theater
+- **Why:** Alternate test-root was closed, but
+  `-DadditionalClasspathElements=*` /
+  `-DgeneratedTestSourcesDirectory=` /
+  `-DclassesDirectory=` / `-Dproject.build.outputDirectory=` and
+  `mvn -f other/pom.xml test` still receipted.
+- **What:** Same theater. Those keys (plus official
+  `maven.test.additionalClasspath` and generated-test-sources
+  twins) join `_kMavenFilterProps` presence. Maven `-f` /
+  `--file` is presence in `_verifyTheater` (not `-fae` / `-fn`).
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): alternate test-root -D props are theater
 - **Why:** Classpath scan-subset was closed, but
   `-DtestClassesDirectory=` / `-DtestSourceDirectory=` (and
