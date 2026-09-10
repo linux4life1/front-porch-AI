@@ -23,7 +23,7 @@
 - **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
   `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** cf87dbd9
 
 ## 2026-09-10 — fix(waifu): Gradle -p / bare basedir / Linux Azure / root cousins
 - **Why:** Tip d5f15721 still receipted `./gradlew -p other test`,
