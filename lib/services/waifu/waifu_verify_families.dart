@@ -26,13 +26,7 @@ bool _isTheaterFlag(String w) {
   if (_mavenSkipProperty(w) || _polyglotSoftDone(w)) return true;
   if (w == '--ignore' ||
       w.startsWith('--ignore=') ||
-      w.startsWith('--ignore-glob') ||
-      w == '--dir' ||
-      w.startsWith('--dir=') ||
-      w == '--ui' ||
-      w.startsWith('--ui=') ||
-      w == '--project' ||
-      w.startsWith('--project=')) {
+      w.startsWith('--ignore-glob')) {
     return true;
   }
   if ('--co,--listtests,--listtestfiles,--just-print,--recon'
@@ -40,7 +34,7 @@ bool _isTheaterFlag(String w) {
       .contains(w)) {
     return true;
   }
-  return '--show-only,--collect-only,--list-test,--list-suite,--list-group,--no-run,--question,--dry-run,--dryrun,--dry_run,--total-shards,--shard-index,--typecheck,--runtestsbypath,--testpathignore,--test-path-ignore,--modulepathignore,--module-path-ignore,--exclude,--selectprojects,--shard,--filter'
+  return '--show-only,--collect-only,--list-test,--list-suite,--list-group,--no-run,--question,--dry-run,--dryrun,--dry_run,--total-shards,--shard-index,--typecheck,--testpathignore,--test-path-ignore,--modulepathignore,--module-path-ignore,--exclude,--shard,--filter'
       .split(',')
       .any(w.startsWith);
 }
@@ -64,6 +58,11 @@ const _kJsFailedOnly = {
   '--watchall',
   '--changedfileswithancestor',
   '--workspace',
+  '--project',
+  '--dir',
+  '--ui',
+  '--selectprojects',
+  '--runtestsbypath',
 };
 
 const _kSuiteFilterFlags = <String, Set<String>>{

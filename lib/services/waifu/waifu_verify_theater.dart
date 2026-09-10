@@ -153,6 +153,7 @@ const _kFilterValueFlags = <String, Set<String>>{
   },
   'phpunit': {'-c', '--configuration', '-d'},
   'rspec': {'-f', '--format', '-I', '--require', '-p'},
+  'dotnet': {'--framework', '--project'},
 };
 
 const _kCargoFeatureTargetGates = {

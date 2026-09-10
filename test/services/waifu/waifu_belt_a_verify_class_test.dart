@@ -1737,6 +1737,7 @@ void main() {
       'npm test -- --watch',
       'jest --selectProjects=unit',
       'vitest --project=unit',
+      'npm test -- --project=unit',
       'npm test -- --selectProjects=unit',
       'pytest --sw',
       'pytest --stepwise',
@@ -1968,6 +1969,15 @@ void main() {
     expect(waifuLooksVerifyCommand('flutter test --device-id=chrome'), isTrue);
     expect(waifuLooksVerifyCommand('flutter test --flavor=prod'), isTrue);
     expect(waifuLooksVerifyCommand('dotnet test --framework=net8.0'), isTrue);
+    expect(waifuLooksVerifyCommand('dotnet test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('dotnet test --project Foo.Tests.csproj'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('dotnet test --project=Foo.Tests.csproj'),
+      isTrue,
+    );
     expect(
       waifuLooksVerifyCommand('jest --coveragePathIgnorePatterns=e2e'),
       isTrue,
