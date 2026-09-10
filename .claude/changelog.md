@@ -11,7 +11,7 @@
 - **Files:** `waifu_deny.dart`, `waifu_bash.dart`, `waifu_stream.dart`,
   `waifu_turn.dart`, `waifu_turn_contract.dart`, `waifu_harness_turn.dart`,
   `waifu_scratch_bash_test.dart`, `waifu_wrap_fallback_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): dropped screenshots actually reach the model
 - **Why:** Composer kept the PNG, but Waifu's OpenAI `chatMessages` list is
@@ -25,7 +25,7 @@
   `waifu_harness_turn.dart`, `waifu_compact.dart`,
   `open_router_service.dart`, `waifu_openai_messages_test.dart`,
   `waifu_vision_wire_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): wrap-up cannot be a think dump
 - **Why:** Nano-GPT/GLM put planning in `content` with no think tags. Wrap-up
@@ -36,7 +36,7 @@
 - **Files:** `waifu_stream.dart`, `waifu_harness_turn.dart`,
   `waifu_turn_contract.dart`, `waifu_llm.dart`, `waifu_leak_contract_test.dart`,
   `waifu_first_tool_soon_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): /compact actually folds and remeters
 - **Why:** `/compact` no-op'd when there were ≤8 transcript rows (tools
@@ -47,7 +47,7 @@
   an in-flight run first. Same path as a hot auto-fold.
 - **Files:** `waifu_harness.dart`, `waifu_harness_compact.dart`,
   `waifu_compact.dart`, `waifu_compact_llm_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): compact mid-loop like OpenCode
 - **Why:** Bar showed 300086/277518. Compact ran only after a finished
@@ -59,7 +59,7 @@
 - **Files:** `waifu_harness_compact.dart`, `waifu_harness_turn.dart`,
   `waifu_mcp_filter.dart`, `waifu_compact_llm_test.dart`,
   `waifu_mcp_filter_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): stop forcing a tool after the first one
 - **Why:** GLM was required to call a tool on every step. After a write it
@@ -70,7 +70,7 @@
   `forceTool`.
 - **Files:** `waifu_llm.dart`, `waifu_harness_turn.dart`,
   `waifu_first_tool_soon_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): stop rewriting Low to High (400s thinks)
 - **Why:** User set reasoning Low. Waifu sent `effort: low`; GLM 5.3's
@@ -81,7 +81,7 @@
 - **Files:** `waifu_llm.dart`, `open_router_service.dart`,
   `openai_chat_stream.dart`, `reasoning_effort.dart`,
   `waifu_harness_loop_wire_test.dart`, `waifu_first_tool_soon_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): sibling reads stay stubbed after one edit
 - **Why:** After one `edit`, GLM re-read the whole project. Duplicate-read
@@ -93,7 +93,7 @@
 - **Files:** `waifu_compact.dart`, `waifu_harness.dart`,
   `waifu_coworker_prompt.dart`, `waifu_turn_contract.dart`,
   `waifu_read_slice_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): force read into 200-line slices
 - **Why:** Default `read` dumped the whole file (up to 100k chars). GLM 5.3
@@ -106,7 +106,7 @@
 - **Files:** `waifu_tools.dart`, `waifu_fs.dart`, `waifu_compact.dart`,
   `waifu_harness_dispatch.dart`, `waifu_coworker_prompt.dart`,
   `waifu_read_slice_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): real harness loop (wire think cap, fail receipts)
 - **Why:** GLM 5.3 still thought for minutes: OpenRouter eval routing
@@ -132,7 +132,7 @@
   `waifu_stream.dart`, `waifu_harness*.dart`, `waifu_permissions.dart`,
   `waifu_bash.dart`, `waifu_compact.dart`, `waifu_page.dart`,
   `waifu_sidebar.dart`, `waifu_mode_bar.dart`, `waifu_context_bar.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): GLM 5.3 harness loop (think cap, tools, verify)
 - **Why:** Live GLM 5.3 sat in think for minutes with a dead Thought
@@ -149,7 +149,7 @@
 - **Files:** `open_router_service.dart`, `openrouter_structured_eval.dart`,
   `openai_chat_stream.dart`, `reasoning_effort.dart`, `waifu_verify.dart`,
   `waifu_compact.dart`, `waifu_page.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): Yolo does not ask about repeat commands
 - **Why:** Doom-loop asked on the 3rd identical tool even in Yolo, so
@@ -157,7 +157,7 @@
 - **What:** After the hard floor, Yolo allows. Repeat-command ask is
   Build only. Wipe/secret/git-checkout denials stay.
 - **Files:** `waifu_permissions.dart`, `waifu_honesty.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): failed writes say FAILED in the next prompt
 - **Why:** Failures were a buried `[tool write error]` line the UI
@@ -167,7 +167,7 @@
   changed”. Error chips keep the reason and paint red.
 - **Files:** `waifu_coworker_prompt.dart`, `waifu_stream.dart`,
   `waifu_tool_log.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — feat(waifu): real assistant/tool turns on the wire
 - **Why:** The workflow closed the incident list and left the protocol
@@ -178,7 +178,7 @@
 - **Files:** `waifu_openai_messages.dart`, `llm_service.dart`,
   `open_router_service.dart`, `openai_chat_stream.dart`,
   `waifu_harness.dart`, `waifu_session.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): coding think cap is 8192, not 256
 - **Why:** 256 tokens is a tool-name, not a coding think. GLM 5.3 needs
@@ -186,7 +186,7 @@
   stall; 256 was the overcorrection.
 - **What:** `kWaifuThinkCapTokens` is 8192. Still never 0, never exclude.
 - **Files:** `waifu_llm.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): short visible think, then a tool
 - **Why:** `enabled: false` sent `exclude: true`. GLM 5.3 still thought
@@ -196,7 +196,7 @@
   high/max effort hint so `low` does not 400-retry into a long think
   without a cap.
 - **Files:** `waifu_llm.dart`, `reasoning_effort.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): context bar meters the idle system prompt
 - **Why:** The bar stayed `0 / N` until a generate ran, so sit-down looked
@@ -205,7 +205,7 @@
 - **What:** Harness bind counts system + tools + prompt immediately.
   MCP opt-in and Jail/Disk refresh the same meter.
 - **Files:** `waifu_harness.dart`, `waifu_page.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): Jail vs Disk can switch after sit-down
 - **Why:** Skip-honesty hid the Jail/Disk radios, and pathMode was frozen
@@ -218,7 +218,7 @@
   `waifu_sit_down.dart`, `waifu_wizard_sit_down_step.dart`,
   `waifu_wizard_page.dart`, `waifu_mode_bar.dart`, `waifu_page.dart`,
   `waifu_whole_disk_dialog.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-09-10 — fix(waifu): run leaked Kimi writes; clip preserved thinking
 - **Why:** Kimi dumped `functions.write` into the bubble with Swift `}` in
@@ -11173,7 +11173,7 @@ Bug reports from an early backer (Sascha Nemeth). Twelve issues triaged; six fea
 ## 2026-07-14 (UTC)
 - **Files:** `docs/design/prompt-state-injection.md` (new, draft v2)
 - **Reason:** Design spec for the unified prompt architecture + words-only state injection, following the prompt-assembly audit. Covers: de-duplicated natural-language state block (no simulation scalars in the generation prompt), salience gating, pronoun-free stepped text, group/1:1 tension-ladder parity fix, macro-resolution bug fix ({{user}} reaching the model literally), idle-cue number leak, stop-sequence priority (user-side reserved under the 4-slot cap), RAG budget accounting fix, past-channel role frames, and the Phase-2 single-source section assembly (prompt_plan). Reconciled with a Grok 4.5 hostile review (verdict: approve with changes — all incorporated). NO code changes yet; awaiting maintainer approval.
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-07-14 (UTC) — Phase 1: words-only state injection + prompt bug fixes
 - **Files:** lib/services/chat/stop_sequences.dart (new), lib/services/chat/prompt_injection/{realism_state_injection,needs_injection,relationship_injection,emotion_injection,time_injection,nsfw_injection,behavioral_injection,chaos_injection,journal_injection}.dart, lib/services/chat/needs_simulation.dart, lib/services/chat/chat_service_generation.dart, lib/services/chat/chat_service_impersonate.dart, lib/services/chat/chat_service_idle_autonomous.dart, lib/services/chat_service.dart (wiring + import), lib/services/openai_chat_stream.dart, lib/services/open_router_service.dart, lib/services/storage/settings/generation_settings.dart, lib/ui/chat_components/sidebar/journal_memory/summary_section.dart, web_ui/src/components/ChatTools.tsx (+ assets/web_app rebuild), test/services/chat/{prompt_injection_test,stop_sequences_test}.dart, test/golden/needs/needs_sim_golden_test.dart, docs/Rawhide.md, docs/design/prompt-state-injection.md
@@ -11261,37 +11261,37 @@ Bug reports from an early backer (Sascha Nemeth). Twelve issues triaged; six fea
 ## 2026-07-16 (UTC) — fix: native Kokoro/Piper bundle download died on isolate over-capture
 - **Files:** lib/services/model_fetch.dart (Isolate.run moved inside _extractTarBz2), test/services/model_fetch_test.dart (new regression test)
 - **Reason:** First real-app use of the phase-4 native Kokoro path failed with "Illegal argument in isolate message: object is unsendable (_AsyncCompleter)" and fell back to the legacy Python sidecar. Dart closures created in the same function scope share one context object, so the extract closure handed to Isolate.run in fetchAndExtractTarBz2 dragged the caller's onProgress closure (TtsService.speak → StorageService, which holds a live Completer) across the isolate boundary. Fix: the Isolate.run now lives inside _extractTarBz2 itself, whose scope holds only the two path strings — nothing unsendable can be captured. Regression test reproduces the exact failure (onProgress capturing a ReceivePort against a loopback-served tar.bz2) and was verified to fail on the pre-fix code. Sandbox testing never hit this because its progress callbacks captured only sendable state.
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-07-16 (UTC) — fix(tts): silence sherpa debug dumps + strip orphan closing think tag from spoken text
 - **Files:** lib/services/tts/sherpa_kokoro_engine.dart, lib/services/tts/sherpa_piper_engine.dart, lib/services/stt/sherpa_whisper_engine.dart (all three: debug:false on the sherpa model config), lib/services/tts_service.dart (_sanitizeText third think rule), docs/Rawhide.md
 - **Reason:** Field-testing the native Kokoro path surfaced two issues. (1) sherpa-onnx's Dart OfflineTtsModelConfig/OfflineModelConfig default debug to TRUE, so every generation dumped the full sentence text plus phoneme token ids to the terminal — all three in-process engines now pass debug:false. (2) A message that began with a bare orphan CLOSING think tag (the reasoning transport consumed the opening tag) sailed through _sanitizeText — which only handled paired and unclosed-OPEN think tags — so Kokoro tokenized and spoke the tag. A third rule now strips orphan closing tags. Per Grok's review (finding 1), the rule removes ONLY the tag itself rather than everything before it: wiping preceding text would silence an entire legit message on a stray tag, the worse failure. Grok also confirmed the isolate fix, its regression test, and the debug:false pass as sound; its lockfile-churn findings refer to pre-existing pubspec.lock/Podfile.lock modifications from the earlier phase-4 work, left untouched.
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-07-16 (UTC) — fix(expression): native ONNX classifier was silently dead (symlink scan) + fed raw reasoning text
 - **Files:** lib/services/expression/onnx_emotion_classifier.dart (followLinks:true + .no_exist guard in _resolveModelFiles, one-shot missing-model log), lib/services/chat/expression_classifier.dart (strip think tags from classify input), lib/utils/think_tags.dart (new shared stripper), lib/utils/utils.dart (barrel export), lib/services/tts_service.dart (_sanitizeText refactored onto the shared stripper — inline regexes deleted), test/utils/think_tags_test.dart (new, 6 cases)
 - **Reason:** User field-testing revealed the phase-2 native expression classifier NEVER ran in production: the sidecar-era HuggingFace hub cache stores snapshot files as symlinks into blobs/, and _resolveModelFiles walked with followLinks:false, so model.onnx enumerated as a Link (not File), the scan returned null, and every classify silently used the Python sidecar. Verified against the user's real cache layout. Fix follows symlinks, skips .no_exist placeholders, and the fallback now logs once instead of being silent. Separately, the classifier input was the raw stored message text including the reasoning think block, so emotions were classified from the model's meta-reasoning ("The user wants me to roleplay as...") at ~0.08 confidence; input is now cleaned with stripThinkTags — a new shared util consolidating the think-tag rules TtsService gained earlier (its inline copy deleted; LlmEvalEngine's eval-budget variant intentionally left separate). Field-confirmed working by the user: no more [ONNX:DEBUG] sidecar lines, confidences ~3× higher, labels track the reply's actual mood.
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-07-16 (UTC) — feat(engines): EngineHealth ledger + loud fallbacks on pre-release + Engine Status panel (desktop + web)
 - **Files:** lib/services/engine_health.dart (new session ledger, ChangeNotifier singleton), lib/services/expression/onnx_emotion_classifier.dart + lib/services/kokoro_engine.dart + lib/services/tts_service.dart + lib/services/stt_service.dart (reportNative/reportFallback at every native-vs-sidecar decision point, with reasons incl. forced-env and the webm known-limitation), lib/ui/layout/main_layout.dart (pre-release-only first-fallback-per-session snackbar with Copy details, post-frame deferred, persist:false), lib/ui/settings/widgets/engine_status_card.dart (new card) + lib/ui/settings/tabs/voice_media_tab.dart (Engine Status section), lib/services/web/routes/settings_routes.dart (GET /api/engine-health), web_ui/src/pages/SettingsPage.tsx (Engine status section + fallback banner; assets/web_app rebuilt), test/services/engine_health_test.dart (new, 6 tests), docs/Rawhide.md
 - **Reason:** Maintainer-approved observability for the sidecar-retirement soak. The automatic native→Python fallbacks are invisible by design, and users only report what visibly breaks — so a silent fallback is indistinguishable from native success during a soak (the expression classifier proved it by silently falling back since phase 2 shipped). Now every engine reports which path it took and why; nightly/beta builds surface the first fallback per session as a report-it notice with a paste-ready report; Settings (desktop Voice & Media + web Settings) shows the per-engine tally so soak users can post green-checkmark screenshots — positive signal a silent soak can never produce. In-memory/session-scoped, no telemetry, no network — local-first principle intact. Grok review follow-ups applied: expected/documented fallbacks (webm browser audio, custom Piper voices, FP_*_SIDECAR=1) are tallied but never fire the report-it notice (alarm-fatigue bug); Piper reports native only after a chunk succeeds and one fallback per utterance (Kokoro parity); web panel gained Refresh + Copy report.
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-07-16 (UTC) — fix(tts/stt): four field-reported Piper/download bugs from native-engine testing
 - **Files:** lib/services/tts_service.dart (isPiperAvailable accounts for the built-in engine; activeVoices cache records its engine and self-invalidates on engine switch), lib/ui/dialogs/tts_settings_dialog.dart (stale "Requires bundled Piper binary" banner rewritten + touched lines moved onto AppColors), lib/services/voice_manager.dart (fetchCatalog: 3-attempt retry, last-good catalog.json disk cache, per-entry parse tolerance — new _parseCatalog shared by network+cache paths), lib/ui/dialogs/voice_browser_dialog.dart (initState defers _loadData post-frame — fixes field-reported notifyListeners-during-build crash), lib/services/model_fetch.dart (fetch retries transient failures ×3 with backoff — fixes the failed Whisper model download), test/services/model_fetch_test.dart (504-then-200 retry test)
 - **Reason:** User field-testing the phase-4 native engines surfaced: (1) UX — the Piper banner claimed the bundled binary was required, stale since the in-process engine shipped; now only warns when FP_TTS_SIDECAR=1 actually makes the binary required. (2) Functional — the Voice Model Browser showed "Could not load voice catalog": HuggingFace's CDN intermittently returns 504 HTML error pages (verified live — one fetch succeeded, the next 504'd) and fetchCatalog had one shot, no cache. (3) The Whisper model download failed for the same reason — ModelFetch had zero retries; the fix covers expressions/whisper/kokoro/piper downloads alike. (4) Switching TTS engines kept showing the previous engine's voices in the dropdown — the voice cache was primed once at startup and only refreshed by the Browse flow; it now records which engine built it and self-invalidates, fixing desktop and web through the one activeVoices seam. Also fixed the framework crash from the user's stack trace (fetchCatalog notifying during the dialog's first build).
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-07-16 (UTC) — fix(stt): native Whisper couldn't read Mac microphone WAVs + downloader now verifies
 - **Files:** lib/services/stt/sherpa_whisper_engine.dart (new tolerant decodeWav replaces sherpa.readWave; isModelPresent gains min-size guard against saved CDN error pages), lib/services/stt_service.dart (download success verified via isModelPresent instead of hardcoded ok=true; isSelectedModelDownloaded getter), lib/ui/settings/tabs/voice_media_tab.dart (verified on-disk status row under the download button), test/services/stt/sherpa_whisper_test.dart (4 decodeWav tests incl. the exact failing macOS shape)
 - **Reason:** User field report: voice input "doesn't work at all" + no way to tell if the model downloaded. Terminal showed the true cause: sherpa's wave reader only accepts the classic 16-byte fmt header, but the macOS recorder writes WAVE_FORMAT_EXTENSIBLE (subchunk1_size 40) — so EVERY desktop dictation failed native ("Expected subchunk1_size 16. Given: 40") and silently rode the Python sidecar. The new decodeWav walks RIFF chunks (fmt 16/18/40), resolves the extensible SubFormat, accepts PCM16 + float32, and downmixes to mono; trimSilence now also gets the true sample rate. Separately, downloadModel claimed success unconditionally after the native download; it now verifies all three files landed with plausible sizes, surfaces a verification failure, and the settings panel shows a per-size "verified on disk" line so download state is never a mystery. UX follow-up (user feedback): the Download Model button renders only when the selected model is NOT verified on disk (or a download is in progress) — clicking it on a present model was a no-op, so showing it was pure noise; it reappears automatically if the files go missing or fail the size check.
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-07-16 (UTC) — fix(engines): Grok re-review residuals — expected-fallback precision
 - **Files:** lib/services/tts/sherpa_piper_engine.dart (ensureVoice: 404 returns false, real download failures now throw), lib/services/tts_service.dart (piper caller catches → reports UNEXPECTED fallback with the error; 404/custom stays expected), lib/services/engine_health.dart (+unexpectedFallbackCount per entry + in snapshot, additive), web_ui/src/pages/SettingsPage.tsx (banner keys off unexpectedFallbackCount, defensive for older hosts; assets rebuilt), test/services/engine_health_test.dart (asserts the split)
 - **Reason:** Grok's in-session re-review confirmed findings 1/2/4 fixed and the four field fixes clean, with two residuals: piper treated download failures as "expected" (soak would miss real breakage) and the web banner nagged on any fallback including documented ones. Both closed; soak signal now cleanly separates intended legacy paths from failures on desktop and web.
-- **Commit:** (uncommitted)
+- **Commit:** 094a4bff
 
 ## 2026-07-16 (UTC) — Voice call mode rewrite: CallSession state machine (fixes "Speaking flashes then never speaks")
 - **Files:** lib/services/stt/call_session.dart (new — the state machine: turn tokens, single resume authority, TTS-gated silence detection), lib/services/stt_service.dart (727→478 lines: all call-mode state/timers/polling deleted, exposes `call`, amplitude monitor feeds the session), lib/ui/widgets/call_overlay.dart (turn loop rewritten: sendMessage → await speakStreaming → resumeAfterTts in finally; sends/mute/end via sttService.call.*), lib/services/tts_service.dart (speakStreaming: busy flags true from setup start with bail() on early returns; null-safe collector — one failed sentence no longer !-crashes and silently kills the session), lib/main.dart (removed the now-dead SttService.setTtsService proxy wiring — required compile fix), test/services/stt/call_session_test.dart (new, 8 state-machine tests)
