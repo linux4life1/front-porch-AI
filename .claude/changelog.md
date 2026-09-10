@@ -19,7 +19,7 @@
   `--workspace`, `--all` without gates still run. No second club.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 7534de36
 
 ## 2026-09-10 — fix(waifu): clippy --exclude/--doc are theater
 - **Why:** `--exclude` lived only on cargo-test flags, so `cargo clippy
