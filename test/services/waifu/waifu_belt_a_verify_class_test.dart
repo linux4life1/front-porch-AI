@@ -1216,9 +1216,12 @@ void main() {
   test('cargo test * / --exact * are theater; fuller knobs still run', () {
     final p = WaifuPermissions(mode: WaifuMode.build);
     for (final cmd in [
-      'cargo test -- *',
       'cargo test *',
+      'cargo test -- *',
+      'cargo test --exact *',
+      'cargo test --exact=*',
       'cargo test -- --exact *',
+      'cargo test -- --exact=*',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);

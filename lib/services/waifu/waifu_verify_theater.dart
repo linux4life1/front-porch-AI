@@ -216,7 +216,8 @@ const _kCargoFeatureTargetGates = {
 /// Presence via [_filteredSuiteTheater] `all: {}` — `-p *` / `-F*` are
 /// not a full suite. Feature/target gates are [_kCargoFeatureTargetGates].
 /// Libtest harness after `--` (`--ignored` / `--skip` / `--list` /
-/// `--exclude-should-panic`) is presence — `flagVal` sees those tokens.
+/// `--exclude-should-panic` / `--exact`) is presence — `flagVal`
+/// sees those tokens. `*` is theater, not JVM `--tests *`.
 const _kCargoTestFilterFlags = {
   '-p',
   '--package',
@@ -238,6 +239,7 @@ const _kCargoTestFilterFlags = {
   '--skip',
   '--list',
   '--exclude-should-panic',
+  '--exact',
   ..._kCargoFeatureTargetGates,
 };
 
@@ -376,21 +378,13 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
     for (var i = 0; i < rest.length; i++) {
       final t = rest[i];
       if (t == '--') continue;
-      if (t == '--exact' || t.startsWith('--exact=')) {
-        final val = t.startsWith('--exact=')
-            ? t.substring('--exact='.length)
-            : (i + 1 < rest.length && !rest[i + 1].startsWith('-')
-                  ? rest[i + 1]
-                  : '');
-        // Presence: `*` is a name filter, not JVM `--tests *`.
-        return _filteredSuiteTheater(val, all: const {});
-      }
       if (t.startsWith('-')) {
         if (takesValue(t) && !t.contains('=')) {
           if (i + 1 < rest.length && !rest[i + 1].startsWith('-')) i++;
         }
         continue;
       }
+      // Presence: `*` is a name filter, not JVM `--tests *`.
       return _filteredSuiteTheater(t, all: const {});
     }
     return false;

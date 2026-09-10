@@ -10,6 +10,16 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): cargo --exact=* / positional * theater
+- **Why:** `--exact=*` / `cargo test --exact *` could still VIP-star
+  (`--exact=*` is a dash token with no leftover positional).
+- **What:** Same theater. `--exact` joins cargo-test presence
+  (`all: {}`) with `-p *` / `-F*`. Positional `*` stays presence.
+  Bare `cargo test` still runs. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): cargo test * / --exact * are theater
 - **Why:** Positional and `--exact` used suite VIP `*`, so
   `cargo test -- *` / `cargo test *` / `cargo test -- --exact *`
