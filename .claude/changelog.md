@@ -17,6 +17,24 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): JS --dir host + drop device theater
+- **Why:** Tip 51c26ca4 receipted `npm test -- --dir=` (`--dir`
+  lived on the vitest suite only) and presence-theatered
+  `dart test -p vm` / `flutter test -d windows` (selector ≠
+  filter). Hostile also named vitest `--exclude` /
+  `--workspace` / `--typecheck`, jest/npm `*IgnorePatterns`
+  cousins, `deno test --doc`, and named TFM/flavor/compiler
+  selectors.
+- **What:** Same path. `--dir` on `_kJsFailedOnly`. Dart/flutter
+  `-p`/`-d`/`--platform`/`--device-id` leave failed-only (stay
+  value-takers). Vitest overlay `--exclude`/`--workspace`;
+  `--typecheck` prefix; ignore+pattern club; deno `--doc`.
+  `--framework=` / `--flavor=` / `--compiler=` stay FULL.
+  Comma platform lists are not babysat (`_wordsOf` splits `,`).
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 5dd64899 (pin 87aaaf1f)
+
 ## 2026-09-10 — fix(waifu): rspec raw -P + JS ignore/ui + device
 - **Why:** Tip f0727d58 still receipted spaced `rspec -P foo` /
   glued `-Pfoo` / bare `-P` (lowered `-p` is profile),
