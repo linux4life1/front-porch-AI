@@ -22,7 +22,7 @@
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 71d1fa4b
 
 ## 2026-09-10 — fix(waifu): --fail-never / error.ignore theater; Windows GHA -f
 - **Why:** Tip 2603298d still receipted `mvn --fail-never test` /
