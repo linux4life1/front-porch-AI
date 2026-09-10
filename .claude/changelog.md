@@ -18,8 +18,8 @@
   forms stay a full run. `--ignored` / `--skip` / `--list` /
   `--exclude-should-panic` still theater. No second club.
 - **Files:** `waifu_verify_theater.dart`,
-  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+  `waifu_belt_a_verify_class_test.dart`
+- **Commit:** 8be1c4a5
 
 ## 2026-09-10 — fix(waifu): cargo test libtest harness after -- 
 - **Why:** After `--`, dash tokens were skipped, so `cargo test --
