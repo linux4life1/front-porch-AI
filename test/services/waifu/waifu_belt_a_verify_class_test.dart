@@ -957,4 +957,46 @@ void main() {
       expect(waifuLooksVerifyCommand('cargo test --all'), isFalse);
     },
   );
+
+  test(
+    'clippy feature and target gates are theater even with workspace expanders',
+    () {
+      final p = WaifuPermissions(mode: WaifuMode.build);
+      for (final cmd in [
+        'cargo clippy --workspace --no-default-features',
+        'cargo clippy --all --features foo',
+        'cargo clippy --workspace --target wasm32-unknown-unknown',
+        'cargo clippy --no-default-features',
+        'cargo clippy --features foo',
+        'cargo clippy --features=foo',
+        'cargo clippy --target wasm32-unknown-unknown',
+        'cargo clippy --target=wasm32-unknown-unknown',
+        'cargo clippy -p foo --features bar',
+        'cargo clippy --all --no-default-features',
+        'cargo clippy -p foo --no-default-features',
+        'cargo clippy -p foo --target wasm32-unknown-unknown',
+        'cargo clippy --workspace --features foo',
+      ]) {
+        expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+        expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+        expect(
+          p.needsAsk(name: 'bash', args: {'command': cmd}),
+          isTrue,
+          reason: cmd,
+        );
+        final turn = _afterWrites(['mod.rs']);
+        _bash(turn, cmd);
+        expect(turn.tested, isFalse, reason: cmd);
+      }
+      expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
+      expect(waifuLooksVerifyCommand('cargo clippy -p foo'), isTrue);
+      expect(waifuLooksVerifyCommand('cargo clippy --workspace'), isTrue);
+      expect(waifuLooksVerifyCommand('cargo clippy --all'), isTrue);
+      expect(waifuLooksVerifyCommand('cargo clippy --lib'), isFalse);
+      expect(waifuLooksVerifyCommand('cargo clippy --exclude foo'), isFalse);
+      expect(waifuLooksVerifyCommand('cargo clippy --doc'), isFalse);
+      expect(waifuLooksVerifyCommand('cargo test --exclude foo'), isFalse);
+      expect(waifuLooksVerifyCommand('cargo test --all'), isFalse);
+    },
+  );
 }

@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): clippy feature/target gates are theater
+- **Why:** `--features` / `--target` were cargo skip-as-value only, so
+  `cargo clippy --workspace --no-default-features`, `--all --features
+  foo`, and `--workspace --target wasm32-…` still receipted.
+- **What:** Same theater. Those flags join `_kCargoClippySubsetFlags`
+  (alone or with `--workspace` / `--all` / `-p`). Bare clippy, `-p`,
+  `--workspace`, `--all` without gates still run. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): clippy --exclude/--doc are theater
 - **Why:** `--exclude` lived only on cargo-test flags, so `cargo clippy
   --exclude` / `--workspace --exclude` / `--all --exclude` still

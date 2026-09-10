@@ -211,12 +211,16 @@ const _kCargoTestFilterFlags = {
 };
 
 /// Clippy: `--workspace` / `--all` expand to the full workspace = verify
-/// only when they do not also drop crates or restrict targets.
-/// `-p` without `--exclude` / `--doc` is a normal workspace lint.
+/// only when they do not also drop crates, restrict targets, or gate
+/// features / triples. `-p` without those is a normal workspace lint.
 /// `--exclude` drops crates (even with `--workspace` / `--all` / `-p`).
-/// `--doc` is docs-only. Other subset selectors (`--lib`, `--bins`,
-/// `--tests`, `--all-targets`, …) restrict the set = theater.
-/// Not a copy of [_kCargoTestFilterFlags].
+/// `--doc` is docs-only. `--no-default-features` / `--features` /
+/// `--target` gate code (same class as `--exclude`) even with expanders.
+/// Other subset selectors (`--lib`, `--bins`, `--tests`,
+/// `--all-targets`, …) restrict the set = theater.
+/// Not a copy of [_kCargoTestFilterFlags]. `--features` / `--target`
+/// stay in [_kFilterValueFlags] so `cargo test` still skips their
+/// values; clippy theater is this set + `flagVal` only.
 const _kCargoClippySubsetFlags = {
   '--lib',
   '--bin',
@@ -230,6 +234,9 @@ const _kCargoClippySubsetFlags = {
   '--all-targets',
   '--exclude',
   '--doc',
+  '--no-default-features',
+  '--features',
+  '--target',
 };
 
 /// Same gate as JVM `--tests` / `-Dtest=`. Filtered ≠ full suite.
