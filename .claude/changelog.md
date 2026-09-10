@@ -19,7 +19,7 @@
   second club.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 6c6344b2
 
 ## 2026-09-10 — fix(waifu): --filter * is theater except Go/JVM
 - **Why:** Suite VIP `*` still soft-receipted
