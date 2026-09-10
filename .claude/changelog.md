@@ -17,6 +17,21 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): --project is JS subset, not global
+- **Why:** Tip ee9089a3 hoisted `--project` into `_isTheaterFlag`,
+  so `dotnet test --project Foo.Tests.csproj` (assembly
+  selector, same class as `--framework` / `-p` / `-d`) was
+  soft-Done. Vitest `--project` is a real suite subset.
+- **What:** Same path. Global inventory = universal soft-Done
+  only. `--project` / `--dir` / `--ui` / `--selectprojects` /
+  `--runtestsbypath` move to the shared JS set. Dotnet
+  `--project` / `--framework` are value-takers. Bare
+  `dotnet test` and `--project X.csproj` stay full.
+- **Files:** `waifu_verify_families.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 6bf35f1c
+
 ## 2026-09-10 — fix(waifu): family theater lock, not flag moles
 - **Why:** Tip 4c96d571 still substring-matched ignore+pattern
   on any argv token (path / coverage / eslint knobs soft-denied)
