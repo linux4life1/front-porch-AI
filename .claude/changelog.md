@@ -65,7 +65,8 @@
   `waifu_turn_contract.dart`, `waifu_deny.dart`,
   `waifu_permissions.dart`, `waifu_page.dart`,
   `waifu_wizard_sit_down_step.dart`, `waifu_verify_theater.dart`
-- **Commit:** (pending)
+- **Commit:** 98d09002
+- **Restack:** onto Belt A `f36976dc` (Rawhide `2b073e86`)
 
 ## 2026-09-10 — fix(waifu): Belt B fold fixture is a full as-run
 - **Why:** After A's frozen `--lib` theater, the B2 fold example
