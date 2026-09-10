@@ -1385,12 +1385,35 @@ void main() {
     expect(waifuLooksVerifyCommand('go test -run=.*'), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew test --tests *'), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
-    expect(waifuLooksVerifyCommand('mvn test -Dtest=*'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -Dtest=*'), isFalse);
+    expect(waifuLooksVerifyCommand('./mvnw test -Dtest=*'), isFalse);
     expect(waifuLooksVerifyCommand('pytest'), isTrue);
     expect(waifuLooksVerifyCommand('flutter test'), isTrue);
     expect(waifuLooksVerifyCommand('jest'), isTrue);
     expect(waifuLooksVerifyCommand('zig test --test-filter=*'), isFalse);
     expect(waifuLooksVerifyCommand('cargo test *'), isFalse);
     expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+  });
+
+  test('maven -Dtest=* is theater; Gradle/Go VIP keepers hold', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in ['mvn test -Dtest=*', './mvnw test -Dtest=*']) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('mvn test'), isTrue);
+    expect(waifuLooksVerifyCommand('./mvnw test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
+    expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -Dtest=Nope'), isFalse);
+    expect(waifuLooksVerifyCommand('mvn test -DskipTests'), isFalse);
   });
 }

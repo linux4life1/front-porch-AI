@@ -93,7 +93,7 @@ bool _mavenSkipProperty(String w) {
   final key = eq < 0 ? body : body.substring(0, eq);
   if (key == 'test') {
     return eq >= 0 &&
-        _filteredSuiteTheater(body.substring(eq + 1), all: const {'*'});
+        _filteredSuiteTheater(body.substring(eq + 1), all: const {});
   }
   if (!_kMavenSkipProps.contains(key)) return false;
   return eq < 0 || body.substring(eq + 1) != 'false';
@@ -101,8 +101,8 @@ bool _mavenSkipProperty(String w) {
 
 /// Empty or a value outside [all] is theater.
 /// Default [all] is empty (presence): `*` is theater. Keepers pass VIP
-/// — Go `-run` and Gradle/JVM `--tests` / `-Dtest=`. [starOnly]: empty
-/// or `*` only (clippy `-p *`; real package names stay verify).
+/// — Go `-run` and Gradle `--tests` only. Maven `-Dtest=` is presence.
+/// [starOnly]: empty or `*` only (clippy `-p *`).
 bool _filteredSuiteTheater(
   String val, {
   Set<String> all = const {},
@@ -186,7 +186,8 @@ const _kFilterValueFlags = <String, Set<String>>{
 
 /// Name / marker / package flags — not “skip the next token”.
 /// Gradle `--tests` is the only VIP in this map. Every other key is
-/// presence (`*`). Go `-run` and Maven `-Dtest=` keep VIP outside.
+/// presence (`*`). Go `-run` keeps VIP outside. Maven `-Dtest=` is
+/// presence — Surefire `*` is a class filter, not a full suite.
 const _kSuiteFilterFlags = <String, Set<String>>{
   'gradle': {'--tests'},
   'dotnet': {'--filter'},
@@ -268,7 +269,8 @@ const _kCargoClippySubsetFlags = {
   ..._kCargoFeatureTargetGates,
 };
 
-/// Same gate as JVM `--tests` / `-Dtest=`. Filtered ≠ full suite.
+/// Same gate as Gradle `--tests`. Filtered ≠ full suite. `-Dtest=`
+/// is presence in [_mavenSkipProperty], not this VIP.
 bool _runnerFilterTheater(String cmd, List<String> args) {
   String? flagVal(String name) {
     final eq = '$name=';

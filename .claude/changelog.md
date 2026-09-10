@@ -10,6 +10,15 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): maven -Dtest=* is theater
+- **Why:** `_mavenSkipProperty` still VIP-starred Surefire `-Dtest=*`,
+  so `mvn test -Dtest=*` / `./mvnw test -Dtest=*` soft-receipted.
+- **What:** Same theater. `-Dtest=` uses presence (`all: {}`).
+  Gradle `--tests *` and Go `-run=*` stay VIP. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): suite-filter default is presence
 - **Why:** VIP `*` was the helper default, so each new name-filter
   runner was another soft-TRUE mole.
