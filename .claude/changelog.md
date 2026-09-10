@@ -24,7 +24,7 @@
   `-PenableFoo`, `-p .`, `--tests *`, `--continuous` unchanged.
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 23d0d32c
 
 ## 2026-09-10 — fix(waifu): empty -p theater; -Pprop full; -b relocate theater
 - **Why:** Tip ce76e3f8 treated empty `-p` / `--project-dir=` as cwd
