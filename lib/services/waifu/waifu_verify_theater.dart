@@ -116,8 +116,6 @@ const _kFilterValueFlags = <String, Set<String>>{
     '--config',
     '-j',
     '--jobs',
-    '--bin',
-    '--example',
     '--bench',
     '--profile',
   },
@@ -179,7 +177,6 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'dotnet': {'--filter'},
   'swift': {'--filter'},
   'pytest': {'-k', '--keyword', '-m'},
-  'cargo': {'-p', '--package', '--test'},
   'flutter': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'dart': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'jest': {'-t', '--testnamepattern', '--testpathpattern'},
@@ -192,6 +189,17 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'bun': {'-t', '--testnamepattern', '--testpathpattern', '--filter'},
   'deno': {'-t', '--filter'},
   'test': {'-t', '--testnamepattern', '--testpathpattern'},
+};
+
+/// `cargo test` only — clippy `-p` is a normal workspace lint.
+const _kCargoTestFilterFlags = {
+  '-p',
+  '--package',
+  '--test',
+  '--lib',
+  '--bin',
+  '--example',
+  '--doc',
 };
 
 /// Same gate as JVM `--tests` / `-Dtest=`. Filtered ≠ full suite.
@@ -223,7 +231,7 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
     return false;
   }
 
-  List<String> after(String check) {
+  List<String>? afterCheck(String check) {
     var i = 0;
     while (i < args.length) {
       final t = args[i];
@@ -240,10 +248,12 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
         }
         continue;
       }
-      return t == check ? args.sublist(i + 1) : const [];
+      return t == check ? args.sublist(i + 1) : null;
     }
-    return const [];
+    return null;
   }
+
+  List<String> after(String check) => afterCheck(check) ?? const [];
 
   bool paths(List<String> rest, {Set<String> all = const {'.'}}) {
     for (var i = 0; i < rest.length; i++) {
@@ -273,7 +283,12 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
     return args.any((t) => t.startsWith('--filter:'));
   }
   if (cmd == 'cargo') {
-    final rest = after('test');
+    final rest = afterCheck('test');
+    if (rest == null) return false;
+    for (final f in _kCargoTestFilterFlags) {
+      final v = flagVal(f);
+      if (v != null && _filteredSuiteTheater(v)) return true;
+    }
     for (var i = 0; i < rest.length; i++) {
       final t = rest[i];
       if (t == '--') continue;
@@ -305,9 +320,17 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
     case 'flutter':
     case 'dart':
     case 'mix':
-    case 'zig':
     case 'deno':
     case 'bun':
+      return paths(after('test'));
+    case 'zig':
+      if (args.contains('build') &&
+          args.contains('test') &&
+          args.any(
+            (t) => t == '-dtest-filter' || t.startsWith('-dtest-filter='),
+          )) {
+        return true;
+      }
       return paths(after('test'));
     case 'npm':
     case 'pnpm':

@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): cargo test targets; clippy -p; zig filter
+- **Why:** `cargo test --lib` / `--bin` / `--doc` still receipted. `cargo
+  clippy -p foo` was over-theatered (workspace clippy). `zig build test
+  -Dtest-filter=foo` still receipted.
+- **What:** Same theater. Cargo suite filters (`-p`, `--lib`, `--bin`,
+  `--example`, `--doc`, `--test`) apply to `cargo test` only. Zig
+  `build`+`test` with `-Dtest-filter` is theater. Clippy `-p` stays a
+  run.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): package, marker, and adjacent filters
 - **Why:** Value-flag skip laundered `pytest -m` / cargo `-p` / `--test`
   / go `./pkg`. Adjacent `jest -t`, `mix`/`zig`/`rspec`/`phpunit`/

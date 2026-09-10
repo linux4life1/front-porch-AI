@@ -784,4 +784,52 @@ void main() {
     expect(waifuLooksVerifyCommand('pytest -k nope'), isFalse);
     expect(waifuLooksVerifyCommand('flutter test test/foo_test.dart'), isFalse);
   });
+
+  test(
+    'cargo test targets and zig test-filter are theater; clippy -p is not',
+    () {
+      final p = WaifuPermissions(mode: WaifuMode.build);
+      for (final cmd in [
+        'cargo test --lib',
+        'cargo test --bin foo',
+        'cargo test --bin',
+        'cargo test --example foo',
+        'cargo test --doc',
+        'zig build test -Dtest-filter=foo',
+      ]) {
+        expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+        expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+        expect(
+          p.needsAsk(name: 'bash', args: {'command': cmd}),
+          isTrue,
+          reason: cmd,
+        );
+        final turn = _afterWrites(['mod.rs']);
+        _bash(turn, cmd);
+        expect(turn.tested, isFalse, reason: cmd);
+      }
+      for (final cmd in [
+        'cargo test',
+        'cargo clippy',
+        'cargo clippy -p foo',
+        'zig build test',
+        'zig test',
+      ]) {
+        expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+        expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+        expect(
+          p.needsAsk(name: 'bash', args: {'command': cmd}),
+          isFalse,
+          reason: cmd,
+        );
+        final turn = _afterWrites(['mod.rs']);
+        _bash(turn, cmd);
+        expect(turn.tested, isTrue, reason: cmd);
+      }
+      expect(waifuLooksVerifyCommand('cargo test -p foo'), isFalse);
+      expect(waifuLooksVerifyCommand('cargo test --test integ'), isFalse);
+      expect(waifuLooksVerifyCommand('jest -t'), isFalse);
+      expect(waifuLooksVerifyCommand('go test ./pkg'), isFalse);
+    },
+  );
 }
