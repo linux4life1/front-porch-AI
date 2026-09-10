@@ -268,6 +268,11 @@ const _kCargoClippySubsetFlags = {
 
 /// Same gate as Gradle `--tests`. Filtered ≠ full suite.
 bool _runnerFilterTheater(String cmd, List<String> args) {
+  final failedOnly = _kFailedOnlyFlags[cmd];
+  if (failedOnly != null &&
+      args.any((t) => failedOnly.contains(t.split('=').first))) {
+    return true;
+  }
   String? flagVal(String name) {
     final eq = '$name=';
     // Clap short: `-Ffoo` → lowered `-ffoo`. Long flags stay space/`=`.

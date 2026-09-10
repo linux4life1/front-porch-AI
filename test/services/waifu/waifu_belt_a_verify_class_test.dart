@@ -1662,6 +1662,14 @@ void main() {
       'ctest --no-tests',
       'ctest --no-tests=',
       'ctest --rerun-failed',
+      'pytest --lf',
+      'pytest --last-failed',
+      'pytest --ff',
+      'pytest --failed-first',
+      'jest --onlyFailures',
+      'rspec --only-failures',
+      'rspec --next-failure',
+      'rspec -n',
       './gradlew test -Dtest.failOnNoMatchingTests=false',
       './gradlew test -Dtest.failOnNoDiscoveredTests=false',
       './gradlew test -Ptest.failOnNoMatchingTests=false',
@@ -1827,6 +1835,9 @@ void main() {
     expect(waifuLooksVerifyCommand('ctest -j8'), isTrue);
     expect(waifuLooksVerifyCommand('ctest --output-on-failure'), isTrue);
     expect(waifuLooksVerifyCommand('ctest --no-tests=error'), isTrue);
+    expect(waifuLooksVerifyCommand('pytest'), isTrue);
+    expect(waifuLooksVerifyCommand('jest'), isTrue);
+    expect(waifuLooksVerifyCommand('rspec'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         './gradlew test -Dtest.failOnNoMatchingTests=true',

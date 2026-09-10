@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): pytest/jest/rspec failed-only theater
+- **Why:** Tip 32ae263e still receipted `pytest --lf` / `--ff`,
+  `jest --onlyFailures`, and `rspec --only-failures` /
+  `--next-failure` as a full verify.
+- **What:** Same path. Failed-only club on `_runnerFilterTheater`
+  (ctest `--rerun-failed` twin). Long+short aliases per runner.
+  Bare `pytest` / `jest` / `rspec` stay full.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** TBD
+
 ## 2026-09-10 — fix(waifu): ctest --no-tests ignore + --rerun-failed
 - **Why:** Tip c65ff0be still receipted `ctest --no-tests=ignore`,
   `--rerun-failed`, and `AM_TESTS_ENVIRONMENT=`.
