@@ -21,7 +21,7 @@
   re-read AND test/analyze. `rm test` / `grep test` stay false.
 - **Files:** `waifu_verify.dart`, `waifu_plan_codec.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 9c3b59a3
 
 ## 2026-09-10 — fix(waifu): gradlew/mvnw peel to gradle/mvn verify
 - **Why:** `./gradlew test` / `./mvnw test` used argv0 `gradlew`/`mvnw`, which
