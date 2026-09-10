@@ -26,7 +26,7 @@
   `--failed` and go `-short` are runner-scoped. Bare hosts full.
 - **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** TBD
+- **Commit:** d70f8e98
 
 ## 2026-09-10 — fix(waifu): JS host failed-only mirror + jest -o
 - **Why:** Tip a7731966 still receipted `npm test -- --onlyFailures`
