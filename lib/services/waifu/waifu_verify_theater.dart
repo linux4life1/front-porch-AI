@@ -100,10 +100,13 @@ bool _mavenSkipProperty(String w) {
 
 /// Empty or a value outside [all] is theater.
 /// Default [all] is `*` — JVM / jest / go name filters mean “all tests”.
-/// Presence theater (clippy subset, cargo `-p` / `--exclude` / features /
-/// target): pass [all] empty; `*` is not a full lint.
-bool _filteredSuiteTheater(String val, {Set<String> all = const {'*'}}) =>
-    val.isEmpty || !all.contains(val);
+/// Presence (`all: {}`): `*` is not a full lint. [starOnly]: empty or
+/// `*` only (clippy `-p *`; real package names stay verify).
+bool _filteredSuiteTheater(
+  String val, {
+  Set<String> all = const {'*'},
+  bool starOnly = false,
+}) => starOnly ? val.isEmpty || val == '*' : val.isEmpty || !all.contains(val);
 
 /// Flags whose next token is a value, not a test name / path.
 /// Real suite filters do **not** live here — see [_kSuiteFilterFlags].
@@ -193,10 +196,18 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'test': {'-t', '--testnamepattern', '--testpathpattern'},
 };
 
+/// Shared by `cargo test` (presence) and clippy subset. Not a suite VIP.
+const _kCargoFeatureTargetGates = {
+  '--no-default-features',
+  '--features',
+  '-f',
+  '--target',
+};
+
 /// `cargo test` only. `--workspace` here is still a non-default set.
 /// `--all` is the `--all-targets` alias hole. `--exclude` drops crates.
-/// Presence theater via [_filteredSuiteTheater] `all: {}` — `-p *` is
-/// not a full suite.
+/// Presence via [_filteredSuiteTheater] `all: {}` — `-p *` / `-F*` are
+/// not a full suite. Feature/target gates are [_kCargoFeatureTargetGates].
 const _kCargoTestFilterFlags = {
   '-p',
   '--package',
@@ -214,24 +225,15 @@ const _kCargoTestFilterFlags = {
   '--workspace',
   '--exclude',
   '--all',
+  ..._kCargoFeatureTargetGates,
 };
 
-/// Clippy: `--workspace` / `--all` expand to the full workspace = verify
-/// only when they do not also drop crates, restrict targets, or gate
-/// features / triples. `-p` without those is a normal workspace lint.
-/// `--exclude` drops crates (even with `--workspace` / `--all` / `-p`).
-/// `--doc` is docs-only. `--no-default-features` / `--features` / `-F`
-/// / `--target` gate code (same class as `--exclude`) even with
-/// expanders. Other subset selectors (`--lib`, `--bins`, `--tests`,
-/// `--all-targets`, …) restrict the set = theater.
-/// Not a copy of [_kCargoTestFilterFlags]. `--features` / `-F` /
-/// `--target` stay in [_kFilterValueFlags] so `cargo test` still skips
-/// their values; clippy theater is this set + `flagVal` only.
-/// Receipts are lowercased first, so cargo `-F` / `-F=` / `-Ffoo` is
-/// stored as `-f` here and in [_kFilterValueFlags]. Clap glued shorts
-/// (`-ffoo`) are a value in [flagVal], not a second club.
-/// Presence theater (`all: {}`): `-F*` / `--exclude *` / `--target *`
-/// are not a full lint.
+/// Clippy: `--workspace` / `--all` / `-p <name>` = verify unless a
+/// subset, exclude, doc, or feature/target gate is present.
+/// `-p *` / `-p=` / `--package *` are star-only theater.
+/// Feature/target gates are [_kCargoFeatureTargetGates] (same set as
+/// `cargo test`). Receipts lower first (`-F` → `-f`). Presence
+/// (`all: {}`): `*` is not a full lint.
 const _kCargoClippySubsetFlags = {
   '--lib',
   '--bin',
@@ -245,10 +247,7 @@ const _kCargoClippySubsetFlags = {
   '--all-targets',
   '--exclude',
   '--doc',
-  '--no-default-features',
-  '--features',
-  '-f',
-  '--target',
+  ..._kCargoFeatureTargetGates,
 };
 
 /// Same gate as JVM `--tests` / `-Dtest=`. Filtered ≠ full suite.
@@ -344,6 +343,12 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
       for (final f in _kCargoClippySubsetFlags) {
         final v = flagVal(f);
         if (v != null && _filteredSuiteTheater(v, all: const {})) {
+          return true;
+        }
+      }
+      for (final f in const ['-p', '--package']) {
+        final v = flagVal(f);
+        if (v != null && _filteredSuiteTheater(v, starOnly: true)) {
           return true;
         }
       }

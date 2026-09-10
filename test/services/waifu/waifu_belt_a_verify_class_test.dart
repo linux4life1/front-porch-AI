@@ -1110,4 +1110,44 @@ void main() {
     expect(waifuLooksVerifyCommand('cargo clippy --exclude foo'), isFalse);
     expect(waifuLooksVerifyCommand('cargo test -p foo'), isFalse);
   });
+
+  test('cargo test feature/target gates and clippy -p * are theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo test --features foo',
+      'cargo test --features=foo',
+      'cargo test -Ffoo',
+      'cargo test -F*',
+      'cargo test --features *',
+      'cargo test --no-default-features',
+      'cargo test --target wasm32-unknown-unknown',
+      'cargo test --target=wasm32-unknown-unknown',
+      'cargo test --exclude *',
+      'cargo clippy -p *',
+      'cargo clippy -p=*',
+      'cargo clippy --package *',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy -p foo'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --package foo'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --workspace'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --all'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy --all-features'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo test --exclude *'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test -p foo'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo clippy -Ffoo'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo clippy -F foo'), isFalse);
+  });
 }

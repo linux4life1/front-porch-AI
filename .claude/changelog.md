@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): cargo test feature/target; clippy -p *
+- **Why:** Feature/target gates lived only on clippy subset, so
+  `cargo test --features` / `-F` / `--no-default-features` / `--target`
+  still receipted. `cargo clippy -p *` was a full-lint receipt.
+- **What:** Same theater. Those four gates are
+  `_kCargoFeatureTargetGates` on both test (presence) and clippy.
+  Clippy `-p` / `--package` star-only (`*` / empty); `-p foo` stays
+  verify. `cargo test --exclude *` pinned. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): clippy/cargo presence flags do not VIP-star
 - **Why:** Clippy subset and cargo `-p` / `--exclude` ran values through
   `_filteredSuiteTheater` with suite VIP `*`, so `-F*` / `--features *`
