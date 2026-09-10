@@ -22,7 +22,7 @@
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`,
   `waifu_verify_contract_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 968a9f12
 
 ## 2026-09-10 — fix(waifu): failsafe skip is IT-only; filters are theater
 - **Why:** `failsafe.skip` killed `mvn verify` even though Surefire
