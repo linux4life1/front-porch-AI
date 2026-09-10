@@ -494,6 +494,6 @@ bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
 /// Failed-only rerun (pytest `--lf`/`--ff`, jest, rspec). Presence.
 const _kFailedOnlyFlags = <String, Set<String>>{
   'pytest': {'--lf', '--last-failed', '--ff', '--failed-first'},
-  'jest': {'--onlyfailures'},
+  'jest': {'--onlyfailures', '--onlychanged', '-o'},
   'rspec': {'--only-failures', '--next-failure', '-n'},
 };

@@ -18,9 +18,7 @@
 
 part of 'waifu_verify.dart';
 
-/// Compile / list / dry-run / help — not a real execute. One gate.
-/// [command] is the original (pre-lower) text so Gradle can tell
-/// `-p` (project-dir) from `-P` (project property).
+/// Compile / list / dry-run / help. Raw [command] keeps Gradle `-p`/`-P`.
 bool _verifyTheater(String command) {
   final lowered = command.toLowerCase();
   final rawSegs = _segments(command);
@@ -43,8 +41,6 @@ bool _verifyTheater(String command) {
     if (cmd == 'make' && _makeArgvTheater(rawArgs)) return true;
     if (cmd == 'gradle' && args.contains('-m')) return true;
     if (cmd == 'gradle' && _gradleArgvTheater(args, rawArgs)) return true;
-    // Maven reactor / settings / profiles / toolchains / fail-never
-    // + non-root `-f` (cwd, `/<one>/pom.xml`, or GHA checkout).
     if (cmd == 'mvn' && _mavenArgvTheater(args)) return true;
     if (cmd == 'ctest' && _ctestArgvTheater(args, rawArgs)) return true;
     if (cmd == 'go' && args.contains('-c')) return true;
@@ -107,20 +103,15 @@ bool _mavenSkipProperty(String w) {
   return eq < 0 || body.substring(eq + 1) != 'false';
 }
 
-/// Empty or a value outside [all] is theater.
-/// Default [all] is empty (presence). Keepers: Go `-run`, Gradle `--tests`.
-/// [starOnly]: empty or `*` only (clippy `-p *`).
+/// Empty or a value outside [all] is theater. [starOnly]: empty or `*`.
 bool _filteredSuiteTheater(
   String val, {
   Set<String> all = const {},
   bool starOnly = false,
 }) => starOnly ? val.isEmpty || val == '*' : val.isEmpty || !all.contains(val);
 
-/// Flags whose next token is a value, not a test name / path.
-/// Real suite filters do **not** live here — see [_kSuiteFilterFlags].
-/// Cargo also lists libtest knobs (`--test-threads` / `--format` /
-/// `--shuffle-seed` / `--logfile`) so the post-`--` walk does not treat
-/// the spaced value as a positional filter.
+/// Next-token is a value, not a name. Suite filters: [_kSuiteFilterFlags].
+/// Cargo lists libtest knobs so post-`--` does not eat the spaced value.
 const _kFilterValueFlags = <String, Set<String>>{
   'cargo': {
     '--features',
@@ -220,9 +211,7 @@ const _kCargoFeatureTargetGates = {
   '--target',
 };
 
-/// `cargo test` only. Presence (`all: {}`). `--workspace` / `--all` /
-/// `--exclude` are non-default. Libtest `--ignored` / `--skip` /
-/// `--list` / `--exact` are presence too.
+/// `cargo test` only. Presence. Libtest `--ignored` / `--exact` too.
 const _kCargoTestFilterFlags = {
   '-p',
   '--package',
@@ -248,8 +237,7 @@ const _kCargoTestFilterFlags = {
   ..._kCargoFeatureTargetGates,
 };
 
-/// Clippy subset / feature-target / `--exclude` / `--doc`. `-p *` is
-/// star-only. Real `-p foo` stays verify. Receipts lower (`-F` → `-f`).
+/// Clippy subset / `--exclude` / `--doc`. `-p *` star-only (`-F` → `-f`).
 const _kCargoClippySubsetFlags = {
   '--lib',
   '--bin',
@@ -268,9 +256,23 @@ const _kCargoClippySubsetFlags = {
 
 /// Same gate as Gradle `--tests`. Filtered ≠ full suite.
 bool _runnerFilterTheater(String cmd, List<String> args) {
-  final failedOnly = _kFailedOnlyFlags[cmd];
+  var failedOnly = _kFailedOnlyFlags[cmd];
+  var failedArgs = args;
+  if (failedOnly == null &&
+      (cmd == 'test' ||
+          const {'npm', 'pnpm', 'yarn'}.contains(cmd) &&
+              args.contains('test'))) {
+    final dash = args.indexOf('--');
+    if (dash >= 0) {
+      failedArgs = args.sublist(dash + 1);
+      failedOnly = {
+        ..._kFailedOnlyFlags['pytest']!,
+        ..._kFailedOnlyFlags['jest']!,
+      };
+    }
+  }
   if (failedOnly != null &&
-      args.any((t) => failedOnly.contains(t.split('=').first))) {
+      failedArgs.any((t) => failedOnly!.contains(t.split('=').first))) {
     return true;
   }
   String? flagVal(String name) {
@@ -432,9 +434,7 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
   }
 }
 
-/// Gradle `-x test` / `--exclude-task test` (or `:app:test`, unit-test
-/// tasks, or a glob that matches check shapes: `test`/`tests`/`check`/
-/// `*UnitTest*`). `-x lint` and `*contest*` do not kill a real `test`.
+/// Gradle `-x test` / glob `*Test*`. `-x lint` does not kill a real test.
 bool _excludesKnownCheck(String cmd, List<String> args) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];

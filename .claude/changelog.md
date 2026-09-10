@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): npm/pnpm/yarn failed-only + jest -o
+- **Why:** Tip a7731966 still receipted `npm test -- --lf` /
+  `pnpm`/`yarn test -- --onlyFailures` and `jest -o` /
+  `--onlyChanged`.
+- **What:** Same path. JS hosts apply the pytest+jest failed-only
+  set to argv after `--` (`npm run test` peels to `test`).
+  Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** TBD
+
 ## 2026-09-10 — fix(waifu): pytest/jest/rspec failed-only theater
 - **Why:** Tip 32ae263e still receipted `pytest --lf` / `--ff`,
   `jest --onlyFailures`, and `rspec --only-failures` /

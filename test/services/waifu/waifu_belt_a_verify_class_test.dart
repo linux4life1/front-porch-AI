@@ -1667,6 +1667,14 @@ void main() {
       'pytest --ff',
       'pytest --failed-first',
       'jest --onlyFailures',
+      'jest -o',
+      'jest --onlyChanged',
+      'npm test -- --lf',
+      'npm test -- --last-failed',
+      'npm test -- --ff',
+      'npm run test -- --lf',
+      'pnpm test -- --onlyFailures',
+      'yarn test -- --onlyFailures',
       'rspec --only-failures',
       'rspec --next-failure',
       'rspec -n',
@@ -1838,6 +1846,9 @@ void main() {
     expect(waifuLooksVerifyCommand('pytest'), isTrue);
     expect(waifuLooksVerifyCommand('jest'), isTrue);
     expect(waifuLooksVerifyCommand('rspec'), isTrue);
+    expect(waifuLooksVerifyCommand('npm test'), isTrue);
+    expect(waifuLooksVerifyCommand('pnpm test'), isTrue);
+    expect(waifuLooksVerifyCommand('yarn test'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         './gradlew test -Dtest.failOnNoMatchingTests=true',
