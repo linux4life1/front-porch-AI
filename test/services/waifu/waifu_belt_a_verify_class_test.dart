@@ -1320,4 +1320,77 @@ void main() {
     expect(waifuLooksVerifyCommand('cargo test *'), isFalse);
     expect(waifuLooksVerifyCommand('cargo test'), isTrue);
   });
+
+  test('every suite-filter key is presence except Go/JVM keepers', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'pytest -k=*',
+      'pytest --keyword=*',
+      'pytest -m=*',
+      'flutter test --name=*',
+      'flutter test --plain-name=*',
+      'flutter test --tags=*',
+      'flutter test --exclude-tags=*',
+      'flutter test -t=*',
+      'flutter test -x=*',
+      'dart test --name=*',
+      'dart test --plain-name=*',
+      'dart test --tags=*',
+      'dart test --exclude-tags=*',
+      'dart test -t=*',
+      'dart test -x=*',
+      'jest -t=*',
+      'jest --testNamePattern=*',
+      'jest --testPathPattern=*',
+      'vitest -t=*',
+      'vitest --testNamePattern=*',
+      'vitest --testPathPattern=*',
+      'phpunit --testsuite=*',
+      'rspec -e=*',
+      'rspec --example=*',
+      'npm test -t=*',
+      'npm test --testNamePattern=*',
+      'npm test --testPathPattern=*',
+      'pnpm test -t=*',
+      'pnpm test --testNamePattern=*',
+      'pnpm test --testPathPattern=*',
+      'yarn test -t=*',
+      'yarn test --testNamePattern=*',
+      'yarn test --testPathPattern=*',
+      'bun test -t=*',
+      'bun test --testNamePattern=*',
+      'bun test --testPathPattern=*',
+      'deno test -t=*',
+      'swift test --filter=*',
+      'dotnet test --filter=*',
+      'phpunit --filter=*',
+      'bun test --filter=*',
+      'deno test --filter=*',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('test -t=*'), isFalse);
+    expect(waifuLooksVerifyCommand('test --testNamePattern=*'), isFalse);
+    expect(waifuLooksVerifyCommand('test --testPathPattern=*'), isFalse);
+    expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
+    expect(waifuLooksVerifyCommand('go test -run=.*'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test --tests *'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -Dtest=*'), isTrue);
+    expect(waifuLooksVerifyCommand('pytest'), isTrue);
+    expect(waifuLooksVerifyCommand('flutter test'), isTrue);
+    expect(waifuLooksVerifyCommand('jest'), isTrue);
+    expect(waifuLooksVerifyCommand('zig test --test-filter=*'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test *'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+  });
 }

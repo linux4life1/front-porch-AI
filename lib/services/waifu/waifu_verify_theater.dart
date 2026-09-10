@@ -92,19 +92,20 @@ bool _mavenSkipProperty(String w) {
   final eq = body.indexOf('=');
   final key = eq < 0 ? body : body.substring(0, eq);
   if (key == 'test') {
-    return eq >= 0 && _filteredSuiteTheater(body.substring(eq + 1));
+    return eq >= 0 &&
+        _filteredSuiteTheater(body.substring(eq + 1), all: const {'*'});
   }
   if (!_kMavenSkipProps.contains(key)) return false;
   return eq < 0 || body.substring(eq + 1) != 'false';
 }
 
 /// Empty or a value outside [all] is theater.
-/// Default [all] is `*` — JVM / jest / go name filters mean “all tests”.
-/// Presence (`all: {}`): `*` is not a full lint. [starOnly]: empty or
-/// `*` only (clippy `-p *`; real package names stay verify).
+/// Default [all] is empty (presence): `*` is theater. Keepers pass VIP
+/// — Go `-run` and Gradle/JVM `--tests` / `-Dtest=`. [starOnly]: empty
+/// or `*` only (clippy `-p *`; real package names stay verify).
 bool _filteredSuiteTheater(
   String val, {
-  Set<String> all = const {'*'},
+  Set<String> all = const {},
   bool starOnly = false,
 }) => starOnly ? val.isEmpty || val == '*' : val.isEmpty || !all.contains(val);
 
@@ -184,9 +185,8 @@ const _kFilterValueFlags = <String, Set<String>>{
 };
 
 /// Name / marker / package flags — not “skip the next token”.
-/// Gradle `--tests` is the JVM VIP keeper (`*`). Everyone else here
-/// is presence — `swift`/`dotnet`/`phpunit`/`deno`/`bun` `--filter *`
-/// is theater.
+/// Gradle `--tests` is the only VIP in this map. Every other key is
+/// presence (`*`). Go `-run` and Maven `-Dtest=` keep VIP outside.
 const _kSuiteFilterFlags = <String, Set<String>>{
   'gradle': {'--tests'},
   'dotnet': {'--filter'},
@@ -350,8 +350,6 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
     }
     return paths(after('test'), all: const {'.', './...'});
   }
-  // Gradle `--tests *` is the JVM VIP keeper. Other suite flags
-  // (`--filter`, `-k`, `-t`, `--name`) are presence — `*` is theater.
   if (suiteFlags(all: cmd == 'gradle' ? const {'*'} : const {})) {
     return true;
   }
