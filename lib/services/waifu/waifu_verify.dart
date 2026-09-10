@@ -21,6 +21,8 @@ import 'dart:io';
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:path/path.dart' as p;
 
+part 'waifu_verify_theater.dart';
+
 /// Project-native check names. Receipt is step.verify, a user-named
 /// command, a repo marker, or a **known runner** — never “argv[1] is
 /// test”. Echo / ls / help / dry-run / build-without-test never receipt.
@@ -237,40 +239,6 @@ Future<WaifuVerifyContext> waifuBuildVerifyContext({
   );
 }
 
-bool _verifyTheater(String lowered) {
-  for (final segment in _segments(lowered)) {
-    final words = _wordsOf(segment);
-    if (words.isEmpty) continue;
-    if (words.any((w) {
-      if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
-      if (w == '--just-print' ||
-          w == '--recon' ||
-          w.startsWith('--show-only') ||
-          w.startsWith('--collect-only') ||
-          w == '--listtests') {
-        return true;
-      }
-      return w.startsWith('--dry-run') ||
-          w.startsWith('--dryrun') ||
-          w.startsWith('--dry_run');
-    })) {
-      return true;
-    }
-    // Runner-scoped shorts: `-n` is pytest-xdist elsewhere; `-m` is
-    // Gradle dry-run only. Inventory uses the task basename, or
-    // `--configuration` / `--task` when the task is not a real check.
-    final peeled = _peelWrappers(words);
-    if (peeled.words.length < 2) continue;
-    final cmd = _runnerKey(peeled.words.first);
-    final args = peeled.words.skip(1);
-    if (cmd == 'make' && args.contains('-n')) return true;
-    if (cmd == 'gradle' && args.contains('-m')) return true;
-    if (cmd == 'ctest' && args.contains('-n')) return true;
-    if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;
-  }
-  return false;
-}
-
 bool _isBuildWithoutTest(String lowered) {
   var sawBuild = false;
   var sawCheck = false;
@@ -438,24 +406,6 @@ bool _argvHasKnownCheck(List<String> peeled) {
     return _runnerTaskMatches(cmd, t);
   }
   return false;
-}
-
-/// Gradle `help` / `dependencies` / `components`, including `:app:help`.
-/// `--configuration-cache` is a real run flag — not this.
-bool _gradleInventoryTheater(Iterable<String> args) {
-  final task = args.where((t) => !t.startsWith('-')).firstOrNull;
-  final base = task?.split(':').last;
-  if (base == 'help' || base == 'dependencies' || base == 'components') {
-    return true;
-  }
-  final inventoryFlag = args.any(
-    (t) =>
-        t == '--configuration' ||
-        t.startsWith('--configuration=') ||
-        t == '--task' ||
-        t.startsWith('--task='),
-  );
-  return inventoryFlag && (task == null || !_runnerTaskMatches('gradle', task));
 }
 
 bool _runnerTaskMatches(String cmd, String token) {

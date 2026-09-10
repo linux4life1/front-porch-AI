@@ -429,4 +429,48 @@ void main() {
     expect(waifuLooksVerifyCommand('./gradlew test -m'), isFalse);
     expect(waifuLooksVerifyCommand('ctest -N'), isFalse);
   });
+
+  test('compile or list without execute is not a check', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo test --no-run',
+      'cargo +nightly test --no-run',
+      'cargo test --no-run --quiet',
+      'go test -c',
+      'dotnet test --list-tests',
+      'phpunit --list-tests',
+      'make -q test',
+      'make --question test',
+      'pytest --co',
+      'jest --listTestFiles',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo +nightly test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -j8 test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew :app:test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn verify'), isTrue);
+    expect(waifuLooksVerifyCommand('pytest -n auto'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo new test'), isFalse);
+    expect(waifuLooksVerifyCommand('make -n test'), isFalse);
+    expect(waifuLooksVerifyCommand('./gradlew test -m'), isFalse);
+    expect(
+      waifuLooksVerifyCommand(
+        './gradlew :app:dependencies --configuration test',
+      ),
+      isFalse,
+    );
+    expect(waifuLooksVerifyCommand('ctest -N'), isFalse);
+    expect(waifuLooksVerifyCommand('pytest --collect-only'), isFalse);
+  });
 }

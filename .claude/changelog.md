@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): compile/list without execute is theater
+- **Why:** `cargo test --no-run` (and `+nightly` / `--quiet` variants)
+  compiled or listed without running, then receipted and skipped Build
+  ask.
+- **What:** Same `_verifyTheater` gate. `--no-run`, `--list-tests`,
+  `--listTestFiles`, `--question`, `pytest --co` join the flag walk.
+  `go test -c` and `make -q` are runner-scoped (`pytest -q` still
+  runs). Prior +channel / inventory / dry-run pins stay.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart` (part),
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): cargo +channel and Gradle inventory basename
 - **Why:** Subcommand-first treated `+nightly` as the check, so
   `cargo +nightly test` asked and never stamped. Gradle inventory
