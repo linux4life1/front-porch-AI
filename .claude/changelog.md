@@ -21,7 +21,7 @@
   phpunit `--list-suites` / `--list-groups` join.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 632960d3
 
 ## 2026-09-10 — fix(waifu): compile/list without execute is theater
 - **Why:** `cargo test --no-run` (and `+nightly` / `--quiet` variants)
