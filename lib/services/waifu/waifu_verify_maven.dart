@@ -35,6 +35,11 @@ const _kMavenFilterProps = {
   'suitexmlfiles',
   'suitexmlfile',
   'dependenciestoscan',
+  'testclassesdirectory',
+  'testsourcedirectory',
+  'testclasspathelements',
+  'project.build.testoutputdirectory',
+  'project.build.testsourcedirectory',
   'classpathdependencyexcludes',
   'classpathdependencyincludes',
   'classpathdependencyscopeexclude',
@@ -55,6 +60,9 @@ const _kMavenFilterProps = {
   'surefire.classpathdependencyexcludes',
   'surefire.classpathdependencyincludes',
   'surefire.classpathdependencyscopeexclude',
+  'surefire.testclassesdirectory',
+  'surefire.testsourcedirectory',
+  'surefire.testclasspathelements',
   'it.test',
   'failsafe.test',
   'failsafe.groups',
@@ -71,6 +79,9 @@ const _kMavenFilterProps = {
   'failsafe.classpathdependencyexcludes',
   'failsafe.classpathdependencyincludes',
   'failsafe.classpathdependencyscopeexclude',
+  'failsafe.testclassesdirectory',
+  'failsafe.testsourcedirectory',
+  'failsafe.testclasspathelements',
 };
 
 /// Maven `-D` keys that skip the *unit* suite. `=false` still runs.

@@ -1468,6 +1468,14 @@ void main() {
       'mvn verify -Dfailsafe.classpathDependencyIncludes=*',
       'mvn test -Dmaven.test.dependency.excludes=*',
       'mvn test -DclasspathDependencyScopeExclude=*',
+      'mvn test -DtestClassesDirectory=target/alt-test-classes',
+      'mvn test -DtestSourceDirectory=src/alt/test/java',
+      'mvn test -Dsurefire.testClassesDirectory=target/alt-test-classes',
+      'mvn test -Dsurefire.testSourceDirectory=src/alt/test/java',
+      'mvn verify -Dfailsafe.testClassesDirectory=target/alt-test-classes',
+      'mvn verify -Dfailsafe.testSourceDirectory=src/alt/test/java',
+      'mvn test -Dproject.build.testOutputDirectory=target/alt-test-classes',
+      'mvn test -DtestClasspathElements=target/alt-test-classes',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);

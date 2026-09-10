@@ -10,6 +10,20 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): alternate test-root -D props are theater
+- **Why:** Classpath scan-subset was closed, but
+  `-DtestClassesDirectory=` / `-DtestSourceDirectory=` (and
+  `surefire.` / `failsafe.` twins) still receipted — they swap the
+  suite source.
+- **What:** Same theater. Those keys plus
+  `project.build.testOutputDirectory` /
+  `project.build.testSourceDirectory` and `testClasspathElements`
+  join `_kMavenFilterProps` presence. Gradle/Go VIP unchanged. No
+  second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): classpath scan-subset -D filters are theater
 - **Why:** `dependenciesToScan` was closed, but
   `-DclasspathDependencyExcludes=*` / `-DclasspathDependencyIncludes=*`
