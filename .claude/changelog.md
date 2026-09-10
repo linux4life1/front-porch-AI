@@ -23,7 +23,7 @@
 - **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
   `waifu_verify_theater.dart`, `waifu_belt_a_verify_class_test.dart`,
   `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 43ce94a6
 
 ## 2026-09-10 — fix(waifu): make value-flag paths are not theater
 - **Why:** Tip 13e201c2 letter-scanned any short token for
