@@ -1212,4 +1212,44 @@ void main() {
     expect(waifuLooksVerifyCommand('cargo test -- --skip foo'), isFalse);
     expect(waifuLooksVerifyCommand('cargo test'), isTrue);
   });
+
+  test('cargo test * / --exact * are theater; fuller knobs still run', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo test -- *',
+      'cargo test *',
+      'cargo test -- --exact *',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    for (final cmd in [
+      'cargo test -- --include-ignored',
+      'cargo test -- --nocapture',
+      'cargo test -- --test-threads 1',
+      'cargo test -- --format pretty',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo test -- --ignored'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test -- --exact nope'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+  });
 }

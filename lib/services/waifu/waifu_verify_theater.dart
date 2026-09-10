@@ -382,7 +382,8 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
             : (i + 1 < rest.length && !rest[i + 1].startsWith('-')
                   ? rest[i + 1]
                   : '');
-        return _filteredSuiteTheater(val);
+        // Presence: `*` is a name filter, not JVM `--tests *`.
+        return _filteredSuiteTheater(val, all: const {});
       }
       if (t.startsWith('-')) {
         if (takesValue(t) && !t.contains('=')) {
@@ -390,7 +391,7 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
         }
         continue;
       }
-      return _filteredSuiteTheater(t);
+      return _filteredSuiteTheater(t, all: const {});
     }
     return false;
   }

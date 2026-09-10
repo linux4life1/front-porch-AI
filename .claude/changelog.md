@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): cargo test * / --exact * are theater
+- **Why:** Positional and `--exact` used suite VIP `*`, so
+  `cargo test -- *` / `cargo test *` / `cargo test -- --exact *`
+  soft-receipted.
+- **What:** Same theater. Those filters use presence (`all: {}`).
+  `*` is theater. `--include-ignored` / `--nocapture` stay fuller
+  runs. Spaced libtest knobs still skip-value. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): cargo libtest valued knobs are not theater
 - **Why:** After `--`, only cargo `_kFilterValueFlags` skipped the next
   token, so `--test-threads 1` / `--format pretty` / `--shuffle-seed
