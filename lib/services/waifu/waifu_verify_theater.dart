@@ -44,7 +44,7 @@ bool _verifyTheater(String command) {
     if (cmd == 'ctest' && _ctestArgvTheater(args, rawArgs)) return true;
     if (cmd == 'go' && args.contains('-c')) return true;
     if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;
-    if (cmd == 'gradle' && _excludesKnownCheck(cmd, args)) return true;
+    if (cmd == 'gradle' && _omitsKnownCheck(cmd, args)) return true;
     if (_runnerFilterTheater(cmd, args, rawArgs)) return true;
     if (cmd == 'go') {
       for (var i = 0; i < args.length; i++) {
@@ -367,7 +367,7 @@ bool _runnerFilterTheater(String cmd, List<String> args, List<String> rawArgs) {
   }
 }
 
-bool _excludesKnownCheck(String cmd, List<String> args) {
+bool _omitsKnownCheck(String cmd, List<String> args) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
     String? excluded;

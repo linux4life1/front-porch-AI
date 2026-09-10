@@ -1,3 +1,14 @@
+## 2026-09-10 — docs: restack Belt B onto A tip 139f50f8
+- **Why:** A moved to `139f50f8` (Belt A harness contract). B tip
+  `b57d7b9e` was 2 commits behind and diverged.
+- **What:** Rebased B onto that tip. Shared contract files stay A's
+  (send-first, denied Plan as attempt, wipe ancestor/case, `/tmp`
+  children, Build asks, `webSearch` bind, Jail/Disk chips, Disk
+  confirm persist). Theater file is byte-identical to A `139f50f8`.
+  Widget Golden on `b57d7b9e` (job 102992218608) was the 10-minute
+  timeout flake, not a pixel mismatch — no PNG regen.
+- **Restack:** onto Belt A `139f50f8`
+
 ## 2026-09-10 — fix(waifu): Belt A harness contract — rip lying gates
 - **Why:** Tip f36976dc was MERGEABLE vs Rawhide but unit+integration
   red. Send awaited verify-context before recording the user line.
@@ -23,13 +34,7 @@
   `waifu_wizard_sit_down_step.dart`,
   `waifu_path_mode_switch_test.dart`, `docs/Rawhide.md`
 - **Commit:** b01fa382
-## 2026-09-10 — fix(waifu): Belt B wipe tokens keep case; wrap-up one club
-- **Why:** After the #247 contract restack, lying leftovers remained.
-  Wipe-target tokenize lowercased the whole command, so Linux resolve missed
-  the real sit-down parent behind a path alias. Changelog text still had the
-  retired product name as a helper-name substring. B7 treated remembered
-  card speech as theater while the turn-contract lock says that line is the
-  wrap-up. Disk-confirm hung because the widget test awaited real IO under
+
 ## 2026-09-10 — fix(waifu): Belt B wipe tokens keep case; Disk persist
 - **Why:** Wipe-target tokenize lowercased the whole command, so Linux
   resolve missed the real sit-down parent behind a path alias.
@@ -38,8 +43,8 @@
 - **What:** Shell words keep typed path case; verb match folds case.
   Path-mode switch awaits the store write. Confirm test uses sync temp
   + `runAsync` like sit-saves. B7 empty wrap stays stuck (not leftover
-  tool-step speech). A's theater file stays byte-identical; naming scan
-  skips that A-owned file.
+  tool-step speech). A's theater file stays byte-identical to
+  `139f50f8`; naming scan skips that A-owned file.
 - **Files:** `waifu_deny.dart`, `waifu_bash.dart`, `waifu_page.dart`,
   `waifu_path_mode_switch_test.dart`, `waifu_naming_test.dart`
 
