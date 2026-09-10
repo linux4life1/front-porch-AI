@@ -1443,6 +1443,12 @@ void main() {
       'mvn test -Dsurefire.excludesFile=*',
       'mvn verify -Dfailsafe.includesFile=*',
       'mvn verify -Dfailsafe.excludesFile=*',
+      'mvn test -DincludesFile=*',
+      'mvn test -DexcludesFile=*',
+      'mvn test -DincludeJUnit5Engines=*',
+      'mvn test -DexcludeJUnit5Engines=*',
+      'mvn verify -DincludesFile=*',
+      './mvnw test -DincludesFile=*',
       './mvnw test -Dgroups=*',
       './mvnw verify -Dit.test=*',
     ]) {

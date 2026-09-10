@@ -10,6 +10,19 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): unprefixed Surefire -D aliases are theater
+- **Why:** `_kMavenFilterProps` had `surefire.includesFile` /
+  `surefire.excludeJUnit5Engines` but not the unprefixed aliases,
+  so `-DincludesFile=*` / `-DexcludesFile=*` /
+  `-DincludeJUnit5Engines=*` / `-DexcludeJUnit5Engines=*` still
+  receipted.
+- **What:** Same theater. Those four lowered keys join the set.
+  Failsafe has no `it.includesFile` twin (`it.test` already in).
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Surefire/Failsafe -D filters are theater
 - **Why:** Only `-Dtest=` entered `_mavenSkipProperty` as a name
   filter, so `-Dgroups=*` / `-DexcludedGroups=*` /
