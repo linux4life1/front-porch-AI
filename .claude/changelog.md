@@ -14,7 +14,7 @@
   `waifu_harness_dispatch.dart`, `waifu_turn.dart`,
   `waifu_turn_contract.dart`, `waifu_loop_p0_test.dart`,
   `docs/Rawhide.md`
-- **Commit:** pending
+- **Commit:** 9643ea4d
 
 ## 2026-09-10 — fix(waifu): /tmp inspect is not a disk wipe; wrap-up is not a harness essay
 - **Why:** Whole-disk `mkdir /tmp/epub_inspect && rm -r META-INF` treated
