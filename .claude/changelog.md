@@ -25,7 +25,7 @@
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 96cf9312
 
 ## 2026-09-10 — fix(waifu): Azure -f checkout, Gradle --continue, basedir theater
 - **Why:** Tip 0368c052 still theatered Azure classic
