@@ -69,13 +69,23 @@ const kWaifuBuiltinsCue =
     'Prefer built-in read, glob, grep, apply_patch, edit, write, and bash. '
     'Call a tool before a long think. Patch existing files instead of '
     'overwriting them whole; use write for a new file or a deliberate full '
-    'replacement. Do not read or glob a path whose contents are still in this '
+    'replacement. A tool dump in the text is a tool, not speech — run it. '
+    'Do not read or glob a path whose contents are still in this '
     'prompt unless you just wrote it. Use MCP only for capabilities those '
     'tools do not have.';
 
 const kWaifuTalkSampleMaxTokens = 400;
 const kWaifuTalkSampleMaxCount = 2;
 const kWaifuVibeMaxChars = 400;
+
+/// Preserve-thinking clip. A 60k-char draft in `<think>` is not memory.
+const kWaifuPreserveThinkMaxChars = 2400;
+
+String waifuClipPreservedThinking(String think) {
+  final t = think.trim();
+  if (t.length <= kWaifuPreserveThinkMaxChars) return t;
+  return '…${t.substring(t.length - kWaifuPreserveThinkMaxChars)}';
+}
 
 String waifuTodayStamp([DateTime? now]) {
   final d = now ?? DateTime.now();
@@ -294,7 +304,8 @@ String waifuPromptSpeech(
       if (m.text.trim().isEmpty) return '';
       final think = m.reasoning.trim();
       if (preserveThinking && think.isNotEmpty) {
-        return '$coworkerName: <think>$think</think>\n${m.text}';
+        final clipped = waifuClipPreservedThinking(think);
+        return '$coworkerName: <think>$clipped</think>\n${m.text}';
       }
       return '$coworkerName: ${m.text}';
   }

@@ -93,7 +93,8 @@ class WaifuModeBar extends StatelessWidget {
               style: TextStyle(color: AppColors.textPrimary(context)),
             ),
             subtitle: Text(
-              'Send prior thought tokens back on the next turn. Off drops them.',
+              'Send prior thought tokens back on the next turn. Off drops '
+              'them. Long drafts are clipped so they cannot eat the next turn.',
               style: TextStyle(
                 color: AppColors.textSecondary(context),
                 fontSize: 12,

@@ -47,24 +47,61 @@ final _fnTag = RegExp(
   caseSensitive: false,
 );
 
-final _minimaxCall = RegExp(
+final _minimaxHead = RegExp(
   r'◁\s*tool_call_begin\s*▷\s*'
   r'(?:functions[/.\s]*)?([A-Za-z_][\w]*)(?::\d+)?\s*'
-  r'◁\s*tool_call_argument_begin\s*▷\s*'
-  r'(\{[\s\S]*?\})',
+  r'◁\s*tool_call_argument_begin\s*▷',
   caseSensitive: false,
 );
-final _minimaxPipe = RegExp(
+final _pipeHead = RegExp(
   r'<\|tool_call_begin\|>\s*'
   r'(?:functions[/.\s]*)?([A-Za-z_][\w]*)(?::\d+)?\s*'
-  r'<\|tool_call_argument_begin\|>\s*'
-  r'(\{[\s\S]*?\})',
+  r'<\|tool_call_argument_begin\|>',
   caseSensitive: false,
 );
-final _xmlJson = RegExp(
-  r'<tool_call>\s*(\{[\s\S]*?\})\s*</tool_call>',
-  caseSensitive: false,
-);
+final _xmlHead = RegExp(r'<tool_call>', caseSensitive: false);
+
+/// First JSON object at [start], strings and nested braces included.
+/// A non-greedy `{.*?}` dies on Swift `}` inside a leaked write.
+String? waifuTakeJsonObject(String raw, int start) {
+  var i = start;
+  final n = raw.length;
+  while (i < n) {
+    final c = raw.codeUnitAt(i);
+    if (c == 32 || c == 9 || c == 10 || c == 13) {
+      i++;
+      continue;
+    }
+    break;
+  }
+  if (i >= n || raw.codeUnitAt(i) != 123) return null;
+  var depth = 0;
+  var inString = false;
+  var escape = false;
+  for (var j = i; j < n; j++) {
+    final c = raw.codeUnitAt(j);
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (c == 92) {
+        escape = true;
+      } else if (c == 34) {
+        inString = false;
+      }
+      continue;
+    }
+    if (c == 34) {
+      inString = true;
+      continue;
+    }
+    if (c == 123) depth++;
+    if (c == 125) {
+      depth--;
+      if (depth == 0) return raw.substring(i, j + 1);
+    }
+  }
+  return null;
+}
 
 String waifuStripToolLeak(String raw) {
   var t = raw;
@@ -96,15 +133,19 @@ List<LlmToolCall> waifuLeakedToolCalls(String raw) {
     } catch (_) {}
   }
 
-  for (final m in _minimaxCall.allMatches(raw)) {
-    add(m.group(1) ?? '', m.group(2) ?? '');
+  for (final m in _minimaxHead.allMatches(raw)) {
+    final json = waifuTakeJsonObject(raw, m.end);
+    if (json != null) add(m.group(1) ?? '', json);
   }
-  for (final m in _minimaxPipe.allMatches(raw)) {
-    add(m.group(1) ?? '', m.group(2) ?? '');
+  for (final m in _pipeHead.allMatches(raw)) {
+    final json = waifuTakeJsonObject(raw, m.end);
+    if (json != null) add(m.group(1) ?? '', json);
   }
-  for (final m in _xmlJson.allMatches(raw)) {
+  for (final m in _xmlHead.allMatches(raw)) {
+    final json = waifuTakeJsonObject(raw, m.end);
+    if (json == null) continue;
     try {
-      final decoded = jsonDecode(m.group(1) ?? '');
+      final decoded = jsonDecode(json);
       if (decoded is! Map) continue;
       final name = (decoded['name'] ?? decoded['tool'] ?? '').toString();
       final args = decoded['arguments'] ?? decoded['params'] ?? decoded;

@@ -1,3 +1,14 @@
+## 2026-09-10 — fix(waifu): run leaked Kimi writes; clip preserved thinking
+- **Why:** Kimi dumped `functions.write` into the bubble with Swift `}` in
+  the file. A non-greedy `{.*?}` stopped at the first brace, so the write
+  never ran. Preserve-thinking then fed 60k-char drafts into the next turn.
+- **What:** Leaked tool JSON is parsed with a real brace/string walker.
+  The write lands. The spoken line stays the character. Long preserved
+  thoughts keep only the tail.
+- **Files:** `waifu_tool_leak.dart`, `waifu_coworker_prompt.dart`,
+  `waifu_mode_bar.dart`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): queue follow-ups while she is busy
 - **Why:** The composer was disabled during a turn, so typing and Enter
   did nothing until she finished.
