@@ -58,6 +58,7 @@ class WaifuTurn {
   WaifuTurn.fromContract(this.contract);
 
   bool get mutationRequired => contract.mutationRequired;
+  bool get mutationAttempted => contract.mutationAttempted;
   bool get mutationSucceeded => contract.mutationSucceeded;
   bool get successfulTool => contract.successfulTool;
   bool get verified => contract.verified;
@@ -96,6 +97,8 @@ class WaifuTurn {
 
   void rememberToolSpeech(String body) => contract.rememberToolSpeech(body);
 
+  void noteAttempt(String toolName) => contract.noteAttempt(toolName);
+
   void requestMutation() {
     phase = WaifuPhase.tools;
     contract.requestMutation();
@@ -130,7 +133,7 @@ class WaifuTurn {
     rememberToolSpeech(body);
     final trimmed = body.trim();
     final generic = waifuLooksGenericCompletion(trimmed);
-    if (mutationRequired && !mutationSucceeded) {
+    if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
       if (contract.mutationCorrectionAttempts < kWaifuTurnCorrectionAttempts) {
         requestMutation();
         return WaifuTurnStep.retry;

@@ -138,53 +138,26 @@ class WaifuWizardSitDownStep extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          RadioGroup<WaifuPathMode>(
-            groupValue: pathMode,
-            onChanged: (value) {
-              if (value != null) onPathModeChanged(value);
-            },
-            child: Column(
-              children: [
-                for (final scope in WaifuPathMode.values)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Material(
-                      color: scope == pathMode
-                          ? amber.withValues(alpha: 0.14)
-                          : AppColors.surfaceContainerOf(context),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: BorderSide(
-                          color: scope == pathMode
-                              ? amber
-                              : AppColors.borderOf(context),
-                        ),
-                      ),
-                      child: RadioListTile<WaifuPathMode>(
-                        key: Key('waifu-path-mode-${scope.name}'),
-                        value: scope,
-                        activeColor: amber,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        title: Text(
-                          waifuPathModeTitle(scope),
-                          style: TextStyle(
-                            color: AppColors.textPrimary(context),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        subtitle: Text(
-                          waifuPathModeBlurb(scope),
-                          style: TextStyle(
-                            color: AppColors.textSecondary(context),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final scope in WaifuPathMode.values)
+                ChoiceChip(
+                  key: Key('waifu-path-mode-${scope.name}'),
+                  label: Text(waifuPathModeTitle(scope)),
+                  selected: pathMode == scope,
+                  onSelected: pathMode == scope
+                      ? null
+                      : (_) => onPathModeChanged(scope),
+                  selectedColor: amber.withValues(alpha: 0.3),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            waifuPathModeBlurb(pathMode),
+            style: TextStyle(color: AppColors.textSecondary(context)),
           ),
           const SizedBox(height: 8),
           Text(

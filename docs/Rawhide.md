@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🖥️ **Waifu Coder Jail / Disk stay honest** — sit-down scope is chips, not stuck radios. Picking Disk after a jail sit-down asks honesty again; confirm actually opens the disk. A denied Plan write says it did not write. Wiping the folder above the sit-down is still denied.
+
 - 💬 **Add Greeting works again** — editing a character (or group) that had no alternate greetings used to crash the moment you tapped Add.
 - 🖥️ **Waifu Coder tells the truth about the loop** — a verify is a real project check (the plan’s command, the one you named, or this repo’s test/analyze), not `echo` / `ls` / `--help` / a build with no test. Cargo, npm, pytest, and the rest count; Flutter is not assumed. A denied or failed write cannot say “done.” Stop clears the waiting line. A check-in does not drop the other tools in the same reply. Every touched file must be re-read. “Done.” is not a wrap-up.
 - 🖥️ **Waifu Coder tells the truth about the loop** — a verify is a real project check (the plan’s command, the one you named, or this repo’s test/analyze), not `echo` / `ls` / `--help` / a build with no test, and not `rm test` / `grep test` just because the second word is “test.” Cargo, npm, pytest, poetry/rspec, `tsc --noEmit`, and the rest count; Flutter is not assumed. A denied or failed write cannot say “done.” Stop clears the waiting line. A check-in does not drop the other tools in the same reply. Every touched file must be re-read. “Done.” is not a wrap-up.

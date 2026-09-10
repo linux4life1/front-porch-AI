@@ -195,17 +195,18 @@ class WaifuHarness {
       enforceVerify: depth == 0 && !exploreOnly,
     );
     _hasTurn = true;
+    _clearTurnReceipts();
+    // Record the send before any await so live thought chrome can paint.
+    session.running = true;
+    session.transcript.add(WaifuMessage.user(text, imagePath: imagePath));
+    if (session.title.isEmpty) session.title = waifuTitleFrom(text);
+    _emit();
     _turn.contract.verifyContext = await waifuBuildVerifyContext(
       folderRoot: session.folderRoot,
       task: text,
       plan: await waifuLoadActivePlan(session),
     );
     permissions.verifyContext = _turn.contract.verifyContext;
-    _clearTurnReceipts();
-    // Record the send before any await so live thought chrome can paint.
-    session.running = true;
-    session.transcript.add(WaifuMessage.user(text, imagePath: imagePath));
-    if (session.title.isEmpty) session.title = waifuTitleFrom(text);
     await _refreshPlanBlock();
     _mentionBlock = await waifuExpandMentions(text, session.folderRoot);
     waifuRewriteSlashUser(session.transcript, text);
@@ -285,6 +286,7 @@ class WaifuHarness {
     final work = call.args;
     final kind = waifuSubagentKind(name, work);
     final canon = call.name;
+    _turn.noteAttempt(canon);
     _pushChip(
       WaifuToolChip(
         name: canon,

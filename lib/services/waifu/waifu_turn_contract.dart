@@ -82,9 +82,8 @@ bool waifuLooksTodoReceiptClaim(String body) {
   final lower = body.toLowerCase();
   if (RegExp(r'\btodowrite\b').hasMatch(lower)) return true;
   final list = RegExp(r'\b(?:todo|to-do|task) lists?\b').hasMatch(lower);
-  final updated = RegExp(
-    r'\b(?:updated?|wrote|replaced|rewrote|changed)\b',
-  ).hasMatch(lower);
+  final updated = RegExp(r'\b(?:updated?|wrote|replaced|rewrote|changed)\b')
+      .hasMatch(lower);
   final todo = RegExp(r'\b(?:todos?|to-dos?)\b').hasMatch(lower);
   if ((list || todo) && updated) return true;
   final done = RegExp(
@@ -134,6 +133,7 @@ class WaifuTurnContract {
   final WaifuWriteRecord? _initialWrite;
   final mutatedPaths = <String>{};
   final readPaths = <String>{};
+  bool mutationAttempted = false;
   bool mutationSucceeded = false;
   bool verifyRequired = false;
   bool reviewed = false;
@@ -159,6 +159,12 @@ class WaifuTurnContract {
       (!mutationRequired || mutationSucceeded) &&
       (!verifyRequired || verified);
   bool get allowsPlanStepDone => mutationSucceeded && verified;
+
+  void noteAttempt(String toolName) {
+    if (kWaifuReceiptMutationTools.contains(toolName)) {
+      mutationAttempted = true;
+    }
+  }
 
   void rememberToolSpeech(String body) {
     final trimmed = body.trim();
@@ -235,6 +241,7 @@ class WaifuTurnContract {
 
   void absorbChild(WaifuTurnContract child) {
     successfulTool = successfulTool || child.successfulTool;
+    mutationAttempted = mutationAttempted || child.mutationAttempted;
     if (child.todoWriteSucceeded) {
       todoWriteSucceeded = true;
       todoWriteRequired = false;

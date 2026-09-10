@@ -74,11 +74,13 @@ bool waifuIsProtectedSecretPath(String path) {
 }
 
 bool waifuBashLooksRecursive(Iterable<String> words) =>
-    words.contains('--recursive') ||
-    words.any(
-      (word) =>
-          word.startsWith('-') && !word.startsWith('--') && word.contains('r'),
-    );
+    words.any((word) => word.toLowerCase() == '--recursive') ||
+    words.any((word) {
+      final folded = word.toLowerCase();
+      return folded.startsWith('-') &&
+          !folded.startsWith('--') &&
+          folded.contains('r');
+    });
 
 /// macOS `/var` is a symlink to `/private/var`; [p.isWithin] misses that.
 bool waifuPathIsInsideRoot(String path, String root) {
@@ -107,7 +109,9 @@ bool waifuIsCriticalSystemMutationPath(
         ? p.normalize(normalized)
         : p.normalize(p.join(cwdAbs, normalized));
     if (waifuPathIsInsideRoot(resolved, cwdAbs)) return false;
+    if (waifuIsNamedTempWipePath(resolved)) return false;
   }
+  if (waifuIsNamedTempWipePath(normalized)) return false;
   if (RegExp(r'^[a-z]:/?$').hasMatch(normalized)) return true;
   final withoutDrive = normalized.replaceFirst(RegExp(r'^[a-z]:'), '');
   return kWaifuProtectedTrees.any(
@@ -225,18 +229,18 @@ bool _rmDangerous(String lower, {String? workingDirectory}) {
 }
 
 List<String> waifuShellWords(String command) {
-  var normalized = command.toLowerCase();
+  var normalized = command;
   for (final home in [
-    r'${home}',
-    r'$home',
-    r'${userprofile}',
-    r'$userprofile',
+    r'\$\{home\}',
+    r'\$home',
+    r'\$\{userprofile\}',
+    r'\$userprofile',
     '%userprofile%',
   ]) {
-    normalized = normalized.replaceAll(home, '~');
+    normalized = normalized.replaceAll(RegExp(home, caseSensitive: false), '~');
   }
-  for (final pwd in [r'${pwd}', r'$pwd']) {
-    normalized = normalized.replaceAll(pwd, '.');
+  for (final pwd in [r'\$\{pwd\}', r'\$pwd']) {
+    normalized = normalized.replaceAll(RegExp(pwd, caseSensitive: false), '.');
   }
   return normalized
       .replaceAll(RegExp(r'''["'`(){}\[\],;|&<>]'''), ' ')
@@ -271,30 +275,32 @@ bool waifuIsNamedTempWipePath(String path) {
   return false;
 }
 
+bool _waifuShellVerb(String word, String verb) {
+  final folded = word.toLowerCase();
+  return folded == verb || folded.endsWith('/$verb');
+}
+
 /// Paths the recursive command would actually delete — not mkdir/cd siblings.
+/// Verb match is case-insensitive; path tokens keep the typed case so
+/// symlink resolve can hit the real sit-down parent on a case-sensitive disk.
 List<String> waifuBashRecursiveWipeTargets(String command) {
   final out = <String>[];
-  final lower = command.toLowerCase();
-  for (final segment in lower.split(RegExp(r'(?:&&|\|\||[;\n])'))) {
+  for (final segment in command.split(RegExp(r'(?:&&|\|\||[;\n])'))) {
     final words = waifuShellWords(segment);
     if (words.isEmpty) continue;
-    final rmAt = words.indexWhere((w) => w == 'rm' || w.endsWith('/rm'));
+    final rmAt = words.indexWhere((w) => _waifuShellVerb(w, 'rm'));
     var take = rmAt >= 0 && waifuBashLooksRecursive(words.skip(rmAt));
     take =
         take ||
-        (words.any((w) => w == 'find' || w.endsWith('/find')) &&
-            words.contains('-delete'));
+        (words.any((w) => _waifuShellVerb(w, 'find')) &&
+            words.any((w) => w.toLowerCase() == '-delete'));
     take =
         take ||
         ((words.any(
-              (w) =>
-                  w == 'chmod' ||
-                  w.endsWith('/chmod') ||
-                  w == 'chown' ||
-                  w.endsWith('/chown'),
+              (w) => _waifuShellVerb(w, 'chmod') || _waifuShellVerb(w, 'chown'),
             )) &&
             waifuBashLooksRecursive(words));
-    take = take || segment.contains('shutil.rmtree');
+    take = take || segment.toLowerCase().contains('shutil.rmtree');
     if (!take) continue;
     final paths = <String>[];
     for (final word in words) {
@@ -305,16 +311,12 @@ List<String> waifuBashRecursiveWipeTargets(String command) {
           word.contains('=')) {
         continue;
       }
-      if (word == 'rm' ||
-          word.endsWith('/rm') ||
-          word == 'find' ||
-          word.endsWith('/find') ||
-          word == 'chmod' ||
-          word.endsWith('/chmod') ||
-          word == 'chown' ||
-          word.endsWith('/chown') ||
-          word == 'python' ||
-          word == 'python3') {
+      if (_waifuShellVerb(word, 'rm') ||
+          _waifuShellVerb(word, 'find') ||
+          _waifuShellVerb(word, 'chmod') ||
+          _waifuShellVerb(word, 'chown') ||
+          word.toLowerCase() == 'python' ||
+          word.toLowerCase() == 'python3') {
         continue;
       }
       paths.add(word);
@@ -331,7 +333,6 @@ List<String> waifuBashRecursiveWipeTargets(String command) {
 bool _isDangerousWipeTarget(String raw, String? workingDirectory) {
   final target = raw.trim().replaceAll(r'\', '/').toLowerCase();
   if (target.isEmpty || target == '--' || target.startsWith('-')) return false;
-  if (waifuIsNamedTempWipePath(target)) return false;
   const exact = {
     '/',
     '/*',
@@ -368,14 +369,15 @@ bool _isDangerousWipeTarget(String raw, String? workingDirectory) {
     final resolved = p.isAbsolute(target)
         ? p.normalize(target)
         : p.normalize(p.join(cwdAbs, target));
-    if (waifuPathIsInsideRoot(resolved, cwdAbs)) return false;
-    if (waifuIsNamedTempWipePath(resolved)) return false;
     if (p.equals(resolved, cwdAbs) ||
         waifuPathIsInsideRoot(cwdAbs, resolved) ||
         p.isWithin(resolved, cwdAbs)) {
       return true;
     }
+    if (waifuPathIsInsideRoot(resolved, cwdAbs)) return false;
+    if (waifuIsNamedTempWipePath(resolved)) return false;
   }
+  if (waifuIsNamedTempWipePath(target)) return false;
 
   final withoutDrive = target.replaceFirst(RegExp(r'^[a-z]:'), '');
   return kWaifuProtectedTrees.any(
@@ -399,7 +401,7 @@ bool waifuBashMutates(String command, {WaifuVerifyContext? context}) {
   for (final segment in raw.split(RegExp(r'(?:&&|\|\||[;|\n])'))) {
     final words = waifuShellWords(segment);
     if (words.isEmpty) continue;
-    var cmd = words.first;
+    var cmd = words.first.toLowerCase();
     if (cmd.contains('/')) cmd = cmd.split('/').last;
     if (cmd == 'cd' || cmd == 'pushd' || cmd == 'popd') continue;
     if (cmd == 'git' && words.length > 1) {
@@ -420,10 +422,13 @@ bool waifuBashMutates(String command, {WaifuVerifyContext? context}) {
         'rm',
         'mv',
       };
-      if (write.contains(words[1])) return true;
+      if (write.contains(words[1].toLowerCase())) return true;
     }
     if (cmd == 'sed' &&
-        words.any((w) => w == '-i' || w.startsWith('-i') && w != '-i')) {
+        words.any((w) {
+          final folded = w.toLowerCase();
+          return folded == '-i' || folded.startsWith('-i') && folded != '-i';
+        })) {
       return true;
     }
     if (waifuLooksVerifySegment(segment, context: context)) continue;

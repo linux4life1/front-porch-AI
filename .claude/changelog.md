@@ -1,3 +1,29 @@
+## 2026-09-10 — fix(waifu): Belt A harness contract — rip lying gates
+- **Why:** Tip f36976dc was MERGEABLE vs Rawhide but unit+integration
+  red. Send awaited verify-context before recording the user line.
+  Plan treated a denied project write as a missing plan file. Named-temp
+  wipe allowed the sit-down parent. `/tmp` scratch writes were classed
+  as OS mutations. Build `needsAsk` lied on `/etc/hosts` because
+  `decide()` hard-denied. Page bound lookup without `webSearch:
+  webSearch`. Sit-down Jail/Disk radios were untappable after honesty
+  reopened. Disk confirm hung under fake-async. A gradle helper name
+  contained the retired product substring.
+- **What:** One contract. Record send first. A denied Plan write is an
+  attempt, not a failed plan file. Sit-down ancestor wipe beats
+  named-temp allow; wipe tokens keep typed path case. `/tmp` children
+  are writable; OS trees still fail at FS. Build asks for off-porch
+  writes. Page binds `webSearch: webSearch`. Sit-down Jail/Disk are
+  chips. Disk confirm awaits store persist; widget test uses sync temp
+  + `runAsync`. Theater logic unchanged — gradle omit-check helper
+  renamed only.
+- **Files:** `waifu_deny.dart`, `waifu_harness.dart`,
+  `waifu_permissions.dart`, `waifu_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_bash.dart`,
+  `waifu_verify_theater.dart`, `waifu_page.dart`,
+  `waifu_wizard_sit_down_step.dart`,
+  `waifu_path_mode_switch_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
 - **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable
   list`. `alignGreetingSeeds` returned `const []` when the card had no alts,

@@ -114,16 +114,6 @@ class WaifuPermissions {
     if (path != null && waifuIsProtectedSecretPath(path)) {
       return 'denied: .env, .ssh, and .aws secrets stay off the workbench';
     }
-    if (path != null &&
-        (call.name == kWaifuToolWrite ||
-            call.name == kWaifuToolEdit ||
-            call.name == kWaifuToolApplyPatch) &&
-        waifuIsCriticalSystemMutationPath(
-          path,
-          workingDirectory: workingDirectory,
-        )) {
-      return 'denied: direct writes to operating-system files are not allowed';
-    }
     if (call.name == kWaifuToolBash) {
       return waifuDeniedCommand(
         call.command,
