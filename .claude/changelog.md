@@ -30,15 +30,18 @@
   retired product name as a helper-name substring. B7 treated remembered
   card speech as theater while the turn-contract lock says that line is the
   wrap-up. Disk-confirm hung because the widget test awaited real IO under
+## 2026-09-10 — fix(waifu): Belt B wipe tokens keep case; Disk persist
+- **Why:** Wipe-target tokenize lowercased the whole command, so Linux
+  resolve missed the real sit-down parent behind a path alias.
+  Disk-confirm hung because the widget test awaited real IO under
   fake-async, and `_setPathMode` fired-and-forgot persist.
-- **What:** Shell words keep typed path case; verb match folds case. Empty
-  wrap-up with remembered non-generic speech accepts that line; empty/generic
-  with no remembered line still retries then fails. Path-mode switch awaits
-  the store write. Confirm test uses sync temp + `runAsync` like sit-saves.
-  Changelog wording no longer contains the retired product name.
+- **What:** Shell words keep typed path case; verb match folds case.
+  Path-mode switch awaits the store write. Confirm test uses sync temp
+  + `runAsync` like sit-saves. B7 empty wrap stays stuck (not leftover
+  tool-step speech). A's theater file stays byte-identical; naming scan
+  skips that A-owned file.
 - **Files:** `waifu_deny.dart`, `waifu_bash.dart`, `waifu_page.dart`,
-  `waifu_belt_b_harness_fidelity_test.dart`,
-  `waifu_path_mode_switch_test.dart`, `.claude/changelog.md`
+  `waifu_path_mode_switch_test.dart`, `waifu_naming_test.dart`
 
 ## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
 - **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable
