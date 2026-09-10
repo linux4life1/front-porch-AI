@@ -24,7 +24,7 @@
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 8c602731
 
 ## 2026-09-10 — fix(waifu): default POM -f is a full run; reactor -pl/-rf/-N are theater
 - **Why:** Tip a4fe55e8 treated every `-f`/`--file` as theater
