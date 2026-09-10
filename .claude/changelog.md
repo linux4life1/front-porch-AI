@@ -10,6 +10,23 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): Gradle -p / bare basedir / Linux Azure / root cousins
+- **Why:** Tip d5f15721 still receipted `./gradlew -p other test`,
+  bare `-Dbasedir`, and basedir cousins. Linux Azure
+  `/home/vsts/work/1/s/pom.xml` over-theatered.
+- **What:** Same `_verifyTheater` path. Gradle `-p` /
+  `--project-dir` theaters when the value is not cwd (`.` / `./`);
+  `--continue` stays in that argv helper. Filter `-D` keys theater
+  on bare presence (`eq < 0`) as well as any value. Linux Azure
+  `/home/vsts/work/<id>/s` joins the `-f` allowlist (same id regex).
+  `maven.multiModuleProjectDirectory` /
+  `session.executionRootDirectory` join `_kMavenFilterProps`.
+  Nested under `s`, GHA, VIP `--tests *` unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Azure -f checkout, Gradle --continue, basedir theater
 - **Why:** Tip 0368c052 still theatered Azure classic
   `D:/a/1/s/pom.xml`. `./gradlew test --continue` and

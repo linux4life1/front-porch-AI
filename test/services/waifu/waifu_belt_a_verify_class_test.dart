@@ -1531,6 +1531,15 @@ void main() {
       './gradlew test --continue',
       'mvn test -Dbasedir=/other',
       'mvn test -Dproject.basedir=',
+      'mvn test -Dbasedir',
+      'mvn test -Dproject.basedir',
+      './gradlew -p other test',
+      './gradlew --project-dir other test',
+      './gradlew -pother test',
+      './gradlew --project-dir=other test',
+      'mvn -f /home/vsts/work/1/s/module/pom.xml test',
+      'mvn test -Dmaven.multiModuleProjectDirectory=/other',
+      'mvn test -Dsession.executionRootDirectory=/other',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1561,7 +1570,14 @@ void main() {
       isTrue,
     );
     expect(waifuLooksVerifyCommand('mvn -f D:/a/1/s/pom.xml test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('mvn -f /home/vsts/work/1/s/pom.xml test'),
+      isTrue,
+    );
     expect(waifuLooksVerifyCommand('./gradlew test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew -p . test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew -p ./ test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test --continuous'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         'mvn -f /home/runner/work/repo/repo/pom.xml test',

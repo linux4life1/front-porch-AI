@@ -51,6 +51,8 @@ const _kMavenFilterProps = {
   'project.build.testsourcedirectory',
   'basedir',
   'project.basedir',
+  'maven.multimoduleprojectdirectory',
+  'session.executionrootdirectory',
   'classpathdependencyexcludes',
   'classpathdependencyincludes',
   'classpathdependencyscopeexclude',
@@ -212,11 +214,13 @@ bool _mavenArgvTheater(List<String> args) {
 ///   `a` + identical trailing repo pair)
 /// - Azure Pipelines classic `X:/a/<id>/s` (any drive + `a` +
 ///   numeric-or-id + sources dir `s`)
+/// - Azure Pipelines Linux `/home/vsts/work/<id>/s` (same id rule)
 /// - container checkout `/github/workspace`
 ///
 /// Nested modules stay theater (`/workspace/module/pom.xml`,
 /// `/home/runner/work/repo/module/pom.xml`,
-/// `D:/a/repo/module/pom.xml`, `D:/a/1/s/module/pom.xml`).
+/// `D:/a/repo/module/pom.xml`, `D:/a/1/s/module/pom.xml`,
+/// `/home/vsts/work/1/s/module/pom.xml`).
 /// Not a GHA/Azure layout: `/home/user/proj/pom.xml`.
 bool _mavenNonRootPom(String raw) {
   var path = raw.replaceAll(r'\', '/');
@@ -244,6 +248,14 @@ bool _mavenNonRootPom(String raw) {
         segs[3] == segs[4]) {
       return false;
     }
+    if (segs.length == 5 &&
+        segs[0] == 'home' &&
+        segs[1] == 'vsts' &&
+        segs[2] == 'work' &&
+        segs[4] == 's' &&
+        _kMavenCiBuildId.hasMatch(segs[3])) {
+      return false;
+    }
     return true;
   }
   if (parent.length >= 2 && parent[1] == ':') {
@@ -259,10 +271,45 @@ bool _mavenNonRootPom(String raw) {
     if (segs.length == 3 &&
         segs[0] == 'a' &&
         segs[2] == 's' &&
-        RegExp(r'^[0-9a-z][0-9a-z._-]*$').hasMatch(segs[1])) {
+        _kMavenCiBuildId.hasMatch(segs[1])) {
       return false;
     }
     return true;
   }
   return true;
+}
+
+/// Azure / GHA agent build-id segment (lowered).
+final _kMavenCiBuildId = RegExp(r'^[0-9a-z][0-9a-z._-]*$');
+
+/// Gradle argv theater: `--continue` (soft Done) and `-p` /
+/// `--project-dir` when the value is not cwd (`.` / `./`).
+/// Missing or empty value is theater. Glued `-Pprop=val` (contains
+/// `=`) is not project-dir. `--continuous` is not `--continue`.
+bool _gradleArgvTheater(List<String> args) {
+  for (var i = 0; i < args.length; i++) {
+    final t = args[i];
+    if (t == '--continue' || t.startsWith('--continue=')) return true;
+    String? dir;
+    if (t == '-p' || t == '--project-dir') {
+      dir = i + 1 < args.length ? args[i + 1] : '';
+    } else if (t.startsWith('--project-dir=')) {
+      dir = t.substring(14);
+    } else if (t.startsWith('--project-dir') && t != '--project-dir') {
+      dir = t.substring(13);
+    } else if (t.startsWith('-p') && t != '-p' && !t.contains('=')) {
+      dir = t.substring(2);
+    }
+    if (dir == null) continue;
+    var path = dir.replaceAll(r'\', '/');
+    while (path.startsWith('./')) {
+      path = path.substring(2);
+    }
+    while (path.length > 1 && path.endsWith('/')) {
+      path = path.substring(0, path.length - 1);
+    }
+    if (path.isEmpty || path == '.') continue;
+    return true;
+  }
+  return false;
 }

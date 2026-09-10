@@ -32,11 +32,7 @@ bool _verifyTheater(String lowered) {
       return true;
     }
     if (cmd == 'gradle' && args.contains('-m')) return true;
-    // Soft Done — same class as Maven `--fail-never`.
-    if (cmd == 'gradle' &&
-        args.any((t) => t == '--continue' || t.startsWith('--continue='))) {
-      return true;
-    }
+    if (cmd == 'gradle' && _gradleArgvTheater(args)) return true;
     // Maven reactor / settings / profiles / toolchains / fail-never
     // + non-root `-f` (cwd, `/<one>/pom.xml`, or GHA checkout).
     if (cmd == 'mvn' && _mavenArgvTheater(args)) return true;
@@ -90,7 +86,7 @@ bool _mavenSkipProperty(String w) {
   final eq = body.indexOf('=');
   final key = eq < 0 ? body : body.substring(0, eq);
   if (_kMavenFilterProps.contains(key)) {
-    return eq >= 0 &&
+    return eq < 0 ||
         _filteredSuiteTheater(body.substring(eq + 1), all: const {});
   }
   if (!_kMavenSkipProps.contains(key)) return false;
