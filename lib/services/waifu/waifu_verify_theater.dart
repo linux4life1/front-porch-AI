@@ -107,7 +107,7 @@ bool _filteredSuiteTheater(String val, {Set<String> all = const {'*'}}) =>
 const _kFilterValueFlags = <String, Set<String>>{
   'cargo': {
     '--features',
-    '-F',
+    '-f',
     '--target',
     '--target-dir',
     '--manifest-path',
@@ -222,6 +222,8 @@ const _kCargoTestFilterFlags = {
 /// Not a copy of [_kCargoTestFilterFlags]. `--features` / `-F` /
 /// `--target` stay in [_kFilterValueFlags] so `cargo test` still skips
 /// their values; clippy theater is this set + `flagVal` only.
+/// Receipts are lowercased first, so cargo `-F` / `-F=` is stored as
+/// `-f` here and in [_kFilterValueFlags].
 const _kCargoClippySubsetFlags = {
   '--lib',
   '--bin',
@@ -237,7 +239,7 @@ const _kCargoClippySubsetFlags = {
   '--doc',
   '--no-default-features',
   '--features',
-  '-F',
+  '-f',
   '--target',
 };
 
