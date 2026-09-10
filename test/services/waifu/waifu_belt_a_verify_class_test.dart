@@ -1753,16 +1753,23 @@ void main() {
       'rspec --example-matches=foo',
       'jest --testPathIgnorePatterns=e2e',
       'jest --modulePathIgnorePatterns=e2e',
-      'jest --watchPathIgnorePatterns=e2e',
+      'jest --test-path-ignore-patterns=e2e',
+      'jest --module-path-ignore-patterns=e2e',
       'npm test -- --testPathIgnorePatterns=e2e',
       'npm test -- --modulePathIgnorePatterns=e2e',
-      'npm test -- --watchPathIgnorePatterns=e2e',
       'vitest --ui',
       'vitest --dir=packages/foo',
       'npm test -- --dir=packages/foo',
       'npm run test -- --dir=foo',
       'vitest --exclude=e2e',
       'vitest --workspace=',
+      'npm test -- --exclude=e2e',
+      'pnpm test -- --exclude=e2e',
+      'yarn test -- --workspace=foo',
+      'npm test -- --workspace=',
+      'pytest --ignore=e2e',
+      'pytest --ignore e2e',
+      'pytest --ignore-glob=e2e*',
       'vitest --typecheck',
       'vitest --typecheck.only',
       'deno test --doc',
@@ -1961,6 +1968,35 @@ void main() {
     expect(waifuLooksVerifyCommand('flutter test --device-id=chrome'), isTrue);
     expect(waifuLooksVerifyCommand('flutter test --flavor=prod'), isTrue);
     expect(waifuLooksVerifyCommand('dotnet test --framework=net8.0'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('jest --coveragePathIgnorePatterns=e2e'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('jest --transformIgnorePatterns=node_modules'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('jest --watchPathIgnorePatterns=e2e'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('npm test -- --watchPathIgnorePatterns=e2e'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('npm test -- --coveragePathIgnorePatterns=e2e'),
+      isTrue,
+    );
+    expect(waifuLooksVerifyCommand('eslint --ignore-pattern e2e'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('eslint src/ignore_patterns/foo.js'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('pytest --rootdir=tests/ignore_pattern'),
+      isTrue,
+    );
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('pnpm test'), isTrue);
     expect(waifuLooksVerifyCommand('yarn test'), isTrue);

@@ -63,20 +63,6 @@ bool _verifyTheater(String command) {
   return false;
 }
 
-bool _isTheaterFlag(String w) {
-  if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
-  if (_mavenSkipProperty(w) || _polyglotSoftDone(w)) return true;
-  if ('--co,--listtests,--listtestfiles,--just-print,--recon'
-      .split(',')
-      .contains(w)) {
-    return true;
-  }
-  return (w.contains('ignore') && w.contains('pattern')) ||
-      '--show-only,--collect-only,--list-tests,--list-suites,--list-groups,--no-run,--question,--dry-run,--dryrun,--dry_run,--total-shards,--shard-index,--typecheck,--runtestsbypath'
-          .split(',')
-          .any(w.startsWith);
-}
-
 bool _mavenSkipProperty(String w) {
   if (!w.startsWith('-d')) return false;
   final body = w.substring(2);
@@ -167,63 +153,6 @@ const _kFilterValueFlags = <String, Set<String>>{
   },
   'phpunit': {'-c', '--configuration', '-d'},
   'rspec': {'-f', '--format', '-I', '--require', '-p'},
-};
-
-const _kSuiteFilterFlags = <String, Set<String>>{
-  'gradle': {'--tests'},
-  'dotnet': {'--filter'},
-  'swift': {'--filter', '--skip'},
-  'pytest': {'-k', '--keyword', '-m', '--sw', '--stepwise', '--looponfail'},
-  'flutter': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
-  'dart': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
-  'jest': {'-t', '--testnamepattern', '--testpathpattern'},
-  'vitest': {'-t', '--testnamepattern', '--testpathpattern'},
-  'phpunit': {'--filter', '--testsuite', '--group', '--exclude-group'},
-  'rspec': {'-e', '--example', '--tag', '-t', '--pattern', '--exclude-pattern'},
-  'npm': {'-t', '--testnamepattern', '--testpathpattern'},
-  'pnpm': {'-t', '--testnamepattern', '--testpathpattern'},
-  'yarn': {'-t', '--testnamepattern', '--testpathpattern'},
-  'bun': {'-t', '--testnamepattern', '--testpathpattern', '--filter'},
-  'deno': {'-t', '--filter'},
-  'test': {'-t', '--testnamepattern', '--testpathpattern'},
-};
-
-const _kJsFailedOnly = {
-  '--onlyfailures',
-  '--onlychanged',
-  '-o',
-  '--lf',
-  '--last-failed',
-  '--ff',
-  '--failed-first',
-  '--changedsince',
-  '--findrelatedtests',
-  '--lastcommit',
-  '--changed',
-  '--related',
-  '--watch',
-  '--watchall',
-  '--shard',
-  '--project',
-  '--selectprojects',
-  '--changedfileswithancestor',
-  '--ui',
-  '--dir',
-};
-const _kFailedOnlyFlags = <String, Set<String>>{
-  'pytest': {'--lf', '--last-failed', '--ff', '--failed-first', '-f'},
-  'phpunit': {'-g', '--order-by', '--covers', '--uses'},
-  'jest': _kJsFailedOnly,
-  'vitest': {..._kJsFailedOnly, '--exclude', '--workspace'},
-  'rspec': {'--only-failures', '--next-failure', '-n', '--example-matches'},
-  'npm': _kJsFailedOnly,
-  'pnpm': _kJsFailedOnly,
-  'yarn': _kJsFailedOnly,
-  'bun': _kJsFailedOnly,
-  'deno': {..._kJsFailedOnly, '--doc'},
-  'test': _kJsFailedOnly,
-  'mix': {'--failed', '--stale', '--only', '--exclude'},
-  'go': {'-short', '-skip', '-list', '-fuzz'},
 };
 
 const _kCargoFeatureTargetGates = {

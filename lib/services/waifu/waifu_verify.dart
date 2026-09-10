@@ -23,6 +23,7 @@ import 'package:path/path.dart' as p;
 
 part 'waifu_verify_theater.dart';
 part 'waifu_verify_maven.dart';
+part 'waifu_verify_families.dart';
 
 /// Project-native check names. Receipt is step.verify, a user-named
 /// command, a repo marker, or a **known runner** — never “argv[1] is
@@ -488,12 +489,3 @@ bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
   }
   return false;
 }
-
-/// `test` / `test:*` after `npm run` share [_kJsFailedOnly].
-Set<String>? _failedOnlyFor(String cmd) =>
-    _kFailedOnlyFlags[cmd] ?? (cmd.startsWith('test:') ? _kJsFailedOnly : null);
-
-/// Twin: peeled `test:*` shares [_kSuiteFilterFlags] `test`.
-Set<String>? _suiteFiltersFor(String cmd) =>
-    _kSuiteFilterFlags[cmd] ??
-    (cmd.startsWith('test:') ? _kSuiteFilterFlags['test'] : null);
