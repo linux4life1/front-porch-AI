@@ -22,7 +22,7 @@
   `-C/home` and bare `ctest` unchanged.
 - **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** f44fb622
 
 ## 2026-09-10 — fix(waifu): make soft-clump + TESTS= + ctest filters
 - **Why:** Tip b77747bd still receipted `-ks` / `-iks` / `-jk` /
