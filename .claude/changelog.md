@@ -30,7 +30,7 @@
   `--sw`/`--stepwise` on the suite map. Bare hosts stay full.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** b13aef18
 
 ## 2026-09-10 — fix(waifu): test:* suite-filter + go/mix cousins
 - **Why:** Tip 9383edc7 still receipted `npm run test:unit -- -t Foo`,
