@@ -20,7 +20,7 @@
   verify. `cargo test --exclude *` pinned. No second club.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** bc2022c6
 
 ## 2026-09-10 — fix(waifu): clippy/cargo presence flags do not VIP-star
 - **Why:** Clippy subset and cargo `-p` / `--exclude` ran values through
