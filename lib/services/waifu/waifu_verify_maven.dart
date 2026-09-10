@@ -113,6 +113,10 @@ const _kMavenSkipProps = {
   'maven.test.failure.ignore',
   'surefire.testfailureignore',
   'failsafe.testfailureignore',
+  'maven.test.error.ignore',
+  'testerrorignore',
+  'surefire.testerrorignore',
+  'failsafe.testerrorignore',
 };
 
 /// Maven argv theater: reactor subset, settings/profiles/toolchains,
@@ -124,7 +128,8 @@ const _kMavenSkipProps = {
 /// checkout root (see [_mavenNonRootPom]). Nested absolute
 /// (`/workspace/module/pom.xml`) and relative (`other/pom.xml`) are
 /// theater. Fail-policy shorts (`-fae`/`-ff`/`-fn`) are not glued
-/// `-fPATH`.
+/// `-fPATH`. `-fn` / `--fail-never` is theater (red still receipts);
+/// `-fae` / `--fail-at-end` and `-ff` / `--fail-fast` stay full.
 ///
 /// Reactor selectors, settings, profiles, and toolchains
 /// (`-t`/`--toolchains`, `-gt`/`--global-toolchains`) are presence
@@ -158,7 +163,9 @@ bool _mavenArgvTheater(List<String> args) {
         t.startsWith('--toolchains') ||
         t == '-p' ||
         (t.startsWith('-p') && !t.startsWith('-pl')) ||
-        t.startsWith('--activate-profiles')) {
+        t.startsWith('--activate-profiles') ||
+        t == '-fn' ||
+        t.startsWith('--fail-never')) {
       return true;
     }
     String? tc;
@@ -197,12 +204,15 @@ bool _mavenArgvTheater(List<String> args) {
 /// - empty / `.` (cwd `pom.xml` / `./pom.xml`)
 /// - exactly one absolute segment (`/workspace/pom.xml`,
 ///   `C:/proj/pom.xml`)
-/// - GitHub Actions checkout `/home/runner/work/<repo>/<repo>`
+/// - GitHub Actions Linux `/home/runner/work/<repo>/<repo>`
 ///   (the two repo segments must be identical)
+/// - GitHub Actions Windows `X:/a/<repo>/<repo>` (any drive +
+///   `a` + identical trailing repo pair)
 /// - container checkout `/github/workspace`
 ///
 /// Nested modules stay theater (`/workspace/module/pom.xml`,
-/// `/home/runner/work/repo/module/pom.xml`). Not a GHA layout:
+/// `/home/runner/work/repo/module/pom.xml`,
+/// `D:/a/repo/module/pom.xml`). Not a GHA layout:
 /// `/home/user/proj/pom.xml`.
 bool _mavenNonRootPom(String raw) {
   var path = raw.replaceAll(r'\', '/');
@@ -238,7 +248,11 @@ bool _mavenNonRootPom(String raw) {
         : parent.substring(2);
     if (rest.isEmpty) return false;
     final segs = rest.split('/').where((s) => s.isNotEmpty).toList();
-    return segs.length != 1;
+    if (segs.length == 1) return false;
+    if (segs.length == 3 && segs[0] == 'a' && segs[1] == segs[2]) {
+      return false;
+    }
+    return true;
   }
   return true;
 }

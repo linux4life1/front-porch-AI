@@ -1521,6 +1521,12 @@ void main() {
       'mvn test -Dmaven.test.failure.ignore=true',
       'mvn test -Dsurefire.testFailureIgnore=true',
       'mvn verify -Dfailsafe.testFailureIgnore=true',
+      'mvn --fail-never test',
+      'mvn -fn test',
+      'mvn test -Dmaven.test.error.ignore=true',
+      'mvn test -Dsurefire.testErrorIgnore=true',
+      'mvn verify -Dfailsafe.testErrorIgnore=true',
+      'mvn -f D:/a/repo/module/pom.xml test',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1537,7 +1543,8 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn verify'), isTrue);
     expect(waifuLooksVerifyCommand('./mvnw test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -fae test'), isTrue);
-    expect(waifuLooksVerifyCommand('mvn --fail-never test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn --fail-at-end test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn -ff test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -f pom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -f ./pom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn --file=pom.xml test'), isTrue);
@@ -1545,6 +1552,10 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn -fpom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -f /workspace/pom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -f C:/proj/pom.xml test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('mvn -f D:/a/repo/repo/pom.xml test'),
+      isTrue,
+    );
     expect(
       waifuLooksVerifyCommand(
         'mvn -f /home/runner/work/repo/repo/pom.xml test',
@@ -1558,6 +1569,10 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn -T 1C test'), isTrue);
     expect(
       waifuLooksVerifyCommand('mvn test -DtestFailureIgnore=false'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('mvn test -Dmaven.test.error.ignore=false'),
       isTrue,
     );
     expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);

@@ -10,6 +10,20 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): --fail-never / error.ignore theater; Windows GHA -f
+- **Why:** Tip 2603298d still receipted `mvn --fail-never test` /
+  `-fn` and `-Dmaven.test.error.ignore=true` (red suite stamps
+  Done). Windows GHA `D:/a/<repo>/<repo>/pom.xml` over-theatered.
+- **What:** Same clubs. `-fn` / `--fail-never` are presence theater;
+  `-fae` / `--fail-at-end` / `-ff` stay full. Error-ignore keys join
+  `_kMavenSkipProps` (`=false` still hard). Drive-letter `-f` still
+  receipts `C:/proj/pom.xml` and now `X:/a/<repo>/<repo>` when the
+  repo pair matches. Nested `D:/a/repo/module` stays theater.
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): GHA -f checkout root is a full run; failure-ignore is theater
 - **Why:** Tip 68045b10's single-segment absolute allowlist rejected
   GitHub Actions `/home/runner/work/<repo>/<repo>/pom.xml`.
