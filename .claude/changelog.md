@@ -10,6 +10,21 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): cargo +channel and Gradle inventory basename
+- **Why:** Subcommand-first treated `+nightly` as the check, so
+  `cargo +nightly test` asked and never stamped. Gradle inventory
+  only matched bare `help`/`dependencies`, so `:app:dependencies`
+  / `app:dependencies` / `:app:help` / `components --configuration
+  test` still receipted.
+- **What:** Same peel + theater. Skip `+toolchain` tokens before the
+  first subcommand. Inventory uses the task basename and treats
+  `--configuration` / `--task` as theater when the task is not a
+  real check (`--configuration-cache` stays a run). `--show-only=`
+  and list-only (`--collect-only`, `--listTests`) join theater.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): dry-run and help do not receipt a check
 - **Why:** `_verifyTheater` only caught `--help` / `--dry-run`. `make -n
   test`, Gradle `-m`, `gradlew help --task test`, `dependencies

@@ -370,4 +370,63 @@ void main() {
     expect(waifuLooksVerifyCommand('cargo new test'), isFalse);
     expect(waifuLooksVerifyCommand('pytest -n auto'), isTrue);
   });
+
+  test('cargo +channel is the toolchain, not the subcommand', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo +nightly test',
+      'cargo +stable clippy',
+      'cargo +nightly --locked test',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo new test'), isFalse);
+    expect(waifuBashMutates('cargo new test'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+  });
+
+  test('Gradle inventory basename and --configuration/--task are theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      './gradlew :app:dependencies --configuration test',
+      './gradlew app:dependencies --configuration test',
+      './gradlew :app:help --task test',
+      './gradlew components --configuration test',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('ctest --show-only=b'), isFalse);
+    expect(waifuLooksVerifyCommand('pytest --collect-only'), isFalse);
+    expect(waifuLooksVerifyCommand('jest --listTests'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -j8 test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('./gradlew test --configuration-cache'),
+      isTrue,
+    );
+    expect(waifuLooksVerifyCommand('./gradlew :app:test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn verify'), isTrue);
+    expect(waifuLooksVerifyCommand('pytest -n auto'), isTrue);
+    expect(waifuLooksVerifyCommand('make -n test'), isFalse);
+    expect(waifuLooksVerifyCommand('./gradlew test -m'), isFalse);
+    expect(waifuLooksVerifyCommand('ctest -N'), isFalse);
+  });
 }

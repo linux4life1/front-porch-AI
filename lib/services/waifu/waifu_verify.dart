@@ -243,20 +243,22 @@ bool _verifyTheater(String lowered) {
     if (words.isEmpty) continue;
     if (words.any((w) {
       if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
-      if (w == '--just-print' || w == '--recon' || w == '--show-only') {
+      if (w == '--just-print' ||
+          w == '--recon' ||
+          w.startsWith('--show-only') ||
+          w.startsWith('--collect-only') ||
+          w == '--listtests') {
         return true;
       }
-      return w == '--dry-run' ||
-          w == '--dryrun' ||
-          w == '--dry_run' ||
-          w.startsWith('--dry-run') ||
-          w.startsWith('--dryrun');
+      return w.startsWith('--dry-run') ||
+          w.startsWith('--dryrun') ||
+          w.startsWith('--dry_run');
     })) {
       return true;
     }
     // Runner-scoped shorts: `-n` is pytest-xdist elsewhere; `-m` is
-    // Gradle dry-run only. Inventory tasks are not a check even when
-    // a later token is named `test`.
+    // Gradle dry-run only. Inventory uses the task basename, or
+    // `--configuration` / `--task` when the task is not a real check.
     final peeled = _peelWrappers(words);
     if (peeled.words.length < 2) continue;
     final cmd = _runnerKey(peeled.words.first);
@@ -264,10 +266,7 @@ bool _verifyTheater(String lowered) {
     if (cmd == 'make' && args.contains('-n')) return true;
     if (cmd == 'gradle' && args.contains('-m')) return true;
     if (cmd == 'ctest' && args.contains('-n')) return true;
-    if (cmd == 'gradle') {
-      final task = args.where((t) => !t.startsWith('-')).firstOrNull;
-      if (task == 'help' || task == 'dependencies') return true;
-    }
+    if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;
   }
   return false;
 }
@@ -424,7 +423,8 @@ bool _wordsStartWith(List<String> words, List<String> prefix) {
 }
 
 /// After peel+alias: flag-before-task runners scan for a known check;
-/// subcommand-first runners require that check as the first non-flag.
+/// subcommand-first runners require that check as the first non-flag
+/// (`+toolchain` tokens are skipped, not treated as the subcommand).
 bool _argvHasKnownCheck(List<String> peeled) {
   if (peeled.length < 2) return false;
   final cmd = _runnerKey(peeled.first);
@@ -434,10 +434,28 @@ bool _argvHasKnownCheck(List<String> peeled) {
     return args.any((t) => _runnerTaskMatches(cmd, t));
   }
   for (final t in args) {
-    if (t.startsWith('-')) continue;
+    if (t.startsWith('-') || (t.startsWith('+') && t.length > 1)) continue;
     return _runnerTaskMatches(cmd, t);
   }
   return false;
+}
+
+/// Gradle `help` / `dependencies` / `components`, including `:app:help`.
+/// `--configuration-cache` is a real run flag — not this.
+bool _gradleInventoryTheater(Iterable<String> args) {
+  final task = args.where((t) => !t.startsWith('-')).firstOrNull;
+  final base = task?.split(':').last;
+  if (base == 'help' || base == 'dependencies' || base == 'components') {
+    return true;
+  }
+  final inventoryFlag = args.any(
+    (t) =>
+        t == '--configuration' ||
+        t.startsWith('--configuration=') ||
+        t == '--task' ||
+        t.startsWith('--task='),
+  );
+  return inventoryFlag && (task == null || !_runnerTaskMatches('gradle', task));
 }
 
 bool _runnerTaskMatches(String cmd, String token) {
