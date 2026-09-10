@@ -22,8 +22,8 @@ import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:path/path.dart' as p;
 
 /// Project-native check names. Receipt is step.verify, a user-named
-/// command, a repo marker, or the test/analyze class — not a VIP runner
-/// club. Echo / ls / help / dry-run / build-without-test never receipt.
+/// command, a repo marker, or a **known runner** — never “argv[1] is
+/// test”. Echo / ls / help / dry-run / build-without-test never receipt.
 class WaifuVerifyContext {
   const WaifuVerifyContext({
     this.stepVerify = const [],
@@ -42,22 +42,49 @@ class WaifuVerifyContext {
   }
 }
 
-const _kVerifyVerbs = {
-  'test',
-  'tests',
-  'analyze',
-  'lint',
-  'check',
-  'clippy',
+/// Runner → check subcommands only. `grep test` / `rm test` are not here.
+const _kRunnerChecks = <String, Set<String>>{
+  'cargo': {'test', 'clippy'},
+  'go': {'test'},
+  'dart': {'test', 'analyze'},
+  'flutter': {'test', 'analyze'},
+  'mvn': {'test'},
+  'gradle': {'test'},
+  'dotnet': {'test'},
+  'mix': {'test'},
+  'zig': {'test'},
+  'swift': {'test'},
+  'npm': {'test', 'lint'},
+  'pnpm': {'test', 'lint'},
+  'yarn': {'test', 'lint'},
+  'bun': {'test', 'lint'},
+  'deno': {'test', 'lint'},
+};
+
+const _kCheckBins = {
   'pytest',
-  'unittest',
   'rspec',
   'phpunit',
   'ctest',
   'vitest',
   'jest',
   'eslint',
+  'clippy',
 };
+
+const _kPackageScripts = {
+  'test',
+  'tests',
+  'lint',
+  'check',
+  'analyze',
+  'typecheck',
+  'type-check',
+};
+
+const _kJsHosts = {'npm', 'pnpm', 'yarn', 'bun', 'deno'};
+
+const _kEnvHosts = {'poetry', 'pipenv', 'uv', 'hatch', 'bundle'};
 
 const _kBuildOnly = {
   'build',
@@ -71,27 +98,45 @@ const _kBuildOnly = {
 
 const _kDenyCmds = {'echo', 'ls', 'printf', 'true', 'false', 'cat', 'pwd'};
 
-const _kShellTestFlags = {'-f', '-d', '-e', '-s', '-w', '-r', '-x', '-z', '-n'};
-
-/// Hosts that wrap a real check (`poetry run pytest`, `bundle exec rspec`).
-/// Not a VIP receipt club — payload after these still has to be a verify
-/// verb or a context hint.
-const _kRunnerHosts = {
-  'npx',
-  'npm',
-  'pnpm',
-  'yarn',
-  'bun',
-  'deno',
-  'poetry',
-  'pipenv',
-  'uv',
-  'hatch',
-  'bundle',
+/// Unix utilities that are never a project check — even if argv[1] is
+/// `test` or a plan quote names them. Not a second club: the known-runner
+/// map simply does not include these heads.
+const _kNeverCheckBins = {
+  'rm',
+  'mv',
+  'cp',
+  'mkdir',
+  'rmdir',
+  'unlink',
+  'grep',
+  'egrep',
+  'fgrep',
+  'rg',
+  'sed',
+  'awk',
+  'git',
+  'wc',
+  'find',
+  'chmod',
+  'chown',
+  'kill',
+  'touch',
+  'ln',
+  'head',
+  'tail',
+  'sort',
+  'tr',
+  'cut',
+  'tee',
+  'xargs',
+  'dd',
+  'install',
 };
 
-const _kRunnerWords = {'run', 'exec'};
+const _kShellTestFlags = {'-f', '-d', '-e', '-s', '-w', '-r', '-x', '-z', '-n'};
 
+/// ONE receipt. Ask ([waifuBashMutates]) and `tested` both call this
+/// with the same [context].
 bool waifuLooksVerifyCommand(String command, {WaifuVerifyContext? context}) {
   final lowered = command.trim().toLowerCase();
   if (lowered.isEmpty) return false;
@@ -102,7 +147,7 @@ bool waifuLooksVerifyCommand(String command, {WaifuVerifyContext? context}) {
       if (_commandFulfills(lowered, hint)) return true;
     }
   }
-  return _looksTestAnalyzeClass(lowered);
+  return _looksKnownCheck(lowered);
 }
 
 bool waifuLooksVerifySegment(String segment, {WaifuVerifyContext? context}) =>
@@ -112,7 +157,14 @@ List<String> waifuNamedVerifyCommands(String task) {
   final found = <String>{};
   for (final m in RegExp(r'''[`"'']([^`"']+)[`"'']''').allMatches(task)) {
     final cmd = m.group(1)!.trim();
-    if (waifuLooksVerifyCommand(cmd)) found.add(cmd);
+    if (cmd.isEmpty) continue;
+    final lowered = cmd.toLowerCase();
+    if (_verifyTheater(lowered) || _isBuildWithoutTest(lowered)) continue;
+    final words = _wordsOf(lowered);
+    if (words.isEmpty || _denyCmd(words.first) || _neverCheck(words)) {
+      continue;
+    }
+    found.add(cmd);
   }
   return found.toList();
 }
@@ -140,9 +192,12 @@ Future<List<String>> waifuVerifyMarkerCommands(String root) async {
   if (await has('mix.exs')) out.add('mix test');
   if (await has('Gemfile')) out.add('rspec');
   if (await has('composer.json')) out.add('phpunit');
-  if (await has('CMakeLists.txt')) out.add('ctest');
+  if (await has('CMakeLists.txt')) {
+    out.addAll(['ctest', 'cmake --build . --target test']);
+  }
   if (await has('build.zig')) out.add('zig test');
   if (await has('Package.swift')) out.add('swift test');
+  if (await has('tsconfig.json')) out.add('tsc --noEmit');
   return out;
 }
 
@@ -185,76 +240,111 @@ bool _isBuildWithoutTest(String lowered) {
   var sawCheck = false;
   for (final segment in _segments(lowered)) {
     final words = _wordsOf(segment);
-    if (words.isEmpty) continue;
-    if (_denyCmd(words.first)) continue;
-    if (_isShellTest(words)) continue;
-    for (final w in words) {
-      if (_kVerifyVerbs.contains(w) || w.startsWith('test:')) sawCheck = true;
-      if (_kBuildOnly.contains(w)) sawBuild = true;
-    }
+    if (words.isEmpty || _denyCmd(words.first)) continue;
+    if (_looksKnownCheck(segment)) sawCheck = true;
+    if (words.any(_kBuildOnly.contains)) sawBuild = true;
   }
   return sawBuild && !sawCheck;
 }
 
-bool _looksTestAnalyzeClass(String lowered) {
+bool _looksKnownCheck(String lowered) {
   for (final segment in _segments(lowered)) {
-    if (_segmentIsTestAnalyze(segment)) return true;
+    if (_segmentIsKnownCheck(segment)) return true;
   }
   return false;
 }
 
-bool _segmentIsTestAnalyze(String segment) {
+/// Known runner / wrapper / typecheck. Never “second token is test”.
+bool _segmentIsKnownCheck(String segment) {
   final words = _wordsOf(segment);
   if (words.isEmpty) return false;
-  if (_denyCmd(words.first) || _isShellTest(words)) return false;
-  final payload = _payloadWords(words);
-  if (payload.isEmpty) return false;
-  final cmd = payload.first.contains('/')
-      ? payload.first.split('/').last
-      : payload.first;
+  if (_denyCmd(words.first) || _neverCheck(words) || _isShellTest(words)) {
+    return false;
+  }
+  if (_isCmakeTestTarget(words) || _isTscNoEmit(words)) return true;
+  final peeled = _peelWrappers(words);
+  if (peeled.words.isEmpty) return false;
+  final cmd = _base(peeled.words.first);
   if (_denyCmd(cmd)) return false;
-  if (_kVerifyVerbs.contains(cmd) || cmd.startsWith('test:')) return true;
-  return payload.length > 1 && _kVerifyVerbs.contains(payload[1]);
+  if (cmd == 'tsc') return _isTscNoEmit(peeled.words);
+  if (_kCheckBins.contains(cmd)) return true;
+  final checks = _kRunnerChecks[cmd];
+  if (checks != null &&
+      peeled.words.length > 1 &&
+      checks.contains(peeled.words[1])) {
+    return true;
+  }
+  if (peeled.fromPackageRun) {
+    final script = peeled.words.first;
+    return _kPackageScripts.contains(script) || script.startsWith('test:');
+  }
+  return false;
+}
+
+bool _isCmakeTestTarget(List<String> words) {
+  if (_base(words.first) != 'cmake') return false;
+  for (var i = 0; i < words.length - 1; i++) {
+    if (words[i] != '--target' && words[i] != '-t') continue;
+    final t = words[i + 1];
+    if (t == 'test' || t == 'tests') return true;
+  }
+  return false;
+}
+
+bool _isTscNoEmit(List<String> words) {
+  if (_base(words.first) != 'tsc') return false;
+  return words.any((w) => w == '--noemit' || w == '--no-emit');
+}
+
+({List<String> words, bool fromPackageRun}) _peelWrappers(List<String> words) {
+  final cmd = _base(words.first);
+  if (const {'python', 'python3', 'py'}.contains(cmd) &&
+      words.length > 2 &&
+      words[1] == '-m') {
+    return (words: words.sublist(2), fromPackageRun: false);
+  }
+  if (_kJsHosts.contains(cmd) && words.length > 2 && words[1] == 'run') {
+    return (words: words.sublist(2), fromPackageRun: true);
+  }
+  if (cmd == 'npx' && words.length > 1) {
+    return (words: words.sublist(1), fromPackageRun: false);
+  }
+  if (_kEnvHosts.contains(cmd) &&
+      words.length > 2 &&
+      (words[1] == 'run' || words[1] == 'exec')) {
+    return (words: words.sublist(2), fromPackageRun: false);
+  }
+  return (words: words, fromPackageRun: false);
 }
 
 bool _commandFulfills(String command, String expected) {
   final want = expected.trim().toLowerCase();
   if (want.isEmpty) return false;
-  if (command == want) return true;
   final wantWords = _wordsOf(want);
-  if (wantWords.isEmpty) return false;
+  if (wantWords.isEmpty ||
+      _denyCmd(wantWords.first) ||
+      _neverCheck(wantWords)) {
+    return false;
+  }
+  if (command == want) return true;
   for (final segment in _segments(command)) {
     final got = segment.trim();
     if (got.isEmpty) continue;
     final words = _wordsOf(got);
-    if (words.isEmpty || _denyCmd(words.first) || _isShellTest(words)) {
+    if (words.isEmpty ||
+        _denyCmd(words.first) ||
+        _neverCheck(words) ||
+        _isShellTest(words)) {
       continue;
     }
     if (got == want || got.startsWith('$want ')) return true;
-    final payload = _payloadWords(words);
-    if (_wordsStartWith(payload, wantWords) ||
+    final peeled = _peelWrappers(words);
+    if (_wordsStartWith(peeled.words, wantWords) ||
         _wordsStartWith(words, wantWords)) {
       return true;
     }
   }
   return false;
-}
-
-List<String> _payloadWords(List<String> words) {
-  if (words.isEmpty) return words;
-  var cmd = words.first;
-  if (cmd.contains('/')) cmd = cmd.split('/').last;
-  if (const {'python', 'python3', 'py'}.contains(cmd) &&
-      words.length > 2 &&
-      words[1] == '-m') {
-    return words.sublist(2);
-  }
-  if (_kRunnerHosts.contains(cmd)) {
-    var i = 1;
-    if (i < words.length && _kRunnerWords.contains(words[i])) i++;
-    return i < words.length ? words.sublist(i) : const <String>[];
-  }
-  return words;
 }
 
 bool _wordsStartWith(List<String> words, List<String> prefix) {
@@ -265,16 +355,15 @@ bool _wordsStartWith(List<String> words, List<String> prefix) {
   return true;
 }
 
-bool _denyCmd(String cmd) {
-  final base = cmd.contains('/') ? cmd.split('/').last : cmd;
-  return _kDenyCmds.contains(base);
-}
+String _base(String cmd) => cmd.contains('/') ? cmd.split('/').last : cmd;
+
+bool _denyCmd(String cmd) => _kDenyCmds.contains(_base(cmd));
+
+bool _neverCheck(List<String> words) =>
+    words.isNotEmpty && _kNeverCheckBins.contains(_base(words.first));
 
 bool _isShellTest(List<String> words) {
-  final cmd = words.first.contains('/')
-      ? words.first.split('/').last
-      : words.first;
-  return cmd == 'test' && words.any(_kShellTestFlags.contains);
+  return _base(words.first) == 'test' && words.any(_kShellTestFlags.contains);
 }
 
 List<String> _wordsOf(String raw) => raw

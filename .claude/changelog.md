@@ -10,6 +10,20 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): rip argv[1] test theater from Belt A verify
+- **Why:** `_segmentIsTestAnalyze` treated any command whose second token was
+  `test`/`lint`/`check` as a verify. `grep test README.md`, `rm test`,
+  `git test` receipted; `waifuBashMutates` skipped them as non-mutate, so
+  Build did not ask and `rm test` exiting 0 stamped `tested=true`.
+- **What:** One receipt (`waifuLooksVerifyCommand`) for ask and `tested`.
+  Verify is known runners / wrappers / `tsc --noEmit` / cmake `--target
+  test` / step.verify / user-named / repo markers. Never “argv[1] is test.”
+  Small deny list: echo/ls/help/dry-run/build-without-test, plus Unix
+  utilities (`rm`, `grep`, `git`, …) that cannot fulfill even if quoted.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart` (NEW),
+  `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Belt A ask and tested share one verify context
 - **Why:** `noteResult` marked `tested` with `WaifuVerifyContext` (step.verify /
   named / markers), but `waifuBashMutates` called `waifuLooksVerifySegment`
