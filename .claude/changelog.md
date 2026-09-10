@@ -19,7 +19,7 @@
   `dart test` still run.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 44e96921
 
 ## 2026-09-10 — fix(waifu): polyglot name/path filters are theater
 - **Why:** Filter theater was Maven/Gradle only, so `go test -run Nope`,
