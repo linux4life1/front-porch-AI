@@ -21,7 +21,7 @@
 - **Files:** `waifu_verify.dart`, `waifu_deny.dart`, `waifu_call.dart`,
   `waifu_permissions.dart`, `waifu_harness.dart`,
   `waifu_belt_a_loop_truth_test.dart`
-- **Commit:** (pending)
+- **Commit:** 84b6cb9a
 
 ## 2026-09-10 — fix(waifu): Belt A loop truth — one wrap-up, one request, polyglot verify
 - **Why:** The coding loop had lying dual paths: `decideFinal` beside a
