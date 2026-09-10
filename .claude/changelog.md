@@ -20,7 +20,7 @@
   runs). Prior +channel / inventory / dry-run pins stay.
 - **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart` (part),
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** b0323dbc
 
 ## 2026-09-10 — fix(waifu): cargo +channel and Gradle inventory basename
 - **Why:** Subcommand-first treated `+nightly` as the check, so
