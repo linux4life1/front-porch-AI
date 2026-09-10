@@ -17,6 +17,22 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): rspec raw -P + JS ignore/ui + device
+- **Why:** Tip f0727d58 still receipted spaced `rspec -P foo` /
+  glued `-Pfoo` / bare `-P` (lowered `-p` is profile),
+  `jest --testPathIgnorePatterns=`, `vitest --ui` / `--dir=`,
+  `jest --runTestsByPath=`, `rspec --example-matches=`, and
+  `dart test -p chrome` / `flutter test -d chrome`.
+- **What:** Same path. `_runnerFilterTheater` takes `rawArgs`
+  (Gradle `-P` spirit): raw short `P` is pattern. JS ignore /
+  run-by-path prefixes; vitest `--dir`/`--ui`; rspec
+  `--example-matches`; dart `-p`/`--platform` and flutter
+  `-d`/`--device-id` failed-only. Profile `rspec -p` / `-p 10`
+  and bare hosts stay full.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): watch=false full + rspec/phpunit/shard
 - **Why:** Tip a5b2dcd1 over-theatered `jest --watchAll=false` /
   `--watch=false` / `--watchAll=0` (CI full suite) and still

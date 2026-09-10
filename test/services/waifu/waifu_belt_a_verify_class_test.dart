@@ -1745,6 +1745,19 @@ void main() {
       'rspec --pattern=spec/models',
       'rspec --exclude-pattern=slow',
       'rspec -P=foo',
+      'rspec -P foo',
+      'rspec -P spec/models',
+      'rspec -P spec/**/*_spec.rb',
+      'rspec -Pfoo',
+      'rspec -P',
+      'rspec --example-matches=foo',
+      'jest --testPathIgnorePatterns=e2e',
+      'npm test -- --testPathIgnorePatterns=e2e',
+      'vitest --ui',
+      'vitest --dir=packages/foo',
+      'jest --runTestsByPath=a.test.js',
+      'dart test -p chrome',
+      'flutter test -d chrome',
       'phpunit --uses=Foo',
       'phpunit --uses Foo',
       'flutter test --total-shards=3',
@@ -1929,6 +1942,7 @@ void main() {
     expect(waifuLooksVerifyCommand('vitest --watch=false'), isTrue);
     expect(waifuLooksVerifyCommand('rspec'), isTrue);
     expect(waifuLooksVerifyCommand('rspec -p'), isTrue);
+    expect(waifuLooksVerifyCommand('rspec -p 10'), isTrue);
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('pnpm test'), isTrue);
     expect(waifuLooksVerifyCommand('yarn test'), isTrue);

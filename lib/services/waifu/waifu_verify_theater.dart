@@ -45,7 +45,7 @@ bool _verifyTheater(String command) {
     if (cmd == 'go' && args.contains('-c')) return true;
     if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;
     if (cmd == 'gradle' && _excludesKnownCheck(cmd, args)) return true;
-    if (_runnerFilterTheater(cmd, args)) return true;
+    if (_runnerFilterTheater(cmd, args, rawArgs)) return true;
     if (cmd == 'go') {
       for (var i = 0; i < args.length; i++) {
         final t = args[i];
@@ -66,16 +66,12 @@ bool _verifyTheater(String command) {
 bool _isTheaterFlag(String w) {
   if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
   if (_mavenSkipProperty(w) || _polyglotSoftDone(w)) return true;
-  if (const {
-    '--co',
-    '--listtests',
-    '--listtestfiles',
-    '--just-print',
-    '--recon',
-  }.contains(w)) {
+  if ('--co,--listtests,--listtestfiles,--just-print,--recon'
+      .split(',')
+      .contains(w)) {
     return true;
   }
-  return '--show-only,--collect-only,--list-tests,--list-suites,--list-groups,--no-run,--question,--dry-run,--dryrun,--dry_run,--total-shards,--shard-index'
+  return '--show-only,--collect-only,--list-tests,--list-suites,--list-groups,--no-run,--question,--dry-run,--dryrun,--dry_run,--total-shards,--shard-index,--testpathignorepatterns,--runtestsbypath'
       .split(',')
       .any(w.startsWith);
 }
@@ -180,7 +176,7 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'flutter': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'dart': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'jest': {'-t', '--testnamepattern', '--testpathpattern'},
-  'vitest': {'-t', '--testnamepattern', '--testpathpattern'},
+  'vitest': {'-t', '--testnamepattern', '--testpathpattern', '--dir', '--ui'},
   'phpunit': {'--filter', '--testsuite', '--group', '--exclude-group'},
   'rspec': {'-e', '--example', '--tag', '-t', '--pattern', '--exclude-pattern'},
   'npm': {'-t', '--testnamepattern', '--testpathpattern'},
@@ -210,13 +206,16 @@ const _kJsFailedOnly = {
   '--project',
   '--selectprojects',
   '--changedfileswithancestor',
+  '--ui',
 };
 const _kFailedOnlyFlags = <String, Set<String>>{
   'pytest': {'--lf', '--last-failed', '--ff', '--failed-first', '-f'},
   'phpunit': {'-g', '--order-by', '--covers', '--uses'},
+  'flutter': {'-d', '--device-id'},
+  'dart': {'-p', '--platform'},
   'jest': _kJsFailedOnly,
   'vitest': _kJsFailedOnly,
-  'rspec': {'--only-failures', '--next-failure', '-n'},
+  'rspec': {'--only-failures', '--next-failure', '-n', '--example-matches'},
   'npm': _kJsFailedOnly,
   'pnpm': _kJsFailedOnly,
   'yarn': _kJsFailedOnly,
@@ -275,12 +274,15 @@ const _kCargoClippySubsetFlags = {
   ..._kCargoFeatureTargetGates,
 };
 
-bool _runnerFilterTheater(String cmd, List<String> args) {
+bool _runnerFilterTheater(String cmd, List<String> args, List<String> rawArgs) {
+  if (cmd == 'rspec' &&
+      rawArgs.any((t) => t.length >= 2 && t[0] == '-' && t[1] == 'P')) {
+    return true;
+  }
   final failedOnly = _failedOnlyFor(cmd);
   if (failedOnly != null &&
       args.any((t) {
         final flag = t.split('=').first;
-        if (cmd == 'rspec' && t.startsWith('-p=')) return true;
         return failedOnly.contains(flag) &&
             ((flag != '--watch' && flag != '--watchall') ||
                 _flagUnlessFalsey(t, flag));
@@ -480,7 +482,6 @@ bool _globMatches(String glob, String name) {
   return RegExp(buf.toString(), caseSensitive: false).hasMatch(name);
 }
 
-/// Gradle `help` / `dependencies` / `components`. Not `--configuration-cache`.
 bool _gradleInventoryTheater(Iterable<String> args) {
   final task = args.where((t) => !t.startsWith('-')).firstOrNull;
   final base = task?.split(':').last;
