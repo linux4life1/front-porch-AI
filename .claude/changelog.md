@@ -10,6 +10,22 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): Gradle -p=/-b=/-c theater; cwd build.gradle full
+- **Why:** Tip bee16f9e still receipted `./gradlew -p= test`,
+  `-b=other.gradle`, and `-c other.settings.gradle` (short `=`
+  and `-c` as `--settings-file` were unmatched). The same relocate
+  club over-theatered cwd default scripts (`-b build.gradle`).
+  `--include-build` still receipted a composite.
+- **What:** Same `_gradleArgvTheater` club. `-p=` / `-b=` / `-c` /
+  `-cPATH` / `-c=` theater when empty or not cwd. Cwd default
+  basenames `build.gradle` / `build.gradle.kts` / `settings.gradle`
+  / `settings.gradle.kts` (optional `./`) stay full. Nested /
+  other names stay theater. `--include-build` is presence theater.
+  `-PenableFoo`, `-p .`, `--tests *`, `--continuous` unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): empty -p theater; -Pprop full; -b relocate theater
 - **Why:** Tip ce76e3f8 treated empty `-p` / `--project-dir=` as cwd
   (soft verify) and glued lowered `-Pfoo` as project-dir (over-

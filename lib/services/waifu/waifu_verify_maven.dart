@@ -282,29 +282,47 @@ bool _mavenNonRootPom(String raw) {
 /// Azure / GHA agent build-id segment (lowered).
 final _kMavenCiBuildId = RegExp(r'^[0-9a-z][0-9a-z._-]*$');
 
-/// Gradle argv theater: `--continue` (soft Done), project-dir /
-/// build-file / settings-file relocate.
+/// Cwd Gradle script basenames (optional `./` already stripped).
+const _kGradleCwdScripts = {
+  'build.gradle',
+  'build.gradle.kts',
+  'settings.gradle',
+  'settings.gradle.kts',
+};
+
+/// Gradle argv theater: `--continue` (soft Done), `--include-build`
+/// (composite), project-dir / build-file / settings-file relocate.
 ///
-/// `-p` / `--project-dir` / `-b` / `--build-file` / `--settings-file`
-/// theater when the value is not cwd (`.` / `./`). Missing or empty
-/// (`-p`, `--project-dir=`) is theater. [rawArgs] keeps case so
-/// glued `-Pfoo` (property) is not project-dir; only raw `-p…` or
-/// `--project-dir…` glue. `--continuous` is not `--continue`.
+/// `-p` / `--project-dir` theater when the value is not cwd (`.` /
+/// `./`), including `-p=` / empty. `-b` / `-c` / `--build-file` /
+/// `--settings-file` use the same relocate rule, plus cwd default
+/// script basenames (`build.gradle`, `settings.gradle(.kts)`).
+/// Missing or empty is theater. [rawArgs] keeps case so glued
+/// `-Pfoo` is not project-dir. `--continuous` is not `--continue`.
+/// Short `-c` is `--settings-file`; long `--console` is not.
 bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
     if (t == '--continue' || t.startsWith('--continue=')) return true;
+    if (t == '--include-build' || t.startsWith('--include-build')) {
+      return true;
+    }
     String? dir;
-    if (t == '-p' ||
-        t == '--project-dir' ||
-        t == '-b' ||
+    var projectDir = false;
+    if (t == '-p' || t == '--project-dir') {
+      dir = i + 1 < args.length ? args[i + 1] : '';
+      projectDir = true;
+    } else if (t == '-b' ||
+        t == '-c' ||
         t == '--build-file' ||
         t == '--settings-file') {
       dir = i + 1 < args.length ? args[i + 1] : '';
     } else if (t.startsWith('--project-dir=')) {
       dir = t.substring(14);
+      projectDir = true;
     } else if (t.startsWith('--project-dir') && t != '--project-dir') {
       dir = t.substring(13);
+      projectDir = true;
     } else if (t.startsWith('--build-file=')) {
       dir = t.substring(13);
     } else if (t.startsWith('--build-file') && t != '--build-file') {
@@ -313,7 +331,27 @@ bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
       dir = t.substring(16);
     } else if (t.startsWith('--settings-file') && t != '--settings-file') {
       dir = t.substring(15);
-    } else if (t.startsWith('-b') && t != '-b' && !t.contains('=')) {
+    } else if (t.startsWith('-p=')) {
+      if (i >= rawArgs.length ||
+          rawArgs[i].length < 2 ||
+          rawArgs[i][1] != 'p') {
+        continue;
+      }
+      dir = t.substring(3);
+      projectDir = true;
+    } else if (t.startsWith('-b=')) {
+      dir = t.substring(3);
+    } else if (t.startsWith('-c=')) {
+      dir = t.substring(3);
+    } else if (!t.startsWith('--') &&
+        t.startsWith('-b') &&
+        t != '-b' &&
+        !t.contains('=')) {
+      dir = t.substring(2);
+    } else if (!t.startsWith('--') &&
+        t.startsWith('-c') &&
+        t != '-c' &&
+        !t.contains('=')) {
       dir = t.substring(2);
     } else if (t.startsWith('-p') && t != '-p' && !t.contains('=')) {
       if (i >= rawArgs.length ||
@@ -322,6 +360,7 @@ bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
         continue;
       }
       dir = t.substring(2);
+      projectDir = true;
     }
     if (dir == null) continue;
     if (dir.isEmpty) return true;
@@ -333,6 +372,11 @@ bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
       path = path.substring(0, path.length - 1);
     }
     if (path.isEmpty || path == '.') continue;
+    if (!projectDir &&
+        !path.contains('/') &&
+        _kGradleCwdScripts.contains(path)) {
+      continue;
+    }
     return true;
   }
   return false;

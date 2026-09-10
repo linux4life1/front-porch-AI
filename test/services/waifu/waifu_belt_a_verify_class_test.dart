@@ -1542,6 +1542,15 @@ void main() {
       './gradlew -b other.gradle test',
       './gradlew --build-file other.gradle test',
       './gradlew --settings-file other.settings.gradle test',
+      './gradlew -p= test',
+      './gradlew -p=other test',
+      './gradlew -b=other.gradle test',
+      './gradlew -c other.settings.gradle test',
+      './gradlew -cother.settings.gradle test',
+      './gradlew -c=other.settings.gradle test',
+      './gradlew --include-build other test',
+      './gradlew --include-build=other test',
+      './gradlew -b subdir/build.gradle test',
       'mvn -f /home/vsts/work/1/s/module/pom.xml test',
       'mvn test -Dmaven.multiModuleProjectDirectory=/other',
       'mvn test -Dsession.executionRootDirectory=/other',
@@ -1586,6 +1595,32 @@ void main() {
     expect(waifuLooksVerifyCommand('./gradlew test -Pfoo'), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew test -PenableFoo'), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew test -Pfoo=bar'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew -b build.gradle test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew -b ./build.gradle test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('./gradlew -b build.gradle.kts test'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('./gradlew --build-file=build.gradle test'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('./gradlew --settings-file settings.gradle test'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand(
+        './gradlew --settings-file settings.gradle.kts test',
+      ),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand(
+        './gradlew --settings-file ./settings.gradle test',
+      ),
+      isTrue,
+    );
     expect(
       waifuLooksVerifyCommand(
         'mvn -f /home/runner/work/repo/repo/pom.xml test',
