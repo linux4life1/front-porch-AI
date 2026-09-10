@@ -20,7 +20,7 @@
   the family switch. `zig build test` is a real suite.
 - **Files:** `waifu_verify_theater.dart`, `waifu_verify.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 2b078921
 
 ## 2026-09-10 — fix(waifu): flutter/dart --name and tags are theater
 - **Why:** `--name` / `--plain-name` / `--tags` / `--exclude-tags` were
