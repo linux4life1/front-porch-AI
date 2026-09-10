@@ -19,7 +19,7 @@
   Bare `pytest` / `jest` / `rspec` stay full.
 - **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** TBD
+- **Commit:** ef72f050
 
 ## 2026-09-10 — fix(waifu): ctest --no-tests ignore + --rerun-failed
 - **Why:** Tip c65ff0be still receipted `ctest --no-tests=ignore`,
