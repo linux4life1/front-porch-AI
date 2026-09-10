@@ -18,7 +18,7 @@
   the VAR= club. `-C/home` and bare `ctest` unchanged.
 - **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 4375660c
 
 ## 2026-09-10 — fix(waifu): make -kl / XFAIL_TESTS + ctest label/file
 - **Why:** Tip eaa8d784 still receipted `-kl` / `-kt` / `-kv`,
