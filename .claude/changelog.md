@@ -19,7 +19,7 @@
   still runs. No second club.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** b7fc219f
 
 ## 2026-09-10 — fix(waifu): cargo test feature/target; clippy -p *
 - **Why:** Feature/target gates lived only on clippy subset, so
