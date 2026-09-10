@@ -18,7 +18,7 @@
   VIP. Zig/cargo pins unchanged. No second club.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** ff2848e7
 
 ## 2026-09-10 — fix(waifu): zig --test-filter * is theater
 - **Why:** Zig used default suite VIP `*`, so
