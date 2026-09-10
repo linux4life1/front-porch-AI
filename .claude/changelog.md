@@ -10,6 +10,16 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): ctest -FS/-FC + TESTS_ENVIRONMENT
+- **Why:** Tip ff739407 still receipted `ctest -FS` / `-FC`
+  and `make test TESTS_ENVIRONMENT=foo=1`.
+- **What:** Same path. CTest shorts starting `-F` (len≥3) and
+  longs starting `--fixture-`. Make `TESTS_ENVIRONMENT=` joins
+  the VAR= club. `-C/home` and bare `ctest` unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): make -kl / XFAIL_TESTS + ctest label/file
 - **Why:** Tip eaa8d784 still receipted `-kl` / `-kt` / `-kv`,
   `XFAIL_TESTS=`, and CTest `--label-regex` / `--tests-from-file`

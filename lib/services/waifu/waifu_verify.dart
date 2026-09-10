@@ -453,7 +453,7 @@ List<String> _segments(String command) =>
     command.split(RegExp(r'(?:&&|\|\||[;|\n])'));
 
 /// CTest name / label / index / fixture / file filters and `-n`.
-/// `-I` is index (raw). Longs: regex, label, from-file, fixture.
+/// `-I` is index (raw). Any `-F*` short / `--fixture-` long.
 bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
@@ -465,15 +465,14 @@ bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
         t.startsWith('--exclude-label') ||
         t.startsWith('--tests-from-file') ||
         t.startsWith('--exclude-from-file') ||
-        t.startsWith('--fixture-exclude')) {
+        t.startsWith('--fixture-')) {
       return true;
     }
     if (!t.startsWith('--') &&
         (t.startsWith('-r') && t.length > 2 ||
             t.startsWith('-e') && t.length > 2 ||
             t.startsWith('-l') && t.length > 2 ||
-            t.startsWith('-fa') ||
-            t.startsWith('-fi'))) {
+            t.startsWith('-f') && t.length >= 3)) {
       return true;
     }
     final raw = i < rawArgs.length ? rawArgs[i] : t;

@@ -442,7 +442,7 @@ bool _polyglotSoftDone(String w) =>
     w.startsWith('--keep-going');
 
 /// Soft clumps: iknq plus GNU non-value shorts; `j\d*` anywhere.
-/// Automake `TESTS=` / `TEST=` / `XFAIL_TESTS=` / `CHECK_TESTS=`.
+/// Automake `TESTS=` / `XFAIL_TESTS=` / `TESTS_ENVIRONMENT=`.
 /// Value-taking `-C`/`-f`/`-o`/`-W`/`-O`/`-I` glued paths stay full.
 final _kMakeSoftClump = RegExp(
   r'^(?=.*[iknq])-(?:[BbdehikLlmnpqrRsStvw]|j\d*)+$',
@@ -454,7 +454,8 @@ bool _makeArgvTheater(List<String> rawArgs) => rawArgs.any((t) {
       low.startsWith('test=') ||
       low.startsWith('testsuiteflags=') ||
       low.startsWith('xfail_tests=') ||
-      low.startsWith('check_tests=')) {
+      low.startsWith('check_tests=') ||
+      low.startsWith('tests_environment=')) {
     return true;
   }
   if (t.contains('/') || t.contains('.')) return false;
