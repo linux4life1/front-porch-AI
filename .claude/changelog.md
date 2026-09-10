@@ -31,7 +31,7 @@
   and bare hosts stay full.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 7d1fde91 (body e9f670ca)
 
 ## 2026-09-10 — fix(waifu): watch=false full + rspec/phpunit/shard
 - **Why:** Tip a5b2dcd1 over-theatered `jest --watchAll=false` /
