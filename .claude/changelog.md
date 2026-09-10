@@ -22,7 +22,7 @@
   utilities (`rm`, `grep`, `git`, …) that cannot fulfill even if quoted.
 - **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart` (NEW),
   `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 8ff32027
 
 ## 2026-09-10 — fix(waifu): Belt A ask and tested share one verify context
 - **Why:** `noteResult` marked `tested` with `WaifuVerifyContext` (step.verify /
