@@ -23,7 +23,7 @@
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** b906503c
 
 ## 2026-09-10 — fix(waifu): nested absolute -f …/module/pom.xml and -t are theater
 - **Why:** Tip 0a5c1a95 treated any absolute `…/pom.xml` as a full
