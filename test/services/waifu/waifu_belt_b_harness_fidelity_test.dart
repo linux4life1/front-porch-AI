@@ -282,6 +282,7 @@ void main() {
         .where((m) => m.kind == WaifuMsgKind.tool)
         .first;
     expect(tool.toolCallId, 'call_provider_9');
+    expect(tool.toolOk, isFalse);
     expect(tool.toolArgs, {'pattern': '*.rs', 'path': 'src'});
     final rebuilt = waifuOpenAiMessages(
       folderName: root.path,

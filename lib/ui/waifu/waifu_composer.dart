@@ -119,6 +119,14 @@ class WaifuComposer extends StatelessWidget {
                   for (var i = 0; i < session.queued.length; i++)
                     InputChip(
                       key: Key('waifu-queued-$i'),
+                      avatar: session.queued[i].imagePng == null
+                          ? null
+                          : Icon(
+                              Icons.photo_outlined,
+                              key: Key('waifu-queued-$i-photo'),
+                              size: 16,
+                              color: amber,
+                            ),
                       label: Text(
                         session.queued[i].text,
                         overflow: TextOverflow.ellipsis,

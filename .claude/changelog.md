@@ -863,6 +863,52 @@
 - **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
   `docs/Rawhide.md`
 - **Commit:** 407d79e2
+## 2026-09-10 — fix(waifu): Belt B harness fidelity — queue photos, ledger, nested ok
+- **Why:** Belt A told the truth about wrap-up and verify. Belt B rips the
+  remaining lying harness contracts: the follow-up queue dropped photo
+  bytes, compact recaps could invent paths, prune stripped tool args,
+  nested `task` always said ok, plan discover activated discarded mtime
+  winners, and the fuse hid its reason on a chip.
+- **What:** Queue holds `{text, imagePng?, imagePath?}` and drain restores
+  `_turnImages`. Every fold injects a non-LLM machine ledger (paths,
+  verify commands as-run, plan pin, todos); prune keeps path+status+args.
+  Generate still meters serialized OpenAI messages. Provider `tool_call`
+  ids persist when present. Child `ok` follows child receipts; children
+  share parent todos; `run-plan-step` injects the next step verbatim;
+  workflow docs say serial. Discover prefers accepted, never discarded;
+  pin beats mtime. Fuse reason is spoken; empty wrap after retries fails.
+  Leftover wrap-up `tool_calls` use the same `onEmptyCalls` authority —
+  no remembered-speech theater. Catch/abort tool history keeps the same
+  args as success (no rebuild `{}`). Attach/drop stay live while she is
+  working so a queued follow-up can carry a photo. The waiting chip shows
+  a photo mark when bytes ride along. Ledger “verify as-run”
+  keeps the command string that ran and skips theater (`ls` / `echo` /
+  dry-run / `cargo new test` / `:app:dependencies`). Flags-before-task
+  and `cargo +nightly test` stay in the as-run list.
+- **Files:** `waifu_session.dart`, `waifu_harness.dart`,
+  `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
+  `waifu_harness_spawn.dart`, `waifu_compact.dart`,
+  `waifu_compact_ledger.dart` (NEW), `waifu_turn.dart`, `waifu_plan.dart`,
+  `waifu_plan_codec.dart`, `waifu_workflow.dart`, `waifu_composer.dart`,
+  `llm_service.dart`, `llm_tool_parsing.dart`, `openai_tool_stream.dart`,
+  `waifu_belt_b_harness_fidelity_test.dart` (NEW),
+  `waifu_belt_b_queue_photo_test.dart` (NEW)
+- **Commit:** cf7d6a3a
+
+## 2026-09-10 — fix(waifu): cargo +channel and Gradle inventory basename
+- **Why:** Subcommand-first treated `+nightly` as the check, so
+  `cargo +nightly test` asked and never stamped. Gradle inventory
+  only matched bare `help`/`dependencies`, so `:app:dependencies`
+  / `app:dependencies` / `:app:help` / `components --configuration
+  test` still receipted.
+- **What:** Same peel + theater. Skip `+toolchain` tokens before the
+  first subcommand. Inventory uses the task basename and treats
+  `--configuration` / `--task` as theater when the task is not a
+  real check (`--configuration-cache` stays a run). `--show-only=`
+  and list-only (`--collect-only`, `--listTests`) join theater.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** 407d79e2
 
 ## 2026-09-10 — fix(waifu): dry-run and help do not receipt a check
 - **Why:** `_verifyTheater` only caught `--help` / `--dry-run`. `make -n
