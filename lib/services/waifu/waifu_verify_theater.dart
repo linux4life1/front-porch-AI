@@ -76,16 +76,6 @@ bool _isTheaterFlag(String w) {
       w.startsWith('--dry_run');
 }
 
-/// Maven `-D` keys that skip the *unit* suite. `=false` still runs.
-/// Failsafe / `-DskipITs` only skip ITs — Surefire still runs.
-const _kMavenSkipProps = {
-  'skiptests',
-  'maven.test.skip',
-  'maven.test.skip.exec',
-  'surefire.skip',
-  'surefire.skipexec',
-};
-
 bool _mavenSkipProperty(String w) {
   if (!w.startsWith('-d')) return false;
   final body = w.substring(2);

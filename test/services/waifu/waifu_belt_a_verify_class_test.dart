@@ -1460,6 +1460,14 @@ void main() {
       'mvn test -DdependenciesToScan=*',
       'mvn test -Dsurefire.dependenciesToScan=*',
       'mvn verify -Dfailsafe.dependenciesToScan=*',
+      'mvn test -DclasspathDependencyExcludes=*',
+      'mvn test -Dsurefire.classpathDependencyExcludes=*',
+      'mvn test -DclasspathDependencyIncludes=*',
+      'mvn test -Dsurefire.classpathDependencyIncludes=*',
+      'mvn verify -Dfailsafe.classpathDependencyExcludes=*',
+      'mvn verify -Dfailsafe.classpathDependencyIncludes=*',
+      'mvn test -Dmaven.test.dependency.excludes=*',
+      'mvn test -DclasspathDependencyScopeExclude=*',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);

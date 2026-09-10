@@ -10,6 +10,21 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): classpath scan-subset -D filters are theater
+- **Why:** `dependenciesToScan` was closed, but
+  `-DclasspathDependencyExcludes=*` / `-DclasspathDependencyIncludes=*`
+  (and `surefire.` / `failsafe.` twins) still receipted.
+- **What:** Same theater. Those keys plus official
+  `maven.test.dependency.excludes` and
+  `classpathDependencyScopeExclude` join `_kMavenFilterProps`
+  presence. Maven prop tables extracted to
+  `waifu_verify_maven.dart` (500-line cap). Gradle/Go VIP
+  unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Surefire suite XML / scan-subset are theater
 - **Why:** Unprefixed `includesFile` / JUnit5 engines were closed, but
   `-DsuiteXmlFiles=*` / `=testng.xml` / `-Dsurefire.suiteXmlFiles=`

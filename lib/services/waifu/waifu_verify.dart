@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:path/path.dart' as p;
 
 part 'waifu_verify_theater.dart';
+part 'waifu_verify_maven.dart';
 
 /// Project-native check names. Receipt is step.verify, a user-named
 /// command, a repo marker, or a **known runner** — never “argv[1] is
@@ -111,50 +112,6 @@ const _kBuildOnly = {
 };
 
 const _kDenyCmds = {'echo', 'ls', 'printf', 'true', 'false', 'cat', 'pwd'};
-
-/// Surefire / Failsafe name, category, suite-XML, or scan-subset
-/// filters. Presence: any value is theater. Keys are lowered
-/// (`excludedGroups` → `excludedgroups`, `suiteXmlFiles` →
-/// `suitexmlfiles`).
-const _kMavenFilterProps = {
-  'test',
-  'groups',
-  'excludedgroups',
-  'includes',
-  'excludes',
-  'includesfile',
-  'excludesfile',
-  'includejunit5engines',
-  'excludejunit5engines',
-  'suitexmlfiles',
-  'suitexmlfile',
-  'dependenciestoscan',
-  'surefire.includes',
-  'surefire.excludes',
-  'surefire.groups',
-  'surefire.excludedgroups',
-  'surefire.test',
-  'surefire.includejunit5engines',
-  'surefire.excludejunit5engines',
-  'surefire.includesfile',
-  'surefire.excludesfile',
-  'surefire.suitexmlfiles',
-  'surefire.suitexmlfile',
-  'surefire.dependenciestoscan',
-  'it.test',
-  'failsafe.test',
-  'failsafe.groups',
-  'failsafe.excludedgroups',
-  'failsafe.includes',
-  'failsafe.excludes',
-  'failsafe.includejunit5engines',
-  'failsafe.excludejunit5engines',
-  'failsafe.includesfile',
-  'failsafe.excludesfile',
-  'failsafe.suitexmlfiles',
-  'failsafe.suitexmlfile',
-  'failsafe.dependenciestoscan',
-};
 
 /// Unix utilities that are never a project check — even if argv[1] is
 /// `test` or a plan quote names them. Not a second club: the known-runner
