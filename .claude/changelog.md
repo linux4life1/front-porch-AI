@@ -20,7 +20,7 @@
   join.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 4dae18a8
 
 ## 2026-09-10 — fix(waifu): surefire skip and glob exclude are theater
 - **Why:** `mvn test -Dsurefire.skip=true` / `skipExec` /
