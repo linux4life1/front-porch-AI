@@ -57,12 +57,23 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): Belt B empty wrap stays stuck, not leftover speech
+- **Why:** A parallel pass restored remembered tool-step speech as
+  the wrap-up and renamed an A theater helper. That is B7 theater
+  and it edits A's verify file.
+- **What:** Empty wrap after retries is `That's as far as I got.`
+  A verify theater is byte-identical to A tip again. Send still
+  records the user line before verify I/O.
+- **Files:** `waifu_turn.dart`, `waifu_verify_theater.dart`,
+  `waifu_turn_contract_test.dart`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Belt B harness contract — one path, no lying gates
 - **Why:** Unit+integration on #247 was red (job 102966040004). The
   listed fails were one contract, not twelve bolts: send awaited
   verify-context before recording the user line; Plan treated a
   denied project write as “could not write a plan file”; empty
-  wrap-up dropped card speech; `/tmp` scratch writes were OS-denied;
+  wrap-up was recycled as card speech; `/tmp` scratch writes were OS-denied;
   named-temp wipe allowed the sit-down parent; Build `needsAsk`
   lied on `/etc/hosts`; a theater helper name contained the retired
   product name; WaifuPage bound lookup without `webSearch: webSearch`;
@@ -75,10 +86,19 @@
   hard-deny). Theater helper renamed so the retired product name is
   gone. Page binds `webSearch: webSearch`. Sit-down Jail/Disk are
   chips so both stay hittable when honesty returns.
+  lied on `/etc/hosts`; WaifuPage bound lookup without `webSearch: webSearch`;
+  sit-down Jail/Disk radios were untappable after honesty reopened.
+- **What:** Record send before any await. Mutation-attempt tracking
+  again — a denied Plan write is an attempt, not a missing plan file.
+  Sit-down ancestor wipe beats named-temp allow; `/tmp` children are
+  writable, OS trees still fail at FS. Build asks for off-porch
+  writes. Page binds `webSearch: webSearch`. Sit-down Jail/Disk are
+  chips so both stay hittable when honesty returns. Did not edit
+  A verify theater — the retired-name leak in that helper stays A's.
 - **Files:** `waifu_harness.dart`, `waifu_turn.dart`,
   `waifu_turn_contract.dart`, `waifu_deny.dart`,
   `waifu_permissions.dart`, `waifu_page.dart`,
-  `waifu_wizard_sit_down_step.dart`, `waifu_verify_theater.dart`
+  `waifu_wizard_sit_down_step.dart`
 - **Commit:** 98d09002
 - **Restack:** onto Belt A `f36976dc` (Rawhide `2b073e86`)
 
@@ -219,6 +239,25 @@
   `waifu_belt_b_ledger_context_test.dart` (NEW)
 - **Commit:** f0fb1dd4
 
+## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
+- **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable
+  list`. `alignGreetingSeeds` returned `const []` when the card had no alts,
+  and the editor then `_altGreetingSeeds.add(null)`. Same path in the group
+  alt-greetings editor and the AI creator review step.
+- **What:** Empty align result is a growable list. Guards: unit + Edit Character
+  tap + group editor tap.
+- **Files:** `greeting_realism_seed.dart`,
+  `greeting_align_growable_test.dart`,
+  `edit_character_add_greeting_test.dart`,
+  `group_alternate_greetings_editor_test.dart`
+- **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): npm/pnpm/yarn failed-only + jest -o
+- **Why:** Tip a7731966 still receipted `npm test -- --lf` /
+  `pnpm`/`yarn test -- --onlyFailures` and `jest -o` /
+  `--onlyChanged`.
+- **What:** Same path. JS hosts apply the pytest+jest failed-only
+  set to argv after `--` (`npm run test` peels to `test`).
+  Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
 ## 2026-09-10 — fix(waifu): --project is JS subset, not global
 - **Why:** Tip ee9089a3 hoisted `--project` into `_isTheaterFlag`,
   so `dotnet test --project Foo.Tests.csproj` (assembly

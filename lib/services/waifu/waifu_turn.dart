@@ -170,12 +170,6 @@ class WaifuTurn {
       return WaifuTurnStep.fail;
     }
     if (trimmed.isEmpty || (generic && successfulTool)) {
-      if (canUseRememberedSpeech) {
-        pendingSpeech = rememberedSpeech;
-        phase = WaifuPhase.done;
-        contract.noteWrapUpAccepted();
-        return WaifuTurnStep.accept;
-      }
       if (canRetrySpeech) {
         requestSpeech();
         return WaifuTurnStep.retry;
