@@ -11,7 +11,7 @@
   `waifu_verify_theater.dart` are byte-identical to Rawhide
   `90dcb76e`. No lying gates reintroduced. No golden PNG regen.
 - **Restack:** onto Rawhide `90dcb76e` (A squash of `139f50f8`)
-- **Commit:**
+- **Commit:** fdb31413
 
 ## 2026-09-10 — fix(waifu): Belt A harness contract — rip lying gates
 - **Why:** Tip f36976dc was MERGEABLE vs Rawhide but unit+integration
