@@ -49,6 +49,8 @@ const _kMavenFilterProps = {
   'project.build.outputdirectory',
   'project.build.testoutputdirectory',
   'project.build.testsourcedirectory',
+  'basedir',
+  'project.basedir',
   'classpathdependencyexcludes',
   'classpathdependencyincludes',
   'classpathdependencyscopeexclude',
@@ -208,12 +210,14 @@ bool _mavenArgvTheater(List<String> args) {
 ///   (the two repo segments must be identical)
 /// - GitHub Actions Windows `X:/a/<repo>/<repo>` (any drive +
 ///   `a` + identical trailing repo pair)
+/// - Azure Pipelines classic `X:/a/<id>/s` (any drive + `a` +
+///   numeric-or-id + sources dir `s`)
 /// - container checkout `/github/workspace`
 ///
 /// Nested modules stay theater (`/workspace/module/pom.xml`,
 /// `/home/runner/work/repo/module/pom.xml`,
-/// `D:/a/repo/module/pom.xml`). Not a GHA layout:
-/// `/home/user/proj/pom.xml`.
+/// `D:/a/repo/module/pom.xml`, `D:/a/1/s/module/pom.xml`).
+/// Not a GHA/Azure layout: `/home/user/proj/pom.xml`.
 bool _mavenNonRootPom(String raw) {
   var path = raw.replaceAll(r'\', '/');
   while (path.length > 1 && path.endsWith('/')) {
@@ -250,6 +254,12 @@ bool _mavenNonRootPom(String raw) {
     final segs = rest.split('/').where((s) => s.isNotEmpty).toList();
     if (segs.length == 1) return false;
     if (segs.length == 3 && segs[0] == 'a' && segs[1] == segs[2]) {
+      return false;
+    }
+    if (segs.length == 3 &&
+        segs[0] == 'a' &&
+        segs[2] == 's' &&
+        RegExp(r'^[0-9a-z][0-9a-z._-]*$').hasMatch(segs[1])) {
       return false;
     }
     return true;

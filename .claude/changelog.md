@@ -10,6 +10,20 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): Azure -f checkout, Gradle --continue, basedir theater
+- **Why:** Tip 0368c052 still theatered Azure classic
+  `D:/a/1/s/pom.xml`. `./gradlew test --continue` and
+  `-Dbasedir=/other` still receipted a soft / swapped tree.
+- **What:** Same clubs. Drive-letter `-f` allowlists `X:/a/<id>/s`
+  (numeric-or-id); nested under `s` stays theater. Gradle
+  `--continue` is presence theater (soft Done, like `--fail-never`).
+  `basedir` / `project.basedir` join `_kMavenFilterProps` (any
+  value). VIP `--tests *` unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): --fail-never / error.ignore theater; Windows GHA -f
 - **Why:** Tip 2603298d still receipted `mvn --fail-never test` /
   `-fn` and `-Dmaven.test.error.ignore=true` (red suite stamps

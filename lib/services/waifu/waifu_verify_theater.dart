@@ -32,6 +32,11 @@ bool _verifyTheater(String lowered) {
       return true;
     }
     if (cmd == 'gradle' && args.contains('-m')) return true;
+    // Soft Done — same class as Maven `--fail-never`.
+    if (cmd == 'gradle' &&
+        args.any((t) => t == '--continue' || t.startsWith('--continue='))) {
+      return true;
+    }
     // Maven reactor / settings / profiles / toolchains / fail-never
     // + non-root `-f` (cwd, `/<one>/pom.xml`, or GHA checkout).
     if (cmd == 'mvn' && _mavenArgvTheater(args)) return true;

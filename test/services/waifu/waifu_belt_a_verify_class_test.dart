@@ -1527,6 +1527,10 @@ void main() {
       'mvn test -Dsurefire.testErrorIgnore=true',
       'mvn verify -Dfailsafe.testErrorIgnore=true',
       'mvn -f D:/a/repo/module/pom.xml test',
+      'mvn -f D:/a/1/s/module/pom.xml test',
+      './gradlew test --continue',
+      'mvn test -Dbasedir=/other',
+      'mvn test -Dproject.basedir=',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1556,6 +1560,8 @@ void main() {
       waifuLooksVerifyCommand('mvn -f D:/a/repo/repo/pom.xml test'),
       isTrue,
     );
+    expect(waifuLooksVerifyCommand('mvn -f D:/a/1/s/pom.xml test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         'mvn -f /home/runner/work/repo/repo/pom.xml test',
