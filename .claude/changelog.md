@@ -20,7 +20,7 @@
   `--workspace`, `--all` without gates still run. No second club.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** c8b450ac
 
 ## 2026-09-10 — fix(waifu): clippy feature/target gates are theater
 - **Why:** `--features` / `--target` were cargo skip-as-value only, so
