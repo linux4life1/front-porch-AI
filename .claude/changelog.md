@@ -987,7 +987,7 @@
   `waifu_plan_codec.dart`, `waifu_workflow.dart`, `waifu_composer.dart`,
   `llm_service.dart`, `llm_tool_parsing.dart`, `openai_tool_stream.dart`,
   `waifu_belt_b_harness_fidelity_test.dart` (NEW)
-- **Commit:** (pending)
+- **Commit:** 81bcfe2d
 
 ## 2026-09-10 — fix(waifu): gradlew/mvnw peel to gradle/mvn verify
 - **Why:** `./gradlew test` / `./mvnw test` used argv0 `gradlew`/`mvnw`, which
