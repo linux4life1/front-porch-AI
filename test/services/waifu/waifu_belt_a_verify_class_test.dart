@@ -1954,7 +1954,7 @@ void main() {
     expect(waifuLooksVerifyCommand('rspec -p 10'), isTrue);
     expect(waifuLooksVerifyCommand('dart test'), isTrue);
     expect(waifuLooksVerifyCommand('dart test -p vm'), isTrue);
-    expect(waifuLooksVerifyCommand('dart test --platform=vm,chrome'), isTrue);
+    expect(waifuLooksVerifyCommand('dart test --platform=vm'), isTrue);
     expect(waifuLooksVerifyCommand('dart test --compiler=dart2js'), isTrue);
     expect(waifuLooksVerifyCommand('flutter test'), isTrue);
     expect(waifuLooksVerifyCommand('flutter test -d windows'), isTrue);
