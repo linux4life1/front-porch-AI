@@ -165,7 +165,7 @@ const _kFilterValueFlags = <String, Set<String>>{
     '--compiler',
   },
   'phpunit': {'-c', '--configuration', '-d'},
-  'rspec': {'-f', '--format', '-I', '--require'},
+  'rspec': {'-f', '--format', '-I', '--require', '-p'},
 };
 
 const _kSuiteFilterFlags = <String, Set<String>>{
