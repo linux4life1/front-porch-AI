@@ -32,8 +32,8 @@ bool _verifyTheater(String lowered) {
       return true;
     }
     if (cmd == 'gradle' && args.contains('-m')) return true;
-    // Maven reactor / settings / profiles + non-root `-f`/`--file`
-    // (cwd or absolute `…/pom.xml` stays a full receipt). One helper.
+    // Maven reactor / settings / profiles / toolchains + non-root
+    // `-f`/`--file` (cwd or `/<one>/pom.xml` stays a full receipt).
     if (cmd == 'mvn' && _mavenArgvTheater(args)) return true;
     if (cmd == 'ctest' && args.contains('-n')) return true;
     if (cmd == 'go' && args.contains('-c')) return true;

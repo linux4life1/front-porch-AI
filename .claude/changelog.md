@@ -10,6 +10,22 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): nested absolute -f …/module/pom.xml and -t are theater
+- **Why:** Tip 0a5c1a95 treated any absolute `…/pom.xml` as a full
+  run, so `mvn -f /workspace/module/pom.xml test` soft-receipted a
+  module POM swap. `-t` / `--toolchains` still receipted.
+- **What:** Same `_mavenArgvTheater` club. Absolute `-f` is a full
+  receipt only for basename `pom.xml` with exactly one segment after
+  the root (`/workspace/pom.xml`, `C:/proj/pom.xml`). Nested
+  absolute and `/home/user/proj/pom.xml` are theater. Toolchains
+  (`-t`/`--toolchains`, `-gt`/`--global-toolchains`) are presence;
+  short `-t` skips a threads spec so `mvn -T 1C test` stays a full
+  run. Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): absolute CI -f …/pom.xml is a full run; -s/-P are theater
 - **Why:** Tip 204f0a75 only allowlisted bare/`./` `pom.xml`, so
   CI `mvn -f /workspace/pom.xml test` over-theaters. `-s` /

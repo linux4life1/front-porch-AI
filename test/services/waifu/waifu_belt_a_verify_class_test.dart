@@ -1508,6 +1508,14 @@ void main() {
       'mvn -Pprod test',
       'mvn --activate-profiles prod test',
       'mvn -f other/module-pom.xml test',
+      'mvn -f /workspace/module/pom.xml test',
+      'mvn -f /repo/services/api/pom.xml test',
+      'mvn -f C:/proj/module/pom.xml test',
+      'mvn -f /home/user/proj/pom.xml test',
+      'mvn -t toolchains.xml test',
+      'mvn --toolchains=ci-toolchains.xml test',
+      'mvn -gt toolchains.xml test',
+      'mvn --global-toolchains=ci-toolchains.xml test',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1531,10 +1539,8 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn --file=./pom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -fpom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -f /workspace/pom.xml test'), isTrue);
-    expect(
-      waifuLooksVerifyCommand('mvn -f /home/user/proj/pom.xml test'),
-      isTrue,
-    );
+    expect(waifuLooksVerifyCommand('mvn -f C:/proj/pom.xml test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn -T 1C test'), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
     expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
     expect(waifuLooksVerifyCommand('mvn test -Dtest=*'), isFalse);

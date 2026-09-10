@@ -109,20 +109,23 @@ const _kMavenSkipProps = {
   'surefire.skipexec',
 };
 
-/// Maven argv theater: reactor subset, settings/profiles, and
-/// non-root `-f`/`--file`.
+/// Maven argv theater: reactor subset, settings/profiles/toolchains,
+/// and non-root `-f`/`--file`.
 ///
 /// `-f` / `--file` is a full receipt when the basename is `pom.xml`
-/// and the parent is empty / `.` / `./` **or** an absolute prefix
-/// (CI `-f /workspace/pom.xml`). A relative directory
-/// (`other/pom.xml`) or a basename that is not `pom.xml` is theater.
-/// Spaced, `=`, and glued forms share that rule. Fail-policy shorts
-/// (`-fae`/`-ff`/`-fn`) are not glued `-fPATH`.
+/// and the parent is empty / `.` **or** exactly one absolute segment
+/// (`/workspace/pom.xml`, `C:/proj/pom.xml`). Nested absolute
+/// (`/workspace/module/pom.xml`) and relative (`other/pom.xml`) are
+/// theater. Fail-policy shorts (`-fae`/`-ff`/`-fn`) are not glued
+/// `-fPATH`.
 ///
-/// Reactor selectors, `-s`/`--settings`/`-gs`/`--global-settings`,
-/// and `-P`/`--activate-profiles` (lowered `-p`) are presence theater.
+/// Reactor selectors, settings, profiles, and toolchains
+/// (`-t`/`--toolchains`, `-gt`/`--global-toolchains`) are presence
+/// theater. Short `-t` is toolchains only when the value is not a
+/// threads spec (`-T 1C` lowers to `-t 1c` and stays a full run).
 bool _mavenArgvTheater(List<String> args) {
   const failPolicyShorts = {'-fae', '-ff', '-fn'};
+  final threads = RegExp(r'^\d+(\.\d+)?c?$');
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
     if (t.startsWith('-pl') ||
@@ -142,9 +145,24 @@ bool _mavenArgvTheater(List<String> args) {
         t == '-gs' ||
         t.startsWith('-gs') ||
         t.startsWith('--global-settings') ||
+        t == '-gt' ||
+        t.startsWith('-gt') ||
+        t.startsWith('--global-toolchains') ||
+        t.startsWith('--toolchains') ||
         t == '-p' ||
         (t.startsWith('-p') && !t.startsWith('-pl')) ||
         t.startsWith('--activate-profiles')) {
+      return true;
+    }
+    String? tc;
+    if (t == '-t') {
+      if (i + 1 < args.length) tc = args[i + 1];
+    } else if (t.startsWith('-t=')) {
+      tc = t.substring(3);
+    } else if (t.startsWith('-t') && t != '-t') {
+      tc = t.substring(2);
+    }
+    if (tc != null && tc.isNotEmpty && !threads.hasMatch(tc)) {
       return true;
     }
     String? file;
@@ -166,7 +184,7 @@ bool _mavenArgvTheater(List<String> args) {
   return false;
 }
 
-/// Basename/parent rule for Maven `-f` / `--file`.
+/// Basename + single-segment absolute parent for Maven `-f` / `--file`.
 bool _mavenNonRootPom(String raw) {
   var path = raw.replaceAll(r'\', '/');
   while (path.length > 1 && path.endsWith('/')) {
@@ -180,7 +198,17 @@ bool _mavenNonRootPom(String raw) {
   if (base != 'pom.xml') return true;
   final parent = slash < 0 ? '' : path.substring(0, slash);
   if (parent.isEmpty || parent == '.') return false;
-  if (parent.startsWith('/')) return false;
-  if (parent.length >= 2 && parent[1] == ':') return false;
+  if (parent.startsWith('/')) {
+    final segs = parent.split('/').where((s) => s.isNotEmpty).toList();
+    return segs.length != 1;
+  }
+  if (parent.length >= 2 && parent[1] == ':') {
+    final rest = parent.length > 2 && parent[2] == '/'
+        ? parent.substring(3)
+        : parent.substring(2);
+    if (rest.isEmpty) return false;
+    final segs = rest.split('/').where((s) => s.isNotEmpty).toList();
+    return segs.length != 1;
+  }
   return true;
 }
