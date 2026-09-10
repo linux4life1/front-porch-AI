@@ -635,4 +635,54 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn test -Dsurefire.skip=true'), isFalse);
     expect(waifuLooksVerifyCommand("./gradlew test -x '*Tests*'"), isFalse);
   });
+
+  test('polyglot name/path filters are theater; full suites still run', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'go test -run Nope',
+      'cargo test nope',
+      'cargo test -- --exact nope',
+      'pytest -k nope',
+      'pytest tests/test_foo.py',
+      'dotnet test --filter FullyQualifiedName~Nope',
+      'flutter test test/foo_test.dart',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    for (final cmd in [
+      'go test',
+      'go test ./...',
+      'cargo test',
+      'pytest',
+      'dotnet test',
+      'flutter test',
+      'mvn test',
+      './gradlew test',
+      './gradlew test --tests *',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('mvn test -Dfailsafe.skip=true'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -Dtest=Nope'), isFalse);
+    expect(waifuLooksVerifyCommand('./gradlew test --tests Nope'), isFalse);
+    expect(waifuLooksVerifyCommand('pytest -n auto'), isTrue);
+  });
 }

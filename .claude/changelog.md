@@ -10,6 +10,20 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): polyglot name/path filters are theater
+- **Why:** Filter theater was Maven/Gradle only, so `go test -run Nope`,
+  `cargo test nope`, `pytest -k nope` / a file path, `dotnet --filter`,
+  and `flutter test test/foo_test.dart` still receipted a full suite.
+- **What:** Same theater. `_runnerFilterTheater` by runner family:
+  go `-run`, cargo positional / `--exact`, pytest `-k` / path, dotnet
+  `--filter`, flutter/dart test file path. JVM empty/non-`*` stays.
+  Full-suite forms (`go test ./...`, `pytest`, `flutter test`,
+  `--tests *`) still run.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`,
+  `waifu_verify_contract_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): failsafe skip is IT-only; filters are theater
 - **Why:** `failsafe.skip` killed `mvn verify` even though Surefire
   still runs (same as `skipITs`). Explicit `-Dtest=Nope` /

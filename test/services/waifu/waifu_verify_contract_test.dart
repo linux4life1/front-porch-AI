@@ -59,10 +59,7 @@ void main() {
   }
 
   test('verify command pins test/analyze and rejects echo/ls', () {
-    expect(
-      waifuLooksVerifyCommand('flutter test test/parser_test.dart'),
-      isTrue,
-    );
+    expect(waifuLooksVerifyCommand('flutter test'), isTrue);
     expect(waifuLooksVerifyCommand('dart analyze lib/parser.dart'), isTrue);
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
@@ -121,7 +118,7 @@ void main() {
       kWaifuToolBash,
       const WaifuToolResult(ok: true, output: 'All tests passed!'),
       writeOk('parser.dart').write,
-      args: {'command': 'flutter test test/parser_test.dart'},
+      args: {'command': 'flutter test'},
     );
     expect(testRun.tested, isTrue);
     expect(testRun.reviewed, isFalse);

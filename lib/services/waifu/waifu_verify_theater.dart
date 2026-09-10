@@ -36,20 +36,7 @@ bool _verifyTheater(String lowered) {
     if (cmd == 'go' && args.contains('-c')) return true;
     if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;
     if (cmd == 'gradle' && _excludesKnownCheck(cmd, args)) return true;
-    if (cmd == 'gradle') {
-      for (var i = 0; i < args.length; i++) {
-        if (args[i] == '--tests') {
-          final val = i + 1 < args.length && !args[i + 1].startsWith('-')
-              ? args[i + 1]
-              : '';
-          if (_filteredSuiteTheater(val)) return true;
-        } else if (args[i].startsWith('--tests=')) {
-          if (_filteredSuiteTheater(args[i].substring('--tests='.length))) {
-            return true;
-          }
-        }
-      }
-    }
+    if (_runnerFilterTheater(cmd, args)) return true;
     if (cmd == 'go') {
       for (var i = 0; i < args.length; i++) {
         final t = args[i];
@@ -112,7 +99,193 @@ bool _mavenSkipProperty(String w) {
 }
 
 /// Empty or an explicit class filter is not a full suite. `*` is all.
-bool _filteredSuiteTheater(String val) => val.isEmpty || val != '*';
+bool _filteredSuiteTheater(String val, {Set<String> all = const {'*'}}) =>
+    val.isEmpty || !all.contains(val);
+
+/// Flags whose next token is a value, not a test name / path.
+const _kFilterValueFlags = <String, Set<String>>{
+  'cargo': {
+    '-p',
+    '--package',
+    '--features',
+    '--exclude',
+    '--target',
+    '--target-dir',
+    '--manifest-path',
+    '--message-format',
+    '--color',
+    '--config',
+    '-j',
+    '--jobs',
+    '--bin',
+    '--example',
+    '--test',
+    '--bench',
+    '--profile',
+  },
+  'pytest': {
+    '-m',
+    '-n',
+    '--numprocesses',
+    '-o',
+    '-p',
+    '-c',
+    '--maxfail',
+    '--tb',
+    '--basetemp',
+    '--ignore',
+    '--ignore-glob',
+    '--rootdir',
+    '--confcutdir',
+    '--override-ini',
+    '--durations',
+  },
+  'flutter': {
+    '-d',
+    '--device-id',
+    '-j',
+    '--concurrency',
+    '--name',
+    '--plain-name',
+    '--tags',
+    '--exclude-tags',
+    '--dart-define',
+    '--flavor',
+    '--coverage-path',
+    '--timeout',
+    '--reporter',
+  },
+  'dart': {
+    '-j',
+    '--concurrency',
+    '--name',
+    '--plain-name',
+    '--tags',
+    '--exclude-tags',
+    '--timeout',
+    '--reporter',
+    '-p',
+    '--platform',
+    '-c',
+    '--compiler',
+  },
+};
+
+/// Same gate as JVM `--tests` / `-Dtest=`. Filtered ≠ full suite.
+bool _runnerFilterTheater(String cmd, List<String> args) {
+  String? flagVal(String name) {
+    final eq = '$name=';
+    for (var i = 0; i < args.length; i++) {
+      final t = args[i];
+      if (t == name) {
+        return i + 1 < args.length && !args[i + 1].startsWith('-')
+            ? args[i + 1]
+            : '';
+      }
+      if (t.startsWith(eq)) return t.substring(eq.length);
+    }
+    return null;
+  }
+
+  bool takesValue(String flag) {
+    final bare = flag.contains('=') ? flag.split('=').first : flag;
+    return (_kFilterValueFlags[cmd] ?? const <String>{}).contains(bare);
+  }
+
+  List<String> after(String check) {
+    var i = 0;
+    while (i < args.length) {
+      final t = args[i];
+      if (t.startsWith('+') && t.length > 1) {
+        i++;
+        continue;
+      }
+      if (t.startsWith('-')) {
+        if (takesValue(t) && !t.contains('=')) {
+          i++;
+          if (i < args.length && !args[i].startsWith('-')) i++;
+        } else {
+          i++;
+        }
+        continue;
+      }
+      return t == check ? args.sublist(i + 1) : const [];
+    }
+    return const [];
+  }
+
+  switch (cmd) {
+    case 'gradle':
+      final tests = flagVal('--tests');
+      return tests != null && _filteredSuiteTheater(tests);
+    case 'go':
+      final run = flagVal('-run');
+      return run != null &&
+          _filteredSuiteTheater(run, all: const {'*', '.', '.*'});
+    case 'dotnet':
+      return flagVal('--filter') != null ||
+          args.any((t) => t.startsWith('--filter:'));
+    case 'pytest':
+      for (var i = 0; i < args.length; i++) {
+        final t = args[i];
+        if (t == '-k' || t == '--keyword') {
+          final val = i + 1 < args.length && !args[i + 1].startsWith('-')
+              ? args[i + 1]
+              : '';
+          return _filteredSuiteTheater(val);
+        }
+        if (t.startsWith('-k=') || t.startsWith('--keyword=')) {
+          return _filteredSuiteTheater(t.substring(t.indexOf('=') + 1));
+        }
+        if (t.startsWith('-')) {
+          if (takesValue(t) && !t.contains('=')) {
+            if (i + 1 < args.length && !args[i + 1].startsWith('-')) i++;
+          }
+          continue;
+        }
+        if (t != '.') return true;
+      }
+      return false;
+    case 'cargo':
+      final rest = after('test');
+      for (var i = 0; i < rest.length; i++) {
+        final t = rest[i];
+        if (t == '--') continue;
+        if (t == '--exact' || t.startsWith('--exact=')) {
+          final val = t.startsWith('--exact=')
+              ? t.substring('--exact='.length)
+              : (i + 1 < rest.length && !rest[i + 1].startsWith('-')
+                    ? rest[i + 1]
+                    : '');
+          return _filteredSuiteTheater(val);
+        }
+        if (t.startsWith('-')) {
+          if (takesValue(t) && !t.contains('=')) {
+            if (i + 1 < rest.length && !rest[i + 1].startsWith('-')) i++;
+          }
+          continue;
+        }
+        return _filteredSuiteTheater(t);
+      }
+      return false;
+    case 'flutter':
+    case 'dart':
+      final rest = after('test');
+      for (var i = 0; i < rest.length; i++) {
+        final t = rest[i];
+        if (t.startsWith('-')) {
+          if (takesValue(t) && !t.contains('=')) {
+            if (i + 1 < rest.length && !rest[i + 1].startsWith('-')) i++;
+          }
+          continue;
+        }
+        if (t != '.') return true;
+      }
+      return false;
+    default:
+      return false;
+  }
+}
 
 /// Gradle `-x test` / `--exclude-task test` (or `:app:test`, unit-test
 /// tasks, or a glob that matches check shapes: `test`/`tests`/`check`/
