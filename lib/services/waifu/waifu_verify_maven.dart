@@ -441,9 +441,7 @@ bool _polyglotSoftDone(String w) =>
     w.startsWith('--ignore-errors') ||
     w.startsWith('--keep-going');
 
-/// Soft clumps: iknq plus GNU non-value shorts; `j\d*` anywhere.
-/// Automake `TESTS=` / `XFAIL_TESTS=` / `*_TESTS_ENVIRONMENT=`.
-/// Value-taking `-C`/`-f`/`-o`/`-W`/`-O`/`-I` glued paths stay full.
+/// Make soft clump + Automake VAR=; glued -C/-f/-o/-W/-O/-I stay full.
 final _kMakeSoftClump = RegExp(
   r'^(?=.*[iknq])-(?:[BbdehikLlmnpqrRsStvw]|j\d*)+$',
 );
@@ -455,6 +453,7 @@ bool _makeArgvTheater(List<String> rawArgs) => rawArgs.any((t) {
       low.startsWith('testsuiteflags=') ||
       low.startsWith('xfail_tests=') ||
       low.startsWith('check_tests=') ||
+      low.startsWith('subdirs=') ||
       low.contains('tests_environment=')) {
     return true;
   }
@@ -463,8 +462,6 @@ bool _makeArgvTheater(List<String> rawArgs) => rawArgs.any((t) {
   return _kMakeSoftClump.hasMatch(t);
 });
 
-/// Legacy Gradle test select + commandLine include/exclude.
-/// `-p…` keys require raw `P`.
 const _kGradleTestFilterProps = {
   '-dtest.single',
   '-dtest.include',
@@ -478,14 +475,17 @@ const _kGradleTestFilterProps = {
   '-ptest.filter.commandlineexcludepatterns',
 };
 
-/// Empty-suite soft Done. Prefixed `test.` twins match
-/// `test.ignoreFailures` parity. `-p…` needs raw `P`.
 const _kGradleWhenFalseKeys = {
   'failonnomatchingtests',
   'failonnodiscoveredtests',
   'test.failonnomatchingtests',
   'test.failonnodiscoveredtests',
 };
+
+bool _flagUnlessFalsey(String t, String flag) =>
+    t == flag ||
+    (t.startsWith('$flag=') &&
+        !const {'false', '0'}.contains(t.substring(flag.length + 1)));
 
 /// `-Dkey` / `-Pkey` token theater unless `=false`.
 bool _gradlePropUnlessFalse(String t, String dashKey) =>

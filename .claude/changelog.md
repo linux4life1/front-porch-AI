@@ -17,6 +17,23 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): watch=false full + rspec/phpunit/shard
+- **Why:** Tip a5b2dcd1 over-theatered `jest --watchAll=false` /
+  `--watch=false` / `--watchAll=0` (CI full suite) and still
+  receipted rspec `--pattern=` / `-P=`, phpunit `--uses=`,
+  dart/flutter `--total-shards` / `--shard-index`, pytest
+  `--looponfail` / `-f`, jest `--changedFilesWithAncestor`,
+  and `make test SUBDIRS=`.
+- **What:** Same path. Watch flags theater unless `=false`/`=0`
+  (`_flagUnlessFalsey`, JS hosts share `_kJsFailedOnly`).
+  rspec `--pattern`/`--exclude-pattern`/`-P`; phpunit `--uses`;
+  dart/flutter shard prefixes; pytest loop-on-fail (runner
+  `-f`); JS `--changedfileswithancestor`; Make `SUBDIRS=`.
+  Bare hosts / `make test` / `jest --watchAll=false` stay full.
+- **Files:** `waifu_verify_theater.dart`, `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): rspec tag + JS shard/watch + go fuzz
 - **Why:** Tip 24c0f315 still receipted `rspec --tag=slow` / `-t`,
   `phpunit -g=` / `--order-by=` / `--covers=`, `jest --watch` /

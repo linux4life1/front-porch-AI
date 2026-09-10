@@ -66,23 +66,18 @@ bool _verifyTheater(String command) {
 bool _isTheaterFlag(String w) {
   if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
   if (_mavenSkipProperty(w) || _polyglotSoftDone(w)) return true;
-  if (w == '--co' ||
-      w == '--listtests' ||
-      w == '--listtestfiles' ||
-      w == '--just-print' ||
-      w == '--recon') {
+  if (const {
+    '--co',
+    '--listtests',
+    '--listtestfiles',
+    '--just-print',
+    '--recon',
+  }.contains(w)) {
     return true;
   }
-  return w.startsWith('--show-only') ||
-      w.startsWith('--collect-only') ||
-      w.startsWith('--list-tests') ||
-      w.startsWith('--list-suites') ||
-      w.startsWith('--list-groups') ||
-      w.startsWith('--no-run') ||
-      w.startsWith('--question') ||
-      w.startsWith('--dry-run') ||
-      w.startsWith('--dryrun') ||
-      w.startsWith('--dry_run');
+  return '--show-only,--collect-only,--list-tests,--list-suites,--list-groups,--no-run,--question,--dry-run,--dryrun,--dry_run,--total-shards,--shard-index'
+      .split(',')
+      .any(w.startsWith);
 }
 
 bool _mavenSkipProperty(String w) {
@@ -181,13 +176,13 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'gradle': {'--tests'},
   'dotnet': {'--filter'},
   'swift': {'--filter', '--skip'},
-  'pytest': {'-k', '--keyword', '-m', '--sw', '--stepwise'},
+  'pytest': {'-k', '--keyword', '-m', '--sw', '--stepwise', '--looponfail'},
   'flutter': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'dart': {'--name', '--plain-name', '--tags', '--exclude-tags', '-t', '-x'},
   'jest': {'-t', '--testnamepattern', '--testpathpattern'},
   'vitest': {'-t', '--testnamepattern', '--testpathpattern'},
   'phpunit': {'--filter', '--testsuite', '--group', '--exclude-group'},
-  'rspec': {'-e', '--example', '--tag', '-t'},
+  'rspec': {'-e', '--example', '--tag', '-t', '--pattern', '--exclude-pattern'},
   'npm': {'-t', '--testnamepattern', '--testpathpattern'},
   'pnpm': {'-t', '--testnamepattern', '--testpathpattern'},
   'yarn': {'-t', '--testnamepattern', '--testpathpattern'},
@@ -214,13 +209,14 @@ const _kJsFailedOnly = {
   '--shard',
   '--project',
   '--selectprojects',
+  '--changedfileswithancestor',
 };
 const _kFailedOnlyFlags = <String, Set<String>>{
-  'pytest': {'--lf', '--last-failed', '--ff', '--failed-first'},
-  'phpunit': {'-g', '--order-by', '--covers'},
+  'pytest': {'--lf', '--last-failed', '--ff', '--failed-first', '-f'},
+  'phpunit': {'-g', '--order-by', '--covers', '--uses'},
   'jest': _kJsFailedOnly,
   'vitest': _kJsFailedOnly,
-  'rspec': {'--only-failures', '--next-failure', '-n'},
+  'rspec': {'--only-failures', '--next-failure', '-n', '-P'},
   'npm': _kJsFailedOnly,
   'pnpm': _kJsFailedOnly,
   'yarn': _kJsFailedOnly,
@@ -282,7 +278,12 @@ const _kCargoClippySubsetFlags = {
 bool _runnerFilterTheater(String cmd, List<String> args) {
   final failedOnly = _failedOnlyFor(cmd);
   if (failedOnly != null &&
-      args.any((t) => failedOnly.contains(t.split('=').first))) {
+      args.any((t) {
+        final flag = t.split('=').first;
+        return failedOnly.contains(flag) &&
+            ((flag != '--watch' && flag != '--watchall') ||
+                _flagUnlessFalsey(t, flag));
+      })) {
     return true;
   }
   String? flagVal(String name) {

@@ -1740,6 +1740,20 @@ void main() {
       'npm test -- --selectProjects=unit',
       'pytest --sw',
       'pytest --stepwise',
+      'pytest --looponfail',
+      'pytest -f',
+      'rspec --pattern=spec/models',
+      'rspec --exclude-pattern=slow',
+      'rspec -P=foo',
+      'phpunit --uses=Foo',
+      'phpunit --uses Foo',
+      'flutter test --total-shards=3',
+      'flutter test --shard-index=0',
+      'dart test --total-shards=3 --shard-index=1',
+      'jest --changedFilesWithAncestor',
+      'jest --watch=true',
+      'jest --watchAll=',
+      'make test SUBDIRS=foo',
       './gradlew test -Dtest.failOnNoMatchingTests=false',
       './gradlew test -Dtest.failOnNoDiscoveredTests=false',
       './gradlew test -Ptest.failOnNoMatchingTests=false',
@@ -1907,6 +1921,12 @@ void main() {
     expect(waifuLooksVerifyCommand('ctest --no-tests=error'), isTrue);
     expect(waifuLooksVerifyCommand('pytest'), isTrue);
     expect(waifuLooksVerifyCommand('jest'), isTrue);
+    expect(waifuLooksVerifyCommand('jest --watchAll=false'), isTrue);
+    expect(waifuLooksVerifyCommand('jest --watch=false'), isTrue);
+    expect(waifuLooksVerifyCommand('jest --watchAll=0'), isTrue);
+    expect(waifuLooksVerifyCommand('npm test -- --watchAll=false'), isTrue);
+    expect(waifuLooksVerifyCommand('npm run test -- --watchAll=false'), isTrue);
+    expect(waifuLooksVerifyCommand('vitest --watch=false'), isTrue);
     expect(waifuLooksVerifyCommand('rspec'), isTrue);
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('pnpm test'), isTrue);
