@@ -370,11 +370,12 @@ List<String> greetingSlotsFromRaw(Object? raw) {
 }
 
 /// Pad / trim so [seeds] is the same length as the alternate-greetings list.
+/// Always growable — editors append on Add (`const []` crashes first alt).
 List<GreetingRealismSeed?> alignGreetingSeeds(
   List<GreetingRealismSeed?> seeds,
   int altCount,
 ) {
-  if (altCount <= 0) return const [];
+  if (altCount <= 0) return <GreetingRealismSeed?>[];
   if (seeds.length == altCount) return List<GreetingRealismSeed?>.from(seeds);
   if (seeds.length > altCount) {
     return seeds.sublist(0, altCount);

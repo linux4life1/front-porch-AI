@@ -1,3 +1,16 @@
+## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
+- **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable
+  list`. `alignGreetingSeeds` returned `const []` when the card had no alts,
+  and the editor then `_altGreetingSeeds.add(null)`. Same path in the group
+  alt-greetings editor and the AI creator review step.
+- **What:** Empty align result is a growable list. Guards: unit + Edit Character
+  tap + group editor tap.
+- **Files:** `greeting_realism_seed.dart`,
+  `greeting_align_growable_test.dart`,
+  `edit_character_add_greeting_test.dart`,
+  `group_alternate_greetings_editor_test.dart`
+- **Commit:** (uncommitted)
+
 ## 2026-09-10 — fix(waifu): /tmp inspect is not a disk wipe; wrap-up is not a harness essay
 - **Why:** Whole-disk `mkdir /tmp/epub_inspect && rm -r META-INF` treated
   every path in the `&&` chain as `rm -r` of that path, so /tmp mkdir was
