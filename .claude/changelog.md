@@ -43,6 +43,134 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): Belt B harness fidelity — queue photos, ledger, nested ok
+- **Why:** Belt A told the truth about wrap-up and verify. Belt B rips the
+  remaining lying harness contracts: the follow-up queue dropped photo
+  bytes, compact recaps could invent paths, prune stripped tool args,
+  nested `task` always said ok, plan discover activated discarded mtime
+  winners, and the fuse hid its reason on a chip.
+- **What:** Queue holds `{text, imagePng?, imagePath?}` and drain restores
+  `_turnImages`. Every fold injects a non-LLM machine ledger (paths,
+  verify commands as-run, plan pin, todos); prune keeps path+status+args.
+  Generate still meters serialized OpenAI messages. Provider `tool_call`
+  ids persist when present. Child `ok` follows child receipts; children
+  share parent todos; `run-plan-step` injects the next step verbatim;
+  workflow docs say serial. Discover prefers accepted, never discarded;
+  pin beats mtime. Fuse reason is spoken; empty wrap after retries fails.
+  Leftover wrap-up `tool_calls` use the same `onEmptyCalls` authority —
+  no remembered-speech theater. Catch/abort tool history keeps the same
+  args as success (no rebuild `{}`). Attach/drop stay live while she is
+  working so a queued follow-up can carry a photo. The waiting chip shows
+  a photo mark when bytes ride along. Ledger “verify as-run” keeps the
+  command string that ran and skips theater (`ls` / `echo` / dry-run /
+  `cargo new test` / `:app:dependencies` / `cargo test --no-run` /
+  `mvn -DskipTests` / `mvn test -Dtest=*` / `./mvnw test -Dtest=*` /
+  `mvn test -Dgroups=*` / `-DexcludedGroups=*` /
+  `-Dsurefire.includes=*` / `mvn verify -Dit.test=*` /
+  `./mvnw test -Dgroups=*` / `./mvnw verify -Dit.test=*` /
+  `-DincludesFile=*` / `-DexcludesFile=*` /
+  `-DincludeJUnit5Engines=*` / `-DexcludeJUnit5Engines=*` /
+  `-DsuiteXmlFiles=*` / `=testng.xml` / `-Dsurefire.suiteXmlFiles=` /
+  `-Dfailsafe.suiteXmlFiles=*` / `-DdependenciesToScan=*` /
+  `-DclasspathDependencyExcludes=*` / `-DclasspathDependencyIncludes=*` /
+  `-Dsurefire.classpathDependencyExcludes=*` /
+  `-Dfailsafe.classpathDependencyIncludes=*` /
+  `-Dmaven.test.dependency.excludes=*` /
+  `-DclasspathDependencyScopeExclude=*` /
+  `-DtestClassesDirectory=` / `-DtestSourceDirectory=` /
+  `-Dsurefire.testClassesDirectory=` /
+  `-Dfailsafe.testSourceDirectory=` /
+  `-Dproject.build.testOutputDirectory=` /
+  `-DtestClasspathElements=` /
+  `-DadditionalClasspathElements=` /
+  `-DgeneratedTestSourcesDirectory=` /
+  `-DclassesDirectory=` /
+  `-Dproject.build.outputDirectory=` /
+  `mvn -f other/pom.xml test` / `mvn --file` /
+  `-fother/pom.xml` / `-pl` / `-rf` / `-N` /
+  `-Dproject.build.generatedSourcesDirectory=` /
+  `-s` / `--settings` / `-P` /
+  `-t` / `--toolchains` / `/workspace/module/pom.xml` /
+  `-DtestFailureIgnore=` /
+  `--fail-never` / `-fn` / `-Dmaven.test.error.ignore=` /
+  `D:/a/repo/module/pom.xml` /
+  `D:/a/1/s/module/pom.xml` /
+  `./gradlew test --continue` / `-p other` / `--project-dir` /
+  empty `-p` / `--project-dir=` / `-p=` / `-b other.gradle` /
+  `-c other.settings.gradle` / `--include-build` /
+  `--init-script` / `-I` / `-Dorg.gradle.continue` /
+  `-g` / `--gradle-user-home` /
+  `-DignoreFailures` / `-PignoreFailures` /
+  `-DfailOnNoMatchingTests=false` / `-DfailOnNoDiscoveredTests=false` /
+  `-Dtest.single` / `-Dtest.include` /
+  `-Ptest.single` / `-Ptest.include` /
+  `-DfailIfNoTests=false` /
+  `make -i` / `make -k` / `--ignore-errors` / `--keep-going` /
+  `make -ik` / `make -ki` / `make -ikj2` /
+  `-Dtest.failOnNoMatchingTests=false` /
+  `commandLineIncludePatterns` /
+  `cargo test --no-fail-fast` / `jest --passWithNoTests` /
+  `-b /workspace/module/build.gradle` / `-p /workspace` /
+  `-Dbasedir=` / `-Dbasedir` /
+  `-Dmaven.multiModuleProjectDirectory=` /
+  `/home/vsts/work/1/s/module/pom.xml` /
+  `gradle -x test` / `surefire.skip` /
+  `-x '*Test*'` / name/path filters / `flutter test --name Foo` /
+  `pytest -k=*` / `pytest -m` / `cargo test -p` / `cargo test -p *` /
+  `cargo test --features` / `cargo test -F` / `cargo test --target` /
+  `cargo test --no-default-features` / `cargo test --exclude *` /
+  `cargo test *` / `cargo test -- *` / `cargo test --exact *` /
+  `cargo test --exact=*` / `cargo test -- --exact *` /
+  `cargo test -- --exact=*` / `cargo test -- --ignored` / `-- --skip` /
+  `-- --list` / `-- --exclude-should-panic` / `--lib` / `--bin` /
+  `--doc` / `--bins` / `--workspace` / `--bench` / `--exclude` /
+  `--all` / `cargo clippy --lib` / `--bins` / `--exclude` /
+  `--exclude *` / `--doc` / `--features` / `--features *` / `-F` /
+  `-F=` / `-Ffoo` / `-F*` / `-p *` / `--target` / `--target *` /
+  `--no-default-features` (even with `--workspace`) / `go test ./pkg`
+  / `zig --test-filter *` / `--test-filter=*` / `-Dtest-filter=*`
+  / `-Dtest-filter` / `swift`/`dotnet`/`phpunit`/`deno`/`bun`
+  `--filter *` / `--filter=*`). `mvn verify` /
+  `mvn verify -Dfailsafe.skip`, `mvn test`, `./mvnw test`,
+  `mvn -fae test` / `mvn --fail-at-end` / `mvn -ff test`,
+  `mvn -f pom.xml test` / `mvn --file=pom.xml`,
+  `mvn -f /workspace/pom.xml test`,
+  `mvn -T 1C test`,
+  `mvn -f /home/runner/work/repo/repo/pom.xml test` /
+  `mvn -f /github/workspace/pom.xml` /
+  `mvn -f D:/a/repo/repo/pom.xml test` /
+  `mvn -f D:/a/1/s/pom.xml test` /
+  `mvn -f /home/vsts/work/1/s/pom.xml test`,
+  `./gradlew test --continuous` /
+  `./gradlew test -PenableFoo` /
+  `./gradlew -b build.gradle test` /
+  `./gradlew -b /workspace/build.gradle test` /
+  `./gradlew test -i` /
+  `make test` / `make -I extras` / `make -j8 test`,
+  full-suite `cargo test`, `cargo test --
+  --test-threads` / `--format` / `--shuffle-seed` / `--logfile` /
+  `--include-ignored` / `--nocapture`, `cargo clippy` /
+  `clippy -p foo` / `clippy --package foo` / `clippy --workspace`,
+  `./gradlew test --tests *` / `--tests=*`, `go test -run=*`,
+  `swift test`, `dotnet test`, `phpunit`, `deno test`, `bun test`,
+  `pytest`, `flutter test`, `jest`, `zig build test`, and `zig test`
+  stay as-run. Flags-before-task and `cargo +nightly test` stay in
+  the as-run list. Fold uses the same verify context as ask/tested,
+  so a named `tox -e py` stays as-run. A recap that only names
+  “MACHINE LEDGER” still gets the as-run facts. A lost wrap-up
+  after disk work does not replay remembered tool-step speech.
+- **Files:** `waifu_session.dart`, `waifu_harness.dart`,
+  `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
+  `waifu_harness_spawn.dart`, `waifu_compact.dart`,
+  `waifu_compact_ledger.dart` (NEW), `waifu_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_plan.dart`,
+  `waifu_plan_codec.dart`, `waifu_workflow.dart`, `waifu_composer.dart`,
+  `llm_service.dart`, `llm_tool_parsing.dart`, `openai_tool_stream.dart`,
+  `waifu_belt_b_harness_fidelity_test.dart` (NEW),
+  `waifu_belt_b_queue_photo_test.dart` (NEW),
+  `waifu_belt_b_ledger_context_test.dart` (NEW)
+- **Commit:** f0fb1dd4
+
 ## 2026-09-10 — fix(waifu): --project is JS subset, not global
 - **Why:** Tip ee9089a3 hoisted `--project` into `_isTheaterFlag`,
   so `dotnet test --project Foo.Tests.csproj` (assembly
@@ -863,92 +991,6 @@
 - **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
   `docs/Rawhide.md`
 - **Commit:** 407d79e2
-## 2026-09-10 — fix(waifu): Belt B harness fidelity — queue photos, ledger, nested ok
-- **Why:** Belt A told the truth about wrap-up and verify. Belt B rips the
-  remaining lying harness contracts: the follow-up queue dropped photo
-  bytes, compact recaps could invent paths, prune stripped tool args,
-  nested `task` always said ok, plan discover activated discarded mtime
-  winners, and the fuse hid its reason on a chip.
-- **What:** Queue holds `{text, imagePng?, imagePath?}` and drain restores
-  `_turnImages`. Every fold injects a non-LLM machine ledger (paths,
-  verify commands as-run, plan pin, todos); prune keeps path+status+args.
-  Generate still meters serialized OpenAI messages. Provider `tool_call`
-  ids persist when present. Child `ok` follows child receipts; children
-  share parent todos; `run-plan-step` injects the next step verbatim;
-  workflow docs say serial. Discover prefers accepted, never discarded;
-  pin beats mtime. Fuse reason is spoken; empty wrap after retries fails.
-  Leftover wrap-up `tool_calls` use the same `onEmptyCalls` authority —
-  no remembered-speech theater. Catch/abort tool history keeps the same
-  args as success (no rebuild `{}`). Attach/drop stay live while she is
-  working so a queued follow-up can carry a photo. The waiting chip shows
-  a photo mark when bytes ride along. Ledger “verify as-run”
-  keeps the command string that ran and skips theater (`ls` / `echo` /
-  dry-run / `cargo new test` / `:app:dependencies`). Flags-before-task
-  and `cargo +nightly test` stay in the as-run list.
-  a photo mark when bytes ride along. Ledger “verify as-run” keeps the
-  command string that ran and skips theater (`ls` / `echo` / dry-run /
-  `cargo new test` / `:app:dependencies` / `cargo test --no-run`).
-  Flags-before-task and `cargo +nightly test` stay in the as-run list.
-  `cargo new test` / `:app:dependencies` / `cargo test --no-run` /
-  `mvn -DskipTests` / `gradle -x test`). Flags-before-task and
-  `cargo +nightly test` stay in the as-run list. Fold uses the same
-  verify context as ask/tested, so a named `tox -e py` stays as-run.
-  A recap that only names “MACHINE LEDGER” still gets the as-run facts.
-  A lost wrap-up after disk work does not replay remembered tool-step
-  speech.
-- **Files:** `waifu_session.dart`, `waifu_harness.dart`,
-  `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
-  `waifu_harness_spawn.dart`, `waifu_compact.dart`,
-  `waifu_compact_ledger.dart` (NEW), `waifu_turn.dart`,
-  `waifu_turn_contract.dart`, `waifu_plan.dart`,
-  `waifu_plan_codec.dart`, `waifu_workflow.dart`, `waifu_composer.dart`,
-  `llm_service.dart`, `llm_tool_parsing.dart`, `openai_tool_stream.dart`,
-  `waifu_belt_b_harness_fidelity_test.dart` (NEW),
-  `waifu_belt_b_queue_photo_test.dart` (NEW)
-- **Commit:** cf7d6a3a
-  `waifu_belt_b_queue_photo_test.dart` (NEW),
-  `waifu_belt_b_ledger_context_test.dart` (NEW)
-- **Commit:** 93f1d64f
-
-## 2026-09-10 — fix(waifu): skip/exclude a check is theater
-- **Why:** `mvn test -DskipTests` and `./gradlew build -x test` /
-  `--exclude-task test` skipped the suite then receipted and stamped
-  tested.
-- **What:** Same theater gate. Maven `-DskipTests` /
-  `-Dmaven.test.skip` (not `=false`) join the flag walk. Gradle `-x` /
-  `--exclude-task` is theater only when the excluded token is a known
-  check (`test -x lint` still runs). `go test -exec true` and
-  phpunit `--list-suites` / `--list-groups` join.
-- **Files:** `waifu_verify_theater.dart`,
-  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** 632960d3
-
-## 2026-09-10 — fix(waifu): compile/list without execute is theater
-- **Why:** `cargo test --no-run` (and `+nightly` / `--quiet` variants)
-  compiled or listed without running, then receipted and skipped Build
-  ask.
-- **What:** Same `_verifyTheater` gate. `--no-run`, `--list-tests`,
-  `--listTestFiles`, `--question`, `pytest --co` join the flag walk.
-  `go test -c` and `make -q` are runner-scoped (`pytest -q` still
-  runs). Prior +channel / inventory / dry-run pins stay.
-- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart` (part),
-  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** b0323dbc
-
-## 2026-09-10 — fix(waifu): cargo +channel and Gradle inventory basename
-- **Why:** Subcommand-first treated `+nightly` as the check, so
-  `cargo +nightly test` asked and never stamped. Gradle inventory
-  only matched bare `help`/`dependencies`, so `:app:dependencies`
-  / `app:dependencies` / `:app:help` / `components --configuration
-  test` still receipted.
-- **What:** Same peel + theater. Skip `+toolchain` tokens before the
-  first subcommand. Inventory uses the task basename and treats
-  `--configuration` / `--task` as theater when the task is not a
-  real check (`--configuration-cache` stays a run). `--show-only=`
-  and list-only (`--collect-only`, `--listTests`) join theater.
-- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
-  `docs/Rawhide.md`
-- **Commit:** 407d79e2
 
 ## 2026-09-10 — fix(waifu): dry-run and help do not receipt a check
 - **Why:** `_verifyTheater` only caught `--help` / `--dry-run`. `make -n
@@ -1001,82 +1043,6 @@
 - **Files:** `waifu_verify.dart`, `waifu_plan_codec.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
 - **Commit:** 9c3b59a3
-
-## 2026-09-10 — fix(waifu): gradlew/mvnw peel to gradle/mvn verify
-- **Why:** `./gradlew test` / `./mvnw test` used argv0 `gradlew`/`mvnw`, which
-  was not in the runner map (`gradle`/`mvn` only). BashMutates treated them
-  as mutates → Build ask-spam; `tested` never cleared. Markers emitted
-  `gradle test` / `mvn test`, which did not fulfill the wrapper argv0.
-- **What:** Wrapper binaries peel to the same runner keys as `gradle`/`mvn`
-  (same path as poetry/uv). Fulfill compares canonical argv0 so a `gradle
-  test` marker receipts `./gradlew test`. `rm test` / `grep test` stay false.
-- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
-  `docs/Rawhide.md`
-- **Commit:** 4b080ef6
-
-## 2026-09-10 — fix(waifu): rip argv[1] test theater from Belt A verify
-- **Why:** `_segmentIsTestAnalyze` treated any command whose second token was
-  `test`/`lint`/`check` as a verify. `grep test README.md`, `rm test`,
-  `git test` receipted; `waifuBashMutates` skipped them as non-mutate, so
-  Build did not ask and `rm test` exiting 0 stamped `tested=true`.
-- **What:** One receipt (`waifuLooksVerifyCommand`) for ask and `tested`.
-  Verify is known runners / wrappers / `tsc --noEmit` / cmake `--target
-  test` / step.verify / user-named / repo markers. Never “argv[1] is test.”
-  Small deny list: echo/ls/help/dry-run/build-without-test, plus Unix
-  utilities (`rm`, `grep`, `git`, …) that cannot fulfill even if quoted.
-- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart` (NEW),
-## 2026-09-10 — fix(waifu): scan runner argv for the check task
-- **Why:** `_segmentIsKnownCheck` required `peeled.words[1]` to be the
-  check. `make -j8 test`, `make -C build test`, `./gradlew :app:test`,
-  `testDebugUnitTest`, `gradle check`, and `mvn verify` failed receipt
-  and still `needsAsk`. Named `make test` did not fulfill `make -j8 test`.
-- **What:** After the same peel+alias, scan non-flag tokens for the
-  runner’s known checks. Gradle also accepts `:module:test`,
-  `test*UnitTest`, and `check`. Maven adds `verify`. Fulfill matches the
-  named task after flags. `rm test` / `make build` / `./gradlew build`
-  stay false.
-- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
-  `docs/Rawhide.md`
-- **Commit:** 5d1b8e46
-
-## 2026-09-10 — fix(waifu): make/ruff/JS exec join the one verify peel
-- **Why:** Real Android/Java/C still babysat: `make test`, `ruff check`, and
-  `yarn exec jest` / `npm exec jest` were not in the runner/peel path.
-  Named/step `gradle test` must keep fulfilling `./gradlew test`; the
-  wrapper cue must emit `./gradlew test` when the script is present.
-- **What:** Same runner map + peel: `make` `{test,check,lint}`, `ruff`
-  `{check}`, JS hosts peel `exec` like `run` (exec is a binary, not a
-  package script). Makefile marker emits `make test`. Plan digest cue is
-  re-read AND test/analyze. `rm test` / `grep test` stay false.
-- **Files:** `waifu_verify.dart`, `waifu_plan_codec.dart`,
-  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** 9c3b59a3
-## 2026-09-10 — fix(waifu): Belt B harness fidelity — queue photos, ledger, nested ok
-- **Why:** Belt A told the truth about wrap-up and verify. Belt B rips the
-  remaining lying harness contracts: the follow-up queue dropped photo
-  bytes, compact recaps could invent paths, prune stripped tool args,
-  nested `task` always said ok, plan discover activated discarded mtime
-  winners, and the fuse hid its reason on a chip.
-- **What:** Queue holds `{text, imagePng?, imagePath?}` and drain restores
-  `_turnImages`. Every fold injects a non-LLM machine ledger (paths,
-  verify commands as-run, plan pin, todos); prune keeps path+status+args.
-  Generate still meters serialized OpenAI messages. Provider `tool_call`
-  ids persist when present. Child `ok` follows child receipts; children
-  share parent todos; `run-plan-step` injects the next step verbatim;
-  workflow docs say serial. Discover prefers accepted, never discarded;
-  pin beats mtime. Fuse reason is spoken; empty wrap after retries fails.
-  Catch/abort tool history keeps the same args as success (no rebuild `{}`).
-  Attach/drop stay live while she is working so a queued follow-up can
-  carry a photo. Ledger “verify as-run” keeps the command string that
-  ran and skips theater (`ls` / `echo`).
-- **Files:** `waifu_session.dart`, `waifu_harness.dart`,
-  `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
-  `waifu_harness_spawn.dart`, `waifu_compact.dart`,
-  `waifu_compact_ledger.dart` (NEW), `waifu_turn.dart`, `waifu_plan.dart`,
-  `waifu_plan_codec.dart`, `waifu_workflow.dart`, `waifu_composer.dart`,
-  `llm_service.dart`, `llm_tool_parsing.dart`, `openai_tool_stream.dart`,
-  `waifu_belt_b_harness_fidelity_test.dart` (NEW)
-- **Commit:** 81bcfe2d
 
 ## 2026-09-10 — fix(waifu): gradlew/mvnw peel to gradle/mvn verify
 - **Why:** `./gradlew test` / `./mvnw test` used argv0 `gradlew`/`mvnw`, which
