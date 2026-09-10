@@ -22,7 +22,7 @@
   `waifu_verify_theater.dart`, `waifu_page.dart`,
   `waifu_wizard_sit_down_step.dart`,
   `waifu_path_mode_switch_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** b01fa382
 
 ## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
 - **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable
