@@ -20,7 +20,7 @@
   No second club.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** ef42b6f6
 
 ## 2026-09-10 — fix(waifu): clippy glued -FVALUE is theater
 - **Why:** Clap accepts `-Ffoo` / `-Fserde` as `-F VALUE`. After lower
