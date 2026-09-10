@@ -73,6 +73,7 @@ bool _verifyTheater(String command) {
 bool _isTheaterFlag(String w) {
   if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
   if (_mavenSkipProperty(w)) return true;
+  if (_polyglotSoftDone(w)) return true;
   if (w == '--co' ||
       w == '--listtests' ||
       w == '--listtestfiles' ||

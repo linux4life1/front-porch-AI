@@ -1570,6 +1570,22 @@ void main() {
       './gradlew test -PignoreFailures=true',
       './gradlew test -DignoreFailures',
       './gradlew test -DignoreFailures=',
+      './gradlew test -DfailOnNoMatchingTests=false',
+      './gradlew test -PfailOnNoMatchingTests=false',
+      './gradlew test -DfailOnNoMatchingTests',
+      './gradlew test -DfailOnNoMatchingTests=',
+      './gradlew test -Dtest.single=Foo',
+      './gradlew test -Dtest.single',
+      './gradlew test -Dtest.single=',
+      './gradlew test -DfailOnNoDiscoveredTests=false',
+      './gradlew test -PfailOnNoDiscoveredTests=false',
+      './gradlew test -DfailOnNoDiscoveredTests',
+      './gradlew test -Dtest.include=Foo',
+      './gradlew test -Dtest.exclude=Bar',
+      './gradlew test -Dtest.include=',
+      'cargo test --no-fail-fast',
+      'jest --passWithNoTests',
+      'npm test -- --passWithNoTests',
       'mvn -f /home/vsts/work/1/s/module/pom.xml test',
       'mvn test -Dmaven.multiModuleProjectDirectory=/other',
       'mvn test -Dsession.executionRootDirectory=/other',
@@ -1677,6 +1693,21 @@ void main() {
       waifuLooksVerifyCommand('./gradlew test -Dtest.ignoreFailures=false'),
       isTrue,
     );
+    expect(
+      waifuLooksVerifyCommand('./gradlew test -DfailOnNoMatchingTests=true'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('./gradlew test -PfailOnNoMatchingTests=true'),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('./gradlew test -DfailOnNoDiscoveredTests=true'),
+      isTrue,
+    );
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('npm test'), isTrue);
+    expect(waifuLooksVerifyCommand('jest'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         'mvn -f /home/runner/work/repo/repo/pom.xml test',

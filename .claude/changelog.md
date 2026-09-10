@@ -10,6 +10,22 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): empty-suite / test.single / cargo no-fail-fast
+- **Why:** Tip d93560fa still receipted
+  `-DfailOnNoMatchingTests=false` / `-DfailOnNoDiscoveredTests=false`
+  (empty-suite soft), `-Dtest.single` / `include` / `exclude`
+  (legacy filter), `cargo test --no-fail-fast`, and
+  `jest --passWithNoTests`.
+- **What:** Same `_verifyTheater` path. Gradle inverted floor
+  `_gradlePropWhenFalse` for matching/discovered (`-D`/`-P`).
+  `-Dtest.single` / `include` / `exclude` are presence filter.
+  `_polyglotSoftDone` theaters cargo `--no-fail-fast` and jest
+  `--passWithNoTests` (npm `--` too). `=true` matching/discovered
+  and ignoreFailures `=false` stay full. VIP `--tests *` unchanged.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Gradle -g / ignoreFailures theater
 - **Why:** Tip 61aa7d08 still receipted `-g` / `--gradle-user-home`
   (init.d inject without `-I` in argv) and
