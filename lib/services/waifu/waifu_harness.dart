@@ -23,6 +23,7 @@ import 'dart:typed_data';
 import 'package:front_porch_ai/services/services.dart' show LlmToolResponse;
 import 'package:front_porch_ai/services/waifu/waifu_bash.dart';
 import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
+import 'package:front_porch_ai/services/waifu/waifu_compact_ledger.dart';
 import 'package:front_porch_ai/services/waifu/waifu_coworker_prompt.dart';
 import 'package:front_porch_ai/services/waifu/waifu_fs.dart';
 import 'package:front_porch_ai/services/waifu/waifu_honesty.dart';
@@ -129,6 +130,7 @@ class WaifuHarness {
   String _mentionBlock = '';
   String _planBlock = '';
   List<String>? _turnImages;
+  String? _toolCallId;
   final _children = <WaifuHarness>[];
   late WaifuTurn _turn;
   var _hasTurn = false;
@@ -180,7 +182,13 @@ class WaifuHarness {
     var text = task.trim();
     if (text.isEmpty && imagePng == null) return;
     if (session.running) {
-      session.queued.add(text.isEmpty ? '(photo)' : text);
+      session.queued.add(
+        WaifuQueuedFollowUp(
+          text: text.isEmpty ? '(photo)' : text,
+          imagePng: imagePng,
+          imagePath: imagePath,
+        ),
+      );
       _emit();
       return;
     }
@@ -236,7 +244,7 @@ class WaifuHarness {
     }
     if (_aborted || session.queued.isEmpty) return;
     final next = session.queued.removeAt(0);
-    await send(next);
+    await send(next.text, imagePng: next.imagePng, imagePath: next.imagePath);
   }
 
   /// `/compact`. Always remeters. Folds older turns and stubs old tools
@@ -274,7 +282,12 @@ class WaifuHarness {
     _emit();
   }
 
-  Future<void> _runTool(String name, Map<String, dynamic> args) async {
+  Future<void> _runTool(
+    String name,
+    Map<String, dynamic> args, {
+    String? callId,
+  }) async {
+    _toolCallId = callId;
     permissions.mode = session.mode;
     permissions.pathMode = session.pathMode;
     final call = WaifuCall.parse(
@@ -386,6 +399,7 @@ class WaifuHarness {
     } catch (e) {
       _reject(canon, '$e');
     } finally {
+      _toolCallId = null;
       _settlePendingChip(canon);
     }
   }

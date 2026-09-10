@@ -942,6 +942,29 @@
   `docs/Rawhide.md`
 - **Commit:** 8ff32027
 
+## 2026-09-10 — fix(waifu): Belt B harness fidelity — queue photos, ledger, nested ok
+- **Why:** Belt A told the truth about wrap-up and verify. Belt B rips the
+  remaining lying harness contracts: the follow-up queue dropped photo
+  bytes, compact recaps could invent paths, prune stripped tool args,
+  nested `task` always said ok, plan discover activated discarded mtime
+  winners, and the fuse hid its reason on a chip.
+- **What:** Queue holds `{text, imagePng?, imagePath?}` and drain restores
+  `_turnImages`. Every fold injects a non-LLM machine ledger (paths,
+  verify commands as-run, plan pin, todos); prune keeps path+status+args.
+  Generate still meters serialized OpenAI messages. Provider `tool_call`
+  ids persist when present. Child `ok` follows child receipts; children
+  share parent todos; `run-plan-step` injects the next step verbatim;
+  workflow docs say serial. Discover prefers accepted, never discarded;
+  pin beats mtime. Fuse reason is spoken; empty wrap after retries fails.
+- **Files:** `waifu_session.dart`, `waifu_harness.dart`,
+  `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
+  `waifu_harness_spawn.dart`, `waifu_compact.dart`,
+  `waifu_compact_ledger.dart` (NEW), `waifu_turn.dart`, `waifu_plan.dart`,
+  `waifu_plan_codec.dart`, `waifu_workflow.dart`, `waifu_composer.dart`,
+  `llm_service.dart`, `llm_tool_parsing.dart`, `openai_tool_stream.dart`,
+  `waifu_belt_b_harness_fidelity_test.dart` (NEW)
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Belt A ask and tested share one verify context
 - **Why:** `noteResult` marked `tested` with `WaifuVerifyContext` (step.verify /
   named / markers), but `waifuBashMutates` called `waifuLooksVerifySegment`

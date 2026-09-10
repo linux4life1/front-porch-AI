@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
+import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
 import 'package:path/path.dart' as p;
 
@@ -67,6 +68,58 @@ WaifuWorkflow waifuBuiltinRunPlanStepWorkflow() => const WaifuWorkflow(
   ],
 );
 
+/// Inject the next open step's id / files / verify verbatim. No pending
+/// step keeps the generic polyglot builtin.
+WaifuWorkflow waifuMaterializeRunPlanStepWorkflow(WaifuPlan? plan) {
+  final step = waifuNextPendingPlanStep(plan);
+  if (step == null) return waifuBuiltinRunPlanStepWorkflow();
+  final files = step.files.isEmpty
+      ? '  (none listed)'
+      : step.files.map((f) => '  - $f').join('\n');
+  final verify = step.verify.trim();
+  return WaifuWorkflow(
+    name: kWaifuBuiltinRunPlanStep,
+    description: kWaifuBuiltinRunPlanStepDescription,
+    steps: [
+      WaifuWorkflowStep(
+        agents: [
+          WaifuWorkflowAgent(
+            subagent: 'general',
+            prompt:
+                'Execute accepted-plan step ${step.id} verbatim.\n'
+                'id: ${step.id}\n'
+                'title: ${step.title}\n'
+                'detail: ${step.detail}\n'
+                'files:\n$files\n'
+                'verify: ${verify.isEmpty ? '(none written)' : verify}\n'
+                'Read the listed files, then put the change on disk with '
+                'write, edit, or apply_patch. Do not mark the step done yet.',
+          ),
+        ],
+      ),
+      WaifuWorkflowStep(
+        agents: [
+          WaifuWorkflowAgent(
+            subagent: 'general',
+            prompt: verify.isEmpty
+                ? waifuBuiltinRunPlanStepWorkflow()
+                      .steps
+                      .last
+                      .agents
+                      .single
+                      .prompt
+                : 'Verify step ${step.id} with this command as written:\n'
+                      '$verify\n'
+                      'Re-read every touched path AND run that verify command. '
+                      'Do not substitute another stack. Do not claim the step '
+                      'done without both receipts.',
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
 /// JSON pipelines, not Grok's Rhai dialect.
 final kWaifuWorkflowToolSchema = <String, dynamic>{
   'type': 'function',
@@ -75,8 +128,9 @@ final kWaifuWorkflowToolSchema = <String, dynamic>{
     'description':
         'List or run a JSON workflow from $kWaifuWorkflowDir. '
         'Omit name to list. Each step is one nested explore/general agent, '
-        'or a parallel list. A step may delegate one more bounded task layer. '
-        'Not a Rhai script.',
+        'or a list of agents run one after another (serial until a real '
+        'parallel engine exists). A step may delegate one more bounded '
+        'task layer. Not a Rhai script.',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -104,6 +158,8 @@ class WaifuWorkflowStep {
   const WaifuWorkflowStep({required this.agents});
 
   final List<WaifuWorkflowAgent> agents;
+
+  /// JSON may list several agents; they still run in series today.
   bool get isParallel => agents.length > 1;
 }
 
@@ -160,8 +216,9 @@ String waifuWorkflowListing(List<WaifuWorkflowInfo> items) {
   if (items.isEmpty) {
     return 'No saved workflows. Drop a JSON file in $kWaifuWorkflowDir '
         '(name, description, steps). Each step is '
-        '{subagent: explore|general, prompt} or {parallel: [...]}. '
-        '{{prev}} is the previous step output. Not a Rhai script.';
+        '{subagent: explore|general, prompt} or {parallel: [...]} '
+        '(serial today). {{prev}} is the previous step output. '
+        'Not a Rhai script.';
   }
   final buf = StringBuffer('Saved workflows:\n');
   for (final i in items) {

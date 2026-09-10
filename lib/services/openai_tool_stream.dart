@@ -108,7 +108,7 @@ class OpenAiToolStreamParser {
           if (decoded is Map) args = Map<String, dynamic>.from(decoded);
         } catch (_) {}
       }
-      calls.add(LlmToolCall(name: slot.name, arguments: args));
+      calls.add(LlmToolCall(name: slot.name, arguments: args, id: slot.id));
     }
     return LlmToolResponse(
       calls: calls,

@@ -37,7 +37,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('waifu-composer')), 'next job');
     await tester.tap(find.byKey(const Key('waifu-send')));
     await tester.pump();
-    expect(session.queued, ['next job']);
+    expect(session.queued.map((e) => e.text), ['next job']);
     expect(find.byKey(const Key('waifu-queued-0')), findsOneWidget);
     expect(find.text('next job'), findsWidgets);
   });

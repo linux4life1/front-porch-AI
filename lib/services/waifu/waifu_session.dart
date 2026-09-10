@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:typed_data';
+
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_lang_runtime.dart';
@@ -191,6 +193,19 @@ class WaifuMessage {
   }
 }
 
+/// One follow-up waiting behind a live send. Photos ride with the text.
+class WaifuQueuedFollowUp {
+  const WaifuQueuedFollowUp({
+    required this.text,
+    this.imagePng,
+    this.imagePath,
+  });
+
+  final String text;
+  final Uint8List? imagePng;
+  final String? imagePath;
+}
+
 /// In-memory Waifu Coder session. Not a chat `sessions` row.
 class WaifuSession {
   WaifuSession({
@@ -232,7 +247,8 @@ class WaifuSession {
   bool running = false;
 
   /// Follow-ups typed while a turn is running. Drained after that turn.
-  final queued = <String>[];
+  /// Holds the photo bytes too — text-only used to drop the screenshot.
+  final queued = <WaifuQueuedFollowUp>[];
   bool mcpOptIn;
   bool preserveThinking;
 

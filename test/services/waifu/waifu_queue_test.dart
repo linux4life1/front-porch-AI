@@ -36,7 +36,7 @@ void main() {
     }
     expect(session.running, isTrue);
     await harness.send('second');
-    expect(session.queued, ['second']);
+    expect(session.queued.map((e) => e.text), ['second']);
     expect(session.transcript.where((m) => m.isUser).map((m) => m.text), [
       'first',
     ]);

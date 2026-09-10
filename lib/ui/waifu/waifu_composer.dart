@@ -120,7 +120,7 @@ class WaifuComposer extends StatelessWidget {
                     InputChip(
                       key: Key('waifu-queued-$i'),
                       label: Text(
-                        session.queued[i],
+                        session.queued[i].text,
                         overflow: TextOverflow.ellipsis,
                       ),
                       onDeleted: onQueueChanged == null

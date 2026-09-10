@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/services/waifu/waifu_fs.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
+import 'package:front_porch_ai/services/waifu/waifu_stream.dart';
 import 'package:front_porch_ai/services/waifu/waifu_turn_contract.dart';
 
 enum WaifuPhase { tools, verify, speak, done }
@@ -27,10 +28,15 @@ enum WaifuTurnStep { accept, retry, fail }
 
 /// Nested explore/general result. Parent [absorbChild]s [turn].
 class WaifuTurnReceipt {
-  const WaifuTurnReceipt({required this.speech, required this.turn});
+  const WaifuTurnReceipt({
+    required this.speech,
+    required this.turn,
+    this.ok = true,
+  });
 
   final String speech;
   final WaifuTurn turn;
+  final bool ok;
 }
 
 /// One send: live bubble + receipts + phase. Wrap-up is receipts, not English.
@@ -125,6 +131,16 @@ class WaifuTurn {
 
   String failureLine(String body) => contract.failureLine(body);
 
+  /// Porch line when the step fuse fires. Reason first — not a generic
+  /// wrap-up with the fuse buried on a chip.
+  String fuseSpeech() {
+    failReason = 'runaway fuse stopped this turn';
+    final tail = mutationSucceeded
+        ? 'The work reached disk, but I lost the words for the porch report.'
+        : kWaifuStuckWrap;
+    return '$failReason. $tail';
+  }
+
   /// Empty-calls wrap-up. Sole authority — no decideFinal, no generic Done.
   WaifuTurnStep onEmptyCalls(
     String body, {
@@ -154,18 +170,12 @@ class WaifuTurn {
       return WaifuTurnStep.fail;
     }
     if (trimmed.isEmpty || (generic && successfulTool)) {
-      if (canUseRememberedSpeech) {
-        pendingSpeech = rememberedSpeech;
-        phase = WaifuPhase.done;
-        contract.noteWrapUpAccepted();
-        return WaifuTurnStep.accept;
-      }
       if (canRetrySpeech) {
         requestSpeech();
         return WaifuTurnStep.retry;
       }
       failReason = 'no in-character spoken wrap-up';
-      pendingSpeech = failureLine(body);
+      pendingSpeech = kWaifuStuckWrap;
       phase = WaifuPhase.done;
       return WaifuTurnStep.fail;
     }
