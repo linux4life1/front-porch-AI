@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): gradlew/mvnw peel to gradle/mvn verify
+- **Why:** `./gradlew test` / `./mvnw test` used argv0 `gradlew`/`mvnw`, which
+  was not in the runner map (`gradle`/`mvn` only). BashMutates treated them
+  as mutates → Build ask-spam; `tested` never cleared. Markers emitted
+  `gradle test` / `mvn test`, which did not fulfill the wrapper argv0.
+- **What:** Wrapper binaries peel to the same runner keys as `gradle`/`mvn`
+  (same path as poetry/uv). Fulfill compares canonical argv0 so a `gradle
+  test` marker receipts `./gradlew test`. `rm test` / `grep test` stay false.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): rip argv[1] test theater from Belt A verify
 - **Why:** `_segmentIsTestAnalyze` treated any command whose second token was
   `test`/`lint`/`check` as a verify. `grep test README.md`, `rm test`,

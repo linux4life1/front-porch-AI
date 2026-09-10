@@ -43,6 +43,8 @@ class WaifuVerifyContext {
 }
 
 /// Runner → check subcommands only. `grep test` / `rm test` are not here.
+/// Wrapper binaries (`gradlew`, `mvnw`) peel to these keys — not a
+/// second map.
 const _kRunnerChecks = <String, Set<String>>{
   'cargo': {'test', 'clippy'},
   'go': {'test'},
@@ -60,6 +62,10 @@ const _kRunnerChecks = <String, Set<String>>{
   'bun': {'test', 'lint'},
   'deno': {'test', 'lint'},
 };
+
+/// Project wrapper argv0 → the runner key in [_kRunnerChecks].
+/// Same spirit as `poetry run` / `uv run`: the binary *is* the runner.
+const _kRunnerAliases = {'gradlew': 'gradle', 'mvnw': 'mvn'};
 
 const _kCheckBins = {
   'pytest',
@@ -186,8 +192,12 @@ Future<List<String>> waifuVerifyMarkerCommands(String root) async {
     out.addAll(['dart test', 'dart analyze', 'flutter test']);
   }
   if (await has('pom.xml')) out.add('mvn test');
+  if (await has('mvnw') || await has('mvnw.cmd')) out.add('./mvnw test');
   if (await has('build.gradle') || await has('build.gradle.kts')) {
     out.add('gradle test');
+  }
+  if (await has('gradlew') || await has('gradlew.bat')) {
+    out.add('./gradlew test');
   }
   if (await has('mix.exs')) out.add('mix test');
   if (await has('Gemfile')) out.add('rspec');
@@ -297,24 +307,28 @@ bool _isTscNoEmit(List<String> words) {
 }
 
 ({List<String> words, bool fromPackageRun}) _peelWrappers(List<String> words) {
+  var out = words;
+  var fromPackageRun = false;
   final cmd = _base(words.first);
   if (const {'python', 'python3', 'py'}.contains(cmd) &&
       words.length > 2 &&
       words[1] == '-m') {
-    return (words: words.sublist(2), fromPackageRun: false);
-  }
-  if (_kJsHosts.contains(cmd) && words.length > 2 && words[1] == 'run') {
-    return (words: words.sublist(2), fromPackageRun: true);
-  }
-  if (cmd == 'npx' && words.length > 1) {
-    return (words: words.sublist(1), fromPackageRun: false);
-  }
-  if (_kEnvHosts.contains(cmd) &&
+    out = words.sublist(2);
+  } else if (_kJsHosts.contains(cmd) && words.length > 2 && words[1] == 'run') {
+    out = words.sublist(2);
+    fromPackageRun = true;
+  } else if (cmd == 'npx' && words.length > 1) {
+    out = words.sublist(1);
+  } else if (_kEnvHosts.contains(cmd) &&
       words.length > 2 &&
       (words[1] == 'run' || words[1] == 'exec')) {
-    return (words: words.sublist(2), fromPackageRun: false);
+    out = words.sublist(2);
   }
-  return (words: words, fromPackageRun: false);
+  if (out.isNotEmpty) {
+    final key = _runnerKey(out.first);
+    if (key != out.first) out = [key, ...out.skip(1)];
+  }
+  return (words: out, fromPackageRun: fromPackageRun);
 }
 
 bool _commandFulfills(String command, String expected) {
@@ -327,6 +341,7 @@ bool _commandFulfills(String command, String expected) {
     return false;
   }
   if (command == want) return true;
+  final wantCanon = _peelWrappers(wantWords).words;
   for (final segment in _segments(command)) {
     final got = segment.trim();
     if (got.isEmpty) continue;
@@ -339,7 +354,7 @@ bool _commandFulfills(String command, String expected) {
     }
     if (got == want || got.startsWith('$want ')) return true;
     final peeled = _peelWrappers(words);
-    if (_wordsStartWith(peeled.words, wantWords) ||
+    if (_wordsStartWith(peeled.words, wantCanon) ||
         _wordsStartWith(words, wantWords)) {
       return true;
     }
@@ -355,7 +370,17 @@ bool _wordsStartWith(List<String> words, List<String> prefix) {
   return true;
 }
 
-String _base(String cmd) => cmd.contains('/') ? cmd.split('/').last : cmd;
+String _base(String cmd) => p.basename(cmd.replaceAll('\\', '/'));
+
+/// `./gradlew` / `mvnw.cmd` → `gradle` / `mvn`. Identity for real runners.
+String _runnerKey(String cmd) {
+  var name = _base(cmd);
+  if (name.endsWith('.bat') || name.endsWith('.cmd')) {
+    final dot = name.lastIndexOf('.');
+    if (dot > 0) name = name.substring(0, dot);
+  }
+  return _kRunnerAliases[name] ?? name;
+}
 
 bool _denyCmd(String cmd) => _kDenyCmds.contains(_base(cmd));
 

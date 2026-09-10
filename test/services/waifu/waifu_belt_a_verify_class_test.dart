@@ -123,6 +123,44 @@ void main() {
     expect(tsc.tested, isTrue);
   });
 
+  test('gradlew/mvnw wrappers are gradle/mvn for ask and tested', () {
+    const wrappers = [
+      './gradlew test',
+      'gradlew test',
+      './mvnw test',
+      'mvnw test',
+    ];
+    const gradleMarker = WaifuVerifyContext(markers: ['gradle test']);
+    const mvnMarker = WaifuVerifyContext(markers: ['mvn test']);
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in wrappers) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    expect(
+      waifuLooksVerifyCommand('./gradlew test', context: gradleMarker),
+      isTrue,
+    );
+    expect(waifuLooksVerifyCommand('./mvnw test', context: mvnMarker), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew build'), isFalse);
+    expect(waifuLooksVerifyCommand('./mvnw package'), isFalse);
+    expect(waifuLooksVerifyCommand('rm test'), isFalse);
+    expect(waifuLooksVerifyCommand('grep test README.md'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('npm test'), isTrue);
+    expect(waifuLooksVerifyCommand('pytest'), isTrue);
+    expect(waifuLooksVerifyCommand('poetry run pytest'), isTrue);
+    expect(waifuLooksVerifyCommand('bundle exec rspec'), isTrue);
+  });
+
   test('existing cargo/npm/pytest/flutter pins still pass', () {
     expect(waifuLooksVerifyCommand('cargo test'), isTrue);
     expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
