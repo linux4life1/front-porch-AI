@@ -921,4 +921,40 @@ void main() {
       isFalse,
     );
   });
+
+  test(
+    'clippy --exclude and --doc are theater even with workspace expanders',
+    () {
+      final p = WaifuPermissions(mode: WaifuMode.build);
+      for (final cmd in [
+        'cargo clippy --exclude foo',
+        'cargo clippy --workspace --exclude foo',
+        'cargo clippy --all --exclude bar',
+        'cargo clippy -p foo --exclude bar',
+        'cargo clippy --doc',
+        'cargo clippy --workspace --doc',
+        'cargo clippy --all --doc',
+        'cargo clippy -p foo --doc',
+      ]) {
+        expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+        expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+        expect(
+          p.needsAsk(name: 'bash', args: {'command': cmd}),
+          isTrue,
+          reason: cmd,
+        );
+        final turn = _afterWrites(['mod.rs']);
+        _bash(turn, cmd);
+        expect(turn.tested, isFalse, reason: cmd);
+      }
+      expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
+      expect(waifuLooksVerifyCommand('cargo clippy -p foo'), isTrue);
+      expect(waifuLooksVerifyCommand('cargo clippy --workspace'), isTrue);
+      expect(waifuLooksVerifyCommand('cargo clippy --all'), isTrue);
+      expect(waifuLooksVerifyCommand('cargo clippy --lib'), isFalse);
+      expect(waifuLooksVerifyCommand('cargo clippy --bins'), isFalse);
+      expect(waifuLooksVerifyCommand('cargo test --exclude foo'), isFalse);
+      expect(waifuLooksVerifyCommand('cargo test --all'), isFalse);
+    },
+  );
 }

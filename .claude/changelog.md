@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): clippy --exclude/--doc are theater
+- **Why:** `--exclude` lived only on cargo-test flags, so `cargo clippy
+  --exclude` / `--workspace --exclude` / `--all --exclude` still
+  receipted. `--doc` was leftover soft-true.
+- **What:** Same theater. Clippy `--exclude` drops crates even with
+  `--workspace` / `--all` / `-p`. `--doc` is docs-only. Bare clippy,
+  `-p`, `--workspace`, `--all` without those still run.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): clippy subsets; cargo test --exclude/--all
 - **Why:** Clippy `--lib` / `--bins` / `--all-targets` still receipted.
   `cargo test --exclude` / `--all` were skip-as-value or an
