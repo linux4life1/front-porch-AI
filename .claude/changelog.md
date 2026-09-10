@@ -21,7 +21,7 @@
   even when a later token is named `test`.
 - **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
   `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 50888951
 
 ## 2026-09-10 — fix(waifu): subcommand-first runners do not scan later test
 - **Why:** Scan-all treated any later `test`/`clippy` token as a check.
