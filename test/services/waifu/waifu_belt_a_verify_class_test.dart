@@ -1680,6 +1680,19 @@ void main() {
       'yarn test --onlyFailures',
       'bun test --onlyFailures',
       'deno test --onlyFailures',
+      'npm run test:unit -- --onlyFailures',
+      'npm run test:ci -- --onlyFailures',
+      'yarn run test:unit --onlyFailures',
+      'pnpm run test:e2e -- --onlyChanged',
+      'npm run test:unit -- -o',
+      'jest --changedSince main',
+      'jest --findRelatedTests src/a.js',
+      'jest --lastCommit',
+      'vitest --changed',
+      'vitest --related',
+      'vitest --onlyChanged',
+      'mix test --failed',
+      'go test -short',
       'rspec --only-failures',
       'rspec --next-failure',
       'rspec -n',
@@ -1855,6 +1868,10 @@ void main() {
     expect(waifuLooksVerifyCommand('pnpm test'), isTrue);
     expect(waifuLooksVerifyCommand('yarn test'), isTrue);
     expect(waifuLooksVerifyCommand('bun test'), isTrue);
+    expect(waifuLooksVerifyCommand('npm run test:unit'), isTrue);
+    expect(waifuLooksVerifyCommand('vitest'), isTrue);
+    expect(waifuLooksVerifyCommand('mix test'), isTrue);
+    expect(waifuLooksVerifyCommand('go test'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         './gradlew test -Dtest.failOnNoMatchingTests=true',

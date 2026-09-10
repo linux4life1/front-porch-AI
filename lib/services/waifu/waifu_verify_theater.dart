@@ -18,7 +18,6 @@
 
 part of 'waifu_verify.dart';
 
-/// Compile / list / dry-run / help. Raw [command] keeps Gradle `-p`/`-P`.
 bool _verifyTheater(String command) {
   final lowered = command.toLowerCase();
   final rawSegs = _segments(command);
@@ -103,14 +102,12 @@ bool _mavenSkipProperty(String w) {
   return eq < 0 || body.substring(eq + 1) != 'false';
 }
 
-/// Empty or a value outside [all] is theater. [starOnly]: empty or `*`.
 bool _filteredSuiteTheater(
   String val, {
   Set<String> all = const {},
   bool starOnly = false,
 }) => starOnly ? val.isEmpty || val == '*' : val.isEmpty || !all.contains(val);
 
-/// Next-token is a value, not a name. Suite filters: [_kSuiteFilterFlags].
 const _kFilterValueFlags = <String, Set<String>>{
   'cargo': {
     '--features',
@@ -181,7 +178,6 @@ const _kFilterValueFlags = <String, Set<String>>{
   'rspec': {'-f', '--format', '-I', '--require'},
 };
 
-/// Name / marker flags. Gradle `--tests` is the only VIP here.
 const _kSuiteFilterFlags = <String, Set<String>>{
   'gradle': {'--tests'},
   'dotnet': {'--filter'},
@@ -201,7 +197,6 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'test': {'-t', '--testnamepattern', '--testpathpattern'},
 };
 
-/// Failed-only / changed-only. JS hosts mirror [_kSuiteFilterFlags].
 const _kJsFailedOnly = {
   '--onlyfailures',
   '--onlychanged',
@@ -210,10 +205,16 @@ const _kJsFailedOnly = {
   '--last-failed',
   '--ff',
   '--failed-first',
+  '--changedsince',
+  '--findrelatedtests',
+  '--lastcommit',
+  '--changed',
+  '--related',
 };
 const _kFailedOnlyFlags = <String, Set<String>>{
   'pytest': {'--lf', '--last-failed', '--ff', '--failed-first'},
   'jest': _kJsFailedOnly,
+  'vitest': _kJsFailedOnly,
   'rspec': {'--only-failures', '--next-failure', '-n'},
   'npm': _kJsFailedOnly,
   'pnpm': _kJsFailedOnly,
@@ -221,6 +222,8 @@ const _kFailedOnlyFlags = <String, Set<String>>{
   'bun': _kJsFailedOnly,
   'deno': _kJsFailedOnly,
   'test': _kJsFailedOnly,
+  'mix': {'--failed'},
+  'go': {'-short'},
 };
 
 const _kCargoFeatureTargetGates = {
@@ -230,7 +233,6 @@ const _kCargoFeatureTargetGates = {
   '--target',
 };
 
-/// `cargo test` only. Presence. Libtest `--ignored` / `--exact` too.
 const _kCargoTestFilterFlags = {
   '-p',
   '--package',
@@ -256,7 +258,6 @@ const _kCargoTestFilterFlags = {
   ..._kCargoFeatureTargetGates,
 };
 
-/// Clippy subset / `--exclude` / `--doc`. `-p *` star-only (`-F` → `-f`).
 const _kCargoClippySubsetFlags = {
   '--lib',
   '--bin',
@@ -274,7 +275,7 @@ const _kCargoClippySubsetFlags = {
 };
 
 bool _runnerFilterTheater(String cmd, List<String> args) {
-  final failedOnly = _kFailedOnlyFlags[cmd];
+  final failedOnly = _failedOnlyFor(cmd);
   if (failedOnly != null &&
       args.any((t) => failedOnly.contains(t.split('=').first))) {
     return true;
@@ -435,7 +436,6 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
   }
 }
 
-/// Gradle `-x test` / glob `*Test*`. `-x lint` does not kill a real test.
 bool _excludesKnownCheck(String cmd, List<String> args) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];

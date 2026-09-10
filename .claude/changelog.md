@@ -17,6 +17,17 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): test:* peel + jest/vitest/mix/go subsets
+- **Why:** Tip ec58b256 still receipted `npm run test:unit --
+  --onlyFailures`, `jest --changedSince`, `vitest --changed`,
+  `mix test --failed`, and `go test -short`.
+- **What:** Same path. Peeled `test:*` uses the JS failed-only
+  set. Jest/vitest changed-related flags join that set; mix
+  `--failed` and go `-short` are runner-scoped. Bare hosts full.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** TBD
+
 ## 2026-09-10 — fix(waifu): JS host failed-only mirror + jest -o
 - **Why:** Tip a7731966 still receipted `npm test -- --onlyFailures`
   / `yarn test --onlyFailures` / `bun test --onlyFailures` because

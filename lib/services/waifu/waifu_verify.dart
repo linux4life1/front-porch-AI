@@ -490,3 +490,7 @@ bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
   }
   return false;
 }
+
+/// `test` / `test:*` after `npm run` share [_kJsFailedOnly].
+Set<String>? _failedOnlyFor(String cmd) =>
+    _kFailedOnlyFlags[cmd] ?? (cmd.startsWith('test:') ? _kJsFailedOnly : null);
