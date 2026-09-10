@@ -441,16 +441,20 @@ bool _polyglotSoftDone(String w) =>
     w.startsWith('--ignore-errors') ||
     w.startsWith('--keep-going');
 
-/// Soft clumps: iknq plus non-value shorts; `j\d*` anywhere.
-/// Automake `TESTS=` / `TEST=` / `TESTSUITEFLAGS=`. Value-taking
-/// `-C`/`-f`/`-o`/`-W`/`-O`/`-I` glued paths stay full.
-final _kMakeSoftClump = RegExp(r'^(?=.*[iknq])-(?:[iknqsrRBedpw]|j\d*)+$');
+/// Soft clumps: iknq plus GNU non-value shorts; `j\d*` anywhere.
+/// Automake `TESTS=` / `TEST=` / `XFAIL_TESTS=` / `CHECK_TESTS=`.
+/// Value-taking `-C`/`-f`/`-o`/`-W`/`-O`/`-I` glued paths stay full.
+final _kMakeSoftClump = RegExp(
+  r'^(?=.*[iknq])-(?:[BbdehikLlmnpqrRsStvw]|j\d*)+$',
+);
 
 bool _makeArgvTheater(List<String> rawArgs) => rawArgs.any((t) {
   final low = t.toLowerCase();
   if (low.startsWith('tests=') ||
       low.startsWith('test=') ||
-      low.startsWith('testsuiteflags=')) {
+      low.startsWith('testsuiteflags=') ||
+      low.startsWith('xfail_tests=') ||
+      low.startsWith('check_tests=')) {
     return true;
   }
   if (t.contains('/') || t.contains('.')) return false;

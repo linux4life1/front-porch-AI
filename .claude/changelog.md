@@ -10,6 +10,20 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): make -kl / XFAIL_TESTS + ctest label/file
+- **Why:** Tip eaa8d784 still receipted `-kl` / `-kt` / `-kv`,
+  `XFAIL_TESTS=`, and CTest `--label-regex` / `--tests-from-file`
+  / `-FA`.
+- **What:** Same path. Soft-clump charset is GNU non-value
+  shorts (still requires iknq; `/` `.` `CfoWIO` reject). Make
+  `XFAIL_TESTS=` / `CHECK_TESTS=` join the VAR= club. CTest
+  `--label-regex` / `--label-exclude` / `--exclude-label` /
+  `--tests-from-file` / `--exclude-from-file` / `-FA` / `-FI`.
+  `-C/home` and bare `ctest` unchanged.
+- **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): make soft-clump + TESTS= + ctest filters
 - **Why:** Tip b77747bd still receipted `-ks` / `-iks` / `-jk` /
   `-j2k` / `-kr` (non-value shorts + interleaved jobs) and

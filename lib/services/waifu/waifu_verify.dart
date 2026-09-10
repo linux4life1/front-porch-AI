@@ -452,18 +452,28 @@ List<String> _wordsOf(String raw) => raw
 List<String> _segments(String command) =>
     command.split(RegExp(r'(?:&&|\|\||[;|\n])'));
 
-/// CTest name / label / index filters and dry-run `-n`.
-/// `-I` is index (raw); longs are `--tests-regex` / `--exclude-regex`.
+/// CTest name / label / index / fixture / file filters and `-n`.
+/// `-I` is index (raw). Longs: regex, label, from-file, fixture.
 bool _ctestArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
     if (t == '-n' || t == '-r' || t == '-e' || t == '-l') return true;
-    if (t.startsWith('--tests-regex') || t.startsWith('--exclude-regex')) {
+    if (t.startsWith('--tests-regex') ||
+        t.startsWith('--exclude-regex') ||
+        t.startsWith('--label-regex') ||
+        t.startsWith('--label-exclude') ||
+        t.startsWith('--exclude-label') ||
+        t.startsWith('--tests-from-file') ||
+        t.startsWith('--exclude-from-file') ||
+        t.startsWith('--fixture-exclude')) {
       return true;
     }
     if (!t.startsWith('--') &&
-        t.length > 2 &&
-        (t.startsWith('-r') || t.startsWith('-e') || t.startsWith('-l'))) {
+        (t.startsWith('-r') && t.length > 2 ||
+            t.startsWith('-e') && t.length > 2 ||
+            t.startsWith('-l') && t.length > 2 ||
+            t.startsWith('-fa') ||
+            t.startsWith('-fi'))) {
       return true;
     }
     final raw = i < rawArgs.length ? rawArgs[i] : t;
