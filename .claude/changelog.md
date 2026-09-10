@@ -7,7 +7,7 @@
   thoughts keep only the tail.
 - **Files:** `waifu_tool_leak.dart`, `waifu_coworker_prompt.dart`,
   `waifu_mode_bar.dart`
-- **Commit:**
+- **Commit:** c65c2b01
 
 ## 2026-09-10 — fix(waifu): queue follow-ups while she is busy
 - **Why:** The composer was disabled during a turn, so typing and Enter
