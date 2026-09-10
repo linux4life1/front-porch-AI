@@ -27,7 +27,7 @@
   swift `--skip`. Bare hosts stay full.
 - **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** TBD
+- **Commit:** 616c318c
 
 ## 2026-09-10 — fix(waifu): test:* peel + jest/vitest/mix/go subsets
 - **Why:** Tip ec58b256 still receipted `npm run test:unit --
