@@ -147,6 +147,12 @@ void main() {
         ok: true,
         args: {'command': 'cargo test --lib'},
       ),
+      WaifuMessage.tool(
+        name: kWaifuToolBash,
+        output: 'ok',
+        ok: true,
+        args: {'command': 'ls'},
+      ),
     ];
     final ledger = waifuMachineLedger(
       folded: folded,
@@ -160,6 +166,13 @@ void main() {
     expect(ledger, contains('s1 [pending] Add failing test'));
     expect(ledger, isNot(contains('lib/invented.dart')));
     expect(ledger, isNot(contains('dart analyze assumed')));
+    final verifyBlock = ledger
+        .split('verify as-run:')
+        .last
+        .split('plan:')
+        .first;
+    expect(verifyBlock, contains('cargo test --lib'));
+    expect(verifyBlock, isNot(contains('ls')));
 
     final recap = waifuInjectMachineLedger(
       '$kWaifuCompactPrefix\nEdited lib/invented.dart. Tests not run.',

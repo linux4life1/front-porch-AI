@@ -90,7 +90,7 @@ class WaifuComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     final amber = AppColors.porchAmberOf(context);
     return ComposerDropZone(
-      enabled: !session.running && onDropImage != null,
+      enabled: onDropImage != null,
       onImage: onDropImage ?? (_) async {},
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -167,7 +167,7 @@ class WaifuComposer extends StatelessWidget {
                   IconButton(
                     key: const Key('waifu-attach-photo'),
                     tooltip: 'Attach photo',
-                    onPressed: session.running ? null : onAttach,
+                    onPressed: onAttach,
                     icon: Icon(
                       Icons.add_photo_alternate_outlined,
                       color: amber,

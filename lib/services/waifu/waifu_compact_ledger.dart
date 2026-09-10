@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
+import 'package:front_porch_ai/services/waifu/waifu_verify.dart';
 
 const kWaifuMachineLedgerTitle = 'MACHINE LEDGER';
 
@@ -38,7 +39,9 @@ String waifuMachineLedger({
       final cmd = (m.toolArgs?['command'] ?? m.toolArgs?['cmd'] ?? '')
           .toString()
           .trim();
-      if (cmd.isNotEmpty) cmds.add(cmd);
+      // As-run string only — never a guessed host stack. Theater (ls/echo)
+      // is not a verify even if bash ran it.
+      if (cmd.isNotEmpty && waifuLooksVerifyCommand(cmd)) cmds.add(cmd);
     }
   }
   final buf = StringBuffer(kWaifuMachineLedgerTitle)..writeln();
