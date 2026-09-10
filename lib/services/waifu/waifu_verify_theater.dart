@@ -111,7 +111,6 @@ bool _filteredSuiteTheater(
 }) => starOnly ? val.isEmpty || val == '*' : val.isEmpty || !all.contains(val);
 
 /// Next-token is a value, not a name. Suite filters: [_kSuiteFilterFlags].
-/// Cargo lists libtest knobs so post-`--` does not eat the spaced value.
 const _kFilterValueFlags = <String, Set<String>>{
   'cargo': {
     '--features',
@@ -182,8 +181,7 @@ const _kFilterValueFlags = <String, Set<String>>{
   'rspec': {'-f', '--format', '-I', '--require'},
 };
 
-/// Name / marker / package flags — not “skip the next token”.
-/// Gradle `--tests` is the only VIP here. Go `-run` keeps VIP outside.
+/// Name / marker flags. Gradle `--tests` is the only VIP here.
 const _kSuiteFilterFlags = <String, Set<String>>{
   'gradle': {'--tests'},
   'dotnet': {'--filter'},
@@ -203,7 +201,28 @@ const _kSuiteFilterFlags = <String, Set<String>>{
   'test': {'-t', '--testnamepattern', '--testpathpattern'},
 };
 
-/// Shared by `cargo test` (presence) and clippy subset. Not a suite VIP.
+/// Failed-only / changed-only. JS hosts mirror [_kSuiteFilterFlags].
+const _kJsFailedOnly = {
+  '--onlyfailures',
+  '--onlychanged',
+  '-o',
+  '--lf',
+  '--last-failed',
+  '--ff',
+  '--failed-first',
+};
+const _kFailedOnlyFlags = <String, Set<String>>{
+  'pytest': {'--lf', '--last-failed', '--ff', '--failed-first'},
+  'jest': _kJsFailedOnly,
+  'rspec': {'--only-failures', '--next-failure', '-n'},
+  'npm': _kJsFailedOnly,
+  'pnpm': _kJsFailedOnly,
+  'yarn': _kJsFailedOnly,
+  'bun': _kJsFailedOnly,
+  'deno': _kJsFailedOnly,
+  'test': _kJsFailedOnly,
+};
+
 const _kCargoFeatureTargetGates = {
   '--no-default-features',
   '--features',
@@ -254,30 +273,14 @@ const _kCargoClippySubsetFlags = {
   ..._kCargoFeatureTargetGates,
 };
 
-/// Same gate as Gradle `--tests`. Filtered ≠ full suite.
 bool _runnerFilterTheater(String cmd, List<String> args) {
-  var failedOnly = _kFailedOnlyFlags[cmd];
-  var failedArgs = args;
-  if (failedOnly == null &&
-      (cmd == 'test' ||
-          const {'npm', 'pnpm', 'yarn'}.contains(cmd) &&
-              args.contains('test'))) {
-    final dash = args.indexOf('--');
-    if (dash >= 0) {
-      failedArgs = args.sublist(dash + 1);
-      failedOnly = {
-        ..._kFailedOnlyFlags['pytest']!,
-        ..._kFailedOnlyFlags['jest']!,
-      };
-    }
-  }
+  final failedOnly = _kFailedOnlyFlags[cmd];
   if (failedOnly != null &&
-      failedArgs.any((t) => failedOnly!.contains(t.split('=').first))) {
+      args.any((t) => failedOnly.contains(t.split('=').first))) {
     return true;
   }
   String? flagVal(String name) {
     final eq = '$name=';
-    // Clap short: `-Ffoo` → lowered `-ffoo`. Long flags stay space/`=`.
     final gluedShort =
         name.length == 2 && name.startsWith('-') && name[1] != '-';
     for (var i = 0; i < args.length; i++) {
@@ -394,7 +397,6 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
         }
         continue;
       }
-      // Presence: `*` is a name filter, not JVM `--tests *`.
       return _filteredSuiteTheater(t, all: const {});
     }
     return false;
@@ -416,7 +418,6 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
       if (args.contains('test')) {
         for (final f in const ['--test-filter', '-dtest-filter']) {
           final v = flagVal(f);
-          // Presence: `*` is a filter, not JVM / go suite VIP.
           if (v != null && _filteredSuiteTheater(v, all: const {})) {
             return true;
           }
@@ -480,8 +481,7 @@ bool _globMatches(String glob, String name) {
   return RegExp(buf.toString(), caseSensitive: false).hasMatch(name);
 }
 
-/// Gradle `help` / `dependencies` / `components`, including `:app:help`.
-/// `--configuration-cache` is a real run flag — not this.
+/// Gradle `help` / `dependencies` / `components`. Not `--configuration-cache`.
 bool _gradleInventoryTheater(Iterable<String> args) {
   final task = args.where((t) => !t.startsWith('-')).firstOrNull;
   final base = task?.split(':').last;

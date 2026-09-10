@@ -1672,9 +1672,14 @@ void main() {
       'npm test -- --lf',
       'npm test -- --last-failed',
       'npm test -- --ff',
+      'npm test -- --onlyFailures',
       'npm run test -- --lf',
+      'npm run test -- --onlyFailures',
       'pnpm test -- --onlyFailures',
       'yarn test -- --onlyFailures',
+      'yarn test --onlyFailures',
+      'bun test --onlyFailures',
+      'deno test --onlyFailures',
       'rspec --only-failures',
       'rspec --next-failure',
       'rspec -n',
@@ -1849,6 +1854,7 @@ void main() {
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('pnpm test'), isTrue);
     expect(waifuLooksVerifyCommand('yarn test'), isTrue);
+    expect(waifuLooksVerifyCommand('bun test'), isTrue);
     expect(
       waifuLooksVerifyCommand(
         './gradlew test -Dtest.failOnNoMatchingTests=true',

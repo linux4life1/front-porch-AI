@@ -17,6 +17,13 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): JS host failed-only mirror + jest -o
+- **Why:** Tip a7731966 still receipted `npm test -- --onlyFailures`
+  / `yarn test --onlyFailures` / `bun test --onlyFailures` because
+  `_kFailedOnlyFlags` did not mirror suite-filter JS hosts.
+- **What:** Same path. Failed-only keys on npm/pnpm/yarn/bun/deno/
+  `test` (same spirit as `_kSuiteFilterFlags`). Jest `-o` /
+  `--onlyChanged`. Bare hosts stay full.
 - **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
 - **Commit:** TBD
