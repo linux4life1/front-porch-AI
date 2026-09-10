@@ -1928,6 +1928,7 @@ void main() {
     expect(waifuLooksVerifyCommand('npm run test -- --watchAll=false'), isTrue);
     expect(waifuLooksVerifyCommand('vitest --watch=false'), isTrue);
     expect(waifuLooksVerifyCommand('rspec'), isTrue);
+    expect(waifuLooksVerifyCommand('rspec -p'), isTrue);
     expect(waifuLooksVerifyCommand('npm test'), isTrue);
     expect(waifuLooksVerifyCommand('pnpm test'), isTrue);
     expect(waifuLooksVerifyCommand('yarn test'), isTrue);

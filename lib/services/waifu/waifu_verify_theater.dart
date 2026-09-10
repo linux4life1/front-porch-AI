@@ -216,7 +216,7 @@ const _kFailedOnlyFlags = <String, Set<String>>{
   'phpunit': {'-g', '--order-by', '--covers', '--uses'},
   'jest': _kJsFailedOnly,
   'vitest': _kJsFailedOnly,
-  'rspec': {'--only-failures', '--next-failure', '-n', '-P'},
+  'rspec': {'--only-failures', '--next-failure', '-n'},
   'npm': _kJsFailedOnly,
   'pnpm': _kJsFailedOnly,
   'yarn': _kJsFailedOnly,
@@ -280,6 +280,7 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
   if (failedOnly != null &&
       args.any((t) {
         final flag = t.split('=').first;
+        if (cmd == 'rspec' && t.startsWith('-p=')) return true;
         return failedOnly.contains(flag) &&
             ((flag != '--watch' && flag != '--watchall') ||
                 _flagUnlessFalsey(t, flag));
