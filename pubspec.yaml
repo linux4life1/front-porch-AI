@@ -82,7 +82,7 @@ dependencies:
   page_flip: ^0.2.5+1
   html: ^0.15.6
   syncfusion_flutter_pdf: ^33.1.46
-  flex_color_picker: ^3.8.0
+  flex_color_picker: ^4.0.0
   intl: ^0.20.2
   onnxruntime_v2: ^1.23.2 # in-process ONNX (offline photo captioner — maintainer-approved dep)
   unorm_dart: ^0.3.0 # Unicode NFD for BERT accent-strip parity (maintainer-approved dep 2026-07-18)
