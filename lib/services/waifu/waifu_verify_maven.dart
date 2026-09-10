@@ -450,12 +450,18 @@ bool _polyglotSoftDone(String w) =>
     w.startsWith('--ignore-errors') ||
     w.startsWith('--keep-going');
 
-/// Make `-n`/`-q` dry-run; `-k` / raw `-i` soft Done (`-I` ≠ `-i`).
-bool _makeArgvTheater(List<String> args, List<String> rawArgs) =>
-    args.contains('-n') ||
-    args.contains('-q') ||
-    args.contains('-k') ||
-    rawArgs.contains('-i');
+/// Make dry-run / soft Done. Raw short clumps (`-ik`, `-ni`,
+/// `-ikj2`): theater on `i`/`k`/`n`/`q`. `-I` / `-I…` is
+/// include-dir, not ignore-errors. Longs are [_polyglotSoftDone].
+bool _makeArgvTheater(List<String> rawArgs) => rawArgs.any((t) {
+  if (t.length < 2 || t[0] != '-' || t[1] == '-' || t[1] == 'I') {
+    return false;
+  }
+  return t.contains('i') ||
+      t.contains('k') ||
+      t.contains('n') ||
+      t.contains('q');
+});
 
 /// Legacy Gradle test select + commandLine include/exclude.
 /// `-p…` keys require raw `P`.

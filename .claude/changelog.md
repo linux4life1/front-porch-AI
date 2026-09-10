@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): make glued short clusters are theater
+- **Why:** Tip 384f56bf theatered separated `make -i` / `-k` /
+  `-n` / `-q` but still receipted glued clumps
+  (`-ik`, `-ki`, `-ni`, `-in`, `-ikj2`).
+- **What:** Same `_makeArgvTheater` path. Raw short clumps
+  (single `-`, not `--`) theater when they contain `i` / `k` /
+  `n` / `q`. `-I` / `-I…` is include-dir. Digits/`j` in the
+  cluster stay OK. Longs and separated shorts unchanged.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:**
+
 ## 2026-09-10 — fix(waifu): make soft-Done + prefixed failOnNo* theater
 - **Why:** Tip 8b092567 still receipted `make -i` / `-k` /
   `--ignore-errors` / `--keep-going` (failed recipes still
