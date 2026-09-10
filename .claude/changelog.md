@@ -20,7 +20,7 @@
   cluster stay OK. Longs and separated shorts unchanged.
 - **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** e50b852e
 
 ## 2026-09-10 — fix(waifu): make soft-Done + prefixed failOnNo* theater
 - **Why:** Tip 8b092567 still receipted `make -i` / `-k` /
