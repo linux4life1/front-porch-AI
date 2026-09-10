@@ -17,7 +17,7 @@
   Gradle `--tests *` and Go `-run=*` stay VIP. No second club.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 1cf6e4a6
 
 ## 2026-09-10 — fix(waifu): suite-filter default is presence
 - **Why:** VIP `*` was the helper default, so each new name-filter
