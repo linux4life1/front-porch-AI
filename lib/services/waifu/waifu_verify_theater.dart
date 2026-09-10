@@ -120,10 +120,11 @@ bool _excludesKnownCheck(String cmd, List<String> args) {
       excluded = t.substring('--exclude-task='.length);
     }
     if (excluded == null) continue;
-    if (_runnerTaskMatches(cmd, excluded)) return true;
-    if (!excluded.contains('*') && !excluded.contains('?')) continue;
+    final token = excluded;
+    if (_runnerTaskMatches(cmd, token)) return true;
+    if (!token.contains('*') && !token.contains('?')) continue;
     final checks = _kRunnerChecks[cmd];
-    if (checks != null && checks.any((n) => _globMatches(excluded, n))) {
+    if (checks != null && checks.any((n) => _globMatches(token, n))) {
       return true;
     }
   }
