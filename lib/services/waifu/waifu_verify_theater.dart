@@ -37,11 +37,16 @@ bool _verifyTheater(String lowered) {
     if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;
     if (cmd == 'gradle' && _excludesKnownCheck(cmd, args)) return true;
     if (cmd == 'gradle') {
+      const emptyFilters = {'none.matching', 'doesnotexist'};
       for (var i = 0; i < args.length; i++) {
-        if (args[i] == '--tests=none.matching') return true;
+        if (args[i].startsWith('--tests=')) {
+          if (emptyFilters.contains(args[i].substring('--tests='.length))) {
+            return true;
+          }
+        }
         if (args[i] == '--tests' &&
             i + 1 < args.length &&
-            args[i + 1] == 'none.matching') {
+            emptyFilters.contains(args[i + 1])) {
           return true;
         }
       }
@@ -93,6 +98,7 @@ const _kMavenSkipProps = {
   'maven.test.skip.exec',
   'surefire.skip',
   'surefire.skipexec',
+  'failsafe.skip',
 };
 
 bool _mavenSkipProperty(String w) {
@@ -100,14 +106,16 @@ bool _mavenSkipProperty(String w) {
   final body = w.substring(2);
   final eq = body.indexOf('=');
   final key = eq < 0 ? body : body.substring(0, eq);
-  if (w == '-dtest=none') return true;
+  if (w == '-dtest=none' || w == '-dtest=' || w == '-dtest=doesnotexist') {
+    return true;
+  }
   if (!_kMavenSkipProps.contains(key)) return false;
   return eq < 0 || body.substring(eq + 1) != 'false';
 }
 
 /// Gradle `-x test` / `--exclude-task test` (or `:app:test`, unit-test
-/// tasks, or a glob that matches `test`/`check`). `-x lint` and
-/// `*contest*` do not kill a real `test`.
+/// tasks, or a glob that matches check shapes: `test`/`tests`/`check`/
+/// `*UnitTest*`). `-x lint` and `*contest*` do not kill a real `test`.
 bool _excludesKnownCheck(String cmd, List<String> args) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
@@ -123,10 +131,17 @@ bool _excludesKnownCheck(String cmd, List<String> args) {
     final token = excluded;
     if (_runnerTaskMatches(cmd, token)) return true;
     if (!token.contains('*') && !token.contains('?')) continue;
-    final checks = _kRunnerChecks[cmd];
-    if (checks != null && checks.any((n) => _globMatches(token, n))) {
-      return true;
-    }
+    final probes = <String>{
+      ...?_kRunnerChecks[cmd],
+      if (cmd == 'gradle') ...{
+        'tests',
+        'unittest',
+        'testdebugunittest',
+        ':app:test',
+        ':app:check',
+      },
+    };
+    if (probes.any((n) => _globMatches(token, n))) return true;
   }
   return false;
 }

@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): exclude glob matches Tests/UnitTest shapes
+- **Why:** Exclude globs only probed `{test, check}`, so
+  `-x '*Tests*'` / `*Tests` / `*UnitTest*` still receipted.
+- **What:** Same theater. Gradle exclude globs also probe `tests`,
+  `unittest`, `testdebugunittest`, `:app:test` / `:app:check` — the
+  `_runnerTaskMatches` family. `-x lint` and `*contest*` stay a run.
+  `failsafe.skip`, `-Dtest=` / `DoesNotExist`, `--tests DoesNotExist`
+  join.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): surefire skip and glob exclude are theater
 - **Why:** `mvn test -Dsurefire.skip=true` / `skipExec` /
   `maven.test.skip.exec` and `./gradlew test -x '*Test*'` skipped the
