@@ -22,7 +22,7 @@
   second club.
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 3a899964
 
 ## 2026-09-10 — fix(waifu): classpath scan-subset -D filters are theater
 - **Why:** `dependenciesToScan` was closed, but
