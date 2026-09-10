@@ -10,6 +10,23 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): Gradle CI-root build.gradle full; -I / continue -D
+- **Why:** Tip 0d45de4a still theatered abs CI default scripts
+  (`-b /workspace/build.gradle`, GHA/Azure twins), receipted
+  `--init-script` / `-I` injects, and receipted
+  `-Dorg.gradle.continue=true` while CLI `--continue` theaters.
+- **What:** Same `_gradleArgvTheater` club. Maven `-f` and Gradle
+  default scripts share `_ciCheckoutRoot`. Basename
+  `build.gradle` / `.kts` / `settings.gradle` / `.kts` at cwd or
+  a known CI checkout is full; nested modules stay theater.
+  `-p` does not use the script allowlist. `--init-script` /
+  `-I` is presence theater; raw argv keeps `-i` (info) full.
+  `-Dorg.gradle.continue` theaters unless `=false`. VIP
+  `--tests *` unchanged.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Gradle -p=/-b=/-c theater; cwd build.gradle full
 - **Why:** Tip bee16f9e still receipted `./gradlew -p= test`,
   `-b=other.gradle`, and `-c other.settings.gradle` (short `=`

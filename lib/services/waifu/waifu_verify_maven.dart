@@ -204,18 +204,9 @@ bool _mavenArgvTheater(List<String> args) {
 
 /// Basename + allowlisted parent for Maven `-f` / `--file`.
 ///
-/// Full receipt when basename is `pom.xml` and parent is:
-/// - empty / `.` (cwd `pom.xml` / `./pom.xml`)
-/// - exactly one absolute segment (`/workspace/pom.xml`,
-///   `C:/proj/pom.xml`)
-/// - GitHub Actions Linux `/home/runner/work/<repo>/<repo>`
-///   (the two repo segments must be identical)
-/// - GitHub Actions Windows `X:/a/<repo>/<repo>` (any drive +
-///   `a` + identical trailing repo pair)
-/// - Azure Pipelines classic `X:/a/<id>/s` (any drive + `a` +
-///   numeric-or-id + sources dir `s`)
-/// - Azure Pipelines Linux `/home/vsts/work/<id>/s` (same id rule)
-/// - container checkout `/github/workspace`
+/// Full receipt when basename is `pom.xml` and parent is a
+/// [_ciCheckoutRoot] (cwd, single-segment abs, GHA, Azure,
+/// `/github/workspace`).
 ///
 /// Nested modules stay theater (`/workspace/module/pom.xml`,
 /// `/home/runner/work/repo/module/pom.xml`,
@@ -234,19 +225,28 @@ bool _mavenNonRootPom(String raw) {
   final base = slash < 0 ? path : path.substring(slash + 1);
   if (base != 'pom.xml') return true;
   final parent = slash < 0 ? '' : path.substring(0, slash);
-  if (parent.isEmpty || parent == '.') return false;
+  return !_ciCheckoutRoot(parent);
+}
+
+/// Cwd or known CI checkout parent (`/workspace`, `/github/workspace`,
+/// GHA `/home/runner/work/<repo>/<repo>`, Azure
+/// `/home/vsts/work/<id>/s`, Windows `X:/a/<repo>/<repo>`, Azure
+/// `X:/a/<id>/s`, single-segment abs). Nested parents are not.
+/// [parent] is `/`-normalized, no trailing slash.
+bool _ciCheckoutRoot(String parent) {
+  if (parent.isEmpty || parent == '.' || parent == './') return true;
   if (parent.startsWith('/')) {
     final segs = parent.split('/').where((s) => s.isNotEmpty).toList();
-    if (segs.length == 1) return false;
+    if (segs.length == 1) return true;
     if (segs.length == 2 && segs[0] == 'github' && segs[1] == 'workspace') {
-      return false;
+      return true;
     }
     if (segs.length == 5 &&
         segs[0] == 'home' &&
         segs[1] == 'runner' &&
         segs[2] == 'work' &&
         segs[3] == segs[4]) {
-      return false;
+      return true;
     }
     if (segs.length == 5 &&
         segs[0] == 'home' &&
@@ -254,29 +254,29 @@ bool _mavenNonRootPom(String raw) {
         segs[2] == 'work' &&
         segs[4] == 's' &&
         _kMavenCiBuildId.hasMatch(segs[3])) {
-      return false;
+      return true;
     }
-    return true;
+    return false;
   }
   if (parent.length >= 2 && parent[1] == ':') {
     final rest = parent.length > 2 && parent[2] == '/'
         ? parent.substring(3)
         : parent.substring(2);
-    if (rest.isEmpty) return false;
+    if (rest.isEmpty) return true;
     final segs = rest.split('/').where((s) => s.isNotEmpty).toList();
-    if (segs.length == 1) return false;
+    if (segs.length == 1) return true;
     if (segs.length == 3 && segs[0] == 'a' && segs[1] == segs[2]) {
-      return false;
+      return true;
     }
     if (segs.length == 3 &&
         segs[0] == 'a' &&
         segs[2] == 's' &&
         _kMavenCiBuildId.hasMatch(segs[1])) {
-      return false;
+      return true;
     }
-    return true;
+    return false;
   }
-  return true;
+  return false;
 }
 
 /// Azure / GHA agent build-id segment (lowered).
@@ -291,20 +291,39 @@ const _kGradleCwdScripts = {
 };
 
 /// Gradle argv theater: `--continue` (soft Done), `--include-build`
-/// (composite), project-dir / build-file / settings-file relocate.
+/// (composite), `--init-script` / `-I` (inject), project-dir /
+/// build-file / settings-file relocate.
 ///
 /// `-p` / `--project-dir` theater when the value is not cwd (`.` /
-/// `./`), including `-p=` / empty. `-b` / `-c` / `--build-file` /
-/// `--settings-file` use the same relocate rule, plus cwd default
-/// script basenames (`build.gradle`, `settings.gradle(.kts)`).
-/// Missing or empty is theater. [rawArgs] keeps case so glued
-/// `-Pfoo` is not project-dir. `--continuous` is not `--continue`.
+/// `./`), including `-p=` / empty — no script allowlist. `-b` /
+/// `-c` / `--build-file` / `--settings-file` use the same relocate
+/// rule, plus default script basenames at cwd or a CI checkout
+/// root ([_ciCheckoutRoot], same shapes as Maven `-f`). Missing
+/// or empty is theater. [rawArgs] keeps case so glued `-Pfoo` is
+/// not project-dir and `-i` (info) is not `-I` (init-script).
+/// `--continuous` is not `--continue`. `-Dorg.gradle.continue`
+/// theaters unless `=false` (same floor as Maven skip props).
 /// Short `-c` is `--settings-file`; long `--console` is not.
 bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
     if (t == '--continue' || t.startsWith('--continue=')) return true;
+    if (t == '-dorg.gradle.continue' ||
+        (t.startsWith('-dorg.gradle.continue=') &&
+            t.substring('-dorg.gradle.continue='.length) != 'false')) {
+      return true;
+    }
     if (t == '--include-build' || t.startsWith('--include-build')) {
+      return true;
+    }
+    if (t == '--init-script' || t.startsWith('--init-script')) {
+      return true;
+    }
+    if (i < rawArgs.length &&
+        rawArgs[i].length >= 2 &&
+        rawArgs[i][0] == '-' &&
+        rawArgs[i][1] == 'I' &&
+        !rawArgs[i].startsWith('--')) {
       return true;
     }
     String? dir;
@@ -372,10 +391,13 @@ bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
       path = path.substring(0, path.length - 1);
     }
     if (path.isEmpty || path == '.') continue;
-    if (!projectDir &&
-        !path.contains('/') &&
-        _kGradleCwdScripts.contains(path)) {
-      continue;
+    if (!projectDir) {
+      final slash = path.lastIndexOf('/');
+      final base = slash < 0 ? path : path.substring(slash + 1);
+      final parent = slash < 0 ? '' : path.substring(0, slash);
+      if (_kGradleCwdScripts.contains(base) && _ciCheckoutRoot(parent)) {
+        continue;
+      }
     }
     return true;
   }
