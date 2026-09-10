@@ -4,8 +4,11 @@
 // Belt A verify class: no argv[1] verb theater. Receipt and Build
 // ask share one function + the same WaifuVerifyContext.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
+import 'package:path/path.dart' as p;
 
 WaifuToolResult _writeOk(String path) => WaifuToolResult(
   ok: true,
@@ -149,6 +152,14 @@ void main() {
       waifuLooksVerifyCommand('./gradlew test', context: gradleMarker),
       isTrue,
     );
+    const gradleNamed = WaifuVerifyContext(
+      named: ['gradle test'],
+      stepVerify: ['gradle test'],
+    );
+    expect(
+      waifuLooksVerifyCommand('./gradlew test', context: gradleNamed),
+      isTrue,
+    );
     expect(waifuLooksVerifyCommand('./mvnw test', context: mvnMarker), isTrue);
     expect(waifuLooksVerifyCommand('./gradlew build'), isFalse);
     expect(waifuLooksVerifyCommand('./mvnw package'), isFalse);
@@ -159,6 +170,66 @@ void main() {
     expect(waifuLooksVerifyCommand('pytest'), isTrue);
     expect(waifuLooksVerifyCommand('poetry run pytest'), isTrue);
     expect(waifuLooksVerifyCommand('bundle exec rspec'), isTrue);
+  });
+
+  test(
+    'markers emit wrapper cue; named gradle test fulfills ./gradlew',
+    () async {
+      final root = await Directory.systemTemp.createTemp('waifu_wrap_');
+      addTearDown(() async {
+        if (await root.exists()) await root.delete(recursive: true);
+      });
+      await File(p.join(root.path, 'build.gradle')).writeAsString('');
+      await File(p.join(root.path, 'gradlew')).writeAsString('');
+      await File(p.join(root.path, 'Makefile')).writeAsString('');
+      final markers = await waifuVerifyMarkerCommands(root.path);
+      expect(markers, contains('./gradlew test'));
+      expect(markers, contains('gradle test'));
+      expect(markers, contains('make test'));
+      final ctx = await waifuBuildVerifyContext(
+        folderRoot: root.path,
+        task: 'run `gradle test`',
+      );
+      expect(ctx.named, contains('gradle test'));
+      expect(waifuLooksVerifyCommand('./gradlew test', context: ctx), isTrue);
+    },
+  );
+
+  test('make / ruff / JS exec are verify-shaped; theater stays false', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'make test',
+      'make check',
+      'make lint',
+      'ruff check .',
+      'yarn exec jest',
+      'npm exec jest',
+      'pnpm exec jest',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isTrue, reason: cmd);
+      expect(waifuBashMutates(cmd), isFalse, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isFalse,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.c']);
+      _bash(turn, cmd);
+      expect(turn.tested, isTrue, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('make build'), isFalse);
+    expect(waifuLooksVerifyCommand('ruff format'), isFalse);
+    expect(waifuLooksVerifyCommand('rm test'), isFalse);
+    expect(waifuLooksVerifyCommand('grep test README.md'), isFalse);
+    expect(waifuBashMutates('rm test'), isTrue);
+    expect(p.needsAsk(name: 'bash', args: {'command': 'rm test'}), isTrue);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('npm test'), isTrue);
+    expect(waifuLooksVerifyCommand('pytest'), isTrue);
+    expect(waifuLooksVerifyCommand('poetry run pytest'), isTrue);
+    expect(waifuLooksVerifyCommand('bundle exec rspec'), isTrue);
+    expect(waifuLooksVerifyCommand('tsc --noEmit'), isTrue);
+    expect(waifuLooksVerifyCommand('cmake --build . --target test'), isTrue);
   });
 
   test('existing cargo/npm/pytest/flutter pins still pass', () {

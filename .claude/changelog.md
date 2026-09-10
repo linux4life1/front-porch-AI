@@ -10,6 +10,19 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): make/ruff/JS exec join the one verify peel
+- **Why:** Real Android/Java/C still babysat: `make test`, `ruff check`, and
+  `yarn exec jest` / `npm exec jest` were not in the runner/peel path.
+  Named/step `gradle test` must keep fulfilling `./gradlew test`; the
+  wrapper cue must emit `./gradlew test` when the script is present.
+- **What:** Same runner map + peel: `make` `{test,check,lint}`, `ruff`
+  `{check}`, JS hosts peel `exec` like `run` (exec is a binary, not a
+  package script). Makefile marker emits `make test`. Plan digest cue is
+  re-read AND test/analyze. `rm test` / `grep test` stay false.
+- **Files:** `waifu_verify.dart`, `waifu_plan_codec.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): gradlew/mvnw peel to gradle/mvn verify
 - **Why:** `./gradlew test` / `./mvnw test` used argv0 `gradlew`/`mvnw`, which
   was not in the runner map (`gradle`/`mvn` only). BashMutates treated them

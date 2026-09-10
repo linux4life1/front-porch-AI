@@ -56,6 +56,8 @@ const _kRunnerChecks = <String, Set<String>>{
   'mix': {'test'},
   'zig': {'test'},
   'swift': {'test'},
+  'make': {'test', 'check', 'lint'},
+  'ruff': {'check'},
   'npm': {'test', 'lint'},
   'pnpm': {'test', 'lint'},
   'yarn': {'test', 'lint'},
@@ -208,6 +210,9 @@ Future<List<String>> waifuVerifyMarkerCommands(String root) async {
   if (await has('build.zig')) out.add('zig test');
   if (await has('Package.swift')) out.add('swift test');
   if (await has('tsconfig.json')) out.add('tsc --noEmit');
+  if (await has('Makefile') || await has('makefile')) {
+    out.add('make test');
+  }
   return out;
 }
 
@@ -314,9 +319,11 @@ bool _isTscNoEmit(List<String> words) {
       words.length > 2 &&
       words[1] == '-m') {
     out = words.sublist(2);
-  } else if (_kJsHosts.contains(cmd) && words.length > 2 && words[1] == 'run') {
+  } else if (_kJsHosts.contains(cmd) &&
+      words.length > 2 &&
+      (words[1] == 'run' || words[1] == 'exec')) {
     out = words.sublist(2);
-    fromPackageRun = true;
+    fromPackageRun = words[1] == 'run';
   } else if (cmd == 'npx' && words.length > 1) {
     out = words.sublist(1);
   } else if (_kEnvHosts.contains(cmd) &&
