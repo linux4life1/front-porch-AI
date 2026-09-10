@@ -939,9 +939,32 @@
   Small deny list: echo/ls/help/dry-run/build-without-test, plus Unix
   utilities (`rm`, `grep`, `git`, …) that cannot fulfill even if quoted.
 - **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart` (NEW),
+## 2026-09-10 — fix(waifu): scan runner argv for the check task
+- **Why:** `_segmentIsKnownCheck` required `peeled.words[1]` to be the
+  check. `make -j8 test`, `make -C build test`, `./gradlew :app:test`,
+  `testDebugUnitTest`, `gradle check`, and `mvn verify` failed receipt
+  and still `needsAsk`. Named `make test` did not fulfill `make -j8 test`.
+- **What:** After the same peel+alias, scan non-flag tokens for the
+  runner’s known checks. Gradle also accepts `:module:test`,
+  `test*UnitTest`, and `check`. Maven adds `verify`. Fulfill matches the
+  named task after flags. `rm test` / `make build` / `./gradlew build`
+  stay false.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
   `docs/Rawhide.md`
-- **Commit:** 8ff32027
+- **Commit:** 5d1b8e46
 
+## 2026-09-10 — fix(waifu): make/ruff/JS exec join the one verify peel
+- **Why:** Real Android/Java/C still babysat: `make test`, `ruff check`, and
+  `yarn exec jest` / `npm exec jest` were not in the runner/peel path.
+  Named/step `gradle test` must keep fulfilling `./gradlew test`; the
+  wrapper cue must emit `./gradlew test` when the script is present.
+- **What:** Same runner map + peel: `make` `{test,check,lint}`, `ruff`
+  `{check}`, JS hosts peel `exec` like `run` (exec is a binary, not a
+  package script). Makefile marker emits `make test`. Plan digest cue is
+  re-read AND test/analyze. `rm test` / `grep test` stay false.
+- **Files:** `waifu_verify.dart`, `waifu_plan_codec.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 9c3b59a3
 ## 2026-09-10 — fix(waifu): Belt B harness fidelity — queue photos, ledger, nested ok
 - **Why:** Belt A told the truth about wrap-up and verify. Belt B rips the
   remaining lying harness contracts: the follow-up queue dropped photo
@@ -956,6 +979,7 @@
   share parent todos; `run-plan-step` injects the next step verbatim;
   workflow docs say serial. Discover prefers accepted, never discarded;
   pin beats mtime. Fuse reason is spoken; empty wrap after retries fails.
+  Catch/abort tool history keeps the same args as success (no rebuild `{}`).
 - **Files:** `waifu_session.dart`, `waifu_harness.dart`,
   `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
   `waifu_harness_spawn.dart`, `waifu_compact.dart`,
@@ -964,6 +988,32 @@
   `llm_service.dart`, `llm_tool_parsing.dart`, `openai_tool_stream.dart`,
   `waifu_belt_b_harness_fidelity_test.dart` (NEW)
 - **Commit:** (pending)
+
+## 2026-09-10 — fix(waifu): gradlew/mvnw peel to gradle/mvn verify
+- **Why:** `./gradlew test` / `./mvnw test` used argv0 `gradlew`/`mvnw`, which
+  was not in the runner map (`gradle`/`mvn` only). BashMutates treated them
+  as mutates → Build ask-spam; `tested` never cleared. Markers emitted
+  `gradle test` / `mvn test`, which did not fulfill the wrapper argv0.
+- **What:** Wrapper binaries peel to the same runner keys as `gradle`/`mvn`
+  (same path as poetry/uv). Fulfill compares canonical argv0 so a `gradle
+  test` marker receipts `./gradlew test`. `rm test` / `grep test` stay false.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** 4b080ef6
+
+## 2026-09-10 — fix(waifu): rip argv[1] test theater from Belt A verify
+- **Why:** `_segmentIsTestAnalyze` treated any command whose second token was
+  `test`/`lint`/`check` as a verify. `grep test README.md`, `rm test`,
+  `git test` receipted; `waifuBashMutates` skipped them as non-mutate, so
+  Build did not ask and `rm test` exiting 0 stamped `tested=true`.
+- **What:** One receipt (`waifuLooksVerifyCommand`) for ask and `tested`.
+  Verify is known runners / wrappers / `tsc --noEmit` / cmake `--target
+  test` / step.verify / user-named / repo markers. Never “argv[1] is test.”
+  Small deny list: echo/ls/help/dry-run/build-without-test, plus Unix
+  utilities (`rm`, `grep`, `git`, …) that cannot fulfill even if quoted.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart` (NEW),
+  `docs/Rawhide.md`
+- **Commit:** 8ff32027
 
 ## 2026-09-10 — fix(waifu): Belt A ask and tested share one verify context
 - **Why:** `noteResult` marked `tested` with `WaifuVerifyContext` (step.verify /

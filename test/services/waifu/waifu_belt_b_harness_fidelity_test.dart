@@ -185,7 +185,7 @@ void main() {
     ];
     waifuPruneOldToolMessages(msgs, budget: 8000);
     final stub = msgs.first;
-    expect(stub.text, contains('(pruned)'));
+    expect(stub.text.contains('pruned, was'), isTrue);
     expect(stub.toolPath, 'f0.rs');
     expect(stub.toolOk, isTrue);
     expect(stub.toolCallId, 'call_0');

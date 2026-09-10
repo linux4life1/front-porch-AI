@@ -334,7 +334,13 @@ class WaifuHarness {
           );
           if (_aborted) {
             _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
-            _noteToolHistory(canon, 'stopped', false, path: call.path);
+            _noteToolHistory(
+              canon,
+              'stopped',
+              false,
+              path: call.path,
+              args: work,
+            );
             return;
           }
           if (decision == WaifuAskDecision.deny) {
@@ -370,7 +376,13 @@ class WaifuHarness {
       };
       if (_aborted) {
         _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
-        _noteToolHistory(canon, result.output, false, path: call.path);
+        _noteToolHistory(
+          canon,
+          result.output,
+          false,
+          path: call.path,
+          args: work,
+        );
         return;
       }
       if (result.write != null) {
@@ -397,7 +409,7 @@ class WaifuHarness {
         args: work,
       );
     } catch (e) {
-      _reject(canon, '$e');
+      _reject(canon, '$e', args: work, path: call.path);
     } finally {
       _toolCallId = null;
       _settlePendingChip(canon);
