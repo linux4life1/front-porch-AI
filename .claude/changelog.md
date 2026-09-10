@@ -19,7 +19,7 @@
   VIP unchanged. No second club.
 - **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 37106f8d
 
 ## 2026-09-10 — fix(waifu): maven -Dtest=* is theater
 - **Why:** `_mavenSkipProperty` still VIP-starred Surefire `-Dtest=*`,
