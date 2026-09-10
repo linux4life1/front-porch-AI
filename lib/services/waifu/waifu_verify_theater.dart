@@ -91,7 +91,7 @@ bool _mavenSkipProperty(String w) {
   final body = w.substring(2);
   final eq = body.indexOf('=');
   final key = eq < 0 ? body : body.substring(0, eq);
-  if (key == 'test') {
+  if (_kMavenFilterProps.contains(key)) {
     return eq >= 0 &&
         _filteredSuiteTheater(body.substring(eq + 1), all: const {});
   }
@@ -100,8 +100,7 @@ bool _mavenSkipProperty(String w) {
 }
 
 /// Empty or a value outside [all] is theater.
-/// Default [all] is empty (presence): `*` is theater. Keepers pass VIP
-/// — Go `-run` and Gradle `--tests` only. Maven `-Dtest=` is presence.
+/// Default [all] is empty (presence). Keepers: Go `-run`, Gradle `--tests`.
 /// [starOnly]: empty or `*` only (clippy `-p *`).
 bool _filteredSuiteTheater(
   String val, {
@@ -185,9 +184,7 @@ const _kFilterValueFlags = <String, Set<String>>{
 };
 
 /// Name / marker / package flags — not “skip the next token”.
-/// Gradle `--tests` is the only VIP in this map. Every other key is
-/// presence (`*`). Go `-run` keeps VIP outside. Maven `-Dtest=` is
-/// presence — Surefire `*` is a class filter, not a full suite.
+/// Gradle `--tests` is the only VIP here. Go `-run` keeps VIP outside.
 const _kSuiteFilterFlags = <String, Set<String>>{
   'gradle': {'--tests'},
   'dotnet': {'--filter'},
@@ -215,13 +212,9 @@ const _kCargoFeatureTargetGates = {
   '--target',
 };
 
-/// `cargo test` only. `--workspace` here is still a non-default set.
-/// `--all` is the `--all-targets` alias hole. `--exclude` drops crates.
-/// Presence via [_filteredSuiteTheater] `all: {}` — `-p *` / `-F*` are
-/// not a full suite. Feature/target gates are [_kCargoFeatureTargetGates].
-/// Libtest harness after `--` (`--ignored` / `--skip` / `--list` /
-/// `--exclude-should-panic` / `--exact`) is presence — `flagVal`
-/// sees those tokens. `*` is theater, not JVM `--tests *`.
+/// `cargo test` only. Presence (`all: {}`). `--workspace` / `--all` /
+/// `--exclude` are non-default. Libtest `--ignored` / `--skip` /
+/// `--list` / `--exact` are presence too.
 const _kCargoTestFilterFlags = {
   '-p',
   '--package',
@@ -247,12 +240,8 @@ const _kCargoTestFilterFlags = {
   ..._kCargoFeatureTargetGates,
 };
 
-/// Clippy: `--workspace` / `--all` / `-p <name>` = verify unless a
-/// subset, exclude, doc, or feature/target gate is present.
-/// `-p *` / `-p=` / `--package *` are star-only theater.
-/// Feature/target gates are [_kCargoFeatureTargetGates] (same set as
-/// `cargo test`). Receipts lower first (`-F` → `-f`). Presence
-/// (`all: {}`): `*` is not a full lint.
+/// Clippy subset / feature-target / `--exclude` / `--doc`. `-p *` is
+/// star-only. Real `-p foo` stays verify. Receipts lower (`-F` → `-f`).
 const _kCargoClippySubsetFlags = {
   '--lib',
   '--bin',
@@ -269,8 +258,7 @@ const _kCargoClippySubsetFlags = {
   ..._kCargoFeatureTargetGates,
 };
 
-/// Same gate as Gradle `--tests`. Filtered ≠ full suite. `-Dtest=`
-/// is presence in [_mavenSkipProperty], not this VIP.
+/// Same gate as Gradle `--tests`. Filtered ≠ full suite.
 bool _runnerFilterTheater(String cmd, List<String> args) {
   String? flagVal(String name) {
     final eq = '$name=';

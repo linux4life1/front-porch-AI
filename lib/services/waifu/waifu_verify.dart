@@ -112,6 +112,35 @@ const _kBuildOnly = {
 
 const _kDenyCmds = {'echo', 'ls', 'printf', 'true', 'false', 'cat', 'pwd'};
 
+/// Surefire / Failsafe name or category filters. Presence: `*` is theater.
+/// Keys are lowered (`excludedGroups` → `excludedgroups`).
+const _kMavenFilterProps = {
+  'test',
+  'groups',
+  'excludedgroups',
+  'includes',
+  'excludes',
+  'surefire.includes',
+  'surefire.excludes',
+  'surefire.groups',
+  'surefire.excludedgroups',
+  'surefire.test',
+  'surefire.includejunit5engines',
+  'surefire.excludejunit5engines',
+  'surefire.includesfile',
+  'surefire.excludesfile',
+  'it.test',
+  'failsafe.test',
+  'failsafe.groups',
+  'failsafe.excludedgroups',
+  'failsafe.includes',
+  'failsafe.excludes',
+  'failsafe.includejunit5engines',
+  'failsafe.excludejunit5engines',
+  'failsafe.includesfile',
+  'failsafe.excludesfile',
+};
+
 /// Unix utilities that are never a project check — even if argv[1] is
 /// `test` or a plan quote names them. Not a second club: the known-runner
 /// map simply does not include these heads.

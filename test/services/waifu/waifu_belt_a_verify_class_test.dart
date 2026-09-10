@@ -1416,4 +1416,53 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn test -Dtest=Nope'), isFalse);
     expect(waifuLooksVerifyCommand('mvn test -DskipTests'), isFalse);
   });
+
+  test('surefire/failsafe name filters are theater; Gradle/Go VIP hold', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'mvn test -Dgroups=*',
+      'mvn test -DexcludedGroups=*',
+      'mvn test -Dsurefire.includes=*',
+      'mvn test -Dincludes=*',
+      'mvn test -Dexcludes=*',
+      'mvn test -Dsurefire.excludes=*',
+      'mvn test -Dsurefire.groups=*',
+      'mvn verify -Dit.test=*',
+      'mvn verify -Dfailsafe.test=*',
+      'mvn verify -Dfailsafe.groups=*',
+      'mvn test -Dsurefire.excludedGroups=*',
+      'mvn verify -Dfailsafe.excludedGroups=*',
+      'mvn verify -Dfailsafe.includes=*',
+      'mvn verify -Dfailsafe.excludes=*',
+      'mvn test -Dsurefire.test=*',
+      'mvn test -Dsurefire.includeJUnit5Engines=*',
+      'mvn test -Dsurefire.excludeJUnit5Engines=*',
+      'mvn verify -Dfailsafe.includeJUnit5Engines=*',
+      'mvn verify -Dfailsafe.excludeJUnit5Engines=*',
+      'mvn test -Dsurefire.includesFile=*',
+      'mvn test -Dsurefire.excludesFile=*',
+      'mvn verify -Dfailsafe.includesFile=*',
+      'mvn verify -Dfailsafe.excludesFile=*',
+      './mvnw test -Dgroups=*',
+      './mvnw verify -Dit.test=*',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('mvn test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn verify'), isTrue);
+    expect(waifuLooksVerifyCommand('./mvnw test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
+    expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -Dtest=*'), isFalse);
+    expect(waifuLooksVerifyCommand('mvn test -Dgroups=Foo'), isFalse);
+  });
 }
