@@ -21,7 +21,7 @@
   shorts / longs unchanged.
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** c7f62f48
 
 ## 2026-09-10 — fix(waifu): make glued short clusters are theater
 - **Why:** Tip 384f56bf theatered separated `make -i` / `-k` /
