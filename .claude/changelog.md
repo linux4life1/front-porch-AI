@@ -22,7 +22,7 @@
   Gradle/Go VIP unchanged. No second club.
 - **Files:** `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 24566e5a
 
 ## 2026-09-10 — fix(waifu): GHA -f checkout root is a full run; failure-ignore is theater
 - **Why:** Tip 68045b10's single-segment absolute allowlist rejected
