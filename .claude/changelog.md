@@ -23,7 +23,7 @@
 - **Files:** `waifu_verify_maven.dart`, `waifu_verify.dart`,
   `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 254de871
 
 ## 2026-09-10 — fix(waifu): Surefire suite XML / scan-subset are theater
 - **Why:** Unprefixed `includesFile` / JUnit5 engines were closed, but
