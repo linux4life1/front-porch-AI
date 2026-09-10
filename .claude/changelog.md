@@ -17,6 +17,22 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): family theater lock, not flag moles
+- **Why:** Tip 4c96d571 still substring-matched ignore+pattern
+  on any argv token (path / coverage / eslint knobs soft-denied)
+  and the belt was a one-flag babysit list the caps cannot hold.
+- **What:** Same path. New `waifu_verify_families.dart`:
+  flag-shaped only; collection prefixes; pytest `--ignore` /
+  `--ignore-glob` (not `--ignore-pattern`); `--exclude` /
+  `--dir` / `--filter` families. JS hosts + peeled `test:*`
+  share one failed-only and one suite set. `--workspace`
+  JS-only. Coverage / transform / watch-FS / path tokens /
+  selectors stay full. Mole club ripped.
+- **Files:** `waifu_verify_families.dart` (new),
+  `waifu_verify.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 0b99e404
+
 ## 2026-09-10 — fix(waifu): JS --dir host + drop device theater
 - **Why:** Tip 51c26ca4 receipted `npm test -- --dir=` (`--dir`
   lived on the vitest suite only) and presence-theatered
