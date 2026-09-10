@@ -125,8 +125,9 @@ extension _WaifuHarnessCompact on WaifuHarness {
   Future<void> _maybeCompact({bool force = false}) async {
     _pruneTraces();
     if (!force) {
-      final live = _measureLive(tools: _advertisedTools(speechOnly: false))
-          .used;
+      final live = _measureLive(
+        tools: _advertisedTools(speechOnly: false),
+      ).used;
       final used = session.tokensFromApi && session.tokensUsed > 0
           ? (session.tokensUsed > live ? session.tokensUsed : live)
           : live;
@@ -152,6 +153,7 @@ extension _WaifuHarnessCompact on WaifuHarness {
         ? ''
         : waifuMachineLedger(
             folded: folded,
+            context: permissions.verifyContext,
             planPin: session.activePlanPath,
             todos: todos.read(),
           );

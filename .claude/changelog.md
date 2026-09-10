@@ -889,6 +889,10 @@
   command string that ran and skips theater (`ls` / `echo` / dry-run /
   `cargo new test` / `:app:dependencies` / `cargo test --no-run`).
   Flags-before-task and `cargo +nightly test` stay in the as-run list.
+  `cargo new test` / `:app:dependencies` / `cargo test --no-run` /
+  `mvn -DskipTests` / `gradle -x test`). Flags-before-task and
+  `cargo +nightly test` stay in the as-run list. Fold uses the same
+  verify context as ask/tested, so a named `tox -e py` stays as-run.
   A recap that only names “MACHINE LEDGER” still gets the as-run facts.
   A lost wrap-up after disk work does not replay remembered tool-step
   speech.
@@ -902,6 +906,34 @@
   `waifu_belt_b_harness_fidelity_test.dart` (NEW),
   `waifu_belt_b_queue_photo_test.dart` (NEW)
 - **Commit:** cf7d6a3a
+  `waifu_belt_b_queue_photo_test.dart` (NEW),
+  `waifu_belt_b_ledger_context_test.dart` (NEW)
+- **Commit:** 93f1d64f
+
+## 2026-09-10 — fix(waifu): skip/exclude a check is theater
+- **Why:** `mvn test -DskipTests` and `./gradlew build -x test` /
+  `--exclude-task test` skipped the suite then receipted and stamped
+  tested.
+- **What:** Same theater gate. Maven `-DskipTests` /
+  `-Dmaven.test.skip` (not `=false`) join the flag walk. Gradle `-x` /
+  `--exclude-task` is theater only when the excluded token is a known
+  check (`test -x lint` still runs). `go test -exec true` and
+  phpunit `--list-suites` / `--list-groups` join.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** 632960d3
+
+## 2026-09-10 — fix(waifu): compile/list without execute is theater
+- **Why:** `cargo test --no-run` (and `+nightly` / `--quiet` variants)
+  compiled or listed without running, then receipted and skipped Build
+  ask.
+- **What:** Same `_verifyTheater` gate. `--no-run`, `--list-tests`,
+  `--listTestFiles`, `--question`, `pytest --co` join the flag walk.
+  `go test -c` and `make -q` are runner-scoped (`pytest -q` still
+  runs). Prior +channel / inventory / dry-run pins stay.
+- **Files:** `waifu_verify.dart`, `waifu_verify_theater.dart` (part),
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** b0323dbc
 
 ## 2026-09-10 — fix(waifu): cargo +channel and Gradle inventory basename
 - **Why:** Subcommand-first treated `+nightly` as the check, so

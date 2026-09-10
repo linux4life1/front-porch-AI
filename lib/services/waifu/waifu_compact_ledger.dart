@@ -26,6 +26,7 @@ const kWaifuMachineLedgerTitle = 'MACHINE LEDGER';
 /// from tool messages — the recap must not invent either.
 String waifuMachineLedger({
   required List<WaifuMessage> folded,
+  required WaifuVerifyContext context,
   String? planPin,
   String todos = '',
 }) {
@@ -39,9 +40,11 @@ String waifuMachineLedger({
       final cmd = (m.toolArgs?['command'] ?? m.toolArgs?['cmd'] ?? '')
           .toString()
           .trim();
-      // As-run string only — never a guessed host stack. Theater (ls/echo)
-      // is not a verify even if bash ran it.
-      if (cmd.isNotEmpty && waifuLooksVerifyCommand(cmd)) cmds.add(cmd);
+      // Same helper + context as ask/tested. Named/step checks stay
+      // as-run; theater (ls/echo) still never is.
+      if (cmd.isNotEmpty && waifuLooksVerifyCommand(cmd, context: context)) {
+        cmds.add(cmd);
+      }
     }
   }
   final buf = StringBuffer(kWaifuMachineLedgerTitle)..writeln();

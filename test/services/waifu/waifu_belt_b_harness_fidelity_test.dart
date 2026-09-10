@@ -156,6 +156,7 @@ void main() {
     ];
     final ledger = waifuMachineLedger(
       folded: folded,
+      context: const WaifuVerifyContext(),
       planPin: '.waifu/plans/parser.md',
       todos: 's1 [pending] Add failing test',
     );
