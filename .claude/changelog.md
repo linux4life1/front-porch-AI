@@ -20,7 +20,7 @@
   run.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 5f288147
 
 ## 2026-09-10 — fix(waifu): package, marker, and adjacent filters
 - **Why:** Value-flag skip laundered `pytest -m` / cargo `-p` / `--test`
