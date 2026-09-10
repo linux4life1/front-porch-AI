@@ -10,6 +10,17 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): cargo test libtest harness after -- 
+- **Why:** After `--`, dash tokens were skipped, so `cargo test --
+  --ignored` / `--skip=` / `--list` / `--exclude-should-panic` still
+  receipted.
+- **What:** Same theater. Those flags join `_kCargoTestFilterFlags`
+  (presence; `flagVal` sees tokens after `--`). Bare `cargo test`
+  still runs. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): cargo test feature/target; clippy -p *
 - **Why:** Feature/target gates lived only on clippy subset, so
   `cargo test --features` / `-F` / `--no-default-features` / `--target`

@@ -1150,4 +1150,33 @@ void main() {
     expect(waifuLooksVerifyCommand('cargo clippy -Ffoo'), isFalse);
     expect(waifuLooksVerifyCommand('cargo clippy -F foo'), isFalse);
   });
+
+  test('cargo test libtest harness after -- is theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo test -- --ignored',
+      'cargo test -- --skip=foo',
+      'cargo test -- --skip',
+      'cargo test -- --list',
+      'cargo test -- --exclude-should-panic',
+      'cargo test -p foo -- --ignored',
+      'cargo test -- --skip foo',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy -p foo'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo test --features foo'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo clippy -p *'), isFalse);
+  });
 }

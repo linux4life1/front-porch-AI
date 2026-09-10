@@ -208,6 +208,8 @@ const _kCargoFeatureTargetGates = {
 /// `--all` is the `--all-targets` alias hole. `--exclude` drops crates.
 /// Presence via [_filteredSuiteTheater] `all: {}` — `-p *` / `-F*` are
 /// not a full suite. Feature/target gates are [_kCargoFeatureTargetGates].
+/// Libtest harness after `--` (`--ignored` / `--skip` / `--list` /
+/// `--exclude-should-panic`) is presence — `flagVal` sees those tokens.
 const _kCargoTestFilterFlags = {
   '-p',
   '--package',
@@ -225,6 +227,10 @@ const _kCargoTestFilterFlags = {
   '--workspace',
   '--exclude',
   '--all',
+  '--ignored',
+  '--skip',
+  '--list',
+  '--exclude-should-panic',
   ..._kCargoFeatureTargetGates,
 };
 
