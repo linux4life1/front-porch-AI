@@ -240,8 +240,12 @@ Future<WaifuVerifyContext> waifuBuildVerifyContext({
 bool _verifyTheater(String lowered) {
   for (final segment in _segments(lowered)) {
     final words = _wordsOf(segment);
+    if (words.isEmpty) continue;
     if (words.any((w) {
       if (w == '-h' || w == '--help' || w.startsWith('--help')) return true;
+      if (w == '--just-print' || w == '--recon' || w == '--show-only') {
+        return true;
+      }
       return w == '--dry-run' ||
           w == '--dryrun' ||
           w == '--dry_run' ||
@@ -249,6 +253,20 @@ bool _verifyTheater(String lowered) {
           w.startsWith('--dryrun');
     })) {
       return true;
+    }
+    // Runner-scoped shorts: `-n` is pytest-xdist elsewhere; `-m` is
+    // Gradle dry-run only. Inventory tasks are not a check even when
+    // a later token is named `test`.
+    final peeled = _peelWrappers(words);
+    if (peeled.words.length < 2) continue;
+    final cmd = _runnerKey(peeled.words.first);
+    final args = peeled.words.skip(1);
+    if (cmd == 'make' && args.contains('-n')) return true;
+    if (cmd == 'gradle' && args.contains('-m')) return true;
+    if (cmd == 'ctest' && args.contains('-n')) return true;
+    if (cmd == 'gradle') {
+      final task = args.where((t) => !t.startsWith('-')).firstOrNull;
+      if (task == 'help' || task == 'dependencies') return true;
     }
   }
   return false;

@@ -335,4 +335,39 @@ void main() {
     expect(waifuLooksVerifyCommand('npm run build'), isFalse);
     expect(waifuLooksVerifyCommand('swift build'), isFalse);
   });
+
+  test('dry-run / help / inventory do not receipt a check', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'make -n test',
+      'make -n -C build test',
+      'make test -n',
+      'make --just-print test',
+      'make --recon test',
+      './gradlew test -m',
+      './gradlew -m test',
+      './gradlew :app:test -m',
+      './gradlew help --task test',
+      './gradlew dependencies --configuration test',
+      'ctest -N',
+      'ctest --show-only',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('make -j8 test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew :app:test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn verify'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo new test'), isFalse);
+    expect(waifuLooksVerifyCommand('pytest -n auto'), isTrue);
+  });
 }

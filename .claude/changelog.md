@@ -10,6 +10,19 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): dry-run and help do not receipt a check
+- **Why:** `_verifyTheater` only caught `--help` / `--dry-run`. `make -n
+  test`, Gradle `-m`, `gradlew help --task test`, `dependencies
+  --configuration test`, and `ctest -N` / `--show-only` still receipted
+  and skipped Build ask.
+- **What:** Same theater gate. Long dry-run aliases join the existing
+  flag walk. Short `-n` / `-m` are runner-scoped (pytest `-n` stays a
+  check). Gradle inventory tasks `help` / `dependencies` are theater
+  even when a later token is named `test`.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`,
+  `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): subcommand-first runners do not scan later test
 - **Why:** Scan-all treated any later `test`/`clippy` token as a check.
   `cargo new test`, `cargo install clippy`, `go get test`, `dotnet new
@@ -20,7 +33,7 @@
   require the first non-flag subcommand to be the check. Fulfill uses
   the same gate so named `cargo test` does not receipt `cargo new test`.
 - **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`
-- **Commit:** (pending)
+- **Commit:** 0b9950d0
 
 ## 2026-09-10 — fix(waifu): scan runner argv for the check task
 - **Why:** `_segmentIsKnownCheck` required `peeled.words[1]` to be the
