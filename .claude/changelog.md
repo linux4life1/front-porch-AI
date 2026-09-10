@@ -10,6 +10,18 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): subcommand-first runners do not scan later test
+- **Why:** Scan-all treated any later `test`/`clippy` token as a check.
+  `cargo new test`, `cargo install clippy`, `go get test`, `dotnet new
+  test`, `dart create test`, and `mix new test` receipted and skipped
+  Build ask.
+- **What:** One scan, two families. make/gradle/mvn (and wrappers) still
+  scan for the check after flags. cargo/go/dotnet/dart/mix/swift/zig
+  require the first non-flag subcommand to be the check. Fulfill uses
+  the same gate so named `cargo test` does not receipt `cargo new test`.
+- **Files:** `waifu_verify.dart`, `waifu_belt_a_verify_class_test.dart`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): scan runner argv for the check task
 - **Why:** `_segmentIsKnownCheck` required `peeled.words[1]` to be the
   check. `make -j8 test`, `make -C build test`, `./gradlew :app:test`,

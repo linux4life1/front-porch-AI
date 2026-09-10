@@ -69,6 +69,10 @@ const _kRunnerChecks = <String, Set<String>>{
 /// Same spirit as `poetry run` / `uv run`: the binary *is* the runner.
 const _kRunnerAliases = {'gradlew': 'gradle', 'mvnw': 'mvn'};
 
+/// These runners put flags before the task (`make -j8 test`).
+/// Everyone else is subcommand-first (`cargo new test` is not a check).
+const _kFlagBeforeTaskRunners = {'make', 'gradle', 'mvn'};
+
 const _kCheckBins = {
   'pytest',
   'rspec',
@@ -368,6 +372,7 @@ bool _commandFulfills(String command, String expected) {
 /// Same runner + named check token appears after flags (`make test`
 /// fulfills `make -j8 test`; `gradle test` fulfills `:app:test`).
 bool _hintTaskFulfilled(List<String> got, List<String> want) {
+  if (!_argvHasKnownCheck(got)) return false;
   if (got.length < 2 || want.length < 2) return false;
   final cmd = _runnerKey(got.first);
   if (cmd != _runnerKey(want.first)) return false;
@@ -400,11 +405,21 @@ bool _wordsStartWith(List<String> words, List<String> prefix) {
   return true;
 }
 
-/// Scan argv after the runner. Flags (`-j8`, `-C build`) are not the task.
+/// After peel+alias: flag-before-task runners scan for a known check;
+/// subcommand-first runners require that check as the first non-flag.
 bool _argvHasKnownCheck(List<String> peeled) {
   if (peeled.length < 2) return false;
   final cmd = _runnerKey(peeled.first);
-  return peeled.skip(1).any((t) => _runnerTaskMatches(cmd, t));
+  if (_kRunnerChecks[cmd] == null) return false;
+  final args = peeled.skip(1);
+  if (_kFlagBeforeTaskRunners.contains(cmd)) {
+    return args.any((t) => _runnerTaskMatches(cmd, t));
+  }
+  for (final t in args) {
+    if (t.startsWith('-')) continue;
+    return _runnerTaskMatches(cmd, t);
+  }
+  return false;
 }
 
 bool _runnerTaskMatches(String cmd, String token) {

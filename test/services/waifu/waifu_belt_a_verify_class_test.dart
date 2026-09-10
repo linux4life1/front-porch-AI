@@ -290,6 +290,41 @@ void main() {
     expect(p.needsAsk(name: 'bash', args: {'command': 'rm test'}), isTrue);
   });
 
+  test('subcommand-first later test/clippy is not verify', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'cargo new test',
+      'cargo install clippy',
+      'go get test',
+      'dotnet new test',
+      'dart create test',
+      'mix new test',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    const cargoHint = WaifuVerifyContext(named: ['cargo test']);
+    expect(
+      waifuLooksVerifyCommand('cargo new test', context: cargoHint),
+      isFalse,
+    );
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo clippy'), isTrue);
+    expect(waifuLooksVerifyCommand('cargo --locked test'), isTrue);
+    expect(waifuLooksVerifyCommand('go test'), isTrue);
+    expect(waifuLooksVerifyCommand('make -j8 test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew :app:test'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn verify'), isTrue);
+  });
+
   test('echo / ls / help / dry-run / build-without-test still fail', () {
     expect(waifuLooksVerifyCommand('echo cargo test'), isFalse);
     expect(waifuLooksVerifyCommand('ls -la'), isFalse);
