@@ -24,7 +24,7 @@
   and ignoreFailures `=false` stay full. VIP `--tests *` unchanged.
 - **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 4f490532
 
 ## 2026-09-10 — fix(waifu): Gradle -g / ignoreFailures theater
 - **Why:** Tip 61aa7d08 still receipted `-g` / `--gradle-user-home`
