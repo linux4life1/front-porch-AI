@@ -19,7 +19,7 @@
   `-Dtest-filter` apply to both `zig test` and `zig build test`.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** ae3d881d
 
 ## 2026-09-10 — fix(waifu): cargo test targets; clippy -p; zig filter
 - **Why:** `cargo test --lib` / `--bin` / `--doc` still receipted. `cargo
