@@ -24,19 +24,21 @@
   `waifu_path_mode_switch_test.dart`, `docs/Rawhide.md`
 - **Commit:** b01fa382
 ## 2026-09-10 — fix(waifu): Belt B wipe tokens keep case; wrap-up one club
-- **Why:** After the #247 contract restack, three lying leftovers remained.
+- **Why:** After the #247 contract restack, lying leftovers remained.
   Wipe-target tokenize lowercased the whole command, so Linux resolve missed
   the real sit-down parent behind a path alias. Changelog text still had the
   retired product name as a helper-name substring. B7 treated remembered
   card speech as theater while the turn-contract lock says that line is the
-  wrap-up.
+  wrap-up. Disk-confirm hung because the widget test awaited real IO under
+  fake-async, and `_setPathMode` fired-and-forgot persist.
 - **What:** Shell words keep typed path case; verb match folds case. Empty
   wrap-up with remembered non-generic speech accepts that line; empty/generic
-  with no remembered line still retries then fails. Changelog wording no
-  longer contains the retired product name.
-- **Files:** `waifu_deny.dart`, `waifu_bash.dart`,
-  `waifu_belt_b_harness_fidelity_test.dart`, `.claude/changelog.md`
-- **Commit:** (this tip)
+  with no remembered line still retries then fails. Path-mode switch awaits
+  the store write. Confirm test uses sync temp + `runAsync` like sit-saves.
+  Changelog wording no longer contains the retired product name.
+- **Files:** `waifu_deny.dart`, `waifu_bash.dart`, `waifu_page.dart`,
+  `waifu_belt_b_harness_fidelity_test.dart`,
+  `waifu_path_mode_switch_test.dart`, `.claude/changelog.md`
 
 ## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
 - **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable
