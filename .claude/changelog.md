@@ -50,7 +50,7 @@
 - **What:** Same ledger helper. The fold example is full
   `cargo test`. Plan-step `--lib` text stays verbatim injection.
 - **Files:** `waifu_belt_b_harness_fidelity_test.dart`
-- **Commit:** (pending)
+- **Commit:** 6da98a1d
 
 ## 2026-09-10 — fix(waifu): Belt B harness fidelity — queue photos, ledger, nested ok
 - **Why:** Belt A told the truth about wrap-up and verify. Belt B rips the
